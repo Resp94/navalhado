@@ -117,9 +117,9 @@ export const Login: React.FC = () => {
         let role = '';
 
         try {
-          // 1. Tentar consultar a tabela profiles pública
+          // 1. Tentar consultar a tabela users pública
           const { data: profile, error: profileError } = await supabase
-            .from('profiles')
+            .from('users')
             .select('role')
             .eq('id', data.user.id)
             .single();
@@ -128,7 +128,7 @@ export const Login: React.FC = () => {
             role = profile.role;
           }
         } catch (err) {
-          console.warn('Erro ao consultar tabela profiles, aplicando fallback de desenvolvimento:', err);
+          console.warn('Erro ao consultar tabela users, aplicando fallback de desenvolvimento:', err);
         }
 
         // 2. Fallback Inteligente baseado em docs/user.test (para agilizar testes locais e desenvolvimento)
