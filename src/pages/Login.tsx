@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
-import { ScissorsIcon, ArrowRightIcon } from '../components/Icons';
+import { ScissorsIcon, ArrowRightIcon, LockIcon } from '../components/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (!password) { setPasswordError(''); return; }
-    setPasswordError(password.length >= 6 ? '' : 'Mínimo de 6 caracteres.');
+    setPasswordError(password.length >= 6 ? '' : 'Mínimo 6 caracteres.');
   }, [password]);
 
   useEffect(() => {
@@ -44,15 +44,15 @@ export const Login: React.FC = () => {
   const translateAuthError = (message: string) => {
     const msg = message.toLowerCase();
     if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
-      return 'E-mail ou senha incorretos. Verifique suas credenciais.';
+      return 'E-mail ou senha incorretos. Tente novamente.';
     }
     if (msg.includes('email not confirmed')) {
       return 'Confirme seu e-mail antes de fazer login.';
     }
     if (msg.includes('user not found')) {
-      return 'Nenhum usuário encontrado com este e-mail.';
+      return 'Nenhuma conta encontrada com este e-mail.';
     }
-    return `Falha ao autenticar: ${message}`;
+    return `Não foi possível entrar: ${message}`;
   };
 
   const resolveRole = async (userId: string, userEmail?: string): Promise<string> => {
@@ -91,12 +91,12 @@ export const Login: React.FC = () => {
     e.preventDefault();
 
     if (!email) {
-      setEmailError('Informe seu e-mail.');
-      addToast('Informe seu e-mail para entrar.', 'error');
+      setEmailError('Digite seu e-mail.');
+      addToast('Digite seu e-mail para entrar.', 'error');
       return;
     }
     if (!password || password.length < 6) {
-      setPasswordError('A senha precisa de no mínimo 6 caracteres.');
+      setPasswordError('A senha deve ter no mínimo 6 caracteres.');
       addToast('A senha precisa ter pelo menos 6 caracteres.', 'error');
       return;
     }
@@ -123,7 +123,7 @@ export const Login: React.FC = () => {
     e.preventDefault();
 
     if (!resetEmail) {
-      setResetEmailError('Informe seu e-mail.');
+      setResetEmailError('Digite seu e-mail.');
       return;
     }
 
@@ -163,7 +163,7 @@ export const Login: React.FC = () => {
           <div className="login-card">
             {/* HEADER */}
             <div className="login-card__header">
-              <span className="login-card__eyebrow">acesso</span>
+              <span className="login-card__eyebrow">plataforma</span>
 
               <div className="login-card__icon">
                 <ScissorsIcon size={28} />
@@ -171,7 +171,7 @@ export const Login: React.FC = () => {
 
               <h1 className="login-card__title">Navalhado</h1>
               <p className="login-card__subtitle">
-                Gestão inteligente para sua barbearia
+                Gerencie sua barbearia com confiança
               </p>
             </div>
 
@@ -201,16 +201,8 @@ export const Login: React.FC = () => {
                 required
               />
 
-              {/* Secondary links */}
-              <div className="login-card__links">
-                <button
-                  type="button"
-                  className="btn btn--link"
-                  onClick={() => navigate('/signup')}
-                >
-                  Criar conta
-                </button>
-
+              {/* Esqueci a senha — logo abaixo do campo de senha */}
+              <div className="login-card__forgot">
                 <button
                   type="button"
                   className="btn btn--ghost"
@@ -233,13 +225,27 @@ export const Login: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    Entrar
+                    Acessar plataforma
                     <span className="btn__icon">
                       <ArrowRightIcon size={16} />
                     </span>
                   </>
                 )}
               </button>
+
+              {/* Criar conta — abaixo do CTA, separado visualmente */}
+              <div className="login-card__signup">
+                <span className="login-card__signup-text">
+                  Não tem conta?{' '}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--link login-card__signup-btn"
+                  onClick={() => navigate('/signup')}
+                >
+                  Criar conta
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -253,41 +259,47 @@ export const Login: React.FC = () => {
           setResetEmail('');
           setResetEmailError('');
         }}
-        title="Recuperar senha"
+        title="Redefinir senha"
       >
-        <p className="modal-description">
-          Informe o e-mail da sua conta. Enviaremos um link seguro para redefinir sua senha.
-        </p>
+        <div className="modal-reset">
+          {/* Ícone decorativo */}
+          <div className="modal-reset__icon">
+            <LockIcon size={22} />
+          </div>
 
-        <form onSubmit={handleResetPassword} className="modal-form">
-          <Input
-            label="E-mail de acesso"
-            type="email"
-            icon="email"
-            placeholder="seu@email.com"
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.target.value)}
-            error={resetEmailError}
-            disabled={resetLoading}
-            required
-          />
+          <p className="modal-reset__description">
+            Digite seu e-mail e enviaremos um link seguro para criar uma nova senha.
+          </p>
 
-          <button
-            type="submit"
-            className="btn btn--primary"
-            disabled={isResetSubmitDisabled}
-            style={{ width: '100%' }}
-          >
-            {resetLoading ? (
-              <>
-                <div className="spinner spinner--sm" />
-                Enviando…
-              </>
-            ) : (
-              'Enviar link'
-            )}
-          </button>
-        </form>
+          <form onSubmit={handleResetPassword} className="modal-reset__form">
+            <Input
+              label="E-mail"
+              type="email"
+              icon="email"
+              placeholder="seu@email.com"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              error={resetEmailError}
+              disabled={resetLoading}
+              required
+            />
+
+            <button
+              type="submit"
+              className="btn btn--primary modal-reset__btn"
+              disabled={isResetSubmitDisabled}
+            >
+              {resetLoading ? (
+                <>
+                  <div className="spinner spinner--sm" />
+                  Enviando…
+                </>
+              ) : (
+                'Enviar link'
+              )}
+            </button>
+          </form>
+        </div>
       </Modal>
 
       {/* ─── PAGE-SPECIFIC STYLES ─── */}
@@ -418,32 +430,80 @@ export const Login: React.FC = () => {
           animation-delay: 0.16s;
         }
 
-        .login-card__links {
+        .login-card__forgot {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: -0.25rem;
+          justify-content: flex-end;
+          margin-top: -0.5rem;
         }
 
         .login-card__cta {
           width: 100%;
           padding: 0.85rem 1.5rem;
           font-size: var(--font-size-base);
-          margin-top: 0.25rem;
         }
 
-        .modal-description {
+        .login-card__signup {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.25rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid var(--color-border);
+          margin-top: 0.5rem;
+        }
+
+        .login-card__signup-text {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+        }
+
+        .login-card__signup-btn {
+          font-size: var(--font-size-xs) !important;
+        }
+
+        .modal-reset {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+          animation-delay: 0.1s;
+        }
+
+        .modal-reset__icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 3rem;
+          height: 3rem;
+          border-radius: var(--radius-full);
+          background: linear-gradient(135deg, var(--color-brand-lightest) 0%, #FFE4D6 100%);
+          color: var(--color-brand-primary);
+          box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.5),
+            0 4px 12px rgba(217, 108, 0, 0.1);
+          margin-bottom: 0.25rem;
+        }
+
+        .modal-reset__description {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
           line-height: 1.6;
           margin: 0;
+          text-align: center;
+          max-width: 32ch;
         }
 
-        .modal-form {
+        .modal-reset__form {
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
+          width: 100%;
           margin-top: 0.5rem;
+        }
+
+        .modal-reset__btn {
+          width: 100%;
         }
 
         /* Mobile refinements */
