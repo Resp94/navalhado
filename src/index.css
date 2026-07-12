@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Cores de Marca (Amber & Orange Core) */
+  --color-brand-primary: #D96C00;
+  --color-brand-hover: #9C3F00;
+  --color-brand-deep: #6A2E00;
+  --color-brand-soft: #F2B277;
+  --color-brand-lightest: #FFF1E6;
+
+  /* Neutras Quentes - TEMA CLARO (Padrão do Sistema) */
+  --color-bg-primary: #FFF1E6;
+  --color-bg-secondary: #FFFFFF;
+  --color-border: #EADED6;
+  --color-text-primary: #2D231E;
+  --color-text-secondary: #70625B;
+
+  /* Semânticas */
+  --color-success: #0E9F6E;
+  --color-success-bg: #E6F4EA;
+  --color-error: #F05252;
+  --color-error-bg: #FDE8E8;
+  --color-warning: #D97706;
+  --color-warning-bg: #FEF3C7;
+  --color-info: #3F83F8;
+  --color-info-bg: #EBF5FF;
+
+  /* Layout Tokens */
+  --font-family-base: 'Inter', sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+}
+
+/* TEMA ESCURO (Classe Alternativa) */
+.dark-theme {
+  --color-bg-primary: #14110F;
+  --color-bg-secondary: #1E1B18;
+  --color-border: #332D29;
+  --color-text-primary: #FFF1E6;
+  --color-text-secondary: #9C958F;
+}
+
+/* Reset Básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
