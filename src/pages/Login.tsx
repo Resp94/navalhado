@@ -4,76 +4,50 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
-import { ScissorsIcon } from '../components/Icons'; // Ícone estilizado para a barbearia
+import { ScissorsIcon, ArrowRightIcon } from '../components/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
 
-  // Estados do formulário de login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Estados de validação de erro inline
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Estados do modal de redefinição
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmailError, setResetEmailError] = useState('');
 
-  // Validação inline de e-mail em tempo real
+  // --- Validação inline em tempo real ---
   useEffect(() => {
-    if (!email) {
-      setEmailError('');
-      return;
-    }
+    if (!email) { setEmailError(''); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setEmailError('Digite um e-mail válido.');
-    } else {
-      setEmailError('');
-    }
+    setEmailError(emailRegex.test(email) ? '' : 'E-mail inválido.');
   }, [email]);
 
-  // Validação inline de senha em tempo real
   useEffect(() => {
-    if (!password) {
-      setPasswordError('');
-      return;
-    }
-    if (password.length < 6) {
-      setPasswordError('A senha deve ter no mínimo 6 caracteres.');
-    } else {
-      setPasswordError('');
-    }
+    if (!password) { setPasswordError(''); return; }
+    setPasswordError(password.length >= 6 ? '' : 'Mínimo de 6 caracteres.');
   }, [password]);
 
-  // Validação inline de e-mail de recuperação em tempo real
   useEffect(() => {
-    if (!resetEmail) {
-      setResetEmailError('');
-      return;
-    }
+    if (!resetEmail) { setResetEmailError(''); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(resetEmail)) {
-      setResetEmailError('Digite um e-mail válido.');
-    } else {
-      setResetEmailError('');
-    }
+    setResetEmailError(emailRegex.test(resetEmail) ? '' : 'E-mail inválido.');
   }, [resetEmail]);
 
-  // Função para tratar tradução de erros do Supabase
+  // --- Helpers ---
   const translateAuthError = (message: string) => {
     const msg = message.toLowerCase();
     if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
       return 'E-mail ou senha incorretos. Verifique suas credenciais.';
     }
     if (msg.includes('email not confirmed')) {
-      return 'Por favor, confirme seu e-mail antes de fazer login.';
+      return 'Confirme seu e-mail antes de fazer login.';
     }
     if (msg.includes('user not found')) {
       return 'Nenhum usuário encontrado com este e-mail.';
@@ -81,20 +55,48 @@ export const Login: React.FC = () => {
     return `Falha ao autenticar: ${message}`;
   };
 
-  // Função principal de login
+  const resolveRole = async (userId: string, userEmail?: string): Promise<string> => {
+    try {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.role) return profile.role;
+    } catch {
+      // fallback abaixo
+    }
+
+    const email = userEmail?.toLowerCase() || '';
+    if (email === 'admin@navalhado.com') return 'proprietario';
+    if (email === 'gerente@barbeariaestilo.com') return 'gerente';
+    if (email === 'joao.barbeiro@barbeariaestilo.com') return 'barbeiro';
+    return 'gerente';
+  };
+
+  const navigateByRole = (role: string) => {
+    const routes: Record<string, string> = {
+      proprietario: '/admin/dashboard',
+      gerente: '/dashboard',
+      barbeiro: '/minha-agenda',
+    };
+    const route = routes[role];
+    setTimeout(() => navigate(route || '/'), 600);
+    if (!route) addToast('Perfil sem rota atribuída.', 'warning');
+  };
+
+  // --- Handlers ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação final de campos
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-      setEmailError('Digite um e-mail válido.');
-      addToast('Por favor, preencha o e-mail corretamente.', 'error');
+    if (!email) {
+      setEmailError('Informe seu e-mail.');
+      addToast('Informe seu e-mail para entrar.', 'error');
       return;
     }
-
     if (!password || password.length < 6) {
-      setPasswordError('A senha deve ter no mínimo 6 caracteres.');
+      setPasswordError('A senha precisa de no mínimo 6 caracteres.');
       addToast('A senha precisa ter pelo menos 6 caracteres.', 'error');
       return;
     }
@@ -102,62 +104,13 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
       if (data.user) {
-        addToast('Login realizado com sucesso! Carregando perfil...', 'success');
-        
-        let role = '';
-
-        try {
-          // 1. Tentar consultar a tabela users pública
-          const { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', data.user.id)
-            .single();
-
-          if (!profileError && profile) {
-            role = profile.role;
-          }
-        } catch (err) {
-          console.warn('Erro ao consultar tabela users, aplicando fallback de desenvolvimento:', err);
-        }
-
-        // 2. Fallback Inteligente baseado em docs/user.test (para agilizar testes locais e desenvolvimento)
-        if (!role) {
-          const userEmail = data.user.email?.toLowerCase() || '';
-          if (userEmail === 'admin@navalhado.com') {
-            role = 'proprietario';
-          } else if (userEmail === 'gerente@barbeariaestilo.com') {
-            role = 'gerente';
-          } else if (userEmail === 'joao.barbeiro@barbeariaestilo.com') {
-            role = 'barbeiro';
-          } else {
-            role = 'gerente'; // Role padrão caso seja um novo usuário cadastrado no Supabase Auth diretamente
-          }
-        }
-
-        // Redirecionamento baseado na role
-        setTimeout(() => {
-          if (role === 'proprietario') {
-            navigate('/admin/dashboard');
-          } else if (role === 'gerente') {
-            navigate('/dashboard');
-          } else if (role === 'barbeiro') {
-            navigate('/minha-agenda');
-          } else {
-            addToast('Perfil sem rota atribuída.', 'warning');
-            navigate('/');
-          }
-        }, 800);
+        addToast('Login realizado. Carregando perfil…', 'success');
+        const role = await resolveRole(data.user.id, data.user.email);
+        navigateByRole(role);
       }
     } catch (error: any) {
       addToast(translateAuthError(error.message), 'error');
@@ -166,26 +119,22 @@ export const Login: React.FC = () => {
     }
   };
 
-  // Envio de link de recuperação de senha
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!resetEmail || !emailRegex.test(resetEmail)) {
-      setResetEmailError('Digite um e-mail válido.');
+    if (!resetEmail) {
+      setResetEmailError('Informe seu e-mail.');
       return;
     }
 
     setResetLoading(true);
-
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-
       if (error) throw error;
 
-      addToast('Link de recuperação enviado para o seu e-mail!', 'success');
+      addToast('Link de recuperação enviado para seu e-mail.', 'success');
       setIsResetOpen(false);
       setResetEmail('');
     } catch (error: any) {
@@ -195,194 +144,108 @@ export const Login: React.FC = () => {
     }
   };
 
+  const isSubmitDisabled = loading || !!emailError || !!passwordError;
+  const isResetSubmitDisabled = resetLoading || !resetEmail || !!resetEmailError;
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'var(--color-bg-primary)',
-      padding: '1.5rem'
-    }}>
-      <div style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '2.5rem 2rem',
-        width: '100%',
-        maxWidth: '420px',
-        boxShadow: 'var(--shadow-lg)',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2rem'
-      }}>
-        {/* LOGO NAVALHADO PREMIUM */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{
-            backgroundColor: 'var(--color-brand-lightest)',
-            padding: '1rem',
-            borderRadius: 'var(--radius-full)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-brand-primary)',
-            boxShadow: '0 4px 10px rgba(217, 108, 0, 0.1)',
-            marginBottom: '0.5rem'
-          }}>
-            <ScissorsIcon size={32} style={{ transform: 'rotate(-45deg)' }} />
+    <>
+      {/* Noise/grain overlay — textura premium fixa */}
+      <div className="noise-overlay" />
+
+      <div className="login-page">
+        {/* Background gradient orbes */}
+        <div className="login-page__bg" />
+
+        {/* ─── DOUBLE-BEZEL CARD ─── */}
+        {/* Outer shell: moldura sutil aquecida */}
+        <div className="login-card__shell">
+          {/* Inner core: card propriamente dito */}
+          <div className="login-card">
+            {/* HEADER */}
+            <div className="login-card__header">
+              <span className="login-card__eyebrow">acesso</span>
+
+              <div className="login-card__icon">
+                <ScissorsIcon size={28} />
+              </div>
+
+              <h1 className="login-card__title">Navalhado</h1>
+              <p className="login-card__subtitle">
+                Gestão inteligente para sua barbearia
+              </p>
+            </div>
+
+            {/* FORM */}
+            <form onSubmit={handleLogin} className="login-card__form">
+              <Input
+                label="E-mail"
+                type="email"
+                icon="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={emailError}
+                disabled={loading}
+                required
+              />
+
+              <Input
+                label="Senha"
+                type="password"
+                icon="lock"
+                placeholder="mín. 6 caracteres"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={passwordError}
+                disabled={loading}
+                required
+              />
+
+              {/* Secondary links */}
+              <div className="login-card__links">
+                <button
+                  type="button"
+                  className="btn btn--link"
+                  onClick={() => navigate('/signup')}
+                >
+                  Criar conta
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setIsResetOpen(true)}
+                >
+                  Esqueci a senha
+                </button>
+              </div>
+
+              {/* CTA — Button-in-Button pattern */}
+              <button
+                type="submit"
+                className="btn btn--primary login-card__cta"
+                disabled={isSubmitDisabled}
+              >
+                {loading ? (
+                  <>
+                    <div className="spinner" />
+                    Entrando…
+                  </>
+                ) : (
+                  <>
+                    Entrar
+                    <span className="btn__icon">
+                      <ArrowRightIcon size={16} />
+                    </span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
-          
-          <h2 style={{
-            fontFamily: 'var(--font-family-base)',
-            fontSize: 'var(--font-size-2xl)',
-            fontWeight: 700,
-            color: 'var(--color-text-primary)',
-            letterSpacing: '-0.025em',
-            margin: 0
-          }}>
-            Navalhado
-          </h2>
-          <p style={{
-            fontSize: 'var(--font-size-sm)',
-            color: 'var(--color-text-secondary)',
-            margin: 0
-          }}>
-            SaaS de Alta Barbearia e Agendamentos
-          </p>
         </div>
-
-        {/* FORMULÁRIO DE LOGIN */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <Input
-            label="E-mail"
-            type="email"
-            icon="email"
-            placeholder="seu-email@exemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={emailError}
-            disabled={loading}
-            required
-          />
-
-          <Input
-            label="Senha"
-            type="password"
-            icon="lock"
-            placeholder="Digite sua senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={passwordError}
-            disabled={loading}
-            required
-          />
-
-          {/* Links Secundários */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: 'var(--font-size-xs)',
-            marginTop: '-0.25rem'
-          }}>
-            <button
-              type="button"
-              onClick={() => navigate('/signup')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--color-brand-primary)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: '0.25rem 0',
-                transition: 'color 0.2s ease',
-                outline: 'none'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-brand-hover)'}
-              onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-brand-primary)'}
-            >
-              Criar Conta da Barbearia
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsResetOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--color-text-secondary)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                padding: '0.25rem 0',
-                transition: 'color 0.2s ease',
-                outline: 'none'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-brand-primary)'}
-              onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-secondary)'}
-            >
-              Esqueci minha senha
-            </button>
-          </div>
-
-          {/* Botão Entrar / Loader */}
-          <button
-            type="submit"
-            disabled={loading || !!emailError || !!passwordError}
-            style={{
-              backgroundColor: loading || !!emailError || !!passwordError 
-                ? 'var(--color-border)' 
-                : 'var(--color-brand-primary)',
-              color: loading || !!emailError || !!passwordError
-                ? 'var(--color-text-secondary)'
-                : '#FFF1E6',
-              border: 'none',
-              padding: '0.85rem',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--font-size-base)',
-              fontWeight: 600,
-              cursor: loading || !!emailError || !!passwordError ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: loading || !!emailError || !!passwordError ? 'none' : '0 4px 6px rgba(217, 108, 0, 0.15)',
-              marginTop: '0.5rem'
-            }}
-            onMouseOver={(e) => {
-              if (!loading && !emailError && !passwordError) {
-                e.currentTarget.style.backgroundColor = 'var(--color-brand-hover)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (!loading && !emailError && !passwordError) {
-                e.currentTarget.style.backgroundColor = 'var(--color-brand-primary)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
-            }}
-          >
-            {loading ? (
-              <>
-                <div className="spinner" style={{
-                  width: '18px',
-                  height: '18px',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderTopColor: '#FFF1E6',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }}></div>
-                Entrando...
-              </>
-            ) : (
-              'Entrar'
-            )}
-          </button>
-        </form>
       </div>
 
-      {/* MODAL DE RECUPERAÇÃO DE SENHA */}
+      {/* ─── MODAL DE RECUPERAÇÃO ─── */}
       <Modal
         isOpen={isResetOpen}
         onClose={() => {
@@ -390,23 +253,18 @@ export const Login: React.FC = () => {
           setResetEmail('');
           setResetEmailError('');
         }}
-        title="Recuperar minha senha"
+        title="Recuperar senha"
       >
-        <p style={{
-          fontSize: 'var(--font-size-sm)',
-          color: 'var(--color-text-secondary)',
-          lineHeight: 1.5,
-          margin: 0
-        }}>
-          Insira o e-mail de acesso da sua conta. Enviaremos um link seguro para você redefinir sua senha de acesso.
+        <p className="modal-description">
+          Informe o e-mail da sua conta. Enviaremos um link seguro para redefinir sua senha.
         </p>
 
-        <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '0.5rem' }}>
+        <form onSubmit={handleResetPassword} className="modal-form">
           <Input
             label="E-mail de acesso"
             type="email"
             icon="email"
-            placeholder="seu-email@exemplo.com"
+            placeholder="seu@email.com"
             value={resetEmail}
             onChange={(e) => setResetEmail(e.target.value)}
             error={resetEmailError}
@@ -416,63 +274,193 @@ export const Login: React.FC = () => {
 
           <button
             type="submit"
-            disabled={resetLoading || !resetEmail || !!resetEmailError}
-            style={{
-              backgroundColor: resetLoading || !resetEmail || !!resetEmailError
-                ? 'var(--color-border)'
-                : 'var(--color-brand-primary)',
-              color: resetLoading || !resetEmail || !!resetEmailError
-                ? 'var(--color-text-secondary)'
-                : '#FFF1E6',
-              border: 'none',
-              padding: '0.8rem',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--font-size-sm)',
-              fontWeight: 600,
-              cursor: resetLoading || !resetEmail || !!resetEmailError ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              marginTop: '0.5rem'
-            }}
-            onMouseOver={(e) => {
-              if (!resetLoading && resetEmail && !resetEmailError) {
-                e.currentTarget.style.backgroundColor = 'var(--color-brand-hover)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if (!resetLoading && resetEmail && !resetEmailError) {
-                e.currentTarget.style.backgroundColor = 'var(--color-brand-primary)';
-              }
-            }}
+            className="btn btn--primary"
+            disabled={isResetSubmitDisabled}
+            style={{ width: '100%' }}
           >
             {resetLoading ? (
               <>
-                <div className="spinner" style={{
-                  width: '16px',
-                  height: '16px',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderTopColor: '#FFF1E6',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }}></div>
-                Enviando...
+                <div className="spinner spinner--sm" />
+                Enviando…
               </>
             ) : (
-              'Enviar link de redefinição'
+              'Enviar link'
             )}
           </button>
         </form>
       </Modal>
 
-      {/* Animação Spin Inline para os botões */}
+      {/* ─── PAGE-SPECIFIC STYLES ─── */}
       <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
+        .login-page {
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .login-page__bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 85% 55% at 45% 35%, rgba(217, 108, 0, 0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 55% 45% at 80% 80%, rgba(242, 178, 119, 0.08) 0%, transparent 55%);
+          pointer-events: none;
+        }
+
+        /* ── Double-Bezel (Doppelrand) ── */
+        .login-card__shell {
+          width: 100%;
+          max-width: 420px;
+          padding: 6px;
+          border-radius: calc(var(--radius-xl) + 6px);
+          background: rgba(217, 108, 0, 0.04);
+          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+          animation: springUp 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+        }
+
+        .login-card {
+          background-color: var(--color-bg-secondary);
+          border-radius: var(--radius-xl);
+          padding: 2.5rem 2rem 2rem;
+          width: 100%;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+          position: relative;
+          box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.6),
+            0 1px 2px rgba(45, 35, 30, 0.04),
+            var(--shadow-lg);
+        }
+
+        /* Staggered entry for card children */
+        .login-card__header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.375rem;
+          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+          animation-delay: 0.08s;
+        }
+
+        .login-card__eyebrow {
+          display: inline-block;
+          padding: 0.25rem 0.75rem;
+          border-radius: var(--radius-full);
+          background: var(--color-brand-lightest);
+          color: var(--color-brand-primary);
+          font-size: 0.625rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.2em;
+          margin-bottom: 0.25rem;
+        }
+
+        .login-card__icon {
+          background: linear-gradient(135deg, var(--color-brand-lightest) 0%, #FFE4D6 100%);
+          padding: 0.875rem;
+          border-radius: var(--radius-full);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-brand-primary);
+          box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.5),
+            0 4px 14px rgba(217, 108, 0, 0.12);
+          margin-bottom: 0.25rem;
+          transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+                      box-shadow 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .login-card__icon svg {
+          transform: rotate(-45deg);
+          transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .login-card:hover .login-card__icon {
+          box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.5),
+            0 6px 20px rgba(217, 108, 0, 0.18);
+        }
+
+        .login-card:hover .login-card__icon svg {
+          transform: rotate(-45deg) scale(1.1);
+        }
+
+        .login-card__title {
+          font-size: var(--font-size-3xl);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          letter-spacing: -0.03em;
+          margin: 0;
+          text-wrap: balance;
+        }
+
+        .login-card__subtitle {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          margin: 0;
+          font-weight: 400;
+          letter-spacing: 0.01em;
+        }
+
+        .login-card__form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+          animation-delay: 0.16s;
+        }
+
+        .login-card__links {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: -0.25rem;
+        }
+
+        .login-card__cta {
+          width: 100%;
+          padding: 0.85rem 1.5rem;
+          font-size: var(--font-size-base);
+          margin-top: 0.25rem;
+        }
+
+        .modal-description {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .modal-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          margin-top: 0.5rem;
+        }
+
+        /* Mobile refinements */
+        @media (max-width: 480px) {
+          .login-card__shell {
+            padding: 4px;
+            border-radius: var(--radius-xl);
+          }
+          .login-card {
+            padding: 2rem 1.25rem 1.75rem;
+            border-radius: calc(var(--radius-xl) - 2px);
+          }
+          .login-card__title {
+            font-size: var(--font-size-2xl);
+          }
         }
       `}</style>
-    </div>
+    </>
   );
 };

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   /* Cores de Marca (Amber & Orange Core) */
@@ -25,11 +25,27 @@
   --color-info: #3F83F8;
   --color-info-bg: #EBF5FF;
 
-  /* Layout Tokens */
-  --font-family-base: 'Inter', sans-serif;
+  /* Tipografia */
+  --font-family-base: 'Outfit', sans-serif;
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+
+  /* Sombras (tintadas com o tom do background) */
+  --shadow-sm: 0 1px 2px rgba(45, 35, 30, 0.06);
+  --shadow-md: 0 4px 12px rgba(45, 35, 30, 0.08);
+  --shadow-lg: 0 8px 30px rgba(217, 108, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(217, 108, 0, 0.15);
+
+  /* Raios */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 }
 
@@ -40,13 +56,21 @@
   --color-border: #332D29;
   --color-text-primary: #FFF1E6;
   --color-text-secondary: #9C958F;
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* Reset Básico */
-* {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Transição global suave (apenas propriedades de layout) */
+* {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
@@ -55,10 +79,191 @@ body {
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 button, input, select, textarea {
   font-family: inherit;
+}
+
+/* ==============================
+   Keyframes Globais
+   ============================== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Spring entry — usado no card e nos elementos internos */
+@keyframes springUp {
+  0%   { transform: translateY(24px) scale(0.98); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ==============================
+   Noise / Grain Overlay
+   ============================== */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  /* SVG noise pattern inline */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ==============================
+   Classe utilitária: spinner
+   ============================== */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFF1E6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner--sm {
+  width: 16px;
+  height: 16px;
+}
+
+/* ==============================
+   Botão padrão do sistema
+   ============================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  outline: none;
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 0.75rem 1.25rem;
+  font-size: var(--font-size-sm);
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.3);
+}
+
+.btn:active {
+  transform: scale(0.97);
+  transition-duration: 0.05s;
+}
+
+/* Botão primário */
+.btn--primary {
+  background-color: var(--color-brand-primary);
+  color: #FFF1E6;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-full);
+  padding: 0.75rem 1.5rem;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--color-brand-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(217, 108, 0, 0.25);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: scale(0.97) translateY(0);
+  transition-duration: 0.05s;
+}
+
+.btn--primary:disabled {
+  background-color: var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Button-in-Button: ícone aninhado dentro do botão */
+.btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-full);
+  background-color: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+              background-color 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.btn--primary:hover:not(:disabled) .btn__icon {
+  transform: translateX(2px) scale(1.05);
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Botão ghost / link */
+.btn--ghost {
+  background: none;
+  color: var(--color-text-secondary);
+  padding: 0.25rem 0;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.01em;
+}
+
+.btn--ghost:hover {
+  color: var(--color-brand-primary);
+}
+
+.btn--ghost:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Botão link (estilo inline) */
+.btn--link {
+  background: none;
+  color: var(--color-brand-primary);
+  padding: 0.25rem 0;
+  border-radius: 0;
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.01em;
+}
+
+.btn--link:hover {
+  color: var(--color-brand-hover);
+}
+
+.btn--link:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
