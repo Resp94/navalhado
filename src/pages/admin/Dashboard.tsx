@@ -133,7 +133,7 @@ export const Dashboard: React.FC = () => {
 
     return (
       <div className="chart-wrapper">
-        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" overflow="visible">
           <defs>
             {/* Gradiente do preenchimento da área do gráfico */}
             <linearGradient id="chart-area-grad" x1="0" y1="0" x2="0" y2="1">
@@ -228,40 +228,48 @@ export const Dashboard: React.FC = () => {
             </g>
           ))}
 
-          {/* Tooltip Dinâmico */}
-          {hoveredPoint !== null && points[hoveredPoint] && (
-            <g transform={`translate(${points[hoveredPoint].x}, ${points[hoveredPoint].y - 25})`}>
-              <rect 
-                x="-55" 
-                y="-30" 
-                width="110" 
-                height="34" 
-                rx="6" 
-                fill="var(--color-text-primary)" 
-                filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.1))" 
-              />
-              <text 
-                x="0" 
-                y="-20" 
-                fill="var(--color-bg-secondary)" 
-                fontSize="10" 
-                fontWeight="700" 
-                textAnchor="middle"
-              >
-                {trend[hoveredPoint].month_label}
-              </text>
-              <text 
-                x="0" 
-                y="-8" 
-                fill="var(--color-brand-soft)" 
-                fontSize="10" 
-                fontWeight="500" 
-                textAnchor="middle"
-              >
-                {formatCurrency(points[hoveredPoint].val)}
-              </text>
-            </g>
-          )}
+          {/* Tooltip Dinâmico — posicionamento inteligente */}
+          {hoveredPoint !== null && points[hoveredPoint] && (() => {
+            const pt = points[hoveredPoint];
+            const isNearTop = pt.y < 60;
+            const tooltipY = isNearTop ? pt.y + 25 : pt.y - 25;
+            const rectY = isNearTop ? 0 : -30;
+            const textY1 = isNearTop ? 10 : -20;
+            const textY2 = isNearTop ? 22 : -8;
+            return (
+              <g transform={`translate(${pt.x}, ${tooltipY})`}>
+                <rect 
+                  x="-55" 
+                  y={rectY}
+                  width="110" 
+                  height="34" 
+                  rx="6" 
+                  fill="var(--color-text-primary)" 
+                  filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.1))" 
+                />
+                <text 
+                  x="0" 
+                  y={textY1}
+                  fill="var(--color-bg-secondary)" 
+                  fontSize="10" 
+                  fontWeight="700" 
+                  textAnchor="middle"
+                >
+                  {trend[hoveredPoint].month_label}
+                </text>
+                <text 
+                  x="0" 
+                  y={textY2}
+                  fill="var(--color-brand-soft)" 
+                  fontSize="10" 
+                  fontWeight="500" 
+                  textAnchor="middle"
+                >
+                  {formatCurrency(pt.val)}
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
     );
@@ -410,64 +418,50 @@ export const Dashboard: React.FC = () => {
           justify-content: space-between;
           align-items: center;
           padding: 1rem 2rem;
-          background-color: var(--color-bg-secondary);
-          border-bottom: 1px solid var(--color-border);
-          box-shadow: var(--shadow-sm);
+          /* Liquid glass — gradient-tinted to match app theme */
+          background: 
+            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
+            linear-gradient(
+              145deg,
+              rgba(255, 255, 255, 0.78) 0%,
+              rgba(255, 241, 230, 0.5) 45%,
+              rgba(255, 255, 255, 0.72) 100%
+            );
+          backdrop-filter: blur(28px) saturate(200%);
+          -webkit-backdrop-filter: blur(28px) saturate(200%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow: 
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+            0 8px 40px -8px rgba(45, 35, 30, 0.1),
+            0 1px 4px rgba(45, 35, 30, 0.04);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .admin-header__brand {
           display: flex;
           align-items: center;
           gap: 0.75rem;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .admin-header__nav {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-        }
-
-        .admin-header__nav-link {
-          background: none;
-          border: none;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          cursor: pointer;
-          padding: 0.5rem 0.25rem;
-          position: relative;
-          transition: color 0.2s ease;
-        }
-
-        .admin-header__nav-link:hover {
-          color: var(--color-brand-primary);
-        }
-
-        .admin-header__nav-link--active {
-          color: var(--color-brand-primary);
-          font-weight: 600;
-        }
-
-        .admin-header__nav-link--active::after {
-          content: '';
-          position: absolute;
-          bottom: -4px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background-color: var(--color-brand-primary);
-          border-radius: var(--radius-full);
-          animation: fadeIn 0.2s ease;
+        .admin-header__brand:hover {
+          transform: scale(1.02);
         }
 
         .admin-header__logo {
-          background-color: var(--color-brand-lightest);
+          background-color: rgba(219, 108, 0, 0.1);
           color: var(--color-brand-primary);
           padding: 0.5rem;
           border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
+          border: 1px solid rgba(219, 108, 0, 0.15);
         }
 
         .admin-header__logo svg {
@@ -484,10 +478,82 @@ export const Dashboard: React.FC = () => {
         }
 
         .admin-header__title {
-          font-size: var(--font-size-lg);
+          font-size: var(--font-size-base);
           font-weight: 700;
           margin: 0;
           line-height: 1.1;
+          color: var(--color-text-primary);
+        }
+
+        .admin-header__nav {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: 
+            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
+            rgba(255, 255, 255, 0.45);
+          padding: 0.25rem;
+          border-radius: var(--radius-lg);
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          backdrop-filter: blur(12px) saturate(160%);
+          -webkit-backdrop-filter: blur(12px) saturate(160%);
+        }
+
+        .admin-header__nav-link {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: transparent;
+          border: 1px solid transparent;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+          font-weight: 500;
+          cursor: pointer;
+          padding: 0.45rem 1rem;
+          border-radius: var(--radius-md);
+          text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .admin-header__nav-link:hover {
+          color: var(--color-brand-primary);
+          background-color: rgba(255, 255, 255, 0.5);
+          border-color: rgba(234, 222, 214, 0.6);
+        }
+
+        .admin-header__nav-link--active {
+          color: var(--color-brand-primary);
+          background-color: var(--color-bg-secondary);
+          border-color: rgba(234, 222, 214, 0.8);
+          font-weight: 600;
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        .admin-header__nav-link:active {
+          transform: scale(0.97);
+        }
+
+        .admin-header__user {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+
+        .admin-header__user-info {
+          display: flex;
+          flex-direction: column;
+          text-align: right;
+        }
+
+        .admin-header__user-name {
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+        }
+
+        .admin-header__user-role {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
         }
 
         .admin-header__user {
@@ -603,6 +669,7 @@ export const Dashboard: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
+          overflow: visible;
         }
 
         .chart-header {
@@ -626,6 +693,7 @@ export const Dashboard: React.FC = () => {
         .chart-wrapper {
           width: 100%;
           height: 240px;
+          overflow: visible;
         }
 
         .btn--outline-danger {

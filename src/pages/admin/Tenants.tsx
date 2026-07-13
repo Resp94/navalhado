@@ -393,9 +393,28 @@ export const Tenants: React.FC = () => {
           justify-content: space-between;
           align-items: center;
           padding: 1rem 2rem;
-          background-color: var(--color-bg-secondary);
-          border-bottom: 1px solid var(--color-border);
-          box-shadow: var(--shadow-sm);
+          /* Liquid glass — gradient-tinted to match app theme */
+          background: 
+            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
+            linear-gradient(
+              145deg,
+              rgba(255, 255, 255, 0.78) 0%,
+              rgba(255, 241, 230, 0.5) 45%,
+              rgba(255, 255, 255, 0.72) 100%
+            );
+          backdrop-filter: blur(28px) saturate(200%);
+          -webkit-backdrop-filter: blur(28px) saturate(200%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow: 
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+            0 8px 40px -8px rgba(45, 35, 30, 0.1),
+            0 1px 4px rgba(45, 35, 30, 0.04);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .admin-header__brand {
@@ -403,55 +422,71 @@ export const Tenants: React.FC = () => {
           align-items: center;
           gap: 0.75rem;
           cursor: pointer;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .admin-header__brand:hover {
+          transform: scale(1.02);
         }
 
         .admin-header__nav {
           display: flex;
           align-items: center;
-          gap: 1.5rem;
+          gap: 0.35rem;
+          background: 
+            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
+            rgba(255, 255, 255, 0.45);
+          padding: 0.25rem;
+          border-radius: var(--radius-lg);
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          backdrop-filter: blur(12px) saturate(160%);
+          -webkit-backdrop-filter: blur(12px) saturate(160%);
         }
 
         .admin-header__nav-link {
-          background: none;
-          border: none;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: transparent;
+          border: 1px solid transparent;
           color: var(--color-text-secondary);
           font-size: var(--font-size-sm);
           font-weight: 500;
           cursor: pointer;
-          padding: 0.5rem 0.25rem;
-          position: relative;
-          transition: color 0.2s ease;
+          padding: 0.45rem 1rem;
+          border-radius: var(--radius-md);
+          text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .admin-header__nav-link:hover {
           color: var(--color-brand-primary);
+          background-color: rgba(255, 255, 255, 0.5);
+          border-color: rgba(234, 222, 214, 0.6);
         }
 
         .admin-header__nav-link--active {
           color: var(--color-brand-primary);
+          background-color: var(--color-bg-secondary);
+          border-color: rgba(234, 222, 214, 0.8);
           font-weight: 600;
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6);
         }
 
-        .admin-header__nav-link--active::after {
-          content: '';
-          position: absolute;
-          bottom: -4px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background-color: var(--color-brand-primary);
-          border-radius: var(--radius-full);
-          animation: fadeIn 0.2s ease;
+        .admin-header__nav-link:active {
+          transform: scale(0.97);
         }
 
         .admin-header__logo {
-          background-color: var(--color-brand-lightest);
+          background-color: rgba(219, 108, 0, 0.1);
           color: var(--color-brand-primary);
           padding: 0.5rem;
           border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
+          border: 1px solid rgba(219, 108, 0, 0.15);
         }
 
         .admin-header__logo svg {

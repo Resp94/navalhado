@@ -283,11 +283,24 @@ export const BarbeiroLayout: React.FC = () => {
           justify-content: space-between;
           align-items: center;
           padding: 0.75rem 1.5rem;
-          background-color: rgba(255, 255, 255, 0.7);
-          backdrop-filter: blur(18px) saturate(130%);
-          -webkit-backdrop-filter: blur(18px) saturate(130%);
-          border-bottom: 1px solid rgba(234, 222, 214, 0.75);
-          box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.45), var(--shadow-sm);
+          /* Liquid glass — gradient-tinted to match GerenteLayout */
+          background: 
+            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
+            linear-gradient(
+              145deg,
+              rgba(255, 255, 255, 0.78) 0%,
+              rgba(255, 241, 230, 0.5) 45%,
+              rgba(255, 255, 255, 0.72) 100%
+            );
+          backdrop-filter: blur(28px) saturate(200%);
+          -webkit-backdrop-filter: blur(28px) saturate(200%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow: 
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+            0 8px 40px -8px rgba(45, 35, 30, 0.1),
+            0 1px 4px rgba(45, 35, 30, 0.04);
           position: sticky;
           top: 0;
           z-index: 100;
@@ -354,10 +367,15 @@ export const BarbeiroLayout: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.35rem;
-          background-color: rgba(234, 222, 214, 0.35);
+          background: 
+            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
+            rgba(255, 255, 255, 0.45);
           padding: 0.25rem;
           border-radius: var(--radius-lg);
-          border: 1px solid rgba(234, 222, 214, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          backdrop-filter: blur(12px) saturate(160%);
+          -webkit-backdrop-filter: blur(12px) saturate(160%);
         }
 
         .barbeiro-header__nav-link {

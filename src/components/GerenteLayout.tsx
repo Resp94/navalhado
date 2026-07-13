@@ -248,11 +248,24 @@ export const GerenteLayout: React.FC = () => {
           justify-content: space-between;
           align-items: center;
           padding: 0.75rem 2rem;
-          background-color: rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(16px) saturate(120%);
-          -webkit-backdrop-filter: blur(16px) saturate(120%);
-          border-bottom: 1px solid rgba(234, 222, 214, 0.8);
-          box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
+          /* Liquid glass background — gradient-tinted, refractive */
+          background: 
+            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
+            linear-gradient(
+              145deg,
+              rgba(255, 255, 255, 0.78) 0%,
+              rgba(255, 241, 230, 0.5) 45%,
+              rgba(255, 255, 255, 0.72) 100%
+            );
+          backdrop-filter: blur(28px) saturate(200%);
+          -webkit-backdrop-filter: blur(28px) saturate(200%);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow: 
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+            0 8px 40px -8px rgba(45, 35, 30, 0.1),
+            0 1px 4px rgba(45, 35, 30, 0.04);
           position: sticky;
           top: 0;
           z-index: 100;
@@ -314,11 +327,15 @@ export const GerenteLayout: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background-color: rgba(234, 222, 214, 0.3);
+          background: 
+            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
+            rgba(255, 255, 255, 0.45);
           padding: 0.25rem;
           border-radius: var(--radius-lg);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          backdrop-filter: blur(12px) saturate(160%);
+          -webkit-backdrop-filter: blur(12px) saturate(160%);
         }
 
         .gerente-header__nav-link {
