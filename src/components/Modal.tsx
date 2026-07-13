@@ -56,8 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background-color: rgba(20, 17, 15, 0.6);
-          backdrop-filter: blur(4px);
+          background-color: rgba(20, 17, 15, 0.55);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -69,10 +68,12 @@ export const Modal: React.FC<ModalProps> = ({
         .modal-shell {
           width: 100%;
           max-width: 440px;
-          padding: 5px;
-          border-radius: calc(var(--radius-lg) + 5px);
-          background: rgba(217, 108, 0, 0.04);
-          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
+          padding: 4px;
+          border-radius: calc(var(--radius-lg) + 4px);
+          background: rgba(20, 17, 15, 0.08);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.15),
+            0 8px 32px rgba(20, 17, 15, 0.25);
           animation: springUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
         }
 

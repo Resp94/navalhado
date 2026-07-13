@@ -6,10 +6,10 @@ import { ResetPassword } from './pages/ResetPassword';
 import { AuthGuard } from './components/AuthGuard';
 import { Dashboard as AdminDashboard } from './pages/admin/Dashboard';
 import { Tenants as AdminTenants } from './pages/admin/Tenants';
-import { 
-  AgendaBarbeiro
-} from './pages/MockPages';
 import { GerenteLayout } from './components/GerenteLayout';
+import { BarbeiroLayout } from './components/BarbeiroLayout';
+import { MinhaAgenda } from './pages/barbeiro/MinhaAgenda';
+import { MinhasComissoes } from './pages/barbeiro/MinhasComissoes';
 import { Dashboard as GerenteDashboard } from './pages/gerente/Dashboard';
 import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
@@ -42,14 +42,17 @@ function App() {
             <Route path="/servicos/cadastro" element={<GerenteServicos />} />
             <Route path="/whatsapp" element={<GerenteWhatsapp />} />
           </Route>
+          {/* Rotas do Barbeiro (Colaborador) */}
           <Route 
-            path="/minha-agenda" 
             element={
               <AuthGuard allowedRole="barbeiro">
-                <AgendaBarbeiro />
+                <BarbeiroLayout />
               </AuthGuard>
-            } 
-          />
+            }
+          >
+            <Route path="/minha-agenda" element={<MinhaAgenda />} />
+            <Route path="/minhas-comissoes" element={<MinhasComissoes />} />
+          </Route>
           
           {/* Rotas do Proprietário (SaaS Admin) */}
           <Route 
