@@ -16,6 +16,9 @@ import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissio
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
 import { Whatsapp as GerenteWhatsapp } from './pages/gerente/Whatsapp';
+import { AcessoExpirado } from './pages/cliente/AcessoExpirado';
+import { MenuCliente } from './pages/cliente/MenuCliente';
+import { FluxoAgendamento } from './pages/cliente/FluxoAgendamento';
 
 function App() {
   return (
@@ -72,6 +75,13 @@ function App() {
             } 
           />
           
+          {/* Rotas do Canal do Cliente */}
+          <Route path="/cliente/acesso-expirado" element={<AcessoExpirado />} />
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/cliente/agendar" element={<FluxoAgendamento />} />
+          <Route path="/cliente/:token" element={<MenuCliente />} />
+          <Route path="/cliente/:token/agendar" element={<FluxoAgendamento />} />
+
           {/* Rota Fallback para erros / 404 */}
           <Route path="*" element={<Login />} />
         </Routes>

@@ -94,4 +94,29 @@ insert into public.invoices (tenant_id, tenant_subscription_id, external_id, amo
 insert into public.invoices (tenant_id, tenant_subscription_id, external_id, amount, status, due_date, paid_at, created_at) values
 ('d3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c01', 'INV-ESTILO-CURRENT', 199.00, 'paid', now() - interval '2 days', now() - interval '2 days', now() - interval '5 days'),
 ('71de201b-84e0-40be-b9e2-0022638d5bdb', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c02', 'INV-BROOKLYN-CURRENT', 349.00, 'paid', now() - interval '1 day', now() - interval '1 day', now() - interval '4 days'),
-('71de201b-84e0-40be-b9e2-0022638d5bd1', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c03', 'INV-NAVALHA-CURRENT', 99.00, 'paid', now(), now(), now() - interval '3 days');
+('71de201b-84e0-40be-b9e2-0022638d5bd1', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c03', 'INV-NAVALHA-CURRENT', 99.00, 'paid', now(), now(), now() - interval '3 days')
+on conflict do nothing;
+
+-- 6. Inserir Profissionais para Barbearia Estilo
+insert into public.professionals (id, tenant_id, user_id, name, phone, commission_percentage, weekly_schedule, is_active) values
+('f1de201b-84e0-40be-b9e2-0022638d5bd1', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', null, 'João Barbeiro', '11999991111', 40.00, '{"monday": {"start": "09:00", "end": "18:00"}, "tuesday": {"start": "09:00", "end": "18:00"}, "wednesday": {"start": "09:00", "end": "18:00"}, "thursday": {"start": "09:00", "end": "18:00"}, "friday": {"start": "09:00", "end": "20:00"}, "saturday": {"start": "08:00", "end": "19:00"}}'::jsonb, true),
+('f1de201b-84e0-40be-b9e2-0022638d5bd2', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', null, 'Lucas Cabeleireiro', '11999992222', 35.00, '{"monday": {"start": "10:00", "end": "19:00"}, "tuesday": {"start": "10:00", "end": "19:00"}, "wednesday": {"start": "10:00", "end": "19:00"}, "thursday": {"start": "10:00", "end": "19:00"}, "friday": {"start": "09:00", "end": "20:00"}, "saturday": {"start": "08:00", "end": "19:00"}}'::jsonb, true)
+on conflict (id) do nothing;
+
+-- 7. Inserir Serviços para Barbearia Estilo
+insert into public.services (id, tenant_id, name, description, price, duration_minutes, category, commission_percentage, is_active) values
+('b1de201b-84e0-40be-b9e2-0022638d5bd1', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'Corte Masculino', 'Corte clássico ou moderno na tesoura ou máquina', 50.00, 30, 'Cabelo', null, true),
+('b1de201b-84e0-40be-b9e2-0022638d5bd2', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'Barba Completa', 'Alinhamento de barba com navalha e toalha quente', 35.00, 30, 'Barba', null, true),
+('b1de201b-84e0-40be-b9e2-0022638d5bd3', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'Combo Cabelo & Barba', 'Serviço completo de corte e barba com desconto', 75.00, 60, 'Combos', null, true)
+on conflict (id) do nothing;
+
+-- 8. Inserir Clientes com Token de Acesso (WhatsApp)
+insert into public.customers (id, tenant_id, name, phone, email, notes, token_acesso, token_expirado_em) values
+('c1de201b-84e0-40be-b9e2-0022638d5bd1', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'Jonathas', '11999998888', 'jonathas@cliente.com', 'Cliente VIP', '123e4567-e89b-12d3-a456-426614174000', now() + interval '30 days'),
+('c1de201b-84e0-40be-b9e2-0022638d5bd2', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'Pedro Antigo', '11977778888', 'pedro@cliente.com', 'Token expirado', '123e4567-e89b-12d3-a456-426614174001', now() - interval '1 day')
+on conflict (id) do nothing;
+
+-- 9. Inserir Agendamentos Ativos
+insert into public.appointments (id, tenant_id, customer_id, professional_id, service_id, start_time, end_time, status, payment_status) values
+('a1de201b-84e0-40be-b9e2-0022638d5bd1', 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'c1de201b-84e0-40be-b9e2-0022638d5bd1', 'f1de201b-84e0-40be-b9e2-0022638d5bd1', 'b1de201b-84e0-40be-b9e2-0022638d5bd1', (current_date + 1 + time '14:00:00') at time zone 'America/Sao_Paulo', (current_date + 1 + time '14:30:00') at time zone 'America/Sao_Paulo', 'confirmed', 'pending')
+on conflict (id) do nothing;
