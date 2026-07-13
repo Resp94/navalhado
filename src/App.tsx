@@ -7,9 +7,15 @@ import { AuthGuard } from './components/AuthGuard';
 import { Dashboard as AdminDashboard } from './pages/admin/Dashboard';
 import { Tenants as AdminTenants } from './pages/admin/Tenants';
 import { 
-  DashboardGerente, 
   AgendaBarbeiro
 } from './pages/MockPages';
+import { GerenteLayout } from './components/GerenteLayout';
+import { Dashboard as GerenteDashboard } from './pages/gerente/Dashboard';
+import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
+import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
+import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
+import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
+import { Whatsapp as GerenteWhatsapp } from './pages/gerente/Whatsapp';
 
 function App() {
   return (
@@ -23,13 +29,19 @@ function App() {
           
           {/* Rotas Administrativas e do Staff */}
           <Route 
-            path="/dashboard" 
             element={
               <AuthGuard allowedRole="gerente">
-                <DashboardGerente />
+                <GerenteLayout />
               </AuthGuard>
-            } 
-          />
+            }
+          >
+            <Route path="/dashboard" element={<GerenteDashboard />} />
+            <Route path="/financeiro" element={<GerenteFinanceiro />} />
+            <Route path="/profissionais" element={<GerenteProfissionais />} />
+            <Route path="/profissionais/cadastro-acesso" element={<GerenteCadastroAcesso />} />
+            <Route path="/servicos/cadastro" element={<GerenteServicos />} />
+            <Route path="/whatsapp" element={<GerenteWhatsapp />} />
+          </Route>
           <Route 
             path="/minha-agenda" 
             element={
