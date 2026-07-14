@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from './Toast';
+import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
+import { NotificationBell } from './NotificationBell';
 
 // SVGs de Ícones Inline para garantir que o componente seja autossuficiente e estilizado
 const CalendarIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
@@ -51,6 +53,13 @@ export const BarbeiroLayout: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [barberName, setBarberName] = useState('Barbeiro');
   const [tenantName, setTenantName] = useState('');
+  const [tenantId, setTenantId] = useState('');
+  const [profissionalId, setProfissionalId] = useState('');
+
+  const { notifications, unreadCount, markAllAsRead, markAsRead } = useRealtimeNotifications({
+    tenantId,
+    profissionalId,
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -84,6 +93,9 @@ export const BarbeiroLayout: React.FC = () => {
 
         if (isMounted) {
           setBarberName(profile.name);
+          if (profile.tenant_id) {
+            setTenantId(profile.tenant_id);
+          }
         }
 
         // Se o barbeiro estiver associado a uma barbearia (tenant), buscar o nome dela
@@ -97,6 +109,17 @@ export const BarbeiroLayout: React.FC = () => {
           if (!tenantError && tenant && isMounted) {
             setTenantName(tenant.name);
           }
+        }
+
+        // Buscar também o ID do profissional associado na tabela professionals
+        const { data: profData, error: profError } = await supabase
+          .from('professionals')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!profError && profData && isMounted) {
+          setProfissionalId(profData.id);
         }
       } catch (error: any) {
         console.error('Error fetching barber data:', error);
@@ -215,6 +238,14 @@ export const BarbeiroLayout: React.FC = () => {
 
           {/* Informações do Barbeiro e Botão de Logout */}
           <div className="barbeiro-header__user-section">
+            {/* Sininho de Notificações */}
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onMarkAllAsRead={markAllAsRead}
+              onMarkAsRead={markAsRead}
+            />
+
             <div className="barbeiro-header__user-profile">
               <div className="barbeiro-header__avatar">
                 {barberName.charAt(0).toUpperCase()}

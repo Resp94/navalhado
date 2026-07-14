@@ -12,7 +12,24 @@ interface EvolutionInstance {
   api_key: string;
   qr_code: string | null;
   status: 'connected' | 'disconnected' | 'pairing';
+  send_confirmation: boolean;
+  send_reminders: boolean;
+  reminder_minutes: number;
+  send_cancellation: boolean;
 }
+
+const formatMinutesToReadable = (minutes: number): string => {
+  if (minutes < 60) {
+    return `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  
+  if (remainingMinutes === 0) {
+    return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  }
+  return `${hours} ${hours === 1 ? 'hora' : 'horas'} e ${remainingMinutes} ${remainingMinutes === 1 ? 'minuto' : 'minutos'}`;
+};
 
 export const Whatsapp: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -173,6 +190,30 @@ export const Whatsapp: React.FC = () => {
     }
   };
 
+  const handleUpdateConfig = async (key: keyof EvolutionInstance, value: any) => {
+    if (!instance) return;
+    try {
+      const payload = {
+        [key]: value,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('evolution_api_instances')
+        .update(payload)
+        .eq('id', instance.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setInstance(data);
+      addToast('Configurações do WhatsApp atualizadas com sucesso!', 'success');
+    } catch (error: any) {
+      console.error('Error updating whatsapp config:', error);
+      addToast('Erro ao atualizar configurações de disparo.', 'error');
+    }
+  };
+
   const handleSendTestMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!testPhone.trim()) {
@@ -299,41 +340,134 @@ export const Whatsapp: React.FC = () => {
             </div>
             <div className="card-whatsapp__body">
               <div className="rules-list">
-                {[
-                  { icon: 'bell', title: 'Confirmação Automática', desc: 'Envia o link de agendamento por WhatsApp assim que o cliente reserva.' },
-                  { icon: 'clock', title: 'Lembrete (2h Antes)', desc: 'Envia lembrete com opção de cancelamento 2 horas antes do horário.' },
-                  { icon: 'x', title: 'Alerta de Cancelamento', desc: 'Notifica se o barbeiro ou cliente cancelar o agendamento.' },
-                ].map((rule, i) => (
-                  <div key={i} className="rule-row">
-                    <div className="rule-row__icon">
-                      {rule.icon === 'bell' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                          <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2z" />
-                          <path d="M6 6V5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v1" />
-                          <path d="M6 6h12l1.5 11.5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3L6 6z" />
-                        </svg>
-                      )}
-                      {rule.icon === 'clock' && (
+                {/* 1. Confirmação Automática */}
+                <div className="rule-row">
+                  <div className="rule-row__icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2z" />
+                      <path d="M6 6V5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v1" />
+                      <path d="M6 6h12l1.5 11.5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3L6 6z" />
+                    </svg>
+                  </div>
+                  <div className="rule-row__content">
+                    <label htmlFor="send-confirmation" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
+                      Confirmação Automática
+                    </label>
+                    <span className="rule-row__desc">Envia o link de agendamento por WhatsApp assim que o cliente reserva.</span>
+                  </div>
+                  <div className="rule-row__action">
+                    <label className="switch">
+                      <input
+                        id="send-confirmation"
+                        type="checkbox"
+                        checked={instance.send_confirmation}
+                        onChange={(e) => handleUpdateConfig('send_confirmation', e.target.checked)}
+                      />
+                      <span className="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 2. Lembretes */}
+                <div className="rule-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <div className="rule-row__icon">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                           <circle cx="12" cy="12" r="10" />
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
-                      )}
-                      {rule.icon === 'x' && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="15" y1="9" x2="9" y2="15" />
-                          <line x1="9" y1="9" x2="15" y2="15" />
-                        </svg>
-                      )}
+                      </div>
+                      <div className="rule-row__content">
+                        <label htmlFor="send-reminders" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
+                          Lembretes de Agendamento
+                        </label>
+                        <span className="rule-row__desc">
+                          Envia lembrete com opção de cancelamento antes do horário.
+                        </span>
+                      </div>
                     </div>
-                    <div className="rule-row__content">
-                      <span className="rule-row__title">{rule.title}</span>
-                      <span className="rule-row__desc">{rule.desc}</span>
+                    <div className="rule-row__action">
+                      <label className="switch">
+                        <input
+                          id="send-reminders"
+                          type="checkbox"
+                          checked={instance.send_reminders}
+                          onChange={(e) => handleUpdateConfig('send_reminders', e.target.checked)}
+
+                        />
+                        <span className="slider round"></span>
+                      </label>
                     </div>
-                    <span className="rule-row__badge">Ativo</span>
                   </div>
-                ))}
+
+                  <div className="reminder-settings" style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <label htmlFor="reminder-minutes" className="helper-text" style={{ margin: 0, fontSize: '0.85rem' }}>
+                        Tempo de antecedência do lembrete:
+                      </label>
+                      <select
+                        id="reminder-minutes"
+                        aria-label="Tempo de antecedência do lembrete"
+                        value={instance.reminder_minutes}
+                        onChange={(e) => handleUpdateConfig('reminder_minutes', parseInt(e.target.value, 10))}
+                        disabled={!instance.send_reminders || actionLoading}
+                        className="form-select"
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid rgba(234, 222, 214, 0.8)',
+                          backgroundColor: '#fff',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        {[15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 240, 300, 360, 480, 720, 1440].map((m) => (
+                          <option key={m} value={m}>
+                            {m} minutos antes
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {instance && (
+                      <span style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: 'var(--color-brand-primary)',
+                        letterSpacing: '0.01em'
+                      }}>
+                        {formatMinutesToReadable(instance.reminder_minutes)} antes
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Alerta de Cancelamento */}
+                <div className="rule-row">
+                  <div className="rule-row__icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                  </div>
+                  <div className="rule-row__content">
+                    <label htmlFor="send-cancellation" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
+                      Alerta de Cancelamento
+                    </label>
+                    <span className="rule-row__desc">Notifica se o barbeiro ou cliente cancelar o agendamento.</span>
+                  </div>
+                  <div className="rule-row__action">
+                    <label className="switch">
+                      <input
+                        id="send-cancellation"
+                        type="checkbox"
+                        checked={instance.send_cancellation}
+                        onChange={(e) => handleUpdateConfig('send_cancellation', e.target.checked)}
+                      />
+                      <span className="slider round"></span>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -424,7 +558,6 @@ export const Whatsapp: React.FC = () => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1.5rem;
-          align-items: start;
         }
 
         .card-whatsapp--full {
@@ -448,6 +581,8 @@ export const Whatsapp: React.FC = () => {
           box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
         }
 
         .card-whatsapp:hover {
@@ -485,6 +620,7 @@ export const Whatsapp: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
+          flex: 1;
         }
 
         /* ═══ STATUS PILL ═══ */
@@ -713,6 +849,58 @@ export const Whatsapp: React.FC = () => {
           text-transform: uppercase;
           letter-spacing: 0.04em;
           flex-shrink: 0;
+        }
+
+        /* Switches (Toggles) */
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 38px;
+          height: 20px;
+          flex-shrink: 0;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(234, 222, 214, 0.8);
+          transition: .3s;
+          border-radius: 20px;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 14px;
+          width: 14px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .3s;
+          border-radius: 50%;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        input:checked + .slider {
+          background-color: var(--color-brand-primary);
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px var(--color-brand-primary);
+        }
+
+        input:checked + .slider:before {
+          transform: translateX(18px);
         }
 
         /* ═══ TEST FORM ═══ */

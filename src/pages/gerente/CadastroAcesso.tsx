@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
+import { EyeIcon, EyeOffIcon } from '../../components/Icons';
 
 interface Professional {
   id: string;
@@ -132,8 +133,7 @@ export const CadastroAcesso: React.FC = () => {
         </button>
         <h2>Configurar Credenciais de Acesso</h2>
         <p>
-          Crie um login para que o barbeiro consiga acessar sua própria agenda individual no celular (`/minha-agenda`), 
-          sem ter acesso ao faturamento global ou configurações da barbearia.
+          Crie um acesso para que o profissional consiga entrar no sistema com e-mail e senha.
         </p>
       </div>
 
@@ -141,7 +141,7 @@ export const CadastroAcesso: React.FC = () => {
         {loading ? (
           <div className="loading-state">
             <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} />
-            <p>Carregando barbeiros sem credenciais...</p>
+            <p>Carregando profissionais disponíveis...</p>
           </div>
         ) : professionals.length === 0 ? (
           <div className="empty-state">
@@ -178,11 +178,11 @@ export const CadastroAcesso: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <span className="input-helper">Este e-mail será usado para fazer login em `/funcionario/login`</span>
+              <span className="input-helper">Este e-mail será usado para fazer login na área do funcionário</span>
             </div>
 
             <div className="form-group">
-              <label htmlFor="input-password">3. Senha Provisória</label>
+              <label htmlFor="input-password">3. Senha de acesso</label>
               <div className="password-input-wrapper">
                 <input 
                   id="input-password"
@@ -196,15 +196,15 @@ export const CadastroAcesso: React.FC = () => {
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
                   className="btn-toggle-password"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
-                  {showPassword ? 'Ocultar' : 'Mostrar'}
+                  {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
             </div>
 
             <div className="security-notice">
-              <strong>🔒 Nota de Segurança RLS:</strong> O profissional cadastrado terá a role `barbeiro` no banco. 
-              As políticas de Row Level Security do banco vão impedir que ele visualize o faturamento da empresa ou edite dados dos colegas.
+              <strong>🔒 Segurança:</strong> O acesso criado permite apenas que o profissional entre no sistema com e-mail e senha.
             </div>
 
             <div className="form-actions">
@@ -331,7 +331,18 @@ export const CadastroAcesso: React.FC = () => {
           font-size: 0.75rem;
           font-weight: 600;
           cursor: pointer;
-          padding: 0.25rem;
+          padding: 0.35rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-sm);
+          transition: all 0.2s ease;
+          line-height: 0;
+        }
+
+        .btn-toggle-password:hover {
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-hover);
         }
 
         .input-helper {

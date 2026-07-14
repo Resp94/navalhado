@@ -26,11 +26,11 @@ on conflict (id) do nothing;
 -- Barber Brooklyn: 71de201b-84e0-40be-b9e2-0022638d5bdb
 
 -- 3. Inserir Instâncias de Whatsapp (Evolution API)
-insert into public.evolution_api_instances (id, tenant_id, instance_name, api_key, status, created_at, updated_at) values
-(gen_random_uuid(), 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'barbearia-estilo', 'key123', 'connected', now(), now()),
-(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bdb', 'barber-brooklyn', 'key456', 'connected', now(), now()),
-(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bd1', 'navalha-ouro', 'key789', 'disconnected', now(), now()),
-(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bd2', 'cortes-cia', 'key987', 'pairing', now(), now());
+insert into public.evolution_api_instances (id, tenant_id, instance_name, api_key, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, created_at, updated_at) values
+(gen_random_uuid(), 'd3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'barbearia-estilo', 'key123', 'connected', true, true, 2, true, now(), now()),
+(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bdb', 'barber-brooklyn', 'key456', 'connected', true, true, 2, true, now(), now()),
+(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bd1', 'navalha-ouro', 'key789', 'disconnected', true, true, 2, true, now(), now()),
+(gen_random_uuid(), '71de201b-84e0-40be-b9e2-0022638d5bd2', 'cortes-cia', 'key987', 'pairing', true, true, 2, true, now(), now());
 
 -- 4. Inserir Assinaturas (Subscriptions)
 insert into public.tenant_subscriptions (id, tenant_id, plan_id, status, start_date, end_date, billing_cycle, created_at, updated_at) values
@@ -94,7 +94,7 @@ insert into public.invoices (tenant_id, tenant_subscription_id, external_id, amo
 insert into public.invoices (tenant_id, tenant_subscription_id, external_id, amount, status, due_date, paid_at, created_at) values
 ('d3b07384-d113-4a1b-a5ed-1efeb7e51c24', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c01', 'INV-ESTILO-CURRENT', 199.00, 'paid', now() - interval '2 days', now() - interval '2 days', now() - interval '5 days'),
 ('71de201b-84e0-40be-b9e2-0022638d5bdb', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c02', 'INV-BROOKLYN-CURRENT', 349.00, 'paid', now() - interval '1 day', now() - interval '1 day', now() - interval '4 days'),
-('71de201b-84e0-40be-b9e2-0022638d5bd1', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c03', 'INV-NAVALHA-CURRENT', 99.00, 'paid', now(), now(), now() - interval '3 days')
+('71de201b-84e0-40be-b9e2-0022638d5bd1', 'e11a7384-d113-4a1b-a5ed-1efeb7e51c03', 'INV-NAVALHA-CURRENT', 99.00, 'paid', now(), now(), now() - interval '3 days' )
 on conflict do nothing;
 
 -- 6. Inserir Profissionais para Barbearia Estilo

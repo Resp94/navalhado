@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { Modal } from '../../components/Modal';
 
 interface Professional {
   id: string;
@@ -62,6 +63,12 @@ export const Dashboard: React.FC = () => {
   // Estados dos Modais
   const [showModal, setShowModal] = useState(false);
   const [savingAppointment, setSavingAppointment] = useState(false);
+
+  // Modal de Confirmação de Cancelamento
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+
+  // Modal de Confirmação de Pagamento
+  const [paymentTarget, setPaymentTarget] = useState<{ appId: string; currentStatus: 'pending' | 'paid'; servicePrice: number } | null>(null);
 
   // Estados do Formulário de Encaixe
   const [clientType, setClientType] = useState<'existing' | 'new'>('existing');
@@ -290,7 +297,13 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleTogglePaymentStatus = async (appId: string, currentStatus: 'pending' | 'paid', servicePrice: number) => {
+  const handleOpenPaymentModal = (appId: string, currentStatus: 'pending' | 'paid', servicePrice: number) => {
+    setPaymentTarget({ appId, currentStatus, servicePrice });
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!paymentTarget) return;
+    const { appId, currentStatus, servicePrice } = paymentTarget;
     try {
       const nextStatus = currentStatus === 'pending' ? 'paid' : 'pending';
       
@@ -353,14 +366,20 @@ export const Dashboard: React.FC = () => {
 
       if (error) throw error;
       addToast(`Agendamento marcado como ${nextStatus === 'paid' ? 'Pago' : 'Pendente'}!`, 'success');
+      setPaymentTarget(null);
       fetchAppointments();
     } catch (error: any) {
       addToast('Erro ao atualizar status de pagamento.', 'error');
+      setPaymentTarget(null);
     }
   };
 
-  const handleCancelAppointment = async (appId: string) => {
-    if (!confirm('Deseja realmente cancelar este agendamento?')) return;
+  const handleOpenCancelModal = (appId: string) => {
+    setCancelTargetId(appId);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelTargetId) return;
     try {
       const { error } = await supabase
         .from('appointments')
@@ -369,7 +388,7 @@ export const Dashboard: React.FC = () => {
           cancellation_reason: 'Cancelado pelo gerente no painel',
           updated_at: new Date().toISOString()
         })
-        .eq('id', appId);
+        .eq('id', cancelTargetId);
 
       if (error) throw error;
       
@@ -377,13 +396,15 @@ export const Dashboard: React.FC = () => {
       await supabase
         .from('payments')
         .delete()
-        .eq('appointment_id', appId)
+        .eq('appointment_id', cancelTargetId)
         .eq('tenant_id', tenant.tenantId);
 
       addToast('Agendamento cancelado.', 'warning');
+      setCancelTargetId(null);
       fetchAppointments();
     } catch (error: any) {
       addToast('Não foi possível cancelar o agendamento.', 'error');
+      setCancelTargetId(null);
     }
   };
 
@@ -500,7 +521,7 @@ export const Dashboard: React.FC = () => {
                             <div className="booking-actions">
                               {/* Botão de Cobrança / Status de Pagamento */}
                               <button 
-                                onClick={() => handleTogglePaymentStatus(app.id, app.payment_status, app.service?.price || 0)}
+                                onClick={() => handleOpenPaymentModal(app.id, app.payment_status, app.service?.price || 0)}
                                 className={`btn-action-payment ${app.payment_status === 'paid' ? 'btn-action-payment--paid' : 'btn-action-payment--pending'}`}
                                 title={app.payment_status === 'paid' ? 'Estornar pagamento' : 'Registrar pagamento'}
                               >
@@ -509,7 +530,7 @@ export const Dashboard: React.FC = () => {
                               
                               {/* Cancelar */}
                               <button 
-                                onClick={() => handleCancelAppointment(app.id)}
+                                onClick={() => handleOpenCancelModal(app.id)}
                                 className="btn-action-cancel"
                                 title="Cancelar agendamento"
                               >
@@ -660,6 +681,114 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ─── MODAL DE CONFIRMAÇÃO DE CANCELAMENTO ─── */}
+      <Modal
+        isOpen={cancelTargetId !== null}
+        onClose={() => setCancelTargetId(null)}
+        title="Cancelar Agendamento"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+          <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', margin: 0, lineHeight: 1.5 }}>
+            Tem certeza de que deseja cancelar este agendamento? Esta ação não pode ser desfeita.
+          </p>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '0.75rem',
+            marginTop: '0.5rem'
+          }}>
+            <button
+              onClick={() => setCancelTargetId(null)}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                padding: '10px 20px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Voltar
+            </button>
+            <button
+              onClick={handleConfirmCancel}
+              style={{
+                backgroundColor: 'var(--color-error)',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(240, 82, 82, 0.2)'
+              }}
+            >
+              Sim, cancelar agendamento
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── MODAL DE CONFIRMAÇÃO DE PAGAMENTO ─── */}
+      <Modal
+        isOpen={paymentTarget !== null}
+        onClose={() => setPaymentTarget(null)}
+        title={paymentTarget?.currentStatus === 'paid' ? 'Estornar Pagamento' : 'Registrar Pagamento'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+          <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', margin: 0, lineHeight: 1.5 }}>
+            {paymentTarget?.currentStatus === 'paid'
+              ? `Tem certeza de que deseja estornar o pagamento de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTarget?.servicePrice || 0)}?`
+              : `Confirmar o recebimento de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentTarget?.servicePrice || 0)}?`}
+          </p>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '0.75rem',
+            marginTop: '0.5rem'
+          }}>
+            <button
+              onClick={() => setPaymentTarget(null)}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                padding: '10px 20px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Voltar
+            </button>
+            <button
+              onClick={handleConfirmPayment}
+              style={{
+                backgroundColor: paymentTarget?.currentStatus === 'paid' ? 'var(--color-warning)' : 'var(--color-success)',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: paymentTarget?.currentStatus === 'paid'
+                  ? '0 4px 12px rgba(217, 119, 6, 0.2)'
+                  : '0 4px 12px rgba(46, 160, 67, 0.2)'
+              }}
+            >
+              {paymentTarget?.currentStatus === 'paid' ? 'Sim, estornar' : 'Sim, confirmar pagamento'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <style>{`
         .agenda-page {

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
+import { NotificationBell } from './NotificationBell';
 import { useToast } from './Toast';
 import { ScissorsIcon } from './Icons';
 
@@ -62,6 +64,10 @@ export const GerenteLayout: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tenantInfo, setTenantInfo] = useState<TenantContextType | null>(null);
   const [managerName, setManagerName] = useState('Gerente');
+
+  const { notifications, unreadCount, markAllAsRead, markAsRead } = useRealtimeNotifications({
+    tenantId: tenantInfo?.tenantId || '',
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -218,6 +224,14 @@ export const GerenteLayout: React.FC = () => {
 
           {/* Usuário Logado e Logout */}
           <div className="gerente-header__user">
+            {/* Sininho de Notificações */}
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onMarkAllAsRead={markAllAsRead}
+              onMarkAsRead={markAsRead}
+            />
+
             <div className="gerente-header__user-info">
               <span className="gerente-header__user-name">{managerName}</span>
               <span className="gerente-header__user-role">Gerente</span>

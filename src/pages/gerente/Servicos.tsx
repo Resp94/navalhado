@@ -272,16 +272,20 @@ export const Servicos: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="service-commission">Comissão Específica % (Opcional)</label>
-              <input 
-                id="service-commission"
-                type="number" 
-                min="0" 
-                max="100" 
-                placeholder="Ex: 45 (Deixe em branco para usar a comissão padrão do barbeiro)" 
-                value={commission} 
-                onChange={(e) => setCommission(e.target.value)}
-              />
+              <label htmlFor="service-commission">Comissão (%) <span className="label-optional">Opcional</span></label>
+              <div className="input-group">
+                <input 
+                  id="service-commission"
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  placeholder="Ex: 45" 
+                  value={commission} 
+                  onChange={(e) => setCommission(e.target.value)}
+                />
+                <span className="input-group__suffix">%</span>
+              </div>
+              <span className="input-helper">Deixe em branco para usar a comissão padrão do barbeiro</span>
             </div>
 
             <div className="form-group">
@@ -491,6 +495,11 @@ export const Servicos: React.FC = () => {
           font-size: var(--font-size-sm);
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           outline: none;
+          max-width: 100%;
+        }
+
+        .form-group textarea {
+          resize: vertical;
         }
 
         .form-group input:focus,
@@ -516,6 +525,52 @@ export const Servicos: React.FC = () => {
         .duration-highlight {
           color: var(--color-brand-primary);
           font-weight: 800;
+        }
+
+        .input-group {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-group input {
+          width: 100%;
+          padding-right: 2.75rem;
+        }
+
+        /* Remove as setas do input number */
+        .input-group input[type="number"]::-webkit-outer-spin-button,
+        .input-group input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+
+        .input-group input[type="number"] {
+          -moz-appearance: textfield;
+        }
+
+        .input-group__suffix {
+          position: absolute;
+          right: 0.875rem;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          pointer-events: none;
+          line-height: 1;
+        }
+
+        .label-optional {
+          font-weight: 400;
+          text-transform: none;
+          letter-spacing: normal;
+          color: var(--color-text-secondary);
+          font-size: 0.65rem;
+        }
+
+        .input-helper {
+          font-size: 0.7rem;
+          color: var(--color-text-secondary);
+          margin-top: 0.1rem;
         }
 
         .slider-container {
