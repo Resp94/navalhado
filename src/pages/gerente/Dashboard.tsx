@@ -398,6 +398,13 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Formatar ISO (yyyy-MM-dd) para dd/MM/yyyy
+  const formatDateBR = (iso: string): string => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   return (
     <div className="agenda-page">
       {/* HEADER DA AGENDA */}
@@ -410,12 +417,15 @@ export const Dashboard: React.FC = () => {
         {/* Controle de Navegação de Data */}
         <div className="date-nav-controls">
           <button onClick={() => shiftDate(-1)} className="btn-date-nav">◀</button>
-          <input 
-            type="date" 
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="date-picker-input"
-          />
+          <div className="date-picker-custom">
+            <span className="date-picker-custom__text">{formatDateBR(selectedDate)}</span>
+            <input 
+              type="date" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="date-picker-custom__input"
+            />
+          </div>
           <button onClick={() => shiftDate(1)} className="btn-date-nav">▶</button>
           <button 
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])} 
@@ -719,22 +729,56 @@ export const Dashboard: React.FC = () => {
           transform: scale(0.97);
         }
 
-        .date-picker-input {
+        .date-picker-custom {
+          position: relative;
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+        }
+
+        .date-picker-custom__text {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 110px;
           padding: 0.45rem 1rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           font-family: inherit;
           font-size: var(--font-size-sm);
-          outline: none;
           color: var(--color-text-primary);
           background-color: rgba(255, 255, 255, 0.75);
           backdrop-filter: blur(4px);
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          user-select: none;
+          letter-spacing: 0.02em;
         }
 
-        .date-picker-input:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
+        .date-picker-custom:hover .date-picker-custom__text {
+          border-color: var(--color-brand-soft);
+          background-color: rgba(255, 255, 255, 0.9);
+        }
+
+        .date-picker-custom__input {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
+          cursor: pointer;
+          border: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        /* Make the native picker trigger fill the visible area */
+        .date-picker-custom__input::-webkit-calendar-picker-indicator {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          cursor: pointer;
+          opacity: 0;
         }
 
         .agenda-columns-grid {

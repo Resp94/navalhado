@@ -79,13 +79,17 @@ export const Financeiro: React.FC = () => {
 
   useGSAP(() => {
     if (!loading && metrics) {
-      gsap.fromTo('.metric-card', 
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' }
+      const tl = gsap.timeline({
+        defaults: { ease: 'cubic-bezier(0.32, 0.72, 0, 1)' },
+      });
+      tl.fromTo('.bento-card',
+        { y: 30, opacity: 0, scale: 0.97 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.08 },
       );
-      gsap.fromTo('.financial-details-grid > section',
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.6, delay: 0.15, stagger: 0.1, ease: 'power2.out' }
+      tl.fromTo('.bento-details .bento-card',
+        { y: 25, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, stagger: 0.1 },
+        '-=0.3',
       );
     }
   }, [loading, metrics]);
@@ -146,145 +150,187 @@ export const Financeiro: React.FC = () => {
 
       {loading || !metrics ? (
         <div className="skeleton-container-sub">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
             <div className="skeleton" style={{ height: '120px' }} />
             <div className="skeleton" style={{ height: '120px' }} />
             <div className="skeleton" style={{ height: '120px' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1.5rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem', marginTop: '2.5rem' }}>
             <div className="skeleton" style={{ height: '280px' }} />
             <div className="skeleton" style={{ height: '280px' }} />
           </div>
         </div>
       ) : (
         <div className="financial-content">
-          {/* CARDS DE MÉTRICAS */}
-          <section className="metrics-grid">
-            {/* Card 1: Faturamento Bruto */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Faturamento Bruto</span>
-                <span className="metric-card__icon text-brand">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" x2="12" y1="2" y2="22" />
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                  </svg>
-                </span>
+          {/* ═══ BENTO METRICS GRID ═══ */}
+          <div className="bento-metrics">
+            {/* Card: Faturamento Bruto */}
+            <div className="bento-card bento-card--primary">
+              <div className="bento-card__shell">
+                <div className="bento-card__core">
+                  <div className="bento-card__header">
+                    <div className="bento-card__eyebrow">
+                      <span className="bento-card__eyebrow-dot" />
+                      Faturamento Bruto
+                    </div>
+                    <span className="bento-card__icon-box text-brand">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <line x1="12" x2="12" y1="2" y2="22" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="bento-card__value">{formatCurrency(metrics.total_revenue)}</div>
+                  <p className="bento-card__desc">Soma de todos os pagamentos recebidos no período</p>
+                </div>
               </div>
-              <div className="metric-card__value">{formatCurrency(metrics.total_revenue)}</div>
-              <p className="metric-card__desc">Soma de todos os pagamentos recebidos</p>
             </div>
 
-            {/* Card 2: Comissões Acumuladas */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Comissões da Equipe</span>
-                <span className="metric-card__icon text-warning">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </span>
+            {/* Card Superior Direito: Comissões */}
+            <div className="bento-card bento-card--sm">
+              <div className="bento-card__shell">
+                <div className="bento-card__core">
+                  <div className="bento-card__header">
+                    <div className="bento-card__eyebrow">
+                      <span className="bento-card__eyebrow-dot" />
+                      Comissões
+                    </div>
+                    <span className="bento-card__icon-box text-warning">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="bento-card__value">{formatCurrency(metrics.total_commission)}</div>
+                  <p className="bento-card__desc">Valor repassado aos barbeiros</p>
+                </div>
               </div>
-              <div className="metric-card__value">{formatCurrency(metrics.total_commission)}</div>
-              <p className="metric-card__desc">Valor total repassado aos barbeiros</p>
             </div>
 
-            {/* Card 3: Lucro Líquido */}
-            <div className="metric-card metric-card--highlight">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Faturamento Líquido</span>
-                <span className="metric-card__icon text-success">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                    <polyline points="17 6 23 6 23 12" />
-                  </svg>
-                </span>
+            {/* Card Inferior Direito: Líquido (highlight) */}
+            <div className="bento-card bento-card--sm bento-card--accent">
+              <div className="bento-card__shell">
+                <div className="bento-card__core">
+                  <div className="bento-card__header">
+                    <div className="bento-card__eyebrow">
+                      <span className="bento-card__eyebrow-dot" />
+                      Faturamento Líquido
+                    </div>
+                    <span className="bento-card__icon-box text-success">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                        <polyline points="17 6 23 6 23 12" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="bento-card__value">{formatCurrency(metrics.net_revenue)}</div>
+                  <p className="bento-card__desc">Caixa livre após comissões</p>
+                </div>
               </div>
-              <div className="metric-card__value">{formatCurrency(metrics.net_revenue)}</div>
-              <p className="metric-card__desc">Caixa livre após repasse de comissões</p>
             </div>
-          </section>
+          </div>
 
-          <div className="financial-details-grid">
-            {/* Lado esquerdo: Métodos de Pagamento */}
-            <section className="card methods-card">
-              <h3>Faturamento por Método</h3>
-              
-              {metrics.total_revenue === 0 ? (
-                <div className="empty-sub-state">
-                  <p>Sem faturamento registrado neste período.</p>
-                </div>
-              ) : (
-                <div className="methods-list">
-                  {methodsList.map((method) => {
-                    const percentage = metrics.total_revenue > 0 ? (method.val / metrics.total_revenue) * 100 : 0;
-                    return (
-                      <div key={method.name} className="method-item">
-                        <div className="method-item-header">
-                          <span className="method-name">{method.name}</span>
-                          <div className="method-vals">
-                            <span className="method-amount">{formatCurrency(method.val)}</span>
-                            <span className="method-perc">{percentage.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                        <div className="progress-bar-bg">
-                          <div 
-                            className="progress-bar-fill" 
-                            style={{ width: `${(method.val / maxMethodVal) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* Lado direito: Comissões dos Profissionais */}
-            <section className="card professionals-commission-card">
-              <h3>Comissões e Atendimentos</h3>
-              
-              {metrics.commissions_by_professional.length === 0 ? (
-                <div className="empty-sub-state">
-                  <p>Nenhum profissional realizou atendimentos no período.</p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="financial-table">
-                    <thead>
-                      <tr>
-                        <th>Profissional</th>
-                        <th style={{ textAlign: 'center' }}>Atendimentos</th>
-                        <th style={{ textAlign: 'right' }}>Comissão Acumulada</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {metrics.commissions_by_professional.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>
-                            <div className="prof-cell">
-                              <div className="prof-avatar-sm">
-                                {item.professional_name.charAt(0).toUpperCase()}
+          {/* ═══ BENTO DETAILS GRID ═══ */}
+          <div className="bento-details">
+            {/* Card Esquerdo: Métodos de Pagamento (double-bezel) */}
+            <div className="bento-card">
+              <div className="bento-card__shell">
+                <div className="bento-card__core">
+                  <h3 className="bento-card__section-title">
+                    <span className="bento-card__eyebrow">
+                      <span className="bento-card__eyebrow-dot" />
+                      Receitas
+                    </span>
+                    Faturamento por Método
+                  </h3>
+                  
+                  {metrics.total_revenue === 0 ? (
+                    <div className="empty-sub-state">
+                      <p>Sem faturamento registrado neste período.</p>
+                    </div>
+                  ) : (
+                    <div className="methods-list">
+                      {methodsList.map((method) => {
+                        const percentage = metrics.total_revenue > 0 ? (method.val / metrics.total_revenue) * 100 : 0;
+                        return (
+                          <div key={method.name} className="method-item">
+                            <div className="method-item-header">
+                              <span className="method-name">{method.name}</span>
+                              <div className="method-vals">
+                                <span className="method-amount">{formatCurrency(method.val)}</span>
+                                <span className="method-perc">{percentage.toFixed(0)}%</span>
                               </div>
-                              <span className="prof-name">{item.professional_name}</span>
                             </div>
-                          </td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                            {item.appointments_count}
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-brand-primary)' }}>
-                            {formatCurrency(item.commission_sum)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <div className="progress-bar-bg">
+                              <div 
+                                className="progress-bar-fill" 
+                                style={{ width: `${(method.val / maxMethodVal) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </section>
+              </div>
+            </div>
+
+            {/* Card Direito: Comissões dos Profissionais (double-bezel, wide) */}
+            <div className="bento-card bento-card--wide">
+              <div className="bento-card__shell">
+                <div className="bento-card__core">
+                  <h3 className="bento-card__section-title">
+                    <span className="bento-card__eyebrow">
+                      <span className="bento-card__eyebrow-dot" />
+                      Repasses
+                    </span>
+                    Comissões e Atendimentos
+                  </h3>
+                  
+                  {metrics.commissions_by_professional.length === 0 ? (
+                    <div className="empty-sub-state">
+                      <p>Nenhum profissional realizou atendimentos no período.</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="financial-table">
+                        <thead>
+                          <tr>
+                            <th>Profissional</th>
+                            <th style={{ textAlign: 'center' }}>Atendimentos</th>
+                            <th style={{ textAlign: 'right' }}>Comissão</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {metrics.commissions_by_professional.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <div className="prof-cell">
+                                  <div className="prof-avatar-sm">
+                                    {item.professional_name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="prof-name">{item.professional_name}</span>
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center', fontWeight: 600 }}>
+                                {item.appointments_count}
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-brand-primary)' }}>
+                                {formatCurrency(item.commission_sum)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -293,21 +339,31 @@ export const Financeiro: React.FC = () => {
         .financial-page {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 2.5rem;
         }
 
+        .financial-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2.5rem;
+        }
+
+        /* ═══ HEADER — liquid glass ═══ */
         .financial-header-section {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 1.5rem;
           padding: 1.25rem 1.75rem;
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
+          background: 
+            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
+            linear-gradient(145deg, rgba(255,255,255,0.78) 0%, rgba(255,241,230,0.5) 45%, rgba(255,255,255,0.72) 100%);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           border-radius: var(--radius-lg);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 32px -8px rgba(45, 35, 30, 0.08);
         }
 
         @media (max-width: 768px) {
@@ -331,12 +387,16 @@ export const Financeiro: React.FC = () => {
 
         .period-selector {
           display: flex;
-          background-color: rgba(255, 255, 255, 0.5);
-          border: 1px solid var(--color-border);
+          background: 
+            radial-gradient(ellipse 60% 80% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 80% at 70% 50%, rgba(217, 108, 0, 0.02) 0%, transparent 55%),
+            linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(255,241,230,0.4) 50%, rgba(255,255,255,0.75) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.4);
           border-radius: var(--radius-full);
           padding: 0.25rem;
-          box-shadow: var(--shadow-sm);
-          backdrop-filter: blur(4px);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 16px -6px rgba(45, 35, 30, 0.08);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
         }
 
         .period-btn {
@@ -361,108 +421,147 @@ export const Financeiro: React.FC = () => {
           box-shadow: var(--shadow-sm);
         }
 
-        .metrics-grid {
+        /* ═══ BENTO METRICS GRID ═══ */
+        .bento-metrics {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.5rem;
-          width: 100%;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 2rem;
+          align-items: stretch;
         }
 
-        .metric-card {
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .metric-card:hover {
-          transform: translateY(-3px);
-          box-shadow: var(--shadow-md);
-          border-color: rgba(217, 108, 0, 0.3);
-        }
-
-        .metric-card--highlight {
-          border-color: rgba(217, 108, 0, 0.25);
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(254, 243, 199, 0.3) 100%);
-        }
-
-        .metric-card__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 0.5rem;
-        }
-
-        .metric-card__title {
-          font-size: var(--font-size-xs);
-          text-transform: uppercase;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
-        }
-
-        .metric-card__icon {
-          display: flex;
-          align-items: center;
-        }
-
-        .metric-card__value {
-          font-size: var(--font-size-2xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          letter-spacing: -0.02em;
-          margin-bottom: 0.25rem;
-        }
-
-        .metric-card__desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0;
-          font-weight: 600;
-        }
-
-        .text-brand { color: var(--color-brand-primary); }
-        .text-success { color: var(--color-success); }
-        .text-warning { color: var(--color-warning); }
-
-        .financial-details-grid {
-          display: grid;
-          grid-template-columns: 1fr 1.5fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
-
-        @media (max-width: 1024px) {
-          .financial-details-grid {
+        @media (max-width: 900px) {
+          .bento-metrics {
             grid-template-columns: 1fr;
           }
         }
 
-        .card {
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-lg);
-          padding: 1.75rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
+        /* ═══ BENTO DETAILS GRID ═══ */
+        .bento-details {
+          display: grid;
+          grid-template-columns: 1fr 1.8fr;
+          gap: 2rem;
+          align-items: start;
+          grid-auto-flow: dense;
         }
 
-        .card h3 {
+        @media (max-width: 1024px) {
+          .bento-details {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* ═══ CARD SYSTEM — clean with hover lift ═══ */
+        .bento-card {
+          opacity: 0; /* revealed by GSAP */
+          transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .bento-card:hover {
+          transform: translateY(-4px);
+        }
+
+        .bento-card__shell {
+          height: 100%;
+        }
+
+        .bento-card__core {
+          background-color: var(--color-bg-secondary);
+          border-radius: 1.25rem;
+          padding: 1.75rem;
+          border: 1px solid rgba(255, 255, 255, 0.7);
+          box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .bento-card:hover .bento-card__core {
+          border-color: rgba(217, 108, 0, 0.15);
+          box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 12px 32px -10px rgba(45, 35, 30, 0.1);
+        }
+
+        /* Card highlight (líquido) — mesmo style dos demais */
+        .bento-card--accent .bento-card__core {
+          border-color: rgba(217, 108, 0, 0.15);
+        }
+
+        .bento-card__header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+
+        .bento-card__eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .bento-card__eyebrow-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: var(--color-brand-primary);
+        }
+
+        .bento-card__icon-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background-color: rgba(45, 35, 30, 0.04);
+          border: 1px solid rgba(45, 35, 30, 0.06);
+          flex-shrink: 0;
+        }
+
+        .bento-card__value {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          letter-spacing: -0.02em;
+          line-height: 1.1;
+        }
+
+        .bento-card__desc {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0;
+          font-weight: 500;
+        }
+
+        .bento-card__section-title {
           font-size: var(--font-size-lg);
           font-weight: 800;
-          margin-bottom: 1.25rem;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.8);
-          padding-bottom: 0.5rem;
           color: var(--color-text-primary);
+          margin: 0 0 1.25rem;
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid rgba(234, 222, 214, 0.7);
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
         }
 
+        .bento-card__section-title .bento-card__eyebrow {
+          font-size: 0.6rem;
+        }
+
+        /* ═══ TEXT COLORS ═══ */
+        .text-brand { color: var(--color-brand-primary); }
+        .text-success { color: var(--color-success); }
+        .text-warning { color: var(--color-warning); }
+
+        /* ═══ EMPTY STATE ═══ */
         .empty-sub-state {
-          padding: 4rem 1.5rem;
+          padding: 3rem 1.5rem;
           text-align: center;
           color: var(--color-text-secondary);
           font-style: italic;
@@ -472,6 +571,7 @@ export const Financeiro: React.FC = () => {
           background-color: rgba(255, 255, 255, 0.25);
         }
 
+        /* ═══ METHODS LIST ═══ */
         .methods-list {
           display: flex;
           flex-direction: column;
@@ -512,7 +612,7 @@ export const Financeiro: React.FC = () => {
           color: var(--color-brand-primary);
           background-color: rgba(217, 108, 0, 0.1);
           padding: 0.15rem 0.45rem;
-          border-radius: var(--radius-sm);
+          border-radius: 4px;
           font-weight: 700;
         }
 
@@ -531,6 +631,7 @@ export const Financeiro: React.FC = () => {
           transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* ═══ TABLE ═══ */
         .table-responsive {
           width: 100%;
           overflow-x: auto;
@@ -589,7 +690,7 @@ export const Financeiro: React.FC = () => {
           font-weight: 700;
         }
 
-        /* Skeleton Styles */
+        /* ═══ SKELETON ═══ */
         .skeleton-container-sub {
           display: flex;
           flex-direction: column;

@@ -84,12 +84,37 @@ export const Servicos: React.FC = () => {
     setEditingId(service.id);
     setName(service.name);
     setDescription(service.description || '');
-    setPrice(service.price.toString());
+    setPrice(
+      service.price.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
     setDuration(service.duration_minutes);
     setCategory(service.category);
     setCommission(service.commission_percentage !== null ? service.commission_percentage.toString() : '');
     setIsActive(service.is_active);
   };
+
+  // ── Helpers de formatação monetária (pt-BR) ──
+  const formatPriceToBR = (digits: string): string => {
+    const padded = digits.padStart(3, '0');
+    const intPart = padded.slice(0, -2);
+    const centPart = padded.slice(-2);
+    const intFormatted = parseInt(intPart, 10).toLocaleString('pt-BR');
+    return `${intFormatted},${centPart}`;
+  };
+
+  const parsePriceFromBR = (formatted: string): number => {
+    const normalized = formatted.replace(/\./g, '').replace(',', '.');
+    return parseFloat(normalized);
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    setPrice(digits ? formatPriceToBR(digits) : '');
+  };
+  // ── Fim helpers ──
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +122,7 @@ export const Servicos: React.FC = () => {
       addToast('O nome do serviço é obrigatório.', 'warning');
       return;
     }
-    if (!price || parseFloat(price) <= 0) {
+    if (!price || parsePriceFromBR(price) <= 0) {
       addToast('Informe um preço válido.', 'warning');
       return;
     }
@@ -108,7 +133,7 @@ export const Servicos: React.FC = () => {
         tenant_id: tenant.tenantId,
         name: name.trim(),
         description: description.trim() || null,
-        price: parseFloat(price),
+        price: parsePriceFromBR(price),
         duration_minutes: duration,
         category,
         commission_percentage: commission ? parseFloat(commission) : null,
@@ -205,18 +230,28 @@ export const Servicos: React.FC = () => {
                 <label htmlFor="service-price">Preço (R$)</label>
                 <input 
                   id="service-price"
-                  type="number" 
-                  step="0.01" 
-                  placeholder="Ex: 50.00" 
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 50,00" 
                   value={price} 
-                  onChange={(e) => setPrice(e.target.value)} 
+                  onChange={handlePriceChange}
                   required
                 />
               </div>
             </div>
 
             <div className="form-group">
-              <label>Duração: <span className="duration-highlight">{duration} minutos</span></label>
+              <label>
+                Duração:{' '}
+                <span className="duration-highlight">
+                  {duration < 60
+                    ? `${duration} minutos`
+                    : duration % 60 === 0
+                      ? `${duration / 60} ${duration === 60 ? 'hora' : 'horas'}`
+                      : `${Math.floor(duration / 60)} ${Math.floor(duration / 60) === 1 ? 'hora' : 'horas'} e ${duration % 60} min`
+                  }
+                </span>
+              </label>
               <div className="slider-container">
                 <input 
                   type="range" 
@@ -316,7 +351,14 @@ export const Servicos: React.FC = () => {
                               <h5>{service.name}</h5>
                               {service.description && <p className="service-item-desc">{service.description}</p>}
                               <div className="service-item-badges">
-                                <span className="badge badge--duration">{service.duration_minutes} min</span>
+                                <span className="badge badge--duration">
+                                {service.duration_minutes < 60
+                                  ? `${service.duration_minutes} min`
+                                  : service.duration_minutes % 60 === 0
+                                    ? `${service.duration_minutes / 60}h`
+                                    : `${Math.floor(service.duration_minutes / 60)}h${service.duration_minutes % 60}`
+                                }
+                              </span>
                                 {service.commission_percentage !== null && (
                                   <span className="badge badge--commission">Comissão: {service.commission_percentage}%</span>
                                 )}
@@ -417,6 +459,16 @@ export const Servicos: React.FC = () => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1rem;
+        }
+
+        .form-row .form-group {
+          min-width: 0;
+        }
+
+        .form-row .form-group input,
+        .form-row .form-group select {
+          width: 100%;
+          min-width: 0;
         }
 
         .form-group label {
