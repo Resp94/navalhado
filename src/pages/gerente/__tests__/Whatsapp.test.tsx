@@ -24,7 +24,8 @@ const {
   mockSelect, 
   mockInsert, 
   mockEq,
-  mockSingle 
+  mockSingle,
+  mockFunctionsInvoke
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockMaybeSingle = vi.fn();
@@ -33,6 +34,7 @@ const {
   const mockInsert = vi.fn();
   const mockEq = vi.fn();
   const mockSingle = vi.fn();
+  const mockFunctionsInvoke = vi.fn();
 
   // Estrutura fluente e robusta para simular o encadeamento do Supabase JS Client
   const mockSupabaseClient = {
@@ -41,6 +43,9 @@ const {
       subscribe: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
     })),
     removeChannel: vi.fn(),
+    functions: {
+      invoke: mockFunctionsInvoke,
+    },
     from: vi.fn().mockImplementation(() => ({
       select: mockSelect.mockImplementation(() => ({
         eq: mockEq.mockImplementation(() => ({
@@ -72,7 +77,8 @@ const {
     mockSelect, 
     mockInsert, 
     mockEq,
-    mockSingle
+    mockSingle,
+    mockFunctionsInvoke
   };
 });
 
@@ -286,5 +292,57 @@ describe('Whatsapp Config Page - TDD', () => {
     await waitFor(() => {
       expect(screen.getByText('Lembrete enviado 6 horas antes do agendamento')).toBeInTheDocument();
     });
+  });
+
+  it('deve disparar mensagem de teste enviando os dados para a Edge Function', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        api_key: 'key_123',
+        status: 'connected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: false,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+
+    mockFunctionsInvoke.mockResolvedValue({
+      data: { success: true },
+      error: null
+    });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Disparar Mensagem')).toBeInTheDocument();
+    });
+
+    const phoneInput = screen.getByLabelText('Número com DDD (Apenas números)') as HTMLInputElement;
+    const msgTextarea = screen.getByLabelText('Mensagem') as HTMLTextAreaElement;
+    const submitButton = screen.getByRole('button', { name: 'Enviar Mensagem de Teste' });
+
+    // Preencher formulário
+    fireEvent.change(phoneInput, { target: { value: '11999999999' } });
+    fireEvent.change(msgTextarea, { target: { value: 'Teste de mensagem' } });
+
+    // Submeter formulário
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-test', {
+        body: {
+          tenant_id: 'tenant-test-id',
+          number: '11999999999',
+          text: 'Teste de mensagem'
+        }
+      });
+    });
+
+    expect(mockAddToast).toHaveBeenCalledWith('Mensagem de teste disparada com sucesso para 11999999999!', 'success');
   });
 });

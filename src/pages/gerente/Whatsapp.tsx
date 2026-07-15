@@ -212,11 +212,21 @@ export const Whatsapp: React.FC = () => {
 
     try {
       setActionLoading(true);
-      // Simulação do envio de mensagem via Evolution API
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const { error } = await supabase.functions.invoke('whatsapp-integration/send-test', {
+        body: {
+          tenant_id: tenant.tenantId,
+          number: testPhone,
+          text: testMessage,
+        },
+      });
+
+      if (error) throw error;
+
       addToast(`Mensagem de teste disparada com sucesso para ${testPhone}!`, 'success');
-    } catch (error) {
-      addToast('Erro ao disparar mensagem de teste.', 'error');
+    } catch (error: any) {
+      console.error('Error sending test message:', error);
+      addToast(error?.message || 'Erro ao disparar mensagem de teste.', 'error');
     } finally {
       setActionLoading(false);
     }

@@ -808,6 +808,110 @@ export const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // -------------------------------------------------------------------------
+    // ROTA: /send-test (Frontend Manual Trigger)
+    // -------------------------------------------------------------------------
+    if (path.endsWith("/send-test")) {
+      if (req.method !== "POST") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Validar autenticação do usuário
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized user" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const body = await req.json();
+      const { tenant_id, number, text } = body;
+
+      if (!tenant_id || !number || !text) {
+        return new Response(JSON.stringify({ error: "Missing required parameters" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verificar se o usuário pertence a este tenant_id
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("tenant_id")
+        .eq("id", user.id)
+        .single();
+
+      if (userError || !userData || userData.tenant_id !== tenant_id) {
+        return new Response(JSON.stringify({ error: "Forbidden: You do not have access to this tenant" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Buscar a instância ativa do WhatsApp para esse tenant
+      const { data: instance, error: instanceError } = await supabase
+        .from("evolution_api_instances")
+        .select("instance_name, api_key, status")
+        .eq("tenant_id", tenant_id)
+        .single();
+
+      if (instanceError || !instance) {
+        return new Response(JSON.stringify({ error: "WhatsApp instance not found for this tenant" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (instance.status !== "connected") {
+        return new Response(JSON.stringify({ error: "WhatsApp instance is not connected" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const clientPhone = formatPhoneNumber(number);
+      const vpsUrl = getCleanVpsUrl("send/text");
+
+      const response = await fetch(vpsUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": instance.api_key,
+        },
+        body: JSON.stringify({
+          number: clientPhone,
+          text: text,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[WhatsApp-Integration] Erro ao enviar mensagem de teste via VPS: ${errText}`);
+        return new Response(JSON.stringify({ error: `VPS failed to send test message: ${errText}` }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const resData = await response.json();
+      return new Response(JSON.stringify({ success: true, data: resData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Rota padrão - 404
     return new Response(JSON.stringify({ error: "Endpoint not found" }), {
       status: 404,

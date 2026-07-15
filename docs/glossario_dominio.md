@@ -38,6 +38,12 @@ Este documento define os principais conceitos de negócio, técnicos e termos co
 * **Definição**: A reserva de um horário para a realização de um serviço por um cliente com um profissional específico. Pode assumir os status de `confirmed` (confirmado), `pending` (pendente/fila de encaixe) ou `canceled` (cancelado).
 * **Entidade no Banco**: `public.appointments`
 
+### Origem do Cliente (Customer Source)
+* **Definição**: A forma de entrada do cliente no ecossistema do Navalhado. Pode ser `WhatsApp` (quando inserido via webhook de mensagens recebidas de novos números) ou `Manual` (quando cadastrado diretamente pelo gerente/barbeiro no painel administrativo).
+
+### Promoção de Cadastro (Customer Promotion)
+* **Definição**: A transição de estado de um cliente de provisório para completo (`cadastro_completo = true`). Ocorre automaticamente quando o cliente informa seu nome no primeiro acesso ao link ou quando o gerente edita e salva o nome real do cliente na aba de gerenciamento no painel administrativo.
+
 ---
 
 ## 2. Integração e Comunicação Técnica

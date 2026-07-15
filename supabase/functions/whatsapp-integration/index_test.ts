@@ -732,3 +732,48 @@ Deno.test("POST /process-reminders - should scan pending appointments and send r
 
   restoreFetch();
 });
+
+Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS send text and succeed", async () => {
+  const restoreFetch = setupMockFetch({
+    // Mock obter usuario via Supabase Auth
+    "auth/v1/user": {
+      status: 200,
+      body: { id: "user-123", email: "gerente@email.com" }
+    },
+    // Mock DB select tenant_id from users
+    "rest/v1/users": {
+      status: 200,
+      body: [{ tenant_id: "tenant-456", role: "gerente" }]
+    },
+    // Mock DB select evolution_api_instances
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: [{ instance_name: "nav_test", api_key: "mock-instance-key", status: "connected" }]
+    },
+    // Mock VPS send text call
+    "mock-vps.com/send/text": {
+      status: 200,
+      body: { success: true }
+    }
+  });
+
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-test", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer mock-user-token",
+    },
+    body: JSON.stringify({
+      tenant_id: "tenant-456",
+      number: "11999991111",
+      text: "Mensagem de teste"
+    })
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 200);
+  const data = await res.json();
+  assertEquals(data.success, true);
+
+  restoreFetch();
+});

@@ -56,6 +56,14 @@ const MessageCircleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
   </svg>
 );
 
+const UserCardIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M7 21v-4a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v4" />
+    <circle cx="12" cy="7" r="3" />
+  </svg>
+);
+
 export const GerenteLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,6 +181,7 @@ export const GerenteLayout: React.FC = () => {
   // Lista dos links de navegação para a Navbar
   const navLinks = [
     { path: '/dashboard', label: 'Agenda', icon: <CalendarIcon size={18} /> },
+    { path: '/clientes', label: 'Clientes', icon: <UserCardIcon size={18} /> },
     { path: '/profissionais', label: 'Equipe', icon: <UsersIcon size={18} /> },
     { path: '/servicos/cadastro', label: 'Serviços', icon: <ListIcon size={18} /> },
     { path: '/financeiro', label: 'Financeiro', icon: <CoinsIcon size={18} /> },
