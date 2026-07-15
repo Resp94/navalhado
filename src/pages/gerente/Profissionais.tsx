@@ -44,14 +44,14 @@ export const Profissionais: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   // Escala de horários semanal padrão
-  const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string }>>({
-    monday: { active: true, start: '09:00', end: '18:00' },
-    tuesday: { active: true, start: '09:00', end: '18:00' },
-    wednesday: { active: true, start: '09:00', end: '18:00' },
-    thursday: { active: true, start: '09:00', end: '18:00' },
-    friday: { active: true, start: '09:00', end: '18:00' },
-    saturday: { active: true, start: '09:00', end: '18:00' },
-    sunday: { active: false, start: '09:00', end: '13:00' },
+  const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string; break_start?: string; break_end?: string }>>({
+    monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+    sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
   });
 
   const fetchProfessionals = async () => {
@@ -93,13 +93,13 @@ export const Profissionais: React.FC = () => {
     setIsActive(true);
     setSelectedUserId(null);
     setSchedule({
-      monday: { active: true, start: '09:00', end: '18:00' },
-      tuesday: { active: true, start: '09:00', end: '18:00' },
-      wednesday: { active: true, start: '09:00', end: '18:00' },
-      thursday: { active: true, start: '09:00', end: '18:00' },
-      friday: { active: true, start: '09:00', end: '18:00' },
-      saturday: { active: true, start: '09:00', end: '18:00' },
-      sunday: { active: false, start: '09:00', end: '13:00' },
+      monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
     });
   };
 
@@ -113,23 +113,25 @@ export const Profissionais: React.FC = () => {
 
     // Carregar escala semanal
     const newSchedule = {
-      monday: { active: false, start: '09:00', end: '18:00' },
-      tuesday: { active: false, start: '09:00', end: '18:00' },
-      wednesday: { active: false, start: '09:00', end: '18:00' },
-      thursday: { active: false, start: '09:00', end: '18:00' },
-      friday: { active: false, start: '09:00', end: '18:00' },
-      saturday: { active: false, start: '09:00', end: '18:00' },
-      sunday: { active: false, start: '09:00', end: '18:00' },
+      monday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      tuesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      wednesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      thursday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      friday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      saturday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
+      sunday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
     };
 
     if (prof.weekly_schedule) {
       Object.keys(prof.weekly_schedule).forEach((day) => {
-        const dayData = prof.weekly_schedule?.[day];
+        const dayData = prof.weekly_schedule?.[day] as any;
         if (dayData) {
           newSchedule[day as keyof typeof newSchedule] = {
             active: true,
             start: dayData.start,
             end: dayData.end,
+            break_start: dayData.break_start || '12:00',
+            break_end: dayData.break_end || '13:00',
           };
         }
       });
@@ -148,7 +150,7 @@ export const Profissionais: React.FC = () => {
     }));
   };
 
-  const handleScheduleTimeChange = (day: string, type: 'start' | 'end', value: string) => {
+  const handleScheduleTimeChange = (day: string, type: 'start' | 'end' | 'break_start' | 'break_end', value: string) => {
     setSchedule(prev => ({
       ...prev,
       [day]: {
@@ -177,12 +179,14 @@ export const Profissionais: React.FC = () => {
       setSaving(true);
 
       // Estruturar a weekly_schedule em JSONB
-      const weeklyScheduleJSON: Record<string, { start: string; end: string }> = {};
+      const weeklyScheduleJSON: Record<string, { start: string; end: string; break_start?: string; break_end?: string }> = {};
       Object.keys(schedule).forEach((day) => {
         if (schedule[day].active) {
           weeklyScheduleJSON[day] = {
             start: schedule[day].start,
             end: schedule[day].end,
+            break_start: schedule[day].break_start || '12:00',
+            break_end: schedule[day].break_end || '13:00',
           };
         }
       });
@@ -229,8 +233,22 @@ export const Profissionais: React.FC = () => {
   return (
     <div className="prof-page">
       <div className="prof-header-intro">
-        <h2>Equipe & Escala</h2>
-        <p>Cadastre seus barbeiros, configure a comissão (%) de cada um e edite a escala de dias e horários de trabalho.</p>
+        <span style={{
+          display: 'inline-block',
+          backgroundColor: 'rgba(217, 108, 0, 0.08)',
+          color: 'var(--color-brand-primary)',
+          fontSize: '10px',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          padding: '4px 12px',
+          borderRadius: '9999px',
+          marginBottom: '0.5rem'
+        }}>
+          Gestão
+        </span>
+        <h2>Equipe e Escala</h2>
+        <p style={{ margin: '4px 0 0' }}>Cadastre seus barbeiros, configure a comissão (%) de cada um e edite a escala de dias e horários de trabalho.</p>
       </div>
 
       <div className="prof-grid">
@@ -298,18 +316,44 @@ export const Profissionais: React.FC = () => {
                       </div>
 
                       {daySched.active && (
-                        <div className="day-times">
-                          <input 
-                            type="time" 
-                            value={daySched.start} 
-                            onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
-                          />
-                          <span>às</span>
-                          <input 
-                            type="time" 
-                            value={daySched.end} 
-                            onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
-                          />
+                        <div className="day-schedule-details">
+                          {/* Horário de Trabalho */}
+                          <div className="schedule-row">
+                            <span className="schedule-row-label">Trabalho:</span>
+                            <input 
+                              type="time" 
+                              className="day-times-input"
+                              value={daySched.start} 
+                              onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
+                            />
+                            <span>às</span>
+                            <input 
+                              type="time" 
+                              className="day-times-input"
+                              value={daySched.end} 
+                              onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
+                            />
+                          </div>
+
+                          {/* Intervalo de Almoço */}
+                          <div className="schedule-row">
+                            <span className="schedule-row-label">Almoço:</span>
+                            <input 
+                              type="time" 
+                              className="day-times-input"
+                              value={daySched.break_start || '12:00'} 
+                              aria-label="Início do Almoço"
+                              onChange={(e) => handleScheduleTimeChange(day.key, 'break_start', e.target.value)}
+                            />
+                            <span>às</span>
+                            <input 
+                              type="time" 
+                              className="day-times-input"
+                              value={daySched.break_end || '13:00'} 
+                              aria-label="Fim do Almoço"
+                              onChange={(e) => handleScheduleTimeChange(day.key, 'break_end', e.target.value)}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -390,19 +434,35 @@ export const Profissionais: React.FC = () => {
                     <h5>Escala de Trabalho</h5>
                     <div className="schedule-badges">
                       {DAYS_OF_WEEK.map((day) => {
-                        const dayData = prof.weekly_schedule?.[day.key];
-                        if (!dayData) return null;
+                        const dayData = prof.weekly_schedule?.[day.key] as any;
                         const labelCurto = day.label.substring(0, 3);
-                        return (
-                          <div key={day.key} className="badge-schedule-active" title={`${day.label}: ${dayData.start} - ${dayData.end}`}>
-                            <span>{labelCurto}</span>
-                            <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
-                          </div>
-                        );
+                        const isActive = !!dayData;
+                        
+                        if (isActive) {
+                          const breakInfo = dayData.break_start ? ` (Almoço: ${dayData.break_start} - ${dayData.break_end})` : '';
+                          return (
+                            <div 
+                              key={day.key} 
+                              className="badge-schedule-active" 
+                              title={`${day.label}: ${dayData.start} - ${dayData.end}${breakInfo}`}
+                            >
+                              <span className="badge-day-name">{labelCurto}</span>
+                              <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div 
+                              key={day.key} 
+                              className="badge-schedule-inactive" 
+                              title={`${day.label}: Folga`}
+                            >
+                              <span className="badge-day-name">{labelCurto}</span>
+                              <span className="badge-schedule-hours">—</span>
+                            </div>
+                          );
+                        }
                       })}
-                      {(!prof.weekly_schedule || Object.keys(prof.weekly_schedule).length === 0) && (
-                        <p className="no-schedule-text">Nenhum dia de escala configurado.</p>
-                      )}
                     </div>
                   </div>
 
@@ -465,13 +525,32 @@ export const Profissionais: React.FC = () => {
         }
 
         .card {
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-lg);
+          position: relative;
+          background: linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,241,230,0.25) 100%);
+          backdrop-filter: blur(16px) saturate(140%);
+          -webkit-backdrop-filter: blur(16px) saturate(140%);
+          border: 1px solid rgba(234, 222, 214, 0.35);
+          border-radius: calc(var(--radius-lg) + 2px);
           padding: 1.5rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.5),
+            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
+            var(--shadow-sm);
+          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+          overflow: hidden;
+        }
+
+        .card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: calc(var(--radius-lg) + 2px);
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(234,222,214,0.08) 50%, rgba(255,255,255,0.15) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
         }
 
         .card h3 {
@@ -564,6 +643,7 @@ export const Profissionais: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          min-width: 0;
         }
 
         .schedule-title {
@@ -578,22 +658,30 @@ export const Profissionais: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
+          min-width: 0;
         }
 
         .schedule-day-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.5rem 0.75rem;
-          background-color: rgba(255, 255, 255, 0.5);
-          border: 1px solid var(--color-border);
+          display: grid;
+          grid-template-columns: 115px 1fr;
+          align-items: start;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 100%);
+          border: 1px solid rgba(234, 222, 214, 0.4);
           border-radius: var(--radius-md);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+          min-width: 0;
+        }
+
+        .schedule-day-item > * {
+          min-width: 0;
         }
 
         .schedule-day-item--active {
-          border-color: var(--color-brand-soft);
-          background-color: rgba(255, 255, 255, 0.8);
+          border-color: rgba(217, 108, 0, 0.2);
+          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,241,230,0.4) 100%);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
         }
 
         .day-checkbox {
@@ -613,30 +701,63 @@ export const Profissionais: React.FC = () => {
           cursor: pointer;
         }
 
-        .day-times {
+        .day-schedule-details {
           display: flex;
-          align-items: center;
-          gap: 0.35rem;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0.25rem 0;
         }
 
-        .day-times input[type="time"] {
-          padding: 0.25rem 0.5rem;
+        .schedule-row {
+          display: flex;
+          align-items: center;
+          gap: 0.2rem;
+          min-width: 0;
+        }
+
+        .schedule-row > * {
+          min-width: 0;
+        }
+
+        .schedule-row-label {
+          font-size: 0.6rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          width: 62px;
+          flex-shrink: 0;
+        }
+
+        .day-times-input {
+          padding: 0.2rem 0.15rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           background-color: rgba(255, 255, 255, 0.9);
           color: var(--color-text-primary);
-          font-size: 0.8rem;
+          font-size: 0.7rem;
           outline: none;
           transition: all 0.2s ease;
+          text-align: center;
+          width: 68px;
+          min-width: 0;
+          flex-shrink: 1;
+          flex-grow: 0;
+          box-sizing: border-box;
+          -webkit-appearance: none;
+          appearance: none;
+          -moz-appearance: textfield;
         }
 
-        .day-times input[type="time"]:focus {
+        .day-times-input:focus {
           border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.08);
         }
 
-        .day-times span {
-          font-size: 0.75rem;
+        .schedule-row span {
+          font-size: 0.65rem;
           color: var(--color-text-secondary);
+          flex-shrink: 0;
         }
 
         .form-actions {
@@ -668,30 +789,53 @@ export const Profissionais: React.FC = () => {
           color: var(--color-text-secondary);
         }
 
-        .prof-list-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.25rem;
-        }
-
         .prof-card {
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-lg);
+          position: relative;
+          background: linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,241,230,0.25) 100%);
+          backdrop-filter: blur(16px) saturate(140%);
+          -webkit-backdrop-filter: blur(16px) saturate(140%);
+          border: 1px solid rgba(234, 222, 214, 0.35);
+          border-radius: calc(var(--radius-lg) + 2px);
           padding: 1.25rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          gap: 0.875rem;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.5),
+            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
+            var(--shadow-sm);
+          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+          min-height: 0;
+        }
+
+        .prof-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: calc(var(--radius-lg) + 2px);
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(234,222,214,0.08) 50%, rgba(255,255,255,0.15) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+
+        .prof-list-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+          gap: 1.25rem;
+          align-items: stretch;
         }
 
         .prof-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
-          border-color: rgba(217, 108, 0, 0.3);
+          transform: translateY(-3px);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.5),
+            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
+            0 8px 28px rgba(45, 35, 30, 0.1),
+            0 2px 8px rgba(217, 108, 0, 0.06);
+          border-color: rgba(217, 108, 0, 0.25);
         }
 
         .prof-card--inactive {
@@ -741,16 +885,24 @@ export const Profissionais: React.FC = () => {
         .prof-commission-badge {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          background-color: rgba(255, 255, 255, 0.6);
+          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%);
           padding: 0.25rem 0.75rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
+          border: 1px solid rgba(234, 222, 214, 0.5);
           font-weight: 600;
+          white-space: nowrap;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
         }
 
         .prof-commission-badge strong {
           color: var(--color-brand-primary);
           font-weight: 800;
+        }
+
+        .prof-card-schedule {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
         }
 
         .prof-card-schedule h5 {
@@ -763,28 +915,64 @@ export const Profissionais: React.FC = () => {
         }
 
         .schedule-badges {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 0.35rem;
+          width: 100%;
+          min-width: 0;
         }
 
         .badge-schedule-active {
-          display: inline-flex;
+          display: flex;
           flex-direction: column;
           align-items: center;
-          background-color: rgba(255, 255, 255, 0.6);
+          justify-content: center;
+          gap: 0.125rem;
+          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%);
           border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          padding: 0.25rem 0.5rem;
-          font-size: 0.65rem;
+          border-radius: var(--radius-md);
+          padding: 0.3rem 0.2rem;
+          font-size: 0.7rem;
           font-weight: 700;
           color: var(--color-text-primary);
+          white-space: nowrap;
+          min-width: 0;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        .badge-schedule-inactive {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.125rem;
+          background: transparent;
+          border: 1px dashed rgba(234, 222, 214, 0.5);
+          border-radius: var(--radius-md);
+          padding: 0.3rem 0.2rem;
+          font-size: 0.65rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          opacity: 0.4;
+          white-space: nowrap;
+          min-width: 0;
         }
 
         .badge-schedule-hours {
-          font-weight: 600;
-          font-size: 0.6rem;
+          font-weight: 700;
+          font-size: 0.7rem;
           color: var(--color-brand-primary);
+          line-height: 1.1;
+        }
+
+        .badge-schedule-inactive .badge-schedule-hours {
+          color: var(--color-text-secondary);
+          font-weight: 500;
+        }
+
+        .badge-day-name {
+          font-size: 0.65rem;
+          line-height: 1.1;
         }
 
         .no-schedule-text {
@@ -803,49 +991,51 @@ export const Profissionais: React.FC = () => {
 
         .status-badge {
           font-size: 0.7rem;
-          padding: 0.15rem 0.5rem;
+          padding: 0.2rem 0.6rem;
           border-radius: var(--radius-full);
           font-weight: 700;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
         }
 
         .status-badge--linked {
-          background-color: rgba(230, 244, 234, 0.5);
+          background: linear-gradient(135deg, rgba(230, 244, 234, 0.6) 0%, rgba(230, 244, 234, 0.3) 100%);
           color: var(--color-success);
           border: 1px solid rgba(14, 159, 110, 0.2);
         }
 
         .status-badge--unlinked {
-          background-color: rgba(254, 243, 199, 0.5);
+          background: linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, rgba(254, 243, 199, 0.3) 100%);
           color: var(--color-warning);
           border: 1px solid rgba(217, 120, 6, 0.2);
         }
 
         .btn-action {
           background: none;
-          border: none;
+          border: 1px solid transparent;
           font-size: 0.75rem;
           font-weight: 700;
           cursor: pointer;
-          padding: 0.25rem 0.5rem;
-          border-radius: var(--radius-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          padding: 0.3rem 0.6rem;
+          border-radius: var(--radius-md);
+          transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         .btn-action--edit {
           color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.08);
+          background: linear-gradient(135deg, rgba(217, 108, 0, 0.08) 0%, rgba(217, 108, 0, 0.04) 100%);
           border: 1px solid rgba(217, 108, 0, 0.12);
         }
 
         .btn-action--edit:hover {
-          background-color: var(--color-brand-primary);
+          background: var(--color-brand-primary);
           color: white;
           border-color: var(--color-brand-primary);
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.2);
         }
 
         .btn-action:active {
-          transform: scale(0.95);
+          transform: scale(0.97);
         }
       `}</style>
     </div>

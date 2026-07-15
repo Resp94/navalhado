@@ -6,6 +6,36 @@ import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
+interface DaySchedule {
+  active: boolean;
+  open: string;
+  close: string;
+}
+
+interface BusinessHours {
+  [key: string]: DaySchedule;
+}
+
+const defaultBusinessHours: BusinessHours = {
+  segunda: { active: true, open: '09:00', close: '18:00' },
+  terca: { active: true, open: '09:00', close: '18:00' },
+  quarta: { active: true, open: '09:00', close: '18:00' },
+  quinta: { active: true, open: '09:00', close: '18:00' },
+  sexta: { active: true, open: '09:00', close: '18:00' },
+  sabado: { active: true, open: '09:00', close: '15:00' },
+  domingo: { active: false, open: '09:00', close: '12:00' },
+};
+
+const daysOfWeek = [
+  { key: 'segunda', label: 'Segunda-feira' },
+  { key: 'terca', label: 'Terça-feira' },
+  { key: 'quarta', label: 'Quarta-feira' },
+  { key: 'quinta', label: 'Quinta-feira' },
+  { key: 'sexta', label: 'Sexta-feira' },
+  { key: 'sabado', label: 'Sábado' },
+  { key: 'domingo', label: 'Domingo' },
+];
+
 export const Configuracoes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -19,6 +49,7 @@ export const Configuracoes: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(defaultBusinessHours);
 
   const fetchTenantData = async () => {
     try {
@@ -37,6 +68,7 @@ export const Configuracoes: React.FC = () => {
         setPhone(data.phone || '');
         setAddress(data.address || '');
         setTimezone(data.timezone || 'America/Sao_Paulo');
+        setBusinessHours(data.business_hours || defaultBusinessHours);
       }
     } catch (error: any) {
       console.error('Erro ao carregar dados da barbearia:', error);
@@ -75,12 +107,13 @@ export const Configuracoes: React.FC = () => {
           email: email.trim(),
           phone: phone.trim(),
           address: address.trim(),
-          timezone: timezone
+          timezone: timezone,
+          business_hours: businessHours
         })
         .eq('id', tenant.tenantId);
 
       if (error) throw error;
-      addToast('Configurações atualizadas com sucesso.', 'success'); // Note: we'll use exactly "Configurações atualizadas com sucesso." to match test expectation
+      addToast('Configurações atualizadas com sucesso.', 'success');
     } catch (error: any) {
       console.error('Erro ao atualizar configurações:', error);
       addToast(error.message || 'Erro ao salvar alterações.', 'error');
@@ -104,6 +137,26 @@ export const Configuracoes: React.FC = () => {
       formatted = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
     }
     setPhone(formatted);
+  };
+
+  const handleDayActiveChange = (dayKey: string, active: boolean) => {
+    setBusinessHours(prev => ({
+      ...prev,
+      [dayKey]: {
+        ...prev[dayKey],
+        active
+      }
+    }));
+  };
+
+  const handleTimeChange = (dayKey: string, field: 'open' | 'close', value: string) => {
+    setBusinessHours(prev => ({
+      ...prev,
+      [dayKey]: {
+        ...prev[dayKey],
+        [field]: value
+      }
+    }));
   };
 
   if (loading) {
@@ -260,6 +313,96 @@ export const Configuracoes: React.FC = () => {
                 outline: 'none'
               }}
             />
+          </div>
+
+          {/* Horário de Funcionamento Geral */}
+          <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem' }}>
+            <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-text-primary)' }}>
+              Horário de Funcionamento Geral
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {daysOfWeek.map(({ key, label }) => {
+                const schedule = businessHours[key] || defaultBusinessHours[key];
+                return (
+                  <div key={key} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-border)',
+                    transition: 'all 0.2s ease',
+                    opacity: schedule.active ? 1 : 0.6
+                  }}>
+                    {/* Checkbox e Nome do Dia */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '150px' }}>
+                      <input
+                        id={`checkbox-${key}`}
+                        type="checkbox"
+                        checked={schedule.active}
+                        onChange={(e) => handleDayActiveChange(key, e.target.checked)}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--color-border)',
+                          cursor: 'pointer',
+                          accentColor: 'var(--color-primary)'
+                        }}
+                      />
+                      <label htmlFor={`checkbox-${key}`} style={{ 
+                        fontSize: 'var(--font-size-sm)', 
+                        fontWeight: 600, 
+                        color: 'var(--color-text-primary)',
+                        cursor: 'pointer'
+                      }}>
+                        {label}
+                      </label>
+                    </div>
+
+                    {/* Inputs de Horário */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="time"
+                        value={schedule.open}
+                        disabled={!schedule.active}
+                        aria-label={`Abertura ${label}`}
+                        onChange={(e) => handleTimeChange(key, 'open', e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--color-border)',
+                          backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
+                          color: 'var(--color-text-primary)',
+                          fontSize: 'var(--font-size-sm)',
+                          outline: 'none',
+                          cursor: schedule.active ? 'pointer' : 'not-allowed'
+                        }}
+                      />
+                      <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>às</span>
+                      <input
+                        type="time"
+                        value={schedule.close}
+                        disabled={!schedule.active}
+                        aria-label={`Fechamento ${label}`}
+                        onChange={(e) => handleTimeChange(key, 'close', e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--color-border)',
+                          backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
+                          color: 'var(--color-text-primary)',
+                          fontSize: 'var(--font-size-sm)',
+                          outline: 'none',
+                          cursor: schedule.active ? 'pointer' : 'not-allowed'
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>

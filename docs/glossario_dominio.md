@@ -44,6 +44,10 @@ Este documento define os principais conceitos de negócio, técnicos e termos co
 ### Promoção de Cadastro (Customer Promotion)
 * **Definição**: A transição de estado de um cliente de provisório para completo (`cadastro_completo = true`). Ocorre automaticamente quando o cliente informa seu nome no primeiro acesso ao link ou quando o gerente edita e salva o nome real do cliente na aba de gerenciamento no painel administrativo.
 
+### Fuso Horário (Timezone)
+* **Definição**: O fuso horário oficial adotado pelo estabelecimento (tenant) para funcionamento e comunicação. Usado para formatar datas e horas de disparos no WhatsApp de forma local e validar a janela de reagendamento/cancelamento de agendamentos no frontend do cliente.
+* **Campo no Banco**: `public.tenants.timezone`
+
 ---
 
 ## 2. Integração e Comunicação Técnica

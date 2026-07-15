@@ -134,4 +134,119 @@ describe('Configuracoes Page - TDD', () => {
       expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
     });
   });
+
+  it('deve renderizar a seção de horário de funcionamento geral com todos os dias, checkboxes e inputs de horário', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+      address: 'Avenida Djalma Batista, 123',
+      timezone: 'America/Manaus',
+      business_hours: {
+        segunda: { active: true, open: '09:00', close: '18:00' },
+        terca: { active: true, open: '09:00', close: '18:00' },
+        quarta: { active: true, open: '09:00', close: '18:00' },
+        quinta: { active: true, open: '09:00', close: '18:00' },
+        sexta: { active: true, open: '09:00', close: '18:00' },
+        sabado: { active: false, open: '09:00', close: '15:00' },
+        domingo: { active: false, open: '09:00', close: '12:00' },
+      }
+    };
+
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+
+    render(<Configuracoes />);
+
+    // Verificar se o cabeçalho da seção está presente
+    await screen.findByText('Horário de Funcionamento Geral');
+
+    // Verificar se renderizou os dias da semana
+    const dias = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
+    
+    for (const dia of dias) {
+      expect(screen.getByText(dia)).toBeInTheDocument();
+    }
+
+    // Verificar se os inputs e checkboxes estão com os estados corretos do mock
+    // Segunda-feira (Ativo, 09:00 às 18:00)
+    const checkboxSegunda = screen.getByLabelText('Segunda-feira') as HTMLInputElement;
+    expect(checkboxSegunda.checked).toBe(true);
+
+    const inputAberturaSegunda = screen.getByLabelText('Abertura Segunda-feira') as HTMLInputElement;
+    const inputFechamentoSegunda = screen.getByLabelText('Fechamento Segunda-feira') as HTMLInputElement;
+    expect(inputAberturaSegunda.value).toBe('09:00');
+    expect(inputFechamentoSegunda.value).toBe('18:00');
+
+    // Sábado (Inativo, 09:00 às 15:00)
+    const checkboxSabado = screen.getByLabelText('Sábado') as HTMLInputElement;
+    expect(checkboxSabado.checked).toBe(false);
+    
+    const inputAberturaSabado = screen.getByLabelText('Abertura Sábado') as HTMLInputElement;
+    expect(inputAberturaSabado).toBeDisabled();
+  });
+
+  it('deve atualizar os horários de funcionamento geral no Supabase ao salvar o formulário', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+      address: 'Avenida Djalma Batista, 123',
+      timezone: 'America/Manaus',
+      business_hours: {
+        segunda: { active: true, open: '09:00', close: '18:00' },
+        terca: { active: true, open: '09:00', close: '18:00' },
+        quarta: { active: true, open: '09:00', close: '18:00' },
+        quinta: { active: true, open: '09:00', close: '18:00' },
+        sexta: { active: true, open: '09:00', close: '18:00' },
+        sabado: { active: false, open: '09:00', close: '15:00' },
+        domingo: { active: false, open: '09:00', close: '12:00' },
+      }
+    };
+
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+    mockEqUpdate.mockResolvedValue({ error: null });
+
+    render(<Configuracoes />);
+
+    // Esperar carregar os dados
+    await screen.findByLabelText('Segunda-feira');
+
+    // Alterar o horário de Segunda-feira para 10:00 às 19:00
+    const inputAberturaSegunda = screen.getByLabelText('Abertura Segunda-feira');
+    fireEvent.change(inputAberturaSegunda, { target: { value: '10:00' } });
+
+    const inputFechamentoSegunda = screen.getByLabelText('Fechamento Segunda-feira');
+    fireEvent.change(inputFechamentoSegunda, { target: { value: '19:00' } });
+
+    // Ativar o Sábado e alterar o horário para 08:00 às 14:00
+    const checkboxSabado = screen.getByLabelText('Sábado');
+    fireEvent.click(checkboxSabado); // Clica para ativar
+
+    const inputAberturaSabado = screen.getByLabelText('Abertura Sábado');
+    fireEvent.change(inputAberturaSabado, { target: { value: '08:00' } });
+
+    const inputFechamentoSabado = screen.getByLabelText('Fechamento Sábado');
+    fireEvent.change(inputFechamentoSabado, { target: { value: '14:00' } });
+
+    // Salvar as alterações
+    const saveButton = screen.getByRole('button', { name: /Salvar Alterações/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        business_hours: {
+          segunda: { active: true, open: '10:00', close: '19:00' },
+          terca: { active: true, open: '09:00', close: '18:00' },
+          quarta: { active: true, open: '09:00', close: '18:00' },
+          quinta: { active: true, open: '09:00', close: '18:00' },
+          sexta: { active: true, open: '09:00', close: '18:00' },
+          sabado: { active: true, open: '08:00', close: '14:00' },
+          domingo: { active: false, open: '09:00', close: '12:00' },
+        }
+      }));
+      expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
+    });
+  });
 });
