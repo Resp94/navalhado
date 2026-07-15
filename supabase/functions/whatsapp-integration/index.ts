@@ -61,7 +61,15 @@ export const handler = async (req: Request): Promise<Response> => {
   const dbTriggerSecret = Deno.env.get("DB_TRIGGER_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const appUrl = Deno.env.get("APP_URL") || "https://navalhado.com";
+  const appUrl = Deno.env.get("APP_URL") || "";
+
+  if (!appUrl && (path.endsWith("/webhook") || path.endsWith("/send-notification") || path.endsWith("/process-reminders"))) {
+    console.error("[WhatsApp-Integration] Erro: A variável de ambiente APP_URL não está configurada.");
+    return new Response(JSON.stringify({ error: "Configuração inválida: APP_URL ausente." }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
