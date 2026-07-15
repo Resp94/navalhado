@@ -58,7 +58,7 @@ export const handler = async (req: Request): Promise<Response> => {
     return `${base}/${cleanPath}`;
   };
   const evolutionGlobalApiKey = Deno.env.get("EVOLUTION_GLOBAL_APIKEY") || "";
-  const dbTriggerSecret = "db_trigger_secret_5f6e7d8c-9b0a-4c1d-8e2f-3a4b5c6d7e8f";
+  const dbTriggerSecret = Deno.env.get("DB_TRIGGER_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const appUrl = Deno.env.get("APP_URL") || "https://navalhado.com";

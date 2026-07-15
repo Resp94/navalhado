@@ -36,6 +36,11 @@ const {
 
   // Estrutura fluente e robusta para simular o encadeamento do Supabase JS Client
   const mockSupabaseClient = {
+    channel: vi.fn().mockImplementation(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
+    })),
+    removeChannel: vi.fn(),
     from: vi.fn().mockImplementation(() => ({
       select: mockSelect.mockImplementation(() => ({
         eq: mockEq.mockImplementation(() => ({
@@ -108,7 +113,7 @@ describe('Whatsapp Config Page - TDD', () => {
         qr_code: null,
         send_confirmation: true,
         send_reminders: false, // Lembrete desativado
-        reminder_minutes: 240, // 4 horas antes (240 minutos)
+        reminder_hours: 4, // 4 horas antes
         send_cancellation: true,
       },
       error: null,
@@ -132,12 +137,12 @@ describe('Whatsapp Config Page - TDD', () => {
     // Select de horas deve estar desabilitado (porque send_reminders é false)
     const hoursSelect = screen.getByLabelText('Tempo de antecedência do lembrete') as HTMLSelectElement;
     expect(hoursSelect).toBeDisabled();
-    expect(hoursSelect.value).toBe('240');
+    expect(hoursSelect.value).toBe('4');
     // Descrição estática do lembrete
     expect(screen.getByText('Envia lembrete com opção de cancelamento antes do horário.')).toBeInTheDocument();
 
-    // Texto de ajuda dinâmico de equivalência abaixo do select (reminder_minutes: 240 -> 4 horas)
-    expect(screen.getByText('Equivale a 4 horas antes')).toBeInTheDocument();
+    // Texto de ajuda dinâmico de horas
+    expect(screen.getByText('Lembrete enviado 4 horas antes do agendamento')).toBeInTheDocument();
 
     // Alerta de cancelamento (send_cancellation = true) -> Switch ativado
     const cancellationCheckbox = screen.getByLabelText('Alerta de Cancelamento') as HTMLInputElement;
@@ -155,7 +160,7 @@ describe('Whatsapp Config Page - TDD', () => {
         qr_code: null,
         send_confirmation: true,
         send_reminders: true,
-        reminder_minutes: 120,
+        reminder_hours: 2,
         send_cancellation: true,
       },
       error: null,
@@ -172,7 +177,7 @@ describe('Whatsapp Config Page - TDD', () => {
         qr_code: null,
         send_confirmation: false, // atualizado
         send_reminders: true,
-        reminder_minutes: 120,
+        reminder_hours: 2,
         send_cancellation: true,
       },
       error: null,
@@ -213,7 +218,7 @@ describe('Whatsapp Config Page - TDD', () => {
         qr_code: null,
         send_confirmation: true,
         send_reminders: false, // começa desativado
-        reminder_minutes: 120,
+        reminder_hours: 2,
         send_cancellation: true,
       },
       error: null,
@@ -232,7 +237,7 @@ describe('Whatsapp Config Page - TDD', () => {
           qr_code: null,
           send_confirmation: true,
           send_reminders: lastUpdateCall.send_reminders !== undefined ? lastUpdateCall.send_reminders : true,
-          reminder_minutes: lastUpdateCall.reminder_minutes !== undefined ? lastUpdateCall.reminder_minutes : 120,
+          reminder_hours: lastUpdateCall.reminder_hours !== undefined ? lastUpdateCall.reminder_hours : 2,
           send_cancellation: true,
         },
         error: null,
@@ -250,7 +255,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
     expect(reminderCheckbox.checked).toBe(false);
     expect(hoursSelect).toBeDisabled();
-    expect(screen.getByText('Equivale a 2 horas antes')).toBeInTheDocument();
+    expect(screen.getByText('Lembrete enviado 2 horas antes do agendamento')).toBeInTheDocument();
 
     // Ativar o switch do lembrete
     fireEvent.click(reminderCheckbox);
@@ -267,19 +272,19 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(hoursSelect).not.toBeDisabled();
     });
 
-    // Alterar o valor do lembrete para 360 minutos
-    fireEvent.change(hoursSelect, { target: { value: '360' } });
+    // Alterar o valor do lembrete para 6 horas
+    fireEvent.change(hoursSelect, { target: { value: '6' } });
  
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledWith({
-        reminder_minutes: 360,
+        reminder_hours: 6,
         updated_at: expect.any(String),
       });
     });
  
-    // Validar se a legenda de equivalência abaixo mudou dinamicamente para "Equivale a 6 horas antes"
+    // Validar se a legenda de equivalência abaixo mudou dinamicamente para "Lembrete enviado 6 horas antes do agendamento"
     await waitFor(() => {
-      expect(screen.getByText('Equivale a 6 horas antes')).toBeInTheDocument();
+      expect(screen.getByText('Lembrete enviado 6 horas antes do agendamento')).toBeInTheDocument();
     });
   });
 });

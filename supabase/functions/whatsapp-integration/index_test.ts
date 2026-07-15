@@ -304,7 +304,7 @@ Deno.test("POST /manage-instance connect - should subscribe to Evolution Go conn
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-db-trigger-secret": "db_trigger_secret_5f6e7d8c-9b0a-4c1d-8e2f-3a4b5c6d7e8f"
+        "x-db-trigger-secret": "mock-db-secret"
       },
       body: JSON.stringify({
         action: "connect",

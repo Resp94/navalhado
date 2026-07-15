@@ -14,21 +14,12 @@ interface EvolutionInstance {
   status: 'connected' | 'disconnected' | 'pairing';
   send_confirmation: boolean;
   send_reminders: boolean;
-  reminder_minutes: number;
+  reminder_hours: number;
   send_cancellation: boolean;
 }
 
-const formatMinutesToReadable = (minutes: number): string => {
-  if (minutes < 60) {
-    return `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  
-  if (remainingMinutes === 0) {
-    return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-  }
-  return `${hours} ${hours === 1 ? 'hora' : 'horas'} e ${remainingMinutes} ${remainingMinutes === 1 ? 'minuto' : 'minutos'}`;
+const formatHoursToReadable = (hours: number): string => {
+  return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
 };
 
 export const Whatsapp: React.FC = () => {
@@ -62,6 +53,28 @@ export const Whatsapp: React.FC = () => {
 
   useEffect(() => {
     fetchInstance();
+
+    // Habilitar a escuta de alterações em tempo real para a instância deste tenant
+    const channel = supabase
+      .channel(`evolution_api_instances:${tenant.tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'evolution_api_instances',
+          filter: `tenant_id=eq.${tenant.tenantId}`
+        },
+        (payload) => {
+          console.log('Realtime change received:', payload);
+          setInstance(payload.new as EvolutionInstance);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [tenant.tenantId]);
 
   useGSAP(() => {
@@ -118,14 +131,11 @@ export const Whatsapp: React.FC = () => {
     try {
       setActionLoading(true);
       
-      // Simulação da Evolution API gerando o QRCode
-      const mockQrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://navalhado.com/whatsapp-link-simulation-' + crypto.randomUUID();
-
       const { data, error } = await supabase
         .from('evolution_api_instances')
         .update({
           status: 'pairing',
-          qr_code: mockQrCode,
+          qr_code: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', instance.id)
@@ -135,27 +145,6 @@ export const Whatsapp: React.FC = () => {
       if (error) throw error;
       setInstance(data);
       addToast('QR Code gerado! Aponte a câmera do WhatsApp para parear.', 'info');
-
-      // Simular pareamento bem sucedido após 15 segundos para o protótipo funcionar perfeitamente de forma autônoma
-      setTimeout(async () => {
-        try {
-          const { error: pairError } = await supabase
-            .from('evolution_api_instances')
-            .update({
-              status: 'connected',
-              qr_code: null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', instance.id);
-
-          if (!pairError) {
-            fetchInstance();
-            addToast('WhatsApp conectado com sucesso (Simulado)!', 'success');
-          }
-        } catch (err) {
-          console.error('Auto-pair simulation failed:', err);
-        }
-      }, 12000);
 
     } catch (error: any) {
       addToast('Erro ao solicitar conexão de WhatsApp.', 'error');
@@ -300,12 +289,22 @@ export const Whatsapp: React.FC = () => {
                 </div>
               )}
 
-              {instance.status === 'pairing' && instance.qr_code && (
+              {instance.status === 'pairing' && (
                 <div className="card-whatsapp__qr">
                   <p className="qr-label">Leia o QR Code abaixo</p>
                   <p className="qr-desc">Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar um Aparelho</strong> e aponte a câmera.</p>
                   <div className="qr-frame">
-                    <img src={instance.qr_code} alt="QR Code WhatsApp" />
+                    {instance.qr_code ? (
+                      <img 
+                        src={instance.qr_code.startsWith('data:') ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`} 
+                        alt="QR Code WhatsApp" 
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent', width: '32px', height: '32px', borderWidth: '3px' }} />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Gerando código...</span>
+                      </div>
+                    )}
                   </div>
                   <button onClick={handleDisconnect} disabled={actionLoading} className="btn btn--outline-danger">
                     {actionLoading ? <div className="spinner spinner--sm" /> : 'Cancelar Pareamento'}
@@ -403,14 +402,14 @@ export const Whatsapp: React.FC = () => {
 
                   <div className="reminder-settings" style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label htmlFor="reminder-minutes" className="helper-text" style={{ margin: 0, fontSize: '0.85rem' }}>
+                      <label htmlFor="reminder-hours" className="helper-text" style={{ margin: 0, fontSize: '0.85rem' }}>
                         Tempo de antecedência do lembrete:
                       </label>
                       <select
-                        id="reminder-minutes"
+                        id="reminder-hours"
                         aria-label="Tempo de antecedência do lembrete"
-                        value={instance.reminder_minutes}
-                        onChange={(e) => handleUpdateConfig('reminder_minutes', parseInt(e.target.value, 10))}
+                        value={instance.reminder_hours}
+                        onChange={(e) => handleUpdateConfig('reminder_hours', parseInt(e.target.value, 10))}
                         disabled={!instance.send_reminders || actionLoading}
                         className="form-select"
                         style={{
@@ -421,9 +420,9 @@ export const Whatsapp: React.FC = () => {
                           fontSize: '0.85rem',
                         }}
                       >
-                        {[15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 240, 300, 360, 480, 720, 1440].map((m) => (
-                          <option key={m} value={m}>
-                            {m} minutos antes
+                        {[1, 2, 3, 4, 6, 12, 24].map((h) => (
+                          <option key={h} value={h}>
+                            {h} {h === 1 ? 'hora antes' : 'horas antes'}
                           </option>
                         ))}
                       </select>
@@ -435,7 +434,7 @@ export const Whatsapp: React.FC = () => {
                         color: 'var(--color-brand-primary)',
                         letterSpacing: '0.01em'
                       }}>
-                        {formatMinutesToReadable(instance.reminder_minutes)} antes
+                        Lembrete enviado {formatHoursToReadable(instance.reminder_hours)} antes do agendamento
                       </span>
                     )}
                   </div>
@@ -472,8 +471,8 @@ export const Whatsapp: React.FC = () => {
             </div>
           </div>
 
-          {/* ═══ Card: Mensagem de Teste (só quando conectado) ═══ */}
-          {instance.status === 'connected' && (
+          {/* ═══ Card: Mensagem de Teste (mostrado sempre que a instância existe) ═══ */}
+          {instance && (
             <div className="card-whatsapp card-whatsapp--full">
               <div className="card-whatsapp__header">
                 <div>
@@ -485,14 +484,39 @@ export const Whatsapp: React.FC = () => {
                 <form onSubmit={handleSendTestMessage} className="test-form">
                   <div className="form-group">
                     <label htmlFor="test-phone">Número com DDD (Apenas números)</label>
-                    <input id="test-phone" type="text" placeholder="Ex: 11999999999" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} required />
+                    <input 
+                      id="test-phone" 
+                      type="text" 
+                      placeholder="Ex: 11999999999" 
+                      value={testPhone} 
+                      onChange={(e) => setTestPhone(e.target.value)} 
+                      disabled={instance.status !== 'connected' || actionLoading}
+                      required 
+                    />
                   </div>
                   <div className="form-group">
                     <label htmlFor="test-msg">Mensagem</label>
-                    <textarea id="test-msg" rows={3} value={testMessage} onChange={(e) => setTestMessage(e.target.value)} required />
+                    <textarea 
+                      id="test-msg" 
+                      rows={3} 
+                      value={testMessage} 
+                      onChange={(e) => setTestMessage(e.target.value)} 
+                      disabled={instance.status !== 'connected' || actionLoading}
+                      required 
+                    />
                   </div>
-                  <button type="submit" disabled={actionLoading} className="btn btn--primary">
-                    {actionLoading ? <div className="spinner spinner--sm" /> : 'Enviar Mensagem de Teste'}
+                  <button 
+                    type="submit" 
+                    disabled={instance.status !== 'connected' || actionLoading} 
+                    className={`btn ${instance.status === 'connected' ? 'btn--primary' : 'btn--outline'}`}
+                  >
+                    {actionLoading ? (
+                      <div className="spinner spinner--sm" />
+                    ) : instance.status === 'connected' ? (
+                      'Enviar Mensagem de Teste'
+                    ) : (
+                      'Conecte o WhatsApp para Enviar Teste'
+                    )}
                   </button>
                 </form>
               </div>
