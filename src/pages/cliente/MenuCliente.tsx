@@ -653,7 +653,7 @@ export const MenuCliente: React.FC = () => {
                       )}
 
                       {/* Actions */}
-                      {app.status !== 'canceled' && app.status !== 'completed' && (
+                      {app.status !== 'canceled' && app.status !== 'completed' && new Date(app.start_time) > new Date() && (
                         <div style={{
                           display: 'flex',
                           justifyContent: 'flex-end',

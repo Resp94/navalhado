@@ -29,12 +29,12 @@ const getSupportedPhoneFromJids = (jids: string[]): string | null => {
   return null;
 };
 
-// Formata data e hora no fuso horário do Brasil
-const formatDateTime = (dateStr: string) => {
+// Formata data e hora no fuso horário do Brasil (dinâmico por tenant)
+const formatDateTime = (dateStr: string, timeZone: string = "America/Sao_Paulo") => {
   const date = new Date(dateStr);
-  const formattedDate = date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const formattedDate = date.toLocaleDateString("pt-BR", { timeZone });
   const formattedTime = date.toLocaleTimeString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
+    timeZone,
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -608,7 +608,7 @@ export const handler = async (req: Request): Promise<Response> => {
           customers ( name, phone, token_acesso ),
           professionals ( name ),
           services ( name ),
-          tenants ( name )
+          tenants ( name, timezone )
         `)
         .eq("id", appointment_id)
         .single();
@@ -634,7 +634,7 @@ export const handler = async (req: Request): Promise<Response> => {
       }
 
       const clientPhone = formatPhoneNumber(customer.phone);
-      const { date, time } = formatDateTime(appointment.start_time);
+      const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const link = `${appUrl}/cliente/${customer.token_acesso}`;
 
       let messageText = "";
@@ -741,7 +741,7 @@ export const handler = async (req: Request): Promise<Response> => {
             customers ( name, phone, token_acesso ),
             professionals ( name ),
             services ( name ),
-            tenants ( name )
+            tenants ( name, timezone )
           `)
           .eq("tenant_id", instance.tenant_id)
           .eq("status", "confirmed")
@@ -766,7 +766,7 @@ export const handler = async (req: Request): Promise<Response> => {
             if (!customer || !customer.phone) continue;
 
             const clientPhone = formatPhoneNumber(customer.phone);
-            const { date, time } = formatDateTime(app.start_time);
+            const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
             const link = `${appUrl}/cliente/${customer.token_acesso}`;
 
             const messageText = `Olá, ${customer.name}! Passando para lembrar do seu agendamento na *${tenant.name}* nas próximas horas.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: ${link}\n\nEsperamos você!`;

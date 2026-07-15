@@ -17,6 +17,7 @@ import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/Cadastr
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
 import { Whatsapp as GerenteWhatsapp } from './pages/gerente/Whatsapp';
 import { Clientes as GerenteClientes } from './pages/gerente/Clientes';
+import { Configuracoes as GerenteConfiguracoes } from './pages/gerente/Configuracoes';
 import { AcessoExpirado } from './pages/cliente/AcessoExpirado';
 import { MenuCliente } from './pages/cliente/MenuCliente';
 import { FluxoAgendamento } from './pages/cliente/FluxoAgendamento';
@@ -46,6 +47,7 @@ function App() {
             <Route path="/servicos/cadastro" element={<GerenteServicos />} />
             <Route path="/whatsapp" element={<GerenteWhatsapp />} />
             <Route path="/clientes" element={<GerenteClientes />} />
+            <Route path="/configuracoes" element={<GerenteConfiguracoes />} />
           </Route>
           {/* Rotas do Barbeiro (Colaborador) */}
           <Route 

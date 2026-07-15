@@ -649,7 +649,7 @@ Deno.test("POST /send-notification - should format message and send it to VPS", 
         customers: { name: "Jonathas", phone: "11999998888", token_acesso: "token-abc" },
         professionals: { name: "Guto" },
         services: { name: "Corte e Barba" },
-        tenants: { name: "Navalhado Ouro" }
+        tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" }
       }]
     },
     // Mock VPS send message call
@@ -705,7 +705,7 @@ Deno.test("POST /process-reminders - should scan pending appointments and send r
         customers: { name: "Cliente Teste", phone: "11999992222", token_acesso: "token-def" },
         professionals: { name: "Guto" },
         services: { name: "Barba" },
-        tenants: { name: "Navalhado Ouro" }
+        tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" }
       }]
     },
     // Mock VPS send text call
