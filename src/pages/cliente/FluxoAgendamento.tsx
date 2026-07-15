@@ -1,20 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import { CadastroInicialCliente } from './CadastroInicialCliente';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { 
   Calendar02Icon, 
   Time01Icon, 
-  UserIcon, 
-  CancelCircleIcon, 
   AlertCircleIcon, 
   Tick01Icon, 
   ArrowRight01Icon,
   ArrowLeft01Icon,
   SparklesIcon,
-  InformationCircleIcon
 } from '@hugeicons/core-free-icons';
 
 interface Service {
@@ -40,6 +38,7 @@ interface CustomerDetails {
   tenant_id: string;
   tenant_name: string;
   tenant_phone: string;
+  cadastro_completo: boolean;
 }
 
 export const FluxoAgendamento: React.FC = () => {
@@ -78,24 +77,65 @@ export const FluxoAgendamento: React.FC = () => {
   // Modal de Confirmação
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [savingRegistration, setSavingRegistration] = useState(false);
+  const [canonicalToken] = useState<string | null>(() =>
+    routeToken || searchParams.get('token') || localStorage.getItem('navalhado_customer_token')
+  );
+
+  const loadCatalog = useCallback(async (token: string) => {
+    const { data: dbServices, error: servicesError } = await supabase.rpc(
+      'get_services_by_customer_token',
+      { p_token: token }
+    );
+    if (servicesError) throw servicesError;
+
+    const serviceList = (dbServices || []) as Service[];
+    setServices(serviceList);
+    const uniqueCategories = Array.from(new Set(serviceList.map((service) => service.category)));
+    setCategories(uniqueCategories);
+    if (uniqueCategories.length > 0) setActiveCategory(uniqueCategories[0]);
+
+    const { data: dbProfessionals, error: profsError } = await supabase.rpc(
+      'get_professionals_by_customer_token',
+      { p_token: token }
+    );
+    if (profsError) throw profsError;
+    setProfessionals(dbProfessionals || []);
+
+    const stateData = location.state as {
+      serviceId?: string;
+      professionalId?: string;
+      professionalName?: string;
+      rescheduleAppointmentId?: string;
+    } | null;
+    if (stateData?.rescheduleAppointmentId) {
+      setIsRescheduling(true);
+      setRescheduleAppointmentId(stateData.rescheduleAppointmentId);
+      if (stateData.serviceId) {
+        const matchedService = (dbServices || []).find((service: Service) => service.id === stateData.serviceId);
+        if (matchedService) setSelectedService(matchedService);
+      }
+      if (stateData.professionalId !== undefined) {
+        setSelectedProfessional({
+          id: stateData.professionalId,
+          name: stateData.professionalName || 'Tanto faz'
+        });
+      }
+      setEtapa(3);
+    }
+  }, [location.state]);
 
   // Carregar dados iniciais e tratar reagendamento
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const urlToken = searchParams.get('token') || routeToken;
-        if (urlToken) {
-          localStorage.setItem('navalhado_customer_token', urlToken);
-          navigate('/cliente/agendar', { replace: true, state: location.state });
-          return;
-        }
-
-        const token = localStorage.getItem('navalhado_customer_token');
+        const token = canonicalToken;
         if (!token) {
           addToast('Acesso não autorizado. Redirecionando...', 'error');
           navigate('/cliente/acesso-expirado');
           return;
         }
+        localStorage.setItem('navalhado_customer_token', token);
 
         // 1. Carrega dados do cliente
         const { data: details, error: detailsError } = await supabase.rpc(
@@ -114,67 +154,9 @@ export const FluxoAgendamento: React.FC = () => {
         localStorage.setItem('navalhado_tenant_name', activeDetails.tenant_name);
         localStorage.setItem('navalhado_tenant_phone', activeDetails.tenant_phone);
 
-        // 2. Carrega serviços ativos da barbearia via RPC (evita problemas de RLS)
-        const { data: dbServices, error: servicesError } = await supabase.rpc(
-          'get_services_by_customer_token',
-          { p_token: token }
-        );
+        if (!activeDetails.cadastro_completo) return;
 
-        if (servicesError) throw servicesError;
-
-        setServices(dbServices || []);
-
-        // Extrai categorias únicas
-        const uniqueCategories = Array.from(new Set((dbServices || []).map(s => s.category)));
-        setCategories(uniqueCategories);
-        if (uniqueCategories.length > 0) {
-          setActiveCategory(uniqueCategories[0]);
-        }
-
-        // 3. Carrega profissionais ativos da barbearia via RPC (evita problemas de RLS)
-        const { data: dbProfessionals, error: profsError } = await supabase.rpc(
-          'get_professionals_by_customer_token',
-          { p_token: token }
-        );
-
-        if (profsError) throw profsError;
-        setProfessionals(dbProfessionals || []);
-
-        // 4. Se veio do Reagendamento via state do React Router
-        if (location.state) {
-          const stateData = location.state as {
-            serviceId?: string;
-            serviceName?: string;
-            servicePrice?: number;
-            serviceDuration?: number;
-            professionalId?: string;
-            professionalName?: string;
-            rescheduleAppointmentId?: string;
-          };
-
-          if (stateData.rescheduleAppointmentId) {
-            setIsRescheduling(true);
-            setRescheduleAppointmentId(stateData.rescheduleAppointmentId);
-
-            // Preenche pré-seleções
-            if (stateData.serviceId) {
-              const matchedService = (dbServices || []).find(s => s.id === stateData.serviceId);
-              if (matchedService) {
-                setSelectedService(matchedService);
-              }
-            }
-
-            if (stateData.professionalId !== undefined) {
-              setSelectedProfessional({
-                id: stateData.professionalId,
-                name: stateData.professionalName || 'Tanto faz'
-              });
-            }
-
-            // Pula direto para a etapa 3 (seleção de data/hora)
-            setEtapa(3);
-          }
-        }
+        await loadCatalog(token);
       } catch (err) {
         console.error('Erro ao carregar dados do fluxo:', err);
         navigate('/cliente/acesso-expirado');
@@ -184,7 +166,31 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     loadInitialData();
-  }, [searchParams, navigate, location.state]);
+  }, [canonicalToken, navigate, addToast, loadCatalog]);
+
+  const handleCompleteRegistration = async (name: string) => {
+    if (!canonicalToken) return;
+    setSavingRegistration(true);
+    try {
+      const { data, error } = await supabase.rpc('complete_customer_registration', {
+        p_token: canonicalToken,
+        p_name: name,
+      });
+      if (error || !data || data.length === 0) throw error || new Error('Resposta vazia');
+
+      const completedDetails = data[0] as CustomerDetails;
+      if (!completedDetails.cadastro_completo) throw new Error('Cadastro não concluído');
+      await loadCatalog(canonicalToken);
+      setCustomerDetails(completedDetails);
+      localStorage.setItem('navalhado_tenant_name', completedDetails.tenant_name);
+      localStorage.setItem('navalhado_tenant_phone', completedDetails.tenant_phone);
+    } catch (err) {
+      console.error('Erro ao concluir cadastro:', err);
+      addToast('Não foi possível salvar seu nome. Tente novamente.', 'error');
+    } finally {
+      setSavingRegistration(false);
+    }
+  };
 
   // Carregar slots de horários disponíveis quando mudamos data, profissional ou serviço na Etapa 3
   useEffect(() => {
@@ -248,7 +254,7 @@ export const FluxoAgendamento: React.FC = () => {
     try {
       if (isRescheduling && rescheduleAppointmentId) {
         // Fluxo de Reagendamento (Cria novo e cancela o antigo em transação segura rpc)
-        const { data, error } = await supabase.rpc('reschedule_appointment_by_token', {
+        const { error } = await supabase.rpc('reschedule_appointment_by_token', {
           p_token: token,
           p_old_appointment_id: rescheduleAppointmentId,
           p_new_service_id: selectedService.id,
@@ -261,7 +267,7 @@ export const FluxoAgendamento: React.FC = () => {
         addToast('Reagendamento concluído com sucesso', 'success');
       } else {
         // Fluxo de Novo Agendamento comum
-        const { data, error } = await supabase.rpc('create_appointment_by_token', {
+        const { error } = await supabase.rpc('create_appointment_by_token', {
           p_token: token,
           p_service_id: selectedService.id,
           p_professional_id: selectedProfessional?.id || null,
@@ -330,11 +336,20 @@ export const FluxoAgendamento: React.FC = () => {
     );
   }
 
+  if (customerDetails && !customerDetails.cadastro_completo) {
+    return (
+      <CadastroInicialCliente
+        tenantName={customerDetails.tenant_name}
+        saving={savingRegistration}
+        onSubmit={handleCompleteRegistration}
+      />
+    );
+  }
+
   const filteredServices = services.filter(s => s.category === activeCategory);
 
   return (
     <div style={{
-      minHeight: '100vh',
       minHeight: '100dvh',
       backgroundColor: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',
