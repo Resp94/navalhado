@@ -454,7 +454,23 @@ export const handler = async (req: Request): Promise<Response> => {
           });
         }
 
-        const messageText = `Para agendar, acesse: ${appUrl}/cliente/${customer.token_acesso}/agendar`;
+        // Buscar nome do tenant
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("name")
+          .eq("id", instance.tenant_id)
+          .single();
+        const barbeariaNome = tenantData?.name || "nossa barbearia";
+
+        // Buscar nome do cliente
+        const { data: customerRow } = await supabase
+          .from("customers")
+          .select("name")
+          .eq("id", customer.customer_id)
+          .single();
+        const clientName = customerRow?.name || pushName || "Cliente";
+
+        const messageText = `Olá, ${clientName}! Para escolher seu serviço e agendar um horário na *${barbeariaNome}*, acesse: ${appUrl}/cliente/${customer.token_acesso}/agendar`;
         const sendResponse = await fetch(getCleanVpsUrl("send/text"), {
           method: "POST",
           headers: {
@@ -642,7 +658,7 @@ export const handler = async (req: Request): Promise<Response> => {
       if (event === "appointment_created") {
         messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi confirmado!\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: ${link}\n\nObrigado!`;
       } else if (event === "appointment_cancelled") {
-        messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* para o dia *${date} às ${time}* foi cancelado.\n\n✂️ Serviço: *${service.name}*\n\nSe desejar realizar um novo agendamento, acesse: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nQualquer dúvida, estamos à disposição!`;
+        messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi cancelado.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nSe precisar, você pode agendar um novo horário acessando: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nAgradecemos a compreensão!`;
       }
 
       // 3. Enviar mensagem via VPS

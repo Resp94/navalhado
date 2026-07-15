@@ -353,6 +353,24 @@ Deno.test("POST /webhook - should reply with booking link to a registered custom
       });
     }
 
+    if (urlStr.includes("rest/v1/tenants")) {
+      return new Response(JSON.stringify({
+        name: "Barbearia Estilo"
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (urlStr.includes("rest/v1/customers")) {
+      return new Response(JSON.stringify({
+        name: "Cliente Perfil"
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     if (urlStr.includes("mock-vps.com/send/text")) {
       sentMessage = JSON.parse(String(init?.body));
       return new Response(JSON.stringify({ success: true }), {
@@ -395,7 +413,7 @@ Deno.test("POST /webhook - should reply with booking link to a registered custom
     const data = await res.json();
     assertEquals(data.success, true);
     assertEquals(sentMessage?.number, "5592999992222");
-    assertEquals(sentMessage?.text, "Para agendar, acesse: https://mock-app.com/cliente/token-abc/agendar");
+    assertEquals(sentMessage?.text, "Olá, Cliente Perfil! Para escolher seu serviço e agendar um horário na *Barbearia Estilo*, acesse: https://mock-app.com/cliente/token-abc/agendar");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -472,6 +490,18 @@ const setupMessageWebhookFetch = ({
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
+    if (urlStr.includes("rest/v1/tenants")) {
+      return new Response(JSON.stringify({
+        name: "Barbearia Estilo"
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+
+    if (urlStr.includes("rest/v1/customers")) {
+      return new Response(JSON.stringify({
+        name: "Cliente Perfil"
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+
     if (urlStr.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
       rpcRequests.push(JSON.parse(String(init?.body)));
       return new Response(JSON.stringify(rpcBody), {
@@ -519,7 +549,7 @@ Deno.test("POST /webhook Message - creates customer and replies with new token",
     });
     assertEquals(mock.sentMessages[0], {
       number: "5592999992222",
-      text: "Para agendar, acesse: https://mock-app.com/cliente/token-new/agendar",
+      text: "Olá, Cliente Perfil! Para escolher seu serviço e agendar um horário na *Barbearia Estilo*, acesse: https://mock-app.com/cliente/token-new/agendar",
     });
   } finally {
     mock.restore();
@@ -619,7 +649,7 @@ Deno.test("POST /webhook Message - reuses the same token across repeated message
     assertEquals(mock.sentMessages[0]?.text, mock.sentMessages[1]?.text);
     assertEquals(
       mock.sentMessages[0]?.text,
-      "Para agendar, acesse: https://mock-app.com/cliente/token-stable/agendar",
+      "Olá, Cliente Perfil! Para escolher seu serviço e agendar um horário na *Barbearia Estilo*, acesse: https://mock-app.com/cliente/token-stable/agendar",
     );
   } finally {
     mock.restore();
