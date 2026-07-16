@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { FluxoAgendamento } from '../FluxoAgendamento';
@@ -161,5 +161,40 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     expect(
       screen.queryByRole('heading', { name: 'Como podemos chamar você?' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('carrega slots pela RPC protegida com o token do cliente', async () => {
+    const completedDetails = { ...incompleteDetails, customer_name: 'Maria', cadastro_completo: true };
+    const service = {
+      id: 'service-1',
+      name: 'Corte',
+      description: null,
+      price: 50,
+      duration_minutes: 30,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
+      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
+      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      if (name === 'get_available_slots_by_token') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute();
+    fireEvent.click(await screen.findByText('Corte'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith('get_available_slots_by_token', {
+        p_token: 'token-abc',
+        p_service_id: 'service-1',
+        p_professional_id: null,
+        p_date: expect.any(String),
+        p_exclude_appointment_id: null,
+      });
+    });
   });
 });

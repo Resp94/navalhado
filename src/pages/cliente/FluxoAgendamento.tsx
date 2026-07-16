@@ -195,14 +195,14 @@ export const FluxoAgendamento: React.FC = () => {
   // Carregar slots de horários disponíveis quando mudamos data, profissional ou serviço na Etapa 3
   useEffect(() => {
     const fetchSlots = async () => {
-      if (etapa !== 3 || !selectedService || !selectedDate) return;
+      if (etapa !== 3 || !selectedService || !selectedDate || !canonicalToken) return;
 
       setLoadingSlots(true);
       setSelectedSlot(null); // Reseta slot selecionado ao mudar critérios
       
       try {
-        const { data, error } = await supabase.rpc('get_available_slots', {
-          p_tenant_id: customerDetails?.tenant_id,
+        const { data, error } = await supabase.rpc('get_available_slots_by_token', {
+          p_token: canonicalToken,
           p_service_id: selectedService.id,
           p_professional_id: selectedProfessional?.id || null,
           p_date: selectedDate,
@@ -226,7 +226,7 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     fetchSlots();
-  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, customerDetails]);
+  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken]);
 
   // Seleções do usuário
   const handleSelectService = (service: Service) => {

@@ -9,7 +9,7 @@ select ok(not has_function_privilege('anon', 'public.get_admin_dashboard_metrics
 select ok(has_function_privilege('authenticated', 'public.get_admin_dashboard_metrics()', 'EXECUTE'), 'admin metrics remain available to authenticated admin');
 select ok(not has_function_privilege('anon', 'public.get_tenant_financial_metrics(timestamptz,timestamptz)', 'EXECUTE'), 'financial metrics deny anonymous users');
 select ok(not has_function_privilege('anon', 'public.get_available_slots(uuid,uuid,uuid,date,uuid)', 'EXECUTE'), 'internal slot overload denies anonymous users');
-select ok(has_function_privilege('anon', 'public.get_available_slots(uuid,uuid,date)', 'EXECUTE'), 'token slot overload remains public');
+select ok(not has_function_privilege('authenticated', 'public.get_available_slots(uuid,uuid,uuid,date,uuid)', 'EXECUTE'), 'internal slot overload is server-only');
 select ok(not has_function_privilege('authenticated', 'public.create_appointment_by_token(uuid,uuid,uuid,timestamptz)', 'EXECUTE'), 'internal appointment overload is server-only');
 
 select * from finish();
