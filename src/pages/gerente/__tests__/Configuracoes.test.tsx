@@ -19,7 +19,6 @@ const {
   mockAddToast, 
   mockSupabaseClient, 
   mockUpdate, 
-  mockEqSelect,
   mockEqUpdate,
   mockSingle,
 } = vi.hoisted(() => {
@@ -30,7 +29,7 @@ const {
   const mockEqUpdate = vi.fn().mockResolvedValue({ error: null });
 
   const mockSupabaseClient = {
-    from: vi.fn().mockImplementation((table: string) => {
+    from: vi.fn().mockImplementation((_table: string) => {
       return {
         select: vi.fn().mockReturnValue({ eq: mockEqSelect }),
         update: mockUpdate.mockReturnValue({ eq: mockEqUpdate }),

@@ -11,6 +11,7 @@ export interface TenantContextType {
   tenantId: string;
   tenantName: string;
   logoUrl: string | null;
+  timezone: string;
 }
 
 // SVGs de Ícones de Navegação Inline
@@ -122,7 +123,7 @@ export const GerenteLayout: React.FC = () => {
         if (profile.tenant_id) {
           const { data: tenant, error: tenantError } = await supabase
             .from('tenants')
-            .select('id, name, logo_url')
+            .select('id, name, logo_url, timezone')
             .eq('id', profile.tenant_id)
             .single();
 
@@ -134,7 +135,8 @@ export const GerenteLayout: React.FC = () => {
             setTenantInfo({
               tenantId: tenant.id,
               tenantName: tenant.name,
-              logoUrl: tenant.logo_url
+              logoUrl: tenant.logo_url,
+              timezone: tenant.timezone || 'America/Sao_Paulo'
             });
           }
         } else {

@@ -5,8 +5,8 @@ Estes usuários foram definidos para testes locais e simulação de fluxos de au
 ---
 
 ### 1. Perfil: Proprietário do SaaS (SaaS Admin)
-* **E-mail:** admin@navalhado.com
-* **Senha:** SenhaTeste123
+* **E-mail:** definido em `TEST_SAAS_ADMIN_EMAIL`
+* **Senha:** definida em `TEST_SAAS_ADMIN_PASSWORD`
 * **Role:** proprietario
 * **Destino pós-login:** `/admin/dashboard`
 * **Descrição:** Acesso à administração global do SaaS (gestão de tenants, faturamento global, relatórios macros).
@@ -14,8 +14,8 @@ Estes usuários foram definidos para testes locais e simulação de fluxos de au
 ---
 
 ### 2. Perfil: Gerente da Barbearia (Tenant Admin)
-* **E-mail:** gerente@barbeariaestilo.com
-* **Senha:** SenhaTeste123
+* **E-mail:** definido em `TEST_TENANT_MANAGER_EMAIL`
+* **Senha:** definida em `TEST_TENANT_MANAGER_PASSWORD`
 * **Role:** gerente
 * **Destino pós-login:** `/dashboard`
 * **Descrição:** Acesso ao painel administrativo de uma barbearia específica (agenda de balcão, financeiro local, equipe, serviços).
@@ -23,8 +23,8 @@ Estes usuários foram definidos para testes locais e simulação de fluxos de au
 ---
 
 ### 3. Perfil: Barbeiro / Staff (Profissional)
-* **E-mail:** joao.barbeiro@barbeariaestilo.com
-* **Senha:** SenhaTeste123
+* **E-mail:** definido em `TEST_BARBER_EMAIL`
+* **Senha:** definida em `TEST_BARBER_PASSWORD`
 * **Role:** barbeiro
 * **Destino pós-login:** `/minha-agenda`
 * **Descrição:** Acesso mobile-friendly à agenda individual do barbeiro, registro de finalização de cortes e comissões pessoais.

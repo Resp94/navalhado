@@ -6,6 +6,7 @@ import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Modal } from '../../components/Modal';
+import { dateInZone, formatTimeInZone, localDateTimeToIso, localDayUtcRange, shiftCalendarDate } from '../../lib/timezone';
 
 interface Professional {
   id: string;
@@ -50,10 +51,7 @@ export const Dashboard: React.FC = () => {
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => dateInZone(new Date(), tenant.timezone));
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -126,8 +124,7 @@ export const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      const startOfDay = `${selectedDate}T00:00:00Z`;
-      const endOfDay = `${selectedDate}T23:59:59Z`;
+      const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
 
       const { data, error } = await supabase
         .from('appointments')
@@ -142,8 +139,8 @@ export const Dashboard: React.FC = () => {
           service:services (id, name, price)
         `)
         .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', startOfDay)
-        .lte('start_time', endOfDay)
+        .gte('start_time', start)
+        .lt('start_time', endExclusive)
         .neq('status', 'canceled')
         .order('start_time', { ascending: true });
 
@@ -176,7 +173,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [tenant.tenantId, selectedDate]);
+  }, [tenant.tenantId, tenant.timezone, selectedDate]);
 
   useGSAP(() => {
     if (!loading && professionals.length > 0) {
@@ -189,9 +186,7 @@ export const Dashboard: React.FC = () => {
 
   // Alterar data selecionada
   const shiftDate = (days: number) => {
-    const d = new Date(selectedDate + 'T12:00:00'); // Evita bugs de timezone
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setSelectedDate(shiftCalendarDate(selectedDate, days));
   };
 
   const handleOpenEncaixeModal = (profId: string) => {
@@ -259,7 +254,7 @@ export const Dashboard: React.FC = () => {
       }
 
       // 2. Calcular horários de início e fim
-      const startTimeStr = `${selectedDate}T${appointmentTime}:00Z`;
+      const startTimeStr = localDateTimeToIso(selectedDate, appointmentTime, tenant.timezone);
       const selectedService = services.find(s => s.id === selectedServiceId);
       const duration = selectedService?.duration_minutes || 30;
       
@@ -410,10 +405,7 @@ export const Dashboard: React.FC = () => {
 
   const formatTime = (isoString: string) => {
     try {
-      const d = new Date(isoString);
-      const hours = d.getUTCHours().toString().padStart(2, '0');
-      const minutes = d.getUTCMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
+      return formatTimeInZone(isoString, tenant.timezone);
     } catch (e) {
       return '';
     }
@@ -449,7 +441,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <button onClick={() => shiftDate(1)} className="btn-date-nav">▶</button>
           <button 
-            onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])} 
+            onClick={() => setSelectedDate(dateInZone(new Date(), tenant.timezone))}
             className="btn btn--outline-secondary btn--sm"
             style={{ padding: '0.45rem 0.8rem', borderRadius: 'var(--radius-full)' }}
           >

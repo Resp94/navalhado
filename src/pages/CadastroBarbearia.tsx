@@ -135,35 +135,19 @@ export const CadastroBarbearia: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Gerar UUID para o Tenant localmente para contornar a restrição de SELECT do RLS para anon
-      const tenantId = crypto.randomUUID();
-
-      // 2. Inserir Tenant
-      const { error: tenantError } = await supabase
-        .from('tenants')
-        .insert({
-          id: tenantId,
-          name: barbeariaNome,
-          email: barbeariaEmail,
-          phone: barbeariaPhone.replace(/\D/g, '') // Apenas números
-        });
-
-      if (tenantError) {
-        if (tenantError.message.includes('unique constraint') || tenantError.message.includes('already exists')) {
-          throw new Error('O e-mail comercial informado para a barbearia já está cadastrado.');
-        }
-        throw tenantError;
-      }
-
-      // 3. Criar Usuário Administrador no Supabase Auth
+      // O trigger de Auth cria tenant, assinatura e gerente na mesma transação.
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: gestorEmail,
         password: gestorSenha,
         options: {
           data: {
             name: gestorNome,
-            role: 'gerente',
-            tenant_id: tenantId
+            tenant_signup: {
+              name: barbeariaNome,
+              email: barbeariaEmail,
+              phone: barbeariaPhone.replace(/\D/g, ''),
+              plan: planoSelecionado,
+            },
           }
         }
       });

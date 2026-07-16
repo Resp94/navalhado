@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 export interface Notification {
   id: string;
   tenant_id: string;
-  profissional_id: string | null;
+  professional_id: string | null;
   type: string;
   title: string;
   message: string;
@@ -69,7 +69,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
         .eq('read', false);
 
       if (profissionalId) {
-        query = query.eq('profissional_id', profissionalId);
+        query = query.eq('professional_id', profissionalId);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -112,7 +112,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
         .eq('read', false);
 
       if (profissionalId) {
-        query = query.eq('profissional_id', profesionalId);
+        query = query.eq('professional_id', profissionalId);
       }
 
       const { error } = await query;
@@ -151,7 +151,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
           if (newNotif.tenant_id !== tenantId) return;
 
           // Se profissionalId estiver definido, valida se a notificação é para este profissional (ou se é geral/nula)
-          if (profissionalId && newNotif.profissional_id && newNotif.profissional_id !== profissionalId) {
+          if (profissionalId && newNotif.professional_id && newNotif.professional_id !== profissionalId) {
             return;
           }
 

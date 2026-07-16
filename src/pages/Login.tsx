@@ -55,24 +55,18 @@ export const Login: React.FC = () => {
     return `Não foi possível entrar: ${message}`;
   };
 
-  const resolveRole = async (userId: string, userEmail?: string): Promise<string> => {
-    try {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
+  const resolveRole = async (userId: string): Promise<string> => {
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
 
-      if (profile?.role) return profile.role;
-    } catch {
-      // fallback abaixo
+    const allowedRoles = ['proprietario', 'gerente', 'barbeiro'];
+    if (error || !profile?.role || !allowedRoles.includes(profile.role)) {
+      throw new Error('Perfil de acesso não encontrado.');
     }
-
-    const email = userEmail?.toLowerCase() || '';
-    if (email === 'admin@navalhado.com') return 'proprietario';
-    if (email === 'gerente@barbeariaestilo.com') return 'gerente';
-    if (email === 'joao.barbeiro@barbeariaestilo.com') return 'barbeiro';
-    return 'gerente';
+    return profile.role;
   };
 
   const navigateByRole = (role: string) => {
@@ -109,8 +103,13 @@ export const Login: React.FC = () => {
 
       if (data.user) {
         addToast('Login realizado. Carregando perfil…', 'success');
-        const role = await resolveRole(data.user.id, data.user.email);
-        navigateByRole(role);
+        try {
+          const role = await resolveRole(data.user.id);
+          navigateByRole(role);
+        } catch (profileError) {
+          await supabase.auth.signOut();
+          throw profileError;
+        }
       }
     } catch (error: any) {
       addToast(translateAuthError(error.message), 'error');

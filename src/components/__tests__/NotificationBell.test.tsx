@@ -7,7 +7,7 @@ const mockNotifications = [
   {
     id: '1',
     tenant_id: 'tenant-123',
-    profissional_id: null,
+    professional_id: null,
     type: 'appointment_created',
     title: 'Novo agendamento',
     message: 'Jonathas agendou um corte de cabelo.',
@@ -17,7 +17,7 @@ const mockNotifications = [
   {
     id: '2',
     tenant_id: 'tenant-123',
-    profissional_id: null,
+    professional_id: null,
     type: 'payment_received',
     title: 'Pagamento recebido',
     message: 'Recebido R$ 50,00 de Jonathas.',

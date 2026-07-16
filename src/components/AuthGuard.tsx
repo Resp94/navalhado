@@ -33,7 +33,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) =
         // Buscar dados do perfil do usuário logado
         const { data: profile, error } = await supabase
           .from('users')
-          .select('role, is_active')
+          .select('role, is_active, tenant_id')
           .eq('id', session.user.id)
           .single();
 
@@ -50,6 +50,34 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) =
             navigate('/');
           }
           return;
+        }
+
+        if (profile.role !== 'proprietario') {
+          if (!profile.tenant_id) {
+            throw new Error('Tenant do usuário não encontrado.');
+          }
+
+          const { data: suspendedSubscriptions, error: subscriptionError } = await supabase
+            .from('tenant_subscriptions')
+            .select('status')
+            .eq('tenant_id', profile.tenant_id)
+            .eq('status', 'suspended')
+            .limit(1);
+
+          if (subscriptionError) {
+            throw subscriptionError;
+          }
+
+          if (suspendedSubscriptions && suspendedSubscriptions.length > 0) {
+            addToast('A assinatura desta barbearia está suspensa.', 'error');
+            await supabase.auth.signOut();
+            if (isMounted) {
+              setAuthenticated(false);
+              setLoading(false);
+              navigate('/');
+            }
+            return;
+          }
         }
 
         // Validar role

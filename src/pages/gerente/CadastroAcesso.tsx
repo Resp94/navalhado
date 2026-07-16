@@ -86,33 +86,10 @@ export const CadastroAcesso: React.FC = () => {
       });
 
       if (error) {
-        // Se der erro porque a Edge Function não está implementada/publicada ainda, 
-        // vamos simular o fluxo para o usuário conseguir testar o protótipo perfeitamente!
-        console.warn('Edge Function create-barber-access não encontrada ou offline. Executando simulação de homologação.');
-        
-        // Simulação: Criamos um ID de usuário fictício (como se o auth.users tivesse criado)
-        const mockUserId = crypto.randomUUID();
-
-        // Vinculamos o ID na tabela public.professionals diretamente
-        const { error: updateError } = await supabase
-          .from('professionals')
-          .update({ 
-            user_id: mockUserId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedProfId)
-          .eq('tenant_id', tenant.tenantId);
-
-        if (updateError) throw updateError;
-
-        addToast(
-          'Simulação de Homologação: Login configurado com sucesso! (Edge Function offline, executado fallback local para testes).', 
-          'success'
-        );
-      } else {
-        // Sucesso real na Edge Function
-        addToast(`Acesso criado com sucesso para o profissional ${selectedProf?.name}!`, 'success');
+        throw error;
       }
+
+      addToast(`Acesso criado com sucesso para o profissional ${selectedProf?.name}!`, 'success');
 
       // Redireciona de volta para a lista de equipe
       navigate('/profissionais');

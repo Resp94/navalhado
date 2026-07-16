@@ -41,6 +41,11 @@ const formatDateTime = (dateStr: string, timeZone: string = "America/Sao_Paulo")
   return { date: formattedDate, time: formattedTime };
 };
 
+export const singleRelation = <T>(relation: T | T[] | null | undefined): T | null => {
+  if (Array.isArray(relation)) return relation[0] ?? null;
+  return relation ?? null;
+};
+
 export const handler = async (req: Request): Promise<Response> => {
   // CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -62,6 +67,27 @@ export const handler = async (req: Request): Promise<Response> => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const appUrl = Deno.env.get("APP_URL") || "";
+
+  const validateTriggerSecret = (route: string): Response | null => {
+    if (!dbTriggerSecret.trim()) {
+      console.error(`[WhatsApp-Integration] ${route}: DB_TRIGGER_SECRET ausente ou vazio`);
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const reqSecret = req.headers.get("x-db-trigger-secret");
+    if (!reqSecret?.trim() || reqSecret !== dbTriggerSecret) {
+      console.error(`[WhatsApp-Integration] ${route}: Segredo de trigger inválido`);
+      return new Response(JSON.stringify({ error: "Unauthorized trigger secret" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return null;
+  };
 
   if (!appUrl && (path.endsWith("/webhook") || path.endsWith("/send-notification") || path.endsWith("/process-reminders"))) {
     console.error("[WhatsApp-Integration] Erro: A variável de ambiente APP_URL não está configurada.");
@@ -87,18 +113,11 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      // Validar segredo do trigger do banco de dados
-      const reqSecret = req.headers.get("x-db-trigger-secret");
-      if (reqSecret !== dbTriggerSecret) {
-        console.error("[WhatsApp-Integration] /manage-instance: Segredo de trigger inválido");
-        return new Response(JSON.stringify({ error: "Unauthorized trigger secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const triggerAuthError = validateTriggerSecret("/manage-instance");
+      if (triggerAuthError) return triggerAuthError;
 
       const body = await req.json();
-      const { action, instance_id, instance_name, tenant_id } = body;
+      const { action, instance_id, instance_name } = body;
 
       if (!action || !instance_id || !instance_name) {
         return new Response(JSON.stringify({ error: "Missing required parameters" }), {
@@ -144,17 +163,17 @@ export const handler = async (req: Request): Promise<Response> => {
         });
 
         if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[WhatsApp-Integration] Erro ao criar instância na VPS: ${errText}`);
-          return new Response(JSON.stringify({ error: `VPS failed to create instance: ${errText}` }), {
+          await response.body?.cancel();
+          console.error(`[WhatsApp-Integration] Erro ao criar instância na VPS (status ${response.status})`);
+          return new Response(JSON.stringify({ error: "VPS failed to create instance" }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        const resData = await response.json();
-        console.log(`[WhatsApp-Integration] Instância criada com sucesso na VPS`, resData);
-        return new Response(JSON.stringify({ success: true, data: resData }), {
+        await response.body?.cancel();
+        console.log("[WhatsApp-Integration] Instância criada com sucesso na VPS");
+        return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } 
@@ -175,8 +194,8 @@ export const handler = async (req: Request): Promise<Response> => {
               token: instanceApiKey,
             }),
           });
-          const preflightText = await preflightRes.text();
-          console.log(`[WhatsApp-Integration] [Connect-Preflight] Resposta do preflight de criação: ${preflightText}`);
+          await preflightRes.body?.cancel();
+          console.log(`[WhatsApp-Integration] [Connect-Preflight] Status do preflight de criação: ${preflightRes.status}`);
         } catch (createErr) {
           console.warn(`[WhatsApp-Integration] [Connect-Preflight] Falha silenciosa no preflight de criação:`, createErr);
         }
@@ -198,8 +217,8 @@ export const handler = async (req: Request): Promise<Response> => {
               subscribe: ["CONNECTION", "MESSAGE"]
             }),
           });
-          const connectText = await connectRes.text();
-          console.log(`[WhatsApp-Integration] [Webhook-Preflight] Resposta do connect da instância: ${connectText}`);
+          await connectRes.body?.cancel();
+          console.log(`[WhatsApp-Integration] [Webhook-Preflight] Status da configuração: ${connectRes.status}`);
         } catch (webhookErr) {
           console.warn(`[WhatsApp-Integration] [Webhook-Preflight] Falha silenciosa ao chamar instance/connect:`, webhookErr);
         }
@@ -217,7 +236,7 @@ export const handler = async (req: Request): Promise<Response> => {
 
         if (!response.ok) {
           const errText = await response.text();
-          console.error(`[WhatsApp-Integration] Erro ao obter QR Code da VPS: ${errText}`);
+          console.error(`[WhatsApp-Integration] Erro ao obter QR Code da VPS (status ${response.status})`);
           
           // Tratar o caso de a instância já estar conectada
           const errClean = errText.toLowerCase();
@@ -240,10 +259,7 @@ export const handler = async (req: Request): Promise<Response> => {
             });
           }
 
-          return new Response(JSON.stringify({ 
-            error: `VPS failed to get QR Code: ${errText}`, 
-            debug: { vpsUrl, evolutionApiUrl, instanceApiKey, instance_name } 
-          }), {
+          return new Response(JSON.stringify({ error: "VPS failed to get QR Code" }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -255,7 +271,7 @@ export const handler = async (req: Request): Promise<Response> => {
         const pairingCode = resData?.data?.Code || resData?.data?.code;
 
         if (!qrcode) {
-          console.error("[WhatsApp-Integration] QR Code não retornado pela VPS", resData);
+          console.error("[WhatsApp-Integration] QR Code não retornado pela VPS");
           return new Response(JSON.stringify({ error: "QR Code not returned by VPS" }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -299,8 +315,8 @@ export const handler = async (req: Request): Promise<Response> => {
 
         // Caso a instância já esteja desconectada na VPS (retornando erro), limpamos o status no banco mesmo assim
         if (!response.ok) {
-          const errText = await response.text();
-          console.warn(`[WhatsApp-Integration] VPS retornou erro na desconexão: ${errText}. Prosseguindo com limpeza no banco.`);
+          await response.body?.cancel();
+          console.warn(`[WhatsApp-Integration] VPS retornou status ${response.status} na desconexão. Prosseguindo com limpeza no banco.`);
         }
 
         // Atualizar status no banco de dados para disconnected e limpar QR Code
@@ -342,25 +358,20 @@ export const handler = async (req: Request): Promise<Response> => {
             }),
           });
           const status = connectRes.status;
-          const headers = Object.fromEntries(connectRes.headers.entries());
-          const text = await connectRes.text();
+          await connectRes.body?.cancel();
           
           return new Response(JSON.stringify({ 
             success: true, 
             debug: {
-              connectVpsUrl,
-              targetWebhookUrl,
-              status,
-              headers,
-              body: text
+              status
             }
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-        } catch (err: any) {
+        } catch {
           return new Response(JSON.stringify({ 
             success: false, 
-            error: err?.message || err 
+            error: "Failed to configure webhook"
           }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -394,11 +405,31 @@ export const handler = async (req: Request): Promise<Response> => {
 
       console.log(`[WhatsApp-Integration] Webhook recebido: Evento '${event}' (normalizado: '${eventClean}') da instância '${instanceName}' (status VPS: '${vpsStatus}')`);
 
-      const isLegacyConnectionUpdate = eventClean === "connection.update" && instanceName;
-      const isEvolutionGoConnected =
-        (eventClean === "connected" || eventClean === "pairsuccess") && instanceToken;
+      const cleanInstanceToken = typeof instanceToken === "string" ? instanceToken.trim() : "";
+      if (!cleanInstanceToken) {
+        return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      const isEvolutionGoMessage = eventClean === "message" && instanceToken;
+      const { data: authenticatedInstance, error: instanceAuthError } = await supabase
+        .from("evolution_api_instances")
+        .select("tenant_id, api_key, status")
+        .eq("api_key", cleanInstanceToken)
+        .single();
+
+      if (instanceAuthError || !authenticatedInstance) {
+        console.warn("[WhatsApp-Integration] Webhook rejeitado: token de instância inválido");
+        return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const isConnectionUpdate = ["connection.update", "connected", "pairsuccess"].includes(eventClean);
+
+      const isEvolutionGoMessage = eventClean === "message";
 
       if (isEvolutionGoMessage) {
         const messageInfo = body.data?.Info || body.data?.info || {};
@@ -423,13 +454,7 @@ export const handler = async (req: Request): Promise<Response> => {
           });
         }
 
-        const { data: instance, error: instanceErr } = await supabase
-          .from("evolution_api_instances")
-          .select("tenant_id, api_key, status")
-          .eq("api_key", instanceToken)
-          .single();
-
-        if (instanceErr || !instance || instance.status !== "connected") {
+        if (authenticatedInstance.status !== "connected") {
           console.warn(`[WhatsApp-Integration] Mensagem ignorada: instância não encontrada ou desconectada`);
           return new Response(JSON.stringify({ ignored: true, reason: "Instance unavailable" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -440,7 +465,7 @@ export const handler = async (req: Request): Promise<Response> => {
         const { data: customerRows, error: customerError } = await supabase.rpc(
           "find_or_create_whatsapp_customer",
           {
-            p_tenant_id: instance.tenant_id,
+            p_tenant_id: authenticatedInstance.tenant_id,
             p_phone: senderPhone,
             p_push_name: pushName,
           },
@@ -458,7 +483,7 @@ export const handler = async (req: Request): Promise<Response> => {
         const { data: tenantData } = await supabase
           .from("tenants")
           .select("name")
-          .eq("id", instance.tenant_id)
+          .eq("id", authenticatedInstance.tenant_id)
           .single();
         const barbeariaNome = tenantData?.name || "nossa barbearia";
 
@@ -475,7 +500,7 @@ export const handler = async (req: Request): Promise<Response> => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": instance.api_key,
+            "apikey": authenticatedInstance.api_key,
           },
           body: JSON.stringify({
             number: senderPhone,
@@ -484,9 +509,9 @@ export const handler = async (req: Request): Promise<Response> => {
         });
 
         if (!sendResponse.ok) {
-          const errText = await sendResponse.text();
-          console.error(`[WhatsApp-Integration] Falha ao responder mensagem recebida: ${errText}`);
-          return new Response(JSON.stringify({ error: `VPS failed to send booking link: ${errText}` }), {
+          await sendResponse.body?.cancel();
+          console.error(`[WhatsApp-Integration] Falha ao responder mensagem recebida (status ${sendResponse.status})`);
+          return new Response(JSON.stringify({ error: "VPS failed to send booking link" }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -497,7 +522,7 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      if ((isLegacyConnectionUpdate || isEvolutionGoConnected) && vpsStatus) {
+      if (isConnectionUpdate && vpsStatus) {
         // Mapear status da VPS (Evolution API Go) para o nosso enum local
         let localStatus: "connected" | "disconnected" | "pairing" = "disconnected";
         const statusClean = String(vpsStatus).toLowerCase();
@@ -522,9 +547,7 @@ export const handler = async (req: Request): Promise<Response> => {
             updated_at: new Date().toISOString(),
           });
 
-        const { error: updateErr } = instanceToken
-          ? await updateQuery.eq("api_key", instanceToken)
-          : await updateQuery.eq("instance_name", instanceName);
+        const { error: updateErr } = await updateQuery.eq("api_key", cleanInstanceToken);
 
         if (updateErr) {
           console.error(`[WhatsApp-Integration] Erro ao atualizar status via webhook: ${updateErr.message}`);
@@ -556,15 +579,8 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      // Validar segredo de trigger
-      const reqSecret = req.headers.get("x-db-trigger-secret");
-      if (reqSecret !== dbTriggerSecret) {
-        console.error("[WhatsApp-Integration] /send-notification: Segredo de trigger inválido");
-        return new Response(JSON.stringify({ error: "Unauthorized trigger secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const triggerAuthError = validateTriggerSecret("/send-notification");
+      if (triggerAuthError) return triggerAuthError;
 
       const body = await req.json();
       const { event, appointment_id, tenant_id } = body;
@@ -637,14 +653,14 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const customer = appointment.customers;
-      const professional = appointment.professionals;
-      const service = appointment.services;
-      const tenant = appointment.tenants;
+      const customer = singleRelation(appointment.customers);
+      const professional = singleRelation(appointment.professionals);
+      const service = singleRelation(appointment.services);
+      const tenant = singleRelation(appointment.tenants);
 
-      if (!customer || !customer.phone) {
-        console.warn(`[WhatsApp-Integration] Cliente ou telefone do cliente ausente no agendamento ${appointment_id}`);
-        return new Response(JSON.stringify({ status: "skipped", reason: "Customer phone is missing" }), {
+      if (!customer?.phone || !professional || !service || !tenant) {
+        console.warn(`[WhatsApp-Integration] Dados relacionais incompletos no agendamento ${appointment_id}`);
+        return new Response(JSON.stringify({ status: "skipped", reason: "Appointment details are incomplete" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -678,9 +694,9 @@ export const handler = async (req: Request): Promise<Response> => {
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[WhatsApp-Integration] Falha no disparo da mensagem VPS: ${errText}`);
-        return new Response(JSON.stringify({ error: `VPS failed to send message: ${errText}` }), {
+        await response.body?.cancel();
+        console.error(`[WhatsApp-Integration] Falha no disparo da mensagem VPS (status ${response.status})`);
+        return new Response(JSON.stringify({ error: "VPS failed to send message" }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -703,15 +719,8 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      // Validar segredo de trigger
-      const reqSecret = req.headers.get("x-db-trigger-secret");
-      if (reqSecret !== dbTriggerSecret) {
-        console.error("[WhatsApp-Integration] /process-reminders: Segredo de trigger inválido");
-        return new Response(JSON.stringify({ error: "Unauthorized trigger secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const triggerAuthError = validateTriggerSecret("/process-reminders");
+      if (triggerAuthError) return triggerAuthError;
 
       console.log("[WhatsApp-Integration] /process-reminders: Iniciando processamento de lembretes...");
 
@@ -774,12 +783,12 @@ export const handler = async (req: Request): Promise<Response> => {
 
         if (pendingAppointments && pendingAppointments.length > 0) {
           for (const app of pendingAppointments) {
-            const customer = app.customers;
-            const professional = app.professionals;
-            const service = app.services;
-            const tenant = app.tenants;
+            const customer = singleRelation(app.customers);
+            const professional = singleRelation(app.professionals);
+            const service = singleRelation(app.services);
+            const tenant = singleRelation(app.tenants);
 
-            if (!customer || !customer.phone) continue;
+            if (!customer?.phone || !professional || !service || !tenant) continue;
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
@@ -816,8 +825,8 @@ export const handler = async (req: Request): Promise<Response> => {
                   totalSent++;
                 }
               } else {
-                const errText = await response.text();
-                console.error(`[WhatsApp-Integration] Falha ao enviar lembrete para ${clientPhone} via VPS: ${errText}`);
+                await response.body?.cancel();
+                console.error(`[WhatsApp-Integration] Falha ao enviar lembrete para ${clientPhone} via VPS (status ${response.status})`);
               }
             } catch (fetchErr) {
               console.error(`[WhatsApp-Integration] Falha de comunicação com a VPS no envio do lembrete:`, fetchErr);
@@ -844,15 +853,16 @@ export const handler = async (req: Request): Promise<Response> => {
       }
 
       // Validar autenticação do usuário
-      const authHeader = req.headers.get("authorization");
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+      const authHeader = req.headers.get("authorization") || "";
+      const bearerMatch = authHeader.match(/^Bearer ([^\s]+)$/i);
+      if (!bearerMatch) {
+        return new Response(JSON.stringify({ error: "Invalid Authorization header" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const token = authHeader.replace("Bearer ", "");
+      const token = bearerMatch[1];
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !user) {
         return new Response(JSON.stringify({ error: "Unauthorized user" }), {
@@ -861,11 +871,40 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const body = await req.json();
-      const { tenant_id, number, text } = body;
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      if (!tenant_id || !number || !text) {
-        return new Response(JSON.stringify({ error: "Missing required parameters" }), {
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid request body" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { tenant_id, number, text } = body as Record<string, unknown>;
+
+      if (
+        typeof tenant_id !== "string" || !tenant_id.trim() || tenant_id.length > 128 ||
+        typeof number !== "string" || !number.trim() ||
+        typeof text !== "string" || !text.trim() || text.length > 4096
+      ) {
+        return new Response(JSON.stringify({ error: "Invalid request parameters" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cleanTenantId = tenant_id.trim();
+      const clientPhone = formatPhoneNumber(number);
+      if (!/^55[1-9][0-9]{9,10}$/.test(clientPhone)) {
+        return new Response(JSON.stringify({ error: "Invalid phone number" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -874,11 +913,13 @@ export const handler = async (req: Request): Promise<Response> => {
       // Verificar se o usuário pertence a este tenant_id
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("tenant_id")
+        .select("tenant_id, role")
         .eq("id", user.id)
         .single();
 
-      if (userError || !userData || userData.tenant_id !== tenant_id) {
+      const hasAllowedRole = userData?.role === "gerente" || userData?.role === "proprietario";
+      const hasTenantAccess = userData?.role === "proprietario" || userData?.tenant_id === cleanTenantId;
+      if (userError || !userData || !hasAllowedRole || !hasTenantAccess) {
         return new Response(JSON.stringify({ error: "Forbidden: You do not have access to this tenant" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -889,7 +930,7 @@ export const handler = async (req: Request): Promise<Response> => {
       const { data: instance, error: instanceError } = await supabase
         .from("evolution_api_instances")
         .select("instance_name, api_key, status")
-        .eq("tenant_id", tenant_id)
+        .eq("tenant_id", cleanTenantId)
         .single();
 
       if (instanceError || !instance) {
@@ -906,7 +947,6 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const clientPhone = formatPhoneNumber(number);
       const vpsUrl = getCleanVpsUrl("send/text");
 
       const response = await fetch(vpsUrl, {
@@ -922,16 +962,16 @@ export const handler = async (req: Request): Promise<Response> => {
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[WhatsApp-Integration] Erro ao enviar mensagem de teste via VPS: ${errText}`);
-        return new Response(JSON.stringify({ error: `VPS failed to send test message: ${errText}` }), {
+        await response.body?.cancel();
+        console.error(`[WhatsApp-Integration] Erro ao enviar mensagem de teste via VPS (status ${response.status})`);
+        return new Response(JSON.stringify({ error: "Failed to send test message" }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const resData = await response.json();
-      return new Response(JSON.stringify({ success: true, data: resData }), {
+      await response.body?.cancel();
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -941,9 +981,9 @@ export const handler = async (req: Request): Promise<Response> => {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: any) {
-    console.error(`[WhatsApp-Integration] Erro crítico não tratado: ${error?.message || error}`);
-    return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
+  } catch {
+    console.error("[WhatsApp-Integration] Erro crítico não tratado");
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

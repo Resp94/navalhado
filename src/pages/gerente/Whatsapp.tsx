@@ -8,8 +8,8 @@ import { useGSAP } from '@gsap/react';
 
 interface EvolutionInstance {
   id: string;
+  tenant_id: string;
   instance_name: string;
-  api_key: string;
   qr_code: string | null;
   status: 'connected' | 'disconnected' | 'pairing';
   send_confirmation: boolean;
@@ -18,9 +18,29 @@ interface EvolutionInstance {
   send_cancellation: boolean;
 }
 
-const formatHoursToReadable = (hours: number): string => {
-  return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-};
+type EvolutionSetting =
+  | 'send_confirmation'
+  | 'send_reminders'
+  | 'reminder_hours'
+  | 'send_cancellation';
+
+const EVOLUTION_INSTANCE_COLUMNS =
+  'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation';
+
+const toEvolutionInstance = (row: Record<string, any>): EvolutionInstance => ({
+  id: row.id,
+  tenant_id: row.tenant_id,
+  instance_name: row.instance_name,
+  qr_code: row.qr_code,
+  status: row.status,
+  send_confirmation: row.send_confirmation,
+  send_reminders: row.send_reminders,
+  reminder_hours: row.reminder_hours,
+  send_cancellation: row.send_cancellation,
+});
+
+const formatHoursToReadable = (hours: number): string =>
+  `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
 
 export const Whatsapp: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -32,29 +52,28 @@ export const Whatsapp: React.FC = () => {
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('Olá! Esta é uma mensagem de teste do sistema Navalhado.');
 
-  const fetchInstance = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('evolution_api_instances')
-        .select('*')
-        .eq('tenant_id', tenant.tenantId)
-        .maybeSingle();
-
-      if (error) throw error;
-      setInstance(data);
-    } catch (error: any) {
-      console.error('Error fetching whatsapp instance:', error);
-      addToast('Não foi possível carregar o status do WhatsApp.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchInstance = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('evolution_api_instances')
+          .select(EVOLUTION_INSTANCE_COLUMNS)
+          .eq('tenant_id', tenant.tenantId)
+          .maybeSingle();
+
+        if (error) throw error;
+        setInstance(data ? toEvolutionInstance(data) : null);
+      } catch (error) {
+        console.error('Error fetching whatsapp instance:', error);
+        addToast('Não foi possível carregar o status do WhatsApp.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchInstance();
 
-    // Habilitar a escuta de alterações em tempo real para a instância deste tenant
     const channel = supabase
       .channel(`evolution_api_instances:${tenant.tenantId}`)
       .on(
@@ -63,11 +82,15 @@ export const Whatsapp: React.FC = () => {
           event: '*',
           schema: 'public',
           table: 'evolution_api_instances',
-          filter: `tenant_id=eq.${tenant.tenantId}`
+          filter: `tenant_id=eq.${tenant.tenantId}`,
         },
         (payload) => {
-          console.log('Realtime change received:', payload);
-          setInstance(payload.new as EvolutionInstance);
+          if (payload.eventType === 'DELETE') {
+            setInstance(null);
+            return;
+          }
+
+          setInstance(toEvolutionInstance(payload.new));
         }
       )
       .subscribe();
@@ -75,7 +98,7 @@ export const Whatsapp: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenant.tenantId]);
+  }, [addToast, tenant.tenantId]);
 
   useGSAP(() => {
     if (!loading) {
@@ -112,11 +135,11 @@ export const Whatsapp: React.FC = () => {
             qr_code: null
           }
         ])
-        .select()
+        .select(EVOLUTION_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(data);
+      setInstance(toEvolutionInstance(data));
       addToast('Instância criada com sucesso! Conecte seu celular.', 'success');
     } catch (error: any) {
       console.error('Error creating instance:', error);
@@ -139,14 +162,15 @@ export const Whatsapp: React.FC = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', instance.id)
-        .select()
+        .select(EVOLUTION_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(data);
-      addToast('QR Code gerado! Aponte a câmera do WhatsApp para parear.', 'info');
+      setInstance(toEvolutionInstance(data));
+      addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
 
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error connecting whatsapp instance:', error);
       addToast('Erro ao solicitar conexão de WhatsApp.', 'error');
     } finally {
       setActionLoading(false);
@@ -166,38 +190,41 @@ export const Whatsapp: React.FC = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', instance.id)
-        .select()
+        .select(EVOLUTION_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(data);
+      setInstance(toEvolutionInstance(data));
       addToast('WhatsApp desconectado da barbearia.', 'warning');
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error disconnecting whatsapp instance:', error);
       addToast('Erro ao desconectar WhatsApp.', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleUpdateConfig = async (key: keyof EvolutionInstance, value: any) => {
+  const handleUpdateConfig = async (
+    key: EvolutionSetting,
+    value: boolean | number
+  ) => {
     if (!instance) return;
-    try {
-      const payload = {
-        [key]: value,
-        updated_at: new Date().toISOString()
-      };
 
+    try {
       const { data, error } = await supabase
         .from('evolution_api_instances')
-        .update(payload)
+        .update({
+          [key]: value,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', instance.id)
-        .select()
+        .select(EVOLUTION_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(data);
+      setInstance(toEvolutionInstance(data));
       addToast('Configurações do WhatsApp atualizadas com sucesso!', 'success');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating whatsapp config:', error);
       addToast('Erro ao atualizar configurações de disparo.', 'error');
     }
@@ -212,7 +239,7 @@ export const Whatsapp: React.FC = () => {
 
     try {
       setActionLoading(true);
-      
+
       const { error } = await supabase.functions.invoke('whatsapp-integration/send-test', {
         body: {
           tenant_id: tenant.tenantId,
@@ -305,14 +332,14 @@ export const Whatsapp: React.FC = () => {
                   <p className="qr-desc">Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar um Aparelho</strong> e aponte a câmera.</p>
                   <div className="qr-frame">
                     {instance.qr_code ? (
-                      <img 
-                        src={instance.qr_code.startsWith('data:') ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`} 
-                        alt="QR Code WhatsApp" 
+                      <img
+                        src={instance.qr_code.startsWith('data:') ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`}
+                        alt="QR Code WhatsApp"
                       />
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                        <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent', width: '32px', height: '32px', borderWidth: '3px' }} />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Gerando código...</span>
+                      <div className="qr-loading">
+                        <div className="spinner spinner--qr" />
+                        <span>Gerando código...</span>
                       </div>
                     )}
                   </div>
@@ -349,7 +376,6 @@ export const Whatsapp: React.FC = () => {
             </div>
             <div className="card-whatsapp__body">
               <div className="rules-list">
-                {/* 1. Confirmação Automática */}
                 <div className="rule-row">
                   <div className="rule-row__icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -359,98 +385,73 @@ export const Whatsapp: React.FC = () => {
                     </svg>
                   </div>
                   <div className="rule-row__content">
-                    <label htmlFor="send-confirmation" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
+                    <label htmlFor="send-confirmation" className="rule-row__title">
                       Confirmação Automática
                     </label>
                     <span className="rule-row__desc">Envia o link de agendamento por WhatsApp assim que o cliente reserva.</span>
                   </div>
-                  <div className="rule-row__action">
-                    <label className="switch">
-                      <input
-                        id="send-confirmation"
-                        type="checkbox"
-                        checked={instance.send_confirmation}
-                        onChange={(e) => handleUpdateConfig('send_confirmation', e.target.checked)}
-                      />
-                      <span className="slider round"></span>
-                    </label>
-                  </div>
+                  <label className="switch">
+                    <input
+                      id="send-confirmation"
+                      type="checkbox"
+                      checked={instance.send_confirmation}
+                      onChange={(event) => handleUpdateConfig('send_confirmation', event.target.checked)}
+                    />
+                    <span className="slider" />
+                  </label>
                 </div>
 
-                {/* 2. Lembretes */}
-                <div className="rule-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                      <div className="rule-row__icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                      </div>
-                      <div className="rule-row__content">
-                        <label htmlFor="send-reminders" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
-                          Lembretes de Agendamento
-                        </label>
-                        <span className="rule-row__desc">
-                          Envia lembrete com opção de cancelamento antes do horário.
-                        </span>
-                      </div>
+                <div className="rule-row rule-row--reminder">
+                  <div className="rule-row__main">
+                    <div className="rule-row__icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
                     </div>
-                    <div className="rule-row__action">
-                      <label className="switch">
-                        <input
-                          id="send-reminders"
-                          type="checkbox"
-                          checked={instance.send_reminders}
-                          onChange={(e) => handleUpdateConfig('send_reminders', e.target.checked)}
-
-                        />
-                        <span className="slider round"></span>
+                    <div className="rule-row__content">
+                      <label htmlFor="send-reminders" className="rule-row__title">
+                        Lembretes de Agendamento
                       </label>
+                      <span className="rule-row__desc">Envia lembrete com opção de cancelamento antes do horário.</span>
                     </div>
+                    <label className="switch">
+                      <input
+                        id="send-reminders"
+                        type="checkbox"
+                        checked={instance.send_reminders}
+                        onChange={(event) => handleUpdateConfig('send_reminders', event.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
                   </div>
 
-                  <div className="reminder-settings" style={{ paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label htmlFor="reminder-hours" className="helper-text" style={{ margin: 0, fontSize: '0.85rem' }}>
+                  <div className="reminder-settings">
+                    <div className="reminder-settings__field">
+                      <label htmlFor="reminder-hours" className="helper-text">
                         Tempo de antecedência do lembrete:
                       </label>
                       <select
                         id="reminder-hours"
                         aria-label="Tempo de antecedência do lembrete"
                         value={instance.reminder_hours}
-                        onChange={(e) => handleUpdateConfig('reminder_hours', parseInt(e.target.value, 10))}
+                        onChange={(event) => handleUpdateConfig('reminder_hours', Number(event.target.value))}
                         disabled={!instance.send_reminders || actionLoading}
                         className="form-select"
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid rgba(234, 222, 214, 0.8)',
-                          backgroundColor: '#fff',
-                          fontSize: '0.85rem',
-                        }}
                       >
-                        {[1, 2, 3, 4, 6, 12, 24].map((h) => (
-                          <option key={h} value={h}>
-                            {h} {h === 1 ? 'hora antes' : 'horas antes'}
+                        {[1, 2, 3, 4, 6, 12, 24].map((hours) => (
+                          <option key={hours} value={hours}>
+                            {hours} {hours === 1 ? 'hora antes' : 'horas antes'}
                           </option>
                         ))}
                       </select>
                     </div>
-                    {instance && (
-                      <span style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        color: 'var(--color-brand-primary)',
-                        letterSpacing: '0.01em'
-                      }}>
-                        Lembrete enviado {formatHoursToReadable(instance.reminder_hours)} antes do agendamento
-                      </span>
-                    )}
+                    <span className="reminder-settings__summary">
+                      Lembrete enviado {formatHoursToReadable(instance.reminder_hours)} antes do agendamento
+                    </span>
                   </div>
                 </div>
 
-                {/* 3. Alerta de Cancelamento */}
                 <div className="rule-row">
                   <div className="rule-row__icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -460,30 +461,28 @@ export const Whatsapp: React.FC = () => {
                     </svg>
                   </div>
                   <div className="rule-row__content">
-                    <label htmlFor="send-cancellation" className="rule-row__title" style={{ cursor: 'pointer', display: 'block' }}>
+                    <label htmlFor="send-cancellation" className="rule-row__title">
                       Alerta de Cancelamento
                     </label>
                     <span className="rule-row__desc">Notifica se o barbeiro ou cliente cancelar o agendamento.</span>
                   </div>
-                  <div className="rule-row__action">
-                    <label className="switch">
-                      <input
-                        id="send-cancellation"
-                        type="checkbox"
-                        checked={instance.send_cancellation}
-                        onChange={(e) => handleUpdateConfig('send_cancellation', e.target.checked)}
-                      />
-                      <span className="slider round"></span>
-                    </label>
-                  </div>
+                  <label className="switch">
+                    <input
+                      id="send-cancellation"
+                      type="checkbox"
+                      checked={instance.send_cancellation}
+                      onChange={(event) => handleUpdateConfig('send_cancellation', event.target.checked)}
+                    />
+                    <span className="slider" />
+                  </label>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ═══ Card: Mensagem de Teste (mostrado sempre que a instância existe) ═══ */}
-          {instance && (
-            <div className="card-whatsapp card-whatsapp--full">
+          {/* ═══ Card: Mensagem de Teste (só quando conectado) ═══ */}
+          {instance.status === 'connected' && (
+            <div className="card-whatsapp">
               <div className="card-whatsapp__header">
                 <div>
                   <span className="card-whatsapp__eyebrow">Teste</span>
@@ -494,39 +493,14 @@ export const Whatsapp: React.FC = () => {
                 <form onSubmit={handleSendTestMessage} className="test-form">
                   <div className="form-group">
                     <label htmlFor="test-phone">Número com DDD (Apenas números)</label>
-                    <input 
-                      id="test-phone" 
-                      type="text" 
-                      placeholder="Ex: 11999999999" 
-                      value={testPhone} 
-                      onChange={(e) => setTestPhone(e.target.value)} 
-                      disabled={instance.status !== 'connected' || actionLoading}
-                      required 
-                    />
+                    <input id="test-phone" type="text" placeholder="Ex: 11999999999" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} required />
                   </div>
                   <div className="form-group">
                     <label htmlFor="test-msg">Mensagem</label>
-                    <textarea 
-                      id="test-msg" 
-                      rows={3} 
-                      value={testMessage} 
-                      onChange={(e) => setTestMessage(e.target.value)} 
-                      disabled={instance.status !== 'connected' || actionLoading}
-                      required 
-                    />
+                    <textarea id="test-msg" rows={3} value={testMessage} onChange={(e) => setTestMessage(e.target.value)} required />
                   </div>
-                  <button 
-                    type="submit" 
-                    disabled={instance.status !== 'connected' || actionLoading} 
-                    className={`btn ${instance.status === 'connected' ? 'btn--primary' : 'btn--outline'}`}
-                  >
-                    {actionLoading ? (
-                      <div className="spinner spinner--sm" />
-                    ) : instance.status === 'connected' ? (
-                      'Enviar Mensagem de Teste'
-                    ) : (
-                      'Conecte o WhatsApp para Enviar Teste'
-                    )}
+                  <button type="submit" disabled={actionLoading} className="btn btn--primary">
+                    {actionLoading ? <div className="spinner spinner--sm" /> : 'Enviar Mensagem de Teste'}
                   </button>
                 </form>
               </div>
@@ -592,18 +566,12 @@ export const Whatsapp: React.FC = () => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1.5rem;
-        }
-
-        .card-whatsapp--full {
-          grid-column: 1 / -1;
+          align-items: start;
         }
 
         @media (max-width: 900px) {
           .whatsapp-grid {
             grid-template-columns: 1fr;
-          }
-          .card-whatsapp--full {
-            grid-column: auto;
           }
         }
 
@@ -615,8 +583,6 @@ export const Whatsapp: React.FC = () => {
           box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           overflow: hidden;
-          display: flex;
-          flex-direction: column;
         }
 
         .card-whatsapp:hover {
@@ -654,7 +620,6 @@ export const Whatsapp: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
-          flex: 1;
         }
 
         /* ═══ STATUS PILL ═══ */
@@ -789,6 +754,21 @@ export const Whatsapp: React.FC = () => {
           object-fit: contain;
         }
 
+        .qr-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.75rem;
+          color: var(--color-text-secondary);
+        }
+
+        .spinner--qr {
+          width: 32px;
+          height: 32px;
+          border-width: 3px;
+        }
+
         /* ═══ CONNECTED ═══ */
         .card-whatsapp__success {
           display: flex;
@@ -863,6 +843,7 @@ export const Whatsapp: React.FC = () => {
           font-size: var(--font-size-sm);
           font-weight: 700;
           color: var(--color-text-primary);
+          cursor: pointer;
         }
 
         .rule-row__desc {
@@ -885,7 +866,59 @@ export const Whatsapp: React.FC = () => {
           flex-shrink: 0;
         }
 
-        /* Switches (Toggles) */
+        .rule-row--reminder {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.75rem;
+        }
+
+        .rule-row__main {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+          width: 100%;
+        }
+
+        .reminder-settings {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.25rem;
+          padding-left: 2.9rem;
+        }
+
+        .reminder-settings__field {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .reminder-settings__field .helper-text {
+          margin: 0;
+          font-size: 0.85rem;
+        }
+
+        .form-select {
+          padding: 0.25rem 0.5rem;
+          border: 1px solid rgba(234, 222, 214, 0.8);
+          border-radius: var(--radius-sm);
+          background: #fff;
+          color: var(--color-text-primary);
+          font-size: 0.85rem;
+        }
+
+        .form-select:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+
+        .reminder-settings__summary {
+          color: var(--color-brand-primary);
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+
         .switch {
           position: relative;
           display: inline-block;
@@ -895,46 +928,54 @@ export const Whatsapp: React.FC = () => {
         }
 
         .switch input {
-          opacity: 0;
           width: 0;
           height: 0;
+          opacity: 0;
         }
 
         .slider {
           position: absolute;
+          inset: 0;
           cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(234, 222, 214, 0.8);
-          transition: .3s;
           border-radius: 20px;
+          background-color: rgba(234, 222, 214, 0.8);
+          transition: 0.3s;
         }
 
-        .slider:before {
+        .slider::before {
           position: absolute;
-          content: "";
-          height: 14px;
-          width: 14px;
-          left: 3px;
           bottom: 3px;
-          background-color: white;
-          transition: .3s;
+          left: 3px;
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+          background-color: white;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+          content: '';
+          transition: 0.3s;
         }
 
-        input:checked + .slider {
+        .switch input:checked + .slider {
           background-color: var(--color-brand-primary);
         }
 
-        input:focus + .slider {
-          box-shadow: 0 0 1px var(--color-brand-primary);
+        .switch input:focus-visible + .slider {
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.18);
         }
 
-        input:checked + .slider:before {
+        .switch input:checked + .slider::before {
           transform: translateX(18px);
+        }
+
+        @media (max-width: 560px) {
+          .reminder-settings {
+            padding-left: 0;
+          }
+
+          .reminder-settings__field {
+            align-items: flex-start;
+            flex-direction: column;
+          }
         }
 
         /* ═══ TEST FORM ═══ */

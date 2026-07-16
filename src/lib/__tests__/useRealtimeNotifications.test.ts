@@ -5,12 +5,9 @@ import { useRealtimeNotifications } from '../useRealtimeNotifications';
 // Usamos vi.hoisted para criar todas as variáveis mock que precisam ser acessadas pelos vi.mock hoisted.
 const {
   mockSupabase,
-  mockQueryBuilder,
   mockSelect,
   mockUpdate,
   mockEq,
-  mockOrder,
-  mockLimit,
   mockChannel,
   mockAddToast,
   setQueryResolveValue,
@@ -40,7 +37,7 @@ const {
   };
 
   const mockChannel = {
-    on: vi.fn().mockImplementation((event, filter, callback) => {
+    on: vi.fn().mockImplementation((_event, _filter, callback) => {
       realtimeCallback = callback;
       return mockChannel;
     }),
@@ -86,12 +83,9 @@ const {
 
   return {
     mockSupabase,
-    mockQueryBuilder,
     mockSelect,
     mockUpdate,
     mockEq,
-    mockOrder,
-    mockLimit,
     mockChannel,
     mockAddToast,
     setQueryResolveValue: (val: any) => { queryResolveValue = val; },
@@ -121,7 +115,7 @@ class MockAudioContext {
   createGain = mockAudioContext.createGain;
   close = mockAudioContext.close;
 }
-global.AudioContext = MockAudioContext as any;
+window.AudioContext = MockAudioContext as any;
 
 describe('useRealtimeNotifications', () => {
   beforeEach(() => {
@@ -146,8 +140,8 @@ describe('useRealtimeNotifications', () => {
 
   it('deve buscar as últimas notificações não lidas para o tenant', async () => {
     const mockNotifications = [
-      { id: '1', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_created', title: 'Novo Agendamento', message: 'Cliente agendou um corte', read: false, created_at: '2026-07-14T10:00:00Z' },
-      { id: '2', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_canceled', title: 'Agendamento Cancelado', message: 'Cliente cancelou a reserva', read: false, created_at: '2026-07-14T10:30:00Z' },
+      { id: '1', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_created', title: 'Novo Agendamento', message: 'Cliente agendou um corte', read: false, created_at: '2026-07-14T10:00:00Z' },
+      { id: '2', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_canceled', title: 'Agendamento Cancelado', message: 'Cliente cancelou a reserva', read: false, created_at: '2026-07-14T10:30:00Z' },
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
@@ -177,13 +171,13 @@ describe('useRealtimeNotifications', () => {
     });
 
     expect(mockEq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
-    expect(mockEq).toHaveBeenCalledWith('profissional_id', 'prof-1');
+    expect(mockEq).toHaveBeenCalledWith('professional_id', 'prof-1');
   });
 
   it('deve marcar uma notificação específica como lida', async () => {
     const mockNotifications = [
-      { id: '1', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_created', title: 'Notif 1', message: 'Msg 1', read: false, created_at: '2026-07-14T10:00:00Z' },
-      { id: '2', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_created', title: 'Notif 2', message: 'Msg 2', read: false, created_at: '2026-07-14T10:30:00Z' },
+      { id: '1', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_created', title: 'Notif 1', message: 'Msg 1', read: false, created_at: '2026-07-14T10:00:00Z' },
+      { id: '2', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_created', title: 'Notif 2', message: 'Msg 2', read: false, created_at: '2026-07-14T10:30:00Z' },
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
@@ -215,8 +209,8 @@ describe('useRealtimeNotifications', () => {
 
   it('deve marcar todas as notificações do tenant como lidas', async () => {
     const mockNotifications = [
-      { id: '1', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_created', title: 'Notif 1', message: 'Msg 1', read: false, created_at: '2026-07-14T10:00:00Z' },
-      { id: '2', tenant_id: 'tenant-1', profissional_id: null, type: 'appointment_created', title: 'Notif 2', message: 'Msg 2', read: false, created_at: '2026-07-14T10:30:00Z' },
+      { id: '1', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_created', title: 'Notif 1', message: 'Msg 1', read: false, created_at: '2026-07-14T10:00:00Z' },
+      { id: '2', tenant_id: 'tenant-1', professional_id: null, type: 'appointment_created', title: 'Notif 2', message: 'Msg 2', read: false, created_at: '2026-07-14T10:30:00Z' },
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
@@ -244,6 +238,20 @@ describe('useRealtimeNotifications', () => {
     expect(result.current.unreadCount).toBe(0);
   });
 
+  it('uses professional_id when marking all notifications for a professional as read', async () => {
+    const { result } = renderHook(() => useRealtimeNotifications({
+      tenantId: 'tenant-1',
+      profissionalId: 'prof-1',
+    }));
+    await waitForEffects();
+
+    await act(async () => {
+      await result.current.markAllAsRead();
+    });
+
+    expect(mockEq).toHaveBeenCalledWith('professional_id', 'prof-1');
+  });
+
   it('deve assinar o canal do Realtime e reagir a novos inserts', async () => {
     renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
     await waitForEffects();
@@ -267,7 +275,7 @@ describe('useRealtimeNotifications', () => {
     const newNotification = {
       id: '3',
       tenant_id: 'tenant-1',
-      profissional_id: null,
+      professional_id: null,
       type: 'appointment_created',
       title: 'Novo Agendamento Realtime',
       message: 'Cliente agendou via app',
@@ -302,7 +310,7 @@ describe('useRealtimeNotifications', () => {
     const foreignNotification = {
       id: '4',
       tenant_id: 'tenant-outro',
-      profissional_id: null,
+      professional_id: null,
       type: 'appointment_created',
       title: 'Novo Agendamento Realtime',
       message: 'Cliente agendou em outro salão',
@@ -319,5 +327,33 @@ describe('useRealtimeNotifications', () => {
     expect(mockAddToast).not.toHaveBeenCalled();
     expect(result.current.notifications).toEqual([]);
     expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('ignores realtime notifications for another professional', async () => {
+    const { result } = renderHook(() => useRealtimeNotifications({
+      tenantId: 'tenant-1',
+      profissionalId: 'prof-1',
+    }));
+    await waitForEffects();
+
+    const realtimeCallback = getRealtimeCallback();
+
+    await act(async () => {
+      realtimeCallback?.({
+        new: {
+          id: '5',
+          tenant_id: 'tenant-1',
+          professional_id: 'prof-2',
+          type: 'appointment_created',
+          title: 'New realtime appointment',
+          message: 'Customer booked with another professional',
+          read: false,
+          created_at: '2026-07-14T11:00:00Z',
+        },
+      });
+    });
+
+    expect(mockAddToast).not.toHaveBeenCalled();
+    expect(result.current.notifications).toEqual([]);
   });
 });

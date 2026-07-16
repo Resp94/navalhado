@@ -7,11 +7,9 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { 
   Calendar02Icon, 
   Time01Icon, 
-  UserIcon, 
-  Home01Icon, 
-  CancelCircleIcon, 
-  AlertCircleIcon, 
-  Tick01Icon, 
+  UserIcon,
+  CancelCircleIcon,
+  AlertCircleIcon,
   ArrowRight01Icon,
   InformationCircleIcon
 } from '@hugeicons/core-free-icons';
@@ -264,7 +262,6 @@ export const MenuCliente: React.FC = () => {
 
   return (
     <div style={{
-      minHeight: '100vh',
       minHeight: '100dvh',
       backgroundColor: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',

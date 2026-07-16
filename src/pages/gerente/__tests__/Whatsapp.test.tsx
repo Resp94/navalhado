@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Whatsapp } from '../Whatsapp';
 
 // Mocks do GSAP para evitar erros no jsdom
@@ -22,10 +22,11 @@ const {
   mockMaybeSingle, 
   mockUpdate, 
   mockSelect, 
-  mockInsert, 
   mockEq,
   mockSingle,
-  mockFunctionsInvoke
+  mockFunctionsInvoke,
+  mockRealtimeCallback,
+  mockChannel
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockMaybeSingle = vi.fn();
@@ -35,13 +36,21 @@ const {
   const mockEq = vi.fn();
   const mockSingle = vi.fn();
   const mockFunctionsInvoke = vi.fn();
+  const mockRealtimeCallback: { current?: (payload: any) => void } = {};
+  const mockChannel = {
+    on: vi.fn(),
+    subscribe: vi.fn(),
+  };
+
+  mockChannel.on.mockImplementation((_event, _filter, callback) => {
+    mockRealtimeCallback.current = callback;
+    return mockChannel;
+  });
+  mockChannel.subscribe.mockReturnValue(mockChannel);
 
   // Estrutura fluente e robusta para simular o encadeamento do Supabase JS Client
   const mockSupabaseClient = {
-    channel: vi.fn().mockImplementation(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnValue({ unsubscribe: vi.fn() }),
-    })),
+    channel: vi.fn().mockReturnValue(mockChannel),
     removeChannel: vi.fn(),
     functions: {
       invoke: mockFunctionsInvoke,
@@ -75,10 +84,11 @@ const {
     mockMaybeSingle, 
     mockUpdate, 
     mockSelect, 
-    mockInsert, 
     mockEq,
     mockSingle,
-    mockFunctionsInvoke
+    mockFunctionsInvoke,
+    mockRealtimeCallback,
+    mockChannel
   };
 });
 
@@ -105,6 +115,116 @@ vi.mock('../../../lib/supabase', () => ({
 describe('Whatsapp Config Page - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRealtimeCallback.current = undefined;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deve buscar somente colunas nao secretas da instancia', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(mockSelect).toHaveBeenCalledWith(
+        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation'
+      );
+    });
+
+    expect(mockSelect).not.toHaveBeenCalledWith('*');
+  });
+
+  it('deve refletir atualizacoes realtime e remover o canal ao desmontar', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+
+    const { unmount } = render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Desconectado')).toBeInTheDocument();
+      expect(mockRealtimeCallback.current).toBeTypeOf('function');
+    });
+
+    act(() => {
+      mockRealtimeCallback.current?.({
+        eventType: 'UPDATE',
+        new: {
+          id: 'inst-123',
+          tenant_id: 'tenant-test-id',
+          instance_name: 'nav_estilo_123',
+          api_key: 'must-not-enter-ui-state',
+          status: 'connected',
+          qr_code: null,
+          send_confirmation: true,
+          send_reminders: true,
+          reminder_hours: 2,
+          send_cancellation: true,
+        },
+      });
+    });
+
+    expect(screen.getByText('Conectado')).toBeInTheDocument();
+    unmount();
+    expect(mockSupabaseClient.removeChannel).toHaveBeenCalledWith(mockChannel);
+  });
+
+  it('deve iniciar pareamento sem fabricar QR Code ou conexao automatica', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'pairing',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+    render(<Whatsapp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' }));
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith({
+        status: 'pairing',
+        qr_code: null,
+        updated_at: expect.any(String),
+      });
+    });
+    expect(timeoutSpy.mock.calls.some(([, delay]) => delay === 12000)).toBe(false);
   });
 
   it('deve renderizar as chaves de configuracao do WhatsApp a partir dos dados do banco', async () => {

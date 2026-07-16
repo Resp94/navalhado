@@ -75,7 +75,6 @@ export const MinhasComissoes: React.FC = () => {
 
   // Estados
   const [loading, setLoading] = useState<boolean>(true);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [professional, setProfessional] = useState<ProfessionalProfile | null>(null);
   const [period, setPeriod] = useState<'today' | '7days' | 'month'>('month');
   
@@ -106,19 +105,13 @@ export const MinhasComissoes: React.FC = () => {
           .single();
 
         if (profError || !profData) {
-          console.warn('Profissional não associado ao usuário. Utilizando modo simulação / demonstração.');
           if (isMounted) {
-            setIsDemoMode(true);
-            setProfessional({
-              id: 'demo-prof-id',
-              name: session.user.email?.split('@')[0] || 'Barbeiro Convidado',
-              tenant_id: 'demo-tenant-id',
-              commission_percentage: 50
-            });
+            addToast('Profissional não associado a este usuário.', 'error');
+            setLoading(false);
+            navigate('/');
           }
         } else if (isMounted) {
           setProfessional(profData);
-          setIsDemoMode(false);
         }
       } catch (err: any) {
         console.error('Erro na autenticação:', err);
@@ -156,19 +149,6 @@ export const MinhasComissoes: React.FC = () => {
         } else if (period === 'month') {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
           startDate.setHours(0, 0, 0, 0);
-        }
-
-        if (isDemoMode) {
-          // Gerar Mock Data ricos e realistas
-          setTimeout(() => {
-            if (!isMounted) return;
-            const mockData = generateMockData(period);
-            setTotalCommission(mockData.totalCommission);
-            setTotalRevenue(mockData.totalRevenue);
-            setHistory(mockData.history);
-            setLoading(false);
-          }, 600);
-          return;
         }
 
         // Query Supabase Real
@@ -232,13 +212,10 @@ export const MinhasComissoes: React.FC = () => {
       } catch (err: any) {
         console.error('Erro ao consultar faturamento do barbeiro:', err);
         addToast('Erro ao carregar dados de comissão do banco.', 'error');
-        // Fallback temporário para simular se der erro no banco remoto
         if (isMounted) {
-          setIsDemoMode(true);
-          const mockData = generateMockData(period);
-          setTotalCommission(mockData.totalCommission);
-          setTotalRevenue(mockData.totalRevenue);
-          setHistory(mockData.history);
+          setTotalCommission(0);
+          setTotalRevenue(0);
+          setHistory([]);
           setLoading(false);
         }
       }
@@ -249,7 +226,7 @@ export const MinhasComissoes: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [professional, period, isDemoMode, addToast]);
+  }, [professional, period, addToast]);
 
   // 3. Animações GSAP
   useGSAP(() => {
@@ -300,15 +277,6 @@ export const MinhasComissoes: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/');
-    } catch (err) {
-      navigate('/');
-    }
   };
 
   return (
@@ -1083,135 +1051,3 @@ export const MinhasComissoes: React.FC = () => {
     </>
   );
 };
-
-// Gerador de dados fictícios para modo demonstração
-function generateMockData(period: 'today' | '7days' | 'month') {
-  const now = new Date();
-  
-  if (period === 'today') {
-    return {
-      totalCommission: 120.00,
-      totalRevenue: 240.00,
-      history: [
-        {
-          id: 'mock-1',
-          date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0).toISOString(),
-          customerName: 'Arthur Pendragon',
-          serviceName: 'Corte Degradê Navalhado',
-          servicePrice: 70.00,
-          commissionPercentage: 50,
-          commissionEarned: 35.00
-        },
-        {
-          id: 'mock-2',
-          date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 30).toISOString(),
-          customerName: 'Carlos Alberto',
-          serviceName: 'Barboterapia Premium',
-          servicePrice: 60.00,
-          commissionPercentage: 50,
-          commissionEarned: 30.00
-        },
-        {
-          id: 'mock-3',
-          date: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0).toISOString(),
-          customerName: 'Pedro Silva',
-          serviceName: 'Combo Corte + Barba',
-          servicePrice: 110.00,
-          commissionPercentage: 50,
-          commissionEarned: 55.00
-        }
-      ]
-    };
-  } else if (period === '7days') {
-    // Gerar atendimentos simulados para os últimos 7 dias
-    const mockHistory: HistoryItem[] = [];
-    const services = [
-      { name: 'Corte Degradê Navalhado', price: 70 },
-      { name: 'Barboterapia Premium', price: 60 },
-      { name: 'Combo Corte + Barba', price: 110 },
-      { name: 'Aparação de Barba Simples', price: 40 },
-      { name: 'Acabamento / Pezinho', price: 30 }
-    ];
-    const clients = ['Arthur Pendragon', 'Carlos Alberto', 'Pedro Silva', 'Marcos Oliveira', 'Thiago Lima', 'Douglas Santos', 'Gustavo Ribeiro', 'Renato Souza'];
-    
-    let totalComm = 0;
-    let totalRev = 0;
-
-    for (let i = 0; i < 15; i++) {
-      const targetDate = new Date();
-      targetDate.setDate(now.getDate() - Math.floor(i / 2)); // 2 cortes por dia aprox
-      targetDate.setHours(9 + (i % 4) * 2, (i % 2) * 30, 0);
-
-      const service = services[i % services.length];
-      const client = clients[i % clients.length];
-      const pct = 50; // comissao 50%
-      const earned = service.price * (pct / 100);
-
-      totalComm += earned;
-      totalRev += service.price;
-
-      mockHistory.push({
-        id: `mock-7d-${i}`,
-        date: targetDate.toISOString(),
-        customerName: client,
-        serviceName: service.name,
-        servicePrice: service.price,
-        commissionPercentage: pct,
-        commissionEarned: earned
-      });
-    }
-
-    return {
-      totalCommission: totalComm,
-      totalRevenue: totalRev,
-      history: mockHistory
-    };
-  } else {
-    // period === 'month' (Mês Atual)
-    const mockHistory: HistoryItem[] = [];
-    const services = [
-      { name: 'Corte Degradê Navalhado', price: 70 },
-      { name: 'Barboterapia Premium', price: 60 },
-      { name: 'Combo Corte + Barba', price: 110 },
-      { name: 'Aparação de Barba Simples', price: 40 },
-      { name: 'Acabamento / Pezinho', price: 30 }
-    ];
-    const clients = ['Arthur Pendragon', 'Carlos Alberto', 'Pedro Silva', 'Marcos Oliveira', 'Thiago Lima', 'Douglas Santos', 'Gustavo Ribeiro', 'Renato Souza', 'Gabriel Mendes', 'Rafael Costa', 'Julio Cesar', 'Leonardo Gome'];
-    
-    let totalComm = 0;
-    let totalRev = 0;
-
-    // Gerar 42 registros simulando o mês atual
-    const limit = Math.min(42, now.getDate() * 2); // máximo 2 por dia do mês corrente
-    
-    for (let i = 0; i < (limit || 10); i++) {
-      const targetDate = new Date();
-      targetDate.setDate(now.getDate() - Math.floor(i / 2));
-      targetDate.setHours(9 + (i % 4) * 2, (i % 2) * 30, 0);
-
-      const service = services[i % services.length];
-      const client = clients[i % clients.length];
-      const pct = 50;
-      const earned = service.price * (pct / 100);
-
-      totalComm += earned;
-      totalRev += service.price;
-
-      mockHistory.push({
-        id: `mock-m-${i}`,
-        date: targetDate.toISOString(),
-        customerName: client,
-        serviceName: service.name,
-        servicePrice: service.price,
-        commissionPercentage: pct,
-        commissionEarned: earned
-      });
-    }
-
-    return {
-      totalCommission: totalComm,
-      totalRevenue: totalRev,
-      history: mockHistory
-    };
-  }
-}

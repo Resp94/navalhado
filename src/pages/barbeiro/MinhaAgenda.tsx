@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { InfoIcon } from '../../components/Icons';
+import { dateInZone, formatTimeInZone, localDayUtcRange, shiftCalendarDate } from '../../lib/timezone';
 
 // Ícones SVG inline adicionais para garantir visual limpo e profissional sem emojis
 const CalendarIcon: React.FC<{ size?: number; className?: string }> = ({ size = 20, className }) => (
@@ -75,6 +76,7 @@ interface Professional {
   tenant_id: string;
   commission_percentage: number;
   tenantName?: string;
+  timezone: string;
 }
 
 type PaymentMethod = 'PIX' | 'Dinheiro' | 'Cartão';
@@ -131,7 +133,7 @@ export const MinhaAgenda: React.FC = () => {
           name,
           tenant_id,
           commission_percentage,
-          tenant:tenants (name)
+          tenant:tenants (name, timezone)
         `)
         .eq('user_id', session.user.id)
         .single();
@@ -150,8 +152,10 @@ export const MinhaAgenda: React.FC = () => {
         name: prof.name,
         tenant_id: prof.tenant_id,
         commission_percentage: Number(prof.commission_percentage || 0),
-        tenantName: tenantData?.name || 'Minha Barbearia'
+        tenantName: tenantData?.name || 'Minha Barbearia',
+        timezone: tenantData?.timezone || 'America/Sao_Paulo'
       });
+      setSelectedDate(dateInZone(new Date(), tenantData?.timezone || 'America/Sao_Paulo'));
 
     } catch (error: any) {
       console.error('Error fetching professional profile:', error);
@@ -168,8 +172,7 @@ export const MinhaAgenda: React.FC = () => {
     try {
       setAppointmentsLoading(true);
       
-      const startOfDay = `${selectedDate}T00:00:00Z`;
-      const endOfDay = `${selectedDate}T23:59:59Z`;
+      const { start, endExclusive } = localDayUtcRange(selectedDate, professional.timezone);
 
       const { data, error } = await supabase
         .from('appointments')
@@ -185,8 +188,8 @@ export const MinhaAgenda: React.FC = () => {
           service:services (id, name, price, commission_percentage)
         `)
         .eq('professional_id', professional.id)
-        .gte('start_time', startOfDay)
-        .lte('start_time', endOfDay)
+        .gte('start_time', start)
+        .lt('start_time', endExclusive)
         .order('start_time', { ascending: true });
 
       if (error) throw error;
@@ -259,28 +262,22 @@ export const MinhaAgenda: React.FC = () => {
 
   // Alterar dia (Navegação de datas)
   const handleShiftDate = (days: number) => {
-    const current = new Date(selectedDate + 'T12:00:00'); // Evita discrepâncias de fuso horário local
-    current.setDate(current.getDate() + days);
-    setSelectedDate(current.toISOString().split('T')[0]);
+    setSelectedDate(shiftCalendarDate(selectedDate, days));
   };
 
   const handleSetToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(dateInZone(new Date(), professional?.timezone || 'America/Sao_Paulo'));
   };
 
   // Formatar data de forma amigável
   const formatFriendlyDate = (dateStr: string) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = dateInZone(new Date(), professional?.timezone || 'America/Sao_Paulo');
     if (dateStr === todayStr) return 'Hoje';
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = shiftCalendarDate(todayStr, 1);
     if (dateStr === tomorrowStr) return 'Amanhã';
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = shiftCalendarDate(todayStr, -1);
     if (dateStr === yesterdayStr) return 'Ontem';
 
     const options: Intl.DateTimeFormatOptions = { 
@@ -373,8 +370,7 @@ export const MinhaAgenda: React.FC = () => {
   // Formatar hora para exibição compacta (ex: 14:30)
   const formatTime = (timeStr: string) => {
     try {
-      const date = new Date(timeStr);
-      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+      return formatTimeInZone(timeStr, professional?.timezone || 'America/Sao_Paulo');
     } catch {
       return '';
     }
@@ -491,7 +487,7 @@ export const MinhaAgenda: React.FC = () => {
           
           {/* Atalho Hoje */}
           <div className="today-shortcut-wrapper">
-            {selectedDate !== new Date().toISOString().split('T')[0] && (
+            {selectedDate !== dateInZone(new Date(), professional?.timezone || 'America/Sao_Paulo') && (
               <button onClick={handleSetToday} className="btn-today-shortcut">
                 Voltar para Hoje
               </button>
