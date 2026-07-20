@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "preview:pages": "npx wrangler pages dev dist",
     "test": "vitest run"
   },
   "dependencies": {
