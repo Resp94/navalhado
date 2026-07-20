@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
-import { ScissorsIcon, ArrowRightIcon, LockIcon } from '../components/Icons';
+import { ArrowRightIcon, LockIcon } from '../components/Icons';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -165,7 +165,7 @@ export const Login: React.FC = () => {
               <span className="login-card__eyebrow">plataforma</span>
 
               <div className="login-card__icon">
-                <ScissorsIcon size={28} />
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
               </div>
 
               <h1 className="login-card__title">Navalhado</h1>
@@ -389,8 +389,7 @@ export const Login: React.FC = () => {
                       box-shadow 0.4s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
-        .login-card__icon svg {
-          transform: rotate(-45deg);
+        .login-card__icon img {
           transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
@@ -400,8 +399,8 @@ export const Login: React.FC = () => {
             0 6px 20px rgba(217, 108, 0, 0.18);
         }
 
-        .login-card:hover .login-card__icon svg {
-          transform: rotate(-45deg) scale(1.1);
+        .login-card:hover .login-card__icon img {
+          transform: scale(1.1);
         }
 
         .login-card__title {
