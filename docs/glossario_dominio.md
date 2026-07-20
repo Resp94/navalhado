@@ -67,3 +67,10 @@ Este documento define os principais conceitos de negócio, técnicos e termos co
 
 ### pg_cron
 * **Definição**: Extensão do Supabase Postgres que possibilita criar agendamentos cron (tarefas programadas de tempo) dentro da própria base de dados, usada para disparar a rotina de envio de lembretes.
+
+### Cloudflare Pages
+* **Definição**: Plataforma serverless e de CDN da Cloudflare onde o frontend (SPA) do Navalhado é hospedado, distribuindo o código estático a partir de centenas de pontos de presença globais (Edge) com segurança integrada e build automático.
+
+### Redirecionamento SPA (_redirects)
+* **Definição**: Mecanismo de regra de rotas no Cloudflare Pages que mapeia requisições coringa (`/*`) ao arquivo central `/index.html` com código de sucesso 200, garantindo o funcionamento do roteamento SPA no cliente e evitando erros 404 no recarregamento.
+
