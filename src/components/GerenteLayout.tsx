@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
 import { NotificationBell } from './NotificationBell';
 import { useToast } from './Toast';
-import { ScissorsIcon } from './Icons';
 
 // Interface do Contexto do Tenant a ser compartilhado com as sub-telas
 export interface TenantContextType {
@@ -215,7 +214,7 @@ export const GerenteLayout: React.FC = () => {
               />
             ) : (
               <div className="gerente-header__logo">
-                <ScissorsIcon size={20} />
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '20px', height: '20px', display: 'block' }} />
               </div>
             )}
             <div>
@@ -335,8 +334,8 @@ export const GerenteLayout: React.FC = () => {
           border: 1px solid rgba(219, 108, 0, 0.15);
         }
 
-        .gerente-header__logo svg {
-          transform: rotate(-45deg);
+        .gerente-header__logo img {
+          /* Sem rotação */
         }
 
         .gerente-header__eyebrow {

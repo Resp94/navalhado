@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
-import { ScissorsIcon, ArrowRightIcon, SuccessIcon } from '../components/Icons';
+import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
 
 interface Plan {
   id: string;
@@ -227,7 +227,7 @@ export const CadastroBarbearia: React.FC = () => {
             <div className="signup-card__header">
               <span className="signup-card__eyebrow">cadastro</span>
               <div className="signup-card__icon">
-                <ScissorsIcon size={28} />
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
               </div>
               <h1 className="signup-card__title">Criar conta</h1>
               <p className="signup-card__subtitle">
@@ -545,8 +545,8 @@ const styles = `
   margin-bottom: 0.25rem;
 }
 
-.signup-card__icon svg {
-  transform: rotate(-45deg);
+.signup-card__icon img {
+  /* Sem rotação */
 }
 
 .signup-card__title {

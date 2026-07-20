@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
-import { ScissorsIcon, ArrowRightIcon, WarningIcon } from '../components/Icons';
+import { ArrowRightIcon, WarningIcon } from '../components/Icons';
 
 export const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
@@ -179,7 +179,7 @@ export const ResetPassword: React.FC = () => {
             <div className="reset-card__header">
               <span className="reset-card__eyebrow">segurança</span>
               <div className="reset-card__icon">
-                <ScissorsIcon size={28} />
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
               </div>
               <h1 className="reset-card__title">Nova senha</h1>
               <p className="reset-card__subtitle">
@@ -366,8 +366,8 @@ const styles = `
   margin-bottom: 0.25rem;
 }
 
-.reset-card__icon svg {
-  transform: rotate(-45deg);
+.reset-card__icon img {
+  /* Sem rotação */
 }
 
 .reset-card__title {

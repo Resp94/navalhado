@@ -36,15 +36,6 @@ const LogOutIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
   </svg>
 );
 
-const ScissorsIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="6" r="3" />
-    <circle cx="6" cy="18" r="3" />
-    <line x1="9.8" x2="20" y1="8.2" y2="18.4" />
-    <line x1="9.8" x2="20" y1="15.8" y2="5.6" />
-  </svg>
-);
-
 export const BarbeiroLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -211,7 +202,7 @@ export const BarbeiroLayout: React.FC = () => {
         <header className="barbeiro-header">
           <div className="barbeiro-header__brand" onClick={() => navigate('/minha-agenda')} style={{ cursor: 'pointer' }}>
             <div className="barbeiro-header__logo">
-              <ScissorsIcon size={18} />
+              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '18px', height: '18px', display: 'block' }} />
             </div>
             <div>
               <span className="barbeiro-header__eyebrow">Navalhado</span>
@@ -366,8 +357,8 @@ export const BarbeiroLayout: React.FC = () => {
           border: 1px solid rgba(219, 108, 0, 0.15);
         }
 
-        .barbeiro-header__logo svg {
-          transform: rotate(-45deg);
+        .barbeiro-header__logo img {
+          /* Sem rotação */
         }
 
         .barbeiro-header__eyebrow {

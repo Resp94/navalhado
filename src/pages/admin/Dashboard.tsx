@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { 
-  ScissorsIcon, 
   ArrowRightIcon, 
   InfoIcon, 
   WarningIcon, 
@@ -297,7 +296,7 @@ export const Dashboard: React.FC = () => {
         <header className="admin-header">
           <div className="admin-header__brand" onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>
             <div className="admin-header__logo">
-              <ScissorsIcon size={22} />
+              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '22px', height: '22px', display: 'block' }} />
             </div>
             <div>
               <span className="admin-header__eyebrow">SaaS Admin</span>
@@ -464,8 +463,8 @@ export const Dashboard: React.FC = () => {
           border: 1px solid rgba(219, 108, 0, 0.15);
         }
 
-        .admin-header__logo svg {
-          transform: rotate(-45deg);
+        .admin-header__logo img {
+          /* Sem rotação */
         }
 
         .admin-header__eyebrow {
