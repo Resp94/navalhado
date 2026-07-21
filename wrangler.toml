@@ -1,8 +1,10 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "navalhado"
-name = "navalhado-dev"
 compatibility_date = "2026-07-20"
 
 [assets]
 directory = "./dist"
 not_found_handling = "single-page-application"
+
+[env.dev]
+name = "navalhado-dev"
