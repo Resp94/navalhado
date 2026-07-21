@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "navalhado"
+name = "navalhado-dev"
 compatibility_date = "2026-07-20"
 
 [assets]
