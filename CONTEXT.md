@@ -32,6 +32,11 @@ _Avoid_: Cliente ativo, conta finalizada
 Módulo profundo responsável por isolar toda a lógica de acesso a dados, filtros por tenant, geração de token de acesso e promoção de cadastro de clientes.
 _Avoid_: Serviço de cliente, helper de cliente, cliente API
 
+**CanalClienteRepository**:
+Módulo profundo responsável por isolar a validação do Acesso Tokenizado do Cliente, catálogo de serviços e profissionais, consulta de horários disponíveis, criação, reagendamento e cancelamento de Eventos de Agendamento.
+_Avoid_: Serviço de agendamento, helper de agendamento, agendamento API
+
+
 **Canal do Cliente**:
 Experiência tokenizada pela qual o Cliente conclui seu cadastro e consulta, cria, reagenda ou cancela seus próprios agendamentos.
 _Avoid_: Área pública, portal anônimo, painel do cliente

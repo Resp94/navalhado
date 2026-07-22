@@ -1,0 +1,160 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { CanalClienteRepository } from '../CanalClienteRepository';
+import { InMemoryCanalClienteAdapter } from '../adapters/InMemoryCanalClienteAdapter';
+import {
+  CanalClienteTokenError,
+  CanalClienteValidationError,
+  AgendamentoConflitoError,
+  AgendamentoRegraCancelamentoError,
+} from '../errors';
+
+describe('CanalClienteRepository', () => {
+  let adapter: InMemoryCanalClienteAdapter;
+  let repository: CanalClienteRepository;
+  const validToken = 'token_valido_123';
+
+  beforeEach(() => {
+    adapter = new InMemoryCanalClienteAdapter();
+    repository = new CanalClienteRepository(adapter);
+
+    adapter.perfis.set(validToken, {
+      customer_id: 'cust_1',
+      customer_name: 'Jonathas Teste',
+      tenant_id: 'tenant_1',
+      tenant_name: 'Barbearia Navalhado',
+      tenant_phone: '11999999999',
+      cadastro_completo: true,
+    });
+
+    adapter.servicos = [
+      {
+        id: 's1',
+        name: 'Corte de Cabelo',
+        description: 'Corte social ou moderno',
+        price: 45,
+        duration_minutes: 30,
+        category: 'Cabelo',
+        is_active: true,
+      },
+      {
+        id: 's2',
+        name: 'Barba Completa',
+        description: 'Toalha quente e lâmina',
+        price: 35,
+        duration_minutes: 25,
+        category: 'Barba',
+        is_active: true,
+      },
+    ];
+
+    adapter.profissionais = [
+      { id: 'p1', name: 'Mestre Barbeiro', is_active: true },
+    ];
+  });
+
+  it('deve lançar CanalClienteTokenError quando nenhum token estiver disponível', async () => {
+    await expect(repository.obterPerfil()).rejects.toThrow(CanalClienteTokenError);
+  });
+
+  it('deve obter o perfil do cliente quando um token válido for fornecido', async () => {
+    const perfil = await repository.obterPerfil(validToken);
+    expect(perfil.customer_name).toBe('Jonathas Teste');
+    expect(perfil.tenant_name).toBe('Barbearia Navalhado');
+  });
+
+  it('deve agrupar serviços por categoria corretamente', async () => {
+    repository.definirTokenAcesso(validToken);
+    const { servicos, categorias } = await repository.obterCatalogoServicos();
+
+    expect(servicos).toHaveLength(2);
+    expect(categorias).toEqual(['Barba', 'Cabelo']);
+  });
+
+  it('deve consultar horários disponíveis com parâmetros válidos', async () => {
+    repository.definirTokenAcesso(validToken);
+    const slots = await repository.consultarHorariosDisponiveis('2026-07-25', 's1', 'p1');
+    expect(slots).toContain('09:00');
+  });
+
+  it('deve validar parâmetros ao consultar horários disponíveis', async () => {
+    repository.definirTokenAcesso(validToken);
+    await expect(repository.consultarHorariosDisponiveis('', 's1')).rejects.toThrow(
+      CanalClienteValidationError
+    );
+    await expect(repository.consultarHorariosDisponiveis('2026-07-25', '')).rejects.toThrow(
+      CanalClienteValidationError
+    );
+  });
+
+  it('deve criar agendamento com sucesso', async () => {
+    repository.definirTokenAcesso(validToken);
+    const res = await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    expect(res.appointmentId).toBeDefined();
+  });
+
+  it('deve detectar conflito ao agendar no mesmo horário', async () => {
+    repository.definirTokenAcesso(validToken);
+    await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    await expect(
+      repository.criarAgendamento({
+        serviceId: 's1',
+        professionalId: 'p1',
+        startTime: '2026-07-25T10:00:00-03:00',
+      })
+    ).rejects.toThrow(AgendamentoConflitoError);
+  });
+
+  it('deve separar agendamentos ativos e histórico', async () => {
+    repository.definirTokenAcesso(validToken);
+    await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    const { ativos, historico } = await repository.obterAgendamentosSeparados();
+    expect(ativos).toHaveLength(1);
+    expect(historico).toHaveLength(0);
+  });
+
+  it('deve cancelar agendamento com sucesso', async () => {
+    repository.definirTokenAcesso(validToken);
+    const { appointmentId } = await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    await repository.cancelarAgendamento(appointmentId, 'Desistência');
+
+    const { ativos, historico } = await repository.obterAgendamentosSeparados();
+    expect(ativos).toHaveLength(0);
+    expect(historico).toHaveLength(1);
+    expect(historico[0].status).toBe('canceled');
+  });
+
+  it('deve proibir cancelamento duplo com AgendamentoRegraCancelamentoError', async () => {
+    repository.definirTokenAcesso(validToken);
+    const { appointmentId } = await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    await repository.cancelarAgendamento(appointmentId);
+
+    await expect(repository.cancelarAgendamento(appointmentId)).rejects.toThrow(
+      AgendamentoRegraCancelamentoError
+    );
+  });
+});

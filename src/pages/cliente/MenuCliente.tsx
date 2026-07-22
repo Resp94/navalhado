@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+
 import { HugeiconsIcon } from '@hugeicons/react';
+import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
 import { 
   Calendar02Icon, 
   Time01Icon, 
@@ -13,6 +14,7 @@ import {
   ArrowRight01Icon,
   InformationCircleIcon
 } from '@hugeicons/core-free-icons';
+
 
 interface Appointment {
   appointment_id: string;
@@ -42,10 +44,12 @@ interface CustomerDetails {
 }
 
 export const MenuCliente: React.FC = () => {
+
   const [searchParams] = useSearchParams();
   const { token: routeToken } = useParams();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const canalClienteRepository = useCanalCliente();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
@@ -71,35 +75,18 @@ export const MenuCliente: React.FC = () => {
       try {
         const token = searchParams.get('token') || routeToken;
         if (token) {
-          localStorage.setItem('navalhado_customer_token', token);
+          canalClienteRepository.definirTokenAcesso(token);
           navigate('/cliente/menu', { replace: true });
           return;
         }
 
-        const storedToken = localStorage.getItem('navalhado_customer_token');
-        if (!storedToken) {
-          navigate('/cliente/acesso-expirado');
-          return;
-        }
-
-        const { data: details, error: detailsError } = await supabase.rpc(
-          'get_customer_details_by_token',
-          { p_token: storedToken }
-        );
-
-        if (detailsError || !details || details.length === 0) {
-          console.error('Erro ao autenticar token:', detailsError);
-          navigate('/cliente/acesso-expirado');
-          return;
-        }
-
-        const customer = details[0] as CustomerDetails;
-        setCustomerDetails(customer);
+        const customer = await canalClienteRepository.obterPerfil();
+        setCustomerDetails(customer as any);
 
         localStorage.setItem('navalhado_tenant_name', customer.tenant_name);
         localStorage.setItem('navalhado_tenant_phone', customer.tenant_phone);
 
-        await fetchAppointments(storedToken);
+        await fetchAppointments();
       } catch (err) {
         console.error('Erro geral no menu do cliente:', err);
         navigate('/cliente/acesso-expirado');
@@ -109,21 +96,16 @@ export const MenuCliente: React.FC = () => {
     };
 
     init();
-  }, [searchParams, navigate]);
+  }, [searchParams, routeToken, navigate, canalClienteRepository]);
 
-  const fetchAppointments = async (token: string) => {
-    const { data, error } = await supabase.rpc(
-      'get_customer_appointments_by_token',
-      { p_token: token }
-    );
-
-    if (error) {
+  const fetchAppointments = async () => {
+    try {
+      const { todos } = await canalClienteRepository.obterAgendamentosSeparados();
+      setAppointments(todos as any[]);
+    } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
       addToast('Erro ao carregar seus agendamentos.', 'error');
-      return;
     }
-
-    setAppointments(data || []);
   };
 
   const handleCancelClick = (appointmentId: string) => {
@@ -134,22 +116,14 @@ export const MenuCliente: React.FC = () => {
 
   const handleCancelConfirm = async () => {
     if (!activeAppointmentId) return;
-    const token = localStorage.getItem('navalhado_customer_token');
-    if (!token) return;
 
     setCanceling(true);
     try {
-      const { error } = await supabase.rpc('cancel_appointment_by_token', {
-        p_token: token,
-        p_appointment_id: activeAppointmentId,
-        p_reason: cancelReason.trim() || null
-      });
-
-      if (error) throw error;
+      await canalClienteRepository.cancelarAgendamento(activeAppointmentId, cancelReason.trim() || undefined);
 
       addToast('Agendamento cancelado com sucesso.', 'success');
       setIsCancelModalOpen(false);
-      await fetchAppointments(token);
+      await fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao cancelar agendamento:', err);
       addToast(err.message || 'Erro ao cancelar o agendamento.', 'error');
@@ -157,6 +131,7 @@ export const MenuCliente: React.FC = () => {
       setCanceling(false);
     }
   };
+
 
   const handleReschedule = (app: Appointment) => {
     navigate('/cliente/agendar', {
