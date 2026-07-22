@@ -112,20 +112,6 @@ vi.mock('../../../lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
-const createMockInstance = (overrides = {}) => ({
-  id: 'inst-123',
-  tenant_id: 'tenant-test-id',
-  instance_name: 'nav_estilo_123',
-  api_key: 'key_123',
-  status: 'disconnected',
-  qr_code: null,
-  send_confirmation: true,
-  send_reminders: true,
-  reminder_hours: 2,
-  send_cancellation: true,
-  ...overrides,
-});
-
 describe('Whatsapp Config Page - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -530,5 +516,113 @@ describe('Whatsapp Config Page - TDD', () => {
     });
 
     expect(mockAddToast).toHaveBeenCalledWith('Mensagem de teste disparada com sucesso para 11999999999!', 'success');
+  });
+
+  it('deve ativar a integracao criando a instancia na VPS com action create', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'inst-new-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_5555',
+        api_key: 'key_new_5555',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+
+    mockFunctionsInvoke.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ativar Integração do WhatsApp')).toBeInTheDocument();
+    });
+
+    const activateButton = screen.getByRole('button', { name: 'Ativar Integração do WhatsApp' });
+    fireEvent.click(activateButton);
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'create',
+          instance_id: 'inst-new-123',
+          instance_name: 'nav_estilo_5555',
+        },
+      });
+    });
+
+    expect(mockAddToast).toHaveBeenCalledWith('Instância criada com sucesso! Conecte seu celular.', 'success');
+  });
+
+  it('deve desconectar a instancia invocando action disconnect na VPS', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        api_key: 'key_123',
+        status: 'connected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+
+    mockFunctionsInvoke.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Desconectar Aparelho')).toBeInTheDocument();
+    });
+
+    const disconnectButton = screen.getByRole('button', { name: 'Desconectar Aparelho' });
+    fireEvent.click(disconnectButton);
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'disconnect',
+          instance_id: 'inst-123',
+          instance_name: 'nav_estilo_123',
+        },
+      });
+    });
+
+    expect(mockAddToast).toHaveBeenCalledWith('WhatsApp desconectado da barbearia.', 'warning');
   });
 });

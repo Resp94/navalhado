@@ -106,7 +106,7 @@ export const handler = async (req: Request): Promise<Response> => {
           .eq("id", user.id)
           .single();
 
-        if (profile && (profile.role === "gerente" || profile.role === "admin")) {
+        if (profile && profile.role === "gerente") {
           if (!instanceId) return null;
 
           const { data: instanceRow } = await supabase
@@ -115,16 +115,16 @@ export const handler = async (req: Request): Promise<Response> => {
             .eq("id", instanceId)
             .single();
 
-          if (instanceRow && (profile.role === "admin" || profile.tenant_id === instanceRow.tenant_id)) {
+          if (instanceRow && profile.tenant_id === instanceRow.tenant_id) {
             return null;
           }
         }
       }
     }
 
-    console.error(`[WhatsApp-Integration] /manage-instance: Autenticação ou autorização inválida`);
-    return new Response(JSON.stringify({ error: "Unauthorized access to manage instance" }), {
-      status: 401,
+    console.error(`[WhatsApp-Integration] /manage-instance: Apenas gerentes do tenant possuem permissão`);
+    return new Response(JSON.stringify({ error: "Apenas gerentes possuem permissão para gerenciar a integração de WhatsApp." }), {
+      status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   };

@@ -139,11 +139,35 @@ export const Whatsapp: React.FC = () => {
         .single();
 
       if (error) throw error;
+
+      // Invocar a Edge Function para criar fisicamente a instância na VPS
+      const { data: funcData, error: funcError } = await supabase.functions.invoke(
+        'whatsapp-integration/manage-instance',
+        {
+          body: {
+            action: 'create',
+            instance_id: data.id,
+            instance_name: data.instance_name,
+          },
+        }
+      );
+
+      if (funcError || (funcData && funcData.error)) {
+        // Rollback no banco de dados local caso a criação na VPS falhe
+        await supabase
+          .from('evolution_api_instances')
+          .delete()
+          .eq('id', data.id);
+
+        const errorMsg = funcData?.error || funcError?.message || 'Erro ao inicializar a Instância WhatsApp da barbearia.';
+        throw new Error(errorMsg);
+      }
+
       setInstance(toEvolutionInstance(data));
       addToast('Instância criada com sucesso! Conecte seu celular.', 'success');
     } catch (error: any) {
       console.error('Error creating instance:', error);
-      addToast('Erro ao inicializar o WhatsApp da barbearia.', 'error');
+      addToast(error?.message || 'Erro ao inicializar o WhatsApp da barbearia.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -199,6 +223,18 @@ export const Whatsapp: React.FC = () => {
     try {
       setActionLoading(true);
 
+      // Invocar a Edge Function para desconectar na VPS
+      await supabase.functions.invoke(
+        'whatsapp-integration/manage-instance',
+        {
+          body: {
+            action: 'disconnect',
+            instance_id: instance.id,
+            instance_name: instance.instance_name,
+          },
+        }
+      );
+
       const { data, error } = await supabase
         .from('evolution_api_instances')
         .update({
@@ -213,9 +249,9 @@ export const Whatsapp: React.FC = () => {
       if (error) throw error;
       setInstance(toEvolutionInstance(data));
       addToast('WhatsApp desconectado da barbearia.', 'warning');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error disconnecting whatsapp instance:', error);
-      addToast('Erro ao desconectar WhatsApp.', 'error');
+      addToast(error?.message || 'Erro ao desconectar WhatsApp.', 'error');
     } finally {
       setActionLoading(false);
     }

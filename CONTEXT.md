@@ -50,5 +50,5 @@ Fato canônico que registra a criação confirmada, o cancelamento ou o reagenda
 _Avoid_: Notificação de agendamento, status do WhatsApp, trigger de agendamento
 
 **Instância WhatsApp**:
-Conexão lógica de uma barbearia com o WhatsApp, cujo estado observado pode ser desconectado, em pareamento ou conectado.
-_Avoid_: Evolution do tenant, status desejado, comando de conexão
+Conexão lógica e física de uma barbearia com o WhatsApp na Evolution API, cujo estado observado pode ser desconectado, em pareamento ou conectado, e cujo gerenciamento é de acesso restrito e exclusivo do Gerente do tenant.
+_Avoid_: Evolution do tenant, status desejado, comando de conexão, instância temporária
