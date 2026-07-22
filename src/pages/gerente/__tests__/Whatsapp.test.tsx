@@ -182,7 +182,7 @@ describe('Whatsapp Config Page - TDD', () => {
     expect(mockSupabaseClient.removeChannel).toHaveBeenCalledWith(mockChannel);
   });
 
-  it('deve iniciar pareamento sem fabricar QR Code ou conexao automatica', async () => {
+  it('deve iniciar pareamento invocando a edge function manage-instance', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
         id: 'inst-123',
@@ -211,7 +211,10 @@ describe('Whatsapp Config Page - TDD', () => {
       },
       error: null,
     });
-    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    mockFunctionsInvoke.mockResolvedValue({
+      data: { success: true, qrcode: 'base64_qr' },
+      error: null,
+    });
 
     render(<Whatsapp />);
 
@@ -223,8 +226,57 @@ describe('Whatsapp Config Page - TDD', () => {
         qr_code: null,
         updated_at: expect.any(String),
       });
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'connect',
+          instance_id: 'inst-123',
+          instance_name: 'nav_estilo_123',
+        },
+      });
     });
-    expect(timeoutSpy.mock.calls.some(([, delay]) => delay === 12000)).toBe(false);
+  });
+
+  it('deve exibir toast de erro se a chamada da edge function falhar ao gerar QR Code', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'pairing',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockFunctionsInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'VPS de WhatsApp indisponível no momento' },
+    });
+
+    render(<Whatsapp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('VPS de WhatsApp indisponível no momento', 'error');
+    });
   });
 
   it('deve renderizar as chaves de configuracao do WhatsApp a partir dos dados do banco', async () => {

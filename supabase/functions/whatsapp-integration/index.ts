@@ -89,6 +89,28 @@ export const handler = async (req: Request): Promise<Response> => {
     return null;
   };
 
+  const validateManageInstanceAuth = async (req: Request): Promise<Response | null> => {
+    const reqSecret = req.headers.get("x-db-trigger-secret");
+    if (dbTriggerSecret.trim() && reqSecret?.trim() === dbTriggerSecret) {
+      return null;
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (user && !error) {
+        return null;
+      }
+    }
+
+    console.error(`[WhatsApp-Integration] /manage-instance: Autenticação inválida`);
+    return new Response(JSON.stringify({ error: "Unauthorized access to manage instance" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  };
+
   if (!appUrl && (path.endsWith("/webhook") || path.endsWith("/send-notification") || path.endsWith("/process-reminders"))) {
     console.error("[WhatsApp-Integration] Erro: A variável de ambiente APP_URL não está configurada.");
     return new Response(JSON.stringify({ error: "Configuração inválida: APP_URL ausente." }), {
@@ -113,8 +135,8 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const triggerAuthError = validateTriggerSecret("/manage-instance");
-      if (triggerAuthError) return triggerAuthError;
+      const authError = await validateManageInstanceAuth(req);
+      if (authError) return authError;
 
       const body = await req.json();
       const { action, instance_id, instance_name } = body;
@@ -259,7 +281,17 @@ export const handler = async (req: Request): Promise<Response> => {
             });
           }
 
-          return new Response(JSON.stringify({ error: "VPS failed to get QR Code" }), {
+          // Reverter status para disconnected no banco de dados para evitar travamento da UI
+          await supabase
+            .from("evolution_api_instances")
+            .update({
+              status: "disconnected",
+              qr_code: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", instance_id);
+
+          return new Response(JSON.stringify({ error: `VPS failed to get QR Code: ${errText || response.statusText}` }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -272,6 +304,15 @@ export const handler = async (req: Request): Promise<Response> => {
 
         if (!qrcode) {
           console.error("[WhatsApp-Integration] QR Code não retornado pela VPS");
+          await supabase
+            .from("evolution_api_instances")
+            .update({
+              status: "disconnected",
+              qr_code: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", instance_id);
+
           return new Response(JSON.stringify({ error: "QR Code not returned by VPS" }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

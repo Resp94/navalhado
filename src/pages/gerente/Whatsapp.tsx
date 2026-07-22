@@ -167,11 +167,28 @@ export const Whatsapp: React.FC = () => {
 
       if (error) throw error;
       setInstance(toEvolutionInstance(data));
+
+      const { data: funcData, error: funcError } = await supabase.functions.invoke(
+        'whatsapp-integration/manage-instance',
+        {
+          body: {
+            action: 'connect',
+            instance_id: instance.id,
+            instance_name: instance.instance_name,
+          },
+        }
+      );
+
+      if (funcError || (funcData && funcData.error)) {
+        const errorMsg = funcError?.message || funcData?.error || 'Erro ao obter QR Code da VPS.';
+        throw new Error(errorMsg);
+      }
+
       addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error connecting whatsapp instance:', error);
-      addToast('Erro ao solicitar conexão de WhatsApp.', 'error');
+      addToast(error?.message || 'Erro ao solicitar conexão de WhatsApp.', 'error');
     } finally {
       setActionLoading(false);
     }
