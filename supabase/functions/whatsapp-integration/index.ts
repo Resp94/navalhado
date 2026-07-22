@@ -66,7 +66,15 @@ export const handler = async (req: Request): Promise<Response> => {
   const dbTriggerSecret = Deno.env.get("DB_TRIGGER_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const appUrl = Deno.env.get("APP_URL") || "";
+  const rawAppUrl = Deno.env.get("APP_URL") || "";
+  const getCleanAppUrl = (url: string): string => {
+    let clean = url.trim();
+    if (clean.startsWith("APP_URL=")) {
+      clean = clean.substring("APP_URL=".length).trim();
+    }
+    return clean.replace(/\/+$/, "");
+  };
+  const appUrl = getCleanAppUrl(rawAppUrl);
 
   const validateTriggerSecret = (route: string): Response | null => {
     if (!dbTriggerSecret.trim()) {
@@ -733,6 +741,8 @@ export const handler = async (req: Request): Promise<Response> => {
 
       if (event === "appointment_created") {
         messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi confirmado!\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: ${link}\n\nObrigado!`;
+      } else if (event === "appointment_rescheduled" || event === "appointment_updated") {
+        messageText = `Olá, ${customer.name}! Seu reagendamento na *${tenant.name}* foi confirmado!\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: ${link}\n\nObrigado!`;
       } else if (event === "appointment_cancelled") {
         messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi cancelado.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nSe precisar, você pode agendar um novo horário acessando: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nAgradecemos a compreensão!`;
       }
