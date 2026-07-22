@@ -582,12 +582,12 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      if (isConnectionUpdate && vpsStatus) {
+      if (isConnectionUpdate) {
         // Mapear status da VPS (Evolution API Go) para o nosso enum local
         let localStatus: "connected" | "disconnected" | "pairing" = "disconnected";
-        const statusClean = String(vpsStatus).toLowerCase();
+        const statusClean = String(vpsStatus || "").toLowerCase();
 
-        if (statusClean === "open" || statusClean === "connected") {
+        if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected") {
           localStatus = "connected";
         } else if (statusClean === "connecting" || statusClean === "pairing") {
           localStatus = "pairing";

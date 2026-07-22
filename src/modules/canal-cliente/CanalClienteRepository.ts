@@ -60,7 +60,7 @@ export class CanalClienteRepository {
   }> {
     const token = this.resolverToken(tokenParam);
     const servicos = await this.adapter.listarServicosPorToken(token);
-    const ativos = servicos.filter((s) => s.is_active);
+    const ativos = servicos.filter((s) => s.is_active !== false);
 
     const categoriasUnicas = Array.from(
       new Set(ativos.map((s) => s.category || 'Geral'))
@@ -76,7 +76,7 @@ export class CanalClienteRepository {
     const token = this.resolverToken(tokenParam);
     const profissionais = await this.adapter.listarProfissionaisPorToken(token);
     return profissionais
-      .filter((p) => p.is_active)
+      .filter((p) => p.is_active !== false)
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 

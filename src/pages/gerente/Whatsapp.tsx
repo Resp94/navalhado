@@ -90,7 +90,10 @@ export const Whatsapp: React.FC = () => {
             return;
           }
 
-          setInstance(toEvolutionInstance(payload.new));
+          setInstance((prev) => {
+            const merged = { ...(prev || {}), ...payload.new };
+            return toEvolutionInstance(merged);
+          });
         }
       )
       .subscribe();
