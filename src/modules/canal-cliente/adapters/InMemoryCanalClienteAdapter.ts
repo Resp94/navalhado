@@ -70,8 +70,12 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     const perfil = this.perfis.get(token);
     if (!perfil) throw new CanalClienteTokenError();
 
+    const targetProfId = input.professionalId || 'p1';
     const conflito = this.agendamentos.some(
-      (a) => a.start_time === input.startTime && a.status !== 'canceled'
+      (a) =>
+        a.start_time === input.startTime &&
+        a.professional_id === targetProfId &&
+        a.status !== 'canceled'
     );
     if (conflito) throw new AgendamentoConflitoError();
 
@@ -83,7 +87,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       status: 'confirmed',
       payment_status: 'pending',
       cancellation_reason: null,
-      professional_id: input.professionalId || 'p1',
+      professional_id: targetProfId,
       professional_name: 'Barbeiro Teste',
       service_id: input.serviceId,
       service_name: 'Corte Teste',
@@ -107,8 +111,13 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     const agendamento = this.agendamentos.find((a) => a.appointment_id === input.appointmentId);
     if (!agendamento) throw new Error('Agendamento não encontrado');
 
-    agendamento.start_time = input.newStartTime;
+    const newTime = input.newStartTime || (input.newDate && input.newSlot ? `${input.newDate}T${input.newSlot}:00` : agendamento.start_time);
+    agendamento.start_time = newTime;
+    if (input.newServiceId) agendamento.service_id = input.newServiceId;
+    if (input.newProfessionalId) agendamento.professional_id = input.newProfessionalId;
+
   }
+
 
   async cancelarAgendamentoPorToken(
     token: string,

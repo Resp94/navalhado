@@ -57,6 +57,12 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     }
 
     const row = data[0];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (row.tenant_name) localStorage.setItem('navalhado_tenant_name', row.tenant_name);
+      if (row.tenant_phone) localStorage.setItem('navalhado_tenant_phone', row.tenant_phone);
+    }
+
+
     return {
       customer_id: row.customer_id,
       customer_name: row.customer_name,
@@ -121,7 +127,6 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       });
     }
 
-
     if (res.error) {
       if (res.error.message.includes('token') || res.error.code === 'P0001') {
         throw new CanalClienteTokenError();
@@ -177,15 +182,17 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     let res = await supabase.rpc('reschedule_appointment_by_token', {
       p_token: token,
       p_old_appointment_id: input.appointmentId,
-      p_new_service_id: input.appointmentId, // fallback
-      p_new_slot: input.newStartTime,
+      p_new_service_id: input.newServiceId || null,
+      p_new_professional_id: input.newProfessionalId || null,
+      p_new_date: input.newDate || null,
+      p_new_slot: input.newSlot || null,
     });
 
     if (res.error) {
       res = await supabase.rpc('reschedule_appointment_by_customer_token', {
         p_token: token,
         p_appointment_id: input.appointmentId,
-        p_start_time: input.newStartTime,
+        p_start_time: input.newStartTime || (input.newDate && input.newSlot ? `${input.newDate}T${input.newSlot}:00` : null),
       });
     }
 
@@ -205,22 +212,31 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     appointmentId: string,
     motivo?: string
   ): Promise<void> {
-    const { error } = await supabase.rpc('cancel_appointment_by_customer_token', {
+    let res = await supabase.rpc('cancel_appointment_by_token', {
       p_token: token,
       p_appointment_id: appointmentId,
-      p_cancellation_reason: motivo || 'Cancelado pelo cliente',
+      p_reason: motivo || 'Cancelado pelo cliente',
     });
 
-    if (error) {
-      if (error.message.includes('prazo') || error.message.includes('regras')) {
-        throw new AgendamentoRegraCancelamentoError(error.message);
+    if (res.error) {
+      res = await supabase.rpc('cancel_appointment_by_customer_token', {
+        p_token: token,
+        p_appointment_id: appointmentId,
+        p_cancellation_reason: motivo || 'Cancelado pelo cliente',
+      });
+    }
+
+    if (res.error) {
+      if (res.error.message.includes('prazo') || res.error.message.includes('regras')) {
+        throw new AgendamentoRegraCancelamentoError(res.error.message);
       }
-      if (error.message.includes('token') || error.code === 'P0001') {
+      if (res.error.message.includes('token') || res.error.code === 'P0001') {
         throw new CanalClienteTokenError();
       }
-      throw new CanalClienteValidationError(error.message);
+      throw new CanalClienteValidationError(res.error.message);
     }
   }
+
 
   async listarAgendamentosPorToken(token: string): Promise<AgendamentoCanal[]> {
     const { data, error } = await supabase.rpc('get_customer_appointments_by_token', {

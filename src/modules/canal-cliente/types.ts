@@ -52,8 +52,13 @@ export interface InputCriarAgendamento {
 
 export interface InputReagendarAgendamento {
   appointmentId: string;
-  newStartTime: string;
+  newStartTime?: string;
+  newServiceId?: string;
+  newProfessionalId?: string | null;
+  newDate?: string;
+  newSlot?: string;
 }
+
 
 export interface InputPromoverCadastroCliente {
   name: string;

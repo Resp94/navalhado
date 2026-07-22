@@ -83,10 +83,8 @@ export const MenuCliente: React.FC = () => {
         const customer = await canalClienteRepository.obterPerfil();
         setCustomerDetails(customer as any);
 
-        localStorage.setItem('navalhado_tenant_name', customer.tenant_name);
-        localStorage.setItem('navalhado_tenant_phone', customer.tenant_phone);
-
         await fetchAppointments();
+
       } catch (err) {
         console.error('Erro geral no menu do cliente:', err);
         navigate('/cliente/acesso-expirado');

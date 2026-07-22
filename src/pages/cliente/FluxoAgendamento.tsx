@@ -132,9 +132,6 @@ export const FluxoAgendamento: React.FC = () => {
         const activeDetails = await canalClienteRepository.obterPerfil(token);
         setCustomerDetails(activeDetails as any);
 
-        localStorage.setItem('navalhado_tenant_name', activeDetails.tenant_name);
-        localStorage.setItem('navalhado_tenant_phone', activeDetails.tenant_phone);
-
         if (!activeDetails.cadastro_completo) return;
 
         await loadCatalog(token);
@@ -156,8 +153,6 @@ export const FluxoAgendamento: React.FC = () => {
       const updatedPerfil = await canalClienteRepository.promoverCadastroCliente({ name }, canonicalToken);
       const activeDetails = updatedPerfil || (await canalClienteRepository.obterPerfil(canonicalToken));
       setCustomerDetails(activeDetails as any);
-      localStorage.setItem('navalhado_tenant_name', activeDetails.tenant_name);
-      localStorage.setItem('navalhado_tenant_phone', activeDetails.tenant_phone);
       await loadCatalog(canonicalToken);
     } catch (err) {
       console.error('Erro ao concluir cadastro:', err);
@@ -166,6 +161,7 @@ export const FluxoAgendamento: React.FC = () => {
       setSavingRegistration(false);
     }
   };
+
 
 
   // Carregar slots de horários disponíveis quando mudamos data, profissional ou serviço na Etapa 3
@@ -221,7 +217,11 @@ export const FluxoAgendamento: React.FC = () => {
       if (isRescheduling && rescheduleAppointmentId) {
         await canalClienteRepository.reagendarAgendamento({
           appointmentId: rescheduleAppointmentId,
-          newStartTime: selectedSlot,
+          newServiceId: selectedService.id,
+          newProfessionalId: selectedProfessional?.id || null,
+          newDate: selectedDate,
+          newSlot: selectedSlot,
+          newStartTime: `${selectedDate}T${selectedSlot}:00`,
         });
         addToast('Reagendamento concluído com sucesso', 'success');
       } else {
