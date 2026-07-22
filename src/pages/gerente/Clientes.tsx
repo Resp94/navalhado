@@ -160,219 +160,221 @@ export const Clientes: React.FC = () => {
   };
 
   return (
-    <div className="clientes-page page-entry-anim p-6 space-y-6">
+    <div className="clientes-page">
       {/* 1. ESTATÍSTICAS DA BASE */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="stat-card bg-slate-900 border border-slate-800 p-5 rounded-xl">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block font-semibold mb-1">Total da Base</span>
-          <span className="text-3xl font-extrabold text-white">{stats.totalCount}</span>
-          <span className="text-xs text-slate-500 block mt-1">Clientes na carteira</span>
+      <section className="stat-cards-grid">
+        <div className="stat-card">
+          <span className="stat-card__eyebrow">Total da Base</span>
+          <span className="stat-card__number">{stats.totalCount}</span>
+          <span className="stat-card__helper">Clientes na carteira</span>
         </div>
-        <div className="stat-card bg-slate-900 border border-slate-800 p-5 rounded-xl">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block font-semibold mb-1">Cadastros Completos</span>
-          <span className="text-3xl font-extrabold text-emerald-400">{stats.completosCount}</span>
-          <span className="text-xs text-slate-500 block mt-1">Dados de nome confirmados</span>
+        <div className="stat-card">
+          <span className="stat-card__eyebrow">Cadastros Completos</span>
+          <span className="stat-card__number stat-card__number--success">{stats.completosCount}</span>
+          <span className="stat-card__helper">Dados de nome confirmados</span>
         </div>
-        <div className="stat-card bg-slate-900 border border-slate-800 p-5 rounded-xl">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block font-semibold mb-1">WhatsApp (Provisórios)</span>
-          <span className="text-3xl font-extrabold text-amber-400">{stats.provisoriosCount}</span>
-          <span className="text-xs text-slate-500 block mt-1">Apenas primeiro contato</span>
+        <div className="stat-card">
+          <span className="stat-card__eyebrow">WhatsApp (Provisórios)</span>
+          <span className="stat-card__number stat-card__number--warning">{stats.provisoriosCount}</span>
+          <span className="stat-card__helper">Apenas primeiro contato</span>
         </div>
       </section>
 
       {/* 2. CONTROLES E BUSCA */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><SearchIcon /></span>
+      <div className="clients-controls-bar">
+        <div className="search-input-wrapper">
+          <span className="search-icon"><SearchIcon /></span>
           <input 
             type="text" 
             placeholder="Buscar por nome ou telefone..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-500 transition-colors"
+            className="form-control"
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="filter-group-container">
           <button 
             onClick={() => setFilterStatus('todos')} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterStatus === 'todos' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'}`}
+            className={`btn-filter ${filterStatus === 'todos' ? 'btn-filter--active' : ''}`}
           >
             Todos
           </button>
           <button 
             onClick={() => setFilterStatus('completos')} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterStatus === 'completos' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'}`}
+            className={`btn-filter ${filterStatus === 'completos' ? 'btn-filter--active' : ''}`}
           >
             Completos
           </button>
           <button 
             onClick={() => setFilterStatus('provisorios')} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterStatus === 'provisorios' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'}`}
+            className={`btn-filter ${filterStatus === 'provisorios' ? 'btn-filter--active' : ''}`}
           >
             WhatsApp
           </button>
         </div>
 
-        <button onClick={() => handleOpenModal(null)} className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition-colors shadow-lg">
+        <button onClick={() => handleOpenModal(null)} className="btn btn--primary btn-add-client">
           <UserPlusIcon /> Adicionar Cliente
         </button>
       </div>
 
       {/* 3. TABELA DE CLIENTES */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+      <div className="table-container shadow-glass">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-sm">
-            <div className="inline-block animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full mb-2"></div>
+          <div className="loading-state">
+            <div className="spinner mb-2" />
             <p>Carregando clientes...</p>
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">
+          <div className="empty-state">
             <p>Nenhum cliente encontrado para os filtros selecionados.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="p-4">Nome</th>
-                  <th className="p-4">Telefone</th>
-                  <th className="p-4">Status Cadastro</th>
-                  <th className="p-4">Cadastrado Em</th>
-                  <th className="p-4 text-right">Ações</th>
+          <table className="customers-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Status Cadastro</th>
+                <th>Cadastrado Em</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCustomers.map((customer) => (
+                <tr key={customer.id} className="customer-row">
+                  <td>
+                    <div className="customer-name-wrapper">
+                      <strong className="customer-name">{customer.name}</strong>
+                      {customer.email && <span className="customer-email">{customer.email}</span>}
+                    </div>
+                  </td>
+                  <td className="font-mono">{customer.phone}</td>
+                  <td>
+                    {customer.cadastro_completo ? (
+                      <span className="badge badge--success">Cadastrado</span>
+                    ) : (
+                      <span className="badge badge--warning">WhatsApp (Provisório)</span>
+                    )}
+                  </td>
+                  <td>
+                    {new Date(customer.created_at).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td>
+                    <div className="actions-cell">
+                      <button 
+                        onClick={() => handleOpenDrawer(customer)} 
+                        className="btn btn--outline btn--xs"
+                        aria-label="Ver Detalhes"
+                      >
+                        Ver Detalhes
+                      </button>
+                      <button 
+                        onClick={() => handleOpenModal(customer)} 
+                        className="btn btn-icon-only"
+                        title="Editar"
+                        aria-label="Editar"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteSubmit(customer.id)} 
+                        className="btn btn-icon-only btn-icon-only--danger"
+                        title="Excluir"
+                        aria-label="Excluir"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="customer-row hover:bg-slate-800/40 transition-colors">
-                    <td className="p-4">
-                      <div className="flex flex-col">
-                        <strong className="text-white font-semibold">{customer.name}</strong>
-                        {customer.email && <span className="text-xs text-slate-400">{customer.email}</span>}
-                      </div>
-                    </td>
-                    <td className="p-4 font-mono text-slate-300">{customer.phone}</td>
-                    <td className="p-4">
-                      {customer.cadastro_completo ? (
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">Cadastrado</span>
-                      ) : (
-                        <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">WhatsApp (Provisório)</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-slate-400">
-                      {new Date(customer.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleOpenDrawer(customer)} 
-                          className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-700 transition-colors"
-                          aria-label="Ver Detalhes"
-                        >
-                          Ver Detalhes
-                        </button>
-                        <button 
-                          onClick={() => handleOpenModal(customer)} 
-                          className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-md transition-colors"
-                          title="Editar"
-                          aria-label="Editar"
-                        >
-                          <EditIcon />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteSubmit(customer.id)} 
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md transition-colors"
-                          title="Excluir"
-                          aria-label="Excluir"
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* 4. MODAL DE CADASTRO/EDIÇÃO */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white">
+        <div className="modal-backdrop">
+          <div className="modal-content shadow-xl animate-spring">
+            <header className="modal-header">
+              <h3 className="modal-title">
                 {editingCustomer ? 'Editar Dados do Cliente' : 'Novo Cadastro de Cliente'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setIsModalOpen(false)} className="btn-close-modal">
                 <CloseIcon />
               </button>
-            </div>
+            </header>
 
-            <form onSubmit={handleSaveSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Nome *</label>
+            <form onSubmit={handleSaveSubmit} className="modal-body">
+              <div className="form-group">
+                <label htmlFor="name-input">Nome *</label>
                 <input 
+                  id="name-input"
                   type="text" 
                   aria-label="Nome"
                   required
                   placeholder="Ex: João da Silva"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500"
+                  className="form-control"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Telefone (WhatsApp) *</label>
+              <div className="form-group">
+                <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
                 <input 
+                  id="phone-input"
                   type="text" 
                   required
                   placeholder="Ex: 11999998888"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500"
+                  className="form-control"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">E-mail (Opcional)</label>
+              <div className="form-group">
+                <label htmlFor="email-input">E-mail (Opcional)</label>
                 <input 
+                  id="email-input"
                   type="email" 
                   placeholder="Ex: joao@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500"
+                  className="form-control"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Observações Internas</label>
+              <div className="form-group">
+                <label htmlFor="notes-textarea">Observações Internas</label>
                 <textarea 
+                  id="notes-textarea"
                   rows={3}
                   placeholder="Preferências de corte, observações de atendimento..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500 resize-none"
+                  className="form-control"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <footer className="modal-footer">
                 <button 
                   type="button" 
                   onClick={() => setIsModalOpen(false)} 
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition-colors"
+                  className="btn btn--outline"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 shadow-lg transition-colors"
+                  className="btn btn--primary"
                 >
                   Salvar Cliente
                 </button>
-              </div>
+              </footer>
             </form>
           </div>
         </div>
@@ -380,88 +382,721 @@ export const Clientes: React.FC = () => {
 
       {/* 5. GAVETA LATERAL DE DETALHES DO CLIENTE */}
       {isDrawerOpen && selectedCustomer && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onClick={() => setIsDrawerOpen(false)} />
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-md bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col">
-              <div className="flex items-center justify-between p-6 border-b border-slate-800">
-                <div>
-                  <span className="text-xs uppercase tracking-wider font-semibold text-sky-400">Ficha do Cliente</span>
-                  <h3 className="text-xl font-bold text-white mt-0.5">{selectedCustomer.name}</h3>
+        <>
+          <div className="drawer-backdrop" onClick={() => setIsDrawerOpen(false)} />
+          <div className="drawer-container shadow-xl">
+            <header className="drawer-header">
+              <div>
+                <span className="drawer-header__eyebrow">
+                  {selectedCustomer.cadastro_completo ? 'Cadastro Completo' : 'Cliente Provisório'}
+                </span>
+                <h3 className="drawer-header__title">Detalhes do Cliente</h3>
+              </div>
+              <button onClick={() => setIsDrawerOpen(false)} className="btn-close-modal">
+                <CloseIcon />
+              </button>
+            </header>
+
+            <div className="drawer-body">
+              <div className="drawer-section card shadow-glass">
+                <h4 className="drawer-section__title">Dados Pessoais</h4>
+                <div className="drawer-info-list">
+                  <div className="drawer-info-item">
+                    <span className="info-label">Nome:</span>
+                    <strong className="info-value">{selectedCustomer.name}</strong>
+                  </div>
+                  <div className="drawer-info-item">
+                    <span className="info-label">Telefone:</span>
+                    <span className="info-value font-mono">{selectedCustomer.phone}</span>
+                  </div>
+                  {selectedCustomer.email && (
+                    <div className="drawer-info-item">
+                      <span className="info-label">E-mail:</span>
+                      <span className="info-value">{selectedCustomer.email}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.notes && (
+                    <div className="drawer-info-item drawer-info-item--full">
+                      <span className="info-label">Observações:</span>
+                      <p className="info-value text-italic">{selectedCustomer.notes}</p>
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => setIsDrawerOpen(false)} className="text-slate-400 hover:text-white p-1">
-                  <CloseIcon />
+              </div>
+
+              {/* LINK E WHATSAPP */}
+              <div className="drawer-section card shadow-glass highlight-section">
+                <h4 className="drawer-section__title">Link de Agendamento Exclusivo</h4>
+                <p className="highlight-section__text">
+                  Este link identifica o cliente e a barbearia automaticamente sem a necessidade de login.
+                </p>
+                <div className="link-copy-container">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={`${window.location.origin}/cliente/${selectedCustomer.token_acesso}`}
+                    className="form-control link-readonly-input font-mono"
+                  />
+                  <button 
+                    onClick={() => handleCopyLink(selectedCustomer.token_acesso)}
+                    className="btn btn--outline btn-copy-icon"
+                    title="Copiar Link"
+                  >
+                    <CopyIcon />
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => handleSendWhatsApp(selectedCustomer.phone, selectedCustomer.token_acesso, selectedCustomer.name)}
+                  className="btn-whatsapp-direct"
+                >
+                  <WhatsappIcon /> Enviar Link pelo WhatsApp
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">Detalhes do Cliente</h4>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-semibold uppercase">Telefone:</span>
-                    <span className="font-mono text-white font-semibold">{selectedCustomer.phone}</span>
+              {/* HISTÓRICO DE VISITAS */}
+              <div className="drawer-section card shadow-glass">
+                <h4 className="drawer-section__title">Histórico de Visitas</h4>
+                {history.length === 0 ? (
+                  <div className="empty-state empty-state-drawer">
+                    Nenhum agendamento encontrado no histórico deste cliente.
                   </div>
-                  {selectedCustomer.email && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-semibold uppercase">E-mail:</span>
-                      <span className="text-slate-200">{selectedCustomer.email}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-semibold uppercase">Status:</span>
-                    {selectedCustomer.cadastro_completo ? (
-                      <span className="text-emerald-400 font-semibold">Completo</span>
-                    ) : (
-                      <span className="text-amber-400 font-semibold">Provisório (WhatsApp)</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* AÇÕES RÁPIDAS DE LINK E WHATSAPP */}
-                <div className="space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">Link Exclusivo do Cliente</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => handleCopyLink(selectedCustomer.token_acesso)}
-                      className="flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
-                    >
-                      <CopyIcon /> Copiar Link
-                    </button>
-                    <button 
-                      onClick={() => handleSendWhatsApp(selectedCustomer.phone, selectedCustomer.token_acesso, selectedCustomer.name)}
-                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors shadow-lg"
-                    >
-                      <WhatsappIcon /> Enviar WhatsApp
-                    </button>
-                  </div>
-                </div>
-
-                {/* HISTÓRICO DE VISITAS */}
-                <div className="space-y-3 pt-4 border-t border-slate-800">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Histórico de Visitas</h4>
-                  {history.length === 0 ? (
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center text-xs text-slate-400">
-                      Nenhum agendamento encontrado para este cliente.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {history.map((app) => (
-                        <div key={app.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 flex items-center justify-between text-xs">
-                          <div>
-                            <span className="text-white font-semibold block">{app.service_name}</span>
-                            <span className="text-slate-400 text-2xs">{new Date(app.start_time).toLocaleDateString('pt-BR')} • <span>{app.professional_name}</span></span>
-                          </div>
-                          <span className="font-mono text-emerald-400 font-bold">R$ {app.service_price.toFixed(2).replace('.', ',')}</span>
+                ) : (
+                  <div className="appointments-timeline">
+                    {history.map((app) => (
+                      <div key={app.id} className="appointment-card">
+                        <div className="appointment-card__header">
+                          <strong className="appointment-service">
+                            {app.service_name}
+                          </strong>
+                          <span className={`badge badge--appt-${app.status}`}>
+                            {app.status === 'completed' && 'Concluído'}
+                            {app.status === 'confirmed' && 'Confirmado'}
+                            {app.status === 'pending' && 'Pendente'}
+                            {app.status === 'canceled' && 'Cancelado'}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div className="appointment-card__body">
+                          <div>
+                            <span className="appt-meta-label">Barbeiro:</span>{' '}
+                            <span>{app.professional_name}</span>
+                          </div>
+                          <div>
+                            <span className="appt-meta-label">Data/Hora:</span>{' '}
+                            <span>{new Date(app.start_time).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                          </div>
+                          <div>
+                            <span className="appt-meta-label">Valor:</span>{' '}
+                            <strong className="text-brand">
+                              {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
+
+      {/* ESTILOS LOCAIS REFINADOS */}
+      <style>{`
+        .clientes-page {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          width: 100%;
+          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .stat-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1.25rem;
+        }
+
+        .stat-card {
+          background: rgba(255, 255, 255, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          box-shadow: var(--shadow-sm);
+        }
+
+        .stat-card__eyebrow {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
+        }
+
+        .stat-card__number {
+          font-size: var(--font-size-3xl);
+          font-weight: 800;
+          color: var(--color-text-primary);
+        }
+
+        .stat-card__number--success {
+          color: var(--color-success);
+        }
+
+        .stat-card__number--warning {
+          color: var(--color-warning);
+        }
+
+        .stat-card__helper {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+        }
+
+        .clients-controls-bar {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .search-input-wrapper {
+          position: relative;
+          flex: 1;
+          min-width: 250px;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 0.85rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+        }
+
+        .search-input-wrapper .form-control {
+          padding-left: 2.5rem;
+          height: 42px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          width: 100%;
+          outline: none;
+          font-size: var(--font-size-sm);
+        }
+
+        .search-input-wrapper .form-control:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
+        }
+
+        .filter-group-container {
+          display: flex;
+          background: rgba(45, 35, 30, 0.04);
+          padding: 0.25rem;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+        }
+
+        .btn-filter {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          padding: 0.45rem 1rem;
+          cursor: pointer;
+          border-radius: calc(var(--radius-md) - 2px);
+          transition: all 0.2s ease;
+        }
+
+        .btn-filter--active {
+          background: var(--color-bg-secondary);
+          color: var(--color-brand-primary);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .table-container {
+          overflow: hidden;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-md);
+        }
+
+        .loading-state, .empty-state {
+          padding: 3rem;
+          text-align: center;
+          color: var(--color-text-secondary);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .customers-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: left;
+        }
+
+        .customers-table th {
+          background-color: rgba(45, 35, 30, 0.02);
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 0.85rem 1.25rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .customers-table td {
+          padding: 1rem 1.25rem;
+          border-bottom: 1px solid var(--color-border);
+          vertical-align: middle;
+          font-size: var(--font-size-sm);
+        }
+
+        .customer-row {
+          transition: background-color 0.2s ease;
+        }
+
+        .customer-row:hover {
+          background-color: rgba(217, 108, 0, 0.015);
+        }
+
+        .customer-name-wrapper {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .customer-name {
+          color: var(--color-text-primary);
+          font-weight: 600;
+        }
+
+        .customer-email {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+        }
+
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.2rem 0.6rem;
+          border-radius: var(--radius-full);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .badge--success {
+          background-color: var(--color-success-bg);
+          color: var(--color-success);
+        }
+
+        .badge--warning {
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning);
+        }
+
+        .actions-cell {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.5rem;
+        }
+
+        .btn--outline {
+          border: 1px solid var(--color-border);
+          background: transparent;
+          color: var(--color-text-secondary);
+        }
+
+        .btn--outline:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-brand-primary);
+          background-color: rgba(217, 108, 0, 0.02);
+        }
+
+        .btn--xs {
+          padding: 0.3rem 0.75rem;
+          font-size: var(--font-size-xs);
+          border-radius: var(--radius-sm);
+        }
+
+        .btn-icon-only {
+          background: transparent;
+          border: 1px solid transparent;
+          color: var(--color-text-secondary);
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-md);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-icon-only:hover {
+          background-color: rgba(45, 35, 30, 0.04);
+          color: var(--color-text-primary);
+        }
+
+        .btn-icon-only--danger:hover {
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+        }
+
+        /* MODAL */
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(20, 17, 15, 0.4);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal-content {
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          width: 100%;
+          max-width: 500px;
+          overflow: hidden;
+        }
+
+        .animate-spring {
+          animation: springUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .modal-title {
+          font-size: var(--font-size-base);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .btn-close-modal {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          padding: 0.2rem;
+          border-radius: var(--radius-sm);
+        }
+
+        .btn-close-modal:hover {
+          background-color: rgba(45, 35, 30, 0.05);
+          color: var(--color-text-primary);
+        }
+
+        .modal-body {
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .form-group label {
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+
+        .form-group .form-control {
+          padding: 0.65rem 0.85rem;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          outline: none;
+          font-size: var(--font-size-sm);
+        }
+
+        .form-group .form-control:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
+        }
+
+        .form-help {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+        }
+
+        .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          margin-top: 0.5rem;
+        }
+
+        /* GAVETA LATERAL */
+        .drawer-backdrop {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(20, 17, 15, 0.3);
+          backdrop-filter: blur(2px);
+          z-index: 900;
+        }
+
+        .drawer-container {
+          position: fixed;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          max-width: 450px;
+          background-color: var(--color-bg-primary);
+          border-left: 1px solid var(--color-border);
+          z-index: 950;
+          display: flex;
+          flex-direction: column;
+          animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .drawer-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.25rem 1.5rem;
+          background-color: var(--color-bg-secondary);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .drawer-header__eyebrow {
+          font-size: var(--font-size-xs);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--color-brand-primary);
+          font-weight: 700;
+          display: block;
+          margin-bottom: 0.15rem;
+        }
+
+        .drawer-header__title {
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .drawer-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .drawer-section {
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          background-color: var(--color-bg-secondary);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--color-border);
+        }
+
+        .drawer-section__title {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          border-bottom: 1px solid var(--color-border);
+          padding-bottom: 0.4rem;
+        }
+
+        .drawer-info-list {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.5rem;
+        }
+
+        .drawer-info-item {
+          display: flex;
+          justify-content: space-between;
+          font-size: var(--font-size-sm);
+          padding: 0.25rem 0;
+        }
+
+        .drawer-info-item--full {
+          flex-direction: column;
+          gap: 0.25rem;
+          margin-top: 0.25rem;
+        }
+
+        .info-label {
+          color: var(--color-text-secondary);
+          font-weight: 500;
+        }
+
+        .info-value {
+          color: var(--color-text-primary);
+        }
+
+        .text-italic {
+          font-style: italic;
+          color: var(--color-text-secondary);
+        }
+
+        .highlight-section {
+          background-color: var(--color-brand-lightest);
+          border-color: var(--color-brand-soft);
+        }
+
+        .highlight-section__text {
+          font-size: var(--font-size-xs);
+          color: var(--color-brand-deep);
+          line-height: 1.4;
+        }
+
+        .link-copy-container {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+        }
+
+        .link-readonly-input {
+          font-size: var(--font-size-xs) !important;
+          background-color: rgba(255, 255, 255, 0.8) !important;
+          flex: 1;
+        }
+
+        .btn-copy-icon {
+          font-size: var(--font-size-xs) !important;
+          padding: 0.5rem 0.75rem !important;
+        }
+
+        .btn-whatsapp-direct {
+          background-color: #25D366;
+          color: #ffffff;
+          width: 100%;
+          border: none;
+          font-weight: 600;
+          font-size: var(--font-size-xs);
+          padding: 0.65rem 1rem;
+          border-radius: var(--radius-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(37, 211, 102, 0.15);
+          transition: all 0.3s ease;
+        }
+
+        .btn-whatsapp-direct:hover {
+          background-color: #20BA5A;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25);
+        }
+
+        .empty-state-drawer {
+          padding: 1.5rem;
+          text-align: center;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          border-style: dashed;
+        }
+
+        .appointments-timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .appointment-card {
+          padding: 1rem !important;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .appointment-card__header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .appointment-service {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-primary);
+        }
+
+        .badge--appt-completed {
+          background-color: var(--color-success-bg);
+          color: var(--color-success);
+        }
+
+        .badge--appt-confirmed {
+          background-color: var(--color-info-bg);
+          color: var(--color-info);
+        }
+
+        .badge--appt-pending {
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning);
+        }
+
+        .badge--appt-canceled {
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+        }
+
+        .appointment-card__body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.4rem;
+          font-size: var(--font-size-xs);
+        }
+
+        .appt-meta-label {
+          color: var(--color-text-secondary);
+        }
+
+        .text-brand {
+          color: var(--color-brand-primary);
+        }
+
+        .font-mono {
+          font-family: monospace;
+          letter-spacing: 0.02em;
+        }
+      `}</style>
     </div>
   );
 };
