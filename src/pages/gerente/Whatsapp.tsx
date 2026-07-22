@@ -208,6 +208,10 @@ export const Whatsapp: React.FC = () => {
         throw new Error(errorMsg);
       }
 
+      if (funcData?.qrcode) {
+        setInstance(prev => prev ? { ...prev, qr_code: funcData.qrcode, status: 'pairing' } : null);
+      }
+
       addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
 
     } catch (error: any) {
