@@ -180,7 +180,7 @@ export const Whatsapp: React.FC = () => {
       );
 
       if (funcError || (funcData && funcData.error)) {
-        const errorMsg = funcError?.message || funcData?.error || 'Erro ao obter QR Code da VPS.';
+        const errorMsg = funcData?.error || funcError?.message || 'Erro ao obter QR Code da VPS.';
         throw new Error(errorMsg);
       }
 

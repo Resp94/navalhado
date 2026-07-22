@@ -121,6 +121,112 @@ Deno.test("POST /manage-instance - connect action should get QR Code from VPS an
   restoreFetch();
 });
 
+Deno.test("POST /manage-instance - connect action should authenticate gerente user JWT and grant access", async () => {
+  const restoreFetch = setupMockFetch({
+    "auth/v1/user": {
+      status: 200,
+      body: { id: "user-gerente-123", email: "gerente@barbearia.com" }
+    },
+    "rest/v1/users": {
+      status: 200,
+      body: [{ tenant_id: "tenant-456", role: "gerente" }]
+    },
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: [{ api_key: "mock-instance-key", tenant_id: "tenant-456" }]
+    },
+    "mock-vps.com/instance/qr": {
+      status: 200,
+      body: { data: { Qrcode: "base64qrcode...", Code: "123-456" } }
+    }
+  });
+
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer valid-gerente-jwt-token",
+    },
+    body: JSON.stringify({
+      action: "connect",
+      instance_id: "inst-123",
+      instance_name: "nav_test",
+      tenant_id: "tenant-456"
+    })
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 200);
+  const data = await res.json();
+  assertEquals(data.success, true);
+
+  restoreFetch();
+});
+
+Deno.test("POST /manage-instance - connect action should reject unauthorized user without gerente role", async () => {
+  const restoreFetch = setupMockFetch({
+    "auth/v1/user": {
+      status: 200,
+      body: { id: "user-cliente-123", email: "cliente@email.com" }
+    },
+    "rest/v1/users": {
+      status: 200,
+      body: [{ tenant_id: "tenant-456", role: "cliente" }]
+    }
+  });
+
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer valid-cliente-jwt-token",
+    },
+    body: JSON.stringify({
+      action: "connect",
+      instance_id: "inst-123",
+      instance_name: "nav_test",
+      tenant_id: "tenant-456"
+    })
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 401);
+
+  restoreFetch();
+});
+
+Deno.test("POST /manage-instance - connect action should revert status to disconnected on VPS error", async () => {
+  const restoreFetch = setupMockFetch({
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: [{ api_key: "mock-instance-key" }]
+    },
+    "mock-vps.com/instance/qr": {
+      status: 500,
+      body: { error: "VPS Internal Error" }
+    }
+  });
+
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      action: "connect",
+      instance_id: "inst-123",
+      instance_name: "nav_test",
+      tenant_id: "tenant-456"
+    })
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 502);
+
+  restoreFetch();
+});
+
 Deno.test("POST /manage-instance - disconnect action should call VPS disconnect and reset status in DB", async () => {
   const restoreFetch = setupMockFetch({
     "rest/v1/evolution_api_instances": {

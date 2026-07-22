@@ -112,6 +112,20 @@ vi.mock('../../../lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
+const createMockInstance = (overrides = {}) => ({
+  id: 'inst-123',
+  tenant_id: 'tenant-test-id',
+  instance_name: 'nav_estilo_123',
+  api_key: 'key_123',
+  status: 'disconnected',
+  qr_code: null,
+  send_confirmation: true,
+  send_reminders: true,
+  reminder_hours: 2,
+  send_cancellation: true,
+  ...overrides,
+});
+
 describe('Whatsapp Config Page - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
