@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
-import type { Customer } from '../../modules/clientes/types';
+import type { Cliente } from '../../modules/clientes/types';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
@@ -72,7 +72,6 @@ export const Clientes: React.FC = () => {
     filterStatus,
     setFilterStatus,
     history,
-    loadingHistory,
     saveCustomer,
     deleteCustomer,
     loadHistorico,
@@ -80,11 +79,11 @@ export const Clientes: React.FC = () => {
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Cliente | null>(null);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', notes: '' });
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Cliente | null>(null);
 
   useGSAP(() => {
     if (!loading) {
@@ -99,7 +98,7 @@ export const Clientes: React.FC = () => {
     }
   }, [loading, filterStatus, searchTerm]);
 
-  const handleOpenModal = (customer: Customer | null = null) => {
+  const handleOpenModal = (customer: Cliente | null = null) => {
     if (customer) {
       setEditingCustomer(customer);
       setFormData({
@@ -140,7 +139,7 @@ export const Clientes: React.FC = () => {
     }
   };
 
-  const handleOpenDrawer = (customer: Customer) => {
+  const handleOpenDrawer = (customer: Cliente) => {
     setSelectedCustomer(customer);
     setIsDrawerOpen(true);
     loadHistorico(customer.id);

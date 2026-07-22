@@ -49,7 +49,6 @@ export function useClientes(tenantId: string) {
 
   // Gaveta lateral de histórico
   const [history, setHistory] = useState<HistoricoVisitasCliente[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     if (!tenantId) return;
@@ -135,7 +134,6 @@ export function useClientes(tenantId: string) {
     filterStatus,
     setFilterStatus,
     history,
-    loadingHistory,
     saveCustomer,
     deleteCustomer,
     loadHistorico,

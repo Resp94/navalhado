@@ -2,7 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from '../types';
 
 export class SupabaseClienteAdapter implements IClienteAdapter {
-  constructor(private supabase: SupabaseClient) {}
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
 
   private preparePayload(input: ClienteInputData) {
     return {

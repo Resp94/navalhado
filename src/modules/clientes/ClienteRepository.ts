@@ -15,7 +15,11 @@ export class ClienteConstraintError extends Error {
 }
 
 export class ClienteRepository {
-  constructor(private adapter: IClienteAdapter) {}
+  private adapter: IClienteAdapter;
+
+  constructor(adapter: IClienteAdapter) {
+    this.adapter = adapter;
+  }
 
   async listByTenant(tenantId: string): Promise<Cliente[]> {
     const list = await this.adapter.listarPorTenant(tenantId);
