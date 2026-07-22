@@ -46,11 +46,16 @@ describe('ClienteRepository', () => {
   });
 
   it('deve lançar erro de validação ao tentar salvar cliente sem nome ou sem telefone', async () => {
-    await expect(repo.saveCustomer(tenantId, { name: '', phone: '1199999' })).rejects.toThrow(ClienteValidationError);
+    await expect(repo.saveCustomer(tenantId, { name: '', phone: '11999998888' })).rejects.toThrow(ClienteValidationError);
     await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '' })).rejects.toThrow(ClienteValidationError);
   });
 
-  it('deve promover Cliente Provisório para Cliente Completo ao salvar', async () => {
+  it('deve lançar erro de validação ao informar telefone ou email com formato inválido', async () => {
+    await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '123' })).rejects.toThrow(ClienteValidationError);
+    await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '11999998888', email: 'email-invalido' })).rejects.toThrow(ClienteValidationError);
+  });
+
+  it('deve promover Cliente Provisório para Cliente Completo ao salvar com dados válidos', async () => {
     const updated = await repo.saveCustomer(tenantId, {
       id: 'c2',
       name: 'Ana Souza',
@@ -70,7 +75,7 @@ describe('ClienteRepository', () => {
   });
 
   it('deve converter erro de chave estrangeira 23503 em ClienteConstraintError ao excluir', async () => {
-    vi.spyOn(adapter, 'deleteCustomer').mockRejectedValueOnce({ code: '23503', message: 'FK constraint' });
+    vi.spyOn(adapter, 'excluirCliente').mockRejectedValueOnce({ code: '23503', message: 'FK constraint' });
     await expect(repo.deleteCustomer(tenantId, 'c1')).rejects.toThrow(ClienteConstraintError);
   });
 });

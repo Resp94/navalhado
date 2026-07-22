@@ -10,8 +10,6 @@ export interface Cliente {
   created_at: string;
 }
 
-export type Customer = Cliente;
-
 export interface ClienteInputData {
   id?: string;
   name: string;
@@ -20,8 +18,6 @@ export interface ClienteInputData {
   notes?: string | null;
   cadastro_completo?: boolean;
 }
-
-export type CustomerInputData = ClienteInputData;
 
 export interface HistoricoVisitasCliente {
   id: string;
@@ -33,21 +29,17 @@ export interface HistoricoVisitasCliente {
   professional_name: string;
 }
 
-export type CustomerAppointmentHistory = HistoricoVisitasCliente;
-
 export interface EstatisticasCliente {
   totalCount: number;
   completosCount: number;
   provisoriosCount: number;
 }
 
-export type CustomerStats = EstatisticasCliente;
-
 export type StatusFiltroCliente = 'todos' | 'completos' | 'provisorios';
 
 export interface IClienteAdapter {
-  fetchCustomersByTenant(tenantId: string): Promise<Cliente[]>;
-  saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente>;
-  deleteCustomer(tenantId: string, customerId: string): Promise<void>;
-  fetchAppointmentHistory(customerId: string): Promise<HistoricoVisitasCliente[]>;
+  listarPorTenant(tenantId: string): Promise<Cliente[]>;
+  salvarCliente(tenantId: string, input: ClienteInputData): Promise<Cliente>;
+  excluirCliente(tenantId: string, clienteId: string): Promise<void>;
+  buscarHistoricoVisitas(clienteId: string): Promise<HistoricoVisitasCliente[]>;
 }

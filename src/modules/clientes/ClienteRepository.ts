@@ -18,13 +18,8 @@ export class ClienteRepository {
   constructor(private adapter: IClienteAdapter) {}
 
   async listByTenant(tenantId: string): Promise<Cliente[]> {
-    const list = await this.adapter.fetchCustomersByTenant(tenantId);
+    const list = await this.adapter.listarPorTenant(tenantId);
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }
-
-  // Alias para compatibilidade com código existente
-  async getCustomers(tenantId: string): Promise<Cliente[]> {
-    return this.listByTenant(tenantId);
   }
 
   async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
@@ -33,6 +28,18 @@ export class ClienteRepository {
     }
     if (!input.phone || !input.phone.trim()) {
       throw new ClienteValidationError('O telefone é obrigatório.');
+    }
+
+    const digitsOnly = input.phone.replace(/\D/g, '');
+    if (digitsOnly.length < 8) {
+      throw new ClienteValidationError('O formato do telefone informado é inválido.');
+    }
+
+    if (input.email && input.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(input.email.trim())) {
+        throw new ClienteValidationError('O formato do e-mail informado é inválido.');
+      }
     }
 
     const payload: ClienteInputData = {
@@ -44,7 +51,7 @@ export class ClienteRepository {
       cadastro_completo: true, // Garante a promoção para cadastro completo ao salvar
     };
 
-    return await this.adapter.saveCustomer(tenantId, payload);
+    return await this.adapter.salvarCliente(tenantId, payload);
   }
 
   async deleteCustomer(tenantId: string, customerId: string): Promise<void> {
@@ -52,7 +59,7 @@ export class ClienteRepository {
       throw new ClienteValidationError('ID do cliente é obrigatório para exclusão.');
     }
     try {
-      await this.adapter.deleteCustomer(tenantId, customerId);
+      await this.adapter.excluirCliente(tenantId, customerId);
     } catch (error: any) {
       if (error?.code === '23503') {
         throw new ClienteConstraintError('Este cliente não pode ser excluído porque possui agendamentos registrados no histórico.');
@@ -63,6 +70,6 @@ export class ClienteRepository {
 
   async getHistoricoVisitas(customerId: string): Promise<HistoricoVisitasCliente[]> {
     if (!customerId) return [];
-    return await this.adapter.fetchAppointmentHistory(customerId);
+    return await this.adapter.buscarHistoricoVisitas(customerId);
   }
 }

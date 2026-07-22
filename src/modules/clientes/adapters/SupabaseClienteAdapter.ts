@@ -4,7 +4,17 @@ import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapte
 export class SupabaseClienteAdapter implements IClienteAdapter {
   constructor(private supabase: SupabaseClient) {}
 
-  async fetchCustomersByTenant(tenantId: string): Promise<Cliente[]> {
+  private preparePayload(input: ClienteInputData) {
+    return {
+      name: input.name,
+      phone: input.phone,
+      email: input.email || null,
+      notes: input.notes || null,
+      cadastro_completo: input.cadastro_completo ?? true,
+    };
+  }
+
+  async listarPorTenant(tenantId: string): Promise<Cliente[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('*')
@@ -15,17 +25,13 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
     return data || [];
   }
 
-  async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
+  async salvarCliente(tenantId: string, input: ClienteInputData): Promise<Cliente> {
+    const payload = this.preparePayload(input);
+
     if (input.id) {
       const { data, error } = await this.supabase
         .from('customers')
-        .update({
-          name: input.name,
-          phone: input.phone,
-          email: input.email || null,
-          notes: input.notes || null,
-          cadastro_completo: input.cadastro_completo ?? true,
-        })
+        .update(payload)
         .eq('id', input.id)
         .eq('tenant_id', tenantId)
         .select()
@@ -38,11 +44,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         .from('customers')
         .insert({
           tenant_id: tenantId,
-          name: input.name,
-          phone: input.phone,
-          email: input.email || null,
-          notes: input.notes || null,
-          cadastro_completo: input.cadastro_completo ?? true,
+          ...payload,
           token_acesso: `token_${Math.random().toString(36).substring(2, 9)}`,
         })
         .select()
@@ -53,18 +55,18 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
     }
   }
 
-  async deleteCustomer(tenantId: string, customerId: string): Promise<void> {
+  async excluirCliente(tenantId: string, clienteId: string): Promise<void> {
     const { error } = await this.supabase
       .from('customers')
       .delete()
-      .eq('id', customerId)
+      .eq('id', clienteId)
       .eq('tenant_id', tenantId);
 
     if (error) throw error;
   }
 
-  async fetchAppointmentHistory(customerId: string): Promise<HistoricoVisitasCliente[]> {
-    const res: any = await this.supabase
+  async buscarHistoricoVisitas(clienteId: string): Promise<HistoricoVisitasCliente[]> {
+    const { data, error } = await this.supabase
       .from('appointments')
       .select(`
         id,
@@ -74,14 +76,12 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         services ( name, price ),
         professionals ( name )
       `)
-      .eq('customer_id', customerId)
+      .eq('customer_id', clienteId)
       .order('start_time', { ascending: false });
 
-    if (res?.error) throw res.error;
+    if (error) throw error;
 
-    const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
-
-    return data.map((row: any) => {
+    return (data || []).map((row: any) => {
       const service = Array.isArray(row.services) ? row.services[0] : row.services;
       const professional = Array.isArray(row.professionals) ? row.professionals[0] : row.professionals;
 
