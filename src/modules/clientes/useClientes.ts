@@ -1,9 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
-import { ClienteRepository, ClienteValidationError } from './ClienteRepository';
+import { ClienteConstraintError, ClienteRepository, ClienteValidationError } from './ClienteRepository';
 import { SupabaseClienteAdapter } from './adapters/SupabaseClienteAdapter';
-import type { Customer, CustomerAppointmentHistory, CustomerInputData, CustomerStats } from './types';
+import type { Cliente, ClienteInputData, EstatisticasCliente, HistoricoVisitasCliente, StatusFiltroCliente } from './types';
+
+export function filterClientes(customers: Cliente[], searchTerm: string, filterStatus: StatusFiltroCliente): Cliente[] {
+  const term = searchTerm.toLowerCase().trim();
+
+  return customers.filter((customer) => {
+    const matchesSearch =
+      !term ||
+      customer.name.toLowerCase().includes(term) ||
+      customer.phone.includes(term) ||
+      (customer.email && customer.email.toLowerCase().includes(term));
+
+    if (!matchesSearch) return false;
+
+    if (filterStatus === 'completos') return customer.cadastro_completo;
+    if (filterStatus === 'provisorios') return !customer.cadastro_completo;
+
+    return true;
+  });
+}
+
+export function calculateClienteStats(customers: Cliente[]): EstatisticasCliente {
+  const totalCount = customers.length;
+  const completosCount = customers.filter((c) => c.cadastro_completo).length;
+  const provisoriosCount = customers.filter((c) => !c.cadastro_completo).length;
+
+  return { totalCount, completosCount, provisoriosCount };
+}
 
 export function useClientes(tenantId: string) {
   const { addToast } = useToast();
@@ -13,22 +40,22 @@ export function useClientes(tenantId: string) {
     return new ClienteRepository(adapter);
   }, []);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'todos' | 'completos' | 'provisorios'>('todos');
+  const [filterStatus, setFilterStatus] = useState<StatusFiltroCliente>('todos');
 
   // Gaveta lateral de histórico
-  const [history, setHistory] = useState<CustomerAppointmentHistory[]>([]);
+  const [history, setHistory] = useState<HistoricoVisitasCliente[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     if (!tenantId) return;
     try {
       setLoading(true);
-      const list = await repository.getCustomers(tenantId);
+      const list = await repository.listByTenant(tenantId);
       setCustomers(list);
     } catch (error: any) {
       console.error('Erro ao carregar clientes:', error);
@@ -43,14 +70,14 @@ export function useClientes(tenantId: string) {
   }, [loadCustomers]);
 
   const filteredCustomers = useMemo(() => {
-    return repository.filterCustomers(customers, searchTerm, filterStatus);
-  }, [repository, customers, searchTerm, filterStatus]);
+    return filterClientes(customers, searchTerm, filterStatus);
+  }, [customers, searchTerm, filterStatus]);
 
-  const stats: CustomerStats = useMemo(() => {
-    return repository.calculateStats(customers);
-  }, [repository, customers]);
+  const stats: EstatisticasCliente = useMemo(() => {
+    return calculateClienteStats(customers);
+  }, [customers]);
 
-  const saveCustomer = async (input: CustomerInputData): Promise<boolean> => {
+  const saveCustomer = async (input: ClienteInputData): Promise<boolean> => {
     try {
       await repository.saveCustomer(tenantId, input);
       addToast(
@@ -78,8 +105,8 @@ export function useClientes(tenantId: string) {
       return true;
     } catch (error: any) {
       console.error('Erro ao excluir cliente:', error);
-      if (error?.code === '23503') {
-        addToast('Este cliente não pode ser excluído porque possui agendamentos registrados no histórico.', 'error');
+      if (error instanceof ClienteConstraintError) {
+        addToast(error.message, 'error');
       } else {
         addToast('Erro ao excluir o cliente.', 'error');
       }

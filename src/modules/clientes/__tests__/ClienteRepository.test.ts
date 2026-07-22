@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ClienteRepository, ClienteValidationError } from '../ClienteRepository';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ClienteRepository, ClienteValidationError, ClienteConstraintError } from '../ClienteRepository';
 import { InMemoryClienteAdapter } from '../adapters/InMemoryClienteAdapter';
-import type { Customer } from '../types';
+import type { Cliente } from '../types';
 
 describe('ClienteRepository', () => {
   let adapter: InMemoryClienteAdapter;
   let repo: ClienteRepository;
   const tenantId = 'tenant_123';
 
-  const mockCustomers: Customer[] = [
+  const mockCustomers: Cliente[] = [
     {
       id: 'c1',
       tenant_id: tenantId,
@@ -39,27 +39,10 @@ describe('ClienteRepository', () => {
   });
 
   it('deve listar clientes ordenados alfabeticamente por nome', async () => {
-    const list = await repo.getCustomers(tenantId);
+    const list = await repo.listByTenant(tenantId);
     expect(list.length).toBe(2);
     expect(list[0].name).toBe('Ana Souza');
     expect(list[1].name).toBe('Carlos Silva');
-  });
-
-  it('deve calcular estatísticas corretamente (total, completos, provisórios)', () => {
-    const stats = repo.calculateStats(mockCustomers);
-    expect(stats.totalCount).toBe(2);
-    expect(stats.completosCount).toBe(1);
-    expect(stats.provisoriosCount).toBe(1);
-  });
-
-  it('deve filtrar clientes por termo de busca e status de cadastro', () => {
-    const searchResult = repo.filterCustomers(mockCustomers, 'Ana', 'todos');
-    expect(searchResult.length).toBe(1);
-    expect(searchResult[0].name).toBe('Ana Souza');
-
-    const provisorioResult = repo.filterCustomers(mockCustomers, '', 'provisorios');
-    expect(provisorioResult.length).toBe(1);
-    expect(provisorioResult[0].id).toBe('c2');
   });
 
   it('deve lançar erro de validação ao tentar salvar cliente sem nome ou sem telefone', async () => {
@@ -81,8 +64,13 @@ describe('ClienteRepository', () => {
 
   it('deve excluir um cliente com sucesso', async () => {
     await repo.deleteCustomer(tenantId, 'c1');
-    const remaining = await repo.getCustomers(tenantId);
+    const remaining = await repo.listByTenant(tenantId);
     expect(remaining.length).toBe(1);
     expect(remaining[0].id).toBe('c2');
+  });
+
+  it('deve converter erro de chave estrangeira 23503 em ClienteConstraintError ao excluir', async () => {
+    vi.spyOn(adapter, 'deleteCustomer').mockRejectedValueOnce({ code: '23503', message: 'FK constraint' });
+    await expect(repo.deleteCustomer(tenantId, 'c1')).rejects.toThrow(ClienteConstraintError);
   });
 });

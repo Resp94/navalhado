@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Customer, CustomerAppointmentHistory, CustomerInputData, IClienteAdapter } from '../types';
+import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from '../types';
 
 export class SupabaseClienteAdapter implements IClienteAdapter {
   constructor(private supabase: SupabaseClient) {}
 
-  async fetchCustomersByTenant(tenantId: string): Promise<Customer[]> {
+  async fetchCustomersByTenant(tenantId: string): Promise<Cliente[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('*')
@@ -15,7 +15,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
     return data || [];
   }
 
-  async saveCustomer(tenantId: string, input: CustomerInputData): Promise<Customer> {
+  async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
     if (input.id) {
       const { data, error } = await this.supabase
         .from('customers')
@@ -63,7 +63,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
     if (error) throw error;
   }
 
-  async fetchAppointmentHistory(customerId: string): Promise<CustomerAppointmentHistory[]> {
+  async fetchAppointmentHistory(customerId: string): Promise<HistoricoVisitasCliente[]> {
     const res: any = await this.supabase
       .from('appointments')
       .select(`
@@ -76,6 +76,8 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
       `)
       .eq('customer_id', customerId)
       .order('start_time', { ascending: false });
+
+    if (res?.error) throw res.error;
 
     const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
 

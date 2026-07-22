@@ -1,4 +1,4 @@
-import type { Customer, CustomerAppointmentHistory, CustomerInputData, CustomerStats, IClienteAdapter } from './types';
+import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from './types';
 
 export class ClienteValidationError extends Error {
   constructor(message: string) {
@@ -7,42 +7,27 @@ export class ClienteValidationError extends Error {
   }
 }
 
+export class ClienteConstraintError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ClienteConstraintError';
+  }
+}
+
 export class ClienteRepository {
   constructor(private adapter: IClienteAdapter) {}
 
-  async getCustomers(tenantId: string): Promise<Customer[]> {
+  async listByTenant(tenantId: string): Promise<Cliente[]> {
     const list = await this.adapter.fetchCustomersByTenant(tenantId);
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 
-  filterCustomers(customers: Customer[], searchTerm: string, filterStatus: 'todos' | 'completos' | 'provisorios'): Customer[] {
-    const term = searchTerm.toLowerCase().trim();
-
-    return customers.filter((customer) => {
-      const matchesSearch =
-        !term ||
-        customer.name.toLowerCase().includes(term) ||
-        customer.phone.includes(term) ||
-        (customer.email && customer.email.toLowerCase().includes(term));
-
-      if (!matchesSearch) return false;
-
-      if (filterStatus === 'completos') return customer.cadastro_completo;
-      if (filterStatus === 'provisorios') return !customer.cadastro_completo;
-
-      return true;
-    });
+  // Alias para compatibilidade com código existente
+  async getCustomers(tenantId: string): Promise<Cliente[]> {
+    return this.listByTenant(tenantId);
   }
 
-  calculateStats(customers: Customer[]): CustomerStats {
-    const totalCount = customers.length;
-    const completosCount = customers.filter((c) => c.cadastro_completo).length;
-    const provisoriosCount = customers.filter((c) => !c.cadastro_completo).length;
-
-    return { totalCount, completosCount, provisoriosCount };
-  }
-
-  async saveCustomer(tenantId: string, input: CustomerInputData): Promise<Customer> {
+  async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
     if (!input.name || !input.name.trim()) {
       throw new ClienteValidationError('O nome do cliente é obrigatório.');
     }
@@ -50,7 +35,7 @@ export class ClienteRepository {
       throw new ClienteValidationError('O telefone é obrigatório.');
     }
 
-    const payload: CustomerInputData = {
+    const payload: ClienteInputData = {
       ...input,
       name: input.name.trim(),
       phone: input.phone.trim(),
@@ -66,10 +51,17 @@ export class ClienteRepository {
     if (!customerId) {
       throw new ClienteValidationError('ID do cliente é obrigatório para exclusão.');
     }
-    await this.adapter.deleteCustomer(tenantId, customerId);
+    try {
+      await this.adapter.deleteCustomer(tenantId, customerId);
+    } catch (error: any) {
+      if (error?.code === '23503') {
+        throw new ClienteConstraintError('Este cliente não pode ser excluído porque possui agendamentos registrados no histórico.');
+      }
+      throw error;
+    }
   }
 
-  async getHistoricoVisitas(customerId: string): Promise<CustomerAppointmentHistory[]> {
+  async getHistoricoVisitas(customerId: string): Promise<HistoricoVisitasCliente[]> {
     if (!customerId) return [];
     return await this.adapter.fetchAppointmentHistory(customerId);
   }

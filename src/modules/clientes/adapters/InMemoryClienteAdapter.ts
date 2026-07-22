@@ -1,24 +1,24 @@
-import type { Customer, CustomerAppointmentHistory, CustomerInputData, IClienteAdapter } from '../types';
+import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from '../types';
 
 export class InMemoryClienteAdapter implements IClienteAdapter {
-  private customers: Customer[] = [];
-  private appointmentsMap: Record<string, CustomerAppointmentHistory[]> = {};
+  private customers: Cliente[] = [];
+  private appointmentsMap: Record<string, HistoricoVisitasCliente[]> = {};
 
-  constructor(initialCustomers: Customer[] = [], initialAppointments: Record<string, CustomerAppointmentHistory[]> = {}) {
+  constructor(initialCustomers: Cliente[] = [], initialAppointments: Record<string, HistoricoVisitasCliente[]> = {}) {
     this.customers = [...initialCustomers];
     this.appointmentsMap = { ...initialAppointments };
   }
 
-  async fetchCustomersByTenant(tenantId: string): Promise<Customer[]> {
+  async fetchCustomersByTenant(tenantId: string): Promise<Cliente[]> {
     return this.customers.filter((c) => c.tenant_id === tenantId);
   }
 
-  async saveCustomer(tenantId: string, input: CustomerInputData): Promise<Customer> {
+  async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
     if (input.id) {
       const index = this.customers.findIndex((c) => c.id === input.id);
       if (index >= 0) {
         const existing = this.customers[index];
-        const updated: Customer = {
+        const updated: Cliente = {
           ...existing,
           name: input.name,
           phone: input.phone,
@@ -31,7 +31,7 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
       }
     }
 
-    const newCustomer: Customer = {
+    const newCustomer: Cliente = {
       id: input.id || `cust_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       tenant_id: tenantId,
       name: input.name,
@@ -51,7 +51,7 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
     this.customers = this.customers.filter((c) => !(c.id === customerId && c.tenant_id === tenantId));
   }
 
-  async fetchAppointmentHistory(customerId: string): Promise<CustomerAppointmentHistory[]> {
+  async fetchAppointmentHistory(customerId: string): Promise<HistoricoVisitasCliente[]> {
     return this.appointmentsMap[customerId] || [];
   }
 }

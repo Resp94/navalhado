@@ -1,4 +1,4 @@
-export interface Customer {
+export interface Cliente {
   id: string;
   tenant_id: string;
   name: string;
@@ -10,7 +10,9 @@ export interface Customer {
   created_at: string;
 }
 
-export interface CustomerInputData {
+export type Customer = Cliente;
+
+export interface ClienteInputData {
   id?: string;
   name: string;
   phone: string;
@@ -19,7 +21,9 @@ export interface CustomerInputData {
   cadastro_completo?: boolean;
 }
 
-export interface CustomerAppointmentHistory {
+export type CustomerInputData = ClienteInputData;
+
+export interface HistoricoVisitasCliente {
   id: string;
   start_time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'canceled';
@@ -29,15 +33,21 @@ export interface CustomerAppointmentHistory {
   professional_name: string;
 }
 
-export interface CustomerStats {
+export type CustomerAppointmentHistory = HistoricoVisitasCliente;
+
+export interface EstatisticasCliente {
   totalCount: number;
   completosCount: number;
   provisoriosCount: number;
 }
 
+export type CustomerStats = EstatisticasCliente;
+
+export type StatusFiltroCliente = 'todos' | 'completos' | 'provisorios';
+
 export interface IClienteAdapter {
-  fetchCustomersByTenant(tenantId: string): Promise<Customer[]>;
-  saveCustomer(tenantId: string, input: CustomerInputData): Promise<Customer>;
+  fetchCustomersByTenant(tenantId: string): Promise<Cliente[]>;
+  saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente>;
   deleteCustomer(tenantId: string, customerId: string): Promise<void>;
-  fetchAppointmentHistory(customerId: string): Promise<CustomerAppointmentHistory[]>;
+  fetchAppointmentHistory(customerId: string): Promise<HistoricoVisitasCliente[]>;
 }
