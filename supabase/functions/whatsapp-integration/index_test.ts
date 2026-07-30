@@ -121,6 +121,184 @@ Deno.test("POST /manage-instance - connect action should get QR Code from VPS an
   restoreFetch();
 });
 
+Deno.test("POST /manage-instance - connect waits until the VPS QR Code is available", async () => {
+  const originalFetch = globalThis.fetch;
+  let qrRequests = 0;
+
+  globalThis.fetch = async (input: string | URL | Request): Promise<Response> => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (urlStr.includes("rest/v1/evolution_api_instances")) {
+      return new Response(JSON.stringify([{ api_key: "mock-instance-key" }]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("mock-vps.com/instance/create") || urlStr.includes("mock-vps.com/instance/connect")) {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("mock-vps.com/instance/qr")) {
+      qrRequests++;
+      if (qrRequests === 1) {
+        return new Response(JSON.stringify({
+          error: "no QR code available. Please wait a moment and try again",
+        }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        data: {
+          Qrcode: "data:image/png;base64,ready-qrcode",
+          Code: "ready-pairing-code",
+        },
+        message: "success",
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: `Mock not configured for ${urlStr}` }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-db-trigger-secret": "mock-db-secret",
+      },
+      body: JSON.stringify({
+        action: "connect",
+        instance_id: "inst-123",
+        instance_name: "nav_test",
+      }),
+    });
+
+    const res = await handler(req);
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      success: true,
+      qrcode: "data:image/png;base64,ready-qrcode",
+      code: "ready-pairing-code",
+    });
+    assertEquals(qrRequests, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /manage-instance - connect authenticates instance routes with the stored API key", async () => {
+  const originalFetch = globalThis.fetch;
+  const observedInstanceHeaders: Array<Record<string, string | null>> = [];
+
+  globalThis.fetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const headers = new Headers(init?.headers);
+
+    if (urlStr.includes("rest/v1/evolution_api_instances")) {
+      return new Response(JSON.stringify({ api_key: "mock-instance-key" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("mock-vps.com/instance/create")) {
+      return new Response(JSON.stringify({ error: "instance already exists" }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("mock-vps.com/instance/connect")) {
+      const body = JSON.parse(String(init?.body));
+      observedInstanceHeaders.push({
+        route: "connect",
+        apikey: headers.get("apikey"),
+        instanceId: headers.get("instanceId"),
+      });
+      const validTarget =
+        headers.get("apikey") === "mock-instance-key" &&
+        headers.get("instanceId") === null &&
+        body.subscribe.includes("QRCODE");
+
+      return new Response(JSON.stringify(validTarget ? { success: true } : { error: "not authorized" }), {
+        status: validTarget ? 200 : 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("mock-vps.com/instance/qr")) {
+      observedInstanceHeaders.push({
+        route: "qr",
+        apikey: headers.get("apikey"),
+        instanceId: headers.get("instanceId"),
+      });
+      const validTarget =
+        headers.get("apikey") === "mock-instance-key" &&
+        headers.get("instanceId") === null;
+
+      return new Response(JSON.stringify(validTarget ? {
+        data: {
+          Qrcode: "data:image/png;base64,targeted-qrcode",
+          Code: "targeted-pairing-code",
+        },
+        message: "success",
+      } : { error: "not authorized" }), {
+        status: validTarget ? 200 : 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: `Mock not configured for ${urlStr}` }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-db-trigger-secret": "mock-db-secret",
+      },
+      body: JSON.stringify({
+        action: "connect",
+        instance_id: "inst-123",
+        instance_name: "nav_test",
+      }),
+    });
+
+    const res = await handler(req);
+    assertEquals(observedInstanceHeaders, [
+      { route: "connect", apikey: "mock-instance-key", instanceId: null },
+      { route: "qr", apikey: "mock-instance-key", instanceId: null },
+    ]);
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      success: true,
+      qrcode: "data:image/png;base64,targeted-qrcode",
+      code: "targeted-pairing-code",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("POST /manage-instance - connect action should authenticate gerente user JWT and grant access", async () => {
   const restoreFetch = setupMockFetch({
     "auth/v1/user": {

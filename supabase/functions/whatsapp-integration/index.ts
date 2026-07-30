@@ -263,6 +263,10 @@ export const handler = async (req: Request): Promise<Response> => {
           console.warn(`[WhatsApp-Integration] [Connect-Preflight] Falha silenciosa no preflight de criação:`, createErr);
         }
 
+        // Evolution Go identifica e autentica a instância pelo próprio token no header apikey.
+        // O UUID retornado por /instance/all não faz parte do contrato de /instance/connect ou /instance/qr.
+        const instanceHeaders = { "apikey": instanceApiKey };
+
         // Configurar o webhook da instância na VPS de forma dinâmica usando instance/connect
         try {
           const connectVpsUrl = getCleanVpsUrl("instance/connect");
@@ -272,12 +276,12 @@ export const handler = async (req: Request): Promise<Response> => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "apikey": instanceApiKey,
+              ...instanceHeaders,
             },
             body: JSON.stringify({
               immediate: true,
               webhookUrl: targetWebhookUrl,
-              subscribe: ["CONNECTION", "MESSAGE"]
+              subscribe: ["CONNECTION", "MESSAGE", "QRCODE"]
             }),
           });
           await connectRes.body?.cancel();
@@ -290,20 +294,33 @@ export const handler = async (req: Request): Promise<Response> => {
         const vpsUrl = getCleanVpsUrl("instance/qr");
         console.log(`[WhatsApp-Integration] Chamando VPS para obter QR Code: ${vpsUrl}`);
 
-        const response = await fetch(vpsUrl, {
-          method: "GET",
-          headers: {
-            "apikey": instanceApiKey,
-          },
-        });
+        const maxQrAttempts = 6;
+        let qrcode: string | undefined;
+        let pairingCode: string | undefined;
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[WhatsApp-Integration] Erro ao obter QR Code da VPS (status ${response.status})`);
-          
+        for (let attempt = 1; attempt <= maxQrAttempts; attempt++) {
+          const response = await fetch(vpsUrl, {
+            method: "GET",
+            headers: instanceHeaders,
+          });
+          const responseText = await response.text();
+          let resData: any = null;
+
+          try {
+            resData = responseText ? JSON.parse(responseText) : null;
+          } catch {
+            resData = null;
+          }
+
+          // Conforme ADR 001 e implementation_plan, chaves retornadas da VPS em Go são Qrcode e Code dentro de data
+          qrcode = resData?.data?.Qrcode || resData?.data?.qrcode;
+          pairingCode = resData?.data?.Code || resData?.data?.code;
+          if (response.ok && qrcode) break;
+
+          const errClean = responseText.toLowerCase();
+
           // Tratar o caso de a instância já estar conectada
-          const errClean = errText.toLowerCase();
-          if (errClean.includes("already") || errClean.includes("connected") || errClean.includes("open")) {
+          if (!response.ok && (errClean.includes("already") || errClean.includes("connected") || errClean.includes("open"))) {
             console.log(`[WhatsApp-Integration] VPS reportou que a instância já está conectada. Sincronizando status local.`);
             const { error: updateErr } = await supabase
               .from("evolution_api_instances")
@@ -313,7 +330,7 @@ export const handler = async (req: Request): Promise<Response> => {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", instance_id);
-              
+
             if (updateErr) {
               console.error(`[WhatsApp-Integration] Erro ao atualizar status conectado no banco: ${updateErr.message}`);
             }
@@ -322,19 +339,25 @@ export const handler = async (req: Request): Promise<Response> => {
             });
           }
 
-          // Reverter status para disconnected no banco de dados para evitar travamento da UI
+          const qrPending =
+            (response.ok && !qrcode) ||
+            errClean.includes("no qr code available") ||
+            errClean.includes("wait a moment");
+
+          if (qrPending && attempt < maxQrAttempts) {
+            console.log(`[WhatsApp-Integration] QR Code ainda indisponível; nova tentativa ${attempt + 1}/${maxQrAttempts}`);
+            await new Promise((resolve) => setTimeout(resolve, 750));
+            continue;
+          }
+
+          console.error(`[WhatsApp-Integration] Erro ao obter QR Code da VPS (status ${response.status})`);
           await revertInstanceToDisconnected(instance_id);
 
-          return new Response(JSON.stringify({ error: `VPS failed to get QR Code: ${errText || response.statusText}` }), {
+          return new Response(JSON.stringify({ error: `VPS failed to get QR Code: ${responseText || response.statusText}` }), {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-
-        const resData = await response.json();
-        // Conforme ADR 001 e implementation_plan, chaves retornadas da VPS em Go são Qrcode e Code dentro de data
-        const qrcode = resData?.data?.Qrcode || resData?.data?.qrcode;
-        const pairingCode = resData?.data?.Code || resData?.data?.code;
 
         if (!qrcode) {
           console.error("[WhatsApp-Integration] QR Code não retornado pela VPS");
