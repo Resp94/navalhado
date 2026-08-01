@@ -17,7 +17,7 @@ Este documento detalha os perfis de usuários (personas) que interagem com o sis
 
 ## 👑 1. Proprietário (SaaS Admin)
 
-O **Proprietário** é o administrador geral do SaaS. Seu foco principal é a saúde financeira do negócio, o gerenciamento de assinaturas das barbearias e a manutenção da infraestrutura de integração (Evolution API).
+O **Proprietário** é o administrador geral do SaaS. Seu foco principal é a saúde financeira do negócio, o gerenciamento de assinaturas das barbearias e a manutenção da infraestrutura de integração WhatsApp/Uazapi.
 
 ### Objetivos Principais
 - Monitorar a receita recorrente mensal (MRR).
@@ -36,7 +36,7 @@ O **Proprietário** é o administrador geral do SaaS. Seu foco principal é a sa
     *   *para que* eu possa tomar decisões estratégicas de crescimento da plataforma.
 *   **US03 - Monitoramento de Integrações:**
     *   *Como* Proprietário do SaaS,
-    *   *eu quero* acompanhar o status da conexão WhatsApp (instâncias da Evolution API) de cada barbearia cadastrada,
+    *   *eu quero* acompanhar o status da conexão WhatsApp de cada barbearia cadastrada,
     *   *para que* eu possa garantir a alta disponibilidade da automação de agendamentos.
 *   **US04 - Exportação de Relatórios:**
     *   *Como* Proprietário do SaaS,
@@ -73,9 +73,9 @@ O **Gerente de Barbearia** é o administrador local de um tenant específico. El
     *   *Como* Gerente de Barbearia,
     *   *eu quero* visualizar uma tabela consolidada com as comissões calculadas por barbeiro com base nos serviços realizados,
     *   *para que* eu realize os pagamentos da equipe de forma precisa e transparente.
-*   **US09 - Configuração da Evolution API:**
+*   **US09 - Configuração da Instância WhatsApp:**
     *   *Como* Gerente de Barbearia,
-    *   *eu quero* gerar uma nova instância da Evolution API e escanear o QR Code para conectar o WhatsApp da barbearia,
+    *   *eu quero* ativar a Instância WhatsApp da barbearia, escanear o QR Code e acompanhar os estados conectado, desconectado e pausado,
     *   *para que* o sistema possa disparar mensagens automáticas de agendamento e cancelamento.
 *   **US10 - Painel da Agenda Diária:**
     *   *Como* Gerente de Barbearia,

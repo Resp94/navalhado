@@ -1,7 +1,9 @@
 # ADR 001: Integração Real com a Evolution API Go (VPS) (Atualizado c/ MCP Supabase)
 
+> **Histórico — substituída pela ADR 010.** Este documento preserva a decisão anterior para auditoria e reconstrução das migrations; a arquitetura vigente usa contrato neutro e Uazapi.
+
 ## Status
-Proposto
+Substituída em 2026-08-01
 
 ## Data
 2026-07-14

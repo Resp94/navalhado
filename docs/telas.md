@@ -23,7 +23,7 @@ A interface é dividida em quatro grandes áreas (SaaS Geral, Proprietário, Est
 | `/profissionais` | Equipe, Serviços e Escalas | Página Inteira (Tela) | Área do Gerente |
 | `--> /profissionais` | Cadastrar Acesso do Profissional | **Modal** | Emissão de credenciais para barbeiro |
 | `--> /profissionais` | Cadastrar/Editar Serviço | **Drawer (Lateral)** | Adicionar serviços e comissões |
-| `/whatsapp` | Conectividade Evolution API | Página Inteira (Tela) | Área do Gerente |
+| `/whatsapp` | Conectividade da Instância WhatsApp | Página Inteira (Tela) | Área do Gerente |
 | `/minha-agenda` | Minha Agenda (Individual) | Página Inteira (Tela) | Área do Barbeiro |
 | `--> /minha-agenda` | Finalizar e Cobrar Atendimento | **Modal** | Fechamento de caixa do barbeiro |
 | `/minhas-comissoes` | Relatório de Ganhos Pessoais | Página Inteira (Tela) | Área do Barbeiro |
@@ -117,13 +117,14 @@ A interface é dividida em quatro grandes áreas (SaaS Geral, Proprietário, Est
     *   *Aba Catálogo de Serviços:* Lista de serviços ativos.
         *   **Drawer Lateral de Cadastro/Edição de Serviço:** Abre na lateral permitindo preencher Nome do Serviço, Descrição, Preço, Duração (em minutos), Categoria e Comissão Específica (caso difira da comissão geral do profissional).
 
-### Rota `/whatsapp` | Conectividade Evolution API
+### Rota `/whatsapp` | Conectividade da Instância WhatsApp
 *   **Tipo:** Página Inteira (Tela)
 *   **Objetivo:** Conectar o número de WhatsApp corporativo do estabelecimento para disparos automáticos.
 *   **Componentes de UI:**
     *   Status Card: Mostra se a instância está Conectada ou Desconectada.
-    *   Painel do QR Code: Exibe o código gerado em tempo real pela Evolution API com instruções de pareamento.
-    *   Botões de ação: "Gerar Nova Instância" (para forçar novo QR Code) e "Desconectar WhatsApp" (limpa a instância).
+    *   Painel do QR Code: Exibe o código gerado em tempo real pela Uazapi, com instruções de pareamento.
+    *   Botões de ação: **Ativar Integração do WhatsApp**, **Gerar QR Code de Conexão**, **Retomar Sessão** e **Desconectar Aparelho**. Desconectar encerra a sessão do aparelho, mas preserva o registro, as preferências e o token no backend; um novo QR Code será exigido para conectar outro aparelho.
+    *   Estados visíveis: **Conectado**, **Pareando**, **Desconectado** e **Pausado**. “Desconectado” significa que não há sessão autenticada; “Pausado” significa que a sessão foi hibernada e pode ser retomada sem novo pareamento.
 
 ---
 

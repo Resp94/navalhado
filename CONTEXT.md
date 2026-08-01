@@ -16,9 +16,9 @@ _Avoid_: Env de producao local, configuracao mista
 Endereco publico do frontend do ambiente dev usado em links enviados por WhatsApp e testes reais. No Navalhado, esta URL e `https://dev.navalhado.com.br`.
 _Avoid_: localhost em mensagens, URL de producao em teste
 
-**Evolution Dev**:
-Stack separada da Evolution API usada pelo ambiente dev para criar, parear e testar instancias de WhatsApp sem tocar instancias de producao.
-_Avoid_: Evolution compartilhada, instancia dev em producao
+**Integração WhatsApp Dev**:
+Instância Uazapi exclusiva do banco e do frontend Dev, usada para criar, parear e testar o WhatsApp piloto sem tocar Produção. A promoção para Prod é sequencial e só ocorre mediante comando explícito.
+_Avoid_: Uazapi compartilhada entre ambientes, instância Dev em Produção, promoção automática
 
 **Cliente Provisório**:
 Cliente cadastrado de forma simplificada (apenas nome/telefone) durante um agendamento rápido ou integração WhatsApp, sem senha criada ou cadastro formalizado.
@@ -50,5 +50,5 @@ Fato canônico que registra a criação confirmada, o cancelamento ou o reagenda
 _Avoid_: Notificação de agendamento, status do WhatsApp, trigger de agendamento
 
 **Instância WhatsApp**:
-Conexão lógica e física de uma barbearia com o WhatsApp na Evolution API, cujo estado observado pode ser desconectado, em pareamento ou conectado, e cujo gerenciamento é de acesso restrito e exclusivo do Gerente do tenant.
-_Avoid_: Evolution do tenant, status desejado, comando de conexão, instância temporária
+Conexão lógica e física de um tenant com o WhatsApp, representada por `public.whatsapp_instances` e operada pelo adaptador Uazapi no backend. O estado observado pode ser `disconnected` (sem sessão), `connecting` (pareamento em andamento), `connected` (sessão autenticada) ou `hibernated` (sessão pausada, com credenciais preservadas). O gerenciamento é exclusivo do Gerente do tenant.
+_Avoid_: nome de provedor no domínio, estado de pareamento legado, token no frontend, instância compartilhada

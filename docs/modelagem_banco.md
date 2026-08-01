@@ -2,6 +2,8 @@
 
 Este documento contém a especificação técnica da modelagem do banco de dados relacional para a plataforma **Navalhado**, projetada para ser executada no PostgreSQL do Supabase, aplicando as melhores práticas de Row Level Security (RLS) granular e otimização de consultas.
 
+> **Estado atual (Ticket 09):** a integração vigente usa `public.whatsapp_instances`, o provedor `uazapi` e os estados `connected`, `connecting`, `disconnected` e `hibernated`. Os tokens são credenciais exclusivas de backend. As migrations 009, 010 e 011 são a fonte de verdade executável; os blocos SQL deste documento são uma representação arquitetural e não autorizam alterações diretas em Produção.
+
 ---
 
 ## 📊 Diagrama de Entidade-Relacionamento (ER)
@@ -25,7 +27,7 @@ erDiagram
     services ||--o{ appointments : "executa"
     tenants ||--o{ payments : "recebe"
     appointments ||--o{ payments : "origina"
-    tenants ||--o{ evolution_api_instances : "conecta"
+    tenants ||--|| whatsapp_instances : "conecta"
 
     plans {
         uuid id PK
@@ -148,11 +150,11 @@ erDiagram
         timestamp created_at
     }
 
-    evolution_api_instances {
+    whatsapp_instances {
         uuid id PK
         uuid tenant_id FK
         text instance_name
-        text api_key
+        text instance_token
         text qr_code
         text status
         timestamp created_at
@@ -312,17 +314,89 @@ create table public.payments (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Tabela: evolution_api_instances
-create table public.evolution_api_instances (
+-- Tabela: whatsapp_instances
+create table public.whatsapp_instances (
     id uuid primary key default gen_random_uuid(),
     tenant_id uuid not null references public.tenants(id) on delete cascade,
+    provider text not null default 'uazapi' check (provider = 'uazapi'),
     instance_name text not null unique,
-    api_key text not null,
+    instance_token text not null,
+    provider_instance_id text,
     qr_code text,
-    status text not null check (status in ('connected', 'disconnected', 'pairing')),
+    status text not null check (status in ('connected', 'connecting', 'disconnected', 'hibernated')),
+    send_confirmation boolean not null default true,
+    send_reminders boolean not null default true,
+    send_cancellation boolean not null default true,
+    reminder_hours integer not null default 2 check (reminder_hours between 1 and 24),
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    constraint whatsapp_instances_tenant_id_key unique (tenant_id),
+    constraint whatsapp_instances_id_tenant_key unique (id, tenant_id)
 );
+
+create unique index whatsapp_instances_provider_instance_id_uidx
+on public.whatsapp_instances (provider_instance_id)
+where provider_instance_id is not null;
+create index whatsapp_instances_provider_status_idx
+on public.whatsapp_instances (provider, status);
+
+-- Migration 010 define replica identity full e publica a tabela no canal
+-- supabase_realtime para a tela do gerente acompanhar status e QR Code.
+
+-- Tabela: whatsapp_message_idempotency
+-- Diagnóstico e deduplicação de mensagens; tokens e escritas de envio ficam no backend.
+create table public.whatsapp_message_idempotency (
+    id uuid primary key default gen_random_uuid(),
+    tenant_id uuid not null references public.tenants(id) on delete cascade,
+    whatsapp_instance_id uuid,
+    direction text not null check (direction in ('inbound', 'outbound')),
+    event_type text not null,
+    idempotency_key text not null,
+    external_message_id text,
+    appointment_id uuid,
+    reminder_window text,
+    status text not null default 'processing' check (status in ('processing', 'succeeded', 'failed')),
+    attempt_count integer not null default 0 check (attempt_count between 0 and 3),
+    last_error text,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    constraint whatsapp_message_idempotency_direction_check check (direction in ('inbound', 'outbound')),
+    constraint whatsapp_message_idempotency_status_check check (status in ('processing', 'succeeded', 'failed')),
+    constraint whatsapp_message_idempotency_attempt_count_check check (attempt_count between 0 and 3),
+    constraint whatsapp_message_idempotency_reminder_window_required_check check (
+      event_type <> 'appointment_reminder' or reminder_window is not null
+    ),
+    constraint whatsapp_message_idempotency_instance_tenant_fkey
+      foreign key (whatsapp_instance_id, tenant_id)
+      references public.whatsapp_instances(id, tenant_id)
+      on delete set null (whatsapp_instance_id),
+    constraint whatsapp_message_idempotency_appointment_tenant_fkey
+      foreign key (appointment_id, tenant_id)
+      references public.appointments(id, tenant_id)
+      on delete set null (appointment_id),
+    constraint whatsapp_message_idempotency_key unique (tenant_id, direction, idempotency_key)
+);
+
+create index whatsapp_message_idempotency_appointment_idx
+on public.whatsapp_message_idempotency (tenant_id, appointment_id, event_type);
+create index whatsapp_message_idempotency_external_message_idx
+on public.whatsapp_message_idempotency (tenant_id, external_message_id)
+where external_message_id is not null;
+create unique index whatsapp_message_idempotency_inbound_external_uidx
+on public.whatsapp_message_idempotency (tenant_id, external_message_id)
+where direction = 'inbound' and external_message_id is not null;
+create unique index whatsapp_message_idempotency_appointment_event_uidx
+on public.whatsapp_message_idempotency (tenant_id, appointment_id, event_type)
+where direction = 'outbound' and appointment_id is not null
+  and event_type in ('appointment_created', 'appointment_cancelled');
+create unique index whatsapp_message_idempotency_reminder_window_uidx
+on public.whatsapp_message_idempotency (tenant_id, appointment_id, event_type, reminder_window)
+where direction = 'outbound' and appointment_id is not null
+  and event_type = 'appointment_reminder' and reminder_window is not null;
+
+-- RLS é obrigatório e a migration 009 concede somente colunas de diagnóstico.
+-- O instance_token continua sem privilégio para anon/authenticated.
 
 -- =========================================================================
 -- 3. ÍNDICES DE PERFORMANCE (Recomendado por Supabase Postgres Best Practices)
@@ -342,7 +416,7 @@ create index idx_appointments_professional_id on public.appointments(professiona
 create index idx_appointments_service_id on public.appointments(service_id);
 create index idx_payments_tenant_id on public.payments(tenant_id);
 create index idx_payments_appointment_id on public.payments(appointment_id);
-create index idx_evolution_api_tenant_id on public.evolution_api_instances(tenant_id);
+create index idx_whatsapp_instances_tenant_id on public.whatsapp_instances(tenant_id);
 
 -- Índices para buscas rápidas e queries recorrentes
 create index idx_appointments_start_time on public.appointments(start_time);
@@ -428,7 +502,10 @@ alter table public.services enable row level security;
 alter table public.customers enable row level security;
 alter table public.appointments enable row level security;
 alter table public.payments enable row level security;
-alter table public.evolution_api_instances enable row level security;
+alter table public.whatsapp_instances enable row level security;
+alter table public.whatsapp_instances force row level security;
+alter table public.whatsapp_message_idempotency enable row level security;
+alter table public.whatsapp_message_idempotency force row level security;
 
 -- Forçar RLS mesmo para proprietários das tabelas (segurança estrita)
 alter table public.plans force row level security;
@@ -441,7 +518,6 @@ alter table public.services force row level security;
 alter table public.customers force row level security;
 alter table public.appointments force row level security;
 alter table public.payments force row level security;
-alter table public.evolution_api_instances force row level security;
 
 -- -------------------------------------------------------------------------
 -- Tabela: plans
@@ -750,39 +826,50 @@ create policy payments_delete_policy on public.payments
   );
 
 -- -------------------------------------------------------------------------
--- Tabela: evolution_api_instances
+-- Tabela: whatsapp_instances
 -- -------------------------------------------------------------------------
-create policy instances_select_policy on public.evolution_api_instances
+-- O gerente pode consultar estados e atualizar preferências/QR Code dentro do tenant.
+-- INSERT, DELETE e instance_token permanecem exclusivos do backend/service_role.
+create policy whatsapp_instances_select_policy on public.whatsapp_instances
   for select to authenticated
   using (
-    (select private.is_saas_admin()) or 
-    tenant_id = (select private.get_auth_tenant_id())
-  );
-
-create policy instances_insert_policy on public.evolution_api_instances
-  for insert to authenticated
-  with check (
     (select private.is_saas_admin()) or (
-      tenant_id = (select private.get_auth_tenant_id()) and 
-      (select private.get_auth_role()) = 'gerente'
+      tenant_id = (select private.get_auth_tenant_id())
+      and (select private.get_auth_role()) = 'gerente'
     )
   );
 
-create policy instances_update_policy on public.evolution_api_instances
+create policy whatsapp_instances_update_policy on public.whatsapp_instances
   for update to authenticated
   using (
     (select private.is_saas_admin()) or (
-      tenant_id = (select private.get_auth_tenant_id()) and 
-      (select private.get_auth_role()) = 'gerente'
+      tenant_id = (select private.get_auth_tenant_id())
+      and (select private.get_auth_role()) = 'gerente'
     )
   );
 
-create policy instances_delete_policy on public.evolution_api_instances
-  for delete to authenticated
+create policy whatsapp_message_idempotency_select_policy on public.whatsapp_message_idempotency
+  for select to authenticated
   using (
     (select private.is_saas_admin()) or (
-      tenant_id = (select private.get_auth_tenant_id()) and 
-      (select private.get_auth_role()) = 'gerente'
+      tenant_id = (select private.get_auth_tenant_id())
+      and (select private.get_auth_role()) = 'gerente'
     )
   );
 
+-- Migration 009 revoga a tabela inteira e concede apenas as colunas neutras de
+-- SELECT/UPDATE; não há políticas de INSERT/DELETE para o navegador. Para
+-- idempotência, somente as colunas de diagnóstico são concedidas a authenticated.
+revoke all on table public.whatsapp_instances from anon, authenticated;
+grant select (id, tenant_id, provider, instance_name, qr_code, status,
+  send_confirmation, send_reminders, send_cancellation, reminder_hours,
+  created_at, updated_at)
+  on public.whatsapp_instances to authenticated;
+grant update (qr_code, status, send_confirmation, send_reminders,
+  send_cancellation, reminder_hours, updated_at)
+  on public.whatsapp_instances to authenticated;
+
+revoke all on table public.whatsapp_message_idempotency from anon, authenticated;
+grant select (id, tenant_id, whatsapp_instance_id, direction, event_type,
+  status, attempt_count, completed_at, created_at, updated_at)
+  on public.whatsapp_message_idempotency to authenticated;

@@ -2,6 +2,8 @@
 
 Este documento descreve o fluxo de navegação e as rotas do frontend da aplicação **Navalhado** (Vite + React), mapeando-as aos perfis de acesso, e detalha as funções remotas (Postgres RPCs) de segurança necessárias para o fluxo de agendamento externo sem login.
 
+> **Estado atual da integração:** a rota `/whatsapp` opera sobre a entidade neutra `public.whatsapp_instances`. O backend usa exclusivamente o adaptador Uazapi; o frontend nunca recebe `instance_token` nem credenciais administrativas. A referência técnica vigente é a [documentação oficial da Uazapi v2.1.1](https://docs.uazapi.com/).
+
 ---
 
 ## 🗺️ Mapa de Rotas e Componentes (Frontend)
@@ -25,7 +27,7 @@ graph TD
     R_Dash --> R_Profs["/profissionais (Equipe/Escalas)"]
     R_Profs --> R_CadProf["/profissionais/cadastro-acesso"]
     R_Dash --> R_Servs["/servicos/cadastro (Menu de Serviços)"]
-    R_Dash --> R_Whats["/whatsapp (Evolution API Link)"]
+    R_Dash --> R_Whats["/whatsapp (Instância WhatsApp)"]
 
     %% Painel Barbeiro
     R_FuncLogin -- Role: barbeiro --> R_MyAgenda["/minha-agenda"]
@@ -60,7 +62,7 @@ graph TD
 | `/profissionais` | Cadastro, escalas e comissões dos barbeiros da equipe. | `ProfessionalsList`, `ScheduleConfigForm`, `CommissionInput` |
 | `/profissionais/cadastro-acesso`| Cadastrar credenciais de login e perfil de um barbeiro. | `StaffAccessForm`, `RoleSelectorDropdown` |
 | `/servicos/cadastro` | Cadastro e edição dos serviços oferecidos, tempo de execução e comissão por serviço. | `ServiceForm`, `CategorySelect`, `DurationSlider` |
-| `/whatsapp` | Pareamento com a Evolution API para disparo de notificações automáticas. | `QRCodeDisplay`, `StatusBadge`, `EvolutionConfigForm`, `DisconnectButton` |
+| `/whatsapp` | Ativação, pareamento e operação da Instância WhatsApp do tenant via Uazapi. | `QRCodeDisplay`, `StatusBadge`, `WhatsAppConfigForm`, `DisconnectButton` |
 
 ### ✂️ 4. Rotas do Barbeiro (Staff)
 

@@ -52,15 +52,20 @@ Este documento define os principais conceitos de negócio, técnicos e termos co
 
 ## 2. Integração e Comunicação Técnica
 
-### Evolution API Go
-* **Definição**: O microsserviço reescrito em linguagem Go responsável por simular e orquestrar conexões com instâncias do WhatsApp Baileys. Hospedado na VPS de forma segura.
-* **Instância (Instance)**: Um container lógico da Evolution API pareado com um número de celular físico específico por meio de QR Code.
-* **Global ApiKey**: A chave mestre que possui privilégios totais de escrita e gerenciamento sobre todas as instâncias do servidor da VPS.
-* **Instance ApiKey**: A chave única de autorização gerada individualmente para cada instância de WhatsApp, usada de forma isolada pelas barbearias.
-* **Entidade no Banco**: `public.evolution_api_instances`
+### Uazapi
+* **Definição**: Provedor externo usado pelo backend para criar, conectar, consultar, pausar, desconectar e enviar mensagens pelas Instâncias WhatsApp.
+* **Contrato vigente**: [Uazapi WhatsApp API v2.1.1](https://docs.uazapi.com/).
+* **Autenticação administrativa**: O `admintoken` fica somente nos secrets da Edge Function e é usado para operações administrativas.
+* **Autenticação da instância**: O `token` individual fica somente em `public.whatsapp_instances.instance_token` e nunca é enviado ao frontend.
+
+### Instância WhatsApp
+* **Definição**: Conexão de um tenant com um número de WhatsApp, representada por `public.whatsapp_instances`.
+* **Estados**: `connected` (autenticada), `connecting` (pareamento em andamento), `disconnected` (sem sessão) e `hibernated` (sessão pausada, com credenciais preservadas).
 
 ### Webhook
-* **Definição**: O mecanismo HTTP pelo qual a Evolution API Go na VPS notifica assincronamente as Edge Functions do Supabase sobre atualizações de status (ex: celular desconectado, leitura de QR Code, falha de rede).
+* **Definição**: Endpoint individual da Edge Function que recebe eventos de conexão e mensagens da Uazapi após validação do token da instância.
+
+> **Histórico:** Evolution API Go, `Global ApiKey`, `Instance ApiKey` e `public.evolution_api_instances` pertencem às ADRs substituídas e às migrations históricas; não são decisões vigentes.
 
 ### pg_net
 * **Definição**: Extensão do Supabase Postgres que permite realizar requisições HTTP assíncronas (`net.http_post`) de dentro do banco de dados, ideal para triggers que notificam microsserviços sem bloquear a transação de escrita.
