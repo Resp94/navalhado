@@ -23,10 +23,12 @@ const formatPhoneNumber = (phone: string): string => {
 };
 const getSupportedPhoneFromJids = (jids: string[]): string | null => {
   for (const jid of jids) {
-    const match = jid.trim().match(/^([0-9]{10,13})(?::[0-9]{1,3})?@(s\.whatsapp\.net|c\.us)$/);
-    if (!match) continue;
+    const value = jid.trim();
+    const match = value.match(/^([0-9]{10,13})(?::[0-9]{1,3})?@(s\.whatsapp\.net|c\.us)$/);
+    const plainPhone = value.match(/^[0-9]{10,13}$/);
+    if (!match && !plainPhone) continue;
 
-    const phone = formatPhoneNumber(match[1]);
+    const phone = formatPhoneNumber(match?.[1] ?? plainPhone?.[0] ?? "");
     if (/^55[1-9][0-9]{9,10}$/.test(phone)) {
       return phone;
     }
@@ -579,7 +581,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const body = await req.json();
       const event = body.event;
       const instanceName = body.instance || body.instanceName;
-      const instanceToken = body.instanceToken || body.token || body.data?.token;
+      const instanceToken = body.instanceToken || body.token || body.data?.token ||
+        req.headers.get("x-instance-token") || req.headers.get("x-uazapi-token") || req.headers.get("token");
       const vpsStatus = body.data?.status || body.data?.state || body.status || body.state;
       const eventClean = String(event || "").toLowerCase().replace(/_/g, ".");
 
@@ -595,7 +598,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
         .from(instancesTable)
-        .select(`tenant_id, instance_name, ${instanceTokenColumn}, status`)
+        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status`)
         .eq(instanceTokenColumn, cleanInstanceToken)
         .single();
 
@@ -610,7 +613,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const isConnectionUpdate = ["connection", "connection.update", "connected", "pairsuccess"].includes(eventClean);
       const isQrCodeUpdate = ["qrcode", "qrcode.updated", "qr.code"].includes(eventClean);
 
-      const isEvolutionGoMessage = eventClean === "message";
+      const isMessageEvent = ["message", "messages"].includes(eventClean);
 
       if (isQrCodeUpdate) {
         const qrCode =
@@ -648,15 +651,29 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      if (isEvolutionGoMessage) {
+      if (isMessageEvent) {
         const messageInfo = body.data?.Info || body.data?.info || {};
-        const isFromMe = messageInfo.IsFromMe ?? messageInfo.isFromMe ?? false;
-        const senderJid = String(messageInfo.Sender ?? messageInfo.sender ?? "");
-        const chatJid = String(messageInfo.Chat ?? messageInfo.chat ?? "");
-        const candidateJids = [senderJid, chatJid].filter(Boolean);
+        const messagePayload = body.data?.message || body.data?.Message || body.message || body.data || {};
+        const asBoolean = (value: unknown): boolean => {
+          const normalized = String(value).toLowerCase();
+          return value === true || value === 1 || normalized === "true" || normalized === "yes" || normalized === "1";
+        };
+        const isFromMe = asBoolean(
+          messagePayload.fromMe ?? messagePayload.isFromMe ?? messagePayload.fromMeYes ??
+            messageInfo.IsFromMe ?? messageInfo.isFromMe ?? body.fromMe ?? body.fromMeYes,
+        );
+        const wasSentByApi = asBoolean(messagePayload.wasSentByApi ?? body.wasSentByApi);
+        const isGroup = asBoolean(
+          messagePayload.isGroup ?? messagePayload.isGroupMessage ?? messagePayload.isGroupYes ?? body.isGroup ?? body.isGroupYes,
+        );
+        const senderJid = String(messagePayload.sender ?? messagePayload.sender_pn ?? messageInfo.Sender ?? messageInfo.sender ?? body.sender ?? "");
+        const chatJid = String(messagePayload.chatid ?? messagePayload.chat ?? messageInfo.Chat ?? messageInfo.chat ?? body.chatid ?? "");
+        const candidateJids = [senderJid, chatJid, String(messagePayload.sender_lid ?? "")].filter(Boolean);
 
         if (
           isFromMe ||
+          wasSentByApi ||
+          isGroup ||
           candidateJids.some((jid) => jid.endsWith("@g.us") || jid.includes("@broadcast"))
         ) {
           return new Response(JSON.stringify({ ignored: true }), {
@@ -678,7 +695,96 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
-        const pushName = String(messageInfo.PushName ?? messageInfo.pushName ?? "").trim() || null;
+        const externalMessageId = String(
+          messagePayload.messageid ?? messagePayload.messageId ?? messagePayload.id ?? messageInfo.ID ?? body.messageid ?? "",
+        ).trim();
+        if (useUazapi && !externalMessageId) {
+          return new Response(JSON.stringify({ ignored: true, reason: "Message id missing" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const markInboundFailed = async (reason: string) => {
+          if (!useUazapi) return;
+          await supabase
+            .from("whatsapp_message_idempotency")
+            .update({
+              status: "failed",
+              last_error: reason,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("tenant_id", authenticatedInstance.tenant_id)
+            .eq("direction", "inbound")
+            .eq("idempotency_key", externalMessageId);
+        };
+
+        if (useUazapi) {
+          const { error: idempotencyError } = await supabase
+            .from("whatsapp_message_idempotency")
+            .insert({
+              tenant_id: authenticatedInstance.tenant_id,
+              whatsapp_instance_id: authenticatedInstance.id,
+              direction: "inbound",
+              event_type: "first_contact",
+              idempotency_key: externalMessageId,
+              external_message_id: externalMessageId,
+              status: "processing",
+              attempt_count: 1,
+            });
+
+          if (idempotencyError) {
+            if (idempotencyError.code === "23505") {
+              const { data: existingMessage, error: existingMessageError } = await supabase
+                .from("whatsapp_message_idempotency")
+                .select("status, attempt_count")
+                .eq("tenant_id", authenticatedInstance.tenant_id)
+                .eq("direction", "inbound")
+                .eq("idempotency_key", externalMessageId)
+                .maybeSingle();
+
+              if (existingMessageError) {
+                console.error("[WhatsApp-Integration] Falha ao consultar idempotência da mensagem");
+                return new Response(JSON.stringify({ error: "Failed to reserve message" }), {
+                  status: 500,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+              }
+
+              const attemptCount = Number(existingMessage?.attempt_count ?? 0);
+              if (existingMessage?.status === "failed" && attemptCount < 3) {
+                const { error: retryError } = await supabase
+                  .from("whatsapp_message_idempotency")
+                  .update({
+                    status: "processing",
+                    attempt_count: attemptCount + 1,
+                    last_error: null,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("tenant_id", authenticatedInstance.tenant_id)
+                  .eq("direction", "inbound")
+                  .eq("idempotency_key", externalMessageId);
+
+                if (retryError) {
+                  console.error("[WhatsApp-Integration] Falha ao reabrir idempotência da mensagem");
+                  return providerFailureResponse();
+                }
+              } else {
+                return new Response(JSON.stringify({ success: true, duplicate: true }), {
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+              }
+            }
+            if (idempotencyError.code !== "23505") {
+              console.error("[WhatsApp-Integration] Falha ao reservar idempotência da mensagem");
+              return new Response(JSON.stringify({ error: "Failed to reserve message" }), {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          }
+        }
+
+        const pushName = String(messagePayload.senderName ?? messagePayload.pushName ?? messageInfo.PushName ?? messageInfo.pushName ?? "").trim() || null;
         const { data: customerRows, error: customerError } = await supabase.rpc(
           "find_or_create_whatsapp_customer",
           {
@@ -689,6 +795,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         );
         const customer = customerRows?.[0];
         if (customerError || !customer?.token_acesso) {
+          await markInboundFailed("customer lookup failed");
           console.error(`[WhatsApp-Integration] Erro ao criar/reutilizar cliente da mensagem: ${customerError?.message || "empty response"}`);
           return new Response(JSON.stringify({ error: "Failed to find or create customer" }), {
             status: 500,
@@ -721,8 +828,37 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             text: messageText,
           });
         } catch (sendError) {
-          console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida", sendError);
+          if (useUazapi) {
+            await supabase
+              .from("whatsapp_message_idempotency")
+              .update({
+                status: "failed",
+                last_error: "provider request failed",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("tenant_id", authenticatedInstance.tenant_id)
+              .eq("direction", "inbound")
+              .eq("idempotency_key", externalMessageId);
+          }
+          console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida");
           return providerFailureResponse();
+        }
+
+        if (useUazapi) {
+          const { error: idempotencyUpdateError } = await supabase
+            .from("whatsapp_message_idempotency")
+            .update({
+              status: "succeeded",
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("tenant_id", authenticatedInstance.tenant_id)
+            .eq("direction", "inbound")
+            .eq("idempotency_key", externalMessageId);
+
+          if (idempotencyUpdateError) {
+            console.error("[WhatsApp-Integration] Falha ao concluir idempotência da mensagem");
+          }
         }
 
         return new Response(JSON.stringify({ success: true, created: customer.created }), {

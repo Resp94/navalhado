@@ -1349,6 +1349,187 @@ Deno.test("POST /webhook Message - reuses the same token across repeated message
   }
 });
 
+Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and deduplicates first contact", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  const sentMessages: Record<string, unknown>[] = [];
+  const idempotencyRows: Record<string, unknown>[] = [];
+  let duplicate = false;
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
+
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({
+        id: "instance-uaz-1",
+        tenant_id: "tenant-uaz-1",
+        instance_name: "nav_tenant_uaz",
+        instance_token: "uaz-instance-token",
+        status: "connected",
+      }), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      if (method === "POST") {
+        if (duplicate) {
+          return new Response(JSON.stringify({ code: "23505", message: "duplicate" }), { status: 409 });
+        }
+        duplicate = true;
+        idempotencyRows.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+    if (url.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
+      return new Response(JSON.stringify([{
+        customer_id: "customer-uaz-1",
+        token_acesso: "token-uaz-1",
+        created: true,
+      }]), { status: 200 });
+    }
+    if (url.includes("rest/v1/tenants")) {
+      return new Response(JSON.stringify({ name: "Barbearia Uazapi" }), { status: 200 });
+    }
+    if (url.includes("rest/v1/customers")) {
+      return new Response(JSON.stringify({ name: "Cliente Uazapi" }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const requestFor = (overrides: Record<string, unknown> = {}) => new Request(
+    "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "messages",
+        instance: "nav_tenant_uaz",
+        token: "uaz-instance-token",
+        data: {
+          messageid: "uaz-message-1",
+          sender: "5511999992222@s.whatsapp.net",
+          chatid: "5511999992222@s.whatsapp.net",
+          senderName: "Cliente Uazapi",
+          fromMe: false,
+          wasSentByApi: false,
+          isGroup: false,
+          ...overrides,
+        },
+      }),
+    },
+  );
+
+  try {
+    const first = await testHandler(requestFor());
+    const second = await testHandler(requestFor());
+    assertEquals(first.status, 200);
+    assertEquals(await first.json(), { success: true, created: true });
+    assertEquals(second.status, 200);
+    assertEquals(await second.json(), { success: true, duplicate: true });
+    assertEquals(idempotencyRows[0]?.idempotency_key, "uaz-message-1");
+    assertEquals(idempotencyRows[0]?.external_message_id, "uaz-message-1");
+    assertEquals(sentMessages.length, 1);
+    assertEquals(sentMessages[0]?.number, "5511999992222");
+    assertEquals(sentMessages[0]?.instanceToken, "uaz-instance-token");
+
+    const ignoredFromMe = await testHandler(requestFor({ messageid: "uaz-message-from-me", fromMeYes: "yes" }));
+    const ignoredApi = await testHandler(requestFor({ messageid: "uaz-message-api", wasSentByApi: true }));
+    const ignoredGroup = await testHandler(requestFor({ messageid: "uaz-message-group", isGroupYes: "yes" }));
+    assertEquals((await ignoredFromMe.json()).ignored, true);
+    assertEquals((await ignoredApi.json()).ignored, true);
+    assertEquals((await ignoredGroup.json()).ignored, true);
+    assertEquals(sentMessages.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
+});
+
+Deno.test("POST /webhook Uazapi - retries a failed first-contact attempt within the limit", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  let idempotencyStatus = "failed";
+  let attemptCount = 1;
+  let insertCount = 0;
+  let sendCount = 0;
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({ id: "instance-1", tenant_id: "tenant-1", instance_name: "nav_1", instance_token: "token-1", status: "connected" }), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      if (method === "POST") {
+        insertCount++;
+        if (insertCount > 1) return new Response(JSON.stringify({ code: "23505" }), { status: 409 });
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      if (method === "GET") return new Response(JSON.stringify({ status: idempotencyStatus, attempt_count: attemptCount }), { status: 200 });
+      const patchBody = JSON.parse(String(init?.body));
+      if (patchBody.status) idempotencyStatus = patchBody.status;
+      if (patchBody.attempt_count) attemptCount = patchBody.attempt_count;
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+    if (url.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
+      return new Response(JSON.stringify([{ customer_id: "customer-1", token_acesso: "token-1", created: false }]), { status: 200 });
+    }
+    if (url.includes("rest/v1/tenants")) return new Response(JSON.stringify({ name: "Barbearia" }), { status: 200 });
+    if (url.includes("rest/v1/customers")) return new Response(JSON.stringify({ name: "Cliente" }), { status: 200 });
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  const provider = createProviderStub({
+    sendText: () => {
+      sendCount++;
+      return sendCount === 1 ? Promise.reject(new Error("temporary provider failure")) : Promise.resolve();
+    },
+  });
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const request = () => new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event: "messages",
+      token: "token-1",
+      data: { messageid: "retry-1", sender: "5511999992222@s.whatsapp.net", chatid: "5511999992222@s.whatsapp.net", senderName: "Cliente" },
+    }),
+  });
+
+  try {
+    const failed = await testHandler(request());
+    const retried = await testHandler(request());
+    assertEquals(failed.status, 502);
+    assertEquals(retried.status, 200);
+    assertEquals(sendCount, 2);
+    assertEquals(idempotencyStatus, "succeeded");
+    assertEquals(attemptCount, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
+});
+
 Deno.test("POST /send-notification - should format message and send it to VPS", async () => {
   const restoreFetch = setupMockFetch({
     // Mock DB select active instance settings
