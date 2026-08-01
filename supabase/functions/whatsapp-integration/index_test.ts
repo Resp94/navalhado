@@ -1726,6 +1726,82 @@ Deno.test("POST /process-reminders - should scan pending appointments and send r
   restoreFetch();
 });
 
+Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant isolation", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  const providerCalls: Record<string, unknown>[] = [];
+  const idempotencyBodies: Record<string, unknown>[] = [];
+  let idempotencyStatus = "processing";
+  let idempotencyInserted = false;
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify([{ id: "instance-1", tenant_id: "tenant-1", instance_name: "nav_1", instance_token: "token-1", status: "connected", send_reminders: true, reminder_hours: 2 }]), { status: 200 });
+    }
+    if (url.includes("rest/v1/appointments")) {
+      if (method === "PATCH") return new Response(JSON.stringify({}), { status: 200 });
+      return new Response(JSON.stringify([{
+        id: "appointment-1",
+        start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        customers: { name: "Cliente", phone: "11999991111", token_acesso: "customer-token" },
+        professionals: { name: "Barbeiro" },
+        services: { name: "Corte" },
+        tenants: { name: "Barbearia", timezone: "America/Manaus" },
+      }]), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      if (method === "POST") {
+        if (idempotencyInserted) return new Response(JSON.stringify({ code: "23505" }), { status: 409 });
+        idempotencyInserted = true;
+        idempotencyBodies.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      if (method === "GET") return new Response(JSON.stringify({ status: idempotencyStatus, attempt_count: 1 }), { status: 200 });
+      const patchBody = JSON.parse(String(init?.body));
+      if (patchBody.status) idempotencyStatus = patchBody.status;
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      providerCalls.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+  const request = () => new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/process-reminders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+  });
+
+  try {
+    const testHandler = createHandler({ providerFactory: () => provider });
+    const first = await testHandler(request());
+    const second = await testHandler(request());
+    assertEquals(first.status, 200);
+    assertEquals((await first.json()).processed, 1);
+    assertEquals(second.status, 200);
+    assertEquals((await second.json()).processed, 0);
+    assertEquals(providerCalls.length, 1);
+    assertEquals(providerCalls[0]?.number, "5511999991111");
+    assertEquals(idempotencyBodies[0]?.event_type, "appointment_reminder");
+    assertEquals(idempotencyBodies[0]?.reminder_window, "2h");
+    assertEquals(idempotencyBodies[0]?.idempotency_key, "appointment:appointment-1:appointment_reminder:2h");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
+});
+
 Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS send text and succeed", async () => {
   const restoreFetch = setupMockFetch({
     // Mock obter usuario via Supabase Auth

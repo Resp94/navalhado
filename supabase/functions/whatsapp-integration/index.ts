@@ -147,6 +147,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     duplicate: boolean;
     attempts: number;
     error?: boolean;
+    status?: "processing" | "succeeded" | "failed";
   };
 
   const reserveOutboundMessage = async ({
@@ -154,15 +155,19 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     instanceId,
     appointmentId,
     eventType,
+    reminderWindow,
   }: {
     tenantId: string;
     instanceId?: string;
     appointmentId: string;
     eventType: string;
+    reminderWindow?: string;
   }): Promise<OutboundReservation> => {
     if (!useUazapi) return { duplicate: false, attempts: 0 };
 
-    const idempotencyKey = `appointment:${appointmentId}:${eventType}`;
+    const idempotencyKey = reminderWindow
+      ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
+      : `appointment:${appointmentId}:${eventType}`;
     const { error: insertError } = await supabase
       .from("whatsapp_message_idempotency")
       .insert({
@@ -172,11 +177,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         event_type: eventType,
         idempotency_key: idempotencyKey,
         appointment_id: appointmentId,
+        reminder_window: reminderWindow ?? null,
         status: "processing",
         attempt_count: 1,
       });
 
-    if (!insertError) return { duplicate: false, attempts: 1 };
+    if (!insertError) return { duplicate: false, attempts: 1, status: "processing" };
     if (insertError.code !== "23505") return { duplicate: false, attempts: 0, error: true };
 
     const { data: existing, error: existingError } = await supabase
@@ -218,30 +224,34 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       if (reclaimError) return { duplicate: false, attempts, error: true };
       if (!reclaimed) return { duplicate: true, attempts };
-      return { duplicate: false, attempts: attempts + 1 };
+      return { duplicate: false, attempts: attempts + 1, status: "processing" };
     }
 
-    return { duplicate: true, attempts };
+    return { duplicate: true, attempts, status: existing?.status };
   };
 
   const finalizeOutboundMessage = async ({
     tenantId,
     appointmentId,
     eventType,
+    reminderWindow,
     status,
     attempts,
+    expectedAttempt,
     errorMessage,
   }: {
     tenantId: string;
     appointmentId: string;
     eventType: string;
+    reminderWindow?: string;
     status: "succeeded" | "failed";
     attempts: number;
+    expectedAttempt?: number;
     errorMessage?: string;
   }): Promise<boolean> => {
     if (!useUazapi) return true;
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const { error } = await supabase
+      const { data: finalized, error } = await supabase
         .from("whatsapp_message_idempotency")
         .update({
           status,
@@ -252,8 +262,17 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         })
         .eq("tenant_id", tenantId)
         .eq("direction", "outbound")
-        .eq("idempotency_key", `appointment:${appointmentId}:${eventType}`);
-      if (!error) return true;
+        .eq("status", "processing")
+        .eq("attempt_count", expectedAttempt ?? attempts)
+        .eq(
+          "idempotency_key",
+          reminderWindow
+            ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
+            : `appointment:${appointmentId}:${eventType}`,
+        )
+        .select("status, attempt_count")
+        .maybeSingle();
+      if (!error && finalized) return true;
       if (attempt === 2) console.error("[WhatsApp-Integration] Falha ao persistir resultado da notificação");
     }
     return false;
@@ -1220,21 +1239,23 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           eventType: event,
           status: "failed",
           attempts: failedAttempts,
+          expectedAttempt: reservation.attempts || 1,
           errorMessage: permanentFailure ? "permanent provider error" : "provider request failed",
         });
         console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação");
         return providerFailureResponse(failedAttempts);
       }
 
-      await finalizeOutboundMessage({
+      const finalized = await finalizeOutboundMessage({
         tenantId: tenant_id,
         appointmentId: appointment_id,
         eventType: event,
         status: "succeeded",
         attempts,
+        expectedAttempt: reservation.attempts || 1,
       });
       console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${clientPhone}`);
-      return new Response(JSON.stringify({ success: true, attempts }), {
+      return new Response(JSON.stringify({ success: true, attempts, diagnostic_persisted: finalized }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -1278,6 +1299,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       let totalSent = 0;
+      let totalFailed = 0;
 
       // 2. Processar lembretes para cada tenant/instância conectada
       for (const instance of activeInstances) {
@@ -1327,36 +1349,95 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const messageText = `Olá, ${customer.name}! Passando para lembrar do seu agendamento na *${tenant.name}* nas próximas horas.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: ${link}\n\nEsperamos você!`;
 
-            // Enviar pelo provedor configurado
+            const reminderWindow = `${hours}h`;
+            const reservation = await reserveOutboundMessage({
+              tenantId: instance.tenant_id,
+              instanceId: instance.id,
+              appointmentId: app.id,
+              eventType: "appointment_reminder",
+              reminderWindow,
+            });
+
+            if (reservation.error) {
+              console.error("[WhatsApp-Integration] Falha ao reservar idempotência do lembrete");
+              totalFailed++;
+              continue;
+            }
+
+            if (reservation.duplicate) {
+              if (reservation.status === "succeeded") {
+                const { error: markDuplicateError } = await supabase
+                  .from("appointments")
+                  .update({ reminder_sent: true })
+                  .eq("id", app.id)
+                  .eq("tenant_id", instance.tenant_id);
+                if (markDuplicateError) {
+                  console.error("[WhatsApp-Integration] Falha ao marcar lembrete já concluído");
+                }
+              }
+              continue;
+            }
+
+            let attempts = reservation.attempts || 1;
             try {
-              await provider.sendText({
+              attempts = await sendTextWithRetry({
                 instanceName: instance.instance_name,
                 instanceToken: instance[instanceTokenColumn],
                 number: clientPhone,
                 text: messageText,
+                idempotencyKey: `appointment:${app.id}:appointment_reminder:${reminderWindow}`,
+              }, reservation.attempts || 1);
+
+              const finalized = await finalizeOutboundMessage({
+                tenantId: instance.tenant_id,
+                appointmentId: app.id,
+                eventType: "appointment_reminder",
+                reminderWindow,
+                status: "succeeded",
+                attempts,
+                expectedAttempt: reservation.attempts || 1,
               });
+              if (!finalized) {
+                console.error("[WhatsApp-Integration] Lembrete enviado, mas o diagnóstico de idempotência não foi persistido");
+                totalFailed++;
+              }
 
               console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${clientPhone}`);
-              // Atualizar no banco
               const { error: markErr } = await supabase
                 .from("appointments")
                 .update({ reminder_sent: true })
-                .eq("id", app.id);
+                .eq("id", app.id)
+                .eq("tenant_id", instance.tenant_id);
 
               if (markErr) {
                 console.error(`[WhatsApp-Integration] Erro ao marcar reminder_sent no agendamento ${app.id}: ${markErr.message}`);
+                totalFailed++;
               } else {
                 totalSent++;
               }
             } catch (sendError) {
-              console.error("[WhatsApp-Integration] Falha do provedor no envio do lembrete", sendError);
+              const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? attempts);
+              const permanentFailure = sendError instanceof WhatsAppProviderError &&
+                sendError.status !== undefined && sendError.status >= 400 && sendError.status < 500 && sendError.status !== 429;
+              await finalizeOutboundMessage({
+                tenantId: instance.tenant_id,
+                appointmentId: app.id,
+                eventType: "appointment_reminder",
+                reminderWindow,
+                status: "failed",
+                attempts: failedAttempts,
+                expectedAttempt: reservation.attempts || 1,
+                errorMessage: permanentFailure ? "permanent provider error" : "provider request failed",
+              });
+              console.error("[WhatsApp-Integration] Falha do provedor no envio do lembrete");
+              totalFailed++;
             }
           }
         }
       }
 
       console.log(`[WhatsApp-Integration] Finalizado processamento de lembretes. Total enviados: ${totalSent}`);
-      return new Response(JSON.stringify({ status: "success", processed: totalSent }), {
+      return new Response(JSON.stringify({ status: "success", processed: totalSent, failed: totalFailed }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
