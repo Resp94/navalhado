@@ -59,6 +59,15 @@ export interface HandlerDependencies {
   providerFactory?: WhatsAppProviderFactory;
 }
 
+const PAIRING_GRACE_PERIOD_MS = 150_000;
+
+const isRecentPairing = (status: unknown, updatedAt: unknown): boolean => {
+  if (status !== "connecting" || typeof updatedAt !== "string") return false;
+  const startedAt = Date.parse(updatedAt);
+  const elapsed = Date.now() - startedAt;
+  return Number.isFinite(startedAt) && elapsed >= 0 && elapsed < PAIRING_GRACE_PERIOD_MS;
+};
+
 export const createHandler = (dependencies: HandlerDependencies = {}) => async (req: Request): Promise<Response> => {
   // CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -210,7 +219,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .eq("idempotency_key", idempotencyKey)
         .eq("status", reclaimStatus)
         .eq("attempt_count", attempts)
-        .eq("updated_at", existing.updated_at)
+        .eq("updated_at", existing!.updated_at)
         .select("status, attempt_count")
         .maybeSingle();
 
@@ -560,7 +569,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       // Buscar o token da instância no banco de dados para usar nas chamadas
       const { data: dbInstance, error: fetchErr } = await supabase
         .from(manageTable)
-        .select(manageTokenColumn)
+        .select(`${manageTokenColumn}, status, qr_code, updated_at`)
         .eq("id", instance_id)
         .single();
 
@@ -575,6 +584,29 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const instanceApiKey = dbInstance[manageTokenColumn];
       const syncProviderStatus = async (providerStatus: ProviderStatus) => {
         const normalizedStatus = providerStatus.status;
+        if (normalizedStatus === "disconnected" && isRecentPairing(dbInstance.status, dbInstance.updated_at)) {
+          return {
+            status: "connecting" as const,
+            qrcode: dbInstance.qr_code ?? providerStatus.qrCode,
+            pairingCode: providerStatus.pairingCode,
+          };
+        }
+
+        if (normalizedStatus === "connecting" && dbInstance.status === "connecting") {
+          if (providerStatus.qrCode && providerStatus.qrCode !== dbInstance.qr_code) {
+            const { error: qrError } = await supabase
+              .from(manageTable)
+              .update({ qr_code: providerStatus.qrCode })
+              .eq("id", instance_id);
+            if (qrError) throw qrError;
+          }
+          return {
+            status: "connecting" as const,
+            qrcode: providerStatus.qrCode ?? dbInstance.qr_code,
+            pairingCode: providerStatus.pairingCode,
+          };
+        }
+
         const shouldClearQr = ["connected", "disconnected", "hibernated"].includes(normalizedStatus);
         const { error: statusError } = await supabase
           .from(manageTable)
@@ -731,10 +763,25 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         : "";
       const instanceToken = body.instanceToken || body.token || body.data?.token ||
         req.headers.get("x-instance-token") || req.headers.get("x-uazapi-token") || req.headers.get("token");
-      const vpsStatus = body.data?.status || body.data?.state || body.status || body.state;
+      const statusCandidates = [
+        body.data?.status,
+        body.data?.state,
+        body.data?.instance?.status,
+        body.instance?.status,
+        body.status?.status,
+        body.status,
+        body.state,
+      ];
+      const explicitStatus = statusCandidates.find((candidate) => typeof candidate === "string" && candidate.trim());
+      const connectedFlag = body.status?.connected ?? body.data?.status?.connected ?? body.data?.connected;
+      const reportedConnectionStatus = connectedFlag === true
+        ? "connected"
+        : connectedFlag === false && !explicitStatus
+        ? "disconnected"
+        : explicitStatus;
       const eventClean = String(event || "").toLowerCase().replace(/_/g, ".");
 
-      console.log(`[WhatsApp-Integration] Webhook recebido: Evento '${event}' (normalizado: '${eventClean}') da instância '${instanceName}' (status VPS: '${vpsStatus}')`);
+      console.log(`[WhatsApp-Integration] Webhook recebido: Evento '${event}' (normalizado: '${eventClean}') da instância '${instanceName}' (status informado: '${reportedConnectionStatus}')`);
 
       const cleanInstanceToken = typeof instanceToken === "string" ? instanceToken.trim() : "";
       if (!cleanInstanceToken) {
@@ -746,7 +793,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
         .from(instancesTable)
-        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status`)
+        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, updated_at`)
         .eq(instanceTokenColumn, cleanInstanceToken)
         .single();
 
@@ -1009,7 +1056,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       if (isConnectionUpdate) {
         let localStatus: "connected" | "disconnected" | "connecting" | "hibernated" = "disconnected";
-        const statusClean = String(vpsStatus || "").toLowerCase();
+        const statusClean = String(reportedConnectionStatus || "").toLowerCase();
 
         if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected") {
           localStatus = "connected";
@@ -1021,7 +1068,22 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           localStatus = "disconnected";
         }
 
-        console.log(`[WhatsApp-Integration] Mapeando status VPS '${vpsStatus}' -> local '${localStatus}'`);
+        const shouldPreservePairing =
+          (localStatus === "disconnected" && String(explicitStatus || "").toLowerCase() !== "disconnected" &&
+            isRecentPairing(authenticatedInstance.status, authenticatedInstance.updated_at)) ||
+          (localStatus === "connecting" && authenticatedInstance.status === "connecting");
+
+        if (localStatus === "disconnected" && shouldPreservePairing) {
+          console.log("[WhatsApp-Integration] Ignorando desconexão transitória durante a janela de pareamento");
+        }
+
+        if (shouldPreservePairing) {
+          return new Response(JSON.stringify({ success: true, status: "connecting" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        console.log(`[WhatsApp-Integration] Mapeando status informado '${reportedConnectionStatus}' -> local '${localStatus}'`);
 
         // Atualizar no banco de dados
         const updateQuery = supabase

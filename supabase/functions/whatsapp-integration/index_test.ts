@@ -15,6 +15,27 @@ Deno.env.set("SUPABASE_URL", "https://mock-supabase.co");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "mock-service-role-key");
 Deno.env.set("APP_URL", "https://mock-app.com");
 
+const UAZAPI_CONNECTED_WEBHOOK_FIXTURE = {
+  EventType: "connection",
+  token: "mock-instance-key",
+  instance: { name: "nav_test", status: "connected" },
+  status: { connected: true, loggedIn: true },
+};
+
+const UAZAPI_DISCONNECTED_WEBHOOK_FIXTURE = {
+  EventType: "connection",
+  token: "mock-instance-key",
+  instance: { name: "nav_test", status: "disconnected" },
+  status: { connected: false, loggedIn: false },
+};
+
+const UAZAPI_TRANSIENT_PAIRING_WEBHOOK_FIXTURE = {
+  EventType: "connection",
+  token: "mock-instance-key",
+  instance: { name: "nav_test" },
+  status: { connected: false, loggedIn: false },
+};
+
 Deno.test("singleRelation normalizes embedded Supabase relations", () => {
   const relation = { id: "relation-1" };
 
@@ -372,6 +393,93 @@ Deno.test("POST /manage-instance - connect delegates through the provider gatewa
   }
 });
 
+Deno.test("POST /manage-instance - preserves recent pairing when provider transiently reports disconnected", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+  const provider = createProviderStub({
+    getInstanceStatus: () => Promise.resolve({ status: "disconnected" }),
+  });
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        instance_token: "mock-instance-key",
+        status: "connecting",
+        qr_code: "qr-current",
+        updated_at: new Date().toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({ action: "status", instance_id: "inst-123", instance_name: "nav_test" }),
+      },
+    ));
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body.status, "connecting");
+    assertEquals(body.qrcode, "qr-current");
+    assertEquals(savedPayload, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /manage-instance - persists disconnected after pairing grace expires", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+  const provider = createProviderStub({
+    getInstanceStatus: () => Promise.resolve({ status: "disconnected" }),
+  });
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        instance_token: "mock-instance-key",
+        status: "connecting",
+        qr_code: "qr-expired",
+        updated_at: new Date(Date.now() - 151_000).toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({ action: "status", instance_id: "inst-123", instance_name: "nav_test" }),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).status, "disconnected");
+    assertEquals(savedPayload?.status, "disconnected");
+    assertEquals(savedPayload?.qr_code, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("POST /manage-instance - disconnect and webhook configuration delegate through the provider gateway", async () => {
   const providerCalls: Array<Record<string, unknown>> = [];
   const provider = createProviderStub({
@@ -675,6 +783,127 @@ Deno.test("POST /webhook - should accept Uazapi Connected payload", async () => 
   assertEquals(data.success, true);
 
   restoreFetch();
+});
+
+Deno.test("POST /webhook - should persist connected from nested Uazapi status payload", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        id: "inst-123",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "connecting",
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(UAZAPI_CONNECTED_WEBHOOK_FIXTURE),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals(savedPayload?.status, "connected");
+    assertEquals(savedPayload?.qr_code, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /webhook - should persist an explicit disconnected status during pairing", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        id: "inst-123",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "connecting",
+        updated_at: new Date().toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(UAZAPI_DISCONNECTED_WEBHOOK_FIXTURE),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals(savedPayload?.status, "disconnected");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /webhook - should ignore boolean-only disconnected while pairing is recent", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        id: "inst-123",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "connecting",
+        updated_at: new Date().toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(UAZAPI_TRANSIENT_PAIRING_WEBHOOK_FIXTURE),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).status, "connecting");
+    assertEquals(savedPayload, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 Deno.test("POST /webhook - should persist Uazapi QRCode payload", async () => {

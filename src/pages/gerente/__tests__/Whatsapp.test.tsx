@@ -136,6 +136,40 @@ describe('Whatsapp Config Page - TDD', () => {
     expect(mockSelect).not.toHaveBeenCalledWith('*');
   });
 
+  it('deve reconciliar com o provedor uma instancia desconectada ao carregar', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockFunctionsInvoke.mockResolvedValue({
+      data: { success: true, status: 'connected', qrcode: null },
+      error: null,
+    });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'status',
+          instance_id: 'inst-123',
+          instance_name: 'nav_estilo_123',
+        },
+      });
+      expect(screen.getByText('Conectado')).toBeInTheDocument();
+    });
+  });
+
   it('deve refletir atualizacoes realtime e remover o canal ao desmontar', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
@@ -231,7 +265,6 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'connect',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
-          provider: 'uazapi',
         },
       });
     });
@@ -278,6 +311,57 @@ describe('Whatsapp Config Page - TDD', () => {
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('VPS de WhatsApp indisponível no momento', 'error');
     });
+  });
+
+  it('deve reconhecer conexao existente sem exibir erro falso ao solicitar novo QR Code', async () => {
+    let statusCalls = 0;
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'disconnected',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'connecting',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockFunctionsInvoke.mockImplementation((_name, options) => {
+      if (options.body.action === 'connect') {
+        return Promise.resolve({ data: null, error: { message: 'instancia ja conectada' } });
+      }
+      statusCalls += 1;
+      return Promise.resolve({
+        data: { success: true, status: statusCalls === 1 ? 'disconnected' : 'connected' },
+        error: null,
+      });
+    });
+
+    render(<Whatsapp />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Conectado')).toBeInTheDocument();
+      expect(mockAddToast).toHaveBeenCalledWith('WhatsApp conectado com sucesso.', 'success');
+    });
+    expect(mockAddToast).not.toHaveBeenCalledWith('instancia ja conectada', 'error');
   });
 
   it('deve renderizar as chaves de configuracao do WhatsApp a partir dos dados do banco', async () => {
@@ -628,7 +712,6 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'disconnect',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
-          provider: 'uazapi',
         },
       });
     });
@@ -661,7 +744,6 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'status',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
-          provider: 'uazapi',
         },
       });
       expect(screen.getByText('Conectado')).toBeInTheDocument();
@@ -694,7 +776,6 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'resume',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
-          provider: 'uazapi',
         },
       });
       expect(screen.getByText('Conectado')).toBeInTheDocument();

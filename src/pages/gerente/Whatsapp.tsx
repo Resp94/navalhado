@@ -18,6 +18,13 @@ interface WhatsappInstance {
   send_cancellation: boolean;
 }
 
+type GatewayInstanceStatus = WhatsappInstance['status'] | 'pairing';
+
+interface GatewayStatusResult {
+  status: GatewayInstanceStatus;
+  qrcode?: string | null;
+}
+
 type WhatsappSetting =
   | 'send_confirmation'
   | 'send_reminders'
@@ -27,8 +34,15 @@ type WhatsappSetting =
 const WHATSAPP_INSTANCE_COLUMNS =
   'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation';
 const STATUS_POLL_INTERVAL_MS = 2000;
-const STATUS_POLL_MAX_ATTEMPTS = 30;
+const STATUS_POLL_MAX_ATTEMPTS = 90;
 const TERMINAL_STATUSES = ['connected', 'disconnected', 'hibernated'];
+const GATEWAY_STATUSES: GatewayInstanceStatus[] = [
+  'connected',
+  'connecting',
+  'disconnected',
+  'hibernated',
+  'pairing',
+];
 
 const toWhatsappInstance = (row: Record<string, any>): WhatsappInstance => ({
   id: row.id,
@@ -44,6 +58,28 @@ const toWhatsappInstance = (row: Record<string, any>): WhatsappInstance => ({
 
 const formatHoursToReadable = (hours: number): string =>
   `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+
+const requestProviderStatus = (target: Pick<WhatsappInstance, 'id' | 'instance_name'>) =>
+  supabase.functions.invoke('whatsapp-integration/manage-instance', {
+    body: {
+      action: 'status',
+      instance_id: target.id,
+      instance_name: target.instance_name,
+    },
+  });
+
+const isGatewayStatusResult = (value: unknown): value is GatewayStatusResult => {
+  if (!value || typeof value !== 'object') return false;
+  const status = (value as { status?: unknown }).status;
+  return typeof status === 'string' && GATEWAY_STATUSES.includes(status as GatewayInstanceStatus);
+};
+
+const mergeGatewayStatus = (previous: WhatsappInstance, gatewayResult: GatewayStatusResult): WhatsappInstance => ({
+  ...previous,
+  status: gatewayResult.status === 'pairing' ? 'connecting' : gatewayResult.status,
+  qr_code: gatewayResult.qrcode ??
+    (TERMINAL_STATUSES.includes(gatewayResult.status) ? null : previous.qr_code),
+});
 
 export const Whatsapp: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -107,6 +143,20 @@ export const Whatsapp: React.FC = () => {
   }, [addToast, tenant.tenantId]);
 
   useEffect(() => {
+    if (!instance || instance.status !== 'disconnected') return;
+
+    let cancelled = false;
+    void requestProviderStatus(instance).then(({ data, error }) => {
+      if (cancelled || error || !isGatewayStatusResult(data)) return;
+      setInstance((previous) => previous ? mergeGatewayStatus(previous, data) : null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [instance?.id, instance?.instance_name, instance?.status]);
+
+  useEffect(() => {
     if (!instance || instance.status !== 'connecting') return;
 
     let cancelled = false;
@@ -119,21 +169,10 @@ export const Whatsapp: React.FC = () => {
         return;
       }
       attempts += 1;
-      const { data, error } = await supabase.functions.invoke('whatsapp-integration/manage-instance', {
-        body: {
-          action: 'status',
-          instance_id: instance.id,
-          instance_name: instance.instance_name,
-          provider: 'uazapi',
-        },
-      });
+      const { data, error } = await requestProviderStatus(instance);
 
-      if (cancelled || error || !data?.status) return;
-      setInstance((previous) => previous ? {
-        ...previous,
-        status: data.status === 'pairing' ? 'connecting' : data.status,
-          qr_code: data.qrcode ?? (TERMINAL_STATUSES.includes(data.status) ? null : previous.qr_code),
-      } : null);
+      if (cancelled || error || !isGatewayStatusResult(data)) return;
+      setInstance((previous) => previous ? mergeGatewayStatus(previous, data) : null);
     };
 
     void pollStatus();
@@ -209,22 +248,25 @@ export const Whatsapp: React.FC = () => {
             action: 'connect',
             instance_id: instance.id,
             instance_name: instance.instance_name,
-            provider: 'uazapi',
           },
         }
       );
 
       if (funcError || (funcData && funcData.error)) {
+        const { data: statusData, error: statusError } = await requestProviderStatus(instance);
+        if (!statusError && isGatewayStatusResult(statusData)) {
+          setInstance((previous) => previous ? mergeGatewayStatus(previous, statusData) : null);
+          if (statusData.status === 'connected') {
+            addToast('WhatsApp conectado com sucesso.', 'success');
+            return;
+          }
+        }
         const errorMsg = funcData?.error || funcError?.message || 'Erro ao obter QR Code da VPS.';
         throw new Error(errorMsg);
       }
 
-      if (funcData?.status) {
-        setInstance(prev => prev ? {
-          ...prev,
-          qr_code: funcData.qrcode ?? prev.qr_code,
-          status: funcData.status === 'pairing' ? 'connecting' : funcData.status,
-        } : null);
+      if (isGatewayStatusResult(funcData)) {
+        setInstance(prev => prev ? mergeGatewayStatus(prev, funcData) : null);
       }
 
       addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
@@ -246,7 +288,6 @@ export const Whatsapp: React.FC = () => {
           action: 'resume',
           instance_id: instance.id,
           instance_name: instance.instance_name,
-          provider: 'uazapi',
         },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message || 'Erro ao retomar a conexão.');
@@ -277,7 +318,6 @@ export const Whatsapp: React.FC = () => {
             action: 'disconnect',
             instance_id: instance.id,
             instance_name: instance.instance_name,
-            provider: 'uazapi',
           },
         }
       );
