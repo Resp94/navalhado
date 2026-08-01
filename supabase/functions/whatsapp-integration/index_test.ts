@@ -340,10 +340,6 @@ Deno.test("POST /manage-instance - create delegates through the provider gateway
 Deno.test("POST /manage-instance - connect delegates through the provider gateway", async () => {
   const providerCalls: Array<Record<string, unknown>> = [];
   const provider = createProviderStub({
-    createInstance: (input) => {
-      providerCalls.push({ operation: "create", ...input });
-      return Promise.resolve({ instanceToken: input.instanceToken ?? "stub-instance-token" });
-    },
     connectInstance: (input) => {
       providerCalls.push({ operation: "connect", ...input });
       return Promise.resolve({ status: "connecting" });
@@ -375,11 +371,6 @@ Deno.test("POST /manage-instance - connect delegates through the provider gatewa
 
     assertEquals(res.status, 202);
     assertEquals(providerCalls, [
-      {
-        operation: "create",
-        instanceName: "nav_test",
-        instanceToken: "mock-instance-key",
-      },
       {
         operation: "connect",
         instanceName: "nav_test",
