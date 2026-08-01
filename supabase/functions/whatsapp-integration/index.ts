@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import {
+  createEvolutionGoProvider,
+  type WhatsAppProviderFactory,
+} from "./whatsapp_provider.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +50,11 @@ export const singleRelation = <T>(relation: T | T[] | null | undefined): T | nul
   return relation ?? null;
 };
 
-export const handler = async (req: Request): Promise<Response> => {
+export interface HandlerDependencies {
+  providerFactory?: WhatsAppProviderFactory;
+}
+
+export const createHandler = (dependencies: HandlerDependencies = {}) => async (req: Request): Promise<Response> => {
   // CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -57,11 +65,6 @@ export const handler = async (req: Request): Promise<Response> => {
 
   // Carregar variáveis de ambiente
   const evolutionApiUrl = Deno.env.get("EVOLUTION_API_URL") || "";
-  const getCleanVpsUrl = (endpoint: string): string => {
-    const base = evolutionApiUrl.replace(/\/+$/, "");
-    const cleanPath = endpoint.replace(/^\/+/, "");
-    return `${base}/${cleanPath}`;
-  };
   const evolutionGlobalApiKey = Deno.env.get("EVOLUTION_GLOBAL_APIKEY") || "";
   const dbTriggerSecret = Deno.env.get("DB_TRIGGER_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -75,6 +78,19 @@ export const handler = async (req: Request): Promise<Response> => {
     return clean.replace(/\/+$/, "");
   };
   const appUrl = getCleanAppUrl(rawAppUrl);
+  const providerFactory = dependencies.providerFactory ?? ((config) =>
+    createEvolutionGoProvider(config, globalThis.fetch));
+  const provider = providerFactory({
+    baseUrl: evolutionApiUrl,
+    adminToken: evolutionGlobalApiKey,
+  });
+  const providerFailureResponse = (): Response => new Response(
+    JSON.stringify({ error: "WhatsApp provider request failed" }),
+    {
+      status: 502,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
 
   const validateTriggerSecret = (route: string): Response | null => {
     if (!dbTriggerSecret.trim()) {
@@ -209,205 +225,66 @@ export const handler = async (req: Request): Promise<Response> => {
       const instanceApiKey = dbInstance.api_key;
 
       if (action === "create") {
-        // Chamar o VPS Evolution Go para criar a instância
-        const vpsUrl = getCleanVpsUrl("instance/create");
-        console.log(`[WhatsApp-Integration] Chamando VPS para criar instância: ${vpsUrl}`);
-        
-        const response = await fetch(vpsUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": evolutionGlobalApiKey,
-          },
-          body: JSON.stringify({
-            name: instance_name,
-            token: instanceApiKey,
-          }),
-        });
-
-        if (!response.ok) {
-          await response.body?.cancel();
-          console.error(`[WhatsApp-Integration] Erro ao criar instância na VPS (status ${response.status})`);
-          return new Response(JSON.stringify({ error: "VPS failed to create instance" }), {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        try {
+          await provider.createInstance({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
           });
+        } catch {
+          console.error("[WhatsApp-Integration] Falha do provedor ao criar instância");
+          return providerFailureResponse();
         }
 
-        await response.body?.cancel();
-        console.log("[WhatsApp-Integration] Instância criada com sucesso na VPS");
+        console.log("[WhatsApp-Integration] Instância criada com sucesso pelo provedor");
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } 
       
       else if (action === "connect") {
-        // Garantir que a instância exista na VPS com o token correto antes de solicitar o QR Code
+        // Garantir que a instância exista no provedor com o token correto antes de solicitar o QR Code.
         try {
-          const createVpsUrl = getCleanVpsUrl("instance/create");
-          console.log(`[WhatsApp-Integration] [Connect-Preflight] Garantindo existência da instância: ${createVpsUrl}`);
-          const preflightRes = await fetch(createVpsUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": evolutionGlobalApiKey,
-            },
-            body: JSON.stringify({
-              name: instance_name,
-              token: instanceApiKey,
-            }),
+          await provider.createInstance({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
           });
-          await preflightRes.body?.cancel();
-          console.log(`[WhatsApp-Integration] [Connect-Preflight] Status do preflight de criação: ${preflightRes.status}`);
+          console.log(`[WhatsApp-Integration] [Connect-Preflight] Instância garantida no provedor`);
         } catch (createErr) {
           console.warn(`[WhatsApp-Integration] [Connect-Preflight] Falha silenciosa no preflight de criação:`, createErr);
         }
 
-        // Evolution Go identifica e autentica a instância pelo próprio token no header apikey.
-        // O UUID retornado por /instance/all não faz parte do contrato de /instance/connect ou /instance/qr.
-        const instanceHeaders = { "apikey": instanceApiKey };
-
-        // Configurar o webhook da instância na VPS de forma dinâmica usando instance/connect
+        // Iniciar o pareamento e configurar o webhook por meio do contrato neutro.
         try {
-          const connectVpsUrl = getCleanVpsUrl("instance/connect");
           const targetWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-integration/webhook`;
-          console.log(`[WhatsApp-Integration] [Webhook-Preflight] Conectando instância na VPS para setar webhook: ${connectVpsUrl} -> ${targetWebhookUrl}`);
-          const connectRes = await fetch(connectVpsUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...instanceHeaders,
-            },
-            body: JSON.stringify({
-              immediate: true,
-              webhookUrl: targetWebhookUrl,
-              subscribe: ["CONNECTION", "MESSAGE", "QRCODE"]
-            }),
+          await provider.connectInstance({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
+            webhookUrl: targetWebhookUrl,
+            events: ["connection", "messages"],
           });
-          await connectRes.body?.cancel();
-          console.log(`[WhatsApp-Integration] [Webhook-Preflight] Status da configuração: ${connectRes.status}`);
+          console.log(`[WhatsApp-Integration] [Webhook-Preflight] Pareamento iniciado e webhook configurado pelo provedor`);
         } catch (webhookErr) {
-          console.warn(`[WhatsApp-Integration] [Webhook-Preflight] Falha silenciosa ao chamar instance/connect:`, webhookErr);
-        }
-
-        // Chamar o VPS Evolution Go para gerar o QR Code
-        const vpsUrl = getCleanVpsUrl("instance/qr");
-        console.log(`[WhatsApp-Integration] Chamando VPS para obter QR Code: ${vpsUrl}`);
-
-        const maxQrAttempts = 6;
-        let qrcode: string | undefined;
-        let pairingCode: string | undefined;
-
-        for (let attempt = 1; attempt <= maxQrAttempts; attempt++) {
-          const response = await fetch(vpsUrl, {
-            method: "GET",
-            headers: instanceHeaders,
-          });
-          const responseText = await response.text();
-          let resData: any = null;
-
-          try {
-            resData = responseText ? JSON.parse(responseText) : null;
-          } catch {
-            resData = null;
-          }
-
-          // Conforme ADR 001 e implementation_plan, chaves retornadas da VPS em Go são Qrcode e Code dentro de data
-          qrcode = resData?.data?.Qrcode || resData?.data?.qrcode;
-          pairingCode = resData?.data?.Code || resData?.data?.code;
-          if (response.ok && qrcode) break;
-
-          const errClean = responseText.toLowerCase();
-
-          // Tratar o caso de a instância já estar conectada
-          if (!response.ok && (errClean.includes("already") || errClean.includes("connected") || errClean.includes("open"))) {
-            console.log(`[WhatsApp-Integration] VPS reportou que a instância já está conectada. Sincronizando status local.`);
-            const { error: updateErr } = await supabase
-              .from("evolution_api_instances")
-              .update({
-                status: "connected",
-                qr_code: null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", instance_id);
-
-            if (updateErr) {
-              console.error(`[WhatsApp-Integration] Erro ao atualizar status conectado no banco: ${updateErr.message}`);
-            }
-            return new Response(JSON.stringify({ success: true, status: "connected" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          const qrPending =
-            (response.ok && !qrcode) ||
-            errClean.includes("no qr code available") ||
-            errClean.includes("wait a moment");
-
-          if (qrPending && attempt < maxQrAttempts) {
-            console.log(`[WhatsApp-Integration] QR Code ainda indisponível; nova tentativa ${attempt + 1}/${maxQrAttempts}`);
-            await new Promise((resolve) => setTimeout(resolve, 750));
-            continue;
-          }
-
-          console.error(`[WhatsApp-Integration] Erro ao obter QR Code da VPS (status ${response.status})`);
+          console.error(`[WhatsApp-Integration] [Webhook-Preflight] Falha ao iniciar pareamento no provedor:`, webhookErr);
           await revertInstanceToDisconnected(instance_id);
-
-          return new Response(JSON.stringify({ error: `VPS failed to get QR Code: ${responseText || response.statusText}` }), {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return providerFailureResponse();
         }
 
-        if (!qrcode) {
-          console.error("[WhatsApp-Integration] QR Code não retornado pela VPS");
-          await revertInstanceToDisconnected(instance_id);
-
-          return new Response(JSON.stringify({ error: "QR Code not returned by VPS" }), {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        // Salvar o QR Code obtido na tabela de instâncias
-        const { error: updateErr } = await supabase
-          .from("evolution_api_instances")
-          .update({
-            qr_code: qrcode,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", instance_id);
-
-        if (updateErr) {
-          console.error(`[WhatsApp-Integration] Erro ao atualizar QR Code no banco: ${updateErr.message}`);
-          return new Response(JSON.stringify({ error: "Failed to update QR Code in DB" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        console.log(`[WhatsApp-Integration] QR Code atualizado no banco para a instância ${instance_name}`);
-        return new Response(JSON.stringify({ success: true, qrcode, code: pairingCode }), {
+        console.log(`[WhatsApp-Integration] Pareamento iniciado para ${instance_name}; aguardando evento QRCODE no webhook`);
+        return new Response(JSON.stringify({ success: true, status: "pairing" }), {
+          status: 202,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } 
       
       else if (action === "disconnect") {
-        // Chamar o VPS Evolution Go para desconectar a instância
-        const vpsUrl = getCleanVpsUrl("instance/disconnect");
-        console.log(`[WhatsApp-Integration] Chamando VPS para desconectar: ${vpsUrl}`);
-
-        const response = await fetch(vpsUrl, {
-          method: "POST",
-          headers: {
-            "apikey": instanceApiKey,
-          },
-        });
-
-        // Caso a instância já esteja desconectada na VPS (retornando erro), limpamos o status no banco mesmo assim
-        if (!response.ok) {
-          await response.body?.cancel();
-          console.warn(`[WhatsApp-Integration] VPS retornou status ${response.status} na desconexão. Prosseguindo com limpeza no banco.`);
+        // Caso a instância já esteja desconectada no provedor, limpamos o status no banco mesmo assim.
+        try {
+          await provider.disconnectInstance({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
+          });
+        } catch (disconnectError) {
+          console.warn("[WhatsApp-Integration] Provedor recusou a desconexão. Prosseguindo com limpeza no banco.", disconnectError);
         }
 
         // Atualizar status no banco de dados para disconnected e limpar QR Code
@@ -433,40 +310,26 @@ export const handler = async (req: Request): Promise<Response> => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else if (action === "debug-webhook") {
-        const connectVpsUrl = getCleanVpsUrl("instance/connect");
         const targetWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-integration/webhook`;
         
         try {
-          const connectRes = await fetch(connectVpsUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": instanceApiKey,
-            },
-            body: JSON.stringify({
-              immediate: true,
-              webhookUrl: targetWebhookUrl
-            }),
+          const webhookResult = await provider.configureWebhook({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
+            webhookUrl: targetWebhookUrl,
+            events: ["connection", "messages"],
           });
-          const status = connectRes.status;
-          await connectRes.body?.cancel();
           
           return new Response(JSON.stringify({ 
             success: true, 
             debug: {
-              status
+              status: webhookResult.statusCode,
             }
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         } catch {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: "Failed to configure webhook"
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return providerFailureResponse();
         }
       }
 
@@ -506,7 +369,7 @@ export const handler = async (req: Request): Promise<Response> => {
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
         .from("evolution_api_instances")
-        .select("tenant_id, api_key, status")
+        .select("tenant_id, instance_name, api_key, status")
         .eq("api_key", cleanInstanceToken)
         .single();
 
@@ -519,8 +382,45 @@ export const handler = async (req: Request): Promise<Response> => {
       }
 
       const isConnectionUpdate = ["connection.update", "connected", "pairsuccess"].includes(eventClean);
+      const isQrCodeUpdate = ["qrcode", "qrcode.updated", "qr.code"].includes(eventClean);
 
       const isEvolutionGoMessage = eventClean === "message";
+
+      if (isQrCodeUpdate) {
+        const qrCode =
+          body.data?.qrcode ||
+          body.data?.Qrcode ||
+          body.qrcode ||
+          body.Qrcode;
+
+        if (typeof qrCode !== "string" || !qrCode.trim()) {
+          return new Response(JSON.stringify({ error: "QR Code missing from webhook payload" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { error: updateErr } = await supabase
+          .from("evolution_api_instances")
+          .update({
+            status: "pairing",
+            qr_code: qrCode,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("api_key", cleanInstanceToken);
+
+        if (updateErr) {
+          console.error(`[WhatsApp-Integration] Erro ao persistir QR Code via webhook: ${updateErr.message}`);
+          return new Response(JSON.stringify({ error: "Failed to persist QR Code" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (isEvolutionGoMessage) {
         const messageInfo = body.data?.Info || body.data?.info || {};
@@ -587,25 +487,16 @@ export const handler = async (req: Request): Promise<Response> => {
         const clientName = customerRow?.name || pushName || "Cliente";
 
         const messageText = `Olá, ${clientName}! Para escolher seu serviço e agendar um horário na *${barbeariaNome}*, acesse: ${appUrl}/cliente/${customer.token_acesso}/agendar`;
-        const sendResponse = await fetch(getCleanVpsUrl("send/text"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": authenticatedInstance.api_key,
-          },
-          body: JSON.stringify({
+        try {
+          await provider.sendText({
+            instanceName: authenticatedInstance.instance_name || instanceName || "",
+            instanceToken: authenticatedInstance.api_key,
             number: senderPhone,
             text: messageText,
-          }),
-        });
-
-        if (!sendResponse.ok) {
-          await sendResponse.body?.cancel();
-          console.error(`[WhatsApp-Integration] Falha ao responder mensagem recebida (status ${sendResponse.status})`);
-          return new Response(JSON.stringify({ error: "VPS failed to send booking link" }), {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
+        } catch (sendError) {
+          console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida", sendError);
+          return providerFailureResponse();
         }
 
         return new Response(JSON.stringify({ success: true, created: customer.created }), {
@@ -770,29 +661,17 @@ export const handler = async (req: Request): Promise<Response> => {
         messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi cancelado.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nSe precisar, você pode agendar um novo horário acessando: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nAgradecemos a compreensão!`;
       }
 
-      // 3. Enviar mensagem via VPS
-      const vpsUrl = getCleanVpsUrl("send/text");
-      console.log(`[WhatsApp-Integration] Enviando notificação para ${clientPhone} via VPS: ${vpsUrl}`);
-
-      const response = await fetch(vpsUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": config.api_key,
-        },
-        body: JSON.stringify({
+      // 3. Enviar mensagem pelo provedor configurado
+      try {
+        await provider.sendText({
+          instanceName: config.instance_name,
+          instanceToken: config.api_key,
           number: clientPhone,
           text: messageText,
-        }),
-      });
-
-      if (!response.ok) {
-        await response.body?.cancel();
-        console.error(`[WhatsApp-Integration] Falha no disparo da mensagem VPS (status ${response.status})`);
-        return new Response(JSON.stringify({ error: "VPS failed to send message" }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } catch (sendError) {
+        console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação", sendError);
+        return providerFailureResponse();
       }
 
       console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${clientPhone}`);
@@ -889,40 +768,29 @@ export const handler = async (req: Request): Promise<Response> => {
 
             const messageText = `Olá, ${customer.name}! Passando para lembrar do seu agendamento na *${tenant.name}* nas próximas horas.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: ${link}\n\nEsperamos você!`;
 
-            // Enviar via VPS
-            const vpsUrl = getCleanVpsUrl("send/text");
+            // Enviar pelo provedor configurado
             try {
-              const response = await fetch(vpsUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "apikey": instance.api_key,
-                },
-                body: JSON.stringify({
-                  number: clientPhone,
-                  text: messageText,
-                }),
+              await provider.sendText({
+                instanceName: instance.instance_name,
+                instanceToken: instance.api_key,
+                number: clientPhone,
+                text: messageText,
               });
 
-              if (response.ok) {
-                console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${clientPhone}`);
-                // Atualizar no banco
-                const { error: markErr } = await supabase
-                  .from("appointments")
-                  .update({ reminder_sent: true })
-                  .eq("id", app.id);
+              console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${clientPhone}`);
+              // Atualizar no banco
+              const { error: markErr } = await supabase
+                .from("appointments")
+                .update({ reminder_sent: true })
+                .eq("id", app.id);
 
-                if (markErr) {
-                  console.error(`[WhatsApp-Integration] Erro ao marcar reminder_sent no agendamento ${app.id}: ${markErr.message}`);
-                } else {
-                  totalSent++;
-                }
+              if (markErr) {
+                console.error(`[WhatsApp-Integration] Erro ao marcar reminder_sent no agendamento ${app.id}: ${markErr.message}`);
               } else {
-                await response.body?.cancel();
-                console.error(`[WhatsApp-Integration] Falha ao enviar lembrete para ${clientPhone} via VPS (status ${response.status})`);
+                totalSent++;
               }
-            } catch (fetchErr) {
-              console.error(`[WhatsApp-Integration] Falha de comunicação com a VPS no envio do lembrete:`, fetchErr);
+            } catch (sendError) {
+              console.error("[WhatsApp-Integration] Falha do provedor no envio do lembrete", sendError);
             }
           }
         }
@@ -1040,30 +908,18 @@ export const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-      const vpsUrl = getCleanVpsUrl("send/text");
-
-      const response = await fetch(vpsUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": instance.api_key,
-        },
-        body: JSON.stringify({
+      try {
+        await provider.sendText({
+          instanceName: instance.instance_name,
+          instanceToken: instance.api_key,
           number: clientPhone,
           text: text,
-        }),
-      });
-
-      if (!response.ok) {
-        await response.body?.cancel();
-        console.error(`[WhatsApp-Integration] Erro ao enviar mensagem de teste via VPS (status ${response.status})`);
-        return new Response(JSON.stringify({ error: "Failed to send test message" }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } catch (sendError) {
+        console.error("[WhatsApp-Integration] Erro ao enviar mensagem de teste pelo provedor", sendError);
+        return providerFailureResponse();
       }
 
-      await response.body?.cancel();
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1082,6 +938,8 @@ export const handler = async (req: Request): Promise<Response> => {
     });
   }
 };
+
+export const handler = createHandler();
 
 if (import.meta.main) {
   serve(handler);

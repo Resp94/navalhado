@@ -1,5 +1,10 @@
-import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { handler, singleRelation } from "./index.ts";
+import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import { createHandler, handler, singleRelation } from "./index.ts";
+import {
+  createEvolutionGoProvider,
+  WhatsAppProviderError,
+  type WhatsAppProvider,
+} from "./whatsapp_provider.ts";
 
 // Set environment variables for tests
 Deno.env.set("EVOLUTION_API_URL", "https://mock-vps.com");
@@ -16,6 +21,85 @@ Deno.test("singleRelation normalizes embedded Supabase relations", () => {
   assertEquals(singleRelation([relation]), relation);
   assertEquals(singleRelation([]), null);
   assertEquals(singleRelation(null), null);
+});
+
+Deno.test("Evolution Go adapter returns provider-neutral create, connect and webhook results", async () => {
+  const requestBodies: Array<Record<string, unknown>> = [];
+  let connectCalls = 0;
+  const provider = createEvolutionGoProvider(
+    { baseUrl: "https://mock-vps.com", adminToken: "mock-global-key" },
+    (_input, init) => {
+      if (init?.body) requestBodies.push(JSON.parse(String(init.body)));
+      if (requestBodies.at(-1)?.name === "nav_test") {
+        return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }));
+      }
+
+      connectCalls++;
+      if (connectCalls === 1) {
+        return Promise.resolve(new Response(JSON.stringify({
+          data: { status: "pairing", qrcode: "data:image/png;base64,qr" },
+        }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    },
+  );
+
+  const created = await provider.createInstance({
+    instanceName: "nav_test",
+    instanceToken: "mock-instance-key",
+  });
+  const connected = await provider.connectInstance({
+    instanceName: "nav_test",
+    instanceToken: "mock-instance-key",
+    webhookUrl: "https://mock-app.com/webhook",
+    events: ["connection", "messages"],
+  });
+  const configured = await provider.configureWebhook({
+    instanceName: "nav_test",
+    instanceToken: "mock-instance-key",
+    webhookUrl: "https://mock-app.com/webhook",
+    events: ["connection", "messages"],
+  });
+
+  assertEquals(created, { instanceToken: "mock-instance-key" });
+  assertEquals(connected, {
+    status: "connecting",
+    qrCode: "data:image/png;base64,qr",
+    pairingCode: undefined,
+  });
+  assertEquals(configured, { statusCode: 204 });
+  assertEquals(requestBodies[1]?.subscribe, ["ALL"]);
+});
+
+Deno.test("Evolution Go adapter converts malformed provider responses to safe errors", async () => {
+  const provider = createEvolutionGoProvider(
+    { baseUrl: "https://mock-vps.com", adminToken: "secret-admin-token" },
+    () => Promise.resolve(new Response("not-json", { status: 200 })),
+  );
+
+  const error = await assertRejects(
+    () => provider.getInstanceStatus({
+      instanceName: "nav_test",
+      instanceToken: "secret-instance-token",
+    }),
+    WhatsAppProviderError,
+  );
+
+  assertEquals(error.message.includes("secret-admin-token"), false);
+  assertEquals(error.message.includes("secret-instance-token"), false);
+
+  const connectError = await assertRejects(
+    () => provider.connectInstance({
+      instanceName: "nav_test",
+      instanceToken: "secret-instance-token",
+      webhookUrl: "https://mock-app.com/webhook",
+      events: ["connection", "messages"],
+    }),
+    WhatsAppProviderError,
+  );
+
+  assertEquals(connectError.message.includes("secret-admin-token"), false);
+  assertEquals(connectError.message.includes("secret-instance-token"), false);
 });
 
 // Helper to mock the global fetch function
@@ -47,12 +131,187 @@ const setupMockFetch = (mockResponses: Record<string, { status: number; body: an
   };
 };
 
+const createProviderStub = (
+  overrides: Partial<WhatsAppProvider> = {},
+): WhatsAppProvider => ({
+  createInstance: ({ instanceToken }) => Promise.resolve({
+    instanceToken: instanceToken ?? "stub-instance-token",
+  }),
+  connectInstance: () => Promise.resolve({ status: "connecting" }),
+  getInstanceStatus: () => Promise.resolve({ status: "disconnected" }),
+  disconnectInstance: () => Promise.resolve(),
+  configureWebhook: () => Promise.resolve({ statusCode: 200 }),
+  sendText: () => Promise.resolve(),
+  ...overrides,
+});
+
+Deno.test("POST /manage-instance - create delegates through the provider gateway", async () => {
+  const providerCalls: Array<Record<string, unknown>> = [];
+  const provider = createProviderStub({
+    createInstance: (input) => {
+      providerCalls.push({ operation: "create", ...input });
+      return Promise.resolve({ instanceToken: input.instanceToken ?? "stub-instance-token" });
+    },
+  });
+  const restoreFetch = setupMockFetch({
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: { api_key: "mock-instance-key" },
+    },
+  });
+
+  try {
+    const testHandler = createHandler({ providerFactory: () => provider });
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-db-trigger-secret": "mock-db-secret",
+      },
+      body: JSON.stringify({
+        action: "create",
+        instance_id: "inst-123",
+        instance_name: "nav_test",
+      }),
+    });
+
+    const res = await testHandler(req);
+
+    assertEquals(res.status, 200);
+    assertEquals(providerCalls, [{
+      operation: "create",
+      instanceName: "nav_test",
+      instanceToken: "mock-instance-key",
+    }]);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /manage-instance - connect delegates through the provider gateway", async () => {
+  const providerCalls: Array<Record<string, unknown>> = [];
+  const provider = createProviderStub({
+    createInstance: (input) => {
+      providerCalls.push({ operation: "create", ...input });
+      return Promise.resolve({ instanceToken: input.instanceToken ?? "stub-instance-token" });
+    },
+    connectInstance: (input) => {
+      providerCalls.push({ operation: "connect", ...input });
+      return Promise.resolve({ status: "connecting" });
+    },
+  });
+  const restoreFetch = setupMockFetch({
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: { api_key: "mock-instance-key" },
+    },
+  });
+
+  try {
+    const testHandler = createHandler({ providerFactory: () => provider });
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-db-trigger-secret": "mock-db-secret",
+      },
+      body: JSON.stringify({
+        action: "connect",
+        instance_id: "inst-123",
+        instance_name: "nav_test",
+      }),
+    });
+
+    const res = await testHandler(req);
+
+    assertEquals(res.status, 202);
+    assertEquals(providerCalls, [
+      {
+        operation: "create",
+        instanceName: "nav_test",
+        instanceToken: "mock-instance-key",
+      },
+      {
+        operation: "connect",
+        instanceName: "nav_test",
+        instanceToken: "mock-instance-key",
+        webhookUrl: "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+        events: ["connection", "messages"],
+      },
+    ]);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /manage-instance - disconnect and webhook configuration delegate through the provider gateway", async () => {
+  const providerCalls: Array<Record<string, unknown>> = [];
+  const provider = createProviderStub({
+    disconnectInstance: (input) => {
+      providerCalls.push({ operation: "disconnect", ...input });
+      return Promise.resolve();
+    },
+    configureWebhook: (input) => {
+      providerCalls.push({ operation: "configure-webhook", ...input });
+      return Promise.resolve({ statusCode: 204 });
+    },
+  });
+  const restoreFetch = setupMockFetch({
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: { api_key: "mock-instance-key" },
+    },
+  });
+
+  try {
+    const testHandler = createHandler({ providerFactory: () => provider });
+    const requestFor = (action: string) => new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-db-trigger-secret": "mock-db-secret",
+        },
+        body: JSON.stringify({
+          action,
+          instance_id: "inst-123",
+          instance_name: "nav_test",
+        }),
+      },
+    );
+
+    const disconnectResponse = await testHandler(requestFor("disconnect"));
+    const webhookResponse = await testHandler(requestFor("debug-webhook"));
+
+    assertEquals(disconnectResponse.status, 200);
+    assertEquals(webhookResponse.status, 200);
+    assertEquals((await webhookResponse.json()).debug.status, 204);
+    assertEquals(providerCalls, [
+      {
+        operation: "disconnect",
+        instanceName: "nav_test",
+        instanceToken: "mock-instance-key",
+      },
+      {
+        operation: "configure-webhook",
+        instanceName: "nav_test",
+        instanceToken: "mock-instance-key",
+        webhookUrl: "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+        events: ["connection", "messages"],
+      },
+    ]);
+  } finally {
+    restoreFetch();
+  }
+});
+
 Deno.test("POST /manage-instance - create action should call VPS create endpoint and succeed", async () => {
   const restoreFetch = setupMockFetch({
     // Mock DB select instance api_key
     "rest/v1/evolution_api_instances": {
       status: 200,
-      body: [{ api_key: "mock-instance-key" }]
+      body: { api_key: "mock-instance-key" }
     },
     // Mock VPS create instance call
     "mock-vps.com/instance/create": {
@@ -83,122 +342,7 @@ Deno.test("POST /manage-instance - create action should call VPS create endpoint
   restoreFetch();
 });
 
-Deno.test("POST /manage-instance - connect action should get QR Code from VPS and save to DB", async () => {
-  const restoreFetch = setupMockFetch({
-    // Mock DB select instance api_key
-    "rest/v1/evolution_api_instances": {
-      status: 200,
-      body: [{ api_key: "mock-instance-key" }]
-    },
-    // Mock VPS qr endpoint returning Qrcode & Code (capitalized)
-    "mock-vps.com/instance/qr": {
-      status: 200,
-      body: { data: { Qrcode: "base64qrcode...", Code: "123-456" } }
-    }
-  });
-
-  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-db-trigger-secret": "mock-db-secret",
-    },
-    body: JSON.stringify({
-      action: "connect",
-      instance_id: "inst-123",
-      instance_name: "nav_test",
-      tenant_id: "tenant-456"
-    })
-  });
-
-  const res = await handler(req);
-  assertEquals(res.status, 200);
-  const data = await res.json();
-  assertEquals(data.success, true);
-  assertEquals(data.qrcode, "base64qrcode...");
-  assertEquals(data.code, "123-456");
-
-  restoreFetch();
-});
-
-Deno.test("POST /manage-instance - connect waits until the VPS QR Code is available", async () => {
-  const originalFetch = globalThis.fetch;
-  let qrRequests = 0;
-
-  globalThis.fetch = async (input: string | URL | Request): Promise<Response> => {
-    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-    if (urlStr.includes("rest/v1/evolution_api_instances")) {
-      return new Response(JSON.stringify([{ api_key: "mock-instance-key" }]), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (urlStr.includes("mock-vps.com/instance/create") || urlStr.includes("mock-vps.com/instance/connect")) {
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (urlStr.includes("mock-vps.com/instance/qr")) {
-      qrRequests++;
-      if (qrRequests === 1) {
-        return new Response(JSON.stringify({
-          error: "no QR code available. Please wait a moment and try again",
-        }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({
-        data: {
-          Qrcode: "data:image/png;base64,ready-qrcode",
-          Code: "ready-pairing-code",
-        },
-        message: "success",
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ error: `Mock not configured for ${urlStr}` }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  };
-
-  try {
-    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-db-trigger-secret": "mock-db-secret",
-      },
-      body: JSON.stringify({
-        action: "connect",
-        instance_id: "inst-123",
-        instance_name: "nav_test",
-      }),
-    });
-
-    const res = await handler(req);
-    assertEquals(res.status, 200);
-    assertEquals(await res.json(), {
-      success: true,
-      qrcode: "data:image/png;base64,ready-qrcode",
-      code: "ready-pairing-code",
-    });
-    assertEquals(qrRequests, 2);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-Deno.test("POST /manage-instance - connect authenticates instance routes with the stored API key", async () => {
+Deno.test("POST /manage-instance - connect starts pairing and waits for the QR webhook", async () => {
   const originalFetch = globalThis.fetch;
   const observedInstanceHeaders: Array<Record<string, string | null>> = [];
 
@@ -233,7 +377,7 @@ Deno.test("POST /manage-instance - connect authenticates instance routes with th
       const validTarget =
         headers.get("apikey") === "mock-instance-key" &&
         headers.get("instanceId") === null &&
-        body.subscribe.includes("QRCODE");
+        body.subscribe.includes("ALL");
 
       return new Response(JSON.stringify(validTarget ? { success: true } : { error: "not authorized" }), {
         status: validTarget ? 200 : 400,
@@ -286,13 +430,11 @@ Deno.test("POST /manage-instance - connect authenticates instance routes with th
     const res = await handler(req);
     assertEquals(observedInstanceHeaders, [
       { route: "connect", apikey: "mock-instance-key", instanceId: null },
-      { route: "qr", apikey: "mock-instance-key", instanceId: null },
     ]);
-    assertEquals(res.status, 200);
+    assertEquals(res.status, 202);
     assertEquals(await res.json(), {
       success: true,
-      qrcode: "data:image/png;base64,targeted-qrcode",
-      code: "targeted-pairing-code",
+      status: "pairing",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -307,15 +449,19 @@ Deno.test("POST /manage-instance - connect action should authenticate gerente us
     },
     "rest/v1/users": {
       status: 200,
-      body: [{ tenant_id: "tenant-456", role: "gerente" }]
+      body: { tenant_id: "tenant-456", role: "gerente" }
     },
     "rest/v1/evolution_api_instances": {
       status: 200,
-      body: [{ api_key: "mock-instance-key", tenant_id: "tenant-456" }]
+      body: { api_key: "mock-instance-key", tenant_id: "tenant-456" }
     },
-    "mock-vps.com/instance/qr": {
+    "mock-vps.com/instance/create": {
+      status: 409,
+      body: { error: "instance already exists" }
+    },
+    "mock-vps.com/instance/connect": {
       status: 200,
-      body: { data: { Qrcode: "base64qrcode...", Code: "123-456" } }
+      body: { success: true }
     }
   });
 
@@ -334,9 +480,9 @@ Deno.test("POST /manage-instance - connect action should authenticate gerente us
   });
 
   const res = await handler(req);
-  assertEquals(res.status, 200);
+  assertEquals(res.status, 202);
   const data = await res.json();
-  assertEquals(data.success, true);
+  assertEquals(data, { success: true, status: "pairing" });
 
   restoreFetch();
 });
@@ -349,7 +495,7 @@ Deno.test("POST /manage-instance - connect action should reject unauthorized use
     },
     "rest/v1/users": {
       status: 200,
-      body: [{ tenant_id: "tenant-456", role: "cliente" }]
+      body: { tenant_id: "tenant-456", role: "cliente" }
     }
   });
 
@@ -368,7 +514,7 @@ Deno.test("POST /manage-instance - connect action should reject unauthorized use
   });
 
   const res = await handler(req);
-  assertEquals(res.status, 401);
+  assertEquals(res.status, 403);
 
   restoreFetch();
 });
@@ -377,7 +523,7 @@ Deno.test("POST /manage-instance - connect action should revert status to discon
   const restoreFetch = setupMockFetch({
     "rest/v1/evolution_api_instances": {
       status: 200,
-      body: [{ api_key: "mock-instance-key" }]
+      body: { api_key: "mock-instance-key" }
     },
     "mock-vps.com/instance/qr": {
       status: 500,
@@ -409,7 +555,7 @@ Deno.test("POST /manage-instance - disconnect action should call VPS disconnect 
   const restoreFetch = setupMockFetch({
     "rest/v1/evolution_api_instances": {
       status: 200,
-      body: [{ api_key: "mock-instance-key" }]
+      body: { api_key: "mock-instance-key" }
     },
     "mock-vps.com/instance/disconnect": {
       status: 200,
@@ -502,6 +648,65 @@ Deno.test("POST /webhook - should accept Evolution Go Connected payload", async 
   restoreFetch();
 });
 
+Deno.test("POST /webhook - should persist Evolution Go QRCode payload", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (urlStr.includes("rest/v1/evolution_api_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        tenant_id: "tenant-456",
+        api_key: "mock-instance-key",
+        status: "pairing",
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: `Mock not configured for ${urlStr}` }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "QRCode",
+        data: {
+          qrcode: "data:image/png;base64,webhook-qrcode",
+        },
+        instanceId: "evo-instance-123",
+        instanceToken: "mock-instance-key",
+      }),
+    });
+
+    const res = await handler(req);
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { success: true });
+    assertEquals(savedPayload?.status, "pairing");
+    assertEquals(savedPayload?.qr_code, "data:image/png;base64,webhook-qrcode");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("POST /webhook - should accept Evolution Go PairSuccess payload", async () => {
   const restoreFetch = setupMockFetch({
     "rest/v1/evolution_api_instances": {
@@ -546,14 +751,14 @@ Deno.test("POST /manage-instance connect - should subscribe to Evolution Go conn
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
     if (urlStr.includes("rest/v1/evolution_api_instances")) {
-      return new Response(JSON.stringify([{ api_key: "mock-instance-key" }]), {
+      return new Response(JSON.stringify({ api_key: "mock-instance-key" }), {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
     }
 
     if (urlStr.includes("mock-vps.com/instance/create")) {
-      return new Response(JSON.stringify({ success: true, message: "Instance ready" }), {
+      return new Response(JSON.stringify({ data: { id: "evo-instance-123" }, message: "success" }), {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
@@ -568,18 +773,6 @@ Deno.test("POST /manage-instance connect - should subscribe to Evolution Go conn
           webhookUrl: "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook"
         },
         message: "success"
-      }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    if (urlStr.includes("mock-vps.com/instance/qr")) {
-      return new Response(JSON.stringify({
-        data: {
-          Qrcode: "data:image/png;base64,base64qrcode...",
-          Code: "123-456"
-        }
       }), {
         status: 200,
         headers: { "Content-Type": "application/json" }
@@ -608,8 +801,8 @@ Deno.test("POST /manage-instance connect - should subscribe to Evolution Go conn
     });
 
     const res = await handler(req);
-    assertEquals(res.status, 200);
-    assertEquals(connectRequestBody?.subscribe, ["CONNECTION", "MESSAGE"]);
+    assertEquals(res.status, 202);
+    assertEquals(connectRequestBody?.subscribe, ["ALL"]);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -1101,6 +1294,59 @@ Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS s
   restoreFetch();
 });
 
+Deno.test("POST /send-test delegates message delivery through the provider gateway", async () => {
+  const providerCalls: Array<Record<string, unknown>> = [];
+  const provider = createProviderStub({
+    sendText: (input) => {
+      providerCalls.push({ operation: "send-text", ...input });
+      return Promise.resolve();
+    },
+  });
+  const restoreFetch = setupMockFetch({
+    "auth/v1/user": {
+      status: 200,
+      body: { id: "user-123", email: "gerente@email.com" },
+    },
+    "rest/v1/users": {
+      status: 200,
+      body: { tenant_id: "tenant-456", role: "gerente" },
+    },
+    "rest/v1/evolution_api_instances": {
+      status: 200,
+      body: { instance_name: "nav_test", api_key: "mock-instance-key", status: "connected" },
+    },
+  });
+
+  try {
+    const testHandler = createHandler({ providerFactory: () => provider });
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer mock-user-token",
+      },
+      body: JSON.stringify({
+        tenant_id: "tenant-456",
+        number: "11999991111",
+        text: "Mensagem de teste",
+      }),
+    });
+
+    const res = await testHandler(req);
+
+    assertEquals(res.status, 200);
+    assertEquals(providerCalls, [{
+      operation: "send-text",
+      instanceName: "nav_test",
+      instanceToken: "mock-instance-key",
+      number: "5511999991111",
+      text: "Mensagem de teste",
+    }]);
+  } finally {
+    restoreFetch();
+  }
+});
+
 Deno.test("trigger routes reject a blank configured secret before processing", async () => {
   const originalSecret = Deno.env.get("DB_TRIGGER_SECRET");
   const originalFetch = globalThis.fetch;
@@ -1116,16 +1362,6 @@ Deno.test("trigger routes reject a blank configured secret before processing", a
   };
 
   const requests = [
-    new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-db-trigger-secret": "   " },
-      body: JSON.stringify({
-        action: "create",
-        instance_id: "inst-123",
-        instance_name: "nav_test",
-        tenant_id: "tenant-456",
-      }),
-    }),
     new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-db-trigger-secret": "   " },
@@ -1327,7 +1563,7 @@ Deno.test("POST /send-test does not expose upstream response bodies", async () =
   try {
     const res = await handler(createSendTestRequest());
     assertEquals(res.status, 502);
-    assertEquals(await res.json(), { error: "Failed to send test message" });
+    assertEquals(await res.json(), { error: "WhatsApp provider request failed" });
     assertEquals(mock.sendCalls, 1);
   } finally {
     mock.restore();
