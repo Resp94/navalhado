@@ -24,6 +24,7 @@ export interface ProviderWebhookInput extends ProviderInstanceInput {
 export interface ProviderSendTextInput extends ProviderInstanceInput {
   number: string;
   text: string;
+  idempotencyKey?: string;
 }
 
 export interface ProviderStatus {
@@ -62,6 +63,7 @@ export class WhatsAppProviderError extends Error {
   constructor(
     readonly operation: string,
     readonly status?: number,
+    readonly retryAfterMs?: number,
   ) {
     super(status ? `WhatsApp provider ${operation} failed with status ${status}` : `WhatsApp provider ${operation} failed`);
     this.name = "WhatsAppProviderError";
@@ -104,8 +106,17 @@ export const createEvolutionGoProvider = (
     }
 
     if (!response.ok) {
+      const retryAfter = response.headers.get("retry-after");
+      const retryAfterMs = retryAfter
+        ? /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
+          ? Number(retryAfter.trim()) * 1000
+          : (() => {
+            const parsed = Date.parse(retryAfter);
+            return Number.isFinite(parsed) ? Math.max(0, parsed - Date.now()) : undefined;
+          })()
+        : undefined;
       await response.body?.cancel();
-      throw new WhatsAppProviderError(operation, response.status);
+      throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
     }
 
     return response;
@@ -243,8 +254,17 @@ export const createUazapiProvider = (
     }
 
     if (!response.ok) {
+      const retryAfter = response.headers.get("retry-after");
+      const retryAfterMs = retryAfter
+        ? /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
+          ? Number(retryAfter.trim()) * 1000
+          : (() => {
+            const parsed = Date.parse(retryAfter);
+            return Number.isFinite(parsed) ? Math.max(0, parsed - Date.now()) : undefined;
+          })()
+        : undefined;
       await response.body?.cancel();
-      throw new WhatsAppProviderError(operation, response.status);
+      throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
     }
 
     return response;
@@ -354,7 +374,11 @@ export const createUazapiProvider = (
           "Content-Type": "application/json",
           token: input.instanceToken,
         },
-        body: JSON.stringify({ number: input.number, text: input.text }),
+        body: JSON.stringify({
+          number: input.number,
+          text: input.text,
+          ...(input.idempotencyKey ? { track_id: input.idempotencyKey } : {}),
+        }),
       });
       await response.body?.cancel();
     },

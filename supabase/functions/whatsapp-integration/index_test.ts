@@ -1584,6 +1584,95 @@ Deno.test("POST /send-notification - should format message and send it to VPS", 
   restoreFetch();
 });
 
+Deno.test("POST /send-notification Uazapi - retries temporary failures and records idempotency", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  const providerCalls: Record<string, unknown>[] = [];
+  const idempotencyBodies: Record<string, unknown>[] = [];
+  let sendAttempts = 0;
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({ id: "instance-1", tenant_id: "tenant-1", instance_name: "nav_1", instance_token: "token-1", status: "connected", send_confirmation: true, send_cancellation: true }), { status: 200 });
+    }
+    if (url.includes("rest/v1/appointments")) {
+      return new Response(JSON.stringify({
+        id: "appointment-1",
+        start_time: "2026-08-01T19:00:00.000Z",
+        customers: { name: "Cliente", phone: "11999991111", token_acesso: "customer-token" },
+        professionals: { name: "Barbeiro" },
+        services: { name: "Corte" },
+        tenants: { name: "Barbearia", timezone: "America/Manaus" },
+      }), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      if (method === "POST") {
+        idempotencyBodies.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      providerCalls.push({ ...input });
+      sendAttempts++;
+      return sendAttempts === 1
+        ? Promise.reject(new WhatsAppProviderError("send text", 503, 0))
+        : Promise.resolve();
+    },
+  });
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({ event: "appointment_created", appointment_id: "appointment-1", tenant_id: "tenant-1" }),
+      },
+    ));
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).attempts, 2);
+    assertEquals(sendAttempts, 2);
+    assertEquals(idempotencyBodies[0]?.direction, "outbound");
+    assertEquals(idempotencyBodies[0]?.idempotency_key, "appointment:appointment-1:appointment_created");
+    assertEquals(providerCalls[0]?.number, "5511999991111");
+
+    let permanentFailureCalls = 0;
+    const permanentFailureProvider = createProviderStub({
+      sendText: () => {
+        permanentFailureCalls++;
+        return Promise.reject(new WhatsAppProviderError("send text", 400));
+      },
+    });
+    const permanentFailureResponse = await createHandler({ providerFactory: () => permanentFailureProvider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({ event: "appointment_cancelled", appointment_id: "appointment-1", tenant_id: "tenant-1" }),
+      },
+    ));
+    assertEquals(permanentFailureResponse.status, 502);
+    assertEquals((await permanentFailureResponse.json()).attempts, 1);
+    assertEquals(permanentFailureCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
+});
+
 Deno.test("POST /process-reminders - should scan pending appointments and send reminders", async () => {
   const restoreFetch = setupMockFetch({
     // Mock DB select connected instances

@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
   createEvolutionGoProvider,
   createUazapiProvider,
+  WhatsAppProviderError,
+  type ProviderSendTextInput,
   type ProviderStatus,
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
@@ -96,13 +98,166 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     baseUrl: useUazapi ? uazapiBaseUrl : evolutionApiUrl,
     adminToken: useUazapi ? uazapiAdminToken : evolutionGlobalApiKey,
   });
-  const providerFailureResponse = (): Response => new Response(
-    JSON.stringify({ error: "WhatsApp provider request failed" }),
+  const providerFailureResponse = (attempts?: number): Response => new Response(
+    JSON.stringify({
+      error: "WhatsApp provider request failed",
+      ...(attempts ? { attempts } : {}),
+    }),
     {
       status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     },
   );
+
+  const sleep = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const outboundProcessingLeaseMs = 5 * 60 * 1000;
+  const sendTextWithRetry = async (input: ProviderSendTextInput, initialAttempt = 1): Promise<number> => {
+    if (!useUazapi) {
+      await provider.sendText(input);
+      return 1;
+    }
+
+    let backoffMs = 250;
+    for (let attempt = initialAttempt; attempt <= 3; attempt++) {
+      try {
+        await provider.sendText(input);
+        return attempt;
+      } catch (error) {
+        const status = error instanceof WhatsAppProviderError
+          ? error.status
+          : Number((error as { status?: unknown })?.status) || undefined;
+        const retryAfterMs = error instanceof WhatsAppProviderError ? error.retryAfterMs : undefined;
+        const retryable = status === undefined || status === 429 || status >= 500;
+        if (!retryable || attempt === 3) {
+          if (error && typeof error === "object") {
+            (error as { attempts?: number }).attempts = attempt;
+          }
+          throw error;
+        }
+
+        await sleep(Math.min(Math.max(backoffMs, retryAfterMs ?? 0), 60 * 1000));
+        backoffMs *= 2;
+      }
+    }
+
+    throw new Error("WhatsApp provider request failed");
+  };
+
+  type OutboundReservation = {
+    duplicate: boolean;
+    attempts: number;
+    error?: boolean;
+  };
+
+  const reserveOutboundMessage = async ({
+    tenantId,
+    instanceId,
+    appointmentId,
+    eventType,
+  }: {
+    tenantId: string;
+    instanceId?: string;
+    appointmentId: string;
+    eventType: string;
+  }): Promise<OutboundReservation> => {
+    if (!useUazapi) return { duplicate: false, attempts: 0 };
+
+    const idempotencyKey = `appointment:${appointmentId}:${eventType}`;
+    const { error: insertError } = await supabase
+      .from("whatsapp_message_idempotency")
+      .insert({
+        tenant_id: tenantId,
+        whatsapp_instance_id: instanceId ?? null,
+        direction: "outbound",
+        event_type: eventType,
+        idempotency_key: idempotencyKey,
+        appointment_id: appointmentId,
+        status: "processing",
+        attempt_count: 1,
+      });
+
+    if (!insertError) return { duplicate: false, attempts: 1 };
+    if (insertError.code !== "23505") return { duplicate: false, attempts: 0, error: true };
+
+    const { data: existing, error: existingError } = await supabase
+      .from("whatsapp_message_idempotency")
+      .select("status, attempt_count, last_error, updated_at")
+      .eq("tenant_id", tenantId)
+      .eq("direction", "outbound")
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+
+    if (existingError) return { duplicate: false, attempts: 0, error: true };
+
+    const attempts = Number(existing?.attempt_count ?? 0);
+    const updatedAt = existing?.updated_at ? Date.parse(existing.updated_at) : NaN;
+    const processingIsStale = existing?.status === "processing" &&
+      Number.isFinite(updatedAt) && Date.now() - updatedAt >= outboundProcessingLeaseMs;
+    const reclaimStatus = existing?.status === "failed" && existing.last_error !== "permanent provider error"
+      ? "failed"
+      : processingIsStale
+        ? "processing"
+        : null;
+    if (reclaimStatus && attempts < 3) {
+      const { data: reclaimed, error: reclaimError } = await supabase
+        .from("whatsapp_message_idempotency")
+        .update({
+          status: "processing",
+          attempt_count: attempts + 1,
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("direction", "outbound")
+        .eq("idempotency_key", idempotencyKey)
+        .eq("status", reclaimStatus)
+        .eq("attempt_count", attempts)
+        .eq("updated_at", existing.updated_at)
+        .select("status, attempt_count")
+        .maybeSingle();
+
+      if (reclaimError) return { duplicate: false, attempts, error: true };
+      if (!reclaimed) return { duplicate: true, attempts };
+      return { duplicate: false, attempts: attempts + 1 };
+    }
+
+    return { duplicate: true, attempts };
+  };
+
+  const finalizeOutboundMessage = async ({
+    tenantId,
+    appointmentId,
+    eventType,
+    status,
+    attempts,
+    errorMessage,
+  }: {
+    tenantId: string;
+    appointmentId: string;
+    eventType: string;
+    status: "succeeded" | "failed";
+    attempts: number;
+    errorMessage?: string;
+  }): Promise<boolean> => {
+    if (!useUazapi) return true;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const { error } = await supabase
+        .from("whatsapp_message_idempotency")
+        .update({
+          status,
+          attempt_count: Math.min(Math.max(attempts, 1), 3),
+          last_error: errorMessage ?? null,
+          completed_at: status === "succeeded" ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("direction", "outbound")
+        .eq("idempotency_key", `appointment:${appointmentId}:${eventType}`);
+      if (!error) return true;
+      if (attempt === 2) console.error("[WhatsApp-Integration] Falha ao persistir resultado da notificação");
+    }
+    return false;
+  };
 
   const validateTriggerSecret = (route: string): Response | null => {
     if (!dbTriggerSecret.trim()) {
@@ -989,6 +1144,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           tenants ( name, timezone )
         `)
         .eq("id", appointment_id)
+        .eq("tenant_id", tenant_id)
         .single();
 
       if (appErr || !appointment) {
@@ -1025,21 +1181,60 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi cancelado.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nSe precisar, você pode agendar um novo horário acessando: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nAgradecemos a compreensão!`;
       }
 
-      // 3. Enviar mensagem pelo provedor configurado
+      const reservation = await reserveOutboundMessage({
+        tenantId: tenant_id,
+        instanceId: config.id,
+        appointmentId: appointment_id,
+        eventType: event,
+      });
+      if (reservation.error) {
+        console.error("[WhatsApp-Integration] Falha ao reservar idempotência da notificação");
+        return new Response(JSON.stringify({ error: "Failed to reserve notification" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (reservation.duplicate) {
+        return new Response(JSON.stringify({ success: true, duplicate: true, attempts: reservation.attempts }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // 3. Enviar mensagem pelo provedor configurado com retry controlado
+      let attempts = reservation.attempts || 1;
       try {
-        await provider.sendText({
+        attempts = await sendTextWithRetry({
           instanceName: config.instance_name,
           instanceToken: config[instanceTokenColumn],
           number: clientPhone,
           text: messageText,
-        });
+          idempotencyKey: `appointment:${appointment_id}:${event}`,
+        }, reservation.attempts || 1);
       } catch (sendError) {
-        console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação", sendError);
-        return providerFailureResponse();
+        const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? attempts);
+        const permanentFailure = sendError instanceof WhatsAppProviderError &&
+          sendError.status !== undefined && sendError.status >= 400 && sendError.status < 500 && sendError.status !== 429;
+        await finalizeOutboundMessage({
+          tenantId: tenant_id,
+          appointmentId: appointment_id,
+          eventType: event,
+          status: "failed",
+          attempts: failedAttempts,
+          errorMessage: permanentFailure ? "permanent provider error" : "provider request failed",
+        });
+        console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação");
+        return providerFailureResponse(failedAttempts);
       }
 
+      await finalizeOutboundMessage({
+        tenantId: tenant_id,
+        appointmentId: appointment_id,
+        eventType: event,
+        status: "succeeded",
+        attempts,
+      });
       console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${clientPhone}`);
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, attempts }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -1272,19 +1467,21 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
+      let attempts = 1;
       try {
-        await provider.sendText({
+        attempts = await sendTextWithRetry({
           instanceName: instance.instance_name,
           instanceToken: instance[instanceTokenColumn],
           number: clientPhone,
           text: text,
         });
       } catch (sendError) {
-        console.error("[WhatsApp-Integration] Erro ao enviar mensagem de teste pelo provedor", sendError);
-        return providerFailureResponse();
+        const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? attempts);
+        console.error("[WhatsApp-Integration] Erro ao enviar mensagem de teste pelo provedor");
+        return providerFailureResponse(failedAttempts);
       }
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, attempts }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
