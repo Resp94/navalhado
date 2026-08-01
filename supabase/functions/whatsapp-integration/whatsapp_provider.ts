@@ -4,10 +4,7 @@ export type ProviderEvent = "connection" | "messages";
 export interface ProviderCreateInput {
   instanceName: string;
   instanceToken?: string;
-  metadata?: {
-    tenantId?: string;
-    environment?: string;
-  };
+  metadata?: { tenantId?: string; environment?: string };
 }
 
 export interface ProviderInstanceInput {
@@ -83,169 +80,20 @@ const normalizeStatus = (
   return fallback;
 };
 
-export const createEvolutionGoProvider = (
-  config: WhatsAppProviderConfig,
-  fetcher: Fetcher = globalThis.fetch,
-): WhatsAppProvider => {
-  const endpointUrl = (endpoint: string): string => {
-    const base = config.baseUrl.replace(/\/+$/, "");
-    const path = endpoint.replace(/^\/+/, "");
-    return `${base}/${path}`;
-  };
-
-  const request = async (
-    operation: string,
-    endpoint: string,
-    init: RequestInit,
-  ): Promise<Response> => {
-    let response: Response;
-    try {
-      response = await fetcher(endpointUrl(endpoint), init);
-    } catch {
-      throw new WhatsAppProviderError(operation);
-    }
-
-    if (!response.ok) {
-      const retryAfter = response.headers.get("retry-after");
-      const retryAfterMs = retryAfter
-        ? /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
-          ? Number(retryAfter.trim()) * 1000
-          : (() => {
-            const parsed = Date.parse(retryAfter);
-            return Number.isFinite(parsed) ? Math.max(0, parsed - Date.now()) : undefined;
-          })()
-        : undefined;
-      await response.body?.cancel();
-      throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
-    }
-
-    return response;
-  };
-
-  const evolutionEventsFor = (events: ProviderEvent[]): string[] => {
-    // A versão Evolution Go atualmente instalada expõe a assinatura consolidada ALL.
-    // O handler usa eventos neutros; o futuro adaptador Uazapi fará seu próprio mapeamento.
-    return events.length > 0 ? ["ALL"] : [];
-  };
-
-  const postConnectConfiguration = async (input: ProviderWebhookInput): Promise<Response> => {
-    const response = await request("connect instance", "instance/connect", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": input.instanceToken,
-      },
-      body: JSON.stringify({
-        immediate: true,
-        webhookUrl: input.webhookUrl,
-        subscribe: evolutionEventsFor(input.events),
-      }),
-    });
-    return response;
-  };
-
-  return {
-    async createInstance(input) {
-      const instanceToken = input.instanceToken?.trim();
-      if (!instanceToken) {
-        throw new WhatsAppProviderError("create instance");
-      }
-      const response = await request("create instance", "instance/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": config.adminToken,
-        },
-        body: JSON.stringify({
-          name: input.instanceName,
-          token: instanceToken,
-        }),
-      });
-      await response.body?.cancel();
-      return { instanceToken };
-    },
-
-    async connectInstance(input) {
-      const response = await postConnectConfiguration(input);
-      let data: Record<string, any> | undefined;
-      try {
-        data = await response.json();
-      } catch {
-        throw new WhatsAppProviderError("connect instance");
-      }
-
-      return {
-        status: normalizeStatus(data?.data?.status ?? data?.data?.state ?? data?.status, "connecting"),
-        qrCode: data?.data?.Qrcode ?? data?.data?.qrcode,
-        pairingCode: data?.data?.Code ?? data?.data?.code,
-      };
-    },
-
-    async getInstanceStatus(input) {
-      const response = await request("get instance status", "instance/qr", {
-        method: "GET",
-        headers: { "apikey": input.instanceToken },
-      });
-      let data: Record<string, any>;
-      try {
-        data = await response.json();
-      } catch {
-        throw new WhatsAppProviderError("get instance status");
-      }
-      return {
-        status: normalizeStatus(data?.data?.status ?? data?.data?.state ?? data?.status),
-        qrCode: data?.data?.Qrcode ?? data?.data?.qrcode,
-        pairingCode: data?.data?.Code ?? data?.data?.code,
-      };
-    },
-
-    async disconnectInstance(input) {
-      const response = await request("disconnect instance", "instance/disconnect", {
-        method: "POST",
-        headers: { "apikey": input.instanceToken },
-      });
-      await response.body?.cancel();
-    },
-
-    async configureWebhook(input) {
-      const response = await postConnectConfiguration(input);
-      const result = { statusCode: response.status };
-      await response.body?.cancel();
-      return result;
-    },
-
-    async sendText(input) {
-      const response = await request("send text", "send/text", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": input.instanceToken,
-        },
-        body: JSON.stringify({
-          number: input.number,
-          text: input.text,
-        }),
-      });
-      await response.body?.cancel();
-    },
-  };
+const retryAfterMilliseconds = (value: string | null): number | undefined => {
+  if (!value) return undefined;
+  if (/^\d+(?:\.\d+)?$/.test(value.trim())) return Number(value.trim()) * 1000;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed - Date.now()) : undefined;
 };
 
 export const createUazapiProvider = (
   config: WhatsAppProviderConfig,
   fetcher: Fetcher = globalThis.fetch,
 ): WhatsAppProvider => {
-  const endpointUrl = (endpoint: string): string => {
-    const base = config.baseUrl.replace(/\/+$/, "");
-    const path = endpoint.replace(/^\/+/, "");
-    return `${base}/${path}`;
-  };
+  const endpointUrl = (endpoint: string): string => `${config.baseUrl.replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`;
 
-  const request = async (
-    operation: string,
-    endpoint: string,
-    init: RequestInit,
-  ): Promise<Response> => {
+  const request = async (operation: string, endpoint: string, init: RequestInit): Promise<Response> => {
     let response: Response;
     try {
       response = await fetcher(endpointUrl(endpoint), init);
@@ -254,28 +102,17 @@ export const createUazapiProvider = (
     }
 
     if (!response.ok) {
-      const retryAfter = response.headers.get("retry-after");
-      const retryAfterMs = retryAfter
-        ? /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
-          ? Number(retryAfter.trim()) * 1000
-          : (() => {
-            const parsed = Date.parse(retryAfter);
-            return Number.isFinite(parsed) ? Math.max(0, parsed - Date.now()) : undefined;
-          })()
-        : undefined;
+      const retryAfterMs = retryAfterMilliseconds(response.headers.get("retry-after"));
       await response.body?.cancel();
       throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
     }
-
     return response;
   };
 
   const parseJson = async (operation: string, response: Response): Promise<Record<string, any>> => {
     try {
       const data = await response.json();
-      if (!data || typeof data !== "object" || Array.isArray(data)) {
-        throw new Error("invalid response");
-      }
+      if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("invalid response");
       return data as Record<string, any>;
     } catch {
       throw new WhatsAppProviderError(operation);
@@ -289,10 +126,7 @@ export const createUazapiProvider = (
     async createInstance(input) {
       const response = await request("create instance", "instance/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          admintoken: config.adminToken,
-        },
+        headers: { "Content-Type": "application/json", admintoken: config.adminToken },
         body: JSON.stringify({
           name: input.instanceName,
           systemName: "Navalhado",
@@ -304,17 +138,13 @@ export const createUazapiProvider = (
       const instance = instanceFrom(data);
       const instanceToken = String(data.token ?? instance.token ?? "").trim();
       if (!instanceToken) throw new WhatsAppProviderError("create instance");
-      const providerInstanceId = String(data.id ?? instance.id ?? "").trim() || undefined;
-      return { instanceToken, providerInstanceId };
+      return { instanceToken, providerInstanceId: String(data.id ?? instance.id ?? "").trim() || undefined };
     },
 
     async connectInstance(input) {
       const response = await request("connect instance", "instance/connect", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          token: input.instanceToken,
-        },
+        headers: { "Content-Type": "application/json", token: input.instanceToken },
         body: JSON.stringify({}),
       });
       const data = await parseJson("connect instance", response);
@@ -334,7 +164,7 @@ export const createUazapiProvider = (
       const data = await parseJson("get instance status", response);
       const instance = instanceFrom(data);
       return {
-        status: normalizeStatus(instance.status ?? data.status, "disconnected"),
+        status: normalizeStatus(instance.status ?? data.status),
         qrCode: instance.qrcode ?? instance.Qrcode ?? data.qrcode ?? data.Qrcode,
         pairingCode: instance.paircode ?? instance.pairingCode ?? data.paircode,
       };
@@ -351,10 +181,7 @@ export const createUazapiProvider = (
     async configureWebhook(input) {
       const response = await request("configure webhook", "webhook", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          token: input.instanceToken,
-        },
+        headers: { "Content-Type": "application/json", token: input.instanceToken },
         body: JSON.stringify({
           enabled: true,
           url: input.webhookUrl,
@@ -370,10 +197,7 @@ export const createUazapiProvider = (
     async sendText(input) {
       const response = await request("send text", "send/text", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          token: input.instanceToken,
-        },
+        headers: { "Content-Type": "application/json", token: input.instanceToken },
         body: JSON.stringify({
           number: input.number,
           text: input.text,

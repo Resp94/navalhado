@@ -25,12 +25,12 @@ select ok(
   'management view runs as invoker'
 );
 select ok(
-  not has_column_privilege('authenticated', 'public.evolution_api_instances', 'api_key', 'SELECT'),
-  'Evolution API key is not browser-readable'
+  not has_column_privilege('authenticated', 'public.whatsapp_instances', 'instance_token', 'SELECT'),
+  'token da instância não é legível pelo navegador'
 );
 select has_index(
-  'public', 'evolution_api_instances', 'evolution_api_instances_tenant_id_uidx',
-  'one Evolution instance per tenant'
+  'public', 'whatsapp_instances', 'whatsapp_instances_tenant_id_key',
+  'uma instância neutra por tenant'
 );
 select has_index(
   'public', 'professionals', 'professionals_user_id_uidx',

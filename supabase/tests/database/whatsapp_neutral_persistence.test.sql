@@ -271,7 +271,7 @@ select throws_ok($$insert into public.whatsapp_instances(
   tenant_id, provider, instance_name, instance_token
 ) values (
   '40000000-0000-0000-0000-000000000002',
-  'evolution',
+  'uazapi',
   'neutral_whatsapp_invalid_provider',
   'backend-only-instance-token-3'
 )$$, '23514', null, 'non-Uazapi provider is rejected');
