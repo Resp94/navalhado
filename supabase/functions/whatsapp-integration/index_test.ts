@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testi
 import { createHandler, handler, singleRelation } from "./index.ts";
 import {
   createEvolutionGoProvider,
+  createUazapiProvider,
   WhatsAppProviderError,
   type WhatsAppProvider,
 } from "./whatsapp_provider.ts";
@@ -102,6 +103,56 @@ Deno.test("Evolution Go adapter converts malformed provider responses to safe er
   assertEquals(connectError.message.includes("secret-instance-token"), false);
 });
 
+Deno.test("Uazapi adapter creates instances and configures filtered webhooks", async () => {
+  const requests: Array<{ url: string; headers: Headers; body?: Record<string, unknown> }> = [];
+  const provider = createUazapiProvider(
+    { baseUrl: "https://api.uazapi.com", adminToken: "admin-secret" },
+    async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const headers = new Headers(init?.headers);
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      requests.push({ url, headers, body });
+
+      if (url.endsWith("/instance/create")) {
+        return new Response(JSON.stringify({
+          token: "instance-secret",
+          instance: { id: "uaz-instance-1", token: "instance-secret", status: "disconnected" },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify([{ id: "webhook-1" }]), { status: 200 });
+    },
+  );
+
+  const created = await provider.createInstance({
+    instanceName: "nav_tenant_1",
+    metadata: { tenantId: "tenant-1", environment: "dev" },
+  });
+  await provider.configureWebhook({
+    instanceName: "nav_tenant_1",
+    instanceToken: created.instanceToken,
+    webhookUrl: "https://dev.example.com/webhook",
+    events: ["connection", "messages"],
+  });
+
+  assertEquals(created, { instanceToken: "instance-secret", providerInstanceId: "uaz-instance-1" });
+  assertEquals(requests[0]?.url, "https://api.uazapi.com/instance/create");
+  assertEquals(requests[0]?.headers.get("admintoken"), "admin-secret");
+  assertEquals(requests[0]?.body, {
+    name: "nav_tenant_1",
+    systemName: "Navalhado",
+    adminField01: "tenant-1",
+    adminField02: "dev",
+  });
+  assertEquals(requests[1]?.url, "https://api.uazapi.com/webhook");
+  assertEquals(requests[1]?.headers.get("token"), "instance-secret");
+  assertEquals(requests[1]?.body, {
+    enabled: true,
+    url: "https://dev.example.com/webhook",
+    events: ["connection", "messages"],
+    excludeMessages: ["wasSentByApi", "fromMeYes", "isGroupYes"],
+  });
+});
+
 // Helper to mock the global fetch function
 const setupMockFetch = (mockResponses: Record<string, { status: number; body: any }>) => {
   const originalFetch = globalThis.fetch;
@@ -143,6 +194,144 @@ const createProviderStub = (
   configureWebhook: () => Promise.resolve({ statusCode: 200 }),
   sendText: () => Promise.resolve(),
   ...overrides,
+});
+
+Deno.test("POST /activate-instance creates, configures and persists a neutral Uazapi instance without exposing credentials", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  const calls: string[] = [];
+  const providerCalls: string[] = [];
+  const provider = createProviderStub({
+    createInstance: () => {
+      providerCalls.push("create");
+      return Promise.resolve({ instanceToken: "secret-instance-token", providerInstanceId: "uaz-id-1" });
+    },
+    configureWebhook: (input) => {
+      providerCalls.push(`webhook:${input.events.join(",")}`);
+      return Promise.resolve({ statusCode: 200 });
+    },
+  });
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "secret-admin-token");
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    calls.push(`${method} ${url}`);
+    if (url.includes("auth/v1/user")) return new Response(JSON.stringify({ id: "user-1" }), { status: 200 });
+    if (url.includes("rest/v1/users")) return new Response(JSON.stringify({ tenant_id: "tenant-1", role: "gerente" }), { status: 200 });
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if (method === "GET") return new Response(JSON.stringify([]), { status: 200 });
+      if (method === "POST") return new Response(JSON.stringify({
+        id: "local-1",
+        tenant_id: "tenant-1",
+        provider: "uazapi",
+        instance_name: "nav_tenant_1",
+        status: "disconnected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+        qr_code: null,
+      }), { status: 201 });
+      if (method === "PATCH") return new Response(JSON.stringify({
+        id: "local-1",
+        tenant_id: "tenant-1",
+        provider: "uazapi",
+        instance_name: "nav_tenant_1",
+        status: "disconnected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+        qr_code: null,
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 500 });
+  };
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(
+      new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/activate-instance", {
+        method: "POST",
+        headers: { Authorization: "Bearer user-token" },
+        body: "{}",
+      }),
+    );
+    const body = await response.json();
+    assertEquals(response.status, 201);
+    assertEquals(body.success, true);
+    assertEquals(body.instance.instance_name, "nav_tenant_1");
+    assertEquals("instance_token" in body.instance, false);
+    assertEquals(providerCalls, ["create", "webhook:connection,messages"]);
+    assertEquals(calls.some((call) => call.includes("rest/v1/whatsapp_instances")), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
+});
+
+Deno.test("POST /activate-instance rejects an existing tenant integration and compensates partial activation", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
+  const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
+  const providerCalls: string[] = [];
+  const provider = createProviderStub({
+    createInstance: () => {
+      providerCalls.push("create");
+      return Promise.resolve({ instanceToken: "secret-instance-token", providerInstanceId: "uaz-id-2" });
+    },
+    configureWebhook: () => {
+      providerCalls.push("webhook");
+      return Promise.reject(new WhatsAppProviderError("configure webhook"));
+    },
+    deleteInstance: () => {
+      providerCalls.push("delete");
+      return Promise.resolve();
+    },
+  });
+
+  Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
+  Deno.env.set("UAZAPI_ADMIN_TOKEN", "secret-admin-token");
+
+  const run = async (existing: boolean) => {
+    globalThis.fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const method = init?.method || "GET";
+      if (url.includes("auth/v1/user")) return new Response(JSON.stringify({ id: "user-1" }), { status: 200 });
+      if (url.includes("rest/v1/users")) return new Response(JSON.stringify({ tenant_id: "tenant-1", role: "gerente" }), { status: 200 });
+      if (url.includes("rest/v1/whatsapp_instances")) {
+        if (method === "GET") return new Response(JSON.stringify(existing ? { id: "existing-1" } : []), { status: 200 });
+        if (method === "POST") return new Response(JSON.stringify({ id: "local-2", instance_name: "nav_tenant_2" }), { status: 201 });
+        if (method === "DELETE") return new Response(JSON.stringify({}), { status: 204 });
+      }
+      return new Response(JSON.stringify({ error: "unexpected request" }), { status: 500 });
+    };
+    return createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/activate-instance",
+      { method: "POST", headers: { Authorization: "Bearer user-token" }, body: "{}" },
+    ));
+  };
+
+  try {
+    const conflict = await run(true);
+    assertEquals(conflict.status, 409);
+    assertEquals(providerCalls, []);
+
+    const compensated = await run(false);
+    assertEquals(compensated.status, 502);
+    assertEquals(providerCalls, ["create", "webhook", "delete"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
+    else Deno.env.set("UAZAPI_BASE_URL", originalBaseUrl);
+    if (originalAdminToken === undefined) Deno.env.delete("UAZAPI_ADMIN_TOKEN");
+    else Deno.env.set("UAZAPI_ADMIN_TOKEN", originalAdminToken);
+  }
 });
 
 Deno.test("POST /manage-instance - create delegates through the provider gateway", async () => {

@@ -6,33 +6,33 @@ import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-interface EvolutionInstance {
+interface WhatsappInstance {
   id: string;
   tenant_id: string;
   instance_name: string;
   qr_code: string | null;
-  status: 'connected' | 'disconnected' | 'pairing';
+  status: 'connected' | 'disconnected' | 'connecting' | 'hibernated' | 'pairing';
   send_confirmation: boolean;
   send_reminders: boolean;
   reminder_hours: number;
   send_cancellation: boolean;
 }
 
-type EvolutionSetting =
+type WhatsappSetting =
   | 'send_confirmation'
   | 'send_reminders'
   | 'reminder_hours'
   | 'send_cancellation';
 
-const EVOLUTION_INSTANCE_COLUMNS =
+const WHATSAPP_INSTANCE_COLUMNS =
   'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation';
 
-const toEvolutionInstance = (row: Record<string, any>): EvolutionInstance => ({
+const toWhatsappInstance = (row: Record<string, any>): WhatsappInstance => ({
   id: row.id,
   tenant_id: row.tenant_id,
   instance_name: row.instance_name,
   qr_code: row.qr_code,
-  status: row.status,
+  status: row.status === 'pairing' ? 'connecting' : row.status,
   send_confirmation: row.send_confirmation,
   send_reminders: row.send_reminders,
   reminder_hours: row.reminder_hours,
@@ -46,7 +46,7 @@ export const Whatsapp: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
 
-  const [instance, setInstance] = useState<EvolutionInstance | null>(null);
+  const [instance, setInstance] = useState<WhatsappInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [testPhone, setTestPhone] = useState('');
@@ -57,13 +57,13 @@ export const Whatsapp: React.FC = () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .from('evolution_api_instances')
-          .select(EVOLUTION_INSTANCE_COLUMNS)
+          .from('whatsapp_instances')
+          .select(WHATSAPP_INSTANCE_COLUMNS)
           .eq('tenant_id', tenant.tenantId)
           .maybeSingle();
 
         if (error) throw error;
-        setInstance(data ? toEvolutionInstance(data) : null);
+        setInstance(data ? toWhatsappInstance(data) : null);
       } catch (error) {
         console.error('Error fetching whatsapp instance:', error);
         addToast('Não foi possível carregar o status do WhatsApp.', 'error');
@@ -75,13 +75,13 @@ export const Whatsapp: React.FC = () => {
     fetchInstance();
 
     const channel = supabase
-      .channel(`evolution_api_instances:${tenant.tenantId}`)
+      .channel(`whatsapp_instances:${tenant.tenantId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'evolution_api_instances',
+          table: 'whatsapp_instances',
           filter: `tenant_id=eq.${tenant.tenantId}`,
         },
         (payload) => {
@@ -92,7 +92,7 @@ export const Whatsapp: React.FC = () => {
 
           setInstance((prev) => {
             const merged = { ...(prev || {}), ...payload.new };
-            return toEvolutionInstance(merged);
+            return toWhatsappInstance(merged);
           });
         }
       )
@@ -119,54 +119,20 @@ export const Whatsapp: React.FC = () => {
   const handleCreateInstance = async () => {
     try {
       setActionLoading(true);
-      const cleanName = tenant.tenantName
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '')
-        .substring(0, 15);
-      
-      const instanceName = `nav_${cleanName}_${Math.floor(1000 + Math.random() * 9000)}`;
-      const apiKey = `key_${crypto.randomUUID().substring(0, 18)}`;
-
-      const { data, error } = await supabase
-        .from('evolution_api_instances')
-        .insert([
-          {
-            tenant_id: tenant.tenantId,
-            instance_name: instanceName,
-            api_key: apiKey,
-            status: 'disconnected',
-            qr_code: null
-          }
-        ])
-        .select(EVOLUTION_INSTANCE_COLUMNS)
-        .single();
-
-      if (error) throw error;
-
-      // Invocar a Edge Function para criar fisicamente a instância na VPS
       const { data: funcData, error: funcError } = await supabase.functions.invoke(
-        'whatsapp-integration/manage-instance',
-        {
-          body: {
-            action: 'create',
-            instance_id: data.id,
-            instance_name: data.instance_name,
-          },
-        }
+        'whatsapp-integration/activate-instance',
+        { body: {} },
       );
 
+      // Invocar a Edge Function para criar fisicamente a instância na VPS
       if (funcError || (funcData && funcData.error)) {
         // Rollback no banco de dados local caso a criação na VPS falhe
-        await supabase
-          .from('evolution_api_instances')
-          .delete()
-          .eq('id', data.id);
-
         const errorMsg = funcData?.error || funcError?.message || 'Erro ao inicializar a Instância WhatsApp da barbearia.';
         throw new Error(errorMsg);
       }
 
-      setInstance(toEvolutionInstance(data));
+      if (!funcData?.instance) throw new Error('A ativação não retornou uma instância válida.');
+      setInstance(toWhatsappInstance(funcData.instance));
       addToast('Instância criada com sucesso! Conecte seu celular.', 'success');
     } catch (error: any) {
       console.error('Error creating instance:', error);
@@ -182,18 +148,18 @@ export const Whatsapp: React.FC = () => {
       setActionLoading(true);
       
       const { data, error } = await supabase
-        .from('evolution_api_instances')
+        .from('whatsapp_instances')
         .update({
-          status: 'pairing',
+          status: 'connecting',
           qr_code: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', instance.id)
-        .select(EVOLUTION_INSTANCE_COLUMNS)
+        .select(WHATSAPP_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(toEvolutionInstance(data));
+      setInstance(toWhatsappInstance(data));
 
       const { data: funcData, error: funcError } = await supabase.functions.invoke(
         'whatsapp-integration/manage-instance',
@@ -202,6 +168,7 @@ export const Whatsapp: React.FC = () => {
             action: 'connect',
             instance_id: instance.id,
             instance_name: instance.instance_name,
+            provider: 'uazapi',
           },
         }
       );
@@ -212,7 +179,7 @@ export const Whatsapp: React.FC = () => {
       }
 
       if (funcData?.qrcode) {
-        setInstance(prev => prev ? { ...prev, qr_code: funcData.qrcode, status: 'pairing' } : null);
+        setInstance(prev => prev ? { ...prev, qr_code: funcData.qrcode, status: 'connecting' } : null);
       }
 
       addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
@@ -238,23 +205,24 @@ export const Whatsapp: React.FC = () => {
             action: 'disconnect',
             instance_id: instance.id,
             instance_name: instance.instance_name,
+            provider: 'uazapi',
           },
         }
       );
 
       const { data, error } = await supabase
-        .from('evolution_api_instances')
+        .from('whatsapp_instances')
         .update({
           status: 'disconnected',
           qr_code: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', instance.id)
-        .select(EVOLUTION_INSTANCE_COLUMNS)
+        .select(WHATSAPP_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(toEvolutionInstance(data));
+      setInstance(toWhatsappInstance(data));
       addToast('WhatsApp desconectado da barbearia.', 'warning');
     } catch (error: any) {
       console.error('Error disconnecting whatsapp instance:', error);
@@ -265,24 +233,24 @@ export const Whatsapp: React.FC = () => {
   };
 
   const handleUpdateConfig = async (
-    key: EvolutionSetting,
+    key: WhatsappSetting,
     value: boolean | number
   ) => {
     if (!instance) return;
 
     try {
       const { data, error } = await supabase
-        .from('evolution_api_instances')
+        .from('whatsapp_instances')
         .update({
           [key]: value,
           updated_at: new Date().toISOString(),
         })
         .eq('id', instance.id)
-        .select(EVOLUTION_INSTANCE_COLUMNS)
+        .select(WHATSAPP_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
-      setInstance(toEvolutionInstance(data));
+      setInstance(toWhatsappInstance(data));
       addToast('Configurações do WhatsApp atualizadas com sucesso!', 'success');
     } catch (error) {
       console.error('Error updating whatsapp config:', error);
@@ -361,7 +329,8 @@ export const Whatsapp: React.FC = () => {
               <span className={`card-whatsapp__pill card-whatsapp__pill--${instance.status}`}>
                 {instance.status === 'connected' && 'Conectado'}
                 {instance.status === 'disconnected' && 'Desconectado'}
-                {instance.status === 'pairing' && 'Pareando'}
+                {(instance.status === 'connecting' || instance.status === 'pairing') && 'Pareando'}
+                {instance.status === 'hibernated' && 'Pausado'}
               </span>
             </div>
 
@@ -386,7 +355,7 @@ export const Whatsapp: React.FC = () => {
                 </div>
               )}
 
-              {instance.status === 'pairing' && (
+              {(instance.status === 'connecting' || instance.status === 'pairing') && (
                 <div className="card-whatsapp__qr">
                   <p className="qr-label">Leia o QR Code abaixo</p>
                   <p className="qr-desc">Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar um Aparelho</strong> e aponte a câmera.</p>
@@ -707,7 +676,8 @@ export const Whatsapp: React.FC = () => {
           border: 1px solid rgba(248, 180, 180, 0.25);
         }
 
-        .card-whatsapp__pill--pairing {
+        .card-whatsapp__pill--pairing,
+        .card-whatsapp__pill--connecting {
           background: rgba(254, 243, 199, 0.6);
           color: var(--color-warning);
           border: 1px solid rgba(217, 120, 6, 0.2);

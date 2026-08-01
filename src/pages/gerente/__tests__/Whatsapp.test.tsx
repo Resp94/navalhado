@@ -202,7 +202,7 @@ describe('Whatsapp Config Page - TDD', () => {
         id: 'inst-123',
         tenant_id: 'tenant-test-id',
         instance_name: 'nav_estilo_123',
-        status: 'pairing',
+        status: 'connecting',
         qr_code: null,
         send_confirmation: true,
         send_reminders: true,
@@ -222,7 +222,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledWith({
-        status: 'pairing',
+        status: 'connecting',
         qr_code: null,
         updated_at: expect.any(String),
       });
@@ -231,6 +231,7 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'connect',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
+          provider: 'uazapi',
         },
       });
     });
@@ -541,7 +542,20 @@ describe('Whatsapp Config Page - TDD', () => {
     });
 
     mockFunctionsInvoke.mockResolvedValue({
-      data: { success: true },
+      data: {
+        success: true,
+        instance: {
+          id: 'inst-new-123',
+          tenant_id: 'tenant-test-id',
+          instance_name: 'nav_estilo_5555',
+          status: 'disconnected',
+          qr_code: null,
+          send_confirmation: true,
+          send_reminders: true,
+          reminder_hours: 2,
+          send_cancellation: true,
+        },
+      },
       error: null,
     });
 
@@ -555,13 +569,8 @@ describe('Whatsapp Config Page - TDD', () => {
     fireEvent.click(activateButton);
 
     await waitFor(() => {
-      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
-        body: {
-          action: 'create',
-          instance_id: 'inst-new-123',
-          instance_name: 'nav_estilo_5555',
-        },
-      });
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/activate-instance', { body: {} });
+      expect(mockSingle).not.toHaveBeenCalled();
     });
 
     expect(mockAddToast).toHaveBeenCalledWith('Instância criada com sucesso! Conecte seu celular.', 'success');
@@ -619,6 +628,7 @@ describe('Whatsapp Config Page - TDD', () => {
           action: 'disconnect',
           instance_id: 'inst-123',
           instance_name: 'nav_estilo_123',
+          provider: 'uazapi',
         },
       });
     });

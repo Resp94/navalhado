@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
   createEvolutionGoProvider,
+  createUazapiProvider,
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
 
@@ -66,6 +67,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
   // Carregar variáveis de ambiente
   const evolutionApiUrl = Deno.env.get("EVOLUTION_API_URL") || "";
   const evolutionGlobalApiKey = Deno.env.get("EVOLUTION_GLOBAL_APIKEY") || "";
+  const uazapiBaseUrl = Deno.env.get("UAZAPI_BASE_URL") || "";
+  const uazapiAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN") || "";
+  const useUazapi = Boolean(uazapiBaseUrl.trim() && uazapiAdminToken.trim());
+  const instancesTable = useUazapi ? "whatsapp_instances" : "evolution_api_instances";
+  const instanceTokenColumn = useUazapi ? "instance_token" : "api_key";
+  const runtimeEnvironment = (Deno.env.get("APP_ENV") || Deno.env.get("ENVIRONMENT") || "dev").trim();
   const dbTriggerSecret = Deno.env.get("DB_TRIGGER_SECRET") || "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -79,10 +86,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
   };
   const appUrl = getCleanAppUrl(rawAppUrl);
   const providerFactory = dependencies.providerFactory ?? ((config) =>
-    createEvolutionGoProvider(config, globalThis.fetch));
+    useUazapi
+      ? createUazapiProvider(config, globalThis.fetch)
+      : createEvolutionGoProvider(config, globalThis.fetch));
   const provider = providerFactory({
-    baseUrl: evolutionApiUrl,
-    adminToken: evolutionGlobalApiKey,
+    baseUrl: useUazapi ? uazapiBaseUrl : evolutionApiUrl,
+    adminToken: useUazapi ? uazapiAdminToken : evolutionGlobalApiKey,
   });
   const providerFailureResponse = (): Response => new Response(
     JSON.stringify({ error: "WhatsApp provider request failed" }),
@@ -113,7 +122,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     return null;
   };
 
-  const validateManageInstanceAuth = async (req: Request, instanceId?: string): Promise<Response | null> => {
+  const validateManageInstanceAuth = async (req: Request, instanceId?: string, tableName = instancesTable): Promise<Response | null> => {
     const reqSecret = req.headers.get("x-db-trigger-secret");
     if (dbTriggerSecret.trim() && reqSecret?.trim() === dbTriggerSecret) {
       return null;
@@ -134,7 +143,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           if (!instanceId) return null;
 
           const { data: instanceRow } = await supabase
-            .from("evolution_api_instances")
+            .from(tableName)
             .select("tenant_id")
             .eq("id", instanceId)
             .single();
@@ -153,9 +162,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     });
   };
 
-  const revertInstanceToDisconnected = async (instanceId: string) => {
+  const revertInstanceToDisconnected = async (instanceId: string, tableName = instancesTable) => {
     const { error: updateErr } = await supabase
-      .from("evolution_api_instances")
+      .from(tableName)
       .update({
         status: "disconnected",
         qr_code: null,
@@ -182,6 +191,178 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
   try {
     // -------------------------------------------------------------------------
+    // ROTA: /activate-instance (ativação transacional Uazapi)
+    // -------------------------------------------------------------------------
+    if (path.endsWith("/activate-instance")) {
+      if (req.method !== "POST") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!useUazapi) {
+        return new Response(JSON.stringify({ error: "WhatsApp provider is not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const authHeader = req.headers.get("Authorization") || "";
+      const bearerMatch = authHeader.match(/^Bearer\s+([^\s]+)$/i);
+      if (!bearerMatch) {
+        return new Response(JSON.stringify({ error: "Unauthorized user" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getUser(bearerMatch[1]);
+      if (authError || !authData.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized user" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("tenant_id, role")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (profileError || !profile?.tenant_id || profile.role !== "gerente") {
+        return new Response(JSON.stringify({ error: "Apenas gerentes podem ativar a integração de WhatsApp." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const tenantId = String(profile.tenant_id);
+      const { data: existing, error: existingError } = await supabase
+        .from("whatsapp_instances")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (existingError) {
+        console.error("[WhatsApp-Integration] Falha ao verificar integração existente");
+        return new Response(JSON.stringify({ error: "Não foi possível verificar a integração atual." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (existing) {
+        return new Response(JSON.stringify({ error: "A barbearia já possui uma integração de WhatsApp." }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const instanceName = `nav_${tenantId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}_${crypto.randomUUID().slice(0, 8)}`;
+      const reservationToken = `pending-${crypto.randomUUID()}`;
+      const { data: reservation, error: reservationError } = await supabase
+        .from("whatsapp_instances")
+        .insert({
+          tenant_id: tenantId,
+          provider: "uazapi",
+          instance_name: instanceName,
+          instance_token: reservationToken,
+          status: "disconnected",
+        })
+        .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, created_at, updated_at")
+        .single();
+
+      if (reservationError || !reservation) {
+        if (reservationError?.code === "23505") {
+          return new Response(JSON.stringify({ error: "A barbearia já possui uma integração de WhatsApp." }), {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        console.error("[WhatsApp-Integration] Falha ao reservar integração de WhatsApp");
+        return new Response(JSON.stringify({ error: "Não foi possível iniciar a ativação do WhatsApp." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let createdToken = "";
+      let providerCreateCompleted = false;
+      try {
+        const created = await provider.createInstance({
+          instanceName,
+          metadata: { tenantId, environment: runtimeEnvironment },
+        });
+        providerCreateCompleted = true;
+        createdToken = created.instanceToken;
+
+        await provider.configureWebhook({
+          instanceName,
+          instanceToken: createdToken,
+          webhookUrl: `${supabaseUrl}/functions/v1/whatsapp-integration/webhook`,
+          events: ["connection", "messages"],
+          excludeMessages: ["wasSentByApi", "fromMeYes", "isGroupYes"],
+        });
+
+        const { data: activated, error: activationError } = await supabase
+          .from("whatsapp_instances")
+          .update({
+            instance_token: createdToken,
+            provider_instance_id: created.providerInstanceId ?? null,
+            status: "disconnected",
+            qr_code: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", reservation.id)
+          .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, created_at, updated_at")
+          .single();
+
+        if (activationError || !activated) throw new Error("local persistence failed");
+
+        return new Response(JSON.stringify({ success: true, instance: activated }), {
+          status: 201,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (activationError) {
+        console.error("[WhatsApp-Integration] Falha na ativação transacional do WhatsApp");
+        let remoteCompensated = !providerCreateCompleted;
+        if (createdToken && provider.deleteInstance) {
+          for (let attempt = 1; attempt <= 3 && !remoteCompensated; attempt++) {
+            try {
+              await provider.deleteInstance({ instanceName, instanceToken: createdToken });
+              remoteCompensated = true;
+            } catch {
+              if (attempt === 3) {
+                console.error("[WhatsApp-Integration] Falha ao compensar instância remota da Uazapi");
+              }
+            }
+          }
+        }
+        let localReservationRemoved = false;
+        if (remoteCompensated) {
+          for (let attempt = 1; attempt <= 3 && !localReservationRemoved; attempt++) {
+            const { error: cleanupError } = await supabase.from("whatsapp_instances").delete().eq("id", reservation.id);
+            if (!cleanupError) {
+              localReservationRemoved = true;
+            } else if (attempt === 3) {
+              console.error("[WhatsApp-Integration] Falha ao remover reserva local da ativação");
+            }
+          }
+        }
+        if (!localReservationRemoved) {
+          await supabase.from("whatsapp_instances").update({
+            status: "disconnected",
+            qr_code: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", reservation.id);
+        }
+        return providerFailureResponse();
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // ROTA: /manage-instance
     // -------------------------------------------------------------------------
     if (path.endsWith("/manage-instance")) {
@@ -194,6 +375,16 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const body = await req.json();
       const { action, instance_id, instance_name } = body;
+      const activeProviderName = useUazapi ? "uazapi" : "evolution";
+      if (body.provider && body.provider !== activeProviderName) {
+        return new Response(JSON.stringify({ error: "WhatsApp provider is not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const manageUsesNeutral = useUazapi;
+      const manageTable = manageUsesNeutral ? "whatsapp_instances" : "evolution_api_instances";
+      const manageTokenColumn = manageUsesNeutral ? "instance_token" : "api_key";
 
       if (!action || !instance_id || !instance_name) {
         return new Response(JSON.stringify({ error: "Missing required parameters" }), {
@@ -202,15 +393,15 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      const authError = await validateManageInstanceAuth(req, instance_id);
+      const authError = await validateManageInstanceAuth(req, instance_id, manageTable);
       if (authError) return authError;
 
       console.log(`[WhatsApp-Integration] /manage-instance: Ação '${action}' para instância '${instance_name}'`);
 
       // Buscar API Key da instância no banco de dados para usar nas chamadas
       const { data: dbInstance, error: fetchErr } = await supabase
-        .from("evolution_api_instances")
-        .select("api_key")
+        .from(manageTable)
+        .select(manageTokenColumn)
         .eq("id", instance_id)
         .single();
 
@@ -222,7 +413,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      const instanceApiKey = dbInstance.api_key;
+      const instanceApiKey = dbInstance[manageTokenColumn];
 
       if (action === "create") {
         try {
@@ -243,14 +434,16 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       
       else if (action === "connect") {
         // Garantir que a instância exista no provedor com o token correto antes de solicitar o QR Code.
-        try {
-          await provider.createInstance({
-            instanceName: instance_name,
-            instanceToken: instanceApiKey,
-          });
-          console.log(`[WhatsApp-Integration] [Connect-Preflight] Instância garantida no provedor`);
-        } catch (createErr) {
-          console.warn(`[WhatsApp-Integration] [Connect-Preflight] Falha silenciosa no preflight de criação:`, createErr);
+        if (!manageUsesNeutral) {
+          try {
+            await provider.createInstance({
+              instanceName: instance_name,
+              instanceToken: instanceApiKey,
+            });
+            console.log(`[WhatsApp-Integration] [Connect-Preflight] Instância garantida no provedor`);
+          } catch (createErr) {
+            console.warn(`[WhatsApp-Integration] [Connect-Preflight] Falha silenciosa no preflight de criação:`, createErr);
+          }
         }
 
         // Iniciar o pareamento e configurar o webhook por meio do contrato neutro.
@@ -265,7 +458,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           console.log(`[WhatsApp-Integration] [Webhook-Preflight] Pareamento iniciado e webhook configurado pelo provedor`);
         } catch (webhookErr) {
           console.error(`[WhatsApp-Integration] [Webhook-Preflight] Falha ao iniciar pareamento no provedor:`, webhookErr);
-          await revertInstanceToDisconnected(instance_id);
+          await revertInstanceToDisconnected(instance_id, manageTable);
           return providerFailureResponse();
         }
 
@@ -289,7 +482,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
         // Atualizar status no banco de dados para disconnected e limpar QR Code
         const { error: updateErr } = await supabase
-          .from("evolution_api_instances")
+          .from(manageTable)
           .update({
             status: "disconnected",
             qr_code: null,
@@ -368,9 +561,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
-        .from("evolution_api_instances")
-        .select("tenant_id, instance_name, api_key, status")
-        .eq("api_key", cleanInstanceToken)
+        .from(instancesTable)
+        .select(`tenant_id, instance_name, ${instanceTokenColumn}, status`)
+        .eq(instanceTokenColumn, cleanInstanceToken)
         .single();
 
       if (instanceAuthError || !authenticatedInstance) {
@@ -401,13 +594,13 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
 
         const { error: updateErr } = await supabase
-          .from("evolution_api_instances")
+          .from(instancesTable)
           .update({
-            status: "pairing",
+            status: useUazapi ? "connecting" : "pairing",
             qr_code: qrCode,
             updated_at: new Date().toISOString(),
           })
-          .eq("api_key", cleanInstanceToken);
+          .eq(instanceTokenColumn, cleanInstanceToken);
 
         if (updateErr) {
           console.error(`[WhatsApp-Integration] Erro ao persistir QR Code via webhook: ${updateErr.message}`);
@@ -490,7 +683,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         try {
           await provider.sendText({
             instanceName: authenticatedInstance.instance_name || instanceName || "",
-            instanceToken: authenticatedInstance.api_key,
+            instanceToken: authenticatedInstance[instanceTokenColumn],
             number: senderPhone,
             text: messageText,
           });
@@ -506,13 +699,13 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       if (isConnectionUpdate) {
         // Mapear status da VPS (Evolution API Go) para o nosso enum local
-        let localStatus: "connected" | "disconnected" | "pairing" = "disconnected";
+        let localStatus: "connected" | "disconnected" | "connecting" | "pairing" = "disconnected";
         const statusClean = String(vpsStatus || "").toLowerCase();
 
         if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected") {
           localStatus = "connected";
         } else if (statusClean === "connecting" || statusClean === "pairing") {
-          localStatus = "pairing";
+          localStatus = useUazapi ? "connecting" : "pairing";
         } else {
           localStatus = "disconnected";
         }
@@ -521,7 +714,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
         // Atualizar no banco de dados
         const updateQuery = supabase
-          .from("evolution_api_instances")
+          .from(instancesTable)
           .update({
             status: localStatus,
             // Limpa o QR Code caso a conexão esteja ativa
@@ -529,7 +722,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             updated_at: new Date().toISOString(),
           });
 
-        const { error: updateErr } = await updateQuery.eq("api_key", cleanInstanceToken);
+        const { error: updateErr } = await updateQuery.eq(instanceTokenColumn, cleanInstanceToken);
 
         if (updateErr) {
           console.error(`[WhatsApp-Integration] Erro ao atualizar status via webhook: ${updateErr.message}`);
@@ -578,7 +771,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       // 1. Obter a configuração da Evolution API do tenant
       const { data: config, error: configErr } = await supabase
-        .from("evolution_api_instances")
+        .from(instancesTable)
         .select("*")
         .eq("tenant_id", tenant_id)
         .maybeSingle();
@@ -665,7 +858,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       try {
         await provider.sendText({
           instanceName: config.instance_name,
-          instanceToken: config.api_key,
+          instanceToken: config[instanceTokenColumn],
           number: clientPhone,
           text: messageText,
         });
@@ -698,7 +891,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       // 1. Buscar todas as instâncias conectadas e com envio de lembretes ativo
       const { data: activeInstances, error: instErr } = await supabase
-        .from("evolution_api_instances")
+        .from(instancesTable)
         .select("*")
         .eq("status", "connected")
         .eq("send_reminders", true);
@@ -772,7 +965,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             try {
               await provider.sendText({
                 instanceName: instance.instance_name,
-                instanceToken: instance.api_key,
+                instanceToken: instance[instanceTokenColumn],
                 number: clientPhone,
                 text: messageText,
               });
@@ -889,8 +1082,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       // Buscar a instância ativa do WhatsApp para esse tenant
       const { data: instance, error: instanceError } = await supabase
-        .from("evolution_api_instances")
-        .select("instance_name, api_key, status")
+        .from(instancesTable)
+        .select(`instance_name, ${instanceTokenColumn}, status`)
         .eq("tenant_id", cleanTenantId)
         .single();
 
@@ -911,7 +1104,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       try {
         await provider.sendText({
           instanceName: instance.instance_name,
-          instanceToken: instance.api_key,
+          instanceToken: instance[instanceTokenColumn],
           number: clientPhone,
           text: text,
         });
