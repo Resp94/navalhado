@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
   createEvolutionGoProvider,
   createUazapiProvider,
+  type ProviderStatus,
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
 
@@ -414,6 +415,22 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const instanceApiKey = dbInstance[manageTokenColumn];
+      const syncProviderStatus = async (providerStatus: ProviderStatus) => {
+        const normalizedStatus = providerStatus.status === "connecting" && !manageUsesNeutral
+          ? "pairing"
+          : providerStatus.status;
+        const shouldClearQr = ["connected", "disconnected", "hibernated"].includes(normalizedStatus);
+        const { error: statusError } = await supabase
+          .from(manageTable)
+          .update({
+            status: normalizedStatus,
+            qr_code: shouldClearQr ? null : (providerStatus.qrCode ?? undefined),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", instance_id);
+        if (statusError) throw statusError;
+        return { status: normalizedStatus, qrcode: providerStatus.qrCode, pairingCode: providerStatus.pairingCode };
+      };
 
       if (action === "create") {
         try {
@@ -427,14 +444,14 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
 
         console.log("[WhatsApp-Integration] Instância criada com sucesso pelo provedor");
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({ success: true, status: "disconnected" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } 
       
-      else if (action === "connect") {
+      else if (action === "connect" || action === "resume") {
         // Garantir que a instância exista no provedor com o token correto antes de solicitar o QR Code.
-        if (!manageUsesNeutral) {
+        if (!manageUsesNeutral && action === "connect") {
           try {
             await provider.createInstance({
               instanceName: instance_name,
@@ -449,25 +466,40 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         // Iniciar o pareamento e configurar o webhook por meio do contrato neutro.
         try {
           const targetWebhookUrl = `${supabaseUrl}/functions/v1/whatsapp-integration/webhook`;
-          await provider.connectInstance({
+          const connectionStatus = await provider.connectInstance({
             instanceName: instance_name,
             instanceToken: instanceApiKey,
             webhookUrl: targetWebhookUrl,
             events: ["connection", "messages"],
           });
+          const synchronized = await syncProviderStatus(connectionStatus);
           console.log(`[WhatsApp-Integration] [Webhook-Preflight] Pareamento iniciado e webhook configurado pelo provedor`);
+          return new Response(JSON.stringify({ success: true, ...synchronized }), {
+            status: 202,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         } catch (webhookErr) {
           console.error(`[WhatsApp-Integration] [Webhook-Preflight] Falha ao iniciar pareamento no provedor:`, webhookErr);
           await revertInstanceToDisconnected(instance_id, manageTable);
           return providerFailureResponse();
         }
 
-        console.log(`[WhatsApp-Integration] Pareamento iniciado para ${instance_name}; aguardando evento QRCODE no webhook`);
-        return new Response(JSON.stringify({ success: true, status: "pairing" }), {
-          status: 202,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
       } 
+
+      else if (action === "status") {
+        try {
+          const providerStatus = await provider.getInstanceStatus({
+            instanceName: instance_name,
+            instanceToken: instanceApiKey,
+          });
+          const synchronized = await syncProviderStatus(providerStatus);
+          return new Response(JSON.stringify({ success: true, ...synchronized }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch {
+          return providerFailureResponse();
+        }
+      }
       
       else if (action === "disconnect") {
         // Caso a instância já esteja desconectada no provedor, limpamos o status no banco mesmo assim.
@@ -477,7 +509,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             instanceToken: instanceApiKey,
           });
         } catch (disconnectError) {
-          console.warn("[WhatsApp-Integration] Provedor recusou a desconexão. Prosseguindo com limpeza no banco.", disconnectError);
+          console.error("[WhatsApp-Integration] Falha ao desconectar a instância no provedor", disconnectError);
+          return providerFailureResponse();
         }
 
         // Atualizar status no banco de dados para disconnected e limpar QR Code
@@ -546,8 +579,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const body = await req.json();
       const event = body.event;
       const instanceName = body.instance || body.instanceName;
-      const instanceToken = body.instanceToken;
-      const vpsStatus = body.data?.status || body.data?.state;
+      const instanceToken = body.instanceToken || body.token || body.data?.token;
+      const vpsStatus = body.data?.status || body.data?.state || body.status || body.state;
       const eventClean = String(event || "").toLowerCase().replace(/_/g, ".");
 
       console.log(`[WhatsApp-Integration] Webhook recebido: Evento '${event}' (normalizado: '${eventClean}') da instância '${instanceName}' (status VPS: '${vpsStatus}')`);
@@ -574,7 +607,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      const isConnectionUpdate = ["connection.update", "connected", "pairsuccess"].includes(eventClean);
+      const isConnectionUpdate = ["connection", "connection.update", "connected", "pairsuccess"].includes(eventClean);
       const isQrCodeUpdate = ["qrcode", "qrcode.updated", "qr.code"].includes(eventClean);
 
       const isEvolutionGoMessage = eventClean === "message";
@@ -699,13 +732,15 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       if (isConnectionUpdate) {
         // Mapear status da VPS (Evolution API Go) para o nosso enum local
-        let localStatus: "connected" | "disconnected" | "connecting" | "pairing" = "disconnected";
+        let localStatus: "connected" | "disconnected" | "connecting" | "hibernated" | "pairing" = "disconnected";
         const statusClean = String(vpsStatus || "").toLowerCase();
 
         if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected") {
           localStatus = "connected";
         } else if (statusClean === "connecting" || statusClean === "pairing") {
           localStatus = useUazapi ? "connecting" : "pairing";
+        } else if (statusClean === "hibernated" || statusClean === "paused") {
+          localStatus = "hibernated";
         } else {
           localStatus = "disconnected";
         }

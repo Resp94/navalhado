@@ -635,4 +635,69 @@ describe('Whatsapp Config Page - TDD', () => {
 
     expect(mockAddToast).toHaveBeenCalledWith('WhatsApp desconectado da barbearia.', 'warning');
   });
+
+  it('deve consultar temporariamente o status enquanto a instancia esta pareando', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'connecting',
+        qr_code: 'base64_qr',
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockFunctionsInvoke.mockResolvedValue({ data: { success: true, status: 'connected' }, error: null });
+
+    render(<Whatsapp />);
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'status',
+          instance_id: 'inst-123',
+          instance_name: 'nav_estilo_123',
+          provider: 'uazapi',
+        },
+      });
+      expect(screen.getByText('Conectado')).toBeInTheDocument();
+    });
+  });
+
+  it('deve retomar uma instancia pausada sem gerar novo QR Code', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'inst-123',
+        tenant_id: 'tenant-test-id',
+        instance_name: 'nav_estilo_123',
+        status: 'hibernated',
+        qr_code: null,
+        send_confirmation: true,
+        send_reminders: true,
+        reminder_hours: 2,
+        send_cancellation: true,
+      },
+      error: null,
+    });
+    mockFunctionsInvoke.mockResolvedValue({ data: { success: true, status: 'connected' }, error: null });
+
+    render(<Whatsapp />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Retomar Sessão' }));
+
+    await waitFor(() => {
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'resume',
+          instance_id: 'inst-123',
+          instance_name: 'nav_estilo_123',
+          provider: 'uazapi',
+        },
+      });
+      expect(screen.getByText('Conectado')).toBeInTheDocument();
+    });
+  });
 });

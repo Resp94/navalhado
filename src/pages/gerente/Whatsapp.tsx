@@ -26,6 +26,9 @@ type WhatsappSetting =
 
 const WHATSAPP_INSTANCE_COLUMNS =
   'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation';
+const STATUS_POLL_INTERVAL_MS = 2000;
+const STATUS_POLL_MAX_ATTEMPTS = 30;
+const TERMINAL_STATUSES = ['connected', 'disconnected', 'hibernated'];
 
 const toWhatsappInstance = (row: Record<string, any>): WhatsappInstance => ({
   id: row.id,
@@ -103,6 +106,44 @@ export const Whatsapp: React.FC = () => {
     };
   }, [addToast, tenant.tenantId]);
 
+  useEffect(() => {
+    if (!instance || instance.status !== 'connecting') return;
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer: number | undefined;
+    const pollStatus = async () => {
+      if (cancelled) return;
+      if (attempts >= STATUS_POLL_MAX_ATTEMPTS) {
+        if (timer !== undefined) window.clearInterval(timer);
+        return;
+      }
+      attempts += 1;
+      const { data, error } = await supabase.functions.invoke('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'status',
+          instance_id: instance.id,
+          instance_name: instance.instance_name,
+          provider: 'uazapi',
+        },
+      });
+
+      if (cancelled || error || !data?.status) return;
+      setInstance((previous) => previous ? {
+        ...previous,
+        status: data.status === 'pairing' ? 'connecting' : data.status,
+          qr_code: data.qrcode ?? (TERMINAL_STATUSES.includes(data.status) ? null : previous.qr_code),
+      } : null);
+    };
+
+    void pollStatus();
+    timer = window.setInterval(() => { void pollStatus(); }, STATUS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [instance?.id, instance?.instance_name, instance?.status]);
+
   useGSAP(() => {
     if (!loading) {
       gsap.fromTo('.card-whatsapp', 
@@ -178,8 +219,12 @@ export const Whatsapp: React.FC = () => {
         throw new Error(errorMsg);
       }
 
-      if (funcData?.qrcode) {
-        setInstance(prev => prev ? { ...prev, qr_code: funcData.qrcode, status: 'connecting' } : null);
+      if (funcData?.status) {
+        setInstance(prev => prev ? {
+          ...prev,
+          qr_code: funcData.qrcode ?? prev.qr_code,
+          status: funcData.status === 'pairing' ? 'connecting' : funcData.status,
+        } : null);
       }
 
       addToast('Solicitação de QR Code enviada. Aguarde a geração.', 'info');
@@ -192,13 +237,40 @@ export const Whatsapp: React.FC = () => {
     }
   };
 
+  const handleResume = async () => {
+    if (!instance) return;
+    try {
+      setActionLoading(true);
+      const { data, error } = await supabase.functions.invoke('whatsapp-integration/manage-instance', {
+        body: {
+          action: 'resume',
+          instance_id: instance.id,
+          instance_name: instance.instance_name,
+          provider: 'uazapi',
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'Erro ao retomar a conexão.');
+      setInstance((previous) => previous ? {
+        ...previous,
+        status: data?.status === 'pairing' ? 'connecting' : (data?.status || 'connected'),
+        qr_code: data?.qrcode ?? null,
+      } : null);
+      addToast('Sessão do WhatsApp retomada.', 'success');
+    } catch (error: any) {
+      console.error('Error resuming whatsapp instance:', error);
+      addToast(error?.message || 'Erro ao retomar a conexão do WhatsApp.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     if (!instance) return;
     try {
       setActionLoading(true);
 
       // Invocar a Edge Function para desconectar na VPS
-      await supabase.functions.invoke(
+      const { data: disconnectData, error: disconnectError } = await supabase.functions.invoke(
         'whatsapp-integration/manage-instance',
         {
           body: {
@@ -209,6 +281,9 @@ export const Whatsapp: React.FC = () => {
           },
         }
       );
+      if (disconnectError || disconnectData?.error) {
+        throw new Error(disconnectData?.error || disconnectError?.message || 'Erro ao desconectar o WhatsApp.');
+      }
 
       const { data, error } = await supabase
         .from('whatsapp_instances')
@@ -351,6 +426,18 @@ export const Whatsapp: React.FC = () => {
                   <p className="helper-text">Inicie o pareamento para conectar o celular da barbearia.</p>
                   <button onClick={handleConnect} disabled={actionLoading} className="btn btn--primary">
                     {actionLoading ? <div className="spinner spinner--sm" /> : 'Gerar QR Code de Conexão'}
+                  </button>
+                </div>
+              )}
+
+              {instance.status === 'hibernated' && (
+                <div className="card-whatsapp__actions">
+                  <p className="helper-text">A sessão está pausada, mas pode ser retomada sem novo QR Code.</p>
+                  <button onClick={handleResume} disabled={actionLoading} className="btn btn--primary">
+                    {actionLoading ? <div className="spinner spinner--sm" /> : 'Retomar Sessão'}
+                  </button>
+                  <button onClick={handleDisconnect} disabled={actionLoading} className="btn btn--outline-danger">
+                    Desconectar Aparelho
                   </button>
                 </div>
               )}
@@ -681,6 +768,12 @@ export const Whatsapp: React.FC = () => {
           background: rgba(254, 243, 199, 0.6);
           color: var(--color-warning);
           border: 1px solid rgba(217, 120, 6, 0.2);
+        }
+
+        .card-whatsapp__pill--hibernated {
+          background: rgba(226, 232, 240, 0.7);
+          color: var(--color-text-secondary);
+          border: 1px solid rgba(100, 116, 139, 0.25);
         }
 
         /* ═══ INFO ROWS ═══ */

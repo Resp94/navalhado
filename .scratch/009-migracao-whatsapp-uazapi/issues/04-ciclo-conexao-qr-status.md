@@ -4,18 +4,17 @@
 
 **Blocked by:** 03 — Ativar uma instância pela Uazapi.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] “Gerar QR Code” inicia a conexão usando exclusivamente o token da instância no backend.
-- [ ] O QR Code retornado pela conexão aparece imediatamente na interface.
-- [ ] Enquanto estiver pareando, consultas temporárias renovam QR Code e estado sem continuar indefinidamente.
-- [ ] Webhook e Realtime continuam atualizando o estado observado.
-- [ ] A consulta temporária termina ao conectar, desconectar, pausar, sair da tela ou atingir o limite de espera.
-- [ ] A interface apresenta conectado, pareando, desconectado e pausado com textos neutros de WhatsApp.
-- [ ] Uma instância pausada pode ser retomada sem novo QR Code.
-- [ ] “Desconectar” encerra a sessão e exige novo QR Code na próxima conexão.
-- [ ] Desconectar preserva a instância e as preferências de mensagens.
-- [ ] QR Code é limpo quando deixa de ser válido.
-- [ ] Falhas encerram o carregamento e permitem nova tentativa manual.
-- [ ] Testes cobrem resposta imediata, atualização temporária, Realtime, pausa, retomada e desconexão.
-
+- [x] “Gerar QR Code” inicia a conexão usando exclusivamente o token da instância no backend.
+- [x] O QR Code retornado pela conexão aparece imediatamente na interface.
+- [x] Enquanto estiver pareando, consultas temporárias renovam QR Code e estado sem continuar indefinidamente.
+- [x] Webhook e Realtime continuam atualizando o estado observado.
+- [x] A consulta temporária termina ao conectar, desconectar, pausar, sair da tela ou atingir o limite de espera.
+- [x] A interface apresenta conectado, pareando, desconectado e pausado com textos neutros de WhatsApp.
+- [x] Uma instância pausada pode ser retomada sem novo QR Code.
+- [x] “Desconectar” encerra a sessão e exige novo QR Code na próxima conexão.
+- [x] Desconectar preserva a instância e as preferências de mensagens.
+- [x] QR Code é limpo quando deixa de ser válido.
+- [x] Falhas encerram o carregamento e permitem nova tentativa manual.
+- [x] Testes cobrem resposta imediata, atualização temporária, Realtime, pausa, retomada e desconexão.

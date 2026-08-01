@@ -119,6 +119,12 @@ Deno.test("Uazapi adapter creates instances and configures filtered webhooks", a
           instance: { id: "uaz-instance-1", token: "instance-secret", status: "disconnected" },
         }), { status: 200 });
       }
+      if (url.endsWith("/instance/connect")) {
+        return new Response(JSON.stringify({ instance: { status: "connecting", qrcode: "qr-now", paircode: "1234" } }), { status: 200 });
+      }
+      if (url.endsWith("/instance/status")) {
+        return new Response(JSON.stringify({ instance: { status: "hibernated" } }), { status: 200 });
+      }
       return new Response(JSON.stringify([{ id: "webhook-1" }]), { status: 200 });
     },
   );
@@ -132,6 +138,16 @@ Deno.test("Uazapi adapter creates instances and configures filtered webhooks", a
     instanceToken: created.instanceToken,
     webhookUrl: "https://dev.example.com/webhook",
     events: ["connection", "messages"],
+  });
+  const connecting = await provider.connectInstance({
+    instanceName: "nav_tenant_1",
+    instanceToken: created.instanceToken,
+    webhookUrl: "https://dev.example.com/webhook",
+    events: ["connection", "messages"],
+  });
+  const paused = await provider.getInstanceStatus({
+    instanceName: "nav_tenant_1",
+    instanceToken: created.instanceToken,
   });
 
   assertEquals(created, { instanceToken: "instance-secret", providerInstanceId: "uaz-instance-1" });
@@ -151,6 +167,8 @@ Deno.test("Uazapi adapter creates instances and configures filtered webhooks", a
     events: ["connection", "messages"],
     excludeMessages: ["wasSentByApi", "fromMeYes", "isGroupYes"],
   });
+  assertEquals(connecting, { status: "connecting", qrCode: "qr-now", pairingCode: "1234" });
+  assertEquals(paused, { status: "hibernated", qrCode: undefined, pairingCode: undefined });
 });
 
 // Helper to mock the global fetch function
