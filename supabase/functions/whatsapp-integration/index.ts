@@ -721,8 +721,14 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const body = await req.json();
-      const event = body.event;
-      const instanceName = body.instance || body.instanceName;
+      const event = body.event ?? body.EventType;
+      const instanceName = typeof body.instance === "string"
+        ? body.instance
+        : typeof body.instance?.name === "string"
+        ? body.instance.name
+        : typeof body.instanceName === "string"
+        ? body.instanceName
+        : "";
       const instanceToken = body.instanceToken || body.token || body.data?.token ||
         req.headers.get("x-instance-token") || req.headers.get("x-uazapi-token") || req.headers.get("token");
       const vpsStatus = body.data?.status || body.data?.state || body.status || body.state;

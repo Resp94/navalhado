@@ -1125,7 +1125,6 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
       return new Response(JSON.stringify({
         id: "instance-uaz-1",
         tenant_id: "tenant-uaz-1",
-        instance_name: "nav_tenant_uaz",
         instance_token: "uaz-instance-token",
         status: "connected",
       }), { status: 200 });
@@ -1170,8 +1169,8 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        event: "messages",
-        instance: "nav_tenant_uaz",
+        EventType: "messages",
+        instance: { id: "uaz-instance-id", name: "nav_tenant_uaz" },
         token: "uaz-instance-token",
         data: {
           messageid: "uaz-message-1",
@@ -1198,11 +1197,16 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
     assertEquals(idempotencyRows[0]?.external_message_id, "uaz-message-1");
     assertEquals(sentMessages.length, 1);
     assertEquals(sentMessages[0]?.number, "5511999992222");
+    assertEquals(
+      sentMessages[0]?.text,
+      "Olá, Cliente Uazapi! Para escolher seu serviço e agendar um horário na *Barbearia Uazapi*, acesse: https://mock-app.com/cliente/token-uaz-1/agendar",
+    );
+    assertEquals(sentMessages[0]?.instanceName, "nav_tenant_uaz");
     assertEquals(sentMessages[0]?.instanceToken, "uaz-instance-token");
 
-    const ignoredFromMe = await testHandler(requestFor({ messageid: "uaz-message-from-me", fromMeYes: "yes" }));
+    const ignoredFromMe = await testHandler(requestFor({ messageid: "uaz-message-from-me", fromMe: true }));
     const ignoredApi = await testHandler(requestFor({ messageid: "uaz-message-api", wasSentByApi: true }));
-    const ignoredGroup = await testHandler(requestFor({ messageid: "uaz-message-group", isGroupYes: "yes" }));
+    const ignoredGroup = await testHandler(requestFor({ messageid: "uaz-message-group", isGroup: true }));
     assertEquals((await ignoredFromMe.json()).ignored, true);
     assertEquals((await ignoredApi.json()).ignored, true);
     assertEquals((await ignoredGroup.json()).ignored, true);
