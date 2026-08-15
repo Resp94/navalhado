@@ -158,9 +158,9 @@ export const CadastroBarbearia: React.FC = () => {
 
       addToast('Cadastro realizado.', 'success');
       
-      // Se já houver sessão ativa, podemos prosseguir diretamente.
+      // Se já houver sessão ativa, podemos prosseguir diretamente para o Onboarding.
       if (authData.session) {
-        setTimeout(() => navigate('/dashboard'), 1500);
+        setTimeout(() => navigate('/onboarding'), 1500);
       } else {
         // Indica que e-mail de confirmação é exigido
         setSuccess(true);

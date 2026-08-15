@@ -156,29 +156,7 @@ export const OnboardingWizard: React.FC = () => {
     try {
       setSubmitting(true);
 
-      // 1. Atualizar tenant com Localização, Segmentação e onboarding_completed = true
-      const { error: tenantErr } = await supabase
-        .from('tenants')
-        .update({
-          cep: location.cep,
-          address_street: location.street,
-          address_number: location.number,
-          address_neighborhood: location.neighborhood,
-          address_city: location.city,
-          address_state: location.state,
-          address: `${location.street}, ${location.number} - ${location.neighborhood}, ${location.city}/${location.state}`,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          base_cut_price: segmentation.baseCutPrice,
-          acquisition_channel: segmentation.acquisitionChannel,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', tenant.tenantId);
-
-      if (tenantErr) throw tenantErr;
-
-      // 2. Inserir catálogo inicial de serviços
+      // 1. Inserir catálogo inicial de serviços primeiro
       const servicesPayload = services.map((s) => ({
         tenant_id: tenant.tenantId,
         name: s.name,
@@ -194,7 +172,7 @@ export const OnboardingWizard: React.FC = () => {
 
       if (servicesErr) throw servicesErr;
 
-      // 3. Inserir profissionais da equipe
+      // 2. Inserir profissionais da equipe
       const defaultSchedule = {
         monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
         tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
@@ -219,6 +197,28 @@ export const OnboardingWizard: React.FC = () => {
         .insert(profPayload);
 
       if (profErr) throw profErr;
+
+      // 3. Somente após sucesso dos inserts, marcar tenant com onboarding_completed = true
+      const { error: tenantErr } = await supabase
+        .from('tenants')
+        .update({
+          cep: location.cep,
+          address_street: location.street,
+          address_number: location.number,
+          address_neighborhood: location.neighborhood,
+          address_city: location.city,
+          address_state: location.state,
+          address: `${location.street}, ${location.number} - ${location.neighborhood}, ${location.city}/${location.state}`,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          base_cut_price: segmentation.baseCutPrice,
+          acquisition_channel: segmentation.acquisitionChannel,
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tenant.tenantId);
+
+      if (tenantErr) throw tenantErr;
 
       addToast('Configuração concluída com sucesso! Bem-vindo ao Navalhado.', 'success');
       navigate('/dashboard');
@@ -296,7 +296,21 @@ export const OnboardingWizard: React.FC = () => {
             planName={planName}
             maxProfessionals={maxProfessionals}
             onChange={(upd) => setSegmentation((prev) => ({ ...prev, ...upd }))}
-            onNext={() => setCurrentStep(3)}
+            onNext={() => {
+              if (services.length === 0) {
+                const initialPrice = segmentation.baseCutPrice > 0 ? segmentation.baseCutPrice : 35;
+                setServices([
+                  {
+                    id: crypto.randomUUID(),
+                    name: 'Corte Tradicional',
+                    price: initialPrice,
+                    durationMinutes: 30,
+                    category: 'cabelo',
+                  },
+                ]);
+              }
+              setCurrentStep(3);
+            }}
             onBack={() => setCurrentStep(1)}
           />
         )}

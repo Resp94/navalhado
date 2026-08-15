@@ -132,7 +132,7 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
     });
   });
 
-  it('completa todo o fluxo de 4 passos até a finalização com sucesso', async () => {
+  it('completa todo o fluxo de 4 passos até a finalização com pré-população do primeiro serviço', async () => {
     render(<OnboardingWizard />);
 
     // --- Passo 1: Localização ---
@@ -160,9 +160,8 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
     // --- Passo 3: Serviços ---
     await waitFor(() => expect(screen.getByTestId('step-services')).toBeInTheDocument());
 
-    // Clicar em template rápido "Corte Tradicional"
-    const corteChip = screen.getByRole('button', { name: /Corte Tradicional/i });
-    fireEvent.click(corteChip);
+    // "Corte Tradicional" já deve vir pré-populado na tabela
+    expect(screen.getAllByText('Corte Tradicional').length).toBeGreaterThanOrEqual(1);
 
     const nextServBtn = screen.getByRole('button', { name: /Continuar para Equipe/i });
     await waitFor(() => expect(nextServBtn).toBeEnabled());
@@ -185,6 +184,101 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
         'success'
       );
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  it('não marca o tenant como concluído se a inserção de serviços falhar (atomicidade)', async () => {
+    const mockTenantUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({ data: { name: 'Gestor' }, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'tenants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({ data: { phone: '92999991111' }, error: null }),
+            }),
+          }),
+          update: mockTenantUpdate,
+        };
+      }
+      if (table === 'tenant_subscriptions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: { plans: { name: 'Bronze', max_professionals: 3 } },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'services') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: new Error('DATABASE_CONNECTION_ERROR') }),
+        };
+      }
+      if (table === 'professionals') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      return { select: vi.fn() };
+    });
+
+    render(<OnboardingWizard />);
+
+    // Passo 1
+    fireEvent.change(screen.getByLabelText(/CEP/i), { target: { value: '69000-000' } });
+    fireEvent.change(screen.getByLabelText(/Endereço \/ Rua/i), { target: { value: 'Av. Brasil' } });
+    fireEvent.change(screen.getByLabelText(/Número/i), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText(/Bairro/i), { target: { value: 'Compensa' } });
+    fireEvent.change(screen.getByLabelText(/Cidade/i), { target: { value: 'Manaus' } });
+    fireEvent.change(screen.getByLabelText(/Estado \(UF\)/i), { target: { value: 'AM' } });
+    const nextLocBtn = screen.getByRole('button', { name: /Continuar para Segmentação/i });
+    await waitFor(() => expect(nextLocBtn).toBeEnabled());
+    fireEvent.click(nextLocBtn);
+
+    // Passo 2
+    await waitFor(() => expect(screen.getByTestId('step-segmentation')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/preço médio do corte/i), { target: { value: '4500' } });
+    fireEvent.change(screen.getByLabelText(/Como você conheceu o Navalhado/i), { target: { value: 'instagram' } });
+    const nextSegBtn = screen.getByRole('button', { name: /Continuar para Serviços/i });
+    await waitFor(() => expect(nextSegBtn).toBeEnabled());
+    fireEvent.click(nextSegBtn);
+
+    // Passo 3
+    await waitFor(() => expect(screen.getByTestId('step-services')).toBeInTheDocument());
+    const nextServBtn = screen.getByRole('button', { name: /Continuar para Equipe/i });
+    await waitFor(() => expect(nextServBtn).toBeEnabled());
+    fireEvent.click(nextServBtn);
+
+    // Passo 4
+    await waitFor(() => expect(screen.getByTestId('step-professionals')).toBeInTheDocument());
+    const addManagerBtn = screen.getByRole('button', { name: /\+ Me incluir como Barbeiro/i });
+    fireEvent.click(addManagerBtn);
+
+    const finishBtn = screen.getByRole('button', { name: /Concluir e Entrar no Painel/i });
+    await waitFor(() => expect(finishBtn).toBeEnabled());
+    fireEvent.click(finishBtn);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.stringContaining('DATABASE_CONNECTION_ERROR'),
+        'error'
+      );
+      expect(mockTenantUpdate).not.toHaveBeenCalled();
     });
   });
 });

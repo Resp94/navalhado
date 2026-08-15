@@ -12,14 +12,13 @@ interface StepServicesProps {
 
 const TEMPLATE_SERVICES = [
   { name: 'Corte Tradicional', priceRatio: 1.0, durationMinutes: 30, category: 'cabelo' },
-  { name: 'Barba Terapia', priceRatio: 0.75, durationMinutes: 30, category: 'barba' },
-  { name: 'Combo Corte + Barba', priceRatio: 1.6, durationMinutes: 50, category: 'combo' },
+  { name: 'Barba', priceRatio: 0.75, durationMinutes: 30, category: 'barba' },
+  { name: 'Corte + Barba', priceRatio: 1.6, durationMinutes: 45, category: 'combo' },
   { name: 'Pezinho / Acabamento', priceRatio: 0.4, durationMinutes: 15, category: 'cabelo' },
-  { name: 'Design de Sobrancelha', priceRatio: 0.35, durationMinutes: 15, category: 'estetica' },
 ];
 
 const DURATION_OPTIONS = [
-  15, 20, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 240, 300
+  15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 240, 300
 ];
 
 export const StepServices: React.FC<StepServicesProps> = ({
