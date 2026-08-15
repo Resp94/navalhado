@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
 import { Login } from './pages/Login';
 import { CadastroBarbearia } from './pages/CadastroBarbearia';
@@ -10,7 +10,7 @@ import { GerenteLayout } from './components/GerenteLayout';
 import { BarbeiroLayout } from './components/BarbeiroLayout';
 import { MinhaAgenda } from './pages/barbeiro/MinhaAgenda';
 import { MinhasComissoes } from './pages/barbeiro/MinhasComissoes';
-import { Dashboard as GerenteDashboard } from './pages/gerente/Dashboard';
+import { Agenda as GerenteAgenda } from './pages/gerente/Agenda';
 import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
@@ -42,7 +42,8 @@ function App() {
             }
           >
             <Route path="/onboarding" element={<OnboardingWizard />} />
-            <Route path="/dashboard" element={<GerenteDashboard />} />
+            <Route path="/agenda" element={<GerenteAgenda />} />
+            <Route path="/dashboard" element={<Navigate to="/agenda" replace />} />
             <Route path="/financeiro" element={<GerenteFinanceiro />} />
             <Route path="/profissionais" element={<GerenteProfissionais />} />
             <Route path="/profissionais/cadastro-acesso" element={<GerenteCadastroAcesso />} />

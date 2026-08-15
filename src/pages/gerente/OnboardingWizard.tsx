@@ -229,7 +229,7 @@ export const OnboardingWizard: React.FC = () => {
       if (tenantErr) throw tenantErr;
 
       addToast('Configuração concluída com sucesso! Bem-vindo ao Navalhado.', 'success');
-      navigate('/dashboard');
+      navigate('/agenda');
     } catch (err: any) {
       addToast(err.message || 'Erro ao finalizar configuração. Tente novamente.', 'error');
     } finally {
@@ -293,7 +293,7 @@ export const OnboardingWizard: React.FC = () => {
         {currentStep === 1 && (
           <StepLocation
             data={location}
-            onChange={(upd) => setLocation((prev) => ({ ...prev, ...upd }))}
+            onChange={(upd) => setLocation((prev: OnboardingLocation) => ({ ...prev, ...upd }))}
             onNext={() => setCurrentStep(2)}
           />
         )}
@@ -303,7 +303,7 @@ export const OnboardingWizard: React.FC = () => {
             data={segmentation}
             planName={planName}
             maxProfessionals={maxProfessionals}
-            onChange={(upd) => setSegmentation((prev) => ({ ...prev, ...upd }))}
+            onChange={(upd) => setSegmentation((prev: OnboardingSegmentation) => ({ ...prev, ...upd }))}
             onNext={() => {
               if (services.length === 0) {
                 const initialPrice = segmentation.baseCutPrice > 0 ? segmentation.baseCutPrice : 35;

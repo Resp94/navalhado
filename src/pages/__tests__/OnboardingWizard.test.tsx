@@ -183,7 +183,7 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
         expect.stringContaining('Configuração concluída com sucesso!'),
         'success'
       );
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      expect(mockNavigate).toHaveBeenCalledWith('/agenda');
     });
   });
 

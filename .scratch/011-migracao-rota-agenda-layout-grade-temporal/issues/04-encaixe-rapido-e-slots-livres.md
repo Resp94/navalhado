@@ -5,10 +5,10 @@ A interatividade de clique direto em células vazias da grade e o fluxo do botã
 
 **Blocked by:** 01, 02, 03.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Clicar em qualquer slot vazio na grade abre o modal de agendamento com o barbeiro e o horário clicado já selecionados.
-- [ ] O botão mestre `+ Encaixe` no cabeçalho abre o modal com a flag de encaixe ativa.
-- [ ] O formulário permite alternar entre selecionar um cliente existente ou cadastrar um novo cliente na hora (Nome + WhatsApp).
-- [ ] Suporte a campo de observações (`notes`) gravado no registro do agendamento.
-- [ ] Agendamento criado aparece imediatamente na grade e persiste no Supabase com `origin = 'manual'`.
+- [x] Clicar em qualquer slot vazio na grade abre o modal de agendamento com o barbeiro e o horário clicado já selecionados.
+- [x] O botão mestre `+ Encaixe` no cabeçalho abre o modal com a flag de encaixe ativa.
+- [x] O formulário permite alternar entre selecionar um cliente existente ou cadastrar um novo cliente na hora (Nome + WhatsApp).
+- [x] Suporte a campo de observações (`notes`) gravado no registro do agendamento.
+- [x] Agendamento criado aparece imediatamente na grade e persiste no Supabase com `origin = 'manual'`.

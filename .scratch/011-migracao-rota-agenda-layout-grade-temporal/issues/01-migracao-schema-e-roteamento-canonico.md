@@ -5,10 +5,10 @@ Adicionar suporte no banco de dados para os metadados da agenda (`is_fitting`, `
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Arquivo de migração `20260815130000_014_agenda_enhancements_and_status.sql` criado e aplicado via Supabase MCP no projeto DEV (`selvxobcjbkligxighlp`).
-- [ ] Colunas `is_fitting`, `notes` e `origin` adicionadas à tabela `public.appointments`.
-- [ ] Constraints `appointments_status_check`, `appointments_origin_check` e `appointments_no_professional_overlap` atualizadas no Postgres.
-- [ ] Rota `/agenda` declarada em `App.tsx` com redirecionamento transparente de `/dashboard` para `/agenda`.
-- [ ] Destinos de navegação do Gerente atualizados em `GerenteLayout.tsx`, `AuthGuard.tsx`, `Login.tsx` e `OnboardingWizard.tsx`.
+- [x] Arquivo de migração `20260815130000_014_agenda_enhancements_and_status.sql` criado e aplicado via Supabase MCP no projeto DEV (`selvxobcjbkligxighlp`).
+- [x] Colunas `is_fitting`, `notes` e `origin` adicionadas à tabela `public.appointments`.
+- [x] Constraints `appointments_status_check`, `appointments_origin_check` e `appointments_no_professional_overlap` atualizadas no Postgres.
+- [x] Rota `/agenda` declarada em `App.tsx` com redirecionamento transparente de `/dashboard` para `/agenda`.
+- [x] Destinos de navegação do Gerente atualizados em `GerenteLayout.tsx`, `AuthGuard.tsx`, `Login.tsx` e `OnboardingWizard.tsx`.

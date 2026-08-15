@@ -23,13 +23,13 @@ graph TD
 
     %% Painel Gerente de Barbearia
     R_Root -- Role: gerente & onboarding_completed=false --> R_Onboarding["/onboarding (Wizard de Onboarding)"]
-    R_Root -- Role: gerente & onboarding_completed=true --> R_Dash["/dashboard (Agenda Geral)"]
-    R_Onboarding --> R_Dash
-    R_Dash --> R_Fin["/financeiro (Faturamento/Comissões)"]
-    R_Dash --> R_Profs["/profissionais (Equipe/Escalas)"]
+    R_Root -- Role: gerente & onboarding_completed=true --> R_Agenda["/agenda (Agenda Geral)"]
+    R_Onboarding --> R_Agenda
+    R_Agenda --> R_Fin["/financeiro (Faturamento/Comissões)"]
+    R_Agenda --> R_Profs["/profissionais (Equipe/Escalas)"]
     R_Profs --> R_CadProf["/profissionais/cadastro-acesso"]
-    R_Dash --> R_Servs["/servicos/cadastro (Menu de Serviços)"]
-    R_Dash --> R_Whats["/whatsapp (Instância WhatsApp)"]
+    R_Agenda --> R_Servs["/servicos/cadastro (Menu de Serviços)"]
+    R_Agenda --> R_Whats["/whatsapp (Instância WhatsApp)"]
 
     %% Painel Barbeiro
     R_FuncLogin -- Role: barbeiro --> R_MyAgenda["/minha-agenda"]
@@ -60,7 +60,7 @@ graph TD
 | Rota | Objetivo | Componentes Principais |
 | :--- | :--- | :--- |
 | `/onboarding` | Wizard obrigatório de 4 etapas para configuração inicial do estabelecimento pós-cadastro. | `OnboardingWizard`, `StepLocation`, `StepSegmentation`, `StepServices`, `StepProfessionals` |
-| `/dashboard` | Agenda diária de todos os profissionais com controle de agendamentos manuais (encaixe). | `WeeklyCalendarGrid`, `BookingDetailsDrawer`, `ManualAppointmentModal` |
+| `/agenda` | Agenda diária em grade temporal contínua de todos os profissionais com controle de agendamentos manuais (encaixe), linha do tempo atual e ações rápidas. (Rota legada `/dashboard` redireciona para cá). | `Agenda`, `TimelineBoard`, `EncaixeModal`, `PaymentModal`, `CancelModal` |
 | `/financeiro` | Relatórios de faturamento bruto (Dinheiro/PIX/Cartão), líquido e comissões da equipe. | `FinancialSummaryCards`, `CommissionsTable`, `ExportPDFButton` |
 | `/profissionais` | Cadastro, escalas e comissões dos barbeiros da equipe. | `ProfessionalsList`, `ScheduleConfigForm`, `CommissionInput` |
 | `/profissionais/cadastro-acesso`| Cadastrar credenciais de login e perfil de um barbeiro. | `StaffAccessForm`, `RoleSelectorDropdown` |

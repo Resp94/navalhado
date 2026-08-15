@@ -87,7 +87,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) =
           // Redireciona para a rota padrão correspondente ao role dele
           const routes: Record<string, string> = {
             proprietario: '/admin/dashboard',
-            gerente: '/dashboard',
+            gerente: '/agenda',
             barbeiro: '/minha-agenda'
           };
           

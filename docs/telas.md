@@ -16,9 +16,10 @@ A interface é dividida em quatro grandes áreas (SaaS Geral, Proprietário, Est
 | `/admin/dashboard` | Dashboard do SaaS | Página Inteira (Tela) | Área Administrativa Global |
 | `/admin/tenants` | Gestão de Barbearias | Página Inteira (Tela) | Tabela e filtros globais |
 | `--> /admin/tenants` | Alterar Status (Ativar/Suspender) | **Modal** | Confirmação de status do tenant |
-| `/dashboard` | Painel da Barbearia (Agenda Geral) | Página Inteira (Tela) | Área do Gerente |
-| `--> /dashboard` | Novo Agendamento (Manual / Encaixe)| **Modal** | Agendamento rápido de balcão |
-| `--> /dashboard` | Detalhes e Status do Agendamento | **Drawer (Lateral)** | Detalhes de um horário reservado |
+| `/agenda` | Painel da Barbearia (Agenda Geral) | Página Inteira (Tela) | Área do Gerente |
+| `--> /agenda` | Novo Agendamento (Manual / Encaixe)| **Modal** | Agendamento rápido de balcão |
+| `--> /agenda` | Receber Pagamento | **Modal** | Faturamento rápido do agendamento |
+| `--> /agenda` | Cancelar Agendamento | **Modal** | Confirmação e justificativa de cancelamento |
 | `/financeiro` | Relatório Financeiro & Comissões | Página Inteira (Tela) | Área do Gerente |
 | `/profissionais` | Equipe, Serviços e Escalas | Página Inteira (Tela) | Área do Gerente |
 | `--> /profissionais` | Cadastrar Acesso do Profissional | **Modal** | Emissão de credenciais para barbeiro |
@@ -37,7 +38,7 @@ A interface é dividida em quatro grandes áreas (SaaS Geral, Proprietário, Est
 
 ### Rota `/` | Login Geral Inteligente
 *   **Tipo:** Página Inteira (Tela)
-*   **Objetivo:** Autenticar qualquer usuário e redirecioná-lo automaticamente baseado na sua `role` (`proprietario` -> `/admin/dashboard`, `gerente` -> `/dashboard`, `barbeiro` -> `/minha-agenda`).
+*   **Objetivo:** Autenticar qualquer usuário e redirecioná-lo automaticamente baseado na sua `role` (`proprietario` -> `/admin/dashboard`, `gerente` -> `/agenda`, `barbeiro` -> `/minha-agenda`).
 *   **Componentes de UI:**
     *   Formulário centralizado com logo do Navalhado.
     *   Campos de entrada: E-mail e Senha (com botão de exibir/ocultar senha).
@@ -66,36 +67,35 @@ A interface é dividida em quatro grandes áreas (SaaS Geral, Proprietário, Est
 
 ### Rota `/admin/dashboard` | Dashboard do SaaS
 *   **Tipo:** Página Inteira (Tela)
-*   **Objetivo:** Exibir indicadores macro da plataforma para o dono do SaaS.
+*   **Objetivo:** Painel de controle global do negócio (SaaS).
 *   **Componentes de UI:**
-    *   Cartões de métricas rápidas: MRR (Receita Recorrente Mensal), Total de Barbearias Ativas, Barbearias Suspensas, Receita Bruta do Mês.
-    *   Gráfico de linha mostrando a evolução da receita nos últimos 12 meses.
-    *   Atalhos rápidos para a listagem de tenants.
+    *   Cards de Métricas Chave: MRR Total, Novas Barbearias no Mês, Barbearias Ativas, Taxa de Churn.
+    *   Gráficos: Tendência de Receita e Novas Adesões ao longo do tempo.
+    *   Tabela de Atividades Recentes (novos cadastros, pagamentos de planos).
 
 ### Rota `/admin/tenants` | Gestão de Barbearias
 *   **Tipo:** Página Inteira (Tela)
-*   **Objetivo:** Listar todas as barbearias cadastradas, verificar o status de conexão com o WhatsApp e alterar o status da assinatura de cada uma.
+*   **Objetivo:** Listar todos os estabelecimentos cadastrados e gerenciar status operacional de cada tenant.
 *   **Componentes de UI:**
-    *   Barra de pesquisa inteligente (busca por nome da barbearia, e-mail ou telefone).
-    *   Tabela principal: Nome, Proprietário, Plano Ativo, Status do WhatsApp (Conectado/Desconectado), Status da Assinatura (Ativo, Suspenso, Bloqueado) e coluna de Ações.
-    *   **Modal de Alteração de Status (Ação rápida):**
-        *   Ao clicar em "Ativar", "Suspender" ou "Bloquear", abre-se um modal de confirmação explicando o impacto da ação (ex: *"Bloquear esta barbearia impedirá que barbeiros e clientes acessem a agenda"*). Contém botão de confirmação e botão de cancelamento.
+    *   Tabela com: Nome do Estabelecimento, Responsável, E-mail, Plano Atual, Data de Cadastro, Status (Ativo, Pendente, Suspenso).
+    *   Barra de busca por nome/email e filtros rápidos por status.
+    *   **Modal de Alteração de Status:**
+        *   Ação de "Suspender/Bloquear" ou "Reativar" barbearia com campo de justificativa.
 
 ---
 
 ## 📋 3. Interfaces do Gerente (Tenant Admin)
 
-### Rota `/dashboard` | Painel da Barbearia (Agenda Geral)
+### Rota `/agenda` | Painel da Barbearia (Agenda Geral)
 *   **Tipo:** Página Inteira (Tela)
-*   **Objetivo:** Exibir a agenda geral da barbearia, permitindo controle diário de todos os barbeiros em uma única visualização.
+*   **Objetivo:** Exibir a agenda geral da barbearia em grade temporal contínua com régua vertical de horários, linha do tempo em tempo real ("Red Line"), colunas individuais por barbeiro, agendamentos rápidos em slots vazios e botão mestre `+ Encaixe`. (A rota legada `/dashboard` redireciona automaticamente para `/agenda`).
 *   **Componentes de UI:**
-    *   Barra superior com resumo de hoje (Total de Agendamentos, Faturamento Previsto, Atendimentos Concluídos).
-    *   Grade de horários dividida em colunas (uma coluna por barbeiro ativo).
-    *   Botão de "Novo Agendamento".
-    *   **Modal de Novo Agendamento Manual (Encaixe de balcão):**
-        *   Formulário rápido contendo: Seleção do Cliente (busca por telefone ou input de novo cliente), Seleção do Profissional, Seleção do Serviço, Data e Horário. Botão "Reservar".
-    *   **Drawer Lateral de Detalhes do Agendamento:**
-        *   Ao clicar em um agendamento na grade, abre-se uma barra lateral contendo informações completas do atendimento (Cliente, Horário, Serviço, Status de Pagamento, Histórico). Permite alterar o status para "Cancelado" ou "Confirmado".
+    *   **Barra Superior de Controle:** Data formatada por extenso em PT-BR, navegador temporal `< [Hoje] >`, seletor de data, filtro multiselect de profissionais e botão mestre **`+ Encaixe`** (`--color-brand-primary`).
+    *   **Grade Temporal Contínua:** Eixo vertical de horários contínuos (08:00 às 20:00), colunas por barbeiro ativo (`resourceDay`), altura proporcional dos blocos à duração do serviço e Linha Vermelha de tempo real indicando a hora atual.
+    *   **Cards de Agendamento Semânticos:** Badges de WhatsApp Confirmado, Encaixe de Balcão, Em Atendimento, Pago/Pendente e ações rápidas no card (WhatsApp direto, Iniciar Atendimento, Cobrar/Pago, Cancelar).
+    *   **Modal de Novo Agendamento / Encaixe Rápido:** Alternância entre cliente existente e novo cliente (Nome + WhatsApp), seleção de profissional, serviço, horário, anotações (`notes`) e flag de encaixe (`is_fitting`).
+    *   **Modal de Pagamento:** Confirmação do valor, escolha da forma de pagamento (PIX, Dinheiro, Cartão) e baixa financeira no agendamento.
+    *   **Modal de Cancelamento:** Confirmação e justificativa do cancelamento.
 
 ### Rota `/financeiro` | Relatórios e Comissões
 *   **Tipo:** Página Inteira (Tela)

@@ -139,7 +139,7 @@ export const GerenteLayout: React.FC = () => {
           }
 
           if (isOnboardingCompleted && location.pathname === '/onboarding') {
-            navigate('/dashboard');
+            navigate('/agenda');
             return;
           }
 
@@ -210,7 +210,7 @@ export const GerenteLayout: React.FC = () => {
 
   // Lista dos links de navegação para a Navbar
   const navLinks = [
-    { path: '/dashboard', label: 'Agenda', icon: <CalendarIcon size={18} /> },
+    { path: '/agenda', label: 'Agenda', icon: <CalendarIcon size={18} /> },
     { path: '/clientes', label: 'Clientes', icon: <UserCardIcon size={18} /> },
     { path: '/profissionais', label: 'Equipe', icon: <UsersIcon size={18} /> },
     { path: '/servicos/cadastro', label: 'Serviços', icon: <ListIcon size={18} /> },
@@ -227,7 +227,7 @@ export const GerenteLayout: React.FC = () => {
         {/* NAVBAR SUPERIOR HORIZONTAL */}
         <header className="gerente-header">
           {/* Logo e Nome da Barbearia */}
-          <div className="gerente-header__brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+          <div className="gerente-header__brand" onClick={() => navigate('/agenda')} style={{ cursor: 'pointer' }}>
             {tenantInfo.logoUrl ? (
               <img 
                 src={tenantInfo.logoUrl} 

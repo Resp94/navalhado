@@ -5,10 +5,10 @@ A grade visual multirrecurso (`resourceDay`) com régua vertical de horários co
 
 **Blocked by:** 01 — Migração de Schema no Supabase e Infraestrutura de Roteamento Canônico.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Régua horária contínua no eixo vertical (ex: 08:00 às 20:00) renderizada com marcações de slots.
-- [ ] Colunas individuais lado a lado por profissional ativo com avatar e nome no cabeçalho da coluna.
-- [ ] Agendamentos posicionados de forma proporcional ao horário de início e com altura correspondente à duração do serviço.
-- [ ] Linha Vermelha ("Red Line") que se desloca dinamicamente a cada minuto no horário do dia atual.
-- [ ] Responsividade horizontal fluida para acomodar múltiplos profissionais com rolagem suave.
+- [x] Régua horária contínua no eixo vertical (ex: 08:00 às 20:00) renderizada com marcações de slots.
+- [x] Colunas individuais lado a lado por profissional ativo com avatar e nome no cabeçalho da coluna.
+- [x] Agendamentos posicionados de forma proporcional ao horário de início e com altura correspondente à duração do serviço.
+- [x] Linha Vermelha ("Red Line") que se desloca dinamicamente a cada minuto no horário do dia atual.
+- [x] Responsividade horizontal fluida para acomodar múltiplos profissionais com rolagem suave.

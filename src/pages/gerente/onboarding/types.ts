@@ -1,4 +1,5 @@
-export interface LocationData {
+export interface OnboardingLocation {
+  country?: string;
   cep: string;
   street: string;
   number: string;
@@ -10,12 +11,12 @@ export interface LocationData {
   longitude?: number | null;
 }
 
-export interface SegmentationData {
+export interface OnboardingSegmentation {
   baseCutPrice: number;
   acquisitionChannel: string;
 }
 
-export interface ServiceItem {
+export interface OnboardingService {
   id: string;
   name: string;
   price: number;
@@ -23,7 +24,7 @@ export interface ServiceItem {
   category: string;
 }
 
-export interface ProfessionalItem {
+export interface OnboardingProfessional {
   id: string;
   name: string;
   phone: string;
@@ -31,12 +32,17 @@ export interface ProfessionalItem {
   isManager?: boolean;
 }
 
+export type LocationData = OnboardingLocation;
+export type SegmentationData = OnboardingSegmentation;
+export type ServiceItem = OnboardingService;
+export type ProfessionalItem = OnboardingProfessional;
+
 export interface OnboardingState {
   currentStep: number;
-  location: LocationData;
-  segmentation: SegmentationData;
-  services: ServiceItem[];
-  professionals: ProfessionalItem[];
+  location: OnboardingLocation;
+  segmentation: OnboardingSegmentation;
+  services: OnboardingService[];
+  professionals: OnboardingProfessional[];
   planName: string;
   maxProfessionals: number;
 }

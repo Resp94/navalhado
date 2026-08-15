@@ -5,7 +5,7 @@ import { GerenteLayout } from '../GerenteLayout';
 const { mockAddToast, mockNavigate, mockUseLocation } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
-  mockUseLocation: vi.fn().mockReturnValue({ pathname: '/dashboard' }),
+  mockUseLocation: vi.fn().mockReturnValue({ pathname: '/agenda' }),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -53,8 +53,8 @@ describe('GerenteLayout Gatekeeper', () => {
     });
   });
 
-  it('redireciona para /onboarding quando onboarding_completed for false e rota for /dashboard', async () => {
-    mockUseLocation.mockReturnValue({ pathname: '/dashboard' });
+  it('redireciona para /onboarding quando onboarding_completed for false e rota for /agenda', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/agenda' });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'users') {
@@ -97,7 +97,7 @@ describe('GerenteLayout Gatekeeper', () => {
     });
   });
 
-  it('redireciona para /dashboard quando onboarding_completed for true e usuário tentar acessar /onboarding', async () => {
+  it('redireciona para /agenda quando onboarding_completed for true e usuário tentar acessar /onboarding', async () => {
     mockUseLocation.mockReturnValue({ pathname: '/onboarding' });
 
     mockFrom.mockImplementation((table: string) => {
@@ -137,12 +137,12 @@ describe('GerenteLayout Gatekeeper', () => {
     render(<GerenteLayout />);
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      expect(mockNavigate).toHaveBeenCalledWith('/agenda');
     });
   });
 
-  it('renderiza o painel normalmente quando onboarding_completed for true em rota /dashboard', async () => {
-    mockUseLocation.mockReturnValue({ pathname: '/dashboard' });
+  it('renderiza o painel normalmente quando onboarding_completed for true em rota /agenda', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/agenda' });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'users') {

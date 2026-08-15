@@ -1,0 +1,190 @@
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Agenda } from '../gerente/Agenda';
+
+const { mockAddToast, mockNavigate, mockOutletContext } = vi.hoisted(() => ({
+  mockAddToast: vi.fn(),
+  mockNavigate: vi.fn(),
+  mockOutletContext: {
+    tenantId: 'tenant-123',
+    tenantName: 'Barbearia Navalhado',
+    logoUrl: null,
+    timezone: 'America/Sao_Paulo',
+    onboardingCompleted: true,
+  },
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useOutletContext: () => mockOutletContext,
+  };
+});
+
+vi.mock('../../components/Toast', () => ({
+  useToast: () => ({
+    addToast: mockAddToast,
+  }),
+}));
+
+const mockFrom = vi.fn();
+const mockChannel = vi.fn().mockReturnValue({
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+});
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    from: (...args: any[]) => mockFrom(...args),
+    channel: (...args: any[]) => mockChannel(...args),
+    removeChannel: vi.fn(),
+  },
+}));
+
+describe('Página de Agenda do Gerente (Grade Temporal)', () => {
+  const mockProfessionals = [
+    { id: 'prof-1', name: 'Carlos Barbeiro', is_active: true, phone: '11999990001' },
+    { id: 'prof-2', name: 'Marcos Navalha', is_active: true, phone: '11999990002' },
+  ];
+
+  const mockServices = [
+    { id: 'serv-1', name: 'Corte Tradicional', price: 45.0, duration_minutes: 30 },
+    { id: 'serv-2', name: 'Barba Completa', price: 35.0, duration_minutes: 30 },
+  ];
+
+  const mockCustomers = [
+    { id: 'cust-1', name: 'Pedro Cliente', phone: '11988887777' },
+  ];
+
+  const mockAppointments = [
+    {
+      id: 'app-1',
+      start_time: '2026-08-15T12:00:00.000Z', // 09:00 no fuso America/Sao_Paulo (UTC-3)
+      end_time: '2026-08-15T12:30:00.000Z',
+      status: 'confirmed',
+      payment_status: 'pending',
+      is_fitting: false,
+      notes: 'Cliente prefere tesoura',
+      origin: 'whatsapp',
+      professional_id: 'prof-1',
+      customer: { id: 'cust-1', name: 'Pedro Cliente', phone: '11988887777' },
+      service: { id: 'serv-1', name: 'Corte Tradicional', price: 45.0 },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'professionals') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: vi.fn().mockResolvedValue({ data: mockProfessionals, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'services') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'customers') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: vi.fn().mockResolvedValue({ data: mockCustomers, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'appointments') {
+        return {
+          select: () => ({
+            eq: () => ({
+              gte: () => ({
+                lt: () => ({
+                  neq: () => ({
+                    order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+          insert: vi.fn().mockResolvedValue({ error: null }),
+          update: () => ({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        };
+      }
+      return { select: vi.fn() };
+    });
+  });
+
+  it('renderiza o cabeçalho operacional com o botão mestre + Encaixe e profissionais', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
+      expect(screen.getByText('Marcos Navalha')).toBeInTheDocument();
+    });
+  });
+
+  it('exibe o card de agendamento na coluna do profissional correspondente com badges e ações', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Pedro Cliente')).toBeInTheDocument();
+      expect(screen.getByText(/Corte Tradicional/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cliente prefere tesoura/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Cobrar/i })).toBeInTheDocument();
+      expect(screen.getByTitle(/WhatsApp/i)).toBeInTheDocument();
+    });
+  });
+
+  it('abre o modal de encaixe rápido com a flag ativa ao clicar no botão + Encaixe', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Encaixe/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Novo Encaixe Rápido')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Marcar como Encaixe de Balcão/i)).toBeChecked();
+    });
+  });
+
+  it('filtra a exibição de profissionais quando desmarcado no menu de equipe', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
+    });
+
+    const filterBtn = screen.getByRole('button', { name: /Equipe/i });
+    fireEvent.click(filterBtn);
+
+    const carlosCheckbox = screen.getByLabelText('Carlos Barbeiro');
+    fireEvent.click(carlosCheckbox); // Desmarca Carlos
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('prof-col-prof-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('prof-col-prof-2')).toBeInTheDocument();
+    });
+  });
+});

@@ -72,7 +72,7 @@ export const Login: React.FC = () => {
   const navigateByRole = (role: string) => {
     const routes: Record<string, string> = {
       proprietario: '/admin/dashboard',
-      gerente: '/dashboard',
+      gerente: '/agenda',
       barbeiro: '/minha-agenda',
     };
     const route = routes[role];

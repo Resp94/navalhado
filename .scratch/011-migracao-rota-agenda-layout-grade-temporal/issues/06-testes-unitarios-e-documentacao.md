@@ -5,10 +5,10 @@ Garantir cobertura de testes automatizados para a nova rota `/agenda`, interaç�
 
 **Blocked by:** 02, 03, 04, 05.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Testes em `src/components/__tests__/GerenteLayout.test.tsx` atualizados para validar o link `/agenda`.
-- [ ] Testes em `src/pages/__tests__/OnboardingWizard.test.tsx` atualizados para validar redirecionamento para `/agenda`.
-- [ ] Teste unitário para o componente `Agenda.tsx` validando renderização de horários e profissionais.
-- [ ] Documentos `docs/arquitetura_rotas.md` e `docs/telas.md` atualizados com a rota canônica `/agenda`.
-- [ ] Execução completa de `npm test` garantindo 100% de testes passando.
+- [x] Testes em `src/components/__tests__/GerenteLayout.test.tsx` atualizados para validar o link `/agenda`.
+- [x] Testes em `src/pages/__tests__/OnboardingWizard.test.tsx` atualizados para validar redirecionamento para `/agenda`.
+- [x] Teste unitário para o componente `Agenda.tsx` validando renderização de horários e profissionais.
+- [x] Documentos `docs/arquitetura_rotas.md` e `docs/telas.md` atualizados com a rota canônica `/agenda`.
+- [x] Execução completa de `npm test` garantindo 100% de testes passando.
