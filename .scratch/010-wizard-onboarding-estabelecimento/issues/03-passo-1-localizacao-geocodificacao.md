@@ -5,12 +5,12 @@ A primeira etapa interativa do Wizard de Onboarding focada no preenchimento ági
 
 **Blocked by:** 02 — Gatekeeper de Onboarding & Roteamento Protegido
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Componente `StepLocation` renderizado no primeiro passo do Wizard `/onboarding`.
-- [ ] País fixado em Brasil sem dropdown de seleção desnecessário.
-- [ ] Campo de CEP com máscara `99999-999` e consulta automática à API ViaCEP para autopreenchimento de logradouro, bairro, cidade e estado.
-- [ ] Campos manuais de Número e Complemento para ajuste fino.
-- [ ] Resolução e captura automática de coordenadas geográficas (`latitude` e `longitude`).
-- [ ] Validação de formulário bloqueando avanço enquanto os campos obrigatórios de endereço não estiverem preenchidos.
-- [ ] Persistência intermediária dos dados no tenant ou no estado do Wizard.
+- [x] Componente `StepLocation` renderizado no primeiro passo do Wizard `/onboarding`.
+- [x] País fixado em Brasil sem dropdown de seleção desnecessário.
+- [x] Campo de CEP com máscara `99999-999` e consulta automática à API ViaCEP para autopreenchimento de logradouro, bairro, cidade e estado.
+- [x] Campos manuais de Número e Complemento para ajuste fino.
+- [x] Resolução e captura automática de coordenadas geográficas (`latitude` e `longitude`).
+- [x] Validação de formulário bloqueando avanço enquanto os campos obrigatórios de endereço não estiverem preenchidos.
+- [x] Persistência intermediária dos dados no tenant ou no estado do Wizard.

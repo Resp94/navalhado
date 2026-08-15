@@ -5,13 +5,13 @@ A quarta e última etapa do Wizard de Onboarding focada em configurar a equipe d
 
 **Blocked by:** 05 — Passo 3 do Wizard: Catálogo Inicial de Serviços em 1 Clique
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Componente `StepProfessionals` renderizado no quarto passo do Wizard.
-- [ ] Prompt/Card sugerindo cadastrar o Gestor titular como o primeiro profissional da agenda com seu nome e telefone do cadastro inicial.
-- [ ] Formulário de adição rápida de novos barbeiros com Nome, Celular (WhatsApp) com máscara e Percentual de Comissão (sugestão de 50%).
-- [ ] Medidor visual de cota do plano no topo da lista (ex: `💈 1 de 3 profissionais cadastrados (Plano Bronze)`).
-- [ ] Trava de limite impedindo a adição de mais profissionais quando a cota do plano for atingida, com aviso de upgrade.
-- [ ] Trava de segurança desabilitando a remoção caso haja apenas 1 profissional cadastrado.
-- [ ] Botão **"Finalizar Configuração"** que salva os serviços em `public.services`, os profissionais em `public.professionals`, grava os dados de localização e segmentação no `public.tenants` e define `onboarding_completed = true`.
-- [ ] Transição suave para o `/dashboard` com emissão de Toast de boas-vindas.
+- [x] Componente `StepProfessionals` renderizado no quarto passo do Wizard.
+- [x] Prompt/Card sugerindo cadastrar o Gestor titular como o primeiro profissional da agenda com seu nome e telefone do cadastro inicial.
+- [x] Formulário de adição rápida de novos barbeiros com Nome, Celular (WhatsApp) com máscara e Percentual de Comissão (sugestão de 50%).
+- [x] Medidor visual de cota do plano no topo da lista (ex: `💈 1 de 3 profissionais cadastrados (Plano Bronze)`).
+- [x] Trava de limite impedindo a adição de mais profissionais quando a cota do plano for atingida, com aviso de upgrade.
+- [x] Trava de segurança desabilitando a remoção caso haja apenas 1 profissional cadastrado.
+- [x] Botão **"Finalizar Configuração"** que salva os serviços em `public.services`, os profissionais em `public.professionals`, grava os dados de localização e segmentação no `public.tenants` e define `onboarding_completed = true`.
+- [x] Transição suave para o `/dashboard` com emissão de Toast de boas-vindas.
