@@ -58,6 +58,11 @@ Assistente obrigatório de configuração pós-cadastro inicial (`/onboarding`),
 _Avoid_: Passo a passo legado, formulário de boas-vindas, setup opcional
 
 **Gatekeeper de Onboarding**:
-Mecanismo de proteção de rotas no frontend e validação de estado no backend que intercepta o acesso do Gestor às rotas operacionais do tenant (`/dashboard`, `/agenda`, etc.) enquanto a flag `onboarding_completed` do tenant for falsa, forçando o redirecionamento para o Wizard de Onboarding.
+Mecanismo de proteção de rotas no frontend e validação de estado no backend que intercepta o acesso do Gestor às rotas operacionais do tenant (`/agenda`, `/clientes`, `/financeiro`, etc.) enquanto a flag `onboarding_completed` do tenant for falsa, forçando o redirecionamento para o Wizard de Onboarding.
 _Avoid_: Bloqueio temporário, redirect solto, verificação manual
+
+**Agenda Geral (Rota /agenda)**:
+Superfície operacional canônica do Gerente no painel da barbearia, responsável pela visualização em tempo real de horários, colunas de profissionais, criação de agendamentos manuais, encaixes rápidos, bloqueios e controle de status de atendimento.
+_Avoid_: Dashboard do Gerente, Painel Geral, Tela de Relatórios
+
 
