@@ -82,20 +82,31 @@ Implementar o **Ciclo Completo de Comandas, Sessões de Caixa, Bloqueios de Hor�
 
 ### 1. Migração de Banco de Dados Versionada (`015_comandas_caixa_bloqueios_produtos.sql`)
 - **Tabela `public.cash_sessions`**:
-  `id`, `tenant_id`, `opened_by`, `closed_by`, `opened_at`, `closed_at`, `initial_amount`, `closing_amount`, `status` (`'open' | 'closed'`), `notes`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `opened_by UUID REFERENCES auth.users(id)`, `closed_by UUID REFERENCES auth.users(id)`, `opened_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`, `closed_at TIMESTAMPTZ`, `initial_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (initial_amount >= 0)`, `closing_amount NUMERIC(10,2) CHECK (closing_amount IS NULL OR closing_amount >= 0)`, `status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed'))`, `notes TEXT`.
 - **Tabela `public.products`**:
-  `id`, `tenant_id`, `name`, `price`, `cost_price`, `stock_quantity`, `is_active`, `created_at`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `name TEXT NOT NULL`, `price NUMERIC(10,2) NOT NULL CHECK (price >= 0)`, `cost_price NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (cost_price >= 0)`, `stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0)`, `is_active BOOLEAN NOT NULL DEFAULT true`, `created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`.
 - **Tabela `public.comandas`**:
-  `id`, `tenant_id`, `appointment_id` (nullable), `customer_id`, `status` (`'aberta' | 'fechada' | 'cancelada'`), `total_amount`, `discount_amount`, `tip_amount`, `notes`, `created_at`, `closed_at`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `appointment_id UUID REFERENCES public.appointments(id) ON DELETE SET NULL`, `customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL`, `status TEXT NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'fechada', 'cancelada'))`, `total_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (total_amount >= 0)`, `discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (discount_amount >= 0)`, `tip_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (tip_amount >= 0)`, `notes TEXT`, `created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`, `closed_at TIMESTAMPTZ`.
 - **Tabela `public.comanda_itens`**:
-  `id`, `comanda_id`, `tenant_id`, `item_type` (`'servico' | 'produto'`), `service_id` (nullable), `product_id` (nullable), `professional_id` (nullable), `quantity`, `unit_price`, `total_price`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `comanda_id UUID NOT NULL REFERENCES public.comandas(id) ON DELETE CASCADE`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `item_type TEXT NOT NULL CHECK (item_type IN ('servico', 'produto'))`, `service_id UUID REFERENCES public.services(id) ON DELETE SET NULL`, `product_id UUID REFERENCES public.products(id) ON DELETE SET NULL`, `professional_id UUID REFERENCES public.professionals(id) ON DELETE SET NULL`, `quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0)`, `unit_price NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0)`, `total_price NUMERIC(10,2) NOT NULL CHECK (total_price >= 0)`.
 - **Tabela `public.comanda_pagamentos`**:
-  `id`, `comanda_id`, `tenant_id`, `cash_session_id`, `payment_method` (`'pix' | 'credit_card' | 'debit_card' | 'cash' | 'other'`), `amount`, `change_amount`, `paid_at`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `comanda_id UUID NOT NULL REFERENCES public.comandas(id) ON DELETE CASCADE`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `cash_session_id UUID REFERENCES public.cash_sessions(id) ON DELETE SET NULL`, `payment_method TEXT NOT NULL CHECK (payment_method IN ('pix', 'credit_card', 'debit_card', 'cash', 'other'))`, `amount NUMERIC(10,2) NOT NULL CHECK (amount > 0)`, `change_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (change_amount >= 0)`, `paid_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`.
 - **Tabela `public.blocked_slots`**:
-  `id`, `tenant_id`, `professional_id`, `start_time`, `end_time`, `reason`, `is_all_day`, `created_at`.
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `professional_id UUID NOT NULL REFERENCES public.professionals(id) ON DELETE CASCADE`, `start_time TIMESTAMPTZ NOT NULL`, `end_time TIMESTAMPTZ NOT NULL`, `reason TEXT NOT NULL DEFAULT 'Almoço'`, `is_all_day BOOLEAN NOT NULL DEFAULT false`, `created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`, `CONSTRAINT blocked_slots_valid_timerange CHECK (end_time > start_time)`.
 - **Tabela `public.waiting_list`**:
-  `id`, `tenant_id`, `customer_id` (nullable), `name`, `phone`, `service_id`, `professional_id` (nullable), `status` (`'waiting' | 'scheduled' | 'expired'`), `created_at`.
-- **Constraint GIST de Anti-Sobreposição Ajustada**:
+  `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`, `customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL`, `name TEXT NOT NULL`, `phone TEXT NOT NULL`, `service_id UUID REFERENCES public.services(id) ON DELETE SET NULL`, `professional_id UUID REFERENCES public.professionals(id) ON DELETE SET NULL`, `status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'scheduled', 'expired', 'canceled'))`, `created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())`.
+
+### 2. Índices de Performance e Concorrência (Postgres Best Practices)
+- **Cobertura de Índices em Foreign Keys (B-Tree)**:
+  - `idx_comandas_tenant_id`, `idx_comandas_appointment_id`, `idx_comandas_customer_id`
+  - `idx_comanda_itens_comanda_id`, `idx_comanda_itens_service_id`, `idx_comanda_itens_product_id`, `idx_comanda_itens_professional_id`
+  - `idx_comanda_pagamentos_comanda_id`, `idx_comanda_pagamentos_cash_session_id`
+  - `idx_cash_sessions_tenant_id`, `idx_cash_sessions_opened_by`
+  - `idx_blocked_slots_tenant_id`, `idx_blocked_slots_professional_id`, `idx_blocked_slots_range` (GIST para busca rápida de colisão)
+  - `idx_waiting_list_tenant_id`, `idx_waiting_list_status`
+- **Garantia de Unicidade Concorrente de Caixa Aberto**:
+  - `CREATE UNIQUE INDEX idx_single_open_cash_session_per_tenant ON public.cash_sessions (tenant_id) WHERE (status = 'open');`
+- **Constraint GIST de Anti-Sobreposição Ajustada (Overbooking Permitido em Encaixes)**:
   ```sql
   ALTER TABLE public.appointments DROP CONSTRAINT IF EXISTS appointments_no_professional_overlap;
   ALTER TABLE public.appointments ADD CONSTRAINT appointments_no_professional_overlap
@@ -105,16 +116,25 @@ Implementar o **Ciclo Completo de Comandas, Sessões de Caixa, Bloqueios de Hor�
     )
     WHERE (status IN ('pending', 'confirmed', 'in_progress') AND is_fitting = false);
   ```
-- **Limpeza de RPCs Legadas**:
-  `DROP FUNCTION IF EXISTS public.get_available_slots(uuid, text, date);`
-  `DROP FUNCTION IF EXISTS public.get_customer_info_by_token(uuid, text);`
 
-### 2. Módulos Profundos e Repositórios Frontend
+### 3. Segurança e Políticas RLS (Supabase Security Best Practices)
+- RLS ativado em todas as 7 tabelas com `ENABLE ROW LEVEL SECURITY`.
+- Políticas de isolamento multi-tenant aplicadas com `TO authenticated`:
+  - `USING (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())))`
+  - Cláusula `WITH CHECK (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())))` em todas as políticas de `UPDATE` e `INSERT` para impedir reatribuição de dados entre barbearias.
+- Publicação Realtime habilitada para atualização instantânea entre operadores:
+  - `ALTER PUBLICATION supabase_realtime ADD TABLE public.comandas, public.cash_sessions, public.blocked_slots;`
+
+### 4. Limpeza de RPCs Legadas
+- `DROP FUNCTION IF EXISTS public.get_available_slots(uuid, text, date);`
+- `DROP FUNCTION IF EXISTS public.get_customer_info_by_token(uuid, text);`
+
+### 5. Módulos Profundos e Repositórios Frontend
 - `src/modules/comandas/ComandaRepository.ts` & `adapters/SupabaseComandaAdapter.ts`: Métodos de abertura, inclusão de itens, cálculo de totais e liquidação com pagamentos divididos.
 - `src/modules/caixa/CaixaRepository.ts`: Consulta de sessão aberta, abertura com fundo de troco e fechamento consolidado.
 - `src/modules/bloqueios/BloqueioRepository.ts`: Criação e exclusão de bloqueios na grade.
 
-### 3. Interface e Experiência do Usuário (`Agenda.tsx`)
+### 6. Interface e Experiência do Usuário (`Agenda.tsx`)
 - **Algoritmo de Colunas Concorrentes (Split Grid 50%/50%)**: Cálculo prévio de sobreposição temporal de agendamentos por barbeiro para distribuição das propriedades de CSS `left` e `width`.
 - **Modal de Checkout de Comanda (`ComandaCheckoutModal.tsx`)**: Exibição de itens, botões dinâmicos `+ Serviço` e `+ Produto`, linhas de desconto e gorjeta, e formulário de múltiplas parcelas/formas de pagamento com calculadora de troco.
 - **Modal de Abertura Assistida de Caixa**: Overlay contextual caso não haja caixa aberto ao tentar faturar.
