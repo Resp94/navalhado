@@ -1,27 +1,26 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
 
-const { mockAddToast, mockSupabaseClient, mockUserSingle, mockTenantSingle } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockUseLocation } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
-  mockUserSingle: vi.fn(),
-  mockTenantSingle: vi.fn(),
-  mockSupabaseClient: {
-    auth: {
-      getUser: vi.fn(),
-      signOut: vi.fn(),
-    },
-    from: vi.fn(),
-  },
+  mockNavigate: vi.fn(),
+  mockUseLocation: vi.fn().mockReturnValue({ pathname: '/dashboard' }),
 }));
 
-vi.mock('../../components/Toast', () => ({
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => mockUseLocation(),
+    Outlet: ({ context }: any) => <div data-testid="outlet" data-context={JSON.stringify(context)}>Conteúdo Outlet</div>,
+    Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>,
+  };
+});
+
+vi.mock('../Toast', () => ({
   useToast: () => ({ addToast: mockAddToast }),
-}));
-
-vi.mock('../../lib/supabase', () => ({
-  supabase: mockSupabaseClient,
 }));
 
 vi.mock('../../lib/useRealtimeNotifications', () => ({
@@ -33,24 +32,39 @@ vi.mock('../../lib/useRealtimeNotifications', () => ({
   }),
 }));
 
-describe('GerenteLayout - Navigation - TDD', () => {
+const mockGetUser = vi.fn();
+const mockFrom = vi.fn();
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: () => mockGetUser(),
+    },
+    from: (table: string) => mockFrom(table),
+  },
+}));
+
+describe('GerenteLayout Gatekeeper', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123', email: 'gerente@test.local' } },
+      error: null,
+    });
   });
 
-  it('renderiza todos os links de navegação incluindo o novo link de Ajustes', async () => {
-    const mockUser = { id: 'user-123' };
-    const mockProfile = { name: 'Gerente Teste', tenant_id: 'tenant-123', role: 'gerente' };
-    const mockTenant = { id: 'tenant-123', name: 'Barbearia Navalhado', logo_url: null };
+  it('redireciona para /onboarding quando onboarding_completed for false e rota for /dashboard', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/dashboard' });
 
-    mockSupabaseClient.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null });
-    
-    mockSupabaseClient.from.mockImplementation((table: string) => {
+    mockFrom.mockImplementation((table: string) => {
       if (table === 'users') {
         return {
           select: () => ({
             eq: () => ({
-              single: mockUserSingle.mockResolvedValue({ data: mockProfile, error: null }),
+              single: vi.fn().mockResolvedValue({
+                data: { name: 'Jonathas', tenant_id: 'tenant-123', role: 'gerente' },
+                error: null,
+              }),
             }),
           }),
         };
@@ -59,32 +73,116 @@ describe('GerenteLayout - Navigation - TDD', () => {
         return {
           select: () => ({
             eq: () => ({
-              single: mockTenantSingle.mockResolvedValue({ data: mockTenant, error: null }),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'tenant-123',
+                  name: 'Barbearia Navalhado',
+                  logo_url: null,
+                  timezone: 'America/Sao_Paulo',
+                  onboarding_completed: false,
+                },
+                error: null,
+              }),
             }),
           }),
         };
       }
-      return { select: () => ({ eq: () => ({ single: vi.fn() }) }) };
+      return { select: vi.fn() };
     });
 
-    render(
-      <MemoryRouter>
-        <GerenteLayout />
-      </MemoryRouter>
-    );
+    render(<GerenteLayout />);
 
-    // Esperar a barra de navegação carregar e sair do esqueleto
-    await screen.findByText('Gerente Teste');
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding');
+    });
+  });
 
-    // Verificar se todos os links de navegação esperados estão presentes
-    expect(screen.getByText('Agenda')).toBeInTheDocument();
-    expect(screen.getByText('Clientes')).toBeInTheDocument();
-    expect(screen.getByText('Equipe')).toBeInTheDocument();
-    expect(screen.getByText('Serviços')).toBeInTheDocument();
-    expect(screen.getByText('Financeiro')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp')).toBeInTheDocument();
-    
-    // O NOVO link "Ajustes" deve estar presente!
-    expect(screen.getByText('Ajustes')).toBeInTheDocument();
+  it('redireciona para /dashboard quando onboarding_completed for true e usuário tentar acessar /onboarding', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/onboarding' });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: { name: 'Jonathas', tenant_id: 'tenant-123', role: 'gerente' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'tenants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'tenant-123',
+                  name: 'Barbearia Navalhado',
+                  logo_url: null,
+                  timezone: 'America/Sao_Paulo',
+                  onboarding_completed: true,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return { select: vi.fn() };
+    });
+
+    render(<GerenteLayout />);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  it('renderiza o painel normalmente quando onboarding_completed for true em rota /dashboard', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/dashboard' });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: { name: 'Jonathas', tenant_id: 'tenant-123', role: 'gerente' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'tenants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'tenant-123',
+                  name: 'Barbearia Navalhado',
+                  logo_url: null,
+                  timezone: 'America/Sao_Paulo',
+                  onboarding_completed: true,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return { select: vi.fn() };
+    });
+
+    render(<GerenteLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('outlet')).toBeInTheDocument();
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/onboarding');
   });
 });

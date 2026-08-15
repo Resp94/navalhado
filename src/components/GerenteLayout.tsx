@@ -11,6 +11,7 @@ export interface TenantContextType {
   tenantName: string;
   logoUrl: string | null;
   timezone: string;
+  onboardingCompleted?: boolean;
 }
 
 // SVGs de Ícones de Navegação Inline
@@ -122,7 +123,7 @@ export const GerenteLayout: React.FC = () => {
         if (profile.tenant_id) {
           const { data: tenant, error: tenantError } = await supabase
             .from('tenants')
-            .select('id, name, logo_url, timezone')
+            .select('id, name, logo_url, timezone, onboarding_completed')
             .eq('id', profile.tenant_id)
             .single();
 
@@ -130,12 +131,25 @@ export const GerenteLayout: React.FC = () => {
             throw new Error('Não foi possível carregar os dados da barbearia.');
           }
 
+          const isOnboardingCompleted = Boolean(tenant.onboarding_completed);
+
+          if (!isOnboardingCompleted && location.pathname !== '/onboarding') {
+            navigate('/onboarding');
+            return;
+          }
+
+          if (isOnboardingCompleted && location.pathname === '/onboarding') {
+            navigate('/dashboard');
+            return;
+          }
+
           if (isMounted) {
             setTenantInfo({
               tenantId: tenant.id,
               tenantName: tenant.name,
               logoUrl: tenant.logo_url,
-              timezone: tenant.timezone || 'America/Sao_Paulo'
+              timezone: tenant.timezone || 'America/Sao_Paulo',
+              onboardingCompleted: isOnboardingCompleted,
             });
           }
         } else {
@@ -183,6 +197,14 @@ export const GerenteLayout: React.FC = () => {
           <div className="skeleton" style={{ height: '350px', marginTop: '2rem' }} />
         </div>
       </>
+    );
+  }
+
+  if (location.pathname === '/onboarding') {
+    return (
+      <div className="onboarding-layout" style={{ minHeight: '100vh', backgroundColor: '#09090b', color: '#f4f4f5' }}>
+        <Outlet context={tenantInfo} />
+      </div>
     );
   }
 

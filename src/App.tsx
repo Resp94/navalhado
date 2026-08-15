@@ -18,6 +18,7 @@ import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
 import { Whatsapp as GerenteWhatsapp } from './pages/gerente/Whatsapp';
 import { Clientes as GerenteClientes } from './pages/gerente/Clientes';
 import { Configuracoes as GerenteConfiguracoes } from './pages/gerente/Configuracoes';
+import { OnboardingWizard } from './pages/gerente/OnboardingWizard';
 import { AcessoExpirado } from './pages/cliente/AcessoExpirado';
 import { MenuCliente } from './pages/cliente/MenuCliente';
 import { FluxoAgendamento } from './pages/cliente/FluxoAgendamento';
@@ -40,6 +41,7 @@ function App() {
               </AuthGuard>
             }
           >
+            <Route path="/onboarding" element={<OnboardingWizard />} />
             <Route path="/dashboard" element={<GerenteDashboard />} />
             <Route path="/financeiro" element={<GerenteFinanceiro />} />
             <Route path="/profissionais" element={<GerenteProfissionais />} />

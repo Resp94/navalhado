@@ -5,10 +5,10 @@ A camada de guarda de rotas e interceptação no frontend que garante que qualqu
 
 **Blocked by:** 01 — Migration de Schema do Tenant, RLS e Aplicação no Banco Dev via MCP
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Rota `/onboarding` registrada e mapeada no `src/App.tsx`.
-- [ ] Contexto de Tenant e Layout de Gerente (`src/components/GerenteLayout.tsx`) atualizado para carregar a flag `onboarding_completed`.
-- [ ] Gatekeeper implementado: redireciona para `/onboarding` se `onboarding_completed === false` ao tentar acessar rotas operacionais do tenant.
-- [ ] Redirecionamento inverso implementado: se o usuário já possui `onboarding_completed === true` e tenta navegar para `/onboarding`, é redirecionado para `/dashboard`.
-- [ ] Testes automatizados cobrindo os cenários de interceptação e liberação do Gatekeeper.
+- [x] Rota `/onboarding` registrada e mapeada no `src/App.tsx`.
+- [x] Contexto de Tenant e Layout de Gerente (`src/components/GerenteLayout.tsx`) atualizado para carregar a flag `onboarding_completed`.
+- [x] Gatekeeper implementado: redireciona para `/onboarding` se `onboarding_completed === false` ao tentar acessar rotas operacionais do tenant.
+- [x] Redirecionamento inverso implementado: se o usuário já possui `onboarding_completed === true` e tenta navegar para `/onboarding`, é redirecionado para `/dashboard`.
+- [x] Testes automatizados cobrindo os cenários de interceptação e liberação do Gatekeeper.
