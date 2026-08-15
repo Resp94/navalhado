@@ -22,7 +22,9 @@ graph TD
     R_AdminDash --> R_AdminTenants["/admin/tenants (Gerenciar Barbearias)"]
 
     %% Painel Gerente de Barbearia
-    R_Root -- Role: gerente --> R_Dash["/dashboard (Agenda Geral)"]
+    R_Root -- Role: gerente & onboarding_completed=false --> R_Onboarding["/onboarding (Wizard de Onboarding)"]
+    R_Root -- Role: gerente & onboarding_completed=true --> R_Dash["/dashboard (Agenda Geral)"]
+    R_Onboarding --> R_Dash
     R_Dash --> R_Fin["/financeiro (Faturamento/Comissões)"]
     R_Dash --> R_Profs["/profissionais (Equipe/Escalas)"]
     R_Profs --> R_CadProf["/profissionais/cadastro-acesso"]
@@ -57,6 +59,7 @@ graph TD
 
 | Rota | Objetivo | Componentes Principais |
 | :--- | :--- | :--- |
+| `/onboarding` | Wizard obrigatório de 4 etapas para configuração inicial do estabelecimento pós-cadastro. | `OnboardingWizard`, `StepLocation`, `StepSegmentation`, `StepServices`, `StepProfessionals` |
 | `/dashboard` | Agenda diária de todos os profissionais com controle de agendamentos manuais (encaixe). | `WeeklyCalendarGrid`, `BookingDetailsDrawer`, `ManualAppointmentModal` |
 | `/financeiro` | Relatórios de faturamento bruto (Dinheiro/PIX/Cartão), líquido e comissões da equipe. | `FinancialSummaryCards`, `CommissionsTable`, `ExportPDFButton` |
 | `/profissionais` | Cadastro, escalas e comissões dos barbeiros da equipe. | `ProfessionalsList`, `ScheduleConfigForm`, `CommissionInput` |

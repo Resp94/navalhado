@@ -52,3 +52,12 @@ _Avoid_: Notificação de agendamento, status do WhatsApp, trigger de agendament
 **Instância WhatsApp**:
 Conexão lógica e física de um tenant com o WhatsApp, representada por `public.whatsapp_instances` e operada pelo adaptador Uazapi no backend. O estado observado pode ser `disconnected` (sem sessão), `connecting` (pareamento em andamento), `connected` (sessão autenticada) ou `hibernated` (sessão pausada, com credenciais preservadas). O gerenciamento é exclusivo do Gerente do tenant.
 _Avoid_: nome de provedor no domínio, estado de pareamento legado, token no frontend, instância compartilhada
+
+**Wizard de Onboarding**:
+Assistente obrigatório de configuração pós-cadastro inicial (`/onboarding`), composto por etapas sequenciais (Localização, Segmentação, Catálogo Inicial de Serviços e Equipe de Profissionais), responsável por parametrizar o tenant antes da operação regular.
+_Avoid_: Passo a passo legado, formulário de boas-vindas, setup opcional
+
+**Gatekeeper de Onboarding**:
+Mecanismo de proteção de rotas no frontend e validação de estado no backend que intercepta o acesso do Gestor às rotas operacionais do tenant (`/dashboard`, `/agenda`, etc.) enquanto a flag `onboarding_completed` do tenant for falsa, forçando o redirecionamento para o Wizard de Onboarding.
+_Avoid_: Bloqueio temporário, redirect solto, verificação manual
+
