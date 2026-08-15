@@ -1662,18 +1662,18 @@ export const Agenda: React.FC = () => {
         }
 
         .badge-chip--fitting {
-          background-color: #fef3c7;
-          color: #92400e;
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning);
         }
 
         .badge-chip--progress {
-          background-color: #dbeafe;
-          color: #1e40af;
+          background-color: var(--color-info-bg);
+          color: var(--color-info);
         }
 
         .badge-chip--paid {
-          background-color: #d1fae5;
-          color: #065f46;
+          background-color: var(--color-success-bg);
+          color: var(--color-success);
         }
 
         .card-client-row {
