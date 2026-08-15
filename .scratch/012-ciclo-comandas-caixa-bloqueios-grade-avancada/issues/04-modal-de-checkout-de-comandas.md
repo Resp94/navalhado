@@ -1,0 +1,17 @@
+# 04 — Modal de Checkout de Comandas com Múltiplos Itens e Divisão de Pagamento
+
+**What to build:**
+Desenvolver o modal completo de Checkout da Comanda (`ComandaCheckoutModal.tsx`) acionado pelo botão "Cobrar" na grade, suportando inclusão dinâmica de serviços extras, produtos físicos com baixa de estoque, descontos %, gorjetas e divisão de pagamento (ex: PIX + Dinheiro com calculadora de troco).
+
+**Blocked by:** 03 — Sessão de Caixa: Abertura Assistida no Checkout e Controle de Turno Diário.
+
+**Status:** ready-for-agent
+
+- [ ] Criar modal de Checkout de Comanda exibindo dados do cliente, profissional e itens associados.
+- [ ] Botão `+ Serviço` para adicionar novos serviços prestados com seleção do barbeiro comissionado.
+- [ ] Botão `+ Produto` com busca de produtos ativos, preço e estoque.
+- [ ] Campos de Desconto (Percentual e Valor Fixo) e Gorjeta do Barbeiro com recálculo do Total em tempo real.
+- [ ] Seção de Divisão de Pagamento permitindo combinar PIX, Cartão e Dinheiro até totalizar o saldo da comanda.
+- [ ] Calculadora automática de troco quando houver pagamento em dinheiro físico.
+- [ ] Baixa de estoque do produto (`products.stock_quantity`) e transição do agendamento para `completed` e verde na grade.
+- [ ] Testes unitários do modal de checkout de comanda.
