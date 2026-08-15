@@ -109,12 +109,12 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
     render(<OnboardingWizard />);
 
     expect(screen.getByTestId('step-location')).toBeInTheDocument();
-    const nextBtn = screen.getByRole('button', { name: /Continuar para Segmentação/i });
+    const nextBtn = screen.getByRole('button', { name: /Continuar para o Preço Base/i });
     expect(nextBtn).toBeDisabled();
 
     // Preencher campos obrigatórios
     fireEvent.change(screen.getByLabelText(/CEP/i), { target: { value: '69000-000' } });
-    fireEvent.change(screen.getByLabelText(/Endereço \/ Rua/i), { target: { value: 'Rua das Flores' } });
+    fireEvent.change(screen.getByLabelText(/Rua ou Avenida/i), { target: { value: 'Rua das Flores' } });
     fireEvent.change(screen.getByLabelText(/Número/i), { target: { value: '123' } });
     fireEvent.change(screen.getByLabelText(/Bairro/i), { target: { value: 'Centro' } });
     fireEvent.change(screen.getByLabelText(/Cidade/i), { target: { value: 'Manaus' } });
@@ -137,20 +137,20 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
 
     // --- Passo 1: Localização ---
     fireEvent.change(screen.getByLabelText(/CEP/i), { target: { value: '69000-000' } });
-    fireEvent.change(screen.getByLabelText(/Endereço \/ Rua/i), { target: { value: 'Av. Brasil' } });
+    fireEvent.change(screen.getByLabelText(/Rua ou Avenida/i), { target: { value: 'Av. Brasil' } });
     fireEvent.change(screen.getByLabelText(/Número/i), { target: { value: '500' } });
     fireEvent.change(screen.getByLabelText(/Bairro/i), { target: { value: 'Compensa' } });
     fireEvent.change(screen.getByLabelText(/Cidade/i), { target: { value: 'Manaus' } });
     fireEvent.change(screen.getByLabelText(/Estado \(UF\)/i), { target: { value: 'AM' } });
     
-    const nextLocBtn = screen.getByRole('button', { name: /Continuar para Segmentação/i });
+    const nextLocBtn = screen.getByRole('button', { name: /Continuar para o Preço Base/i });
     await waitFor(() => expect(nextLocBtn).toBeEnabled());
     fireEvent.click(nextLocBtn);
 
     // --- Passo 2: Segmentação ---
     await waitFor(() => expect(screen.getByTestId('step-segmentation')).toBeInTheDocument());
     
-    fireEvent.change(screen.getByLabelText(/preço médio do corte/i), { target: { value: '4500' } });
+    fireEvent.change(screen.getByLabelText(/Preço do Corte Tradicional/i), { target: { value: '4500' } });
     fireEvent.change(screen.getByLabelText(/Como você conheceu o Navalhado/i), { target: { value: 'instagram' } });
     
     const nextSegBtn = screen.getByRole('button', { name: /Continuar para Serviços/i });
@@ -171,10 +171,10 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
     await waitFor(() => expect(screen.getByTestId('step-professionals')).toBeInTheDocument());
 
     // Clicar para incluir o Gestor como barbeiro
-    const addManagerBtn = screen.getByRole('button', { name: /\+ Me incluir como Barbeiro/i });
+    const addManagerBtn = screen.getByRole('button', { name: /Me incluir como Barbeiro/i });
     fireEvent.click(addManagerBtn);
 
-    const finishBtn = screen.getByRole('button', { name: /Concluir e Entrar no Painel/i });
+    const finishBtn = screen.getByRole('button', { name: /Concluir e Abrir meu Painel/i });
     await waitFor(() => expect(finishBtn).toBeEnabled());
     fireEvent.click(finishBtn);
 
@@ -241,18 +241,18 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
 
     // Passo 1
     fireEvent.change(screen.getByLabelText(/CEP/i), { target: { value: '69000-000' } });
-    fireEvent.change(screen.getByLabelText(/Endereço \/ Rua/i), { target: { value: 'Av. Brasil' } });
+    fireEvent.change(screen.getByLabelText(/Rua ou Avenida/i), { target: { value: 'Av. Brasil' } });
     fireEvent.change(screen.getByLabelText(/Número/i), { target: { value: '500' } });
     fireEvent.change(screen.getByLabelText(/Bairro/i), { target: { value: 'Compensa' } });
     fireEvent.change(screen.getByLabelText(/Cidade/i), { target: { value: 'Manaus' } });
     fireEvent.change(screen.getByLabelText(/Estado \(UF\)/i), { target: { value: 'AM' } });
-    const nextLocBtn = screen.getByRole('button', { name: /Continuar para Segmentação/i });
+    const nextLocBtn = screen.getByRole('button', { name: /Continuar para o Preço Base/i });
     await waitFor(() => expect(nextLocBtn).toBeEnabled());
     fireEvent.click(nextLocBtn);
 
     // Passo 2
     await waitFor(() => expect(screen.getByTestId('step-segmentation')).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText(/preço médio do corte/i), { target: { value: '4500' } });
+    fireEvent.change(screen.getByLabelText(/Preço do Corte Tradicional/i), { target: { value: '4500' } });
     fireEvent.change(screen.getByLabelText(/Como você conheceu o Navalhado/i), { target: { value: 'instagram' } });
     const nextSegBtn = screen.getByRole('button', { name: /Continuar para Serviços/i });
     await waitFor(() => expect(nextSegBtn).toBeEnabled());
@@ -266,10 +266,10 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
 
     // Passo 4
     await waitFor(() => expect(screen.getByTestId('step-professionals')).toBeInTheDocument());
-    const addManagerBtn = screen.getByRole('button', { name: /\+ Me incluir como Barbeiro/i });
+    const addManagerBtn = screen.getByRole('button', { name: /Me incluir como Barbeiro/i });
     fireEvent.click(addManagerBtn);
 
-    const finishBtn = screen.getByRole('button', { name: /Concluir e Entrar no Painel/i });
+    const finishBtn = screen.getByRole('button', { name: /Concluir e Abrir meu Painel/i });
     await waitFor(() => expect(finishBtn).toBeEnabled());
     fireEvent.click(finishBtn);
 

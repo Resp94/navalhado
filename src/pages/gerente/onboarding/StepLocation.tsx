@@ -1,74 +1,84 @@
 import React, { useState } from 'react';
-import type { LocationData } from './types';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { 
+  ArrowRight01Icon 
+} from '@hugeicons/core-free-icons';
+import type { OnboardingLocation } from './types';
 
 interface StepLocationProps {
-  data: LocationData;
-  onChange: (updated: Partial<LocationData>) => void;
+  data: OnboardingLocation;
+  onChange: (data: Partial<OnboardingLocation>) => void;
   onNext: () => void;
 }
 
-export const StepLocation: React.FC<StepLocationProps> = ({ data, onChange, onNext }) => {
+export const StepLocation: React.FC<StepLocationProps> = ({
+  data,
+  onChange,
+  onNext,
+}) => {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
 
   const formatCep = (value: string) => {
-    const numbers = value.replace(/\D/g, '').slice(0, 8);
-    if (numbers.length > 5) {
-      return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length > 5) {
+      return `${digits.slice(0, 5)}-${digits.slice(5)}`;
     }
-    return numbers;
+    return digits;
   };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value;
-    const formatted = formatCep(rawValue);
+    const formatted = formatCep(e.target.value);
     onChange({ cep: formatted });
     setCepError(null);
 
     const cleanCep = formatted.replace(/\D/g, '');
     if (cleanCep.length === 8) {
+      setLoadingCep(true);
       try {
-        setLoadingCep(true);
-        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const cepData = await response.json();
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const viaCepData = await res.json();
 
-        if (cepData.erro) {
-          setCepError('CEP não encontrado. Por favor, preencha o endereço manualmente.');
+        if (viaCepData.erro) {
+          setCepError('CEP não encontrado. Digite o endereço manualmente abaixo.');
           return;
         }
 
+        const street = viaCepData.logradouro || '';
+        const neighborhood = viaCepData.bairro || '';
+        const city = viaCepData.localidade || '';
+        const state = viaCepData.uf || '';
+
         onChange({
-          street: cepData.logradouro || '',
-          neighborhood: cepData.bairro || '',
-          city: cepData.localidade || '',
-          state: cepData.uf || '',
+          street,
+          neighborhood,
+          city,
+          state,
         });
 
-        // Geocodificação silenciosa via Nominatim OpenStreetMap
+        // Geocodificação aproximada via Nominatim
         try {
-          const query = encodeURIComponent(`${cepData.logradouro}, ${cepData.localidade}, ${cepData.uf}, Brasil`);
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`, {
-            headers: { 'Accept-Language': 'pt-BR' }
-          });
+          const query = encodeURIComponent(`${street}, ${neighborhood}, ${city}, ${state}, Brasil`);
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`);
           const geoData = await geoRes.json();
           if (geoData && geoData.length > 0) {
             onChange({
               latitude: parseFloat(geoData[0].lat),
-              longitude: parseFloat(geoData[0].lon)
+              longitude: parseFloat(geoData[0].lon),
             });
           }
         } catch {
           // Geocodificação opcional
         }
       } catch {
-        setCepError('Erro ao consultar CEP. Preencha manualmente.');
+        setCepError('Não foi possível buscar o CEP agora. Preencha os campos abaixo.');
       } finally {
         setLoadingCep(false);
       }
     }
   };
 
-  const isValid = 
+  const isValid =
     data.cep.replace(/\D/g, '').length === 8 &&
     data.street.trim().length > 0 &&
     data.number.trim().length > 0 &&
@@ -79,106 +89,106 @@ export const StepLocation: React.FC<StepLocationProps> = ({ data, onChange, onNe
   return (
     <div className="onboarding-step" data-testid="step-location">
       <div className="onboarding-step-header">
+        <span className="step-pill">Etapa 1 de 4 • Endereço</span>
         <h2>Onde fica a sua barbearia?</h2>
         <p className="onboarding-step-subtitle">
-          Informe o endereço para exibirmos a localização precisa no mapa e no aplicativo dos clientes.
+          Informe o endereço para ativar a rota no mapa e facilitar o agendamento dos seus clientes.
         </p>
       </div>
 
       <div className="onboarding-form-grid">
-        {/* País Fixo Brasil */}
-        <div className="form-group">
-          <label className="form-label">País</label>
-          <div className="input-country-fixed">
-            <span className="country-flag">🇧🇷</span>
+        <div className="form-group form-group--half">
+          <label className="form-label" htmlFor="country-fixed">País de Atuação</label>
+          <div className="input-country-fixed" id="country-fixed">
+            <span className="country-flag-text">BR</span>
             <span className="country-name">Brasil</span>
+            <span className="country-badge">Nacional</span>
           </div>
         </div>
 
-        {/* CEP */}
-        <div className="form-group">
+        <div className="form-group form-group--half">
           <label className="form-label" htmlFor="cep-input">
-            CEP <span className="required-star">*</span>
+            CEP <span className="text-required">*</span>
           </label>
-          <div className="input-with-spinner">
+          <div className="input-with-loading">
             <input
               id="cep-input"
               type="text"
-              className="form-input"
+              className={`form-input ${cepError ? 'form-input--error' : ''}`}
               placeholder="00000-000"
               value={data.cep}
               onChange={handleCepChange}
               maxLength={9}
+              autoFocus
             />
-            {loadingCep && <span className="spinner-inline" title="Buscando CEP...">⌛</span>}
+            {loadingCep && <span className="spinner-sm" title="Buscando CEP nos Correios...">...</span>}
           </div>
-          {cepError && <p className="form-error-msg">{cepError}</p>}
+          {cepError ? (
+            <span className="form-error">{cepError}</span>
+          ) : (
+            <span className="form-hint">Digite o CEP para preencher rua, bairro e cidade automaticamente.</span>
+          )}
         </div>
 
-        {/* Logradouro / Rua */}
-        <div className="form-group span-2">
+        <div className="form-group form-group--3-4">
           <label className="form-label" htmlFor="street-input">
-            Endereço / Rua <span className="required-star">*</span>
+            Rua ou Avenida <span className="text-required">*</span>
           </label>
           <input
             id="street-input"
             type="text"
             className="form-input"
-            placeholder="Ex: Av. Paulista"
+            placeholder="Ex: Av. Paulista, Rua das Flores"
             value={data.street}
             onChange={(e) => onChange({ street: e.target.value })}
           />
         </div>
 
-        {/* Número */}
-        <div className="form-group">
+        <div className="form-group form-group--1-4">
           <label className="form-label" htmlFor="number-input">
-            Número <span className="required-star">*</span>
+            Número <span className="text-required">*</span>
           </label>
           <input
             id="number-input"
             type="text"
             className="form-input"
-            placeholder="Ex: 154"
+            placeholder="Ex: 1000 ou S/N"
             value={data.number}
             onChange={(e) => onChange({ number: e.target.value })}
           />
         </div>
 
-        {/* Complemento */}
-        <div className="form-group">
+        <div className="form-group form-group--half">
           <label className="form-label" htmlFor="complement-input">
-            Complemento <span className="optional-tag">(opcional)</span>
+            Complemento <span className="form-label-opt">(opcional)</span>
           </label>
           <input
             id="complement-input"
             type="text"
             className="form-input"
-            placeholder="Ex: Sala 2, Sobreloja"
+            placeholder="Ex: Sala 2, Sobreloja, Galeria A"
             value={data.complement || ''}
             onChange={(e) => onChange({ complement: e.target.value })}
           />
         </div>
 
-        {/* Bairro */}
-        <div className="form-group">
+        <div className="form-group form-group--half">
           <label className="form-label" htmlFor="neighborhood-input">
-            Bairro <span className="required-star">*</span>
+            Bairro <span className="text-required">*</span>
           </label>
           <input
             id="neighborhood-input"
             type="text"
             className="form-input"
-            placeholder="Ex: Bela Vista"
+            placeholder="Ex: Centro, Bela Vista"
             value={data.neighborhood}
             onChange={(e) => onChange({ neighborhood: e.target.value })}
           />
         </div>
 
-        {/* Cidade */}
-        <div className="form-group">
+        <div className="form-group form-group--3-4">
           <label className="form-label" htmlFor="city-input">
-            Cidade <span className="required-star">*</span>
+            Cidade <span className="text-required">*</span>
           </label>
           <input
             id="city-input"
@@ -190,16 +200,15 @@ export const StepLocation: React.FC<StepLocationProps> = ({ data, onChange, onNe
           />
         </div>
 
-        {/* Estado / UF */}
-        <div className="form-group">
+        <div className="form-group form-group--1-4">
           <label className="form-label" htmlFor="state-input">
-            Estado (UF) <span className="required-star">*</span>
+            Estado (UF) <span className="text-required">*</span>
           </label>
           <input
             id="state-input"
             type="text"
             className="form-input"
-            placeholder="Ex: SP"
+            placeholder="SP"
             value={data.state}
             onChange={(e) => onChange({ state: e.target.value.toUpperCase().slice(0, 2) })}
             maxLength={2}
@@ -208,14 +217,17 @@ export const StepLocation: React.FC<StepLocationProps> = ({ data, onChange, onNe
       </div>
 
       <div className="onboarding-actions">
-        <div />
+        <div className="onboarding-actions__info">
+          <span>* Preenchimento necessário para localizar seu salão</span>
+        </div>
         <button
           type="button"
-          className="btn-onboarding-primary"
+          className="btn-primary btn-lg"
           onClick={onNext}
           disabled={!isValid || loadingCep}
         >
-          Continuar para Segmentação →
+          <span>Continuar para o Preço Base</span>
+          <HugeiconsIcon icon={ArrowRight01Icon} size={18} />
         </button>
       </div>
     </div>
