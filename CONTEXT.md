@@ -65,4 +65,36 @@ _Avoid_: Bloqueio temporário, redirect solto, verificação manual
 Superfície operacional canônica do Gerente no painel da barbearia, responsável pela visualização em tempo real de horários, colunas de profissionais, criação de agendamentos manuais, encaixes rápidos, bloqueios e controle de status de atendimento.
 _Avoid_: Dashboard do Gerente, Painel Geral, Tela de Relatórios
 
+**Comanda**:
+Instrumento transacional que agrupa todos os itens consumidos (serviços prestados e produtos adquiridos), descontos, gorjetas e comissões associados a um atendimento ou venda de balcão, gerenciando o ciclo de vida entre os estados `aberta`, `fechada` e `cancelada`.
+_Avoid_: Conta solta, pedido avulso, ticket
+
+**Item de Comanda**:
+Registro unitário de serviço executado ou produto faturado dentro de uma Comanda, contendo identificação do item, quantidade, valor cobrado e o profissional executor responsável pelo recebimento de comissão.
+_Avoid_: Linha de pedido, serviço extra, produto vendido
+
+**Divisão de Pagamento de Comanda**:
+Fracionamento da liquidação financeira de uma Comanda em múltiplas formas de pagamento simultâneas (ex: R$ 30,00 no PIX e R$ 20,00 em Dinheiro) com validação de troco e registro discriminado no caixa do dia.
+_Avoid_: Pagamento parcial solto, split manual, baixa mista
+
+**Sessão de Caixa**:
+Período operacional delimitado de movimentação financeira do tenant (`cash_sessions`), iniciado pela declaração de abertura com fundo de troco inicial e finalizado com a conferência e fechamento consolidado dos valores por método de pagamento.
+_Avoid_: Caixa aberto, turno solto, gaveta diária
+
+**Bloqueio de Horário**:
+Intervalo temporal de indisponibilidade de um profissional na grade (`blocked_slots`), registrado por motivos operacionais (como almoço, folga, compromisso externo ou manutenção), que é renderizado com sinalização visual de bloqueio na Agenda e subtraído automaticamente dos slots livres ofertados no Canal do Cliente.
+_Avoid_: Agendamento fake, pausa solta, horário travado manual
+
+**Produto**:
+Item físico comercializado pela barbearia (`public.products`), com controle de saldo de estoque, preço de venda, custo unitário e baixa automática na finalização de Comandas.
+_Avoid_: Mercadoria avulsa, serviço de balcão, item físico genérico
+
+**Lista de Espera**:
+Fila diária de clientes cadastrados que aguardam abertura de vagas ou cancelamentos no mesmo dia (`public.waiting_list`), com disparo de alertas e atalho de encaixe com 1 clique para a recepção.
+_Avoid_: Fila solta, lista de encaixe manual, anotação de espera
+
+**Rodízio de Barbeiros**:
+Lógica de ordenação e sugestão de atendimento de balcão (*walk-in*) para balancear a quantidade de clientes atendidos entre os profissionais ativos sem preferência específica indicada.
+_Avoid_: Vez da fila, sorteio de barbeiro, ordem manual
+
 
