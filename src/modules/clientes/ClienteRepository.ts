@@ -52,10 +52,30 @@ export class ClienteRepository {
       phone: input.phone.trim(),
       email: input.email ? input.email.trim() : null,
       notes: input.notes ? input.notes.trim() : null,
-      cadastro_completo: true, // Garante a promoção para cadastro completo ao salvar
+      cadastro_completo: input.cadastro_completo ?? true,
     };
 
     return await this.adapter.salvarCliente(tenantId, payload);
+  }
+
+  async saveProvisionalCustomer(tenantId: string, input: { name: string; phone: string }): Promise<Cliente> {
+    if (!input.name || !input.name.trim()) {
+      throw new ClienteValidationError('O nome do cliente é obrigatório.');
+    }
+    if (!input.phone || !input.phone.trim()) {
+      throw new ClienteValidationError('O telefone é obrigatório.');
+    }
+
+    const digitsOnly = input.phone.replace(/\D/g, '');
+    if (digitsOnly.length < 8) {
+      throw new ClienteValidationError('O formato do telefone informado é inválido.');
+    }
+
+    return await this.adapter.salvarCliente(tenantId, {
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+      cadastro_completo: false, // Cliente provisório de balcão (sem senha/acesso)
+    });
   }
 
   async deleteCustomer(tenantId: string, customerId: string): Promise<void> {

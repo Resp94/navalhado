@@ -11,6 +11,8 @@ import {
   localDayUtcRange,
   shiftCalendarDate
 } from '../../lib/timezone';
+import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
+import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar03Icon,
@@ -85,9 +87,16 @@ const SLOT_DURATION_MINUTES = 30;
 const SLOT_HEIGHT_PX = 52; // Altura em pixels de cada bloco de 30 min
 
 export const Agenda: React.FC = () => {
+  // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
 
+  const clienteRepository = useMemo(
+    () => new ClienteRepository(new SupabaseClienteAdapter(supabase)),
+    []
+  );
+
+  // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     dateInZone(new Date(), tenant.timezone)
@@ -385,20 +394,13 @@ export const Agenda: React.FC = () => {
           return;
         }
 
-        const { data: newCust, error: custErr } = await supabase
-          .from('customers')
-          .insert({
-            tenant_id: tenant.tenantId,
-            name: newCustomerName.trim(),
-            phone: phoneDigits,
-            cadastro_completo: true
-          })
-          .select('id, name, phone')
-          .single();
+        const newCust = await clienteRepository.saveProvisionalCustomer(tenant.tenantId, {
+          name: newCustomerName,
+          phone: newCustomerPhone
+        });
 
-        if (custErr) throw custErr;
         finalCustomerId = newCust.id;
-        setCustomers((prev) => [...prev, newCust]);
+        setCustomers((prev) => [...prev, { id: newCust.id, name: newCust.name, phone: newCust.phone }]);
       }
 
       if (!finalCustomerId) {
@@ -1567,7 +1569,7 @@ export const Agenda: React.FC = () => {
           left: 0;
           right: 0;
           height: 2px;
-          background-color: #ef4444;
+          background-color: var(--color-error);
           z-index: 20;
           pointer-events: none;
         }
@@ -1580,7 +1582,7 @@ export const Agenda: React.FC = () => {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          background-color: #ef4444;
+          background-color: var(--color-error);
         }
 
         /* CARDS DE AGENDAMENTO FLUTUANTES */
@@ -1595,7 +1597,7 @@ export const Agenda: React.FC = () => {
           flex-direction: column;
           justify-content: space-between;
           overflow: hidden;
-          background-color: rgba(255, 255, 255, 0.95);
+          background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           box-shadow: var(--shadow-sm);
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1609,28 +1611,28 @@ export const Agenda: React.FC = () => {
 
         /* Estados Semânticos AppBarber */
         .card-status--confirmed {
-          border-left: 4px solid #10b981;
-          background-color: rgba(236, 253, 245, 0.95);
+          border-left: 4px solid var(--color-brand-primary);
+          background-color: var(--color-brand-lightest);
         }
 
         .card-status--fitting {
-          border-left: 4px solid #d97706;
-          background-color: rgba(254, 243, 199, 0.95);
+          border-left: 4px solid var(--color-warning);
+          background-color: var(--color-warning-bg);
         }
 
         .card-status--in-progress {
-          border-left: 4px solid #3b82f6;
-          background-color: rgba(239, 246, 255, 0.95);
+          border-left: 4px solid var(--color-info);
+          background-color: var(--color-info-bg);
         }
 
         .card-status--completed {
-          border-left: 4px solid #059669;
-          background-color: rgba(240, 253, 244, 0.95);
+          border-left: 4px solid var(--color-success);
+          background-color: var(--color-success-bg);
         }
 
         .card-status--pending {
-          border-left: 4px solid #6b7280;
-          background-color: rgba(249, 250, 251, 0.95);
+          border-left: 4px solid var(--color-text-secondary);
+          background-color: var(--color-bg-secondary);
         }
 
         .card-top-row {
@@ -1734,21 +1736,21 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-action-whatsapp {
-          color: #10b981;
-          border-color: #a7f3d0;
+          color: var(--color-success);
+          border-color: var(--color-border);
         }
 
         .btn-action-whatsapp:hover {
-          background-color: #ecfdf5;
+          background-color: var(--color-success-bg);
         }
 
         .btn-action-start {
-          color: #2563eb;
-          border-color: #bfdbfe;
+          color: var(--color-info);
+          border-color: var(--color-border);
         }
 
         .btn-action-start:hover {
-          background-color: #eff6ff;
+          background-color: var(--color-info-bg);
         }
 
         .btn-action-pay {
@@ -1762,12 +1764,12 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-action-cancel {
-          color: #ef4444;
-          border-color: #fecaca;
+          color: var(--color-error);
+          border-color: var(--color-border);
         }
 
         .btn-action-cancel:hover {
-          background-color: #fef2f2;
+          background-color: var(--color-error-bg);
         }
 
         .paid-confirmed-label {

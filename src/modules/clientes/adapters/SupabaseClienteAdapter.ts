@@ -49,7 +49,6 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         .insert({
           tenant_id: tenantId,
           ...payload,
-          token_acesso: `token_${Math.random().toString(36).substring(2, 9)}`,
         })
         .select()
         .single();

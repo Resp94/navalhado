@@ -14,63 +14,16 @@ export interface TenantContextType {
   onboardingCompleted?: boolean;
 }
 
-// SVGs de Ícones de Navegação Inline
-const CalendarIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-    <line x1="16" x2="16" y1="2" y2="6" />
-    <line x1="8" x2="8" y1="2" y2="6" />
-    <line x1="3" x2="21" y1="10" y2="10" />
-  </svg>
-);
-
-const CoinsIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" x2="12" y1="2" y2="22" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </svg>
-);
-
-const UsersIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-const ListIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="8" x2="21" y1="6" y2="6" />
-    <line x1="8" x2="21" y1="12" y2="12" />
-    <line x1="8" x2="21" y1="18" y2="18" />
-    <line x1="3" x2="3.01" y1="6" y2="6" />
-    <line x1="3" x2="3.01" y1="12" y2="12" />
-    <line x1="3" x2="3.01" y1="18" y2="18" />
-  </svg>
-);
-
-const MessageCircleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-  </svg>
-);
-
-const UserCardIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M7 21v-4a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v4" />
-    <circle cx="12" cy="7" r="3" />
-  </svg>
-);
-
-const SettingsIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon,
+  UserIcon,
+  UserGroupIcon,
+  ScissorIcon,
+  Money01Icon,
+  WhatsappIcon,
+  Settings02Icon,
+} from '@hugeicons/core-free-icons';
 
 export const GerenteLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -210,13 +163,13 @@ export const GerenteLayout: React.FC = () => {
 
   // Lista dos links de navegação para a Navbar
   const navLinks = [
-    { path: '/agenda', label: 'Agenda', icon: <CalendarIcon size={18} /> },
-    { path: '/clientes', label: 'Clientes', icon: <UserCardIcon size={18} /> },
-    { path: '/profissionais', label: 'Equipe', icon: <UsersIcon size={18} /> },
-    { path: '/servicos/cadastro', label: 'Serviços', icon: <ListIcon size={18} /> },
-    { path: '/financeiro', label: 'Financeiro', icon: <CoinsIcon size={18} /> },
-    { path: '/whatsapp', label: 'WhatsApp', icon: <MessageCircleIcon size={18} /> },
-    { path: '/configuracoes', label: 'Ajustes', icon: <SettingsIcon size={18} /> },
+    { path: '/agenda', label: 'Agenda', icon: <HugeiconsIcon icon={Calendar03Icon} size={18} /> },
+    { path: '/clientes', label: 'Clientes', icon: <HugeiconsIcon icon={UserIcon} size={18} /> },
+    { path: '/profissionais', label: 'Equipe', icon: <HugeiconsIcon icon={UserGroupIcon} size={18} /> },
+    { path: '/servicos/cadastro', label: 'Serviços', icon: <HugeiconsIcon icon={ScissorIcon} size={18} /> },
+    { path: '/financeiro', label: 'Financeiro', icon: <HugeiconsIcon icon={Money01Icon} size={18} /> },
+    { path: '/whatsapp', label: 'WhatsApp', icon: <HugeiconsIcon icon={WhatsappIcon} size={18} /> },
+    { path: '/configuracoes', label: 'Ajustes', icon: <HugeiconsIcon icon={Settings02Icon} size={18} /> },
   ];
 
   return (

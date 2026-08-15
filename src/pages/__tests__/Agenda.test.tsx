@@ -107,6 +107,19 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
               order: vi.fn().mockResolvedValue({ data: mockCustomers, error: null }),
             }),
           }),
+          insert: (payload: any) => ({
+            select: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'cust-new',
+                  name: payload.name,
+                  phone: payload.phone,
+                  cadastro_completo: payload.cadastro_completo,
+                },
+                error: null,
+              }),
+            }),
+          }),
         };
       }
       if (table === 'appointments') {
@@ -185,6 +198,38 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('prof-col-prof-1')).not.toBeInTheDocument();
       expect(screen.getByTestId('prof-col-prof-2')).toBeInTheDocument();
+    });
+  });
+
+  it('permite cadastrar novo cliente provisório diretamente pelo modal de encaixe', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Encaixe/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /\+ Novo Cliente/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Novo Cliente/i }));
+
+    const nameInput = screen.getByLabelText(/Nome do Cliente/i);
+    const phoneInput = screen.getByLabelText(/WhatsApp \/ Celular/i);
+
+    fireEvent.change(nameInput, { target: { value: 'Cliente Balcão Teste' } });
+    fireEvent.change(phoneInput, { target: { value: '11977776666' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar Agendamento/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Encaixe agendado com sucesso!',
+        'success'
+      );
     });
   });
 });
