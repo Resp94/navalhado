@@ -7,8 +7,8 @@ Construir o fluxo de validação e abertura assistida de caixa diário (`cash_se
 
 **Status:** ready-for-agent
 
-- [ ] Criar modal/overlay contextual de Abertura Assistida de Caixa disparado automaticamente ao tentar cobrar com caixa fechado.
-- [ ] Formulário ágil com campo de Fundo de Troco Inicial (`initial_amount`) e confirmação imediata.
-- [ ] Preservação integral do estado da comanda preenchida após a abertura do caixa.
-- [ ] Validação visual e feedback toast amigável em PT-BR para abertura de turno.
-- [ ] Testes unitários do modal de abertura assistida de caixa.
+- [x] Criar modal/overlay contextual de Abertura Assistida de Caixa disparado automaticamente ao tentar cobrar com caixa fechado.
+- [x] Formulário ágil com campo de Fundo de Troco Inicial (`initial_amount`) e confirmação imediata.
+- [x] Preservação integral do estado da comanda preenchida após a abertura do caixa.
+- [x] Validação visual e feedback toast amigável em PT-BR para abertura de turno.
+- [x] Testes unitários do modal de abertura assistida de caixa.
