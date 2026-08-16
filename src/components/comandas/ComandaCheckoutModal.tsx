@@ -159,6 +159,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           }));
           setItens(init);
         }
+      }).catch((err) => {
+        console.error('Erro ao verificar comanda existente:', err);
+        const init: ItemLocal[] = initialServices.map((s, idx) => ({
+          tempId: `init-${idx}`,
+          item_type: 'servico',
+          service_id: s.service_id,
+          professional_id: s.professional_id,
+          name: s.name,
+          quantity: 1,
+          unit_price: s.price,
+        }));
+        setItens(init);
       });
     } else {
       const init: ItemLocal[] = initialServices.map((s, idx) => ({
@@ -174,27 +186,30 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   }, [isOpen, appointmentId, tenantId, initialServices, comRepo, cxaRepo, prodRepo]);
 
-  // Cálculos
+  // Cálculos de Totais
   const subtotal = useMemo(() => {
-    return itens.reduce((acc, it) => acc + it.quantity * it.unit_price, 0);
+    return itens.reduce((acc, it) => acc + (it.quantity || 1) * (it.unit_price || 0), 0);
   }, [itens]);
 
   const discountAmount = useMemo(() => {
     if (discountType === 'percent') {
-      return Number(((subtotal * (discountValue || 0)) / 100).toFixed(2));
+      return (subtotal * (discountValue || 0)) / 100;
     }
-    return Number(Math.min(subtotal, discountValue || 0).toFixed(2));
+    return Math.min(discountValue || 0, subtotal);
   }, [subtotal, discountType, discountValue]);
 
   const totalFinal = useMemo(() => {
-    return Math.max(0, Number((subtotal - discountAmount + (tipValue || 0)).toFixed(2)));
+    return Math.max(0, subtotal - discountAmount + (tipValue || 0));
   }, [subtotal, discountAmount, tipValue]);
 
-  // Atualizar valor padrão do pagamento quando total mudar
+  // Sincronizar valor padrão da primeira linha de pagamento com o totalFinal
   useEffect(() => {
-    if (pagamentos.length === 1) {
-      setPagamentos([{ ...pagamentos[0], amount: totalFinal }]);
-    }
+    setPagamentos((prev) => {
+      if (prev.length === 1) {
+        return [{ ...prev[0], amount: totalFinal, receivedCash: totalFinal }];
+      }
+      return prev;
+    });
   }, [totalFinal]);
 
   const totalPago = useMemo(() => {
@@ -331,31 +346,31 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+        className="comanda-modal-overlay"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-checkout-title"
       >
-        <div className="bg-[var(--color-bg-primary,#121214)] border border-[var(--color-border-subtle,rgba(255,255,255,0.1))] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative text-[var(--color-text-primary,#fff)] font-sans">
+        <div className="comanda-modal-shell">
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-[var(--color-border-subtle,rgba(255,255,255,0.08))]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-primary,#D4AF37)]/15 flex items-center justify-center text-[var(--color-brand-primary,#D4AF37)]">
+          <div className="comanda-modal-header">
+            <div className="comanda-header-left">
+              <div className="comanda-icon-badge">
                 <HugeiconsIcon icon={Money01Icon} size={22} />
               </div>
               <div>
-                <h3 id="modal-checkout-title" className="text-lg font-bold">
+                <h3 id="modal-checkout-title" className="comanda-modal-title">
                   Comanda & Checkout
                 </h3>
-                <p className="text-xs text-[var(--color-text-secondary,#A1A1AA)]">
-                  Cliente: <span className="font-semibold text-white">{customerName}</span> {customerPhone && `• ${customerPhone}`}
+                <p className="comanda-modal-subtitle">
+                  Cliente: <strong className="text-highlight">{customerName}</strong> {customerPhone && `• ${customerPhone}`}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
               type="button"
-              className="p-1 rounded-lg text-[var(--color-text-secondary,#A1A1AA)] hover:text-white hover:bg-white/5 transition-colors"
+              className="comanda-close-btn"
               aria-label="Fechar"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -363,148 +378,158 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           </div>
 
           {/* Scrollable Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <div className="comanda-modal-body">
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-[var(--color-error,#EF4444)]/10 border border-[var(--color-error,#EF4444)]/30 text-xs text-[var(--color-error,#EF4444)]">
+              <div className="comanda-error-alert">
                 {errorMsg}
               </div>
             )}
 
             {/* Lista de Itens */}
-            <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)]">
+            <div className="comanda-section">
+              <div className="comanda-section-header">
+                <h4 className="comanda-section-title">
                   Itens Consumidos ({itens.length})
                 </h4>
-                <div className="flex items-center gap-2">
+                <div className="comanda-section-actions">
                   <button
                     type="button"
                     onClick={() => { setIsAddingService(true); setIsAddingProduct(false); }}
-                    className="text-xs font-semibold text-[var(--color-brand-primary,#D4AF37)] bg-[var(--color-brand-primary,#D4AF37)]/10 px-2.5 py-1 rounded-lg hover:bg-[var(--color-brand-primary,#D4AF37)]/20 transition-colors flex items-center gap-1"
+                    className="btn-add-item"
                   >
-                    <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                    <span>Serviço</span>
+                    <HugeiconsIcon icon={ScissorIcon} size={14} />
+                    <span>+ Serviço</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setIsAddingProduct(true); setIsAddingService(false); }}
-                    className="text-xs font-semibold text-[var(--color-brand-primary,#D4AF37)] bg-[var(--color-brand-primary,#D4AF37)]/10 px-2.5 py-1 rounded-lg hover:bg-[var(--color-brand-primary,#D4AF37)]/20 transition-colors flex items-center gap-1"
+                    className="btn-add-item"
                   >
                     <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
-                    <span>Produto</span>
+                    <span>+ Produto</span>
                   </button>
                 </div>
               </div>
 
-              {/* Drawer rápido de adicionar serviço */}
+              {/* Formulário Embutido: Adicionar Serviço */}
               {isAddingService && (
-                <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2">
-                  <select
-                    value={selectedServiceId}
-                    onChange={(e) => setSelectedServiceId(e.target.value)}
-                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  >
-                    <option value="">Selecione o Serviço...</option>
-                    {availableServices.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} - R$ {s.price.toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedProfId}
-                    onChange={(e) => setSelectedProfId(e.target.value)}
-                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  >
-                    <option value="">Barbeiro Comissionado...</option>
-                    {availableProfessionals.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddServiceConfirm}
-                    disabled={!selectedServiceId}
-                    className="px-3 py-1.5 bg-[var(--color-brand-primary,#D4AF37)] text-black rounded-lg text-xs font-bold disabled:opacity-40"
-                  >
-                    Adicionar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingService(false)}
-                    className="px-2 py-1.5 text-xs text-[var(--color-text-secondary,#A1A1AA)] hover:text-white"
-                  >
-                    ✕
-                  </button>
+                <div className="add-item-box">
+                  <div className="flex-between">
+                    <span className="add-item-title">Adicionar Serviço Extra</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingService(false)}
+                      className="btn-link-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  <div className="add-item-row">
+                    <select
+                      value={selectedServiceId}
+                      onChange={(e) => setSelectedServiceId(e.target.value)}
+                      className="comanda-select flex-1"
+                    >
+                      <option value="">Selecione o serviço...</option>
+                      {availableServices.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} (R$ {s.price.toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={selectedProfId}
+                      onChange={(e) => setSelectedProfId(e.target.value)}
+                      className="comanda-select flex-1"
+                    >
+                      <option value="">Profissional executor...</option>
+                      {availableProfessionals.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!selectedServiceId}
+                      onClick={handleAddServiceConfirm}
+                      className="btn-confirm-item"
+                    >
+                      Inserir
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Drawer rápido de adicionar produto */}
+              {/* Formulário Embutido: Adicionar Produto */}
               {isAddingProduct && (
-                <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2">
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  >
-                    <option value="">Selecione o Produto...</option>
-                    {catalogProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} (Estoque: {p.stock_quantity}) - R$ {p.price.toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddProductConfirm}
-                    disabled={!selectedProductId}
-                    className="px-3 py-1.5 bg-[var(--color-brand-primary,#D4AF37)] text-black rounded-lg text-xs font-bold disabled:opacity-40"
-                  >
-                    Adicionar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingProduct(false)}
-                    className="px-2 py-1.5 text-xs text-[var(--color-text-secondary,#A1A1AA)] hover:text-white"
-                  >
-                    ✕
-                  </button>
+                <div className="add-item-box">
+                  <div className="flex-between">
+                    <span className="add-item-title">Venda de Produto (Balcão)</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingProduct(false)}
+                      className="btn-link-sm"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  <div className="add-item-row">
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      className="comanda-select flex-1"
+                    >
+                      <option value="">Selecione o produto...</option>
+                      {catalogProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (R$ {p.price.toFixed(2)}) • Estoque: {p.stock_quantity}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!selectedProductId}
+                      onClick={handleAddProductConfirm}
+                      className="btn-confirm-item"
+                    >
+                      Inserir
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Tabela / Lista de Itens */}
-              <div className="space-y-2">
+              {/* Lista dos Itens da Comanda */}
+              <div className="comanda-items-list">
                 {itens.map((it) => (
-                  <div
-                    key={it.tempId}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-white/5 text-[var(--color-text-secondary,#A1A1AA)]">
-                        {it.item_type === 'servico' ? (
-                          <HugeiconsIcon icon={ScissorIcon} size={16} />
-                        ) : (
-                          <HugeiconsIcon icon={ShoppingBag01Icon} size={16} />
-                        )}
+                  <div key={it.tempId} className="comanda-item-card">
+                    <div className="comanda-item-info">
+                      <div className="comanda-item-badge">
+                        <HugeiconsIcon
+                          icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon}
+                          size={14}
+                        />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white">{it.name}</p>
-                        <p className="text-[11px] text-[var(--color-text-secondary,#A1A1AA)]">
+                        <strong className="comanda-item-name">{it.name}</strong>
+                        <span className="comanda-item-detail">
                           {it.quantity}x • R$ {it.unit_price.toFixed(2)}
-                        </p>
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-white">
+
+                    <div className="comanda-item-right">
+                      <span className="comanda-item-total">
                         R$ {(it.quantity * it.unit_price).toFixed(2)}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveItem(it.tempId)}
-                        className="text-[var(--color-text-secondary,#A1A1AA)] hover:text-[var(--color-error,#EF4444)] transition-colors p-1"
-                        aria-label="Remover item"
+                        className="comanda-item-remove-btn"
+                        title="Remover item"
                       >
                         <HugeiconsIcon icon={Delete02Icon} size={16} />
                       </button>
@@ -514,109 +539,102 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               </div>
             </div>
 
-            {/* Descontos e Gorjeta */}
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-[var(--color-text-secondary,#A1A1AA)]">
-                    Desconto
-                  </label>
-                  <div className="flex items-center rounded-lg bg-black/40 p-0.5 border border-white/10 text-[10px]">
+            {/* Desconto e Gorjeta */}
+            <div className="comanda-discount-tip-grid">
+              <div className="comanda-form-group">
+                <label className="comanda-label">Desconto</label>
+                <div className="comanda-input-segmented-wrapper">
+                  <div className="comanda-segmented-type">
                     <button
                       type="button"
+                      className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
                       onClick={() => setDiscountType('fixed')}
-                      className={`px-2 py-0.5 rounded ${discountType === 'fixed' ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black font-bold' : 'text-gray-400'}`}
                     >
                       R$
                     </button>
                     <button
                       type="button"
+                      className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
                       onClick={() => setDiscountType('percent')}
-                      className={`px-2 py-0.5 rounded ${discountType === 'percent' ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black font-bold' : 'text-gray-400'}`}
                     >
                       %
                     </button>
                   </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={discountValue || ''}
+                    onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    placeholder="0,00"
+                    className="comanda-input-num"
+                  />
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  value={discountValue || ''}
-                  onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
-                  placeholder="0,00"
-                  className="w-full px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-sm text-white"
-                />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
-                  Gorjeta do Barbeiro (R$)
-                </label>
+              <div className="comanda-form-group">
+                <label className="comanda-label">Gorjeta do Barbeiro (R$)</label>
                 <input
                   type="number"
                   min="0"
                   value={tipValue || ''}
                   onChange={(e) => setTipValue(parseFloat(e.target.value) || 0)}
                   placeholder="0,00"
-                  className="w-full px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-sm text-white"
+                  className="comanda-input-num"
                 />
               </div>
             </div>
 
             {/* Sumário de Totais */}
-            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-1.5 text-xs">
-              <div className="flex justify-between text-[var(--color-text-secondary,#A1A1AA)]">
+            <div className="comanda-summary-box">
+              <div className="summary-row">
                 <span>Subtotal:</span>
                 <span>R$ {subtotal.toFixed(2)}</span>
               </div>
               {discountAmount > 0 && (
-                <div className="flex justify-between text-[var(--color-error,#EF4444)] font-medium">
+                <div className="summary-row summary-discount">
                   <span>Desconto aplicado:</span>
                   <span>- R$ {discountAmount.toFixed(2)}</span>
                 </div>
               )}
               {tipValue > 0 && (
-                <div className="flex justify-between text-[var(--color-success,#0E9F6E)] font-medium">
-                  <span>Gorjeta:</span>
+                <div className="summary-row summary-tip">
+                  <span>Gorjeta do profissional:</span>
                   <span>+ R$ {tipValue.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-bold text-white pt-2 border-t border-white/10">
+              <div className="summary-row summary-total">
                 <span>Total a Pagar:</span>
-                <span className="text-[var(--color-brand-primary,#D4AF37)]">R$ {totalFinal.toFixed(2)}</span>
+                <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
               </div>
             </div>
 
             {/* Divisão de Formas de Pagamento */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)]">
+            <div className="comanda-section">
+              <div className="comanda-section-header">
+                <h4 className="comanda-section-title">
                   Pagamento ({pagamentos.length})
                 </h4>
                 {saldoRestante > 0 && (
                   <button
                     type="button"
                     onClick={handleAddPagamentoLinha}
-                    className="text-xs font-semibold text-[var(--color-brand-primary,#D4AF37)] hover:underline flex items-center gap-1"
+                    className="btn-link-brand"
                   >
                     <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                    <span>Dividir Conta</span>
+                    <span>Dividir Pagamento</span>
                   </button>
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="comanda-payments-list">
                 {pagamentos.map((pag, idx) => {
                   const change = pag.method === 'cash' && pag.receivedCash > pag.amount
                     ? pag.receivedCash - pag.amount
                     : 0;
 
                   return (
-                    <div
-                      key={idx}
-                      className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-2"
-                    >
-                      <div className="flex items-center gap-2">
+                    <div key={idx} className="payment-row-card">
+                      <div className="payment-row-main">
                         <select
                           value={pag.method}
                           onChange={(e) => {
@@ -625,7 +643,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               prev.map((p, i) => (i === idx ? { ...p, method: newMethod } : p))
                             );
                           }}
-                          className="bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                          className="comanda-select payment-method-select"
                         >
                           <option value="pix">PIX</option>
                           <option value="credit_card">Cartão de Crédito</option>
@@ -634,10 +652,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <option value="other">Outro</option>
                         </select>
 
-                        <div className="flex-1 relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-secondary,#A1A1AA)]">
-                            R$
-                          </span>
+                        <div className="payment-amount-input-wrapper">
+                          <span className="payment-amount-prefix">R$</span>
                           <input
                             type="number"
                             min="0"
@@ -649,7 +665,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 prev.map((p, i) => (i === idx ? { ...p, amount: val, receivedCash: Math.max(val, p.receivedCash) } : p))
                               );
                             }}
-                            className="w-full pl-7 pr-2 py-1.5 bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white"
+                            className="payment-amount-input"
                           />
                         </div>
 
@@ -657,7 +673,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemovePagamentoLinha(idx)}
-                            className="p-1 text-[var(--color-text-secondary,#A1A1AA)] hover:text-red-400"
+                            className="btn-remove-payment"
+                            title="Remover linha de pagamento"
                           >
                             <HugeiconsIcon icon={Delete02Icon} size={16} />
                           </button>
@@ -665,9 +682,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       </div>
 
                       {pag.method === 'cash' && (
-                        <div className="flex items-center gap-4 pt-1 border-t border-white/5 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[var(--color-text-secondary,#A1A1AA)]">Recebido: R$</span>
+                        <div className="cash-change-calculator">
+                          <div className="cash-input-field">
+                            <span>Recebido em Dinheiro: R$</span>
                             <input
                               type="number"
                               min={pag.amount}
@@ -679,11 +696,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                   prev.map((p, i) => (i === idx ? { ...p, receivedCash: val } : p))
                                 );
                               }}
-                              className="w-20 px-2 py-0.5 bg-black/60 border border-white/10 rounded text-xs text-white"
+                              className="cash-received-input"
                             />
                           </div>
                           {change > 0 && (
-                            <div className="text-[var(--color-brand-primary,#D4AF37)] font-bold">
+                            <div className="cash-change-badge">
                               Troco: R$ {change.toFixed(2)}
                             </div>
                           )}
@@ -695,7 +712,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               </div>
 
               {saldoRestante > 0 && (
-                <p className="mt-2 text-xs text-[var(--color-warning,#F59E0B)] font-medium">
+                <p className="comanda-warning-text">
                   Faltam R$ {saldoRestante.toFixed(2)} para cobrir o total da comanda.
                 </p>
               )}
@@ -703,11 +720,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-[var(--color-border-subtle,rgba(255,255,255,0.08))] flex items-center justify-between gap-3">
+          <div className="comanda-modal-footer">
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-5 rounded-xl border border-[var(--color-border-subtle,rgba(255,255,255,0.15))] text-sm font-semibold text-[var(--color-text-secondary,#A1A1AA)] hover:bg-white/5 transition-colors"
+              className="comanda-btn-secondary"
             >
               Cancelar
             </button>
@@ -715,7 +732,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               type="button"
               disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
               onClick={handleFinalizar}
-              className="py-2.5 px-6 rounded-xl bg-[var(--color-brand-primary,#D4AF37)] text-black text-sm font-bold flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="comanda-btn-primary"
             >
               {isSubmitting ? (
                 <span>Processando...</span>
@@ -743,6 +760,570 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }}
         onClose={() => setIsCaixaModalOpen(false)}
       />
+
+      <style>{`
+        .comanda-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(20, 17, 15, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1050;
+          padding: 1rem;
+          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .comanda-modal-shell {
+          width: 100%;
+          max-width: 620px;
+          max-height: 90vh;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-xl);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          font-family: var(--font-family-base);
+          color: var(--color-text-primary);
+        }
+
+        .comanda-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .comanda-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .comanda-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .comanda-modal-title {
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .comanda-modal-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0 0;
+        }
+
+        .text-highlight {
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .comanda-close-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-full);
+          border: none;
+          background: transparent;
+          color: var(--color-text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-close-btn:hover {
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+        }
+
+        .comanda-modal-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .comanda-error-alert {
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-error-bg);
+          border: 1px solid var(--color-error);
+          color: var(--color-error);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+        }
+
+        .comanda-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .comanda-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .comanda-section-title {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--color-text-secondary);
+          margin: 0;
+        }
+
+        .comanda-section-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .btn-add-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.35rem 0.65rem;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-brand-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-add-item:hover {
+          background-color: var(--color-brand-lightest);
+        }
+
+        .add-item-box {
+          padding: 0.85rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .add-item-title {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .add-item-row {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .btn-link-sm {
+          background: none;
+          border: none;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          cursor: pointer;
+        }
+
+        .btn-link-sm:hover {
+          color: var(--color-text-primary);
+        }
+
+        .btn-confirm-item {
+          padding: 0.4rem 0.85rem;
+          border-radius: var(--radius-md);
+          border: none;
+          background-color: var(--color-brand-primary);
+          color: white;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .btn-confirm-item:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .comanda-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .comanda-item-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.65rem 0.85rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+        }
+
+        .comanda-item-info {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
+        .comanda-item-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: var(--radius-sm);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+        }
+
+        .comanda-item-name {
+          display: block;
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-item-detail {
+          display: block;
+          font-size: 0.7rem;
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-item-right {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .comanda-item-total {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-item-remove-btn {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.2rem;
+          border-radius: var(--radius-sm);
+          transition: all 0.2s ease;
+        }
+
+        .comanda-item-remove-btn:hover {
+          color: var(--color-error);
+          background-color: var(--color-error-bg);
+        }
+
+        .comanda-discount-tip-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+
+        .comanda-form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .comanda-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-input-segmented-wrapper {
+          display: flex;
+          gap: 0.35rem;
+        }
+
+        .comanda-segmented-type {
+          display: flex;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          background-color: var(--color-bg-primary);
+        }
+
+        .seg-type-btn {
+          border: none;
+          background: transparent;
+          padding: 0.4rem 0.6rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+
+        .seg-type-btn--active {
+          background-color: var(--color-brand-primary);
+          color: white;
+        }
+
+        .comanda-input-num,
+        .comanda-select {
+          width: 100%;
+          padding: 0.5rem 0.75rem;
+          font-size: var(--font-size-sm);
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-input-num:focus,
+        .comanda-select:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        .comanda-summary-box {
+          padding: 1rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          font-size: var(--font-size-xs);
+        }
+
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          color: var(--color-text-secondary);
+          font-weight: 500;
+        }
+
+        .summary-discount {
+          color: var(--color-error);
+          font-weight: 700;
+        }
+
+        .summary-tip {
+          color: var(--color-success);
+          font-weight: 700;
+        }
+
+        .summary-total {
+          padding-top: 0.5rem;
+          border-top: 1px solid var(--color-border);
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+        }
+
+        .summary-total-value {
+          color: var(--color-brand-primary);
+          font-size: var(--font-size-lg);
+        }
+
+        .btn-link-brand {
+          background: none;
+          border: none;
+          color: var(--color-brand-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          cursor: pointer;
+        }
+
+        .btn-link-brand:hover {
+          text-decoration: underline;
+        }
+
+        .comanda-payments-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+
+        .payment-row-card {
+          padding: 0.75rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .payment-row-main {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .payment-method-select {
+          flex: 1.2;
+        }
+
+        .payment-amount-input-wrapper {
+          flex: 1;
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .payment-amount-prefix {
+          position: absolute;
+          left: 0.6rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .payment-amount-input {
+          width: 100%;
+          padding: 0.5rem 0.5rem 0.5rem 2rem;
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+        }
+
+        .payment-amount-input:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        .btn-remove-payment {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          padding: 0.3rem;
+          border-radius: var(--radius-sm);
+        }
+
+        .btn-remove-payment:hover {
+          color: var(--color-error);
+        }
+
+        .cash-change-calculator {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 0.35rem;
+          border-top: 1px solid var(--color-border);
+          font-size: var(--font-size-xs);
+        }
+
+        .cash-input-field {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          color: var(--color-text-secondary);
+        }
+
+        .cash-received-input {
+          width: 80px;
+          padding: 0.25rem 0.4rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+        }
+
+        .cash-change-badge {
+          font-weight: 700;
+          color: var(--color-brand-primary);
+        }
+
+        .comanda-warning-text {
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          color: var(--color-warning);
+          margin: 0.25rem 0 0 0;
+        }
+
+        .comanda-modal-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 1rem 1.5rem;
+          border-top: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+        }
+
+        .comanda-btn-secondary {
+          padding: 0.65rem 1.25rem;
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-btn-secondary:hover {
+          background-color: var(--color-border);
+        }
+
+        .comanda-btn-primary {
+          padding: 0.65rem 1.5rem;
+          border-radius: var(--radius-lg);
+          border: none;
+          background-color: var(--color-brand-primary);
+          color: white;
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-btn-primary:hover:not(:disabled) {
+          background-color: var(--color-brand-hover);
+        }
+
+        .comanda-btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      `}</style>
     </>
   );
 };

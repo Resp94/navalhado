@@ -8,6 +8,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
+import { localDateTimeToIso } from '../../lib/timezone';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 
 interface ProfessionalOption {
@@ -22,6 +23,7 @@ interface BloqueioModalProps {
   defaultDateIso?: string; // YYYY-MM-DD
   defaultProfessionalId?: string;
   defaultStartTime?: string; // HH:mm
+  timezone?: string;
   onClose: () => void;
   onBloqueioCriado: (bloqueio: BlockedSlot) => void;
   bloqueioRepo?: BloqueioRepository;
@@ -34,6 +36,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   defaultDateIso,
   defaultProfessionalId,
   defaultStartTime = '12:00',
+  timezone = 'America/Sao_Paulo',
   onClose,
   onBloqueioCriado,
   bloqueioRepo,
@@ -67,11 +70,11 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     let endIso: string;
 
     if (isAllDay) {
-      startIso = `${date}T00:00:00.000Z`;
-      endIso = `${date}T23:59:59.999Z`;
+      startIso = localDateTimeToIso(date, '00:00', timezone);
+      endIso = localDateTimeToIso(date, '23:59', timezone);
     } else {
-      startIso = `${date}T${startTime}:00.000Z`;
-      endIso = `${date}T${endTime}:00.000Z`;
+      startIso = localDateTimeToIso(date, startTime, timezone);
+      endIso = localDateTimeToIso(date, endTime, timezone);
     }
 
     if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
@@ -101,30 +104,30 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+      className="bloqueio-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-bloqueio-title"
     >
-      <div className="bg-[var(--color-bg-primary,#121214)] border border-[var(--color-border-subtle,rgba(255,255,255,0.1))] rounded-2xl w-full max-w-md p-6 shadow-2xl relative text-[var(--color-text-primary,#fff)] font-sans">
-        <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-subtle,rgba(255,255,255,0.08))]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--color-error,#EF4444)]/15 flex items-center justify-center text-[var(--color-error,#EF4444)]">
+      <div className="bloqueio-modal-shell">
+        <div className="bloqueio-modal-header">
+          <div className="bloqueio-header-left">
+            <div className="bloqueio-icon-badge">
               <HugeiconsIcon icon={UnavailableIcon} size={22} />
             </div>
             <div>
-              <h3 id="modal-bloqueio-title" className="text-lg font-bold">
+              <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
                 Bloquear Horário na Grade
               </h3>
-              <p className="text-xs text-[var(--color-text-secondary,#A1A1AA)]">
-                Impede novos agendamentos neste intervalo.
+              <p className="bloqueio-modal-subtitle">
+                Impede novos agendamentos neste intervalo
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             type="button"
-            className="p-1 rounded-lg text-[var(--color-text-secondary,#A1A1AA)] hover:text-white hover:bg-white/5 transition-colors"
+            className="bloqueio-close-btn"
             aria-label="Fechar"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -132,20 +135,20 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         </div>
 
         {errorMsg && (
-          <div className="mt-4 p-3 rounded-xl bg-[var(--color-error,#EF4444)]/10 border border-[var(--color-error,#EF4444)]/30 text-xs text-[var(--color-error,#EF4444)]">
+          <div className="bloqueio-error-alert">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+        <form onSubmit={handleSubmit} className="bloqueio-modal-form">
+          <div className="bloqueio-form-group">
+            <label className="bloqueio-label">
               Profissional *
             </label>
             <select
               value={selectedProfId}
               onChange={(e) => setSelectedProfId(e.target.value)}
-              className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)]"
+              className="bloqueio-select"
               required
             >
               <option value="">Selecione o profissional...</option>
@@ -157,14 +160,14 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+          <div className="bloqueio-form-group">
+            <label className="bloqueio-label">
               Motivo do Bloqueio *
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)]"
+              className="bloqueio-select"
             >
               <option value="Almoço">Almoço</option>
               <option value="Folga">Folga</option>
@@ -175,60 +178,60 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+          <div className="bloqueio-form-group">
+            <label className="bloqueio-label">
               Data *
             </label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)]"
+              className="bloqueio-input-date"
               required
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="bloqueio-checkbox-group">
             <input
               type="checkbox"
               id="isAllDay"
               checked={isAllDay}
               onChange={(e) => setIsAllDay(e.target.checked)}
-              className="rounded bg-black/40 border-white/20 text-[var(--color-brand-primary,#D4AF37)] focus:ring-0"
+              className="bloqueio-checkbox"
             />
-            <label htmlFor="isAllDay" className="text-xs text-[var(--color-text-secondary,#A1A1AA)] cursor-pointer">
+            <label htmlFor="isAllDay" className="bloqueio-checkbox-label">
               Bloquear o dia inteiro
             </label>
           </div>
 
           {!isAllDay && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+            <div className="bloqueio-time-row">
+              <div className="bloqueio-form-group">
+                <label className="bloqueio-label">
                   Início
                 </label>
-                <div className="relative">
-                  <HugeiconsIcon icon={Clock01Icon} size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <div className="bloqueio-input-icon-wrapper">
+                  <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white"
+                    className="bloqueio-input-time"
                     required
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+              <div className="bloqueio-form-group">
+                <label className="bloqueio-label">
                   Término
                 </label>
-                <div className="relative">
-                  <HugeiconsIcon icon={Clock01Icon} size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <div className="bloqueio-input-icon-wrapper">
+                  <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white"
+                    className="bloqueio-input-time"
                     required
                   />
                 </div>
@@ -236,18 +239,18 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-3 pt-3">
+          <div className="bloqueio-actions-footer">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-[var(--color-border-subtle,rgba(255,255,255,0.15))] text-sm font-semibold text-[var(--color-text-secondary,#A1A1AA)] hover:bg-white/5 transition-colors"
+              className="bloqueio-btn-secondary"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-[var(--color-error,#EF4444)] text-white text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="bloqueio-btn-danger"
             >
               {isSubmitting ? (
                 <span>Salvando...</span>
@@ -261,6 +264,250 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           </div>
         </form>
       </div>
+
+      <style>{`
+        .bloqueio-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(20, 17, 15, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1100;
+          padding: 1rem;
+          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .bloqueio-modal-shell {
+          width: 100%;
+          max-width: 460px;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-xl);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          font-family: var(--font-family-base);
+          color: var(--color-text-primary);
+        }
+
+        .bloqueio-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .bloqueio-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .bloqueio-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .bloqueio-modal-title {
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .bloqueio-modal-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0 0;
+        }
+
+        .bloqueio-close-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-full);
+          border: none;
+          background: transparent;
+          color: var(--color-text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .bloqueio-close-btn:hover {
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+        }
+
+        .bloqueio-error-alert {
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-error-bg);
+          border: 1px solid var(--color-error);
+          color: var(--color-error);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+        }
+
+        .bloqueio-modal-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .bloqueio-form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          flex: 1;
+        }
+
+        .bloqueio-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--color-text-secondary);
+        }
+
+        .bloqueio-select,
+        .bloqueio-input-date {
+          width: 100%;
+          padding: 0.65rem 0.85rem;
+          font-size: var(--font-size-sm);
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .bloqueio-select:focus,
+        .bloqueio-input-date:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px var(--color-brand-lightest);
+        }
+
+        .bloqueio-checkbox-group {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding-top: 0.25rem;
+        }
+
+        .bloqueio-checkbox {
+          width: 16px;
+          height: 16px;
+          accent-color: var(--color-brand-primary);
+          cursor: pointer;
+        }
+
+        .bloqueio-checkbox-label {
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          color: var(--color-text-primary);
+          cursor: pointer;
+        }
+
+        .bloqueio-time-row {
+          display: flex;
+          gap: 0.75rem;
+        }
+
+        .bloqueio-input-icon-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .bloqueio-input-icon {
+          position: absolute;
+          left: 0.75rem;
+          color: var(--color-text-secondary);
+          pointer-events: none;
+        }
+
+        .bloqueio-input-time {
+          width: 100%;
+          padding: 0.65rem 0.85rem 0.65rem 2.25rem;
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .bloqueio-input-time:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        .bloqueio-actions-footer {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding-top: 0.5rem;
+        }
+
+        .bloqueio-btn-secondary {
+          flex: 1;
+          padding: 0.65rem 1rem;
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .bloqueio-btn-secondary:hover {
+          background-color: var(--color-border);
+        }
+
+        .bloqueio-btn-danger {
+          flex: 1.5;
+          padding: 0.65rem 1.25rem;
+          border-radius: var(--radius-lg);
+          border: none;
+          background-color: var(--color-error);
+          color: white;
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+        }
+
+        .bloqueio-btn-danger:hover:not(:disabled) {
+          background-color: #d33838;
+        }
+
+        .bloqueio-btn-danger:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      `}</style>
     </div>
   );
 };

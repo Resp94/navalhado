@@ -97,4 +97,40 @@ _Avoid_: Fila solta, lista de encaixe manual, anotação de espera
 Lógica de ordenação e sugestão de atendimento de balcão (*walk-in*) para balancear a quantidade de clientes atendidos entre os profissionais ativos sem preferência específica indicada.
 _Avoid_: Vez da fila, sorteio de barbeiro, ordem manual
 
+**Perfil Progressivo do Cliente**:
+Estratégia de captura de dados onde o agendamento público exige fricção zero (apenas nome e WhatsApp), reservando dados enriquecidos (aniversário, tags, canal de aquisição, notas) para o painel do gerente ou preenchimento voluntário posterior.
+_Avoid_: Formulário longo no agendamento, cadastro obrigatório burocrático
+
+**Central 360º do Cliente**:
+Interface profunda no painel do Gerente que consolida o perfil cadastral, métricas de frequência e ticket médio, histórico unificado de agendamentos e comandas, e ações rápidas (WhatsApp, comanda, tags).
+_Avoid_: Modal genérico de cliente, tela de visualização simples
+
+**Associação Profissional-Serviço**:
+Contrato granular N:N (`professional_services`) que define se um profissional específico executa determinado serviço, permitindo que o barbeiro personalize sua própria duração de atendimento (com padrão do sistema de 40 minutos) e sobrescreva o percentual de comissão.
+_Avoid_: Vínculo solto, comissão única global fixa, tempo único obrigatório
+
+**Duração Padrão de Serviço**:
+Tempo base inicial de atendimento atribuído a novos serviços no Navalhado, fixado em 40 minutos, passível de personalização individual por cada profissional.
+_Avoid_: Grade fixa de 30 min, tempo engessado
+
+**Tempo de Retorno de Serviço**:
+Intervalo estimado em dias (`return_period_days`) para o cliente realizar a manutenção do procedimento (ex: 20 dias para corte, 60 dias para química), servindo de gatilho para a régua de reativação automática via WhatsApp com template personalizado.
+_Avoid_: Lembrete genérico, pós-venda manual
+
+**Modalidade de Preço do Serviço**:
+Classificação do valor cobrado entre preço fixo (`fixed`) e valor inicial flexível (`starting_at`), permitindo ajuste justo no fechamento da comanda conforme a complexidade do trabalho.
+_Avoid_: Preço único obrigatório, valor engessado
+
+**Classificação de Produto (Venda vs Insumo)**:
+Distinção operacional entre produtos comercializados ao cliente final no checkout de comandas (`retail`) e insumos consumidos na bancada ou lavatório pelos profissionais (`internal_use`), evitando mistura indevida de estoque e comissões.
+_Avoid_: Produto genérico, mercadoria mista
+
+**Ponto de Reposição de Estoque**:
+Quantidade mínima estipulada (`min_stock_alert`) que dispara avisos visuais no painel do Gerente para recompra preventiva de mercadorias e insumos antes do desabastecimento.
+_Avoid_: Estoque zerado surpresa, contagem cega
+
+
+
+
+
 

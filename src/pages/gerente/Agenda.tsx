@@ -758,7 +758,11 @@ export const Agenda: React.FC = () => {
 
           if (appStart < otherEnd && appEnd > otherStart) {
             hasOverlap = true;
-            if (app.is_fitting || appStart > otherStart || (appStart === otherStart && i > j)) {
+            if (app.is_fitting && !other.is_fitting) {
+              isSecondSlot = true;
+            } else if (!app.is_fitting && other.is_fitting) {
+              isSecondSlot = false;
+            } else if (appStart > otherStart || (appStart === otherStart && i > j)) {
               isSecondSlot = true;
             }
             break;
@@ -810,26 +814,18 @@ export const Agenda: React.FC = () => {
 
         <div className="agenda-header-actions">
           {/* Seletor de Escopo Temporal: Dia vs Semana */}
-          <div className="flex items-center rounded-xl bg-black/5 dark:bg-white/5 p-1 border border-border">
+          <div className="agenda-view-mode-selector">
             <button
               type="button"
               onClick={() => setViewMode('day')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'day'
-                  ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black shadow-sm'
-                  : 'text-[var(--color-text-secondary,#A1A1AA)] hover:text-white'
-              }`}
+              className={`btn-view-mode ${viewMode === 'day' ? 'btn-view-mode--active' : ''}`}
             >
               Dia
             </button>
             <button
               type="button"
               onClick={() => setViewMode('week')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'week'
-                  ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black shadow-sm'
-                  : 'text-[var(--color-text-secondary,#A1A1AA)] hover:text-white'
-              }`}
+              className={`btn-view-mode ${viewMode === 'week' ? 'btn-view-mode--active' : ''}`}
             >
               Semana
             </button>
@@ -920,11 +916,11 @@ export const Agenda: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="agenda-week-prof-select-wrapper">
               <select
                 value={selectedWeekProfId}
                 onChange={(e) => setSelectedWeekProfId(e.target.value)}
-                className="px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)]"
+                className="agenda-week-prof-select"
               >
                 {professionals.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -938,7 +934,7 @@ export const Agenda: React.FC = () => {
           {/* Botão Fila de Espera */}
           <button
             type="button"
-            className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-white/10 rounded-xl hover:bg-white/5 transition-colors text-[var(--color-text-primary,#fff)]"
+            className="btn-agenda-espera"
             onClick={() => setIsEsperaDrawerOpen(true)}
             title="Lista de Espera Diária"
           >
@@ -949,8 +945,9 @@ export const Agenda: React.FC = () => {
           {/* Botão + Bloquear Horário */}
           <button
             type="button"
-            className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-[var(--color-error,#EF4444)] border border-[var(--color-error,#EF4444)]/30 rounded-xl hover:bg-[var(--color-error,#EF4444)]/10 transition-colors"
+            className="btn-agenda-bloquear"
             onClick={() => setIsBloqueioModalOpen(true)}
+            title="Bloquear Horário"
           >
             <HugeiconsIcon icon={UnavailableIcon} size={16} />
             <span>+ Bloquear</span>
@@ -961,6 +958,7 @@ export const Agenda: React.FC = () => {
             type="button"
             className="btn-master-encaixe"
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
+            title="Novo Encaixe Rápido"
           >
             <HugeiconsIcon icon={PlusSignIcon} size={18} />
             <span>+ Encaixe</span>
@@ -1115,6 +1113,8 @@ export const Agenda: React.FC = () => {
                               <div
                                 key={app.id}
                                 className={`timeline-appointment-card ${statusClass}`}
+                                onClick={() => handleOpenCheckout(app)}
+                                title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
                                   top: `${layout.topPx}px`,
                                   height: `${layout.heightPx}px`,
@@ -1320,6 +1320,8 @@ export const Agenda: React.FC = () => {
                               <div
                                 key={app.id}
                                 className="timeline-appointment-card card-status--confirmed"
+                                onClick={() => handleOpenCheckout(app)}
+                                title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
                                   top: `${layout.topPx}px`,
                                   height: `${layout.heightPx}px`,
@@ -1521,14 +1523,18 @@ export const Agenda: React.FC = () => {
           customerId={checkoutAppointment.customer?.id}
           customerName={checkoutAppointment.customer?.name || 'Cliente'}
           customerPhone={checkoutAppointment.customer?.phone}
-          initialServices={[
-            {
-              service_id: checkoutAppointment.service.id,
-              name: checkoutAppointment.service.name,
-              price: checkoutAppointment.service.price,
-              professional_id: checkoutAppointment.professional_id,
-            },
-          ]}
+          initialServices={
+            checkoutAppointment.service?.id
+              ? [
+                  {
+                    service_id: checkoutAppointment.service.id,
+                    name: checkoutAppointment.service.name || 'Serviço',
+                    price: checkoutAppointment.service.price || 0,
+                    professional_id: checkoutAppointment.professional_id,
+                  },
+                ]
+              : []
+          }
           availableServices={services}
           availableProfessionals={professionals}
           onClose={() => {
@@ -1549,6 +1555,7 @@ export const Agenda: React.FC = () => {
         professionals={professionals}
         defaultDateIso={selectedDate}
         defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
+        timezone={tenant.timezone}
         onClose={() => setIsBloqueioModalOpen(false)}
         onBloqueioCriado={(_blk) => {
           addToast('Bloqueio criado com sucesso!', 'success');
@@ -1659,6 +1666,39 @@ export const Agenda: React.FC = () => {
           align-items: center;
           flex-wrap: wrap;
           gap: 0.75rem;
+        }
+
+        /* SELETOR DE MODO DE VISÃO (DIA VS SEMANA) */
+        .agenda-view-mode-selector {
+          display: flex;
+          align-items: center;
+          padding: 3px;
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          gap: 2px;
+        }
+
+        .btn-view-mode {
+          padding: 0.4rem 0.85rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          border: none;
+          border-radius: var(--radius-sm);
+          background: transparent;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-view-mode:hover {
+          color: var(--color-text-primary);
+        }
+
+        .btn-view-mode--active {
+          background-color: var(--color-brand-primary);
+          color: white;
+          box-shadow: var(--shadow-sm);
         }
 
         /* NAVEGADOR DE DATAS */
@@ -1795,12 +1835,79 @@ export const Agenda: React.FC = () => {
           cursor: pointer;
         }
 
-        /* BOTÃO MESTRE + ENCAIXE */
-        .btn-master-encaixe {
+        /* SELETOR DE BARBEIRO NA SEMANA */
+        .agenda-week-prof-select-wrapper {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.6rem 1.25rem;
+        }
+
+        .agenda-week-prof-select {
+          padding: 0.55rem 0.9rem;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          outline: none;
+          cursor: pointer;
+        }
+
+        .agenda-week-prof-select:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        /* BOTÕES DE AÇÃO DO HEADER */
+        .btn-agenda-espera {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.55rem 0.95rem;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-agenda-espera:hover {
+          background-color: var(--color-brand-lightest);
+          border-color: var(--color-brand-soft);
+          color: var(--color-brand-deep);
+        }
+
+        .btn-agenda-bloquear {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.55rem 0.95rem;
+          background-color: var(--color-error-bg);
+          border: 1px solid rgba(240, 82, 82, 0.3);
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-error);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-agenda-bloquear:hover {
+          background-color: #fbd5d5;
+          border-color: var(--color-error);
+        }
+
+        /* BOTÃO MESTRE + ENCAIXE */
+        .btn-master-encaixe {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.55rem 1.15rem;
           background-color: var(--color-brand-primary);
           color: white;
           border: none;
@@ -2032,14 +2139,17 @@ export const Agenda: React.FC = () => {
           overflow: hidden;
           background-color: var(--color-bg-secondary);
           box-shadow: var(--shadow-sm);
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          border: 1px solid var(--color-border);
           border-left-width: 4px;
           border-left-style: solid;
+          cursor: pointer;
+          transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
         }
 
         .timeline-appointment-card:hover {
           transform: translateY(-2px);
           box-shadow: var(--shadow-md);
+          filter: brightness(1.02);
           z-index: 15;
         }
 
@@ -2158,17 +2268,25 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-card-action {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 0.2rem;
+          gap: 0.25rem;
           border: none;
           border-radius: var(--radius-sm);
-          padding: 0.2rem 0.4rem;
+          padding: 0.25rem 0.45rem;
           font-size: 0.65rem;
           font-weight: 700;
+          font-family: var(--font-family-base);
+          line-height: 1;
+          vertical-align: middle;
           cursor: pointer;
           transition: all 0.15s ease;
+        }
+
+        .btn-card-action svg {
+          display: block;
+          flex-shrink: 0;
         }
 
         .btn-action-whatsapp {

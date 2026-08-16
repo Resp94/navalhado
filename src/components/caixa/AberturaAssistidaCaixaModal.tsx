@@ -69,63 +69,61 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className="caixa-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-caixa-title"
     >
-      <div className="bg-[var(--color-bg-primary,#121214)] border border-[var(--color-border-subtle,rgba(255,255,255,0.1))] rounded-2xl w-full max-w-md p-6 shadow-2xl relative text-[var(--color-text-primary,#fff)] font-sans">
-        <div className="flex items-center justify-between pb-4 border-b border-[var(--color-border-subtle,rgba(255,255,255,0.08))]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-primary,#D4AF37)]/15 flex items-center justify-center text-[var(--color-brand-primary,#D4AF37)]">
+      <div className="caixa-modal-shell">
+        <div className="caixa-modal-header">
+          <div className="caixa-header-left">
+            <div className="caixa-icon-badge">
               <HugeiconsIcon icon={Money01Icon} size={22} />
             </div>
             <div>
-              <h3 id="modal-caixa-title" className="text-lg font-bold">
+              <h3 id="modal-caixa-title" className="caixa-modal-title">
                 Abertura de Caixa Diário
               </h3>
-              <p className="text-xs text-[var(--color-text-secondary,#A1A1AA)]">
-                Nenhum caixa aberto para o turno de hoje.
+              <p className="caixa-modal-subtitle">
+                Nenhum caixa aberto para o turno atual
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             type="button"
-            className="p-1 rounded-lg text-[var(--color-text-secondary,#A1A1AA)] hover:text-white hover:bg-white/5 transition-colors"
+            className="caixa-close-btn"
             aria-label="Fechar"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={20} />
           </button>
         </div>
 
-        <div className="mt-4 p-3 rounded-xl bg-[var(--color-info,#3B82F6)]/10 border border-[var(--color-info,#3B82F6)]/20 flex items-start gap-2.5">
-          <HugeiconsIcon icon={InformationCircleIcon} size={18} className="text-[var(--color-info,#3B82F6)] mt-0.5 shrink-0" />
-          <p className="text-xs text-[var(--color-text-secondary,#A1A1AA)] leading-relaxed">
+        <div className="caixa-info-alert">
+          <HugeiconsIcon icon={InformationCircleIcon} size={18} className="caixa-alert-icon" />
+          <p className="caixa-alert-text">
             Para registrar recebimentos e manter o controle de sangria e fechamento, informe o fundo de troco inicial da gaveta.
           </p>
         </div>
 
         {errorMsg && (
-          <div className="mt-3 p-3 rounded-xl bg-[var(--color-error,#EF4444)]/10 border border-[var(--color-error,#EF4444)]/30 text-xs text-[var(--color-error,#EF4444)]">
+          <div className="caixa-error-alert">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleConfirm} className="mt-5 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+        <form onSubmit={handleConfirm} className="caixa-modal-form">
+          <div className="caixa-form-group">
+            <label className="caixa-label">
               Fundo de Troco Inicial (R$) *
             </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--color-brand-primary,#D4AF37)]">
-                R$
-              </span>
+            <div className="caixa-input-prefix-wrapper">
+              <span className="caixa-input-prefix">R$</span>
               <input
                 type="text"
                 value={initialAmount}
                 onChange={handleAmountChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-[var(--color-border-subtle,rgba(255,255,255,0.15))] rounded-xl text-lg font-bold text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)] transition-colors"
+                className="caixa-input-amount"
                 placeholder="0,00"
                 autoFocus
                 required
@@ -133,8 +131,8 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary,#A1A1AA)] mb-1.5">
+          <div className="caixa-form-group">
+            <label className="caixa-label">
               Observações (Opcional)
             </label>
             <input
@@ -142,22 +140,22 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ex: Turno da manhã, troco em moedas"
-              className="w-full px-3.5 py-2 bg-black/40 border border-[var(--color-border-subtle,rgba(255,255,255,0.15))] rounded-xl text-sm text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)] transition-colors"
+              className="caixa-input-text"
             />
           </div>
 
-          <div className="flex items-center gap-3 pt-3">
+          <div className="caixa-actions-footer">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-[var(--color-border-subtle,rgba(255,255,255,0.15))] text-sm font-semibold text-[var(--color-text-secondary,#A1A1AA)] hover:bg-white/5 transition-colors"
+              className="caixa-btn-secondary"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-[var(--color-brand-primary,#D4AF37)] text-black text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="caixa-btn-primary"
             >
               {isSubmitting ? (
                 <span>Abrindo...</span>
@@ -171,6 +169,246 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           </div>
         </form>
       </div>
+
+      <style>{`
+        .caixa-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(20, 17, 15, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1200;
+          padding: 1rem;
+          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .caixa-modal-shell {
+          width: 100%;
+          max-width: 440px;
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-xl);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          font-family: var(--font-family-base);
+          color: var(--color-text-primary);
+        }
+
+        .caixa-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .caixa-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .caixa-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .caixa-modal-title {
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .caixa-modal-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0 0;
+        }
+
+        .caixa-close-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-full);
+          border: none;
+          background: transparent;
+          color: var(--color-text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .caixa-close-btn:hover {
+          background-color: var(--color-error-bg);
+          color: var(--color-error);
+        }
+
+        .caixa-info-alert {
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-info-bg);
+          border: 1px solid rgba(63, 131, 248, 0.2);
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+        }
+
+        .caixa-alert-icon {
+          color: var(--color-info);
+          margin-top: 2px;
+          flex-shrink: 0;
+        }
+
+        .caixa-alert-text {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-primary);
+          line-height: 1.4;
+          margin: 0;
+        }
+
+        .caixa-error-alert {
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-error-bg);
+          border: 1px solid var(--color-error);
+          color: var(--color-error);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+        }
+
+        .caixa-modal-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .caixa-form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .caixa-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--color-text-secondary);
+        }
+
+        .caixa-input-prefix-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .caixa-input-prefix {
+          position: absolute;
+          left: 1rem;
+          font-size: var(--font-size-lg);
+          font-weight: 800;
+          color: var(--color-brand-primary);
+          pointer-events: none;
+        }
+
+        .caixa-input-amount {
+          width: 100%;
+          padding: 0.75rem 1rem 0.75rem 3rem;
+          font-size: var(--font-size-xl);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .caixa-input-amount:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px var(--color-brand-lightest);
+        }
+
+        .caixa-input-text {
+          width: 100%;
+          padding: 0.65rem 1rem;
+          font-size: var(--font-size-sm);
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .caixa-input-text:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        .caixa-actions-footer {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding-top: 0.5rem;
+        }
+
+        .caixa-btn-secondary {
+          flex: 1;
+          padding: 0.65rem 1rem;
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .caixa-btn-secondary:hover {
+          background-color: var(--color-border);
+        }
+
+        .caixa-btn-primary {
+          flex: 1.5;
+          padding: 0.65rem 1.25rem;
+          border-radius: var(--radius-lg);
+          border: none;
+          background-color: var(--color-brand-primary);
+          color: white;
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+        }
+
+        .caixa-btn-primary:hover:not(:disabled) {
+          background-color: var(--color-brand-hover);
+        }
+
+        .caixa-btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      `}</style>
     </div>
   );
 };
