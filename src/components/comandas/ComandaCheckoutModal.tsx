@@ -16,7 +16,10 @@ import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixa
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
-import type { Comanda, ComandaItem, MetodoPagamento } from '../../modules/comandas/types';
+import type {
+  Comanda,
+  MetodoPagamento,
+} from '../../modules/comandas/types';
 import type { Product } from '../../modules/produtos/types';
 import type { CashSession } from '../../modules/caixa/types';
 

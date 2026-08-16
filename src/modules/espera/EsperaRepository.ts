@@ -1,7 +1,11 @@
 import type { IEsperaAdapter, WaitingListEntry, WaitingListStatus } from './types';
 
 export class EsperaRepository {
-  constructor(private adapter: IEsperaAdapter) {}
+  private adapter: IEsperaAdapter;
+
+  constructor(adapter: IEsperaAdapter) {
+    this.adapter = adapter;
+  }
 
   async listByDate(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
     return this.adapter.listarPorData(tenantId, dataIso);
