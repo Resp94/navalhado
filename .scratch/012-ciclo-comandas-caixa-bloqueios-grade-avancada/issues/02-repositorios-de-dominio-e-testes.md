@@ -7,8 +7,8 @@ Implementar os módulos profundos de repositório e adaptadores Supabase para ge
 
 **Status:** ready-for-agent
 
-- [ ] Implementar `ComandaRepository` com métodos para abrir comanda, adicionar/remover serviços e produtos, aplicar descontos, calcular troco e liquidar com múltiplos pagamentos.
-- [ ] Implementar `CaixaRepository` com métodos para consultar sessão ativa, abrir caixa com fundo de troco inicial e registrar fechamento consolidado.
-- [ ] Implementar `BloqueioRepository` com métodos para criar bloqueios pontuais e excluir bloqueios.
-- [ ] Implementar adaptadores Supabase desacoplados (`SupabaseComandaAdapter`, `SupabaseCaixaAdapter`, `SupabaseBloqueioAdapter`).
-- [ ] Criar suítes de testes unitários (`ComandaRepository.test.ts`, `CaixaRepository.test.ts`, `BloqueioRepository.test.ts`) cobrindo 100% dos cálculos e regras de negócio.
+- [x] Implementar `ComandaRepository` com métodos para abrir comanda, adicionar/remover serviços e produtos, aplicar descontos, calcular troco e liquidar com múltiplos pagamentos.
+- [x] Implementar `CaixaRepository` com métodos para consultar sessão ativa, abrir caixa com fundo de troco inicial e registrar fechamento consolidado.
+- [x] Implementar `BloqueioRepository` com métodos para criar bloqueios pontuais e excluir bloqueios.
+- [x] Implementar adaptadores Supabase desacoplados (`SupabaseComandaAdapter`, `SupabaseCaixaAdapter`, `SupabaseBloqueioAdapter`).
+- [x] Criar suítes de testes unitários (`ComandaRepository.test.ts`, `CaixaRepository.test.ts`, `BloqueioRepository.test.ts`) cobrindo 100% dos cálculos e regras de negócio.
