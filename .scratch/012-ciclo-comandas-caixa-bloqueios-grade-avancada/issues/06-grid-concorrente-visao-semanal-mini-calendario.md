@@ -7,9 +7,9 @@ Implementar o algoritmo de detecção de sobreposição na grade temporal para p
 
 **Status:** ready-for-agent
 
-- [ ] Implementar algoritmo de detecção de colisões de horário na grade (`Agenda.tsx`), distribuindo `left` e `width` (50%/50%) para agendamentos simultâneos no mesmo barbeiro.
-- [ ] Preservar estilização e interatividade de ambos os cards lado a lado sem sobreposição cega.
-- [ ] Adicionar seletor de escopo `[ Dia ]` e `[ Semana ]` no cabeçalho.
-- [ ] Renderizar visão semanal de 7 dias (Segunda a Domingo) quando um barbeiro estiver selecionado.
-- [ ] Adicionar componente de mini-calendário/datepicker popover no cabeçalho para salto rápido de data.
-- [ ] Testes unitários validando layout split 50%/50% e alternância de visões.
+- [x] Implementar algoritmo de detecção de colisões de horário na grade (`Agenda.tsx`), distribuindo `left` e `width` (50%/50%) para agendamentos simultâneos no mesmo barbeiro.
+- [x] Preservar estilização e interatividade de ambos os cards lado a lado sem sobreposição cega.
+- [x] Adicionar seletor de escopo `[ Dia ]` e `[ Semana ]` no cabeçalho.
+- [x] Renderizar visão semanal de 7 dias (Segunda a Domingo) quando um barbeiro estiver selecionado.
+- [x] Adicionar componente de mini-calendário/datepicker popover no cabeçalho para salto rápido de data.
+- [x] Testes unitários validando layout split 50%/50% e alternância de visões.

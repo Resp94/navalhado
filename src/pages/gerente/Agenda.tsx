@@ -9,10 +9,14 @@ import {
   formatTimeInZone,
   localDateTimeToIso,
   localDayUtcRange,
-  shiftCalendarDate
+  shiftCalendarDate,
 } from '../../lib/timezone';
 import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
 import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
+import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
+import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
+import type { BlockedSlot } from '../../modules/bloqueios/types';
+import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar03Icon,
@@ -27,6 +31,7 @@ import {
   CheckmarkCircle02Icon,
   Note01Icon,
   AlertCircleIcon,
+  UnavailableIcon,
 } from '@hugeicons/core-free-icons';
 
 // --- Interfaces de Domínio ---
@@ -82,6 +87,13 @@ interface Appointment {
   professional_id: string;
 }
 
+interface CardLayout {
+  topPx: number;
+  heightPx: number;
+  left: string;
+  width: string;
+}
+
 // Configurações da Grade Temporal
 const SLOT_DURATION_MINUTES = 30;
 const SLOT_HEIGHT_PX = 52; // Altura em pixels de cada bloco de 30 min
@@ -96,6 +108,10 @@ export const Agenda: React.FC = () => {
     []
   );
 
+  // Estados de Controle de Escopo Temporal (Dia vs Semana)
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
+
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() =>
@@ -105,6 +121,7 @@ export const Agenda: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
@@ -112,7 +129,9 @@ export const Agenda: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formProfessionalId, setFormProfessionalId] = useState('');
@@ -130,10 +149,6 @@ export const Agenda: React.FC = () => {
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelingAppointment, setCancelingAppointment] = useState(false);
-
-  // Estados do Pagamento
-  const [paymentMethod, setPaymentMethod] = useState<'Dinheiro' | 'PIX' | 'Cartão'>('PIX');
-  const [processingPayment, setProcessingPayment] = useState(false);
 
   // Linha Vermelha de Tempo Real (Red Line)
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState<number>(() => {
@@ -164,23 +179,53 @@ export const Agenda: React.FC = () => {
     return slots;
   }, [gridStartHour, gridEndHour]);
 
+  // Dias da Semana para Visão Semanal
+  const weekDays = useMemo(() => {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const curr = new Date(y, m - 1, d);
+    const dayOfWeek = curr.getDay(); // 0 domingo, 1 segunda...
+    const distanceToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(curr);
+    monday.setDate(curr.getDate() - distanceToMonday);
+
+    const days: Array<{ dateStr: string; label: string; shortWeekday: string }> = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(day);
+      const formatted = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(day);
+      days.push({
+        dateStr,
+        label: formatted,
+        shortWeekday: weekday.toUpperCase().replace('.', ''),
+      });
+    }
+    return days;
+  }, [selectedDate]);
+
   // Data formatada por extenso em PT-BR
   const formattedDateTitle = useMemo(() => {
     try {
+      if (viewMode === 'week') {
+        const first = weekDays[0];
+        const last = weekDays[6];
+        return `Semana: ${first.label} a ${last.label}`;
+      }
       const [year, month, day] = selectedDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(dateObj);
       const formatted = new Intl.DateTimeFormat('pt-BR', {
         day: 'numeric',
         month: 'long',
-        year: 'numeric'
+        year: 'numeric',
       }).format(dateObj);
       const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
       return `${capitalizedWeekday}, ${formatted}`;
     } catch {
       return selectedDate;
     }
-  }, [selectedDate]);
+  }, [selectedDate, viewMode, weekDays]);
 
   const isToday = useMemo(() => {
     const todayStr = dateInZone(new Date(), tenant.timezone);
@@ -209,7 +254,7 @@ export const Agenda: React.FC = () => {
           .from('customers')
           .select('id, name, phone')
           .eq('tenant_id', tenant.tenantId)
-          .order('name')
+          .order('name'),
       ]);
 
       if (profsRes.error) throw profsRes.error;
@@ -219,6 +264,9 @@ export const Agenda: React.FC = () => {
       const activeProfs = profsRes.data || [];
       setProfessionals(activeProfs);
       setSelectedProfessionalIds(activeProfs.map((p) => p.id));
+      if (activeProfs.length > 0 && !selectedWeekProfId) {
+        setSelectedWeekProfId(activeProfs[0].id);
+      }
       setServices(servsRes.data || []);
       setCustomers(custsRes.data || []);
 
@@ -232,15 +280,60 @@ export const Agenda: React.FC = () => {
       console.error('Erro ao carregar dados base da agenda:', err);
       addToast('Não foi possível carregar profissionais e serviços.', 'error');
     }
-  }, [tenant.tenantId, addToast]);
+  }, [tenant.tenantId, addToast, selectedWeekProfId]);
 
-  // Carregar Agendamentos do Dia
+  // Carregar Bloqueios de Horário
+  const fetchBlockedSlots = useCallback(async () => {
+    if (!tenant.tenantId) return;
+    try {
+      let startIso: string;
+      let endIso: string;
+
+      if (viewMode === 'week') {
+        const { start } = localDayUtcRange(weekDays[0].dateStr, tenant.timezone);
+        const { endExclusive } = localDayUtcRange(weekDays[6].dateStr, tenant.timezone);
+        startIso = start;
+        endIso = endExclusive;
+      } else {
+        const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
+        startIso = start;
+        endIso = endExclusive;
+      }
+
+      const { data, error } = await supabase
+        .from('blocked_slots')
+        .select('*')
+        .eq('tenant_id', tenant.tenantId)
+        .gte('start_time', startIso)
+        .lt('start_time', endIso)
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      setBlockedSlots((data || []) as BlockedSlot[]);
+    } catch (err) {
+      console.error('Erro ao buscar bloqueios:', err);
+    }
+  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
+
+  // Carregar Agendamentos do Período
   const fetchAppointments = useCallback(async () => {
     try {
       if (!tenant.tenantId) return;
       setLoading(true);
 
-      const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
+      let startIso: string;
+      let endIso: string;
+
+      if (viewMode === 'week') {
+        const { start } = localDayUtcRange(weekDays[0].dateStr, tenant.timezone);
+        const { endExclusive } = localDayUtcRange(weekDays[6].dateStr, tenant.timezone);
+        startIso = start;
+        endIso = endExclusive;
+      } else {
+        const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
+        startIso = start;
+        endIso = endExclusive;
+      }
 
       const { data, error } = await supabase
         .from('appointments')
@@ -266,8 +359,8 @@ export const Agenda: React.FC = () => {
           )
         `)
         .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', start)
-        .lt('start_time', endExclusive)
+        .gte('start_time', startIso)
+        .lt('start_time', endIso)
         .neq('status', 'canceled')
         .order('start_time', { ascending: true });
 
@@ -284,7 +377,7 @@ export const Agenda: React.FC = () => {
         origin: item.origin,
         professional_id: item.professional_id,
         customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
-        service: Array.isArray(item.service) ? item.service[0] : item.service
+        service: Array.isArray(item.service) ? item.service[0] : item.service,
       }));
 
       setAppointments(mapped);
@@ -294,7 +387,7 @@ export const Agenda: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenant.tenantId, tenant.timezone, selectedDate, addToast]);
+  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
 
   useEffect(() => {
     loadInitialData();
@@ -302,20 +395,33 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     fetchAppointments();
+    fetchBlockedSlots();
 
     // Subscrição Realtime
     const channel = supabase
-      .channel(`appointments-agenda-${tenant.tenantId}`)
+      .channel(`agenda-realtime-${tenant.tenantId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'appointments',
-          filter: `tenant_id=eq.${tenant.tenantId}`
+          filter: `tenant_id=eq.${tenant.tenantId}`,
         },
         () => {
           fetchAppointments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_slots',
+          filter: `tenant_id=eq.${tenant.tenantId}`,
+        },
+        () => {
+          fetchBlockedSlots();
         }
       )
       .subscribe();
@@ -323,15 +429,17 @@ export const Agenda: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchAppointments, tenant.tenantId]);
+  }, [fetchAppointments, fetchBlockedSlots, tenant.tenantId]);
 
   // Controles de Navegação de Data
   const handlePrevDay = () => {
-    setSelectedDate((prev) => shiftCalendarDate(prev, -1));
+    const shift = viewMode === 'week' ? -7 : -1;
+    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleNextDay = () => {
-    setSelectedDate((prev) => shiftCalendarDate(prev, 1));
+    const shift = viewMode === 'week' ? 7 : -1;
+    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleToday = () => {
@@ -396,7 +504,7 @@ export const Agenda: React.FC = () => {
 
         const newCust = await clienteRepository.saveProvisionalCustomer(tenant.tenantId, {
           name: newCustomerName,
-          phone: newCustomerPhone
+          phone: newCustomerPhone,
         });
 
         finalCustomerId = newCust.id;
@@ -429,7 +537,7 @@ export const Agenda: React.FC = () => {
         payment_status: 'pending' as PaymentStatus,
         is_fitting: formIsFitting,
         notes: formNotes.trim() || null,
-        origin: 'manual'
+        origin: 'manual',
       };
 
       const { error: insertErr } = await supabase.from('appointments').insert(payload);
@@ -473,51 +581,28 @@ export const Agenda: React.FC = () => {
     }
   };
 
-  // Abrir Modal de Pagamento
-  const handleOpenPaymentModal = (app: Appointment) => {
-    setTargetAppointment(app);
-    setPaymentMethod('PIX');
-    setIsPaymentModalOpen(true);
+  // Abrir Modal de Checkout de Comanda
+  const handleOpenCheckout = (app: Appointment) => {
+    setCheckoutAppointment(app);
+    setIsCheckoutModalOpen(true);
   };
 
-  // Confirmar Pagamento
-  const handleConfirmPayment = async () => {
-    if (!targetAppointment) return;
-    setProcessingPayment(true);
+  // Remover Bloqueio de Horário
+  const handleRemoveBlock = async (blk: BlockedSlot) => {
+    if (window.confirm(`Deseja remover o bloqueio "${blk.reason}"?`)) {
+      try {
+        const { error } = await supabase
+          .from('blocked_slots')
+          .delete()
+          .eq('id', blk.id)
+          .eq('tenant_id', tenant.tenantId);
 
-    try {
-      // 1. Criar registro de pagamento
-      const { error: payErr } = await supabase.from('payments').insert({
-        tenant_id: tenant.tenantId,
-        appointment_id: targetAppointment.id,
-        method: paymentMethod,
-        amount: targetAppointment.service.price,
-        commission_value: 0,
-        paid_at: new Date().toISOString()
-      });
-
-      if (payErr) throw payErr;
-
-      // 2. Atualizar appointment para 'completed' e 'paid'
-      const { error: appErr } = await supabase
-        .from('appointments')
-        .update({
-          payment_status: 'paid',
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', targetAppointment.id);
-
-      if (appErr) throw appErr;
-
-      addToast('Pagamento registrado com sucesso!', 'success');
-      setIsPaymentModalOpen(false);
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao registrar pagamento:', err);
-      addToast('Erro ao processar pagamento.', 'error');
-    } finally {
-      setProcessingPayment(false);
+        if (error) throw error;
+        addToast('Bloqueio removido com sucesso!', 'success');
+        fetchBlockedSlots();
+      } catch (err: any) {
+        addToast('Erro ao remover bloqueio.', 'error');
+      }
     }
   };
 
@@ -539,7 +624,7 @@ export const Agenda: React.FC = () => {
         .update({
           status: 'canceled',
           cancellation_reason: cancellationReason.trim() || null,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', targetAppointment.id);
 
@@ -594,6 +679,61 @@ export const Agenda: React.FC = () => {
     return { topPx: Math.max(0, topPx), heightPx: Math.max(36, heightPx) };
   };
 
+  // Algoritmo de posicionamento com detecção de colisões para Split Grid 50%/50%
+  const calculateAppointmentsLayout = (
+    appointmentsList: Appointment[]
+  ): Map<string, CardLayout> => {
+    const layoutMap = new Map<string, CardLayout>();
+
+    const sorted = [...appointmentsList].sort(
+      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+
+    for (let i = 0; i < sorted.length; i++) {
+      const app = sorted[i];
+      const pos = calculateCardPosition(app.start_time, app.end_time);
+      const appStart = new Date(app.start_time).getTime();
+      const appEnd = new Date(app.end_time).getTime();
+
+      let hasOverlap = false;
+      let isSecondSlot = false;
+
+      for (let j = 0; j < sorted.length; j++) {
+        if (i !== j) {
+          const other = sorted[j];
+          const otherStart = new Date(other.start_time).getTime();
+          const otherEnd = new Date(other.end_time).getTime();
+
+          if (appStart < otherEnd && appEnd > otherStart) {
+            hasOverlap = true;
+            if (app.is_fitting || appStart > otherStart || (appStart === otherStart && i > j)) {
+              isSecondSlot = true;
+            }
+            break;
+          }
+        }
+      }
+
+      if (hasOverlap) {
+        layoutMap.set(app.id, {
+          topPx: pos.topPx,
+          heightPx: pos.heightPx,
+          left: isSecondSlot ? 'calc(50% + 2px)' : '4px',
+          width: 'calc(50% - 6px)',
+        });
+      } else {
+        layoutMap.set(app.id, {
+          topPx: pos.topPx,
+          heightPx: pos.heightPx,
+          left: '4px',
+          width: 'calc(100% - 8px)',
+        });
+      }
+    }
+
+    return layoutMap;
+  };
+
   // Posição da Linha Vermelha de Tempo Real
   const redLineTopPx = useMemo(() => {
     const minutesFromStart = currentTimeMinutes - gridStartHour * 60;
@@ -609,20 +749,48 @@ export const Agenda: React.FC = () => {
           <div className="agenda-header-title">
             <h2>{formattedDateTitle}</h2>
             <p className="agenda-header-subtitle">
-              {visibleProfessionals.length} profissional(is) em atendimento
+              {viewMode === 'week'
+                ? `Visão semanal do profissional ${professionals.find((p) => p.id === selectedWeekProfId)?.name || ''}`
+                : `${visibleProfessionals.length} profissional(is) em atendimento`}
             </p>
           </div>
         </div>
 
         <div className="agenda-header-actions">
+          {/* Seletor de Escopo Temporal: Dia vs Semana */}
+          <div className="flex items-center rounded-xl bg-black/5 dark:bg-white/5 p-1 border border-border">
+            <button
+              type="button"
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'day'
+                  ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black shadow-sm'
+                  : 'text-[var(--color-text-secondary,#A1A1AA)] hover:text-white'
+              }`}
+            >
+              Dia
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'week'
+                  ? 'bg-[var(--color-brand-primary,#D4AF37)] text-black shadow-sm'
+                  : 'text-[var(--color-text-secondary,#A1A1AA)] hover:text-white'
+              }`}
+            >
+              Semana
+            </button>
+          </div>
+
           {/* Navegação de Datas */}
           <div className="agenda-date-navigator">
             <button
               type="button"
               className="btn-date-nav"
               onClick={handlePrevDay}
-              title="Dia Anterior"
-              aria-label="Dia Anterior"
+              title={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
+              aria-label={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
             >
               <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
             </button>
@@ -637,8 +805,8 @@ export const Agenda: React.FC = () => {
               type="button"
               className="btn-date-nav"
               onClick={handleNextDay}
-              title="Próximo Dia"
-              aria-label="Próximo Dia"
+              title={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
+              aria-label={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
             >
               <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
             </button>
@@ -654,50 +822,76 @@ export const Agenda: React.FC = () => {
             </label>
           </div>
 
-          {/* Filtro de Barbeiros */}
-          <div className="agenda-filter-container">
-            <button
-              type="button"
-              className={`btn-agenda-filter ${isFilterOpen ? 'btn-agenda-filter--active' : ''}`}
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              title="Filtrar Equipe"
-            >
-              <HugeiconsIcon icon={FilterIcon} size={16} />
-              <span>Equipe ({selectedProfessionalIds.length})</span>
-            </button>
+          {/* Filtro de Barbeiros na Visão Dia / Seletor de Barbeiro na Visão Semana */}
+          {viewMode === 'day' ? (
+            <div className="agenda-filter-container">
+              <button
+                type="button"
+                className={`btn-agenda-filter ${isFilterOpen ? 'btn-agenda-filter--active' : ''}`}
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                title="Filtrar Equipe"
+              >
+                <HugeiconsIcon icon={FilterIcon} size={16} />
+                <span>Equipe ({selectedProfessionalIds.length})</span>
+              </button>
 
-            {isFilterOpen && (
-              <div className="agenda-filter-dropdown">
-                <div className="agenda-filter-dropdown__header">
-                  <strong>Exibir Barbeiros</strong>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedProfessionalIds(professionals.map((p) => p.id))
-                    }
-                    className="btn-link-xs"
-                  >
-                    Todos
-                  </button>
+              {isFilterOpen && (
+                <div className="agenda-filter-dropdown">
+                  <div className="agenda-filter-dropdown__header">
+                    <strong>Exibir Barbeiros</strong>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedProfessionalIds(professionals.map((p) => p.id))
+                      }
+                      className="btn-link-xs"
+                    >
+                      Todos
+                    </button>
+                  </div>
+                  <div className="agenda-filter-dropdown__list">
+                    {professionals.map((prof) => {
+                      const isChecked = selectedProfessionalIds.includes(prof.id);
+                      return (
+                        <label key={prof.id} className="filter-checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleProfessionalFilter(prof.id)}
+                          />
+                          <span>{prof.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="agenda-filter-dropdown__list">
-                  {professionals.map((prof) => {
-                    const isChecked = selectedProfessionalIds.includes(prof.id);
-                    return (
-                      <label key={prof.id} className="filter-checkbox-item">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleProfessionalFilter(prof.id)}
-                        />
-                        <span>{prof.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedWeekProfId}
+                onChange={(e) => setSelectedWeekProfId(e.target.value)}
+                className="px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-white focus:outline-none focus:border-[var(--color-brand-primary,#D4AF37)]"
+              >
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Botão + Bloquear Horário */}
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-[var(--color-error,#EF4444)] border border-[var(--color-error,#EF4444)]/30 rounded-xl hover:bg-[var(--color-error,#EF4444)]/10 transition-colors"
+            onClick={() => setIsBloqueioModalOpen(true)}
+          >
+            <HugeiconsIcon icon={UnavailableIcon} size={16} />
+            <span>+ Bloquear</span>
+          </button>
 
           {/* Botão Mestre + Encaixe */}
           <button
@@ -716,9 +910,9 @@ export const Agenda: React.FC = () => {
         {loading ? (
           <div className="agenda-skeleton-loading">
             <div className="spinner-brand" />
-            <p>Carregando escala do dia...</p>
+            <p>Carregando escala...</p>
           </div>
-        ) : visibleProfessionals.length === 0 ? (
+        ) : viewMode === 'day' && visibleProfessionals.length === 0 ? (
           <div className="agenda-empty-state">
             <HugeiconsIcon icon={AlertCircleIcon} size={48} className="empty-icon" />
             <h3>Nenhum profissional selecionado</h3>
@@ -747,191 +941,345 @@ export const Agenda: React.FC = () => {
               </div>
             </div>
 
-            {/* Colunas dos Profissionais */}
+            {/* Colunas: Visão Dia (por Barbeiro) vs Visão Semana (7 dias para o Barbeiro) */}
             <div className="professionals-columns-container">
-              {visibleProfessionals.map((prof) => {
-                const profAppointments = appointments.filter(
-                  (a) => a.professional_id === prof.id
-                );
+              {viewMode === 'day'
+                ? visibleProfessionals.map((prof) => {
+                    const profAppointments = appointments.filter(
+                      (a) => a.professional_id === prof.id
+                    );
+                    const profBlocked = blockedSlots.filter(
+                      (b) => b.professional_id === prof.id
+                    );
+                    const layoutMap = calculateAppointmentsLayout(profAppointments);
 
-                return (
-                  <div
-                    key={prof.id}
-                    className="professional-timeline-column"
-                    data-testid={`prof-col-${prof.id}`}
-                  >
-                    {/* Cabeçalho do Barbeiro */}
-                    <div className="prof-col-header">
-                      <div className="prof-col-avatar">
-                        {prof.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="prof-col-info">
-                        <h4 title={prof.name}>{prof.name}</h4>
-                        <span className="prof-col-count">
-                          {profAppointments.length} atendimento(s)
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Corpo da Grade com Slots Clicáveis */}
-                    <div className="prof-col-grid-body">
-                      {/* Slots de Fundo Interativos */}
-                      {timeSlots.map((slot) => (
-                        <div
-                          key={slot}
-                          className="grid-slot-cell"
-                          onClick={() => handleOpenNewAppointment(prof.id, slot, false)}
-                          title={`Clique para agendar às ${slot} com ${prof.name}`}
-                        >
-                          <span className="slot-hover-text">+ {slot}</span>
-                        </div>
-                      ))}
-
-                      {/* Linha Vermelha de Tempo Real */}
-                      {isToday && redLineTopPx !== null && (
-                        <div
-                          className="agenda-red-line"
-                          style={{ top: `${redLineTopPx}px` }}
-                          title="Hora Atual"
-                        />
-                      )}
-
-                      {/* Cards de Agendamento Flutuantes */}
-                      {profAppointments.map((app) => {
-                        const { topPx, heightPx } = calculateCardPosition(
-                          app.start_time,
-                          app.end_time
-                        );
-                        const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
-                        const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
-
-                        // Classes Semânticas de Cor do AppBarber
-                        let statusClass = 'card-status--pending';
-                        if (app.payment_status === 'paid' || app.status === 'completed') {
-                          statusClass = 'card-status--completed';
-                        } else if (app.status === 'in_progress') {
-                          statusClass = 'card-status--in-progress';
-                        } else if (app.is_fitting) {
-                          statusClass = 'card-status--fitting';
-                        } else if (app.status === 'confirmed') {
-                          statusClass = 'card-status--confirmed';
-                        }
-
-                        return (
-                          <div
-                            key={app.id}
-                            className={`timeline-appointment-card ${statusClass}`}
-                            style={{ top: `${topPx}px`, height: `${heightPx}px` }}
-                          >
-                            <div className="card-top-row">
-                              <span className="card-time-badge">
-                                {timeStart} - {timeEnd}
-                              </span>
-                              <div className="card-badges-row">
-                                {app.is_fitting && (
-                                  <span className="badge-chip badge-chip--fitting" title="Encaixe">
-                                    Encaixe
-                                  </span>
-                                )}
-                                {app.status === 'in_progress' && (
-                                  <span className="badge-chip badge-chip--progress" title="Em Atendimento">
-                                    Atendendo
-                                  </span>
-                                )}
-                                {app.payment_status === 'paid' && (
-                                  <span className="badge-chip badge-chip--paid" title="Pago">
-                                    Pago
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="card-client-row">
-                              <span className="card-client-name" title={app.customer?.name}>
-                                {app.customer?.name || 'Cliente'}
-                              </span>
-                              <span className="card-service-name" title={app.service?.name}>
-                                {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
-                              </span>
-                              {app.notes && (
-                                <p className="card-notes-snippet" title={app.notes}>
-                                  <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Ações Rápidas de 1 Clique */}
-                            <div className="card-actions-toolbar">
-                              {app.customer?.phone && (
-                                <button
-                                  type="button"
-                                  className="btn-card-action btn-action-whatsapp"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDirectWhatsApp(
-                                      app.customer.phone,
-                                      app.customer.name,
-                                      timeStart
-                                    );
-                                  }}
-                                  title="WhatsApp"
-                                >
-                                  <HugeiconsIcon icon={WhatsappIcon} size={14} />
-                                </button>
-                              )}
-
-                              {app.status === 'confirmed' && (
-                                <button
-                                  type="button"
-                                  className="btn-card-action btn-action-start"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartService(app);
-                                  }}
-                                  title="Iniciar Atendimento"
-                                >
-                                  Iniciar
-                                </button>
-                              )}
-
-                              {app.payment_status !== 'paid' ? (
-                                <button
-                                  type="button"
-                                  className="btn-card-action btn-action-pay"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenPaymentModal(app);
-                                  }}
-                                  title="Cobrar / Receber"
-                                >
-                                  <HugeiconsIcon icon={Money01Icon} size={14} />
-                                  <span>Cobrar</span>
-                                </button>
-                              ) : (
-                                <span className="paid-confirmed-label">
-                                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
-                                </span>
-                              )}
-
-                              <button
-                                type="button"
-                                className="btn-card-action btn-action-cancel"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenCancelModal(app);
-                                }}
-                                title="Cancelar Agendamento"
-                              >
-                                <HugeiconsIcon icon={Cancel01Icon} size={14} />
-                              </button>
-                            </div>
+                    return (
+                      <div
+                        key={prof.id}
+                        className="professional-timeline-column"
+                        data-testid={`prof-col-${prof.id}`}
+                      >
+                        {/* Cabeçalho do Barbeiro */}
+                        <div className="prof-col-header">
+                          <div className="prof-col-avatar">
+                            {prof.name.slice(0, 2).toUpperCase()}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                          <div className="prof-col-info">
+                            <h4 title={prof.name}>{prof.name}</h4>
+                            <span className="prof-col-count">
+                              {profAppointments.length} atendimento(s)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Corpo da Grade com Slots Clicáveis */}
+                        <div className="prof-col-grid-body">
+                          {/* Slots de Fundo Interativos */}
+                          {timeSlots.map((slot) => (
+                            <div
+                              key={slot}
+                              className="grid-slot-cell"
+                              onClick={() => handleOpenNewAppointment(prof.id, slot, false)}
+                              title={`Clique para agendar às ${slot} com ${prof.name}`}
+                            >
+                              <span className="slot-hover-text">+ {slot}</span>
+                            </div>
+                          ))}
+
+                          {/* Linha Vermelha de Tempo Real */}
+                          {isToday && redLineTopPx !== null && (
+                            <div
+                              className="agenda-red-line"
+                              style={{ top: `${redLineTopPx}px` }}
+                              title="Hora Atual"
+                            />
+                          )}
+
+                          {/* Bloqueios de Horário */}
+                          {profBlocked.map((blk) => {
+                            const { topPx, heightPx } = calculateCardPosition(
+                              blk.start_time,
+                              blk.end_time
+                            );
+                            const tStart = formatTimeInZone(blk.start_time, tenant.timezone);
+                            const tEnd = formatTimeInZone(blk.end_time, tenant.timezone);
+
+                            return (
+                              <div
+                                key={blk.id}
+                                className="timeline-blocked-card"
+                                style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                                onClick={() => handleRemoveBlock(blk)}
+                                title={`Bloqueio: ${blk.reason} (${tStart} - ${tEnd}). Clique para remover.`}
+                              >
+                                <div className="flex items-center justify-between text-xs font-semibold">
+                                  <span className="flex items-center gap-1">
+                                    <HugeiconsIcon icon={UnavailableIcon} size={14} />
+                                    {blk.reason}
+                                  </span>
+                                  <span className="text-[10px] opacity-75">
+                                    {tStart} - {tEnd}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Cards de Agendamento Flutuantes (Split Grid 50%/50%) */}
+                          {profAppointments.map((app) => {
+                            const layout = layoutMap.get(app.id) || {
+                              topPx: 0,
+                              heightPx: 36,
+                              left: '4px',
+                              width: 'calc(100% - 8px)',
+                            };
+
+                            const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
+                            const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
+
+                            let statusClass = 'card-status--pending';
+                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                              statusClass = 'card-status--completed';
+                            } else if (app.status === 'in_progress') {
+                              statusClass = 'card-status--in-progress';
+                            } else if (app.is_fitting) {
+                              statusClass = 'card-status--fitting';
+                            } else if (app.status === 'confirmed') {
+                              statusClass = 'card-status--confirmed';
+                            }
+
+                            return (
+                              <div
+                                key={app.id}
+                                className={`timeline-appointment-card ${statusClass}`}
+                                style={{
+                                  top: `${layout.topPx}px`,
+                                  height: `${layout.heightPx}px`,
+                                  left: layout.left,
+                                  width: layout.width,
+                                }}
+                              >
+                                <div className="card-top-row">
+                                  <span className="card-time-badge">
+                                    {timeStart} - {timeEnd}
+                                  </span>
+                                  <div className="card-badges-row">
+                                    {app.is_fitting && (
+                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                        Encaixe
+                                      </span>
+                                    )}
+                                    {app.status === 'in_progress' && (
+                                      <span className="badge-chip badge-chip--progress" title="Em Atendimento">
+                                        Atendendo
+                                      </span>
+                                    )}
+                                    {app.payment_status === 'paid' && (
+                                      <span className="badge-chip badge-chip--paid" title="Pago">
+                                        Pago
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="card-client-row">
+                                  <span className="card-client-name" title={app.customer?.name}>
+                                    {app.customer?.name || 'Cliente'}
+                                  </span>
+                                  <span className="card-service-name" title={app.service?.name}>
+                                    {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
+                                  </span>
+                                  {app.notes && (
+                                    <p className="card-notes-snippet" title={app.notes}>
+                                      <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Ações Rápidas de 1 Clique */}
+                                <div className="card-actions-toolbar">
+                                  {app.customer?.phone && (
+                                    <button
+                                      type="button"
+                                      className="btn-card-action btn-action-whatsapp"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDirectWhatsApp(
+                                          app.customer.phone,
+                                          app.customer.name,
+                                          timeStart
+                                        );
+                                      }}
+                                      title="WhatsApp"
+                                    >
+                                      <HugeiconsIcon icon={WhatsappIcon} size={14} />
+                                    </button>
+                                  )}
+
+                                  {app.status === 'confirmed' && (
+                                    <button
+                                      type="button"
+                                      className="btn-card-action btn-action-start"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartService(app);
+                                      }}
+                                      title="Iniciar Atendimento"
+                                    >
+                                      Iniciar
+                                    </button>
+                                  )}
+
+                                  {app.payment_status !== 'paid' ? (
+                                    <button
+                                      type="button"
+                                      className="btn-card-action btn-action-pay"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenCheckout(app);
+                                      }}
+                                      title="Cobrar / Receber"
+                                    >
+                                      <HugeiconsIcon icon={Money01Icon} size={14} />
+                                      <span>Cobrar</span>
+                                    </button>
+                                  ) : (
+                                    <span className="paid-confirmed-label">
+                                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    className="btn-card-action btn-action-cancel"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCancelModal(app);
+                                    }}
+                                    title="Cancelar Agendamento"
+                                  >
+                                    <HugeiconsIcon icon={Cancel01Icon} size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                : weekDays.map((day) => {
+                    const dayAppointments = appointments.filter((a) => {
+                      const aDate = dateInZone(a.start_time, tenant.timezone);
+                      return aDate === day.dateStr && a.professional_id === selectedWeekProfId;
+                    });
+                    const dayBlocked = blockedSlots.filter((b) => {
+                      const bDate = dateInZone(b.start_time, tenant.timezone);
+                      return bDate === day.dateStr && b.professional_id === selectedWeekProfId;
+                    });
+                    const layoutMap = calculateAppointmentsLayout(dayAppointments);
+
+                    return (
+                      <div
+                        key={day.dateStr}
+                        className="professional-timeline-column"
+                        data-testid={`week-col-${day.dateStr}`}
+                      >
+                        <div className="prof-col-header">
+                          <div className="prof-col-info">
+                            <h4 title={day.label}>
+                              {day.shortWeekday} • {day.label}
+                            </h4>
+                            <span className="prof-col-count">
+                              {dayAppointments.length} atendimento(s)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="prof-col-grid-body">
+                          {timeSlots.map((slot) => (
+                            <div
+                              key={slot}
+                              className="grid-slot-cell"
+                              onClick={() => {
+                                setSelectedDate(day.dateStr);
+                                handleOpenNewAppointment(selectedWeekProfId, slot, false);
+                              }}
+                              title={`Clique para agendar às ${slot} em ${day.label}`}
+                            >
+                              <span className="slot-hover-text">+ {slot}</span>
+                            </div>
+                          ))}
+
+                          {/* Bloqueios do Dia */}
+                          {dayBlocked.map((blk) => {
+                            const { topPx, heightPx } = calculateCardPosition(
+                              blk.start_time,
+                              blk.end_time
+                            );
+                            const tStart = formatTimeInZone(blk.start_time, tenant.timezone);
+                            const tEnd = formatTimeInZone(blk.end_time, tenant.timezone);
+
+                            return (
+                              <div
+                                key={blk.id}
+                                className="timeline-blocked-card"
+                                style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                                onClick={() => handleRemoveBlock(blk)}
+                                title={`Bloqueio: ${blk.reason} (${tStart} - ${tEnd})`}
+                              >
+                                <div className="flex items-center justify-between text-xs font-semibold">
+                                  <span className="flex items-center gap-1">
+                                    <HugeiconsIcon icon={UnavailableIcon} size={14} />
+                                    {blk.reason}
+                                  </span>
+                                  <span className="text-[10px] opacity-75">
+                                    {tStart} - {tEnd}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Cards do Dia */}
+                          {dayAppointments.map((app) => {
+                            const layout = layoutMap.get(app.id) || {
+                              topPx: 0,
+                              heightPx: 36,
+                              left: '4px',
+                              width: 'calc(100% - 8px)',
+                            };
+
+                            const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
+                            const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
+
+                            return (
+                              <div
+                                key={app.id}
+                                className="timeline-appointment-card card-status--confirmed"
+                                style={{
+                                  top: `${layout.topPx}px`,
+                                  height: `${layout.heightPx}px`,
+                                  left: layout.left,
+                                  width: layout.width,
+                                }}
+                              >
+                                <div className="card-top-row">
+                                  <span className="card-time-badge">
+                                    {timeStart} - {timeEnd}
+                                  </span>
+                                </div>
+                                <div className="card-client-row">
+                                  <span className="card-client-name">{app.customer?.name}</span>
+                                  <span className="card-service-name">{app.service?.name}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
             </div>
           </div>
         )}
@@ -1101,70 +1449,51 @@ export const Agenda: React.FC = () => {
         </form>
       </Modal>
 
-      {/* 4. MODAL DE PAGAMENTO / FATURAMENTO */}
-      <Modal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
-        title="Receber Pagamento"
-      >
-        {targetAppointment && (
-          <div className="payment-modal-body">
-            <div className="payment-summary-card">
-              <div className="summary-row">
-                <span>Cliente:</span>
-                <strong>{targetAppointment.customer?.name}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Serviço:</span>
-                <strong>{targetAppointment.service?.name}</strong>
-              </div>
-              <div className="summary-row summary-row--highlight">
-                <span>Valor Total:</span>
-                <span className="price-val">
-                  R$ {Number(targetAppointment.service?.price || 0).toFixed(2)}
-                </span>
-              </div>
-            </div>
+      {/* 4. MODAL DE CHECKOUT DE COMANDA */}
+      {checkoutAppointment && (
+        <ComandaCheckoutModal
+          isOpen={isCheckoutModalOpen}
+          tenantId={tenant.tenantId}
+          appointmentId={checkoutAppointment.id}
+          customerId={checkoutAppointment.customer?.id}
+          customerName={checkoutAppointment.customer?.name || 'Cliente'}
+          customerPhone={checkoutAppointment.customer?.phone}
+          initialServices={[
+            {
+              service_id: checkoutAppointment.service.id,
+              name: checkoutAppointment.service.name,
+              price: checkoutAppointment.service.price,
+              professional_id: checkoutAppointment.professional_id,
+            },
+          ]}
+          availableServices={services}
+          availableProfessionals={professionals}
+          onClose={() => {
+            setIsCheckoutModalOpen(false);
+            setCheckoutAppointment(null);
+          }}
+          onFinalizado={(_comanda: Comanda) => {
+            addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
+            fetchAppointments();
+          }}
+        />
+      )}
 
-            <div className="form-group">
-              <label>Forma de Pagamento</label>
-              <div className="payment-methods-grid">
-                {(['PIX', 'Dinheiro', 'Cartão'] as const).map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    className={`payment-method-chip ${paymentMethod === method ? 'payment-method-chip--active' : ''}`}
-                    onClick={() => setPaymentMethod(method)}
-                  >
-                    {method}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* 5. MODAL DE BLOQUEIO DE HORÁRIOS */}
+      <BloqueioModal
+        isOpen={isBloqueioModalOpen}
+        tenantId={tenant.tenantId}
+        professionals={professionals}
+        defaultDateIso={selectedDate}
+        defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
+        onClose={() => setIsBloqueioModalOpen(false)}
+        onBloqueioCriado={(_blk) => {
+          addToast('Bloqueio criado com sucesso!', 'success');
+          fetchBlockedSlots();
+        }}
+      />
 
-            <div className="modal-actions-footer">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setIsPaymentModalOpen(false)}
-                disabled={processingPayment}
-              >
-                Voltar
-              </button>
-              <button
-                type="button"
-                className="btn-success"
-                onClick={handleConfirmPayment}
-                disabled={processingPayment}
-              >
-                {processingPayment ? 'Processando...' : 'Confirmar Recebimento'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* 5. MODAL DE CANCELAMENTO */}
+      {/* 6. MODAL DE CANCELAMENTO */}
       <Modal
         isOpen={isCancelModalOpen}
         onClose={() => setIsCancelModalOpen(false)}
@@ -1212,7 +1541,7 @@ export const Agenda: React.FC = () => {
         )}
       </Modal>
 
-      {/* 6. ESTILOS EMBUTIDOS DA AGENDA COM DESIGN SYSTEM DO NAVALHADO */}
+      {/* 7. ESTILOS EMBUTIDOS DA AGENDA */}
       <style>{`
         .agenda-page {
           display: flex;
@@ -1248,53 +1577,53 @@ export const Agenda: React.FC = () => {
         .agenda-header-subtitle {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          margin-top: 0.2rem;
         }
 
         .agenda-header-actions {
           display: flex;
           align-items: center;
-          gap: 1rem;
           flex-wrap: wrap;
+          gap: 0.75rem;
         }
 
+        /* NAVEGADOR DE DATAS */
         .agenda-date-navigator {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
           background-color: rgba(255, 255, 255, 0.8);
-          padding: 0.25rem;
-          border-radius: var(--radius-md);
           border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          overflow: hidden;
         }
 
         .btn-date-nav {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.4rem 0.6rem;
-          background: transparent;
+          padding: 0.55rem 0.75rem;
+          background: none;
           border: none;
-          border-radius: var(--radius-sm);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           cursor: pointer;
-          font-weight: 600;
-          font-size: var(--font-size-sm);
-          transition: all 0.2s ease;
+          transition: background-color 0.2s ease;
         }
 
         .btn-date-nav:hover {
-          background-color: var(--color-brand-lightest);
+          background-color: rgba(217, 108, 0, 0.08);
           color: var(--color-brand-primary);
         }
 
         .btn-date-today {
-          padding: 0.35rem 0.75rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          padding: 0.55rem 0.9rem;
+          border-left: 1px solid var(--color-border);
+          border-right: 1px solid var(--color-border);
         }
 
         .btn-date-today--active {
-          background-color: var(--color-brand-primary);
-          color: white !important;
+          color: var(--color-brand-primary);
+          background-color: rgba(217, 108, 0, 0.06);
         }
 
         .agenda-date-picker-label {
@@ -1585,11 +1914,40 @@ export const Agenda: React.FC = () => {
           background-color: var(--color-error);
         }
 
-        /* CARDS DE AGENDAMENTO FLUTUANTES */
-        .timeline-appointment-card {
+        /* CARDS DE BLOQUEIO NA GRADE */
+        .timeline-blocked-card {
           position: absolute;
           left: 4px;
           right: 4px;
+          border-radius: var(--radius-md);
+          padding: 0.45rem 0.6rem;
+          z-index: 5;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          overflow: hidden;
+          background: repeating-linear-gradient(
+            45deg,
+            rgba(0, 0, 0, 0.05),
+            rgba(0, 0, 0, 0.05) 10px,
+            rgba(0, 0, 0, 0.1) 10px,
+            rgba(0, 0, 0, 0.1) 20px
+          );
+          background-color: rgba(60, 60, 65, 0.15);
+          border: 1px dashed var(--color-text-secondary);
+          color: var(--color-text-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .timeline-blocked-card:hover {
+          background-color: rgba(239, 68, 68, 0.1);
+          border-color: var(--color-error);
+        }
+
+        /* CARDS DE AGENDAMENTO FLUTUANTES */
+        .timeline-appointment-card {
+          position: absolute;
           border-radius: var(--radius-md);
           padding: 0.45rem 0.6rem;
           z-index: 10;
@@ -1598,9 +1956,10 @@ export const Agenda: React.FC = () => {
           justify-content: space-between;
           overflow: hidden;
           background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
           box-shadow: var(--shadow-sm);
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          border-left-width: 4px;
+          border-left-style: solid;
         }
 
         .timeline-appointment-card:hover {
@@ -1609,47 +1968,48 @@ export const Agenda: React.FC = () => {
           z-index: 15;
         }
 
-        /* Estados Semânticos AppBarber */
-        .card-status--confirmed {
-          border-left: 4px solid var(--color-brand-primary);
-          background-color: var(--color-brand-lightest);
-        }
-
-        .card-status--fitting {
-          border-left: 4px solid var(--color-warning);
+        /* Status Visual Semântico */
+        .card-status--pending {
+          border-left-color: var(--color-warning);
           background-color: var(--color-warning-bg);
         }
 
+        .card-status--confirmed {
+          border-left-color: var(--color-brand-primary);
+          background-color: var(--color-bg-secondary);
+        }
+
+        .card-status--fitting {
+          border-left-color: var(--color-brand-deep);
+          background-color: rgba(242, 178, 119, 0.2);
+        }
+
         .card-status--in-progress {
-          border-left: 4px solid var(--color-info);
+          border-left-color: var(--color-info);
           background-color: var(--color-info-bg);
         }
 
         .card-status--completed {
-          border-left: 4px solid var(--color-success);
+          border-left-color: var(--color-success);
           background-color: var(--color-success-bg);
-        }
-
-        .card-status--pending {
-          border-left: 4px solid var(--color-text-secondary);
-          background-color: var(--color-bg-secondary);
         }
 
         .card-top-row {
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          justify-content: space-between;
           gap: 0.25rem;
         }
 
         .card-time-badge {
-          font-size: 0.68rem;
+          font-size: 0.7rem;
           font-weight: 800;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
         }
 
         .card-badges-row {
           display: flex;
+          align-items: center;
           gap: 0.25rem;
         }
 
@@ -1662,18 +2022,18 @@ export const Agenda: React.FC = () => {
         }
 
         .badge-chip--fitting {
-          background-color: var(--color-warning-bg);
-          color: var(--color-warning);
+          background-color: var(--color-brand-deep);
+          color: white;
         }
 
         .badge-chip--progress {
-          background-color: var(--color-info-bg);
-          color: var(--color-info);
+          background-color: var(--color-info);
+          color: white;
         }
 
         .badge-chip--paid {
-          background-color: var(--color-success-bg);
-          color: var(--color-success);
+          background-color: var(--color-success);
+          color: white;
         }
 
         .card-client-row {
@@ -1693,7 +2053,7 @@ export const Agenda: React.FC = () => {
         }
 
         .card-service-name {
-          font-size: 0.68rem;
+          font-size: 0.7rem;
           color: var(--color-text-secondary);
           white-space: nowrap;
           overflow: hidden;
@@ -1702,7 +2062,7 @@ export const Agenda: React.FC = () => {
 
         .card-notes-snippet {
           font-size: 0.65rem;
-          color: var(--color-brand-hover);
+          color: var(--color-brand-primary);
           font-style: italic;
           display: flex;
           align-items: center;
@@ -1712,63 +2072,65 @@ export const Agenda: React.FC = () => {
           text-overflow: ellipsis;
         }
 
+        /* Toolbar de Ações Rápidas */
         .card-actions-toolbar {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
           gap: 0.3rem;
-          border-top: 1px solid rgba(0, 0, 0, 0.05);
+          margin-top: auto;
           padding-top: 0.2rem;
+          border-top: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .btn-card-action {
-          padding: 0.2rem 0.4rem;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
-          background-color: white;
-          font-size: 0.68rem;
-          font-weight: 700;
-          cursor: pointer;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 0.2rem;
+          border: none;
+          border-radius: var(--radius-sm);
+          padding: 0.2rem 0.4rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .btn-action-whatsapp {
-          color: var(--color-success);
-          border-color: var(--color-border);
+          background-color: #25D366;
+          color: white;
         }
 
         .btn-action-whatsapp:hover {
-          background-color: var(--color-success-bg);
+          background-color: #128C7E;
         }
 
         .btn-action-start {
-          color: var(--color-info);
-          border-color: var(--color-border);
+          background-color: var(--color-info);
+          color: white;
         }
 
         .btn-action-start:hover {
-          background-color: var(--color-info-bg);
+          background-color: #1A56DB;
         }
 
         .btn-action-pay {
-          background-color: var(--color-success);
+          background-color: var(--color-brand-primary);
           color: white;
-          border-color: var(--color-success);
         }
 
         .btn-action-pay:hover {
-          filter: brightness(0.95);
+          background-color: var(--color-brand-hover);
         }
 
         .btn-action-cancel {
-          color: var(--color-error);
-          border-color: var(--color-border);
+          background-color: transparent;
+          color: var(--color-text-secondary);
+          margin-left: auto;
         }
 
         .btn-action-cancel:hover {
+          color: var(--color-error);
           background-color: var(--color-error-bg);
         }
 
@@ -1778,10 +2140,8 @@ export const Agenda: React.FC = () => {
           align-items: center;
         }
 
-        /* MODAIS E FORMULÁRIOS */
-        .modal-agenda-form,
-        .payment-modal-body,
-        .cancel-modal-body {
+        /* FORMULÁRIO DO MODAL */
+        .modal-agenda-form {
           display: flex;
           flex-direction: column;
           gap: 1rem;
@@ -1789,7 +2149,7 @@ export const Agenda: React.FC = () => {
 
         .form-group-segmented {
           display: flex;
-          background-color: rgba(0, 0, 0, 0.04);
+          background-color: rgba(0, 0, 0, 0.05);
           padding: 0.25rem;
           border-radius: var(--radius-md);
           gap: 0.25rem;
@@ -1797,27 +2157,21 @@ export const Agenda: React.FC = () => {
 
         .segmented-btn {
           flex: 1;
-          padding: 0.5rem;
           border: none;
-          background: transparent;
-          border-radius: var(--radius-sm);
+          padding: 0.45rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
+          border-radius: var(--radius-sm);
+          background: none;
           color: var(--color-text-secondary);
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
         .segmented-btn--active {
-          background-color: white;
+          background-color: var(--color-bg-secondary);
           color: var(--color-brand-primary);
           box-shadow: var(--shadow-sm);
-        }
-
-        .form-row-2col {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
         }
 
         .form-group {
@@ -1830,41 +2184,43 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .form-row-2col {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
         }
 
         .input-text,
         .input-select,
         .input-textarea {
+          width: 100%;
           padding: 0.6rem 0.8rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          font-family: inherit;
-          font-size: var(--font-size-sm);
-          background-color: white;
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
-          outline: none;
-          transition: border-color 0.2s ease;
+          font-size: var(--font-size-sm);
+          font-family: inherit;
         }
 
         .input-text:focus,
         .input-select:focus,
         .input-textarea:focus {
+          outline: none;
           border-color: var(--color-brand-primary);
-        }
-
-        .form-group--checkbox {
-          justify-content: flex-end;
-          padding-bottom: 0.5rem;
         }
 
         .checkbox-label {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
           cursor: pointer;
+          margin-top: 1.5rem;
         }
 
         .modal-actions-footer {
@@ -1872,118 +2228,62 @@ export const Agenda: React.FC = () => {
           justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 0.5rem;
-          border-top: 1px solid var(--color-border);
-          padding-top: 0.75rem;
         }
 
-        .btn-primary,
-        .btn-secondary,
-        .btn-success,
-        .btn-danger {
+        .btn-secondary {
+          background: none;
+          border: 1px solid var(--color-border);
           padding: 0.6rem 1.25rem;
           border-radius: var(--radius-md);
           font-size: var(--font-size-sm);
-          font-weight: 700;
+          font-weight: 600;
+          color: var(--color-text-secondary);
           cursor: pointer;
-          border: none;
-          transition: all 0.2s ease;
         }
 
         .btn-primary {
           background-color: var(--color-brand-primary);
           color: white;
+          border: none;
+          padding: 0.6rem 1.5rem;
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .btn-primary:hover {
           background-color: var(--color-brand-hover);
         }
 
-        .btn-secondary {
-          background-color: rgba(0, 0, 0, 0.05);
-          color: var(--color-text-secondary);
-        }
-
-        .btn-secondary:hover {
-          background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-success {
-          background-color: var(--color-success);
-          color: white;
-        }
-
         .btn-danger {
           background-color: var(--color-error);
           color: white;
-        }
-
-        .payment-summary-card {
-          background-color: var(--color-brand-lightest);
-          border: 1px solid var(--color-brand-soft);
+          border: none;
+          padding: 0.6rem 1.5rem;
           border-radius: var(--radius-md);
-          padding: 0.75rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
           font-size: var(--font-size-sm);
-        }
-
-        .summary-row--highlight {
-          border-top: 1px dashed var(--color-brand-soft);
-          padding-top: 0.4rem;
-          margin-top: 0.2rem;
-          font-size: var(--font-size-base);
-          font-weight: 800;
-        }
-
-        .price-val {
-          color: var(--color-brand-deep);
-        }
-
-        .payment-methods-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.5rem;
-        }
-
-        .payment-method-chip {
-          padding: 0.6rem;
-          border: 1px solid var(--color-border);
-          background-color: white;
-          border-radius: var(--radius-md);
           font-weight: 700;
-          font-size: var(--font-size-sm);
           cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .payment-method-chip--active {
-          border-color: var(--color-brand-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
         }
 
         .cancel-alert-text {
           font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           line-height: 1.5;
+          margin-bottom: 1rem;
         }
 
+        /* EMPTY STATE E SKELETON */
         .agenda-skeleton-loading,
         .agenda-empty-state {
-          padding: 4rem 1rem;
+          padding: 4rem 2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.75rem;
+          gap: 1rem;
           text-align: center;
-          color: var(--color-text-secondary);
         }
 
         .spinner-brand {
@@ -1995,22 +2295,21 @@ export const Agenda: React.FC = () => {
           animation: spin 0.8s linear infinite;
         }
 
-        @media (max-width: 768px) {
-          .agenda-header-control {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .agenda-header-actions {
-            width: 100%;
-            justify-content: space-between;
-          }
-          .form-row-2col {
-            grid-template-columns: 1fr;
-          }
+        .empty-icon {
+          color: var(--color-brand-soft);
+        }
+
+        .btn-primary-sm {
+          background-color: var(--color-brand-primary);
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
         }
       `}</style>
     </div>
   );
 };
-
-export default Agenda;
