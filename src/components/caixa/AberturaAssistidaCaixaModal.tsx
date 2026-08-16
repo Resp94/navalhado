@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Money01Icon,
   CheckmarkCircle01Icon,
   Cancel01Icon,
   InformationCircleIcon,
@@ -76,18 +75,13 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
     >
       <div className="caixa-modal-shell">
         <div className="caixa-modal-header">
-          <div className="caixa-header-left">
-            <div className="caixa-icon-badge">
-              <HugeiconsIcon icon={Money01Icon} size={22} />
-            </div>
-            <div>
-              <h3 id="modal-caixa-title" className="caixa-modal-title">
-                Abertura de Caixa Diário
-              </h3>
-              <p className="caixa-modal-subtitle">
-                Nenhum caixa aberto para o turno atual
-              </p>
-            </div>
+          <div>
+            <h3 id="modal-caixa-title" className="caixa-modal-title">
+              Abertura de Caixa Diário
+            </h3>
+            <p className="caixa-modal-subtitle">
+              Nenhum caixa aberto para o turno atual
+            </p>
           </div>
           <button
             onClick={onClose}

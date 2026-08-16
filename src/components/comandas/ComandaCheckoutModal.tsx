@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
-  CheckmarkCircle01Icon,
   Delete02Icon,
-  Money01Icon,
   PlusSignIcon,
   ScissorIcon,
   ShoppingBag01Icon,
@@ -95,10 +93,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
 
   const [comandaId, setComandaId] = useState<string | null>(null);
+  const [loadedComanda, setLoadedComanda] = useState<Comanda | null>(null);
   const [itens, setItens] = useState<ItemLocal[]>([]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [tipValue, setTipValue] = useState<number>(0);
+  const [isSplitting, setIsSplitting] = useState(false);
   const [pagamentos, setPagamentos] = useState<PagamentoLinha[]>([
     { method: 'pix', amount: 0, receivedCash: 0 },
   ]);
@@ -122,6 +122,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    // Reset de estados
+    setLoadedComanda(null);
+    setDiscountValue(0);
+    setTipValue(0);
+    setIsSplitting(false);
+    setErrorMsg(null);
+
     // Carregar catálogo de produtos
     prodRepo.listActive(tenantId).then(setCatalogProducts).catch(console.error);
 
@@ -131,21 +138,45 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     // Inicializar itens da comanda
     if (appointmentId) {
       comRepo.getByAppointmentId(appointmentId).then((existing) => {
-        if (existing && existing.itens && existing.itens.length > 0) {
+        if (existing) {
           setComandaId(existing.id);
-          setItens(
-            existing.itens.map((it) => ({
-              tempId: it.id,
-              id: it.id,
-              item_type: it.item_type,
-              service_id: it.service_id,
-              product_id: it.product_id,
-              professional_id: it.professional_id,
-              name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
-              quantity: it.quantity,
-              unit_price: it.unit_price,
-            }))
-          );
+          setLoadedComanda(existing);
+
+          if (existing.itens && existing.itens.length > 0) {
+            setItens(
+              existing.itens.map((it) => ({
+                tempId: it.id,
+                id: it.id,
+                item_type: it.item_type,
+                service_id: it.service_id,
+                product_id: it.product_id,
+                professional_id: it.professional_id,
+                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                quantity: it.quantity,
+                unit_price: it.unit_price,
+              }))
+            );
+          }
+
+          if (existing.discount_amount) {
+            setDiscountValue(existing.discount_amount);
+            setDiscountType('fixed');
+          }
+          if (existing.tip_amount) {
+            setTipValue(existing.tip_amount);
+          }
+          if (existing.pagamentos && existing.pagamentos.length > 0) {
+            setPagamentos(
+              existing.pagamentos.map((p) => ({
+                method: p.payment_method,
+                amount: p.amount,
+                receivedCash: p.amount + (p.change_amount || 0),
+              }))
+            );
+            if (existing.pagamentos.length > 1) {
+              setIsSplitting(true);
+            }
+          }
         } else {
           // Itens iniciais a partir do agendamento
           const init: ItemLocal[] = initialServices.map((s, idx) => ({
@@ -186,6 +217,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   }, [isOpen, appointmentId, tenantId, initialServices, comRepo, cxaRepo, prodRepo]);
 
+  const isClosed = loadedComanda?.status === 'fechada';
+
   // Cálculos de Totais
   const subtotal = useMemo(() => {
     return itens.reduce((acc, it) => acc + (it.quantity || 1) * (it.unit_price || 0), 0);
@@ -199,18 +232,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   }, [subtotal, discountType, discountValue]);
 
   const totalFinal = useMemo(() => {
+    if (isClosed && loadedComanda) {
+      return loadedComanda.total_amount;
+    }
     return Math.max(0, subtotal - discountAmount + (tipValue || 0));
-  }, [subtotal, discountAmount, tipValue]);
+  }, [subtotal, discountAmount, tipValue, isClosed, loadedComanda]);
 
-  // Sincronizar valor padrão da primeira linha de pagamento com o totalFinal
+  // Sincronizar valor padrão da primeira linha de pagamento com o totalFinal se não estiver dividindo
   useEffect(() => {
+    if (isClosed || isSplitting) return;
     setPagamentos((prev) => {
-      if (prev.length === 1) {
-        return [{ ...prev[0], amount: totalFinal, receivedCash: totalFinal }];
+      if (prev.length <= 1) {
+        return [{ method: prev[0]?.method || 'pix', amount: totalFinal, receivedCash: totalFinal }];
       }
       return prev;
     });
-  }, [totalFinal]);
+  }, [totalFinal, isClosed, isSplitting]);
 
   const totalPago = useMemo(() => {
     return pagamentos.reduce((acc, p) => acc + (p.amount || 0), 0);
@@ -268,6 +305,25 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setItens((prev) => prev.filter((it) => it.tempId !== tempId));
   };
 
+  const handleSelectSingleMethod = (method: MetodoPagamento) => {
+    setPagamentos([{ method, amount: totalFinal, receivedCash: totalFinal }]);
+  };
+
+  const handleEnableSplit = () => {
+    setIsSplitting(true);
+    const half1 = Number((totalFinal / 2).toFixed(2));
+    const half2 = Number((totalFinal - half1).toFixed(2));
+    setPagamentos([
+      { method: pagamentos[0]?.method || 'pix', amount: half1, receivedCash: half1 },
+      { method: 'credit_card', amount: half2, receivedCash: half2 },
+    ]);
+  };
+
+  const handleDisableSplit = () => {
+    setIsSplitting(false);
+    setPagamentos([{ method: pagamentos[0]?.method || 'pix', amount: totalFinal, receivedCash: totalFinal }]);
+  };
+
   const handleAddPagamentoLinha = () => {
     if (saldoRestante <= 0) return;
     setPagamentos((prev) => [
@@ -277,6 +333,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   };
 
   const handleRemovePagamentoLinha = (index: number) => {
+    if (pagamentos.length <= 2) {
+      handleDisableSplit();
+      return;
+    }
     setPagamentos((prev) => prev.filter((_, idx) => idx !== index));
   };
 
@@ -343,6 +403,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   };
 
+  const methodLabels: Record<MetodoPagamento, string> = {
+    pix: 'PIX',
+    credit_card: 'Cartão de Crédito',
+    debit_card: 'Cartão de Débito',
+    cash: 'Dinheiro',
+    other: 'Outro',
+  };
+
   return (
     <>
       <div
@@ -354,18 +422,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         <div className="comanda-modal-shell">
           {/* Header */}
           <div className="comanda-modal-header">
-            <div className="comanda-header-left">
-              <div className="comanda-icon-badge">
-                <HugeiconsIcon icon={Money01Icon} size={22} />
-              </div>
-              <div>
-                <h3 id="modal-checkout-title" className="comanda-modal-title">
-                  Comanda & Checkout
-                </h3>
-                <p className="comanda-modal-subtitle">
-                  Cliente: <strong className="text-highlight">{customerName}</strong> {customerPhone && `• ${customerPhone}`}
-                </p>
-              </div>
+            <div>
+              <h3 id="modal-checkout-title" className="comanda-modal-title">
+                {isClosed ? 'Comanda Liquidada' : 'Comanda e Checkout'}
+              </h3>
+              <p className="comanda-modal-subtitle">
+                Cliente: <strong className="text-highlight">{customerName}</strong> {customerPhone && `• ${customerPhone}`}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -385,34 +448,52 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               </div>
             )}
 
+            {/* Banner de Comanda Fechada / Liquidada */}
+            {isClosed && (
+              <div className="comanda-closed-badge-banner">
+                <span className="badge-dot-green" />
+                <div>
+                  <strong>Atendimento Liquidado e Pago</strong>
+                  {loadedComanda?.closed_at && (
+                    <span className="closed-time-detail">
+                      {new Date(loadedComanda.closed_at).toLocaleDateString('pt-BR')} às{' '}
+                      {new Date(loadedComanda.closed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Lista de Itens */}
             <div className="comanda-section">
               <div className="comanda-section-header">
                 <h4 className="comanda-section-title">
                   Itens Consumidos ({itens.length})
                 </h4>
-                <div className="comanda-section-actions">
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddingService(true); setIsAddingProduct(false); }}
-                    className="btn-add-item"
-                  >
-                    <HugeiconsIcon icon={ScissorIcon} size={14} />
-                    <span>+ Serviço</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddingProduct(true); setIsAddingService(false); }}
-                    className="btn-add-item"
-                  >
-                    <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
-                    <span>+ Produto</span>
-                  </button>
-                </div>
+                {!isClosed && (
+                  <div className="comanda-section-actions">
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingService(true); setIsAddingProduct(false); }}
+                      className="btn-add-item"
+                    >
+                      <HugeiconsIcon icon={ScissorIcon} size={14} />
+                      <span>+ Serviço</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingProduct(true); setIsAddingService(false); }}
+                      className="btn-add-item"
+                    >
+                      <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
+                      <span>+ Produto</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Formulário Embutido: Adicionar Serviço */}
-              {isAddingService && (
+              {!isClosed && isAddingService && (
                 <div className="add-item-box">
                   <div className="flex-between">
                     <span className="add-item-title">Adicionar Serviço Extra</span>
@@ -457,17 +538,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       onClick={handleAddServiceConfirm}
                       className="btn-confirm-item"
                     >
-                      Inserir
+                      Adicionar
                     </button>
                   </div>
                 </div>
               )}
 
               {/* Formulário Embutido: Adicionar Produto */}
-              {isAddingProduct && (
+              {!isClosed && isAddingProduct && (
                 <div className="add-item-box">
                   <div className="flex-between">
-                    <span className="add-item-title">Venda de Produto (Balcão)</span>
+                    <span className="add-item-title">Adicionar Produto de Bancada</span>
                     <button
                       type="button"
                       onClick={() => setIsAddingProduct(false)}
@@ -482,10 +563,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       onChange={(e) => setSelectedProductId(e.target.value)}
                       className="comanda-select flex-1"
                     >
-                      <option value="">Selecione o produto...</option>
+                      <option value="">Selecione o produto no estoque...</option>
                       {catalogProducts.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} (R$ {p.price.toFixed(2)}) • Estoque: {p.stock_quantity}
+                          {p.name} (R$ {p.price.toFixed(2)} - {p.stock_quantity} em estoque)
                         </option>
                       ))}
                     </select>
@@ -496,7 +577,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       onClick={handleAddProductConfirm}
                       className="btn-confirm-item"
                     >
-                      Inserir
+                      Adicionar
                     </button>
                   </div>
                 </div>
@@ -507,16 +588,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 {itens.map((it) => (
                   <div key={it.tempId} className="comanda-item-card">
                     <div className="comanda-item-info">
-                      <div className="comanda-item-badge">
-                        <HugeiconsIcon
-                          icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon}
-                          size={14}
-                        />
-                      </div>
                       <div>
                         <strong className="comanda-item-name">{it.name}</strong>
                         <span className="comanda-item-detail">
-                          {it.quantity}x • R$ {it.unit_price.toFixed(2)}
+                          {it.item_type === 'servico' ? 'Serviço' : 'Produto'} • {it.quantity}x • R$ {it.unit_price.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -525,64 +600,68 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       <span className="comanda-item-total">
                         R$ {(it.quantity * it.unit_price).toFixed(2)}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(it.tempId)}
-                        className="comanda-item-remove-btn"
-                        title="Remover item"
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={16} />
-                      </button>
+                      {!isClosed && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(it.tempId)}
+                          className="comanda-item-remove-btn"
+                          title="Remover item"
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Desconto e Gorjeta */}
-            <div className="comanda-discount-tip-grid">
-              <div className="comanda-form-group">
-                <label className="comanda-label">Desconto</label>
-                <div className="comanda-input-segmented-wrapper">
-                  <div className="comanda-segmented-type">
-                    <button
-                      type="button"
-                      className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
-                      onClick={() => setDiscountType('fixed')}
-                    >
-                      R$
-                    </button>
-                    <button
-                      type="button"
-                      className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
-                      onClick={() => setDiscountType('percent')}
-                    >
-                      %
-                    </button>
+            {/* Desconto e Gorjeta (Apenas editável se aberta) */}
+            {!isClosed ? (
+              <div className="comanda-discount-tip-grid">
+                <div className="comanda-form-group">
+                  <label className="comanda-label">Desconto</label>
+                  <div className="comanda-input-segmented-wrapper">
+                    <div className="comanda-segmented-type">
+                      <button
+                        type="button"
+                        className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
+                        onClick={() => setDiscountType('fixed')}
+                      >
+                        R$
+                      </button>
+                      <button
+                        type="button"
+                        className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
+                        onClick={() => setDiscountType('percent')}
+                      >
+                        %
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={discountValue || ''}
+                      onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                      placeholder="0,00"
+                      className="comanda-input-num"
+                    />
                   </div>
+                </div>
+
+                <div className="comanda-form-group">
+                  <label className="comanda-label">Gorjeta do Barbeiro (R$)</label>
                   <input
                     type="number"
                     min="0"
-                    value={discountValue || ''}
-                    onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    value={tipValue || ''}
+                    onChange={(e) => setTipValue(parseFloat(e.target.value) || 0)}
                     placeholder="0,00"
                     className="comanda-input-num"
                   />
                 </div>
               </div>
-
-              <div className="comanda-form-group">
-                <label className="comanda-label">Gorjeta do Barbeiro (R$)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={tipValue || ''}
-                  onChange={(e) => setTipValue(parseFloat(e.target.value) || 0)}
-                  placeholder="0,00"
-                  className="comanda-input-num"
-                />
-              </div>
-            </div>
+            ) : null}
 
             {/* Sumário de Totais */}
             <div className="comanda-summary-box">
@@ -603,146 +682,237 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 </div>
               )}
               <div className="summary-row summary-total">
-                <span>Total a Pagar:</span>
+                <span>{isClosed ? 'Total Pago:' : 'Total a Pagar:'}</span>
                 <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Divisão de Formas de Pagamento */}
+            {/* Formas de Pagamento */}
             <div className="comanda-section">
               <div className="comanda-section-header">
                 <h4 className="comanda-section-title">
-                  Pagamento ({pagamentos.length})
+                  {isClosed ? 'Pagamentos Registrados' : 'Forma de Pagamento'}
                 </h4>
-                {saldoRestante > 0 && (
+                {!isClosed && !isSplitting && (
                   <button
                     type="button"
-                    onClick={handleAddPagamentoLinha}
-                    className="btn-link-brand"
+                    onClick={handleEnableSplit}
+                    className="btn-split-toggle"
                   >
-                    <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                    <span>Dividir Pagamento</span>
+                    + Dividir em 2 ou mais formas
+                  </button>
+                )}
+                {!isClosed && isSplitting && (
+                  <button
+                    type="button"
+                    onClick={handleDisableSplit}
+                    className="btn-link-sm"
+                  >
+                    Cancelar Divisão (1 única forma)
                   </button>
                 )}
               </div>
 
-              <div className="comanda-payments-list">
-                {pagamentos.map((pag, idx) => {
-                  const change = pag.method === 'cash' && pag.receivedCash > pag.amount
-                    ? pag.receivedCash - pag.amount
-                    : 0;
+              {/* Modo de Visualização Fechada / Recibo */}
+              {isClosed ? (
+                <div className="comanda-payments-list">
+                  {pagamentos.map((pag, idx) => (
+                    <div key={idx} className="payment-receipt-row">
+                      <span className="payment-receipt-method">
+                        {methodLabels[pag.method] || pag.method}
+                      </span>
+                      <strong className="payment-receipt-amount">
+                        R$ {pag.amount.toFixed(2)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : !isSplitting ? (
+                /* Modo Pagamento Único: Botões de Acesso Rápido */
+                <div className="single-payment-container">
+                  <div className="quick-methods-grid">
+                    {(['pix', 'credit_card', 'debit_card', 'cash'] as MetodoPagamento[]).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleSelectSingleMethod(m)}
+                        className={`btn-quick-method ${pagamentos[0]?.method === m ? 'btn-quick-method--active' : ''}`}
+                      >
+                        {methodLabels[m]}
+                      </button>
+                    ))}
+                  </div>
 
-                  return (
-                    <div key={idx} className="payment-row-card">
-                      <div className="payment-row-main">
-                        <select
-                          value={pag.method}
+                  {pagamentos[0]?.method === 'cash' && (
+                    <div className="cash-single-calculator">
+                      <label className="cash-input-field">
+                        <span>Valor Recebido em Dinheiro: R$</span>
+                        <input
+                          type="number"
+                          min={totalFinal}
+                          step="0.01"
+                          value={pagamentos[0]?.receivedCash || ''}
                           onChange={(e) => {
-                            const newMethod = e.target.value as MetodoPagamento;
-                            setPagamentos((prev) =>
-                              prev.map((p, i) => (i === idx ? { ...p, method: newMethod } : p))
-                            );
+                            const val = parseFloat(e.target.value) || 0;
+                            setPagamentos([{ ...pagamentos[0], receivedCash: val }]);
                           }}
-                          className="comanda-select payment-method-select"
-                        >
-                          <option value="pix">PIX</option>
-                          <option value="credit_card">Cartão de Crédito</option>
-                          <option value="debit_card">Cartão de Débito</option>
-                          <option value="cash">Dinheiro</option>
-                          <option value="other">Outro</option>
-                        </select>
-
-                        <div className="payment-amount-input-wrapper">
-                          <span className="payment-amount-prefix">R$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={pag.amount || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setPagamentos((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, amount: val, receivedCash: Math.max(val, p.receivedCash) } : p))
-                              );
-                            }}
-                            className="payment-amount-input"
-                          />
-                        </div>
-
-                        {pagamentos.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePagamentoLinha(idx)}
-                            className="btn-remove-payment"
-                            title="Remover linha de pagamento"
-                          >
-                            <HugeiconsIcon icon={Delete02Icon} size={16} />
-                          </button>
-                        )}
-                      </div>
-
-                      {pag.method === 'cash' && (
-                        <div className="cash-change-calculator">
-                          <div className="cash-input-field">
-                            <span>Recebido em Dinheiro: R$</span>
-                            <input
-                              type="number"
-                              min={pag.amount}
-                              step="0.01"
-                              value={pag.receivedCash || ''}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                setPagamentos((prev) =>
-                                  prev.map((p, i) => (i === idx ? { ...p, receivedCash: val } : p))
-                                );
-                              }}
-                              className="cash-received-input"
-                            />
-                          </div>
-                          {change > 0 && (
-                            <div className="cash-change-badge">
-                              Troco: R$ {change.toFixed(2)}
-                            </div>
-                          )}
+                          className="cash-received-input"
+                        />
+                      </label>
+                      {pagamentos[0]?.receivedCash > totalFinal && (
+                        <div className="cash-change-badge">
+                          Troco a Devolver: R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              ) : (
+                /* Modo Pagamento Dividido */
+                <div className="split-payments-container">
+                  <div className="comanda-payments-list">
+                    {pagamentos.map((pag, idx) => {
+                      const change = pag.method === 'cash' && pag.receivedCash > pag.amount
+                        ? pag.receivedCash - pag.amount
+                        : 0;
 
-              {saldoRestante > 0 && (
-                <p className="comanda-warning-text">
-                  Faltam R$ {saldoRestante.toFixed(2)} para cobrir o total da comanda.
-                </p>
+                      return (
+                        <div key={idx} className="payment-row-card">
+                          <div className="payment-row-main">
+                            <select
+                              value={pag.method}
+                              onChange={(e) => {
+                                const newMethod = e.target.value as MetodoPagamento;
+                                setPagamentos((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, method: newMethod } : p))
+                                );
+                              }}
+                              className="comanda-select payment-method-select"
+                            >
+                              <option value="pix">PIX</option>
+                              <option value="credit_card">Cartão de Crédito</option>
+                              <option value="debit_card">Cartão de Débito</option>
+                              <option value="cash">Dinheiro</option>
+                              <option value="other">Outro</option>
+                            </select>
+
+                            <div className="payment-amount-input-wrapper">
+                              <span className="payment-amount-prefix">R$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={pag.amount || ''}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setPagamentos((prev) =>
+                                    prev.map((p, i) => (i === idx ? { ...p, amount: val, receivedCash: Math.max(val, p.receivedCash) } : p))
+                                  );
+                                }}
+                                className="payment-amount-input"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePagamentoLinha(idx)}
+                              className="btn-remove-payment"
+                              title="Remover forma de pagamento"
+                            >
+                              <HugeiconsIcon icon={Delete02Icon} size={16} />
+                            </button>
+                          </div>
+
+                          {pag.method === 'cash' && (
+                            <div className="cash-change-calculator">
+                              <div className="cash-input-field">
+                                <span>Recebido: R$</span>
+                                <input
+                                  type="number"
+                                  min={pag.amount}
+                                  step="0.01"
+                                  value={pag.receivedCash || ''}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setPagamentos((prev) =>
+                                      prev.map((p, i) => (i === idx ? { ...p, receivedCash: val } : p))
+                                    );
+                                  }}
+                                  className="cash-received-input"
+                                />
+                              </div>
+                              {change > 0 && (
+                                <div className="cash-change-badge">
+                                  Troco: R$ {change.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="split-footer-actions">
+                    {saldoRestante > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleAddPagamentoLinha}
+                        className="btn-add-split-line"
+                      >
+                        <HugeiconsIcon icon={PlusSignIcon} size={14} />
+                        <span>Adicionar outra forma (R$ {saldoRestante.toFixed(2)} restantes)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="split-summary-bar">
+                    <span>Distribuído: R$ {totalPago.toFixed(2)} / R$ {totalFinal.toFixed(2)}</span>
+                    {saldoRestante > 0 ? (
+                      <span className="split-missing-alert">Faltam R$ {saldoRestante.toFixed(2)}</span>
+                    ) : (
+                      <span className="split-complete-alert">100% Distribuído</span>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
           {/* Footer */}
           <div className="comanda-modal-footer">
-            <button
-              type="button"
-              onClick={onClose}
-              className="comanda-btn-secondary"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
-              onClick={handleFinalizar}
-              className="comanda-btn-primary"
-            >
-              {isSubmitting ? (
-                <span>Processando...</span>
-              ) : (
-                <>
-                  <HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} />
-                  <span>Finalizar & Receber (R$ {totalFinal.toFixed(2)})</span>
-                </>
-              )}
-            </button>
+            {isClosed ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="comanda-btn-primary"
+                style={{ marginLeft: 'auto' }}
+              >
+                Fechar
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="comanda-btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
+                  onClick={handleFinalizar}
+                  className="comanda-btn-primary"
+                >
+                  {isSubmitting ? (
+                    <span>Processando...</span>
+                  ) : (
+                    <span>Finalizar e Receber (R$ {totalFinal.toFixed(2)})</span>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -755,7 +925,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         onCaixaAberto={(session) => {
           setActiveSession(session);
           setIsCaixaModalOpen(false);
-          // Prosseguir com a liquidação da comanda
           handleFinalizar();
         }}
         onClose={() => setIsCaixaModalOpen(false)}
@@ -797,23 +966,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
           border-bottom: 1px solid var(--color-border);
-        }
-
-        .comanda-header-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .comanda-icon-badge {
-          width: 40px;
-          height: 40px;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
 
         .comanda-modal-title {
@@ -870,6 +1022,32 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-error);
           font-size: var(--font-size-xs);
           font-weight: 600;
+        }
+
+        .comanda-closed-badge-banner {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.85rem 1rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-success-bg);
+          border: 1px solid var(--color-success);
+          color: var(--color-success);
+          font-size: var(--font-size-sm);
+        }
+
+        .badge-dot-green {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: var(--color-success);
+          flex-shrink: 0;
+        }
+
+        .closed-time-detail {
+          display: block;
+          font-size: var(--font-size-xs);
+          opacity: 0.85;
         }
 
         .comanda-section {
@@ -987,18 +1165,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           gap: 0.6rem;
-        }
-
-        .comanda-item-badge {
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-sm);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
         }
 
         .comanda-item-name {
@@ -1149,20 +1315,88 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-size: var(--font-size-lg);
         }
 
-        .btn-link-brand {
-          background: none;
-          border: none;
-          color: var(--color-brand-primary);
+        .btn-split-toggle {
+          background-color: var(--color-brand-lightest);
+          border: 1px solid var(--color-brand-soft);
+          color: var(--color-brand-deep);
           font-size: var(--font-size-xs);
           font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
+          padding: 0.35rem 0.7rem;
+          border-radius: var(--radius-md);
           cursor: pointer;
+          transition: all 0.2s ease;
         }
 
-        .btn-link-brand:hover {
-          text-decoration: underline;
+        .btn-split-toggle:hover {
+          background-color: var(--color-brand-soft);
+          color: white;
+        }
+
+        .quick-methods-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.5rem;
+        }
+
+        .btn-quick-method {
+          padding: 0.65rem 0.5rem;
+          border: 1.5px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          cursor: pointer;
+          text-align: center;
+          transition: all 0.2s ease;
+        }
+
+        .btn-quick-method:hover {
+          border-color: var(--color-brand-soft);
+        }
+
+        .btn-quick-method--active {
+          border-color: var(--color-brand-primary);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .cash-single-calculator {
+          margin-top: 0.75rem;
+          padding: 0.75rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px dashed var(--color-border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .payment-receipt-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.75rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          font-size: var(--font-size-sm);
+        }
+
+        .payment-receipt-method {
+          font-weight: 600;
+          color: var(--color-text-secondary);
+        }
+
+        .payment-receipt-amount {
+          color: var(--color-text-primary);
+        }
+
+        .split-payments-container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
         }
 
         .comanda-payments-list {
@@ -1235,6 +1469,48 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-error);
         }
 
+        .btn-add-split-line {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.5rem 0.85rem;
+          border-radius: var(--radius-md);
+          border: 1px dashed var(--color-brand-primary);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          width: 100%;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .btn-add-split-line:hover {
+          background-color: var(--color-brand-soft);
+          color: white;
+        }
+
+        .split-summary-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.5rem 0.75rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+        }
+
+        .split-missing-alert {
+          color: var(--color-error);
+        }
+
+        .split-complete-alert {
+          color: var(--color-success);
+        }
+
         .cash-change-calculator {
           display: flex;
           align-items: center;
@@ -1248,6 +1524,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           gap: 0.4rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
         }
 
@@ -1265,13 +1542,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .cash-change-badge {
           font-weight: 700;
           color: var(--color-brand-primary);
-        }
-
-        .comanda-warning-text {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-warning);
-          margin: 0.25rem 0 0 0;
         }
 
         .comanda-modal-footer {

@@ -5,7 +5,6 @@ import {
   CheckmarkCircle01Icon,
   Clock01Icon,
   PlusSignIcon,
-  UserGroupIcon,
   WhatsappIcon,
 } from '@hugeicons/core-free-icons';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
@@ -146,18 +145,13 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
       >
         {/* Header */}
         <div className="drawer-header">
-          <div className="drawer-header-left">
-            <div className="drawer-icon-badge">
-              <HugeiconsIcon icon={UserGroupIcon} size={22} />
-            </div>
-            <div>
-              <h3 id="drawer-espera-title" className="drawer-title">
-                Lista de Espera do Dia
-              </h3>
-              <p className="drawer-subtitle">
-                {aguardandoEntries.length} cliente(s) aguardando vaga
-              </p>
-            </div>
+          <div>
+            <h3 id="drawer-espera-title" className="drawer-title">
+              Lista de Espera do Dia
+            </h3>
+            <p className="drawer-subtitle">
+              {aguardandoEntries.length} cliente(s) aguardando vaga
+            </p>
           </div>
           <button
             onClick={onClose}

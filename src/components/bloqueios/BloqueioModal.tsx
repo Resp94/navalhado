@@ -4,7 +4,6 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
-  UnavailableIcon,
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
@@ -111,18 +110,13 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     >
       <div className="bloqueio-modal-shell">
         <div className="bloqueio-modal-header">
-          <div className="bloqueio-header-left">
-            <div className="bloqueio-icon-badge">
-              <HugeiconsIcon icon={UnavailableIcon} size={22} />
-            </div>
-            <div>
-              <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
-                Bloquear Horário na Grade
-              </h3>
-              <p className="bloqueio-modal-subtitle">
-                Impede novos agendamentos neste intervalo
-              </p>
-            </div>
+          <div>
+            <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
+              Bloquear Horário na Grade
+            </h3>
+            <p className="bloqueio-modal-subtitle">
+              Impede novos agendamentos neste intervalo
+            </p>
           </div>
           <button
             onClick={onClose}

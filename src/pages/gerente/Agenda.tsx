@@ -178,6 +178,8 @@ export const Agenda: React.FC = () => {
   // Horários de Início e Término da Grade (Padrão 08:00 às 20:00)
   const gridStartHour = 8;
   const gridEndHour = 20;
+  const businessHoursStart = '08:00';
+  const businessHoursEnd = '20:00';
   const totalGridMinutes = (gridEndHour - gridStartHour) * 60;
 
   // Gerar Slots de Horário da Régua
@@ -458,7 +460,34 @@ export const Agenda: React.FC = () => {
   };
 
   // Abrir Modal de Encaixe / Agendamento
-  const handleOpenNewAppointment = (profId?: string, timeSlot?: string, isFitting = false) => {
+  const handleOpenNewAppointment = (
+    profId?: string,
+    timeSlot?: string,
+    isFitting = false,
+    dateToCheck: string = selectedDate
+  ) => {
+    const nowInstant = new Date();
+    const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
+    const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
+
+    if (timeSlot) {
+      const isPast =
+        dateToCheck < currentLocalDate ||
+        (dateToCheck === currentLocalDate && timeSlot < currentLocalTime);
+      if (isPast) {
+        addToast('Horário já decorrido. Não é possível agendar no passado.', 'warning');
+        return;
+      }
+
+      const isOutsideHours =
+        timeSlot < businessHoursStart ||
+        timeSlot >= businessHoursEnd;
+      if (isOutsideHours) {
+        addToast('Horário fora do expediente da barbearia.', 'warning');
+        return;
+      }
+    }
+
     if (profId) {
       setFormProfessionalId(profId);
     } else if (professionals.length > 0) {
@@ -475,8 +504,17 @@ export const Agenda: React.FC = () => {
       }
     }
 
-    if (timeSlot) setFormTime(timeSlot);
-    else setFormTime('09:00');
+    if (timeSlot) {
+      setFormTime(timeSlot);
+    } else {
+      // Se não especificou slot, sugerir o próximo horário válido
+      if (dateToCheck === currentLocalDate && currentLocalTime > '08:00') {
+        const nextSlot = timeSlots.find((s) => s >= currentLocalTime && s >= businessHoursStart && s < businessHoursEnd);
+        setFormTime(nextSlot || businessHoursStart);
+      } else {
+        setFormTime(businessHoursStart);
+      }
+    }
 
     setFormIsFitting(isFitting);
     setFormNotes('');
@@ -567,6 +605,48 @@ export const Agenda: React.FC = () => {
         addToast('Selecione ou cadastre um cliente.', 'warning');
         setSavingAppointment(false);
         return;
+      }
+
+      // Bloqueio de agendamento em horário decorrido
+      const nowInstant = new Date();
+      const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
+      const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
+
+      if (
+        selectedDate < currentLocalDate ||
+        (selectedDate === currentLocalDate && formTime < currentLocalTime)
+      ) {
+        addToast('Não é permitido criar agendamentos em horários já decorridos.', 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
+      // Bloqueio fora do expediente
+      if (
+        formTime < businessHoursStart ||
+        formTime >= businessHoursEnd
+      ) {
+        addToast('Horário selecionado está fora do expediente da barbearia.', 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
+      // Validação de limite de 1 encaixe por horário/profissional
+      if (formIsFitting) {
+        const existingFittings = appointments.filter((a) => {
+          return (
+            a.professional_id === formProfessionalId &&
+            a.is_fitting &&
+            ['pending', 'confirmed', 'in_progress'].includes(a.status) &&
+            formatTimeInZone(a.start_time, tenant.timezone) === formTime
+          );
+        });
+
+        if (existingFittings.length >= 1) {
+          addToast('Limite atingido: já existe 1 encaixe agendado para este profissional neste horário.', 'warning');
+          setSavingAppointment(false);
+          return;
+        }
       }
 
       // Calcular timestamps com Timezone
@@ -1036,16 +1116,74 @@ export const Agenda: React.FC = () => {
                         {/* Corpo da Grade com Slots Clicáveis */}
                         <div className="prof-col-grid-body">
                           {/* Slots de Fundo Interativos */}
-                          {timeSlots.map((slot) => (
-                            <div
-                              key={slot}
-                              className="grid-slot-cell"
-                              onClick={() => handleOpenNewAppointment(prof.id, slot, false)}
-                              title={`Clique para agendar às ${slot} com ${prof.name}`}
-                            >
-                              <span className="slot-hover-text">+ {slot}</span>
-                            </div>
-                          ))}
+                          {timeSlots.map((slot) => {
+                            const nowInstant = new Date();
+                            const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
+                            const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
+
+                            const isPast =
+                              selectedDate < currentLocalDate ||
+                              (selectedDate === currentLocalDate && slot < currentLocalTime);
+                            const isOutsideHours =
+                              slot < businessHoursStart ||
+                              slot >= businessHoursEnd;
+
+                            const slotApps = profAppointments.filter(
+                              (app) =>
+                                ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
+                                formatTimeInZone(app.start_time, tenant.timezone) === slot
+                            );
+                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
+                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
+                            const isFittingFull = fittingCount >= 1;
+                            const isSlotFull = standardCount >= 1 && isFittingFull;
+
+                            let slotClass = 'grid-slot-cell';
+                            if (isPast) slotClass += ' grid-slot-cell--past';
+                            else if (isOutsideHours) slotClass += ' grid-slot-cell--closed';
+                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
+
+                            const handleCellClick = () => {
+                              if (isPast) {
+                                addToast('Horário já decorrido.', 'warning');
+                                return;
+                              }
+                              if (isOutsideHours) {
+                                addToast('Horário fora do funcionamento da barbearia.', 'warning');
+                                return;
+                              }
+                              if (isSlotFull) {
+                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                                return;
+                              }
+                              if (standardCount >= 1 && !isFittingFull) {
+                                handleOpenNewAppointment(prof.id, slot, true, selectedDate);
+                              } else {
+                                handleOpenNewAppointment(prof.id, slot, false, selectedDate);
+                              }
+                            };
+
+                            return (
+                              <div
+                                key={slot}
+                                className={slotClass}
+                                onClick={handleCellClick}
+                                title={
+                                  isPast
+                                    ? `Horário decorrido (${slot})`
+                                    : isOutsideHours
+                                    ? `Fora do expediente (${slot})`
+                                    : isSlotFull
+                                    ? `Horário lotado (${slot})`
+                                    : `Clique para agendar às ${slot} com ${prof.name}`
+                                }
+                              >
+                                {!isPast && !isOutsideHours && !isSlotFull && (
+                                  <span className="slot-hover-text">+ {slot}</span>
+                                )}
+                              </div>
+                            );
+                          })}
 
                           {/* Linha Vermelha de Tempo Real */}
                           {isToday && redLineTopPx !== null && (
@@ -1260,19 +1398,75 @@ export const Agenda: React.FC = () => {
                         </div>
 
                         <div className="prof-col-grid-body">
-                          {timeSlots.map((slot) => (
-                            <div
-                              key={slot}
-                              className="grid-slot-cell"
-                              onClick={() => {
-                                setSelectedDate(day.dateStr);
-                                handleOpenNewAppointment(selectedWeekProfId, slot, false);
-                              }}
-                              title={`Clique para agendar às ${slot} em ${day.label}`}
-                            >
-                              <span className="slot-hover-text">+ {slot}</span>
-                            </div>
-                          ))}
+                          {timeSlots.map((slot) => {
+                            const nowInstant = new Date();
+                            const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
+                            const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
+
+                            const isPast =
+                              day.dateStr < currentLocalDate ||
+                              (day.dateStr === currentLocalDate && slot < currentLocalTime);
+                            const isOutsideHours =
+                              slot < businessHoursStart ||
+                              slot >= businessHoursEnd;
+
+                            const slotApps = dayAppointments.filter(
+                              (app) =>
+                                ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
+                                formatTimeInZone(app.start_time, tenant.timezone) === slot
+                            );
+                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
+                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
+                            const isFittingFull = fittingCount >= 1;
+                            const isSlotFull = standardCount >= 1 && isFittingFull;
+
+                            let slotClass = 'grid-slot-cell';
+                            if (isPast) slotClass += ' grid-slot-cell--past';
+                            else if (isOutsideHours) slotClass += ' grid-slot-cell--closed';
+                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
+
+                            const handleCellClick = () => {
+                              if (isPast) {
+                                addToast('Horário já decorrido.', 'warning');
+                                return;
+                              }
+                              if (isOutsideHours) {
+                                addToast('Horário fora do expediente da barbearia.', 'warning');
+                                return;
+                              }
+                              if (isSlotFull) {
+                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                                return;
+                              }
+                              setSelectedDate(day.dateStr);
+                              if (standardCount >= 1 && !isFittingFull) {
+                                handleOpenNewAppointment(selectedWeekProfId, slot, true, day.dateStr);
+                              } else {
+                                handleOpenNewAppointment(selectedWeekProfId, slot, false, day.dateStr);
+                              }
+                            };
+
+                            return (
+                              <div
+                                key={slot}
+                                className={slotClass}
+                                onClick={handleCellClick}
+                                title={
+                                  isPast
+                                    ? `Horário decorrido (${slot})`
+                                    : isOutsideHours
+                                    ? `Fora do expediente (${slot})`
+                                    : isSlotFull
+                                    ? `Horário lotado (${slot})`
+                                    : `Clique para agendar às ${slot} em ${day.label}`
+                                }
+                              >
+                                {!isPast && !isOutsideHours && !isSlotFull && (
+                                  <span className="slot-hover-text">+ {slot}</span>
+                                )}
+                              </div>
+                            );
+                          })}
 
                           {/* Bloqueios do Dia */}
                           {dayBlocked.map((blk) => {
@@ -1762,6 +1956,7 @@ export const Agenda: React.FC = () => {
         /* FILTRO DE EQUIPE */
         .agenda-filter-container {
           position: relative;
+          z-index: 110;
         }
 
         .btn-agenda-filter {
@@ -1793,9 +1988,9 @@ export const Agenda: React.FC = () => {
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          box-shadow: var(--shadow-lg);
+          box-shadow: var(--shadow-xl);
           padding: 0.75rem;
-          z-index: 50;
+          z-index: 120;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
@@ -2055,6 +2250,42 @@ export const Agenda: React.FC = () => {
 
         .grid-slot-cell:hover {
           background-color: rgba(217, 108, 0, 0.06);
+        }
+
+        .grid-slot-cell--past {
+          background-color: rgba(0, 0, 0, 0.035);
+          cursor: not-allowed;
+        }
+
+        .grid-slot-cell--past:hover {
+          background-color: rgba(0, 0, 0, 0.035) !important;
+        }
+
+        .grid-slot-cell--closed {
+          background: repeating-linear-gradient(
+            -45deg,
+            rgba(0, 0, 0, 0.02),
+            rgba(0, 0, 0, 0.02) 6px,
+            rgba(0, 0, 0, 0.05) 6px,
+            rgba(0, 0, 0, 0.05) 12px
+          );
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .grid-slot-cell--closed:hover {
+          background: repeating-linear-gradient(
+            -45deg,
+            rgba(0, 0, 0, 0.02),
+            rgba(0, 0, 0, 0.02) 6px,
+            rgba(0, 0, 0, 0.05) 6px,
+            rgba(0, 0, 0, 0.05) 12px
+          ) !important;
+        }
+
+        .grid-slot-cell--full {
+          background-color: rgba(217, 108, 0, 0.08);
+          cursor: not-allowed;
         }
 
         .slot-hover-text {

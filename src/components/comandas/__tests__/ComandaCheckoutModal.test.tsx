@@ -91,7 +91,7 @@ describe('ComandaCheckoutModal', () => {
       />
     );
 
-    expect(screen.getByText('Comanda & Checkout')).toBeInTheDocument();
+    expect(screen.getByText('Comanda e Checkout')).toBeInTheDocument();
     expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
     expect(screen.getAllByText(/35\.00/).length).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ describe('ComandaCheckoutModal', () => {
       />
     );
 
-    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar & Receber/i });
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar e Receber/i });
     await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
     fireEvent.click(btnFinalizar);
 
@@ -158,5 +158,66 @@ describe('ComandaCheckoutModal', () => {
       expect(mockOnFinalizado).toHaveBeenCalledWith(fakeComandaLiquidada);
       expect(mockOnClose).toHaveBeenCalled();
     });
+  });
+
+  it('exibe recibo em modo somente leitura para comanda fechada', async () => {
+    vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValueOnce({
+      id: 'com-1',
+      tenant_id: 't-1',
+      appointment_id: 'apt-1',
+      customer_id: 'cust-1',
+      status: 'fechada' as const,
+      total_amount: 40.0,
+      discount_amount: 0,
+      tip_amount: 5,
+      closed_at: '2026-08-16T12:00:00.000Z',
+      notes: null,
+      itens: [
+        {
+          id: 'item-1',
+          tenant_id: 't-1',
+          comanda_id: 'com-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          name: 'Corte Degradê',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+        },
+      ],
+      pagamentos: [
+        {
+          id: 'pag-1',
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          comanda_id: 'com-1',
+          payment_method: 'pix',
+          amount: 40.0,
+          change_amount: 0,
+        },
+      ],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Comanda Liquidada')).toBeInTheDocument();
+    expect(screen.getByText('Atendimento Liquidado e Pago')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Fechar/i }).length).toBe(2);
+    expect(screen.queryByRole('button', { name: /Finalizar e Receber/i })).toBeNull();
   });
 });

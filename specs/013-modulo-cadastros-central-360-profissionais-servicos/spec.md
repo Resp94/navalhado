@@ -39,8 +39,13 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
 4. **Gerenciador de Serviços e Comissões por Profissional:**
    - Na tela `/profissionais`, modal com controle individual de serviços habilitados, permitindo ao profissional/gerente sobrescrever duração (padrão 40 min) e comissão específica.
 
-5. **Validação Visual Obrigatória no Navegador:**
+5. **Módulo de Produtos e Gestão de Estoque (`/produtos`):**
+   - Na tela `/produtos` (acessada na Navbar superior via `PackageIcon`), gerenciamento completo de itens de vitrine (`retail`) e insumos de bancada (`internal_use`).
+   - Leitor de código de barras EAN-13, ponto de reposição (`min_stock_alert`), comissão de venda de balcão e badges visuais de estoque baixo.
+
+6. **Validação Visual Obrigatória no Navegador:**
    - Após cada fase de implementação, realizar verificação visual automatizada no navegador (`http://localhost:5173`) confirmando renderização, responsividade, animações GSAP e fidelidade aos ícones existentes do Hugeicons.
+
 
 ---
 
@@ -69,10 +74,17 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
 14. As a Gerente creating or editing a service, I want to configure the estimated return interval in days (`return_period_days`, e.g., 20 days) and a custom WhatsApp reminder message template.
 15. As a Gerente, I want to mark services as "Preço Fixo" (`fixed`) or "A partir de" (`starting_at`), making pricing clear for procedures with variable length or complexity.
 
-### E. Integridade do Banco e Limpeza de Legados
-16. As a Developer, I want all database security policies on new tables to be strictly granular (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) with authenticated tenant isolation.
-17. As a Gerente viewing the Financial Dashboard, I want all revenue, payment method breakdowns, and commission metrics to calculate strictly from `public.comandas` and `public.comanda_pagamentos`.
-18. As a Developer, I want the legacy `public.payments` table safely dropped from the development database without breaking existing reports.
+### E. Produtos e Gestão de Estoque
+16. As a Gerente navigating via the top navbar, I want to click on "Produtos" (`PackageIcon`) to access the complete inventory and retail catalog.
+17. As a Gerente on the Products page, I want to filter products by usage type ("Todos", "Venda Balcão", "Insumo de Bancada") and search by name or barcode (EAN-13).
+18. As a Gerente, I want products with stock equal to or below `min_stock_alert` to display a semantic warning badge ("Estoque Baixo"), highlighting items that need immediate replenishment.
+19. As a Gerente in the Product Modal (Double-Bezel), I want to create or edit items with brand, category, cost price, retail price, stock quantity, min stock alert, barcode, and barber sales commission percentage.
+
+### F. Integridade do Banco e Limpeza de Legados
+20. As a Developer, I want all database security policies on new tables to be strictly granular (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) with authenticated tenant isolation.
+21. As a Gerente viewing the Financial Dashboard, I want all revenue, payment method breakdowns, and commission metrics to calculate strictly from `public.comandas` and `public.comanda_pagamentos`.
+22. As a Developer, I want the legacy `public.payments` table safely dropped from the development database without breaking existing reports.
+
 
 ---
 
@@ -94,7 +106,66 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
   - `ALTER TABLE public.services ADD COLUMN IF NOT EXISTS price_type TEXT NOT NULL DEFAULT 'fixed' CHECK (price_type IN ('fixed', 'starting_at'));`
   - `ALTER TABLE public.services ALTER COLUMN duration_minutes SET DEFAULT 40;`
 
+- **Estrutura Expandida de `public.products`**:
+  ```sql
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS product_type TEXT NOT NULL DEFAULT 'retail' CHECK (product_type IN ('retail', 'internal_use'));
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS barcode TEXT NULL;
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS min_stock_alert INTEGER NOT NULL DEFAULT 5 CHECK (min_stock_alert >= 0);
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS brand TEXT NULL;
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS category TEXT NULL;
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS unit_type TEXT NOT NULL DEFAULT 'un' CHECK (unit_type IN ('un', 'cx', 'kg', 'lt', 'ml'));
+  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS commission_percentage NUMERIC(5,2) NULL CHECK (commission_percentage IS NULL OR (commission_percentage >= 0 AND commission_percentage <= 100));
+
+  CREATE INDEX IF NOT EXISTS idx_products_tenant_type ON public.products (tenant_id, product_type);
+  CREATE INDEX IF NOT EXISTS idx_products_tenant_barcode ON public.products (tenant_id, barcode) WHERE barcode IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_products_tenant_low_stock ON public.products (tenant_id, stock_quantity, min_stock_alert);
+  ```
+
+- **Tabela de Auditoria e Movimentações de Estoque (`public.product_movements`)**:
+  ```sql
+  CREATE TABLE IF NOT EXISTS public.product_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    movement_type TEXT NOT NULL CHECK (movement_type IN ('entry_manual', 'entry_purchase', 'exit_manual', 'exit_sale_comanda', 'exit_internal_use', 'adjustment')),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_cost NUMERIC(10,2) NULL CHECK (unit_cost IS NULL OR unit_cost >= 0),
+    reason TEXT NULL,
+    comanda_id UUID REFERENCES public.comandas(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_product_movements_tenant_product ON public.product_movements(tenant_id, product_id);
+  CREATE INDEX IF NOT EXISTS idx_product_movements_tenant_type ON public.product_movements(tenant_id, movement_type);
+  CREATE INDEX IF NOT EXISTS idx_product_movements_created_at ON public.product_movements(tenant_id, created_at DESC);
+
+  ALTER TABLE public.product_movements ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY product_movements_select_policy ON public.product_movements
+    FOR SELECT TO authenticated
+    USING (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())));
+
+  CREATE POLICY product_movements_insert_policy ON public.product_movements
+    FOR INSERT TO authenticated
+    WITH CHECK (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())));
+
+  CREATE POLICY product_movements_update_policy ON public.product_movements
+    FOR UPDATE TO authenticated
+    USING (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())))
+    WITH CHECK (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())));
+
+  CREATE POLICY product_movements_delete_policy ON public.product_movements
+    FOR DELETE TO authenticated
+    USING (tenant_id IN (SELECT tenant_id FROM public.users WHERE id = (SELECT auth.uid())));
+  ```
+
+- **Função Atômica de Ajuste de Estoque (`adjust_product_stock`)**:
+  - Atualiza atomicamente `products.stock_quantity` e registra a linha de log em `product_movements` em uma única transação protegida com `SET search_path = ''`.
+
+
 - **Nova Tabela `public.professional_services`**:
+
   ```sql
   CREATE TABLE IF NOT EXISTS public.professional_services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
