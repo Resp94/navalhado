@@ -449,7 +449,7 @@ export const Agenda: React.FC = () => {
   };
 
   const handleNextDay = () => {
-    const shift = viewMode === 'week' ? 7 : -1;
+    const shift = viewMode === 'week' ? 7 : 1;
     setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
@@ -1233,11 +1233,11 @@ export const Agenda: React.FC = () => {
                   })
                 : weekDays.map((day) => {
                     const dayAppointments = appointments.filter((a) => {
-                      const aDate = dateInZone(a.start_time, tenant.timezone);
+                      const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
                       return aDate === day.dateStr && a.professional_id === selectedWeekProfId;
                     });
                     const dayBlocked = blockedSlots.filter((b) => {
-                      const bDate = dateInZone(b.start_time, tenant.timezone);
+                      const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
                       return bDate === day.dateStr && b.professional_id === selectedWeekProfId;
                     });
                     const layoutMap = calculateAppointmentsLayout(dayAppointments);
