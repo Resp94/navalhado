@@ -7,7 +7,7 @@ Criar o módulo de Lista de Espera Diária (`waiting_list`) com notificação e 
 
 **Status:** ready-for-agent
 
-- [ ] Criar gaveta/painel lateral de Lista de Espera para cadastro de clientes aguardando vaga no mesmo dia.
-- [ ] Implementar gatilho de notificação ao cancelar agendamento com botão de 1 clique para encaixar o primeiro da lista de espera.
-- [ ] Implementar algoritmo de rodízio balanceado sugerindo o próximo barbeiro (menos cortes hoje / mais tempo ocioso) no modal de Encaixe.
-- [ ] Testes unitários para lista de espera e rodízio.
+- [x] Criar gaveta/painel lateral de Lista de Espera para cadastro de clientes aguardando vaga no mesmo dia.
+- [x] Implementar gatilho de notificação ao cancelar agendamento com botão de 1 clique para encaixar o primeiro da lista de espera.
+- [x] Implementar algoritmo de rodízio balanceado sugerindo o próximo barbeiro (menos cortes hoje / mais tempo ocioso) no modal de Encaixe.
+- [x] Testes unitários para lista de espera e rodízio.

@@ -15,6 +15,10 @@ import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
 import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
+import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
+import { EsperaRepository } from '../../modules/espera/EsperaRepository';
+import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
+import type { WaitingListEntry } from '../../modules/espera/types';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -32,6 +36,7 @@ import {
   Note01Icon,
   AlertCircleIcon,
   UnavailableIcon,
+  UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 
 // --- Interfaces de Domínio ---
@@ -108,6 +113,11 @@ export const Agenda: React.FC = () => {
     []
   );
 
+  const esperaRepository = useMemo(
+    () => new EsperaRepository(new SupabaseEsperaAdapter(supabase)),
+    []
+  );
+
   // Estados de Controle de Escopo Temporal (Dia vs Semana)
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
@@ -131,6 +141,7 @@ export const Agenda: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
 
   // Estados do Formulário de Agendamento / Encaixe
@@ -448,8 +459,21 @@ export const Agenda: React.FC = () => {
 
   // Abrir Modal de Encaixe / Agendamento
   const handleOpenNewAppointment = (profId?: string, timeSlot?: string, isFitting = false) => {
-    if (profId) setFormProfessionalId(profId);
-    else if (professionals.length > 0) setFormProfessionalId(professionals[0].id);
+    if (profId) {
+      setFormProfessionalId(profId);
+    } else if (professionals.length > 0) {
+      if (isFitting) {
+        // Algoritmo de balanceamento de rodízio de balcão
+        const counts: Record<string, number> = {};
+        for (const app of appointments) {
+          counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
+        }
+        const suggested = esperaRepository.suggestRotationProfessional(professionals, counts);
+        setFormProfessionalId(suggested?.id || professionals[0].id);
+      } else {
+        setFormProfessionalId(professionals[0].id);
+      }
+    }
 
     if (timeSlot) setFormTime(timeSlot);
     else setFormTime('09:00');
@@ -461,6 +485,34 @@ export const Agenda: React.FC = () => {
     setNewCustomerName('');
     setNewCustomerPhone('');
     setIsModalOpen(true);
+  };
+
+  // Encaixe Rápido a partir da Lista de Espera
+  const handleEncaixarFromWaitingList = (entry: WaitingListEntry) => {
+    setIsEsperaDrawerOpen(false);
+
+    let targetProfId = entry.professional_id;
+    if (!targetProfId && professionals.length > 0) {
+      const counts: Record<string, number> = {};
+      for (const app of appointments) {
+        counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
+      }
+      const suggested = esperaRepository.suggestRotationProfessional(professionals, counts);
+      targetProfId = suggested?.id || professionals[0].id;
+    }
+
+    setFormProfessionalId(targetProfId || professionals[0]?.id || '');
+    if (entry.service_id) setFormServiceId(entry.service_id);
+    setCustomerMode('new');
+    setNewCustomerName(entry.customer_name);
+    setNewCustomerPhone(entry.customer_phone || '');
+    setFormNotes(
+      entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]'
+    );
+    setFormIsFitting(true);
+    setIsModalOpen(true);
+
+    esperaRepository.setStatus(entry.id, 'atendido').catch(console.error);
   };
 
   // Salvar Novo Agendamento / Encaixe
@@ -882,6 +934,17 @@ export const Agenda: React.FC = () => {
               </select>
             </div>
           )}
+
+          {/* Botão Fila de Espera */}
+          <button
+            type="button"
+            className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-white/10 rounded-xl hover:bg-white/5 transition-colors text-[var(--color-text-primary,#fff)]"
+            onClick={() => setIsEsperaDrawerOpen(true)}
+            title="Lista de Espera Diária"
+          >
+            <HugeiconsIcon icon={UserGroupIcon} size={16} />
+            <span>Espera</span>
+          </button>
 
           {/* Botão + Bloquear Horário */}
           <button
@@ -1541,7 +1604,19 @@ export const Agenda: React.FC = () => {
         )}
       </Modal>
 
-      {/* 7. ESTILOS EMBUTIDOS DA AGENDA */}
+      {/* 7. GAVETA DE LISTA DE ESPERA */}
+      <ListaEsperaDrawer
+        isOpen={isEsperaDrawerOpen}
+        tenantId={tenant.tenantId}
+        currentDateIso={selectedDate}
+        professionals={professionals}
+        services={services}
+        onClose={() => setIsEsperaDrawerOpen(false)}
+        onEncaixar={handleEncaixarFromWaitingList}
+        esperaRepo={esperaRepository}
+      />
+
+      {/* 8. ESTILOS EMBUTIDOS DA AGENDA */}
       <style>{`
         .agenda-page {
           display: flex;
