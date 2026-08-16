@@ -50,5 +50,32 @@ Este documento registra as credenciais dos usuários e barbearias de teste utili
 
 ---
 
+## 🧪 Cenários de Teste Operacionais (Spec 012)
+
+### 1. Ciclo de Comandas & Sessão de Caixa
+1. Acesse `/agenda` e clique em **"Cobrar"** em qualquer agendamento.
+2. Caso o caixa do dia ainda não esteja aberto, o sistema exibe o **Modal de Abertura Assistida de Caixa** em overlay para informar o fundo de troco inicial (ex: `R$ 100,00`).
+3. No **Modal de Checkout de Comanda**, adicione produtos (`+ Produto`) ou novos serviços (`+ Serviço`), configure descontos (% ou R$) e gorjeta do barbeiro.
+4. Na seção de **Divisão de Pagamentos**, combine PIX, Cartão e Dinheiro (com calculadora de troco automática em dinheiro físico).
+5. Clique em **"Finalizar & Receber"**: o agendamento muda reativamente para `completed` (verde `#0E9F6E`) e o estoque do produto sofre baixa automática.
+
+### 2. Bloqueio de Horários na Grade
+1. Na barra superior da `/agenda`, clique em **"+ Bloquear"**.
+2. Selecione o profissional, o motivo (ex: `Almoço`, `Folga`), a data e o intervalo de horário.
+3. O card com padrão listrado cinza (`.timeline-blocked-card`) é renderizado na coluna do profissional e esse período é subtraído automaticamente dos slots livres do Canal do Cliente.
+4. Clique no card de bloqueio para desbloquear / remover o horário.
+
+### 3. Encaixe Concorrente (Split 50%/50%)
+1. Clique em **"+ Encaixe"** e crie um agendamento no mesmo horário de um cliente existente.
+2. A grade posicionará ambos os cards lado a lado com largura de 50% / 50%, permitindo visualizar e interagir com ambos simultaneamente.
+
+### 4. Lista de Espera Diária & Rodízio de Balcão
+1. Clique em **"Espera"** no cabeçalho para abrir a gaveta lateral.
+2. Cadastre um cliente que chegou ao balcão e aguarda vaga.
+3. Ao surgir um cancelamento ou vaga, clique em **"Encaixar na Grade"**: o sistema sugere automaticamente o barbeiro com menos atendimentos no dia (algoritmo de rodízio de balcão balanceado) e abre o modal pré-preenchido.
+
+---
+
 > [!NOTE]
 > Para testar o fluxo de agendamento em grade temporal (`/agenda`), faça login com `teste.gerente@navalhado.com.br` / `Teste@123456`.
+

@@ -7,7 +7,7 @@ Executar a validação integral da suíte de testes automatizados (`vitest`), bu
 
 **Status:** ready-for-agent
 
-- [ ] Garantir 100% de testes unitários passando na suíte vitest (`npm test`).
-- [ ] Validar build de produção (`tsc -b && vite build`) sem nenhum warning ou erro de tipagem.
-- [ ] Atualizar documentação de telas e arquitetura em `docs/`.
-- [ ] Registrar credenciais e cenários de teste adicionais em `docs/credenciais_teste.md`.
+- [x] Garantir 100% de testes unitários passando na suíte vitest (`npm test`).
+- [x] Validar build de produção (`tsc -b && vite build`) sem nenhum warning ou erro de tipagem.
+- [x] Atualizar documentação de telas e arquitetura em `docs/`.
+- [x] Registrar credenciais e cenários de teste adicionais em `docs/credenciais_teste.md`.
