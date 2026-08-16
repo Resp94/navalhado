@@ -7,8 +7,8 @@ Permitir o bloqueio de intervalos de tempo para barbeiros (almoço, folga, consu
 
 **Status:** ready-for-agent
 
-- [ ] Criar modal e ação rápida de bloqueio de horário ("+ Bloquear") na grade por barbeiro e intervalo de horas.
-- [ ] Renderizar cards visuais com classe `.timeline-blocked-card` e sinalização de bloqueio (motivo exibido).
-- [ ] Ação rápida de exclusão/desbloqueio ao clicar no card de bloqueio com confirmação.
-- [ ] Atualizar a função RPC `get_available_slots_by_token` no Postgres para subtrair intervalos de `blocked_slots` dos horários livres gerados.
-- [ ] Testes unitários e de integração validando bloqueios na grade e na RPC do Canal do Cliente.
+- [x] Criar modal e ação rápida de bloqueio de horário ("+ Bloquear") na grade por barbeiro e intervalo de horas.
+- [x] Renderizar cards visuais com classe `.timeline-blocked-card` e sinalização de bloqueio (motivo exibido).
+- [x] Ação rápida de exclusão/desbloqueio ao clicar no card de bloqueio com confirmação.
+- [x] Atualizar a função RPC `get_available_slots_by_token` no Postgres para subtrair intervalos de `blocked_slots` dos horários livres gerados.
+- [x] Testes unitários e de integração validando bloqueios na grade e na RPC do Canal do Cliente.
