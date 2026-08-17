@@ -457,9 +457,9 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .comissao-error-banner {
-          background: rgba(224, 36, 36, 0.1);
-          border: 1px solid rgba(224, 36, 36, 0.25);
-          color: var(--color-error, #E02424);
+          background: rgba(240, 82, 82, 0.1);
+          border: 1px solid rgba(240, 82, 82, 0.25);
+          color: var(--color-error, #F05252);
           padding: 0.65rem 0.85rem;
           border-radius: var(--radius-md, 0.5rem);
           font-size: var(--font-size-xs, 0.8125rem);
@@ -493,7 +493,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         }
         .comissao-submit-btn {
           padding: 0.65rem 1.35rem;
-          color: #FFF1E6;
+          color: var(--color-brand-lightest, #FFF1E6);
           background: var(--color-brand-primary, #D96C00);
           border: none;
           border-radius: var(--radius-md, 0.5rem);

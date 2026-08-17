@@ -8,6 +8,7 @@ describe('CaixaRepository', () => {
     abrirCaixa: vi.fn(),
     fecharCaixa: vi.fn(),
     listarHistorico: vi.fn(),
+    obterEntradasDinheiro: vi.fn(),
   };
 
   const repository = new CaixaRepository(mockAdapter);

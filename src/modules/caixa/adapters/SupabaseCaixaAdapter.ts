@@ -116,5 +116,21 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       closed_by_name: row.closed_user?.name || undefined,
     })) as CashSession[];
   }
+
+  async obterEntradasDinheiro(tenantId: string, sinceDate: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('comanda_pagamentos')
+      .select('amount')
+      .eq('tenant_id', tenantId)
+      .eq('payment_method', 'cash')
+      .gte('paid_at', sinceDate);
+
+    if (error) {
+      throw new Error(`Erro ao apurar entradas em dinheiro: ${error.message}`);
+    }
+
+    const rows = (data || []) as Array<{ amount: number | string }>;
+    return rows.reduce((acc: number, p) => acc + (Number(p.amount) || 0), 0);
+  }
 }
 

@@ -83,7 +83,7 @@
 
 .period-tab-btn--active {
   background: var(--color-brand-primary);
-  color: #FFF1E6 !important;
+  color: var(--color-brand-lightest) !important;
   box-shadow: var(--shadow-sm);
 }
 
@@ -360,7 +360,7 @@
 
 .btn-turn-action--open {
   background: var(--color-brand-primary);
-  color: #FFF1E6;
+  color: var(--color-brand-lightest);
   box-shadow: var(--shadow-sm);
 }
 
@@ -576,7 +576,7 @@
 
 .btn-table-action--primary {
   background: var(--color-brand-primary);
-  color: #FFF1E6;
+  color: var(--color-brand-lightest);
 }
 
 .btn-table-action--primary:hover {

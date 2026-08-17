@@ -52,4 +52,5 @@ export interface ICaixaAdapter {
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
   fecharCaixa(input: FecharCaixaInput): Promise<CashSession>;
   listarHistorico(tenantId: string, limit?: number): Promise<CashSession[]>;
+  obterEntradasDinheiro(tenantId: string, sinceDate: string): Promise<number>;
 }

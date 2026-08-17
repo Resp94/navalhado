@@ -61,6 +61,16 @@ export class CaixaRepository {
     return await this.adapter.listarHistorico(tenantId, limit);
   }
 
+  async getCashReceiptsSince(tenantId: string, sinceDate: string): Promise<number> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!sinceDate) {
+      return 0;
+    }
+    return await this.adapter.obterEntradasDinheiro(tenantId, sinceDate);
+  }
+
   // Aliases para compatibilidade total (pt-BR e en)
   async obterSessaoAtiva(tenantId: string): Promise<CashSession | null> {
     return await this.getActiveSession(tenantId);
@@ -80,6 +90,10 @@ export class CaixaRepository {
 
   async isCaixaAberto(tenantId: string): Promise<boolean> {
     return await this.isCashierOpen(tenantId);
+  }
+
+  async obterEntradasDinheiro(tenantId: string, sinceDate: string): Promise<number> {
+    return await this.getCashReceiptsSince(tenantId, sinceDate);
   }
 }
 

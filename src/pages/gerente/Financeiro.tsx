@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
@@ -41,6 +41,7 @@ export interface FinancialMetrics {
   commissions_by_professional: Array<{
     professional_id: string;
     professional_name: string;
+    gross_sum?: number;
     commission_sum: number;
     paid_sum: number;
     pending_sum: number;
@@ -130,19 +131,8 @@ export const Financeiro: React.FC = () => {
       setActiveSession(session);
 
       if (session) {
-        // Apurar recebimentos em dinheiro exclusivamente do turno ativo
-        const { data: cashPayments } = await supabase
-          .from('comanda_pagamentos')
-          .select('amount')
-          .eq('tenant_id', tenant.tenantId)
-          .eq('payment_method', 'cash')
-          .gte('created_at', session.opened_at);
-
-        const cashRows = (cashPayments || []) as Array<{ amount: number | string }>;
-        const totalCash = cashRows.reduce(
-          (acc: number, p) => acc + (Number(p.amount) || 0),
-          0
-        );
+        // Apurar recebimentos em dinheiro exclusivamente do turno ativo via repositório
+        const totalCash = await caixaRepo.getCashReceiptsSince(tenant.tenantId, session.opened_at);
         setActiveSessionCashReceipts(totalCash);
       } else {
         setActiveSessionCashReceipts(0);
@@ -205,7 +195,9 @@ export const Financeiro: React.FC = () => {
     fetchFinancialData();
   }, [fetchFinancialData]);
 
-  // Animações GSAP com compatibilidade de acessibilidade
+  const hasAnimatedEntrance = useRef(false);
+
+  // Animações GSAP com compatibilidade de acessibilidade (executadas na entrada da página)
   useGSAP(() => {
     const prefersReduced =
       typeof window !== 'undefined' && typeof window.matchMedia === 'function'
@@ -213,14 +205,15 @@ export const Financeiro: React.FC = () => {
         : false;
     if (prefersReduced) return;
 
-    if (!loading && metrics) {
+    if (!hasAnimatedEntrance.current && metrics) {
+      hasAnimatedEntrance.current = true;
       gsap.fromTo(
         '.kpi-card, .card-panel, .turn-banner',
         { y: 12, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.35, stagger: 0.04, ease: 'power2.out' }
       );
     }
-  }, [loading, metrics, activeTab]);
+  }, [metrics]);
 
   const formatDate = (iso: string | null) => {
     if (!iso) return '-';
@@ -312,7 +305,7 @@ export const Financeiro: React.FC = () => {
           </div>
           <div>
             <h3 className="kpi-value">
-              {loading ? 'Carregando...' : formatCurrency(metrics?.total_revenue || 0)}
+              {formatCurrency(metrics?.total_revenue || 0)}
             </h3>
             <p className="kpi-meta">Comandas fechadas no período</p>
           </div>
@@ -325,7 +318,7 @@ export const Financeiro: React.FC = () => {
           </div>
           <div>
             <h3 className="kpi-value">
-              {loading ? 'Carregando...' : formatCurrency(metrics?.services_revenue || 0)}
+              {formatCurrency(metrics?.services_revenue || 0)}
             </h3>
             <p className="kpi-meta">Cortes, barbas e procedimentos</p>
           </div>
@@ -338,7 +331,7 @@ export const Financeiro: React.FC = () => {
           </div>
           <div>
             <h3 className="kpi-value">
-              {loading ? 'Carregando...' : formatCurrency(metrics?.products_revenue || 0)}
+              {formatCurrency(metrics?.products_revenue || 0)}
             </h3>
             <p className="kpi-meta">
               {metrics?.products_count || 0} itens vendidos • Custo: {formatCurrency(metrics?.products_cost || 0)}
@@ -353,7 +346,7 @@ export const Financeiro: React.FC = () => {
           </div>
           <div>
             <h3 className="kpi-value">
-              {loading ? 'Carregando...' : formatCurrency(metrics?.total_commission || 0)}
+              {formatCurrency(metrics?.total_commission || 0)}
             </h3>
             <p className="kpi-meta kpi-meta--pending">
               Pendente: {formatCurrency(metrics?.pending_commission || 0)}
@@ -368,7 +361,7 @@ export const Financeiro: React.FC = () => {
           </div>
           <div>
             <h3 className="kpi-value kpi-value--profit">
-              {loading ? 'Carregando...' : formatCurrency(metrics?.net_revenue || 0)}
+              {formatCurrency(metrics?.net_revenue || 0)}
             </h3>
             <p className="kpi-meta">Receita deduzindo comissões e custos de produtos</p>
           </div>
@@ -590,7 +583,8 @@ export const Financeiro: React.FC = () => {
                     <tr>
                       <th>Profissional</th>
                       <th style={{ textAlign: 'center' }}>Atendimentos</th>
-                      <th>Comissão total</th>
+                      <th>Total faturado</th>
+                      <th>Comissão gerada</th>
                       <th>Já quitado</th>
                       <th>Saldo pendente</th>
                       <th style={{ textAlign: 'right' }}>Ações</th>
@@ -609,6 +603,9 @@ export const Financeiro: React.FC = () => {
                         </td>
                         <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
                           {p.appointments_count}
+                        </td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                          {formatCurrency(p.gross_sum ?? p.commission_sum)}
                         </td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                           {formatCurrency(p.commission_sum)}

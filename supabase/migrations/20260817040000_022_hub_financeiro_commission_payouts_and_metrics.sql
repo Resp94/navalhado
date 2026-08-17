@@ -282,6 +282,7 @@ BEGIN
   item_breakdown AS (
     SELECT 
       ci.id AS item_id,
+      ci.comanda_id,
       ci.professional_id,
       ci.total_price,
       ROUND((ci.total_price * COALESCE(
@@ -313,10 +314,11 @@ BEGIN
     SELECT 
       prof.id AS professional_id,
       prof.name AS professional_name,
+      COALESCE(SUM(ib.total_price), 0.00) AS gross_sum,
       COALESCE(SUM(ib.commission_amount), 0.00) AS commission_sum,
       COALESCE(pp.paid_amount, 0.00) AS paid_sum,
       GREATEST(0.00, COALESCE(SUM(ib.commission_amount), 0.00) - COALESCE(pp.paid_amount, 0.00)) AS pending_sum,
-      COUNT(ib.item_id) AS appointments_count
+      COUNT(DISTINCT ib.comanda_id) AS appointments_count
     FROM public.professionals prof
     LEFT JOIN item_breakdown ib ON ib.professional_id = prof.id
     LEFT JOIN prof_payouts pp ON pp.professional_id = prof.id
@@ -328,6 +330,7 @@ BEGIN
   SELECT COALESCE(json_agg(json_build_object(
     'professional_id', professional_id,
     'professional_name', professional_name,
+    'gross_sum', gross_sum,
     'commission_sum', commission_sum,
     'paid_sum', paid_sum,
     'pending_sum', pending_sum,

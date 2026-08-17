@@ -253,15 +253,15 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           margin: 0;
         }
 
-        .caixa-error-alert {
-          margin: 1rem 1.5rem 0 1.5rem;
+        .caixa-modal-error-banner {
+          margin-bottom: 1.25rem;
           padding: 0.75rem 1rem;
           border-radius: var(--radius-md, 0.5rem);
-          background-color: rgba(224, 36, 36, 0.1);
-          border: 1px solid rgba(224, 36, 36, 0.25);
-          color: var(--color-error, #E02424);
+          background: rgba(240, 82, 82, 0.1);
+          border: 1px solid rgba(240, 82, 82, 0.3);
+          color: var(--color-error, #F05252);
           font-size: var(--font-size-xs, 0.8125rem);
-          font-weight: 600;
+          font-weight: 500;
         }
 
         .caixa-modal-form {
@@ -369,7 +369,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           border-radius: var(--radius-md, 0.5rem);
           border: none;
           background: var(--color-brand-primary, #D96C00);
-          color: #FFF1E6;
+          color: var(--color-brand-lightest, #FFF1E6);
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 700;
           cursor: pointer;
