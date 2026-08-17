@@ -8,6 +8,7 @@ import {
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import type { CashSession } from '../../modules/caixa/types';
+import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
 
 interface AberturaAssistidaCaixaModalProps {
   isOpen: boolean;
@@ -34,15 +35,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
   const repo = caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter());
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    const num = parseInt(raw || '0', 10) / 100;
-    setInitialAmount(
-      num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    );
-  };
-
-  const parseAmount = (val: string): number => {
-    return parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0;
+    setInitialAmount(formatCurrencyInput(e.target.value));
   };
 
   const handleConfirm = async (e: React.FormEvent) => {
@@ -51,7 +44,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
     setIsSubmitting(true);
 
     try {
-      const valorInicial = parseAmount(initialAmount);
+      const valorInicial = parseCurrencyInput(initialAmount);
       const session = await repo.openSession({
         tenant_id: tenantId,
         initial_amount: valorInicial,

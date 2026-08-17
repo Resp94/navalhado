@@ -1,5 +1,22 @@
 export type CaixaStatus = 'open' | 'closed';
 
+export type PaymentMethod =
+  | 'pix'
+  | 'credit_card'
+  | 'debit_card'
+  | 'cash'
+  | 'transfer'
+  | 'other';
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod | string, string> = {
+  pix: 'PIX',
+  credit_card: 'Cartão de crédito',
+  debit_card: 'Cartão de débito',
+  cash: 'Dinheiro em espécie',
+  transfer: 'Transferência bancária',
+  other: 'Outros',
+};
+
 export interface CashSession {
   id: string;
   tenant_id: string;
@@ -12,6 +29,8 @@ export interface CashSession {
   status: CaixaStatus;
   notes: string | null;
   created_at?: string;
+  opened_by_name?: string;
+  closed_by_name?: string;
 }
 
 export interface AbrirCaixaInput {

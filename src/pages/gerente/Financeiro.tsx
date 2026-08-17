@@ -24,7 +24,9 @@ import { LockIcon } from '../../components/Icons';
 
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
+import { PAYMENT_METHOD_LABELS } from '../../modules/caixa/types';
 import type { CashSession } from '../../modules/caixa/types';
+import { formatCurrency } from '../../lib/currency';
 import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
@@ -64,20 +66,6 @@ export interface CommissionPayoutHistoryItem {
 type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
 type TabType = 'caixa' | 'comissoes';
 
-const METHOD_LABELS: Record<string, string> = {
-  pix: 'PIX',
-  credit_card: 'Cartão de crédito',
-  debit_card: 'Cartão de débito',
-  cash: 'Dinheiro em espécie',
-  dinheiro: 'Dinheiro em espécie',
-  cartao: 'Cartão',
-  cartao_credito: 'Cartão de crédito',
-  cartao_debito: 'Cartão de débito',
-  transfer: 'Transferência bancária',
-  other: 'Outros',
-  outros: 'Outros',
-};
-
 export const Financeiro: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -91,6 +79,7 @@ export const Financeiro: React.FC = () => {
   // Estados de Caixa
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
+  const [activeSessionCashReceipts, setActiveSessionCashReceipts] = useState<number>(0);
   const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
@@ -145,6 +134,25 @@ export const Financeiro: React.FC = () => {
       const session = await caixaRepo.getActiveSession(tenant.tenantId);
       setActiveSession(session);
 
+      if (session) {
+        // Apurar recebimentos em dinheiro exclusivamente do turno ativo
+        const { data: cashPayments } = await supabase
+          .from('comanda_pagamentos')
+          .select('amount')
+          .eq('tenant_id', tenant.tenantId)
+          .eq('payment_method', 'cash')
+          .gte('created_at', session.opened_at);
+
+        const cashRows = (cashPayments || []) as Array<{ amount: number | string }>;
+        const totalCash = cashRows.reduce(
+          (acc: number, p) => acc + (Number(p.amount) || 0),
+          0
+        );
+        setActiveSessionCashReceipts(totalCash);
+      } else {
+        setActiveSessionCashReceipts(0);
+      }
+
       const history = await caixaRepo.listHistory(tenant.tenantId, 15);
       setHistorySessions(history || []);
 
@@ -167,8 +175,19 @@ export const Financeiro: React.FC = () => {
         .limit(20);
 
       if (!payoutsError && payoutsData) {
+        interface RawPayoutRow {
+          id: string;
+          professional_id: string;
+          amount: number | string;
+          payment_method: string;
+          notes: string | null;
+          paid_at: string;
+          professional?: { name: string } | null;
+        }
+
+        const payoutRows = payoutsData as unknown as RawPayoutRow[];
         setPayoutsHistory(
-          payoutsData.map((p: any) => ({
+          payoutRows.map((p) => ({
             id: p.id,
             professional_id: p.professional_id,
             professional_name: p.professional?.name || 'Profissional',
@@ -208,13 +227,6 @@ export const Financeiro: React.FC = () => {
     }
   }, [loading, metrics, activeTab]);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(val || 0);
-  };
-
   const formatDate = (iso: string | null) => {
     if (!iso) return '-';
     return new Date(iso).toLocaleDateString('pt-BR', {
@@ -233,9 +245,9 @@ export const Financeiro: React.FC = () => {
 
     if (entries.length === 0) {
       return [
-        { key: 'pix', name: 'PIX', val: 0 },
-        { key: 'credit_card', name: 'Cartão de crédito', val: 0 },
-        { key: 'cash', name: 'Dinheiro em espécie', val: 0 },
+        { key: 'pix', name: PAYMENT_METHOD_LABELS.pix || 'PIX', val: 0 },
+        { key: 'credit_card', name: PAYMENT_METHOD_LABELS.credit_card || 'Cartão de crédito', val: 0 },
+        { key: 'cash', name: PAYMENT_METHOD_LABELS.cash || 'Dinheiro em espécie', val: 0 },
       ];
     }
 
@@ -244,7 +256,7 @@ export const Financeiro: React.FC = () => {
         const normalizedKey = rawKey.toLowerCase().trim();
         return {
           key: normalizedKey,
-          name: METHOD_LABELS[normalizedKey] || rawKey,
+          name: PAYMENT_METHOD_LABELS[normalizedKey] || rawKey,
           val: Number(val) || 0,
         };
       })
@@ -253,12 +265,6 @@ export const Financeiro: React.FC = () => {
 
   const totalRevenueByMethods = useMemo(() => {
     return methodsList.reduce((acc, curr) => acc + curr.val, 0);
-  }, [methodsList]);
-
-  // Dinheiro recebido em espécie no período
-  const cashReceiptsInPeriod = useMemo(() => {
-    const cashEntry = methodsList.find((m) => m.key === 'cash' || m.key === 'dinheiro');
-    return cashEntry ? cashEntry.val : 0;
   }, [methodsList]);
 
   const { start: dateStart, end: dateEnd } = calculateDates();
@@ -473,7 +479,7 @@ export const Financeiro: React.FC = () => {
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
                     {activeSession
-                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco inicial: ${formatCurrency(activeSession.initial_amount)}`
+                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco inicial: ${formatCurrency(activeSession.initial_amount)} • Entradas em dinheiro: ${formatCurrency(activeSessionCashReceipts)}`
                       : 'Abra o caixa do dia informando o fundo de troco para iniciar as operações de comandas.'}
                   </p>
                 </div>
@@ -554,8 +560,10 @@ export const Financeiro: React.FC = () => {
                       <tr className="border-b border-slate-800 text-slate-400">
                         <th className="pb-3 font-medium">Abertura</th>
                         <th className="pb-3 font-medium">Fechamento</th>
+                        <th className="pb-3 font-medium">Operador</th>
                         <th className="pb-3 font-medium">Troco inicial</th>
                         <th className="pb-3 font-medium">Valor fechado</th>
+                        <th className="pb-3 font-medium">Observações</th>
                         <th className="pb-3 font-medium">Status</th>
                       </tr>
                     </thead>
@@ -564,9 +572,15 @@ export const Financeiro: React.FC = () => {
                         <tr key={sess.id} className="hover:bg-slate-800/30 transition-colors">
                           <td className="py-3 font-medium text-slate-200">{formatDate(sess.opened_at)}</td>
                           <td className="py-3 text-slate-400">{formatDate(sess.closed_at)}</td>
+                          <td className="py-3 text-slate-300 font-medium">
+                            {sess.opened_by_name || sess.closed_by_name || 'Operador'}
+                          </td>
                           <td className="py-3 tabular-nums">{formatCurrency(sess.initial_amount)}</td>
                           <td className="py-3 tabular-nums text-slate-200">
                             {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
+                          </td>
+                          <td className="py-3 text-slate-400 max-w-[180px] truncate" title={sess.notes || ''}>
+                            {sess.notes || '-'}
                           </td>
                           <td className="py-3">
                             <span
@@ -697,7 +711,7 @@ export const Financeiro: React.FC = () => {
                         <td className="py-3 text-slate-300 font-medium">{formatDate(pay.paid_at)}</td>
                         <td className="py-3 text-slate-100 font-semibold">{pay.professional_name}</td>
                         <td className="py-3 text-slate-400">
-                          {METHOD_LABELS[pay.payment_method] || pay.payment_method}
+                          {PAYMENT_METHOD_LABELS[pay.payment_method] || pay.payment_method}
                         </td>
                         <td className="py-3 tabular-nums font-bold text-emerald-400">
                           {formatCurrency(pay.amount)}
@@ -732,7 +746,7 @@ export const Financeiro: React.FC = () => {
       <FechamentoCaixaModal
         isOpen={isFechamentoModalOpen}
         session={activeSession}
-        cashReceipts={cashReceiptsInPeriod}
+        cashReceipts={activeSessionCashReceipts}
         caixaRepo={caixaRepo}
         onCaixaFechado={(closedSession) => {
           setActiveSession(null);

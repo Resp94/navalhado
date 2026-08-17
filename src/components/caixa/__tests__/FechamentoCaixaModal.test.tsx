@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FechamentoCaixaModal } from '../FechamentoCaixaModal';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
 import type { CashSession, ICaixaAdapter } from '../../../modules/caixa/types';
+import { supabase } from '../../../lib/supabase';
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: vi.fn(),
+    },
+  },
+}));
 
 describe('FechamentoCaixaModal', () => {
   const mockAdapter: ICaixaAdapter = {
@@ -31,6 +40,10 @@ describe('FechamentoCaixaModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supabase.auth.getUser).mockResolvedValue({
+      data: { user: { id: 'user-operator' } as any },
+      error: null,
+    });
   });
 
   it('não renderiza se isOpen for false ou session for null', () => {
@@ -46,10 +59,11 @@ describe('FechamentoCaixaModal', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renderiza resumo esperado, calcula quebra/sobra e fecha o caixa', async () => {
+  it('renderiza resumo esperado, calcula quebra/sobra e fecha o caixa registrando o operador', async () => {
     const closedSession: CashSession = {
       ...fakeActiveSession,
       status: 'closed',
+      closed_by: 'user-operator',
       closing_amount: 250.0,
       closed_at: '2026-08-17T18:00:00Z',
       notes: 'Fechado sem problemas',
@@ -86,6 +100,7 @@ describe('FechamentoCaixaModal', () => {
     await waitFor(() => {
       expect(mockAdapter.fecharCaixa).toHaveBeenCalledWith({
         session_id: 'sess-100',
+        closed_by: 'user-operator',
         closing_amount: 250.0,
         notes: 'Fechado sem problemas',
       });

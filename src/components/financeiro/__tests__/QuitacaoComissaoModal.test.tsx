@@ -64,6 +64,10 @@ describe('QuitacaoComissaoModal', () => {
     const methodSelect = screen.getByLabelText(/Forma de pagamento/i);
     fireEvent.change(methodSelect, { target: { value: 'pix' } });
 
+    // Selecionar data retroativa
+    const dateInput = screen.getByLabelText(/Data do repasse/i);
+    fireEvent.change(dateInput, { target: { value: '2026-08-10' } });
+
     // Submeter formulário
     const submitBtn = screen.getByRole('button', { name: /Confirmar pagamento/i });
     fireEvent.click(submitBtn);
@@ -75,6 +79,7 @@ describe('QuitacaoComissaoModal', () => {
           p_professional_id: 'prof-123',
           p_amount: 300.0,
           p_payment_method: 'pix',
+          p_paid_at: '2026-08-10T12:00:00.000Z',
           p_tenant_id: 'tenant-abc',
         })
       );

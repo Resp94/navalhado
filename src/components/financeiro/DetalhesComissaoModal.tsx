@@ -7,6 +7,7 @@ import {
   ScissorIcon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
+import { formatCurrency } from '../../lib/currency';
 
 interface ComandaItemDetail {
   id: string;
@@ -18,6 +19,23 @@ interface ComandaItemDetail {
   comanda_closed_at: string;
   comanda_id: string;
   customer_name?: string;
+}
+
+interface ComandaItemQueryResult {
+  id: string;
+  item_type: string | null;
+  total_price: number | string;
+  quantity: number | string | null;
+  tenant_id: string;
+  comanda: {
+    id: string;
+    status: string;
+    closed_at: string;
+    tenant_id: string;
+    customer: { name: string } | null;
+  } | null;
+  service: { name: string } | null;
+  product: { name: string } | null;
 }
 
 interface DetalhesComissaoModalProps {
@@ -51,18 +69,20 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
     const fetchDetails = async () => {
       try {
         setLoading(true);
-        // Buscar comandas fechadas no período para este profissional
-        const { data, error } = await supabase
+        // Buscar comandas fechadas no período para este profissional com filtro multi-tenant explícito
+        let query = supabase
           .from('comanda_itens')
           .select(`
             id,
             item_type,
             total_price,
             quantity,
+            tenant_id,
             comanda:comandas!inner(
               id,
               status,
               closed_at,
+              tenant_id,
               customer:customers(name)
             ),
             service:services(name),
@@ -74,18 +94,25 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           .lte('comanda.closed_at', endDate)
           .order('id', { ascending: false });
 
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error;
 
         if (isMounted) {
-          const mapped: ComandaItemDetail[] = (data || []).map((row: any) => ({
+          const rawList = (data || []) as unknown as ComandaItemQueryResult[];
+          const mapped: ComandaItemDetail[] = rawList.map((row) => ({
             id: row.id,
             item_type: row.item_type || (row.service ? 'servico' : 'produto'),
             total_price: Number(row.total_price) || 0,
             quantity: Number(row.quantity) || 1,
             service_name: row.service?.name,
             product_name: row.product?.name,
-            comanda_closed_at: row.comanda?.closed_at,
-            comanda_id: row.comanda?.id,
+            comanda_closed_at: row.comanda?.closed_at || '',
+            comanda_id: row.comanda?.id || '',
             customer_name: row.comanda?.customer?.name || 'Cliente avulso',
           }));
           setItems(mapped);
@@ -102,13 +129,9 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, professional, startDate, endDate]);
+  }, [isOpen, professional, startDate, endDate, tenantId]);
 
   if (!isOpen || !professional) return null;
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   const formatDate = (iso: string) => {
     if (!iso) return '-';
@@ -142,11 +165,11 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            type="button"
             className="detalhes-close-btn"
             aria-label="Fechar modal"
+            type="button"
           >
-            <HugeiconsIcon icon={Cancel01Icon} size={20} />
+            <HugeiconsIcon icon={Cancel01Icon} size={18} />
           </button>
         </div>
 
@@ -186,7 +209,11 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
         </div>
 
         <div className="detalhes-modal-footer">
-          <button type="button" onClick={onClose} className="detalhes-btn-close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="detalhes-btn-close"
+          >
             Fechar
           </button>
         </div>
@@ -205,8 +232,8 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           padding: 1rem;
         }
         .detalhes-modal-shell {
-          background: #18181b;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--color-bg-secondary, #18181b);
+          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
           border-radius: 1rem;
           width: 100%;
           max-width: 540px;
@@ -226,20 +253,20 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           align-items: flex-start;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
         }
         .detalhes-modal-title {
           font-size: 1.125rem;
           font-weight: 600;
-          color: #f4f4f5;
+          color: var(--color-text-primary, #f4f4f5);
         }
         .detalhes-modal-subtitle {
           font-size: 0.8125rem;
-          color: #a1a1aa;
+          color: var(--color-text-secondary, #a1a1aa);
           margin-top: 0.125rem;
         }
         .detalhes-close-btn {
-          color: #71717a;
+          color: var(--color-text-muted, #71717a);
           padding: 0.25rem;
           border-radius: 0.375rem;
           background: transparent;
@@ -247,7 +274,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           cursor: pointer;
         }
         .detalhes-close-btn:hover {
-          color: #f4f4f5;
+          color: var(--color-text-primary, #f4f4f5);
           background: rgba(255, 255, 255, 0.05);
         }
         .detalhes-modal-body {
@@ -266,7 +293,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           gap: 0.75rem;
           padding: 0.75rem;
           background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
           border-radius: 0.5rem;
         }
         .detalhes-item-icon {
@@ -274,7 +301,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           height: 2rem;
           border-radius: 0.375rem;
           background: rgba(245, 158, 11, 0.1);
-          color: #f59e0b;
+          color: var(--color-brand-primary, #f59e0b);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -287,30 +314,30 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
         .detalhes-item-name {
           font-size: 0.875rem;
           font-weight: 500;
-          color: #f4f4f5;
+          color: var(--color-text-primary, #f4f4f5);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .detalhes-item-sub {
           font-size: 0.75rem;
-          color: #71717a;
+          color: var(--color-text-muted, #71717a);
         }
         .detalhes-item-price {
           font-size: 0.875rem;
           font-weight: 600;
-          color: #f4f4f5;
+          color: var(--color-text-primary, #f4f4f5);
           font-variant-numeric: tabular-nums;
         }
         .detalhes-modal-footer {
           padding: 1rem 1.5rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
           display: flex;
           justify-content: flex-end;
         }
         .detalhes-btn-close {
           padding: 0.5rem 1rem;
-          color: #f4f4f5;
+          color: var(--color-text-primary, #f4f4f5);
           background: rgba(255, 255, 255, 0.1);
           border: none;
           border-radius: 0.5rem;
