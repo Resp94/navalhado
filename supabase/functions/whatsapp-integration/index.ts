@@ -1459,6 +1459,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
+            const link = customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl;
             const variables: WhatsappTemplateVariables = {
               cliente: customer.name || "Cliente",
               barbearia: tenant.name || "nossa barbearia",

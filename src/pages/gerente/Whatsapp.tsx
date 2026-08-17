@@ -132,6 +132,14 @@ const formatWhatsAppFormattedHtml = (text: string) => {
   return { __html: escaped };
 };
 
+const buildTemplateDrafts = (inst?: WhatsappInstance | null): Record<WhatsappTemplateKey, string> => ({
+  confirmation: inst?.template_confirmation || DEFAULT_TEMPLATES.confirmation,
+  reschedule: inst?.template_reschedule || DEFAULT_TEMPLATES.reschedule,
+  cancellation: inst?.template_cancellation || DEFAULT_TEMPLATES.cancellation,
+  reminder: inst?.template_reminder || DEFAULT_TEMPLATES.reminder,
+  first_contact: inst?.template_first_contact || DEFAULT_TEMPLATES.first_contact,
+});
+
 export const Whatsapp: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -142,13 +150,7 @@ export const Whatsapp: React.FC = () => {
 
   // Estados de Personalização de Templates
   const [activeTab, setActiveTab] = useState<WhatsappTemplateKey>('confirmation');
-  const [templateDrafts, setTemplateDrafts] = useState<Record<WhatsappTemplateKey, string>>({
-    confirmation: DEFAULT_TEMPLATES.confirmation,
-    reschedule: DEFAULT_TEMPLATES.reschedule,
-    cancellation: DEFAULT_TEMPLATES.cancellation,
-    reminder: DEFAULT_TEMPLATES.reminder,
-    first_contact: DEFAULT_TEMPLATES.first_contact,
-  });
+  const [templateDrafts, setTemplateDrafts] = useState<Record<WhatsappTemplateKey, string>>(buildTemplateDrafts(null));
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [managerPhone, setManagerPhone] = useState<string>('');
   const [testPhoneForTemplate, setTestPhoneForTemplate] = useState('');
@@ -191,13 +193,7 @@ export const Whatsapp: React.FC = () => {
         if (data) {
           const parsed = toWhatsappInstance(data);
           setInstance(parsed);
-          setTemplateDrafts({
-            confirmation: parsed.template_confirmation || DEFAULT_TEMPLATES.confirmation,
-            reschedule: parsed.template_reschedule || DEFAULT_TEMPLATES.reschedule,
-            cancellation: parsed.template_cancellation || DEFAULT_TEMPLATES.cancellation,
-            reminder: parsed.template_reminder || DEFAULT_TEMPLATES.reminder,
-            first_contact: parsed.template_first_contact || DEFAULT_TEMPLATES.first_contact,
-          });
+          setTemplateDrafts(buildTemplateDrafts(parsed));
         } else {
           setInstance(null);
         }
@@ -1458,7 +1454,7 @@ export const Whatsapp: React.FC = () => {
           padding: 0.25rem 0.5rem;
           border: 1px solid rgba(234, 222, 214, 0.8);
           border-radius: var(--radius-sm);
-          background: #fff;
+          background: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
         }
@@ -1573,7 +1569,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .template-tab-btn--active {
-          background: #FFFFFF;
+          background: var(--color-bg-secondary);
           color: var(--color-brand-primary);
           border-color: rgba(217, 108, 0, 0.2);
           box-shadow: var(--shadow-sm);
@@ -1646,7 +1642,7 @@ export const Whatsapp: React.FC = () => {
           padding: 0.3rem 0.6rem;
           border-radius: var(--radius-sm);
           border: 1px solid rgba(234, 222, 214, 0.8);
-          background: #FFFFFF;
+          background: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-xs);
           cursor: pointer;
@@ -1684,7 +1680,7 @@ export const Whatsapp: React.FC = () => {
           padding: 0.9rem 1rem;
           border: 1px solid rgba(234, 222, 214, 0.8);
           border-radius: var(--radius-md);
-          background: #FFFFFF;
+          background: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-family: var(--font-family-base);
@@ -1832,7 +1828,7 @@ export const Whatsapp: React.FC = () => {
         .chat-date-pill {
           align-self: center;
           background: rgba(255, 255, 255, 0.75);
-          color: #555;
+          color: var(--color-text-secondary);
           font-size: var(--font-size-xs);
           font-weight: 700;
           padding: 0.2rem 0.6rem;

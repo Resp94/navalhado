@@ -2219,4 +2219,68 @@ Deno.test("formatMessageTemplate: formats cancellation, reminder and first_conta
   assertEquals(firstContactResult, "Bem-vindo Novo Cliente à Navalhado Elite! Agende em: https://dev.navalhado.com.br/cliente/novo/agendar");
 });
 
+Deno.test("POST /send-notification - respects custom template from database in payload", async () => {
+  let sentBodyText = "";
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        instance_token: "mock-instance-key",
+        status: "connected",
+        send_confirmation: true,
+        template_confirmation: "E aí {cliente}! Seu corte na {barbearia} tá confirmado! Link: {link}",
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-custom-123",
+        start_time: "2026-07-15T10:00:00Z",
+        customers: { name: "Jonathas", phone: "11999998888", token_acesso: "token-abc" },
+        professionals: { name: "Guto" },
+        services: { name: "Corte e Barba" },
+        tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "mock-vps.com/send/text": {
+      status: 200,
+      body: { success: true },
+    },
+  });
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes("mock-vps.com/send/text") && init?.body) {
+      const parsed = JSON.parse(init.body as string);
+      sentBodyText = parsed.text || parsed.message || "";
+    }
+    return originalFetch(input, init);
+  };
+
+  try {
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-db-trigger-secret": "mock-db-secret",
+      },
+      body: JSON.stringify({
+        event: "appointment_created",
+        appointment_id: "app-custom-123",
+        tenant_id: "tenant-456",
+      }),
+    });
+
+    const res = await handler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+    assertEquals(sentBodyText.includes("E aí Jonathas! Seu corte na Navalhado Ouro tá confirmado!"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetch();
+  }
+});
+
 
