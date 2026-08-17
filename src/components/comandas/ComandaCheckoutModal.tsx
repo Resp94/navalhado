@@ -4,7 +4,6 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Delete02Icon,
-  PlusSignIcon,
   ScissorIcon,
   ShoppingBag01Icon,
 } from '@hugeicons/core-free-icons';
@@ -380,10 +379,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   };
 
   const handleAddPagamentoLinha = () => {
-    if (saldoRestante <= 0) return;
+    const nextAmount = saldoRestante > 0 ? saldoRestante : 0;
     setPagamentos((prev) => [
       ...prev,
-      { method: 'cash', amount: saldoRestante, receivedCash: saldoRestante },
+      { method: 'cash', amount: nextAmount, receivedCash: nextAmount },
     ]);
   };
 
@@ -468,8 +467,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
   const methodLabels: Record<MetodoPagamento, string> = {
     pix: 'PIX',
-    credit_card: 'Cartão de Crédito',
-    debit_card: 'Cartão de Débito',
+    credit_card: 'Cartão de crédito',
+    debit_card: 'Cartão de débito',
     cash: 'Dinheiro',
     other: 'Outro',
   };
@@ -486,8 +485,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           {/* Header */}
           <div className="comanda-modal-header">
             <div className="comanda-modal-header-info">
-              <h3 className="comanda-modal-title">
-                {loadedComanda ? `Comanda #${loadedComanda.comanda_number} de atendimento` : 'Comanda de atendimento'}
+              <h3 id="modal-checkout-title" className="comanda-modal-title">
+                {loadedComanda?.comanda_number ? `Comanda #${loadedComanda.comanda_number}` : 'Comanda de atendimento'}
               </h3>
               <p className="comanda-modal-subtitle">
                 Cliente: <strong>{customerName}</strong> {customerPhone && `• ${customerPhone}`}
@@ -497,7 +496,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               type="button"
               onClick={onClose}
               className="comanda-btn-close"
-              aria-label="Fechar"
+              aria-label="Fechar modal de comanda"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={20} />
             </button>
@@ -574,7 +573,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             <div className="comanda-section">
               <div className="comanda-section-header">
                 <h4 className="comanda-section-title">
-                  Serviços e produtos consumidos ({itens.length})
+                  Itens consumidos ({itens.length})
                 </h4>
                 {!isClosed && (
                   <div className="comanda-section-actions">
@@ -584,7 +583,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       className="btn-add-item"
                     >
                       <HugeiconsIcon icon={ScissorIcon} size={14} />
-                      <span>+ Serviço</span>
+                      <span>Serviço</span>
                     </button>
                     <button
                       type="button"
@@ -592,7 +591,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       className="btn-add-item"
                     >
                       <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
-                      <span>+ Produto</span>
+                      <span>Produto</span>
                     </button>
                   </div>
                 )}
@@ -601,12 +600,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               {/* Formulário Embutido: Adicionar Serviço */}
               {!isClosed && isAddingService && (
                 <div className="add-item-box">
-                  <div className="flex-between">
-                    <span className="add-item-title">Adicionar serviço extra</span>
+                  <div className="add-item-header">
+                    <span className="add-item-title">Adicionar serviço</span>
                     <button
                       type="button"
                       onClick={() => setIsAddingService(false)}
-                      className="btn-link-sm"
+                      className="btn-cancel-item"
                     >
                       Cancelar
                     </button>
@@ -620,7 +619,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       <option value="">Selecione o serviço...</option>
                       {availableServices.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.name} (R$ {s.price.toFixed(2)})
+                          {s.name}
                         </option>
                       ))}
                     </select>
@@ -630,7 +629,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       onChange={(e) => setSelectedProfId(e.target.value)}
                       className="comanda-select flex-1"
                     >
-                      <option value="">Profissional executor...</option>
+                      <option value="">Profissional...</option>
                       {availableProfessionals.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}
@@ -653,12 +652,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               {/* Formulário Embutido: Adicionar Produto */}
               {!isClosed && isAddingProduct && (
                 <div className="add-item-box">
-                  <div className="flex-between">
-                    <span className="add-item-title">Adicionar produto de bancada</span>
+                  <div className="add-item-header">
+                    <span className="add-item-title">Adicionar produto</span>
                     <button
                       type="button"
                       onClick={() => setIsAddingProduct(false)}
-                      className="btn-link-sm"
+                      className="btn-cancel-item"
                     >
                       Cancelar
                     </button>
@@ -669,10 +668,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       onChange={(e) => setSelectedProductId(e.target.value)}
                       className="comanda-select flex-1"
                     >
-                      <option value="">Selecione o produto no estoque...</option>
+                      <option value="">Selecione o produto...</option>
                       {catalogProducts.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} (R$ {p.price.toFixed(2)} • {p.stock_quantity} em estoque)
+                          {p.name}
                         </option>
                       ))}
                     </select>
@@ -694,6 +693,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 {itens.map((it) => (
                   <div key={it.tempId} className="comanda-item-card">
                     <div className="comanda-item-info">
+                      <div className="comanda-item-icon-tag">
+                        <HugeiconsIcon icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon} size={15} />
+                      </div>
                       <div>
                         <strong className="comanda-item-name">{it.name}</strong>
                         <span className="comanda-item-detail">
@@ -712,6 +714,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           onClick={() => handleRemoveItem(it.tempId)}
                           className="comanda-item-remove-btn"
                           title="Remover item"
+                          aria-label="Remover item"
                         >
                           <HugeiconsIcon icon={Delete02Icon} size={16} />
                         </button>
@@ -756,7 +759,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 </div>
 
                 <div className="comanda-form-group">
-                  <label className="comanda-label">Gorjeta do profissional (R$)</label>
+                  <label className="comanda-label">Gorjeta (R$)</label>
                   <input
                     type="number"
                     min="0"
@@ -777,18 +780,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               </div>
               {discountAmount > 0 && (
                 <div className="summary-row summary-discount">
-                  <span>Desconto aplicado:</span>
+                  <span>Desconto:</span>
                   <span>- R$ {discountAmount.toFixed(2)}</span>
                 </div>
               )}
               {tipValue > 0 && (
                 <div className="summary-row summary-tip">
-                  <span>Gorjeta do profissional:</span>
+                  <span>Gorjeta:</span>
                   <span>+ R$ {tipValue.toFixed(2)}</span>
                 </div>
               )}
               <div className="summary-row summary-total">
-                <span>{isClosed ? 'Total pago:' : 'Total a pagar:'}</span>
+                <span>{isClosed ? 'Total pago:' : 'Total:'}</span>
                 <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
               </div>
             </div>
@@ -805,16 +808,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     onClick={handleEnableSplit}
                     className="btn-split-toggle"
                   >
-                    + Dividir em 2 ou mais formas
+                    Dividir valor
                   </button>
                 )}
                 {!isClosed && isSplitting && (
                   <button
                     type="button"
                     onClick={handleDisableSplit}
-                    className="btn-link-sm"
+                    className="btn-split-cancel"
                   >
-                    Cancelar divisão (forma única)
+                    Forma única
                   </button>
                 )}
               </div>
@@ -851,8 +854,32 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                   {pagamentos[0]?.method === 'cash' && (
                     <div className="cash-single-calculator">
+                      <div className="cash-quick-notes">
+                        <span className="cash-notes-label">Notas:</span>
+                        <button
+                          type="button"
+                          className={`btn-quick-note ${pagamentos[0]?.receivedCash === totalFinal ? 'btn-quick-note--active' : ''}`}
+                          onClick={() => setPagamentos([{ ...pagamentos[0], receivedCash: totalFinal }])}
+                        >
+                          Exato
+                        </button>
+                        {[50, 100, 200].map((note) => {
+                          if (note < totalFinal) return null;
+                          return (
+                            <button
+                              key={note}
+                              type="button"
+                              className={`btn-quick-note ${pagamentos[0]?.receivedCash === note ? 'btn-quick-note--active' : ''}`}
+                              onClick={() => setPagamentos([{ ...pagamentos[0], receivedCash: note }])}
+                            >
+                              R$ {note}
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       <label className="cash-input-field">
-                        <span>Valor recebido em dinheiro: R$</span>
+                        <span>Valor recebido: R$</span>
                         <input
                           type="number"
                           min={totalFinal}
@@ -865,9 +892,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           className="cash-received-input"
                         />
                       </label>
+
                       {pagamentos[0]?.receivedCash > totalFinal && (
                         <div className="cash-change-badge">
-                          Troco a devolver: R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
+                          <span>Troco a devolver:</span>
+                          <strong>R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}</strong>
                         </div>
                       )}
                     </div>
@@ -919,19 +948,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               />
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePagamentoLinha(idx)}
-                              className="btn-remove-payment"
-                              title="Remover forma de pagamento"
-                            >
-                              <HugeiconsIcon icon={Delete02Icon} size={16} />
-                            </button>
+                            {pagamentos.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePagamentoLinha(idx)}
+                                className="btn-remove-payment"
+                                title="Remover forma"
+                                aria-label="Remover forma"
+                              >
+                                <HugeiconsIcon icon={Delete02Icon} size={16} />
+                              </button>
+                            )}
                           </div>
 
                           {pag.method === 'cash' && (
                             <div className="cash-change-calculator">
-                              <div className="cash-input-field">
+                              <label className="cash-input-field">
                                 <span>Recebido: R$</span>
                                 <input
                                   type="number"
@@ -946,10 +978,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                   }}
                                   className="cash-received-input"
                                 />
-                              </div>
+                              </label>
                               {change > 0 && (
                                 <div className="cash-change-badge">
-                                  Troco: R$ {change.toFixed(2)}
+                                  <span>Troco:</span>
+                                  <strong>R$ {change.toFixed(2)}</strong>
                                 </div>
                               )}
                             </div>
@@ -963,34 +996,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     <button
                       type="button"
                       onClick={handleAddPagamentoLinha}
-                      className="btn-add-payment-line"
+                      className="btn-add-split-line"
                     >
-                      + Adicionar forma de pagamento
+                      <span>Adicionar forma de pagamento</span>
                     </button>
-                    <div className="split-summary-box">
-                      <div className="split-summary-row">
-                        <span>Total a pagar:</span>
-                        <strong>R$ {totalFinal.toFixed(2)}</strong>
-                      </div>
-                      <div className="split-summary-row">
-                        <span>Total distribuído:</span>
-                        <strong className="text-brand">R$ {totalDistribuido.toFixed(2)}</strong>
-                      </div>
+                    <div className="split-summary-bar">
+                      <span>Total: R$ {totalFinal.toFixed(2)} • Pago: R$ {totalPago.toFixed(2)}</span>
                       {saldoRestante > 0 ? (
-                        <div className="split-summary-row split-summary-row--warning">
-                          <span>Faltando distribuir:</span>
-                          <strong>R$ {saldoRestante.toFixed(2)}</strong>
-                        </div>
-                      ) : saldoRestante < 0 ? (
-                        <div className="split-summary-row split-summary-row--error">
-                          <span>Valor excedido:</span>
-                          <strong>R$ {Math.abs(saldoRestante).toFixed(2)}</strong>
-                        </div>
+                        <span className="split-missing-alert">Falta: R$ {saldoRestante.toFixed(2)}</span>
                       ) : (
-                        <div className="split-summary-row split-summary-row--success">
-                          <span>Pagamento completo:</span>
-                          <strong>OK</strong>
-                        </div>
+                        <span className="split-complete-alert">Completo</span>
                       )}
                     </div>
                   </div>
@@ -1051,7 +1066,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   {isSubmitting ? (
                     <span>Processando...</span>
                   ) : (
-                    <span>Finalizar atendimento e receber (R$ {totalFinal.toFixed(2)})</span>
+                    <span>Finalizar e receber (R$ {totalFinal.toFixed(2)})</span>
                   )}
                 </button>
               </>
@@ -1074,6 +1089,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       />
 
       <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideUpModal {
+          from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
         .comanda-modal-overlay {
           position: fixed;
           inset: 0;
@@ -1090,17 +1121,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-modal-shell {
           width: 100%;
-          max-width: 620px;
-          max-height: 90vh;
+          max-width: 600px;
+          max-height: calc(100dvh - 2.5rem);
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-xl);
-          box-shadow: var(--shadow-xl);
+          box-shadow: 0 20px 48px -12px rgba(20, 17, 15, 0.28), var(--shadow-xl);
           display: flex;
           flex-direction: column;
           overflow: hidden;
           font-family: var(--font-family-base);
           color: var(--color-text-primary);
+          animation: slideUpModal 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         .comanda-modal-header {
@@ -1153,6 +1185,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-modal-body {
           flex: 1;
           overflow-y: auto;
+          overscroll-behavior: contain;
           padding: 1.5rem;
           display: flex;
           flex-direction: column;
@@ -1272,13 +1305,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .add-item-box {
-          padding: 0.85rem;
+          padding: 0.85rem 1rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.65rem;
+          animation: fadeIn 0.15s ease-out;
+        }
+
+        .add-item-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
         }
 
         .add-item-title {
@@ -1287,21 +1328,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-text-primary);
         }
 
+        .btn-cancel-item {
+          background: transparent;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 0.25rem 0.65rem;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-cancel-item:hover {
+          color: var(--color-error);
+          border-color: var(--color-error);
+          background-color: var(--color-error-bg);
+        }
+
         .add-item-row {
           display: flex;
           gap: 0.5rem;
-        }
-
-        .btn-link-sm {
-          background: none;
-          border: none;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          cursor: pointer;
-        }
-
-        .btn-link-sm:hover {
-          color: var(--color-text-primary);
         }
 
         .btn-confirm-item {
@@ -1334,12 +1381,30 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           border-radius: var(--radius-md);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
+          transition: border-color 0.2s ease;
+        }
+
+        .comanda-item-card:hover {
+          border-color: var(--color-brand-soft);
         }
 
         .comanda-item-info {
           display: flex;
           align-items: center;
           gap: 0.6rem;
+        }
+
+        .comanda-item-icon-tag {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-brand-primary);
+          flex-shrink: 0;
         }
 
         .comanda-item-name {
@@ -1375,7 +1440,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.2rem;
+          padding: 0.3rem;
           border-radius: var(--radius-sm);
           transition: all 0.2s ease;
         }
@@ -1414,16 +1479,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           border-radius: var(--radius-md);
           overflow: hidden;
           background-color: var(--color-bg-primary);
+          flex-shrink: 0;
         }
 
         .seg-type-btn {
           border: none;
           background: transparent;
-          padding: 0.4rem 0.6rem;
-          font-size: 0.75rem;
+          padding: 0.45rem 0.65rem;
+          min-width: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8rem;
           font-weight: 700;
           color: var(--color-text-secondary);
           cursor: pointer;
+          line-height: 1;
+          white-space: nowrap;
+          transition: all 0.15s ease;
+        }
+
+        .seg-type-btn:hover:not(.seg-type-btn--active) {
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
         }
 
         .seg-type-btn--active {
@@ -1507,6 +1585,24 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: white;
         }
 
+        .btn-split-cancel {
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          padding: 0.35rem 0.7rem;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-split-cancel:hover {
+          color: var(--color-error);
+          border-color: var(--color-error);
+          background-color: var(--color-error-bg);
+        }
+
         .quick-methods-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -1539,13 +1635,69 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .cash-single-calculator {
           margin-top: 0.75rem;
-          padding: 0.75rem;
-          border-radius: var(--radius-md);
+          padding: 0.85rem 1rem;
+          border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
-          border: 1px dashed var(--color-border);
+          border: 1px solid var(--color-border);
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .cash-quick-notes {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+        }
+
+        .cash-notes-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          margin-right: 0.25rem;
+        }
+
+        .btn-quick-note {
+          padding: 0.3rem 0.6rem;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-quick-note:hover {
+          border-color: var(--color-brand-soft);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+        }
+
+        .btn-quick-note--active {
+          border-color: var(--color-brand-primary);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .cash-change-badge {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          padding: 0.6rem 0.85rem;
+          border-radius: var(--radius-md);
+          background-color: rgba(34, 197, 94, 0.1);
+          border: 1px solid var(--color-success);
+          color: var(--color-success);
+          font-size: var(--font-size-xs);
+        }
+
+        .cash-change-badge strong {
+          font-size: var(--font-size-sm);
+          font-weight: 800;
         }
 
         .payment-receipt-row {
@@ -1654,11 +1806,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-error);
         }
 
+        .split-payments-footer {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-top: 0.5rem;
+        }
+
         .btn-add-split-line {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
-          padding: 0.5rem 0.85rem;
+          padding: 0.55rem 0.85rem;
           border-radius: var(--radius-md);
           border: 1px dashed var(--color-brand-primary);
           background-color: var(--color-brand-lightest);
@@ -1680,7 +1839,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.5rem 0.75rem;
+          padding: 0.65rem 0.85rem;
           border-radius: var(--radius-md);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
@@ -1734,14 +1893,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           justify-content: space-between;
           gap: 0.75rem;
-          padding: 1rem 1.5rem;
+          padding: 1.15rem 1.5rem;
           border-top: 1px solid var(--color-border);
           background-color: var(--color-bg-primary);
         }
 
         .comanda-btn-secondary {
-          padding: 0.65rem 1.25rem;
-          border-radius: var(--radius-lg);
+          padding: 0.7rem 1.25rem;
+          border-radius: var(--radius-md);
           border: 1px solid var(--color-border);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
@@ -1756,8 +1915,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-btn-primary {
-          padding: 0.65rem 1.5rem;
-          border-radius: var(--radius-lg);
+          padding: 0.7rem 1.5rem;
+          border-radius: var(--radius-md);
           border: none;
           background-color: var(--color-brand-primary);
           color: white;
@@ -1777,6 +1936,30 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-btn-primary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .comanda-modal-body::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .comanda-modal-body::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .comanda-modal-body::-webkit-scrollbar-thumb {
+          background-color: var(--color-border);
+          border-radius: var(--radius-full);
+        }
+
+        .comanda-modal-body::-webkit-scrollbar-thumb:hover {
+          background-color: var(--color-text-secondary);
+        }
+
+        .comanda-modal-shell button:focus-visible,
+        .comanda-modal-shell input:focus-visible,
+        .comanda-modal-shell select:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
         }
       `}</style>
     </>

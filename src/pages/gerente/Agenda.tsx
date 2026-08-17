@@ -1396,9 +1396,10 @@ export const Agenda: React.FC = () => {
                                         e.stopPropagation();
                                         handleStartService(app);
                                       }}
-                                      title="Iniciar Atendimento"
+                                      title="Iniciar atendimento"
                                     >
-                                      Iniciar
+                                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
+                                      <span>Iniciar</span>
                                     </button>
                                   )}
 
@@ -1695,10 +1696,15 @@ export const Agenda: React.FC = () => {
                 <option value="">Selecione um cliente...</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({c.phone})
+                    {c.name}
                   </option>
                 ))}
               </select>
+              {customers.find((c) => c.id === selectedCustomerId)?.phone && (
+                <div className="service-meta-pill">
+                  <span>WhatsApp: <strong>{customers.find((c) => c.id === selectedCustomerId)?.phone}</strong></span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="form-row-2col">
@@ -2648,17 +2654,25 @@ export const Agenda: React.FC = () => {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 0.2rem;
+          gap: 0.25rem;
           border: none;
           border-radius: var(--radius-sm);
-          padding: 0.2rem 0.45rem;
-          font-size: 0.65rem;
+          padding: 0.25rem 0.5rem;
+          font-size: 0.72rem;
           font-weight: 700;
           font-family: var(--font-family-base);
           line-height: 1;
+          height: 24px;
+          box-sizing: border-box;
           vertical-align: middle;
           cursor: pointer;
           transition: all 0.15s ease;
+        }
+
+        .btn-card-action span {
+          font-size: 0.72rem;
+          font-weight: 700;
+          line-height: 1;
         }
 
         .btn-card-action svg {
