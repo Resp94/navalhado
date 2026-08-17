@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
 import type { Cliente } from '../../modules/clientes/types';
+import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import './Clientes.css';
@@ -732,7 +733,7 @@ export const Clientes: React.FC = () => {
               </button>
               {selectedCustomer.phone && (
                 <a
-                  href={`https://wa.me/55${selectedCustomer.phone.replace(/\D/g, '')}`}
+                  href={formatWhatsAppUrl(selectedCustomer.phone)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-drawer-action btn-drawer-action--whatsapp"

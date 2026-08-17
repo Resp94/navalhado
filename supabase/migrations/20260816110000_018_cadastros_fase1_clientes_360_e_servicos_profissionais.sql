@@ -497,13 +497,20 @@ BEGIN
     RAISE EXCEPTION 'Acesso negado. Apenas gerentes autenticados podem acessar métricas financeiras.' USING errcode = '42501';
   END IF;
 
-  -- 1. Total faturado e comissões consolidadas das comandas fechadas no período
-  SELECT 
-    COALESCE(SUM(c.total_final), 0),
-    COALESCE(SUM(ci.commission_amount), 0)
-  INTO v_total_revenue, v_total_commission
+  -- 1. Total faturado diretamente das comandas fechadas no período
+  SELECT COALESCE(SUM(c.total_final), 0)
+  INTO v_total_revenue
   FROM public.comandas c
-  LEFT JOIN public.comanda_itens ci ON ci.comanda_id = c.id
+  WHERE c.tenant_id = v_tenant_id
+    AND c.status = 'closed'
+    AND c.closed_at >= p_start_date
+    AND c.closed_at <= p_end_date;
+
+  -- 2. Comissões consolidadas dos itens de comandas fechadas no período
+  SELECT COALESCE(SUM(ci.commission_amount), 0)
+  INTO v_total_commission
+  FROM public.comanda_itens ci
+  JOIN public.comandas c ON c.id = ci.comanda_id
   WHERE c.tenant_id = v_tenant_id
     AND c.status = 'closed'
     AND c.closed_at >= p_start_date
