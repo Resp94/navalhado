@@ -85,6 +85,5 @@ export interface IClienteAdapter {
   excluirCliente(tenantId: string, clienteId: string): Promise<void>;
   buscarHistoricoVisitas(clienteId: string): Promise<HistoricoVisitasCliente[]>;
   buscarHistoricoComandas(tenantId: string, clienteId: string): Promise<ComandaHistoricoCliente[]>;
-  calcularMetricasLTV(clienteId: string, appointments: HistoricoVisitasCliente[], comandas: ComandaHistoricoCliente[]): MetricasLTVCliente;
 }
 

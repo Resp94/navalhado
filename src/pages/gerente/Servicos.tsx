@@ -1,10 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Clock01Icon,
+  ArrowReloadHorizontalIcon,
+  BadgePercentIcon,
+  Edit01Icon,
+  WhatsappIcon,
+  PlusSignIcon,
+  CheckmarkCircle02Icon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 
 export interface Service {
   id: string;
@@ -22,6 +33,97 @@ export interface Service {
 
 const DEFAULT_REMINDER_TEMPLATE =
   'Olá, {cliente}! Já se passaram {dias} dias desde o seu último {servico} na Barbearia. Que tal agendar seu retorno para manter o visual em dia? Acesse: {link}';
+
+interface ServiceItemCardProps {
+  service: Service;
+  onToggleStatus: (id: string, currentStatus: boolean) => void;
+  onEdit: (service: Service) => void;
+}
+
+const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
+  ({ service, onToggleStatus, onEdit }) => {
+    return (
+      <div
+        className={`service-item-card ${
+          !service.is_active ? 'service-item-card--inactive' : ''
+        }`}
+      >
+        {/* Informações Principais */}
+        <div className="service-card-info">
+          <h5 className="service-name">{service.name}</h5>
+
+          {service.description && (
+            <p className="service-description">{service.description}</p>
+          )}
+
+          <div className="service-meta-badges">
+            <span className="meta-badge">
+              <HugeiconsIcon icon={Clock01Icon} size={13} />
+              {service.duration_minutes || 40} min
+            </span>
+            {service.return_period_days && (
+              <span className="meta-badge meta-badge--retorno">
+                <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={13} />
+                Retorno: ~{service.return_period_days} dias
+              </span>
+            )}
+            {service.commission_percentage !== null && (
+              <span className="meta-badge meta-badge--comm">
+                <HugeiconsIcon icon={BadgePercentIcon} size={13} />
+                Comissão: {service.commission_percentage}%
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Bloco de Preço Alinhado em Coluna Dedicada */}
+        <div className="service-card-price">
+          {service.price_type === 'starting_at' && (
+            <span className="price-type-tag">A partir de</span>
+          )}
+          <span className="service-price-value font-mono">
+            R$ {service.price.toFixed(2).replace('.', ',')}
+          </span>
+        </div>
+
+        {/* Controles de Ação e Status */}
+        <div className="service-card-actions">
+          <div className="status-switch-wrapper">
+            <label
+              className="switch"
+              aria-label={`${service.is_active ? 'Desativar' : 'Ativar'} serviço ${service.name}`}
+            >
+              <input
+                type="checkbox"
+                checked={service.is_active}
+                onChange={() => onToggleStatus(service.id, service.is_active)}
+              />
+              <span className="slider" />
+            </label>
+            <span
+              className={`status-switch-label ${
+                service.is_active ? 'status-switch-label--active' : ''
+              }`}
+            >
+              {service.is_active ? 'Ativo' : 'Inativo'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            aria-label={`Editar configurações do serviço ${service.name}`}
+            onClick={() => onEdit(service)}
+            className="btn-action-edit"
+          >
+            <HugeiconsIcon icon={Edit01Icon} size={14} />
+            Editar
+          </button>
+        </div>
+      </div>
+    );
+  }
+);
+ServiceItemCard.displayName = 'ServiceItemCard';
 
 export const Servicos: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -44,9 +146,9 @@ export const Servicos: React.FC = () => {
   const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
   const [isActive, setIsActive] = useState(true);
 
-  const categories = ['Cabelo', 'Barba', 'Sobrancelha', 'Combo', 'Outro'];
+  const categories = useMemo(() => ['Cabelo', 'Barba', 'Sobrancelha', 'Combo', 'Outro'], []);
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -69,11 +171,11 @@ export const Servicos: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenant.tenantId, addToast]);
 
   useEffect(() => {
     fetchServices();
-  }, [tenant.tenantId]);
+  }, [fetchServices]);
 
   useGSAP(() => {
     if (!loading && services.length > 0) {
@@ -85,7 +187,7 @@ export const Servicos: React.FC = () => {
     }
   }, [loading, services]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setEditingId(null);
     setName('');
     setDescription('');
@@ -97,9 +199,9 @@ export const Servicos: React.FC = () => {
     setReturnPeriodDays('20');
     setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
     setIsActive(true);
-  };
+  }, []);
 
-  const handleEdit = (service: Service) => {
+  const handleEdit = useCallback((service: Service) => {
     setEditingId(service.id);
     setName(service.name);
     setDescription(service.description || '');
@@ -122,7 +224,7 @@ export const Servicos: React.FC = () => {
     );
     setReminderTemplate(service.custom_reminder_template || DEFAULT_REMINDER_TEMPLATE);
     setIsActive(service.is_active);
-  };
+  }, []);
 
   // ── Helpers de formatação monetária (pt-BR) ──
   const formatPriceToBR = (digits: string): string => {
@@ -138,14 +240,14 @@ export const Servicos: React.FC = () => {
     return parseFloat(normalized);
   };
 
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, '');
     setPrice(digits ? formatPriceToBR(digits) : '');
-  };
+  }, []);
 
-  const insertTagIntoTemplate = (tag: string) => {
+  const insertTagIntoTemplate = useCallback((tag: string) => {
     setReminderTemplate((prev) => `${prev} ${tag}`);
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +303,7 @@ export const Servicos: React.FC = () => {
     }
   };
 
-  const toggleServiceStatus = async (id: string, currentStatus: boolean) => {
+  const toggleServiceStatus = useCallback(async (id: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('services')
@@ -215,32 +317,31 @@ export const Servicos: React.FC = () => {
     } catch (error: any) {
       addToast('Erro ao atualizar status do serviço.', 'error');
     }
-  };
+  }, [tenant.tenantId, addToast, fetchServices]);
+
+  // Agrupamento memoizado de serviços por categoria
+  const categorizedServices = useMemo(() => {
+    return categories
+      .map((cat) => ({
+        category: cat,
+        items: services.filter((s) => s.category === cat),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [categories, services]);
 
   // Preview dinâmico da mensagem do WhatsApp enviada pela instância Uazapi oficial
-  const previewMessage = reminderTemplate
-    .replace('{cliente}', 'Carlos')
-    .replace('{servico}', name || 'Corte')
-    .replace('{dias}', returnPeriodDays || '20')
-    .replace('{link}', `https://app.navalhado.com.br/cliente/exemplo`);
+  const previewMessage = useMemo(() => {
+    return reminderTemplate
+      .replace('{cliente}', 'Carlos')
+      .replace('{servico}', name || 'Corte')
+      .replace('{dias}', returnPeriodDays || '20')
+      .replace('{link}', `https://app.navalhado.com.br/cliente/exemplo`);
+  }, [reminderTemplate, name, returnPeriodDays]);
 
   return (
     <div className="services-page">
       <div className="services-header-intro">
-        <span
-          style={{
-            display: 'inline-block',
-            backgroundColor: 'rgba(217, 108, 0, 0.08)',
-            color: 'var(--color-brand-primary)',
-            fontSize: '10px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.15em',
-            padding: '4px 12px',
-            borderRadius: '9999px',
-            marginBottom: '0.5rem',
-          }}
-        >
+        <span className="services-badge">
           Catálogo
         </span>
         <h2>Serviços e Parametrização Comercial</h2>
@@ -299,17 +400,20 @@ export const Servicos: React.FC = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="service-price">
-                  {priceType === 'starting_at' ? 'Valor Inicial (R$) *' : 'Preço Fixo (R$) *'}
+                  {priceType === 'starting_at' ? 'Valor Inicial *' : 'Preço Fixo *'}
                 </label>
-                <input
-                  id="service-price"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Ex: 50,00"
-                  value={price}
-                  onChange={handlePriceChange}
-                  required
-                />
+                <div className="input-group input-group--prefix">
+                  <span className="input-group__prefix">R$</span>
+                  <input
+                    id="service-price"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={price}
+                    onChange={handlePriceChange}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="form-group">
@@ -333,7 +437,7 @@ export const Servicos: React.FC = () => {
 
             {/* DURAÇÃO PADRÃO */}
             <div className="form-group">
-              <label>
+              <label htmlFor="service-duration">
                 Duração Padrão:{' '}
                 <span className="duration-highlight">
                   {duration < 60
@@ -345,15 +449,21 @@ export const Servicos: React.FC = () => {
               </label>
               <div className="slider-container">
                 <input
+                  id="service-duration"
                   type="range"
                   min="5"
                   max="180"
                   step="5"
                   value={duration}
+                  aria-label="Duração padrão do serviço"
+                  aria-valuemin={5}
+                  aria-valuemax={180}
+                  aria-valuenow={duration}
+                  aria-valuetext={`${duration} minutos`}
                   onChange={(e) => setDuration(parseInt(e.target.value, 10))}
                   className="duration-slider"
                 />
-                <div className="slider-labels">
+                <div className="slider-labels" aria-hidden="true">
                   <span>5m</span>
                   <span>40m (padrão)</span>
                   <span>1h</span>
@@ -377,11 +487,12 @@ export const Servicos: React.FC = () => {
                     max="365"
                     placeholder="Ex: 20"
                     value={returnPeriodDays}
+                    aria-describedby="return-period-helper"
                     onChange={(e) => setReturnPeriodDays(e.target.value)}
                   />
                   <span className="input-group__suffix">dias</span>
                 </div>
-                <span className="input-helper">
+                <span id="return-period-helper" className="input-helper">
                   Usado pelo motor de reativação para lembrar clientes quando estiver na hora de cortar.
                 </span>
               </div>
@@ -394,6 +505,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{cliente}')}
                     className="tag-helper-btn"
+                    aria-label="Inserir tag de nome do cliente no template"
                   >
                     {'{cliente}'}
                   </button>
@@ -401,6 +513,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{servico}')}
                     className="tag-helper-btn"
+                    aria-label="Inserir tag de nome do serviço no template"
                   >
                     {'{servico}'}
                   </button>
@@ -408,6 +521,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{dias}')}
                     className="tag-helper-btn"
+                    aria-label="Inserir tag de dias de retorno no template"
                   >
                     {'{dias}'}
                   </button>
@@ -415,6 +529,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{link}')}
                     className="tag-helper-btn"
+                    aria-label="Inserir tag de link de agendamento no template"
                   >
                     {'{link}'}
                   </button>
@@ -432,6 +547,7 @@ export const Servicos: React.FC = () => {
               {/* PREVIEW DA MENSAGEM */}
               <div className="whatsapp-preview-card">
                 <div className="whatsapp-preview-header">
+                  <HugeiconsIcon icon={WhatsappIcon} size={15} />
                   <span>Prévia do WhatsApp (Instância Conectada)</span>
                 </div>
                 <p className="whatsapp-preview-text">{previewMessage}</p>
@@ -450,20 +566,26 @@ export const Servicos: React.FC = () => {
             </div>
 
             {editingId && (
-              <div className="form-group checkbox-group">
-                <input
-                  type="checkbox"
-                  id="service-active"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                />
-                <label htmlFor="service-active">Serviço Ativo para novos agendamentos</label>
+              <div className="form-group form-switch-group">
+                <label htmlFor="service-active" className="switch-text-label">
+                  Serviço ativo para novos agendamentos
+                </label>
+                <label className="switch" aria-label="Status do serviço">
+                  <input
+                    type="checkbox"
+                    id="service-active"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                  />
+                  <span className="slider" />
+                </label>
               </div>
             )}
 
             <div className="form-actions">
               {editingId && (
                 <button type="button" onClick={resetForm} className="btn btn--outline-secondary">
+                  <HugeiconsIcon icon={Cancel01Icon} size={16} />
                   Cancelar
                 </button>
               )}
@@ -471,9 +593,15 @@ export const Servicos: React.FC = () => {
                 {saving ? (
                   <div className="spinner spinner--sm" />
                 ) : editingId ? (
-                  'Salvar Alterações'
+                  <>
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
+                    Salvar Alterações
+                  </>
                 ) : (
-                  'Adicionar Serviço'
+                  <>
+                    <HugeiconsIcon icon={PlusSignIcon} size={16} />
+                    Adicionar Serviço
+                  </>
                 )}
               </button>
             </div>
@@ -485,14 +613,8 @@ export const Servicos: React.FC = () => {
           <h3>Lista de Serviços</h3>
 
           {loading ? (
-            <div className="loading-state">
-              <div
-                className="spinner"
-                style={{
-                  borderColor: 'var(--color-brand-primary)',
-                  borderTopColor: 'transparent',
-                }}
-              />
+            <div className="loading-state" role="status" aria-live="polite">
+              <div className="spinner spinner--brand" />
               <p>Carregando serviços...</p>
             </div>
           ) : services.length === 0 ? (
@@ -501,79 +623,22 @@ export const Servicos: React.FC = () => {
               <span className="empty-desc">Cadastre o primeiro serviço no painel ao lado.</span>
             </div>
           ) : (
-            <div className="services-list-container">
-              {categories.map((cat) => {
-                const catServices = services.filter((s) => s.category === cat);
-                if (catServices.length === 0) return null;
-
-                return (
-                  <div key={cat} className="category-group">
-                    <h4 className="category-title">{cat}</h4>
-                    <div className="services-items-grid">
-                      {catServices.map((service) => (
-                        <div
-                          key={service.id}
-                          className={`service-item-card ${
-                            !service.is_active ? 'service-item-card--inactive' : ''
-                          }`}
-                        >
-                          <div className="service-card-main">
-                            <div className="service-info-header">
-                              <h5>{service.name}</h5>
-                              <div className="service-price-block">
-                                {service.price_type === 'starting_at' && (
-                                  <span className="price-type-tag">A partir de</span>
-                                )}
-                                <span className="service-price font-mono">
-                                  R$ {service.price.toFixed(2).replace('.', ',')}
-                                </span>
-                              </div>
-                            </div>
-
-                            {service.description && (
-                              <p className="service-description">{service.description}</p>
-                            )}
-
-                            <div className="service-meta-badges">
-                              <span className="meta-badge">
-                                ⏱ {service.duration_minutes || 40} min
-                              </span>
-                              {service.return_period_days && (
-                                <span className="meta-badge meta-badge--retorno">
-                                  🔄 Retorno: ~{service.return_period_days} dias
-                                </span>
-                              )}
-                              {service.commission_percentage !== null && (
-                                <span className="meta-badge meta-badge--comm">
-                                  Comissão: {service.commission_percentage}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="service-card-footer">
-                            <button
-                              onClick={() => toggleServiceStatus(service.id, service.is_active)}
-                              className={`status-toggle-btn ${
-                                service.is_active ? 'status-toggle-btn--active' : ''
-                              }`}
-                            >
-                              {service.is_active ? 'Ativo' : 'Inativo'}
-                            </button>
-
-                            <button
-                              onClick={() => handleEdit(service)}
-                              className="btn-action-edit"
-                            >
-                              Editar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+            <div className="services-list-container" aria-busy={loading}>
+              {categorizedServices.map(({ category: cat, items }) => (
+                <div key={cat} className="category-group">
+                  <h4 className="category-title">{cat}</h4>
+                  <div className="services-items-grid">
+                    {items.map((service) => (
+                      <ServiceItemCard
+                        key={service.id}
+                        service={service}
+                        onToggleStatus={toggleServiceStatus}
+                        onEdit={handleEdit}
+                      />
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -584,6 +649,19 @@ export const Servicos: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
+        }
+
+        .services-badge {
+          display: inline-block;
+          background: rgba(217, 108, 0, 0.12);
+          color: var(--color-brand-primary);
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          padding: 4px 12px;
+          border-radius: var(--radius-full);
+          margin-bottom: 0.5rem;
         }
 
         .services-header-intro h2 {
@@ -611,9 +689,31 @@ export const Servicos: React.FC = () => {
           }
         }
 
+        @media (max-width: 600px) {
+          .card {
+            padding: 1.15rem;
+          }
+
+          .form-row {
+            grid-template-columns: 1fr !important;
+          }
+
+          .service-item-card {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.85rem;
+          }
+
+          .service-card-footer {
+            justify-content: space-between;
+            width: 100%;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--color-border);
+          }
+        }
+
         .card {
-          background: rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(12px);
+          background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           padding: 1.5rem;
@@ -662,7 +762,7 @@ export const Servicos: React.FC = () => {
         }
 
         .form-group input, .form-group select, .form-group textarea {
-          padding: 0.65rem 0.85rem;
+          padding: 0.7rem 0.85rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
@@ -670,6 +770,12 @@ export const Servicos: React.FC = () => {
           font-size: var(--font-size-sm);
           outline: none;
           transition: all 0.2s ease;
+        }
+
+        @media (max-width: 768px) {
+          .form-group input, .form-group select, .form-group textarea {
+            font-size: 16px; /* Evita auto-zoom do Safari iOS */
+          }
         }
 
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
@@ -685,26 +791,27 @@ export const Servicos: React.FC = () => {
         .slider-container {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 0.35rem;
         }
 
         .duration-slider {
           accent-color: var(--color-brand-primary);
           cursor: pointer;
+          height: 32px;
         }
 
         .slider-labels {
           display: flex;
           justify-content: space-between;
-          font-size: 10px;
+          font-size: 11px;
           color: var(--color-text-secondary);
         }
 
         .commercial-section {
-          background: rgba(234, 222, 214, 0.25);
+          background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 1rem;
+          padding: 1.15rem;
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
@@ -713,7 +820,7 @@ export const Servicos: React.FC = () => {
         .template-tags-helper {
           display: flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: 0.5rem;
           flex-wrap: wrap;
           font-size: 11px;
           color: var(--color-text-secondary);
@@ -722,41 +829,46 @@ export const Servicos: React.FC = () => {
 
         .tag-helper-btn {
           background: rgba(217, 108, 0, 0.1);
-          border: 1px solid rgba(217, 108, 0, 0.2);
-          border-radius: 4px;
+          border: 1px solid rgba(217, 108, 0, 0.25);
+          border-radius: var(--radius-sm);
           color: var(--color-brand-primary);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 700;
-          padding: 2px 6px;
+          padding: 6px 10px;
+          min-height: 32px;
+          display: inline-flex;
+          align-items: center;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .tag-helper-btn:hover {
           background: var(--color-brand-primary);
-          color: #ffffff;
+          color: var(--color-brand-lightest);
         }
 
         .whatsapp-preview-card {
-          background: #ffffff;
-          border: 1px solid #25d36640;
-          border-left: 3px solid #25d366;
-          border-radius: 8px;
-          padding: 0.75rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 0.875rem 1rem;
           font-size: 12px;
         }
 
         .whatsapp-preview-header {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #128c7e;
+          color: var(--color-success);
           margin-bottom: 0.35rem;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
         }
 
         .whatsapp-preview-text {
-          color: #1f2937;
+          color: var(--color-text-primary);
           margin: 0;
           line-height: 1.4;
           word-break: break-word;
@@ -776,7 +888,7 @@ export const Servicos: React.FC = () => {
 
         .input-group input {
           width: 100%;
-          padding-right: 2.2rem;
+          padding-right: 2.5rem;
         }
 
         .input-group__suffix {
@@ -787,16 +899,49 @@ export const Servicos: React.FC = () => {
           font-weight: 700;
         }
 
-        .checkbox-group {
+        .form-switch-group {
+          display: flex;
           flex-direction: row;
+          justify-content: space-between;
           align-items: center;
-          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+        }
+
+        .switch-text-label {
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          color: var(--color-text-primary);
+          cursor: pointer;
         }
 
         .form-actions {
           display: flex;
           gap: 0.75rem;
           margin-top: 0.5rem;
+        }
+
+        .btn--outline-secondary {
+          background: transparent;
+          border: 1px solid var(--color-border);
+          color: var(--color-text-secondary);
+          border-radius: var(--radius-full);
+          padding: 0.75rem 1.25rem;
+          font-weight: 600;
+          font-size: var(--font-size-sm);
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn--outline-secondary:hover {
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          border-color: var(--color-text-secondary);
         }
 
         .services-list-container {
@@ -840,7 +985,7 @@ export const Servicos: React.FC = () => {
         }
 
         .service-item-card--inactive {
-          opacity: 0.5;
+          opacity: 0.6;
         }
 
         .service-card-main {
@@ -854,6 +999,8 @@ export const Servicos: React.FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: baseline;
+          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
         .service-info-header h5 {
@@ -861,6 +1008,7 @@ export const Servicos: React.FC = () => {
           font-weight: 800;
           color: var(--color-text-primary);
           margin: 0;
+          word-break: break-word;
         }
 
         .service-price-block {
@@ -887,6 +1035,7 @@ export const Servicos: React.FC = () => {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           margin: 0;
+          word-break: break-word;
         }
 
         .service-meta-badges {
@@ -898,54 +1047,116 @@ export const Servicos: React.FC = () => {
 
         .meta-badge {
           font-size: 11px;
-          background: rgba(45, 35, 30, 0.06);
-          padding: 2px 8px;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          padding: 3px 10px;
           border-radius: var(--radius-full);
           color: var(--color-text-secondary);
           font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
         }
 
         .meta-badge--retorno {
-          background: rgba(217, 108, 0, 0.1);
+          background: rgba(217, 108, 0, 0.12);
+          border-color: rgba(217, 108, 0, 0.25);
           color: var(--color-brand-primary);
         }
 
         .meta-badge--comm {
-          background: rgba(14, 159, 110, 0.1);
+          background: var(--color-success-bg, rgba(14, 159, 110, 0.12));
+          border-color: rgba(14, 159, 110, 0.25);
           color: var(--color-success);
         }
 
         .service-card-footer {
           display: flex;
           align-items: center;
+          gap: 0.85rem;
+          flex-shrink: 0;
+        }
+
+        /* Switch Toggle Component */
+        .status-switch-wrapper {
+          display: flex;
+          align-items: center;
           gap: 0.5rem;
         }
 
-        .status-toggle-btn {
-          font-size: 11px;
+        .status-switch-label {
+          font-size: var(--font-size-xs);
           font-weight: 700;
-          padding: 0.3rem 0.65rem;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
-          background: transparent;
           color: var(--color-text-secondary);
-          cursor: pointer;
-          transition: all 0.2s ease;
+          transition: color 0.2s ease;
+          min-width: 44px;
         }
 
-        .status-toggle-btn--active {
-          background: rgba(14, 159, 110, 0.12);
-          border-color: rgba(14, 159, 110, 0.3);
+        .status-switch-label--active {
           color: var(--color-success);
+        }
+
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 38px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+
+        .switch input {
+          width: 0;
+          height: 0;
+          opacity: 0;
+          position: absolute;
+        }
+
+        .slider {
+          position: absolute;
+          inset: 0;
+          cursor: pointer;
+          border-radius: var(--radius-full);
+          background-color: var(--color-border);
+          transition: background-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .slider::before {
+          position: absolute;
+          bottom: 3px;
+          left: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background-color: #ffffff;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          content: '';
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .switch input:checked + .slider {
+          background-color: var(--color-success);
+        }
+
+        .switch input:focus-visible + .slider {
+          box-shadow: 0 0 0 3px rgba(14, 159, 110, 0.25);
+        }
+
+        .switch input:checked + .slider::before {
+          transform: translateX(16px);
         }
 
         .btn-action-edit {
           font-size: 12px;
           font-weight: 700;
-          padding: 0.35rem 0.75rem;
+          padding: 0.5rem 0.95rem;
+          min-height: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
           border-radius: var(--radius-md);
           background: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.2);
+          border: 1px solid rgba(217, 108, 0, 0.25);
           color: var(--color-brand-primary);
           cursor: pointer;
           transition: all 0.2s ease;
@@ -953,7 +1164,12 @@ export const Servicos: React.FC = () => {
 
         .btn-action-edit:hover {
           background: var(--color-brand-primary);
-          color: #ffffff;
+          color: var(--color-brand-lightest);
+        }
+
+        .spinner--brand {
+          border-color: rgba(217, 108, 0, 0.2);
+          border-top-color: var(--color-brand-primary);
         }
       `}</style>
     </div>

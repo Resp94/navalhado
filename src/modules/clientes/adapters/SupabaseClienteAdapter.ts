@@ -1,11 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { calculateLTVMetrics } from '../utils';
 import type {
   Cliente,
   ClienteInputData,
   HistoricoVisitasCliente,
   ComandaHistoricoCliente,
-  MetricasLTVCliente,
   IClienteAdapter,
 } from '../types';
 
@@ -165,15 +163,6 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         }),
       };
     });
-  }
-
-
-  calcularMetricasLTV(
-    clienteId: string,
-    appointments: HistoricoVisitasCliente[],
-    comandas: ComandaHistoricoCliente[]
-  ): MetricasLTVCliente {
-    return calculateLTVMetrics(clienteId, appointments, comandas);
   }
 }
 

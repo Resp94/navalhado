@@ -138,5 +138,15 @@ describe('ClienteRepository', () => {
     expect(metrics.averageTicket).toBe(80);
     expect(metrics.lastVisitDate).not.toBeNull();
   });
+
+  it('deve cadastrar cliente provisório com sucesso', async () => {
+    const prov = await repo.saveProvisionalCustomer(tenantId, {
+      name: 'Cliente Balcão',
+      phone: '11977776666',
+    });
+    expect(prov.cadastro_completo).toBe(false);
+    expect(prov.name).toBe('Cliente Balcão');
+    expect(prov.phone).toBe('11977776666');
+  });
 });
 

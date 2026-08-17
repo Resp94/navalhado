@@ -1,10 +1,8 @@
-import { calculateLTVMetrics } from '../utils';
 import type {
   Cliente,
   ClienteInputData,
   HistoricoVisitasCliente,
   ComandaHistoricoCliente,
-  MetricasLTVCliente,
   IClienteAdapter,
 } from '../types';
 
@@ -79,14 +77,6 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
 
   async buscarHistoricoComandas(_tenantId: string, clienteId: string): Promise<ComandaHistoricoCliente[]> {
     return this.comandasMap[clienteId] || [];
-  }
-
-  calcularMetricasLTV(
-    clienteId: string,
-    appointments: HistoricoVisitasCliente[],
-    comandas: ComandaHistoricoCliente[]
-  ): MetricasLTVCliente {
-    return calculateLTVMetrics(clienteId, appointments, comandas);
   }
 }
 

@@ -7,6 +7,7 @@ import type {
   MetricasLTVCliente,
 } from './types';
 import { DEFAULT_LTV_METRICS } from './types';
+import { calculateLTVMetrics } from './utils';
 
 export class ClienteValidationError extends Error {
   constructor(message: string) {
@@ -29,16 +30,23 @@ export class ClienteRepository {
     this.adapter = adapter;
   }
 
+  private validatePhone(phone: string): string {
+    if (!phone || !phone.trim()) {
+      throw new ClienteValidationError('O telefone é obrigatório.');
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 8) {
+      throw new ClienteValidationError('O formato do telefone informado é inválido.');
+    }
+    return phone.trim();
+  }
+
   async listByTenant(tenantId: string): Promise<Cliente[]> {
     if (!tenantId || !tenantId.trim()) {
       throw new ClienteValidationError('ID da barbearia (tenant) é obrigatório.');
     }
     const list = await this.adapter.listarPorTenant(tenantId);
     return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }
-
-  async list(tenantId: string): Promise<Cliente[]> {
-    return this.listByTenant(tenantId);
   }
 
   async saveCustomer(tenantId: string, input: ClienteInputData): Promise<Cliente> {
@@ -48,14 +56,7 @@ export class ClienteRepository {
     if (!input.name || !input.name.trim()) {
       throw new ClienteValidationError('O nome do cliente é obrigatório.');
     }
-    if (!input.phone || !input.phone.trim()) {
-      throw new ClienteValidationError('O telefone é obrigatório.');
-    }
-
-    const digitsOnly = input.phone.replace(/\D/g, '');
-    if (digitsOnly.length < 8) {
-      throw new ClienteValidationError('O formato do telefone informado é inválido.');
-    }
+    const sanitizedPhone = this.validatePhone(input.phone);
 
     if (input.email && input.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,7 +68,7 @@ export class ClienteRepository {
     const payload: ClienteInputData = {
       ...input,
       name: input.name.trim(),
-      phone: input.phone.trim(),
+      phone: sanitizedPhone,
       email: input.email ? input.email.trim().toLowerCase() : null,
       notes: input.notes ? input.notes.trim() : null,
       cadastro_completo: input.cadastro_completo ?? true,
@@ -80,10 +81,6 @@ export class ClienteRepository {
     return await this.adapter.salvarCliente(tenantId, payload);
   }
 
-  async save(tenantId: string, input: ClienteInputData): Promise<Cliente> {
-    return this.saveCustomer(tenantId, input);
-  }
-
   async saveProvisionalCustomer(tenantId: string, input: { name: string; phone: string }): Promise<Cliente> {
     if (!tenantId || !tenantId.trim()) {
       throw new ClienteValidationError('ID da barbearia (tenant) é obrigatório.');
@@ -91,18 +88,11 @@ export class ClienteRepository {
     if (!input.name || !input.name.trim()) {
       throw new ClienteValidationError('O nome do cliente é obrigatório.');
     }
-    if (!input.phone || !input.phone.trim()) {
-      throw new ClienteValidationError('O telefone é obrigatório.');
-    }
-
-    const digitsOnly = input.phone.replace(/\D/g, '');
-    if (digitsOnly.length < 8) {
-      throw new ClienteValidationError('O formato do telefone informado é inválido.');
-    }
+    const sanitizedPhone = this.validatePhone(input.phone);
 
     return await this.adapter.salvarCliente(tenantId, {
       name: input.name.trim(),
-      phone: input.phone.trim(),
+      phone: sanitizedPhone,
       cadastro_completo: false, // Cliente provisório de balcão
     });
   }
@@ -139,6 +129,6 @@ export class ClienteRepository {
     if (!customerId) {
       return { ...DEFAULT_LTV_METRICS };
     }
-    return this.adapter.calcularMetricasLTV(customerId, appointments || [], comandas || []);
+    return calculateLTVMetrics(customerId, appointments || [], comandas || []);
   }
 }

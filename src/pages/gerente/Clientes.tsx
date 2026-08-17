@@ -267,9 +267,9 @@ export const Clientes: React.FC = () => {
           <span className="stat-card__helper">Nome e dados confirmados</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card__eyebrow">Contatos rápidos</span>
+          <span className="stat-card__eyebrow">Clientes provisórios</span>
           <span className="stat-card__number stat-card__number--warning">{stats.provisoriosCount}</span>
-          <span className="stat-card__helper">Apenas primeiro contato pelo WhatsApp</span>
+          <span className="stat-card__helper">Cadastros rápidos de balcão</span>
         </div>
       </section>
 
@@ -312,7 +312,7 @@ export const Clientes: React.FC = () => {
             className={`btn-filter ${filterStatus === 'provisorios' ? 'btn-filter--active' : ''}`}
             aria-pressed={filterStatus === 'provisorios'}
           >
-            WhatsApp
+            Provisórios
           </button>
         </div>
 
@@ -407,9 +407,9 @@ export const Clientes: React.FC = () => {
                   </td>
                   <td>
                     {customer.cadastro_completo ? (
-                      <span className="badge badge--success">Cadastrado</span>
+                      <span className="badge badge--success">Completo</span>
                     ) : (
-                      <span className="badge badge--warning">WhatsApp</span>
+                      <span className="badge badge--warning">Provisório</span>
                     )}
                   </td>
                   <td>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
@@ -641,9 +641,9 @@ export const Clientes: React.FC = () => {
                   <span className="customer-email font-mono">{customerToDelete.phone}</span>
                 </div>
                 {customerToDelete.cadastro_completo ? (
-                  <span className="badge badge--success">Cadastrado</span>
+                  <span className="badge badge--success">Completo</span>
                 ) : (
-                  <span className="badge badge--warning">WhatsApp</span>
+                  <span className="badge badge--warning">Provisório</span>
                 )}
               </div>
 

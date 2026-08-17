@@ -171,8 +171,8 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     expect(screen.getByText('João Silva')).toBeInTheDocument();
     expect(screen.queryByText('Visitante Zap')).not.toBeInTheDocument();
 
-    // Clicar no filtro "WhatsApp"
-    const btnProvisorios = screen.getByRole('button', { name: 'WhatsApp' });
+    // Clicar no filtro "Provisórios"
+    const btnProvisorios = screen.getByRole('button', { name: 'Provisórios' });
     fireEvent.click(btnProvisorios);
 
     expect(screen.queryByText('João Silva')).not.toBeInTheDocument();
