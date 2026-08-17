@@ -602,21 +602,17 @@ export const Whatsapp: React.FC = () => {
     }
   };
 
+  const EVENT_ICONS: Record<WhatsappTemplateKey, any> = {
+    confirmation: Tick02Icon,
+    reschedule: CalendarAdd01Icon,
+    cancellation: CalendarRemove01Icon,
+    reminder: Clock01Icon,
+    first_contact: Message01Icon,
+  };
+
   const getEventIcon = (key: WhatsappTemplateKey) => {
-    switch (key) {
-      case 'confirmation':
-        return <HugeiconsIcon icon={Tick02Icon} size={16} />;
-      case 'reschedule':
-        return <HugeiconsIcon icon={CalendarAdd01Icon} size={16} />;
-      case 'cancellation':
-        return <HugeiconsIcon icon={CalendarRemove01Icon} size={16} />;
-      case 'reminder':
-        return <HugeiconsIcon icon={Clock01Icon} size={16} />;
-      case 'first_contact':
-        return <HugeiconsIcon icon={Message01Icon} size={16} />;
-      default:
-        return <HugeiconsIcon icon={Calendar03Icon} size={16} />;
-    }
+    const IconComponent = EVENT_ICONS[key] || Calendar03Icon;
+    return <HugeiconsIcon icon={IconComponent} size={16} />;
   };
 
   const renderedPreviewText = interpolateTemplate(activeDraftText, {
@@ -1176,7 +1172,7 @@ export const Whatsapp: React.FC = () => {
         /* ═══ CARD BASE ═══ */
         .card-whatsapp {
           background: var(--color-bg-secondary);
-          border-radius: 1.25rem;
+          border-radius: var(--radius-lg);
           border: 1px solid rgba(234, 222, 214, 0.5);
           box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1809,7 +1805,7 @@ export const Whatsapp: React.FC = () => {
 
         .phone-preview-card {
           background: #EFEAE2;
-          border-radius: 1.25rem;
+          border-radius: var(--radius-lg);
           border: 1px solid rgba(200, 190, 180, 0.6);
           overflow: hidden;
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
