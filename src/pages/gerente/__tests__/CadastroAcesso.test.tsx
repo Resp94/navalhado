@@ -80,16 +80,16 @@ describe('CadastroAcesso', () => {
     render(<CadastroAcesso />);
 
     await screen.findByRole('option', { name: /Carlos/ });
-    fireEvent.change(screen.getByLabelText('1. Selecione o Barbeiro'), {
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), {
       target: { value: 'prof-1' },
     });
-    fireEvent.change(screen.getByLabelText('2. E-mail de Login'), {
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), {
       target: { value: 'carlos@example.com' },
     });
-    fireEvent.change(screen.getByLabelText('3. Senha de acesso'), {
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), {
       target: { value: 'segredo123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar e Criar Acesso' }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(expect.any(String), 'error');

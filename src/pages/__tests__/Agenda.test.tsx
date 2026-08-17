@@ -29,6 +29,7 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useOutletContext: () => mockOutletContext,
+    useLocation: () => ({ state: null, pathname: '/agenda' }),
   };
 });
 

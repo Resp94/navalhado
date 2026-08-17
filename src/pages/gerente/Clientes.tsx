@@ -716,7 +716,7 @@ export const Clientes: React.FC = () => {
               </button>
             </header>
 
-            {/* Ações Rápidas de Topo (Conforme Spec: WhatsApp, Nova Comanda, Novo Agendamento e Copiar Link) */}
+            {/* Ações Rápidas de Topo (Copiar Link, WhatsApp e Novo Agendamento) */}
             <div className="drawer-quick-actions" role="toolbar" aria-label="Ações rápidas do cliente">
               <button
                 type="button"
@@ -744,19 +744,13 @@ export const Clientes: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  navigate(`/comandas?clienteId=${selectedCustomer.id}`);
-                  addToast(`Iniciando comanda para ${selectedCustomer.name}`, 'info');
-                }}
-                className="btn btn-drawer-action"
-                title="Abrir comanda para este cliente"
-                aria-label="Nova comanda"
-              >
-                <ReceiptIcon /> Nova comanda
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/agenda');
+                  navigate('/agenda', {
+                    state: {
+                      openNewAppointment: true,
+                      customerId: selectedCustomer.id,
+                      customerName: selectedCustomer.name,
+                    },
+                  });
                   addToast(`Iniciando agendamento para ${selectedCustomer.name}`, 'info');
                 }}
                 className="btn btn--primary btn-drawer-action--primary"

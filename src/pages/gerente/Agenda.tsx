@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useLocation } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
@@ -197,6 +197,25 @@ export const Agenda: React.FC = () => {
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelingAppointment, setCancelingAppointment] = useState(false);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const locState = location.state as {
+      openNewAppointment?: boolean;
+      customerId?: string;
+      customerName?: string;
+      isComanda?: boolean;
+    } | null;
+
+    if (locState?.openNewAppointment || locState?.customerId) {
+      if (locState.customerId) {
+        setCustomerMode('existing');
+        setSelectedCustomerId(locState.customerId);
+      }
+      setIsModalOpen(true);
+    }
+  }, [location.state]);
 
   // Linha Vermelha de Tempo Real (Red Line)
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState<number>(() => {

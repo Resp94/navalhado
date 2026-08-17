@@ -44,6 +44,7 @@ function App() {
           >
             <Route path="/onboarding" element={<OnboardingWizard />} />
             <Route path="/agenda" element={<GerenteAgenda />} />
+            <Route path="/comandas" element={<Navigate to="/agenda" replace />} />
             <Route path="/dashboard" element={<Navigate to="/agenda" replace />} />
             <Route path="/financeiro" element={<GerenteFinanceiro />} />
             <Route path="/profissionais" element={<GerenteProfissionais />} />
