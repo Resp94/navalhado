@@ -5,6 +5,7 @@ import type { IProdutoAdapter } from '../types';
 describe('ProdutoRepository', () => {
   const mockAdapter: IProdutoAdapter = {
     listar: vi.fn(),
+    listarAtivos: vi.fn(),
     salvarProduto: vi.fn(),
     ajustarEstoque: vi.fn(),
     buscarMovimentacoes: vi.fn(),

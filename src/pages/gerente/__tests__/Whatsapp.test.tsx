@@ -129,7 +129,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
     await waitFor(() => {
       expect(mockSelect).toHaveBeenCalledWith(
-        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation'
+        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact'
       );
     });
 
@@ -781,4 +781,152 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(screen.getByText('Conectado')).toBeInTheDocument();
     });
   });
+
+  describe('Personalização de Templates de Notificação', () => {
+    const mockConnectedInstance = {
+      id: 'inst-123',
+      tenant_id: 'tenant-test-id',
+      instance_name: 'nav_estilo_123',
+      status: 'connected',
+      qr_code: null,
+      send_confirmation: true,
+      send_reminders: true,
+      reminder_hours: 2,
+      send_cancellation: true,
+      template_confirmation: 'Olá, {cliente}! Seu agendamento foi confirmado. Link: {link}',
+      template_reschedule: null,
+      template_cancellation: null,
+      template_reminder: null,
+      template_first_contact: null,
+    };
+
+    it('deve renderizar as 5 abas de eventos e o simulador do WhatsApp', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      expect(await screen.findByRole('tab', { name: /Confirmação/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Reagendamento/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Cancelamento/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Lembrete/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Primeiro Contato/i })).toBeInTheDocument();
+
+      // Live Preview Simulator
+      expect(screen.getByText('Online agora')).toBeInTheDocument();
+      expect(screen.getByText(/Lucas Silva/i)).toBeInTheDocument();
+    });
+
+    it('deve alternar entre abas e carregar o texto respectivo', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const rescheduleTab = await screen.findByRole('tab', { name: /Reagendamento/i });
+      fireEvent.click(rescheduleTab);
+
+      expect(screen.getByText('Confirmação de Reagendamento')).toBeInTheDocument();
+      const textarea = screen.getByRole('textbox', { name: /Editor de mensagem para Confirmação de Reagendamento/i });
+      expect(textarea).toBeInTheDocument();
+    });
+
+    it('deve exibir alerta visual e desabilitar salvar quando {link} for removido', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const textarea = await screen.findByRole('textbox', { name: /Editor de mensagem para Confirmação de Agendamento/i });
+      fireEvent.change(textarea, { target: { value: 'Olá, seu horário está marcado sem link' } });
+
+      expect(await screen.findByText('Tag obrigatória ausente')).toBeInTheDocument();
+      const saveBtn = screen.getByRole('button', { name: /Salvar Modelo/i });
+      expect(saveBtn).toBeDisabled();
+    });
+
+    it('deve inserir tag clicada no chip e permitir salvar', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+      mockSingle.mockResolvedValue({
+        data: {
+          ...mockConnectedInstance,
+          template_confirmation: 'Olá, {cliente}! Link: {link} {horario}',
+        },
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const textarea = await screen.findByRole('textbox', { name: /Editor de mensagem para Confirmação de Agendamento/i });
+      fireEvent.change(textarea, { target: { value: 'Olá, {cliente}! Link: {link}' } });
+
+      const horarioChip = screen.getByRole('button', { name: /Horário/i });
+      fireEvent.click(horarioChip);
+
+      const saveBtn = screen.getByRole('button', { name: /Salvar Modelo/i });
+      expect(saveBtn).not.toBeDisabled();
+
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(mockAddToast).toHaveBeenCalledWith('Modelo de Confirmação salvo com sucesso!', 'success');
+      });
+    });
+
+    it('deve restaurar o texto padrão ao clicar em Restaurar Padrão', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const textarea = await screen.findByRole('textbox', { name: /Editor de mensagem para Confirmação de Agendamento/i }) as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: 'Mensagem customizada antiga {link}' } });
+
+      const resetBtn = screen.getByRole('button', { name: /Restaurar Padrão/i });
+      fireEvent.click(resetBtn);
+
+      expect(textarea.value).toContain('foi confirmado!');
+      expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining('Texto padrão de Confirmação restaurado'), 'info');
+    });
+
+    it('deve enviar teste do modelo de template diretamente via send-manual', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+      mockFunctionsInvoke.mockResolvedValue({ data: { success: true }, error: null });
+
+      render(<Whatsapp />);
+
+      const phoneInput = await screen.findByPlaceholderText('DDD + Número (ex: 11999999999)');
+      fireEvent.change(phoneInput, { target: { value: '11988887777' } });
+
+      const testBtn = screen.getByRole('button', { name: /Testar/i });
+      fireEvent.click(testBtn);
+
+      await waitFor(() => {
+        expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
+          body: {
+            tenant_id: 'tenant-test-id',
+            number: '11988887777',
+            text: expect.stringContaining('Lucas Silva'),
+          },
+        });
+        expect(mockAddToast).toHaveBeenCalledWith('Teste do modelo disparado com sucesso para 11988887777!', 'success');
+      });
+    });
+  });
 });
+

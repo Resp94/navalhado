@@ -31,6 +31,7 @@ export interface ComandaPagamento {
 export interface Comanda {
   id: string;
   tenant_id: string;
+  comanda_number?: number | string | null;
   appointment_id: string | null;
   customer_id: string | null;
   status: ComandaStatus;

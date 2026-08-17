@@ -44,6 +44,7 @@ export class ProdutoRepository {
 
     const payload: ProductInputData = {
       ...input,
+      id: id || input.id,
       name: input.name.trim(),
       brand: input.brand ? input.brand.trim() : null,
       category: input.category ? input.category.trim() : 'Geral',
@@ -56,7 +57,7 @@ export class ProdutoRepository {
       is_active: input.is_active ?? true,
     };
 
-    return await this.adapter.salvarProduto(tenantId, payload, id);
+    return await this.adapter.salvarProduto(tenantId, payload);
   }
 
 

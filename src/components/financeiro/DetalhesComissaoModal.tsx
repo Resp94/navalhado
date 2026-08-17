@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
-  Invoice01Icon,
   ShoppingBag01Icon,
   ScissorIcon,
 } from '@hugeicons/core-free-icons';

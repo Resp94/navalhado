@@ -3,7 +3,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
-  Coins01Icon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';

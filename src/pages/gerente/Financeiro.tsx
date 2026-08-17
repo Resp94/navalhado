@@ -67,7 +67,7 @@ export const Financeiro: React.FC = () => {
   const { addToast } = useToast();
 
   // Estados principais
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [activeTab, setActiveTab] = useState<TabType>('caixa');
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
@@ -716,7 +716,7 @@ export const Financeiro: React.FC = () => {
         session={activeSession}
         cashReceipts={activeSessionCashReceipts}
         caixaRepo={caixaRepo}
-        onCaixaFechado={(closedSession) => {
+        onCaixaFechado={(_closedSession) => {
           setActiveSession(null);
           setIsFechamentoModalOpen(false);
           addToast('Caixa do turno encerrado com sucesso!', 'success');

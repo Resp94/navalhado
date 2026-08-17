@@ -24,6 +24,8 @@ describe('ComandaCheckoutModal', () => {
     obterSessaoAtiva: vi.fn(),
     abrirCaixa: vi.fn(),
     fecharCaixa: vi.fn(),
+    listarHistorico: vi.fn(),
+    obterEntradasDinheiro: vi.fn(),
   };
 
   const mockProdutoAdapter: IProdutoAdapter = {

@@ -50,6 +50,36 @@ const formatDateTime = (dateStr: string, timeZone: string = "America/Sao_Paulo")
   return { date: formattedDate, time: formattedTime };
 };
 
+export const DEFAULT_TEMPLATES = {
+  appointment_created:
+    "Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
+  appointment_rescheduled:
+    "Olá, {cliente}! Seu reagendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
+  appointment_cancelled:
+    "Olá, {cliente}! Seu agendamento na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nSe precisar, você pode agendar um novo horário acessando: {link}\n\nAgradecemos a compreensão!",
+  appointment_reminder:
+    "Olá, {cliente}! Passando para lembrar do seu agendamento na *{barbearia}* nas próximas horas.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: {link}\n\nEsperamos você!",
+  first_contact:
+    "Olá, {cliente}! Para escolher seu serviço e agendar um horário na *{barbearia}*, acesse: {link}",
+};
+
+export const formatMessageTemplate = (
+  customTemplate: string | null | undefined,
+  fallbackTemplate: string,
+  variables: Record<string, string>
+): string => {
+  const template = customTemplate && customTemplate.trim().length > 0
+    ? customTemplate
+    : fallbackTemplate;
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
+    const lowerKey = key.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(variables, lowerKey)) {
+      return variables[lowerKey];
+    }
+    return match;
+  });
+};
+
 export const singleRelation = <T>(relation: T | T[] | null | undefined): T | null => {
   if (Array.isArray(relation)) return relation[0] ?? null;
   return relation ?? null;
@@ -793,7 +823,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
         .from(instancesTable)
-        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, updated_at`)
+        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, updated_at`)
         .eq(instanceTokenColumn, cleanInstanceToken)
         .single();
 
@@ -1007,11 +1037,17 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         const { data: customerRow } = await supabase
           .from("customers")
           .select("name")
-          .eq("id", customer.customer_id)
-          .single();
-        const clientName = customerRow?.name || pushName || "Cliente";
-
-        const messageText = `Olá, ${clientName}! Para escolher seu serviço e agendar um horário na *${barbeariaNome}*, acesse: ${appUrl}/cliente/${customer.token_acesso}/agendar`;
+        const link = `${appUrl}/cliente/${customer.token_acesso}/agendar`;
+        const variables: Record<string, string> = {
+          cliente: clientName,
+          barbearia: barbeariaNome,
+          link,
+        };
+        const messageText = formatMessageTemplate(
+          authenticatedInstance.template_first_contact,
+          DEFAULT_TEMPLATES.first_contact,
+          variables
+        );
         try {
           await provider.sendText({
             instanceName: authenticatedInstance.instance_name || instanceName || "",
@@ -1218,14 +1254,40 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const link = `${appUrl}/cliente/${customer.token_acesso}`;
 
+      const variables: Record<string, string> = {
+        cliente: customer.name || "Cliente",
+        barbearia: tenant.name || "nossa barbearia",
+        servico: service.name || "Serviço",
+        profissional: professional.name || "Profissional",
+        data: date,
+        horario: time,
+        link,
+      };
+
       let messageText = "";
 
       if (event === "appointment_created") {
-        messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi confirmado!\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: ${link}\n\nObrigado!`;
+        messageText = formatMessageTemplate(
+          config.template_confirmation,
+          DEFAULT_TEMPLATES.appointment_created,
+          variables
+        );
       } else if (event === "appointment_rescheduled" || event === "appointment_updated") {
-        messageText = `Olá, ${customer.name}! Seu reagendamento na *${tenant.name}* foi confirmado!\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: ${link}\n\nObrigado!`;
+        messageText = formatMessageTemplate(
+          config.template_reschedule,
+          DEFAULT_TEMPLATES.appointment_rescheduled,
+          variables
+        );
       } else if (event === "appointment_cancelled") {
-        messageText = `Olá, ${customer.name}! Seu agendamento na *${tenant.name}* foi cancelado.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nSe precisar, você pode agendar um novo horário acessando: ${appUrl}/cliente/${customer.token_acesso}/agendar\n\nAgradecemos a compreensão!`;
+        const cancelVariables = {
+          ...variables,
+          link: `${appUrl}/cliente/${customer.token_acesso}/agendar`,
+        };
+        messageText = formatMessageTemplate(
+          config.template_cancellation,
+          DEFAULT_TEMPLATES.appointment_cancelled,
+          cancelVariables
+        );
       }
 
       const reservation = await reserveOutboundMessage({
@@ -1373,9 +1435,21 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
-            const link = `${appUrl}/cliente/${customer.token_acesso}`;
+            const variables: Record<string, string> = {
+              cliente: customer.name || "Cliente",
+              barbearia: tenant.name || "nossa barbearia",
+              servico: service.name || "Serviço",
+              profissional: professional.name || "Profissional",
+              data: date,
+              horario: time,
+              link,
+            };
 
-            const messageText = `Olá, ${customer.name}! Passando para lembrar do seu agendamento na *${tenant.name}* nas próximas horas.\n\n📅 Data: *${date} às ${time}*\n✂️ Serviço: *${service.name}*\n👤 Profissional: *${professional.name}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: ${link}\n\nEsperamos você!`;
+            const messageText = formatMessageTemplate(
+              instance.template_reminder,
+              DEFAULT_TEMPLATES.appointment_reminder,
+              variables
+            );
 
             const reminderWindow = `${hours}h`;
             const reservation = await reserveOutboundMessage({

@@ -9,6 +9,8 @@ describe('AberturaAssistidaCaixaModal', () => {
     obterSessaoAtiva: vi.fn(),
     abrirCaixa: vi.fn(),
     fecharCaixa: vi.fn(),
+    listarHistorico: vi.fn(),
+    obterEntradasDinheiro: vi.fn(),
   };
 
   const mockRepo = new CaixaRepository(mockAdapter);

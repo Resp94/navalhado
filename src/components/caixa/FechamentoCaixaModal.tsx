@@ -4,7 +4,6 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
   AlertCircleIcon,
-  Coins01Icon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';

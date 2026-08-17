@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { createHandler, handler, singleRelation } from "./index.ts";
+import { createHandler, handler, singleRelation, formatMessageTemplate, DEFAULT_TEMPLATES } from "./index.ts";
 import {
 
   createUazapiProvider,
@@ -2157,5 +2157,39 @@ Deno.test("POST /process-return-reminders - should scan completed appointments a
   assertEquals(data.processed, 1);
 
   restoreFetch();
+});
+
+Deno.test("formatMessageTemplate: replaces dynamic tokens correctly when custom template is provided", () => {
+  const custom = "Fala {cliente}! Seu corte na {barbearia} com {profissional} é dia {data} às {horario}. Link: {link}";
+  const variables = {
+    cliente: "Lucas",
+    barbearia: "Navalhado VIP",
+    profissional: "Mestre",
+    data: "19/08/2026",
+    horario: "15:00",
+    link: "https://mock-app.com/cliente/token-123",
+  };
+
+  const result = formatMessageTemplate(custom, DEFAULT_TEMPLATES.appointment_created, variables);
+  assertEquals(result, "Fala Lucas! Seu corte na Navalhado VIP com Mestre é dia 19/08/2026 às 15:00. Link: https://mock-app.com/cliente/token-123");
+});
+
+Deno.test("formatMessageTemplate: falls back to canonical default template when custom template is null or empty", () => {
+  const variables = {
+    cliente: "Lucas",
+    barbearia: "Navalhado Club",
+    servico: "Cabelo",
+    profissional: "Carlos",
+    data: "18/08/2026",
+    horario: "14:00",
+    link: "https://mock-app.com/cliente/token-abc",
+  };
+
+  const fromNull = formatMessageTemplate(null, DEFAULT_TEMPLATES.appointment_created, variables);
+  assertEquals(fromNull.includes("Olá, Lucas! Seu agendamento na *Navalhado Club* foi confirmado!"), true);
+  assertEquals(fromNull.includes("https://mock-app.com/cliente/token-abc"), true);
+
+  const fromEmpty = formatMessageTemplate("   ", DEFAULT_TEMPLATES.appointment_rescheduled, variables);
+  assertEquals(fromEmpty.includes("Olá, Lucas! Seu reagendamento na *Navalhado Club* foi confirmado!"), true);
 });
 
