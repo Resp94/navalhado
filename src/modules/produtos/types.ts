@@ -49,9 +49,13 @@ export interface ProductMovement {
   tenant_id: string;
   product_id: string;
   movement_type: MovementType;
-  quantity_change: number;
-  new_stock_level: number;
+  quantity?: number;
+  quantity_change?: number;
+  new_stock_level?: number | null;
   notes?: string | null;
+  reason?: string | null;
+  unit_cost?: number | null;
+  comanda_id?: string | null;
   created_at: string;
 }
 

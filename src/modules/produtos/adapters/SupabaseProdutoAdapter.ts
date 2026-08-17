@@ -114,6 +114,25 @@ export class SupabaseProdutoAdapter implements IProdutoAdapter {
       throw new Error(`Erro ao buscar movimentações: ${error.message}`);
     }
 
-    return (data || []) as ProductMovement[];
+    return (data || []).map((row: any) => {
+      const isExit = ['exit_manual', 'exit_sale_comanda', 'exit_internal_use'].includes(row.movement_type);
+      const rawQty = Math.abs(Number(row.quantity ?? row.quantity_change ?? 0));
+      const delta = isExit ? -rawQty : rawQty;
+
+      return {
+        id: row.id,
+        tenant_id: row.tenant_id,
+        product_id: row.product_id,
+        movement_type: row.movement_type as MovementType,
+        quantity: rawQty,
+        quantity_change: row.quantity_change !== undefined ? Number(row.quantity_change) : delta,
+        new_stock_level: row.new_stock_level !== undefined ? Number(row.new_stock_level) : null,
+        notes: row.reason || row.notes || null,
+        reason: row.reason || row.notes || null,
+        unit_cost: row.unit_cost !== null && row.unit_cost !== undefined ? Number(row.unit_cost) : null,
+        comanda_id: row.comanda_id || null,
+        created_at: row.created_at,
+      };
+    }) as ProductMovement[];
   }
 }
