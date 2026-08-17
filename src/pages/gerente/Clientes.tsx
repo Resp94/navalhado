@@ -255,7 +255,7 @@ export const Clientes: React.FC = () => {
 
     try {
       setIsSendingWhatsApp(true);
-      const { error } = await supabase.functions.invoke('whatsapp-integration/send-test', {
+      const { error } = await supabase.functions.invoke('whatsapp-integration/send-manual', {
         body: {
           tenant_id: tenant.tenantId,
           number: selectedCustomer.phone,

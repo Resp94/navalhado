@@ -1501,79 +1501,31 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       let totalFailed = 0;
 
       for (const instance of instances || []) {
-        const { data: completedApps, error: compErr } = await supabase
-          .from("appointments")
-          .select(`
-            id,
-            tenant_id,
-            customer_id,
-            start_time,
-            status,
-            customers ( id, name, phone, token_acesso ),
-            services ( id, name, return_period_days, whatsapp_reminder_template ),
-            professionals ( name ),
-            tenants ( name, timezone )
-          `)
-          .eq("tenant_id", instance.tenant_id)
-          .eq("status", "completed")
-          .order("start_time", { ascending: false });
+        const { data: pendingReminders, error: compErr } = await supabase
+          .rpc("get_pending_return_reminders", { p_tenant_id: instance.tenant_id });
 
-        if (compErr || !completedApps) {
-          console.error(`[WhatsApp-Integration] Erro ao buscar agendamentos concluídos para retorno: ${compErr?.message}`);
+        if (compErr || !pendingReminders) {
+          console.error(`[WhatsApp-Integration] Erro ao buscar lembretes de retorno: ${compErr?.message}`);
           continue;
         }
 
-        const latestAppPerCustomer = new Map<string, typeof completedApps[0]>();
-        for (const app of completedApps) {
-          if (!latestAppPerCustomer.has(app.customer_id)) {
-            latestAppPerCustomer.set(app.customer_id, app);
-          }
-        }
-
-        const now = new Date();
-
-        for (const app of latestAppPerCustomer.values()) {
-          const customer = singleRelation(app.customers);
-          const service = singleRelation(app.services);
-          const tenant = singleRelation(app.tenants);
-
-          if (!customer?.phone || !service || !tenant) continue;
-
-          const returnDays = service.return_period_days || 20;
-          const appStartTime = new Date(app.start_time);
-          const diffDays = Math.floor((now.getTime() - appStartTime.getTime()) / (1000 * 60 * 60 * 24));
-
-          if (diffDays < returnDays) continue;
-
-          const { data: futureOrNewerApps } = await supabase
-            .from("appointments")
-            .select("id")
-            .eq("tenant_id", instance.tenant_id)
-            .eq("customer_id", customer.id)
-            .gt("start_time", app.start_time)
-            .in("status", ["confirmed", "pending"])
-            .limit(1);
-
-          if (futureOrNewerApps && futureOrNewerApps.length > 0) {
-            continue;
-          }
-
-          const clientPhone = formatPhoneNumber(customer.phone);
-          const link = `${appUrl}/cliente/${customer.token_acesso}`;
-          const defaultTemplate = `Olá, ${customer.name}! Já faz ${diffDays} dias desde sua última visita na *${tenant.name}*. Que tal renovar o visual? Agende seu horário: ${link}`;
-          const messageTemplate = service.whatsapp_reminder_template && service.whatsapp_reminder_template.trim()
-            ? service.whatsapp_reminder_template
-                .replace(/{nome_cliente}/g, customer.name)
-                .replace(/{nome_servico}/g, service.name)
-                .replace(/{barbearia}/g, tenant.name)
+        for (const item of pendingReminders) {
+          const clientPhone = formatPhoneNumber(item.customer_phone);
+          const link = `${appUrl}/cliente/${item.customer_token}`;
+          const defaultTemplate = `Olá, ${item.customer_name}! Já faz ${item.diff_days} dias desde sua última visita na *${item.tenant_name}*. Que tal renovar o visual? Agende seu horário: ${link}`;
+          const messageTemplate = item.whatsapp_reminder_template && item.whatsapp_reminder_template.trim()
+            ? item.whatsapp_reminder_template
+                .replace(/{nome_cliente}/g, item.customer_name)
+                .replace(/{nome_servico}/g, item.service_name)
+                .replace(/{barbearia}/g, item.tenant_name)
                 .replace(/{link_agendamento}/g, link)
             : defaultTemplate;
 
-          const reminderWindow = `${returnDays}d`;
+          const reminderWindow = `${item.return_period_days}d`;
           const reservation = await reserveOutboundMessage({
             tenantId: instance.tenant_id,
             instanceId: instance.id,
-            appointmentId: app.id,
+            appointmentId: item.appointment_id,
             eventType: "return_reminder",
             reminderWindow,
           });
@@ -1595,12 +1547,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               instanceToken: instance[instanceTokenColumn],
               number: clientPhone,
               text: messageTemplate,
-              idempotencyKey: `appointment:${app.id}:return_reminder:${reminderWindow}`,
+              idempotencyKey: `appointment:${item.appointment_id}:return_reminder:${reminderWindow}`,
             }, reservation.attempts || 1);
 
             const finalized = await finalizeOutboundMessage({
               tenantId: instance.tenant_id,
-              appointmentId: app.id,
+              appointmentId: item.appointment_id,
               eventType: "return_reminder",
               reminderWindow,
               status: "succeeded",
@@ -1620,7 +1572,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               sendError.status !== undefined && sendError.status >= 400 && sendError.status < 500 && sendError.status !== 429;
             await finalizeOutboundMessage({
               tenantId: instance.tenant_id,
-              appointmentId: app.id,
+              appointmentId: item.appointment_id,
               eventType: "return_reminder",
               reminderWindow,
               status: "failed",
@@ -1641,9 +1593,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     }
 
     // -------------------------------------------------------------------------
-    // ROTA: /send-test (Frontend Manual Trigger)
+    // ROTA: /send-manual | /send-direct | /send-test (Manual WhatsApp Dispatch)
     // -------------------------------------------------------------------------
-    if (path.endsWith("/send-test")) {
+    if (path.endsWith("/send-manual") || path.endsWith("/send-direct") || path.endsWith("/send-test")) {
       if (req.method !== "POST") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
           status: 405,

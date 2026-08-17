@@ -1167,7 +1167,7 @@ a.btn-drawer-action--whatsapp:hover {
 }
 
 .btn-template-chip--active {
-  background: rgba(217, 108, 0, 0.12);
+  background: var(--color-brand-lightest);
   border-color: var(--color-brand-primary);
   color: var(--color-brand-primary);
   font-weight: 700;

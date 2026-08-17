@@ -369,7 +369,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     fireEvent.click(btnDisparar);
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('whatsapp-integration/send-test', {
+      expect(mockInvoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
         body: expect.objectContaining({
           tenant_id: 'tenant-test-id',
           number: '5511999999999',
