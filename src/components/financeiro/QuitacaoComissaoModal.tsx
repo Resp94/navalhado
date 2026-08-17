@@ -12,8 +12,10 @@ import type { PaymentMethod } from '../../modules/caixa/types';
 interface QuitacaoComissaoModalProps {
   isOpen: boolean;
   professional: {
-    id: string;
-    name: string;
+    id?: string;
+    professional_id?: string;
+    name?: string;
+    professional_name?: string;
     pending_sum: number;
     commission_sum: number;
     paid_sum: number;
@@ -36,6 +38,9 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const profId = professional?.professional_id || professional?.id || '';
+  const profName = professional?.professional_name || professional?.name || 'Profissional';
 
   // Inicializar com o valor pendente quando o modal abrir
   React.useEffect(() => {
@@ -78,7 +83,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         : new Date().toISOString();
 
       const { error } = await supabase.rpc('register_commission_payout', {
-        p_professional_id: professional.id,
+        p_professional_id: profId,
         p_amount: valorNumerico,
         p_payment_method: paymentMethod,
         p_notes: notes.trim() || null,
@@ -112,7 +117,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
               Quitação de comissão
             </h3>
             <p className="comissao-modal-subtitle">
-              Repasse para <strong className="text-amber-400">{professional.name}</strong>
+              Realize o pagamento de comissão para <strong className="comissao-prof-highlight">{profName}</strong> e mantenha o saldo em dia.
             </p>
           </div>
           <button
@@ -121,23 +126,23 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
             aria-label="Fechar modal"
             type="button"
           >
-            <HugeiconsIcon icon={Cancel01Icon} size={18} />
+            <HugeiconsIcon icon={Cancel01Icon} size={20} />
           </button>
         </div>
 
         {/* Resumo da Produção do Profissional */}
         <div className="comissao-summary-box">
           <div className="comissao-summary-item">
-            <span className="comissao-summary-label">Comissão total acumulada:</span>
+            <span className="comissao-summary-label">Comissão total faturada no período:</span>
             <span className="comissao-summary-val">{formatCurrency(professional.commission_sum)}</span>
           </div>
           <div className="comissao-summary-item">
-            <span className="comissao-summary-label">Já quitado anteriormente:</span>
-            <span className="comissao-summary-val text-emerald-400">{formatCurrency(professional.paid_sum)}</span>
+            <span className="comissao-summary-label">Total já repassado anteriormente:</span>
+            <span className="comissao-summary-val comissao-summary-val--paid">{formatCurrency(professional.paid_sum)}</span>
           </div>
           <div className="comissao-summary-item highlight">
-            <span className="comissao-summary-label font-semibold text-slate-200">Saldo pendente atual:</span>
-            <span className="comissao-summary-val font-bold text-amber-400">
+            <span className="comissao-summary-label font-semibold">Saldo pendente para quitação:</span>
+            <span className="comissao-summary-val comissao-summary-val--pending">
               {formatCurrency(professional.pending_sum)}
             </span>
           </div>
@@ -155,7 +160,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
                 onClick={handleQuitarTudo}
                 className="comissao-quick-action"
               >
-                Quitar saldo total
+                Preencher saldo total pendente
               </button>
             </div>
             <div className="comissao-input-container">
@@ -185,10 +190,10 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
                 required
               >
-                <option value="pix">PIX</option>
-                <option value="cash">Dinheiro em espécie (gaveta)</option>
-                <option value="transfer">Transferência bancária (TED/DOC)</option>
-                <option value="other">Outros</option>
+                <option value="pix">PIX (transferência instantânea)</option>
+                <option value="cash">Dinheiro em espécie (retirado da gaveta)</option>
+                <option value="transfer">Transferência bancária (TED ou DOC)</option>
+                <option value="other">Outra forma de pagamento</option>
               </select>
             </div>
 
@@ -247,7 +252,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
               ) : (
                 <>
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} />
-                  <span>Confirmar pagamento</span>
+                  <span>Confirmar quitação do repasse</span>
                 </>
               )}
             </button>
@@ -260,110 +265,134 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(4px);
+          background: rgba(20, 17, 15, 0.55);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 1rem;
         }
         .comissao-modal-shell {
-          background: var(--color-bg-secondary, #18181b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-          border-radius: 1rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-lg, 1rem);
           width: 100%;
-          max-width: 480px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          max-width: 500px;
+          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
           overflow: hidden;
-          animation: comissaoFadeIn 0.15s ease-out;
+          animation: comissaoFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes comissaoFadeIn {
-          from { opacity: 0; transform: scale(0.97); }
-          to { opacity: 1; transform: scale(1); }
+          from { opacity: 0; transform: scale(0.96) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .comissao-modal-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          background: var(--color-bg-secondary, #ffffff);
         }
         .comissao-modal-title {
           font-size: 1.125rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #f4f4f5);
+          font-weight: 800;
+          color: var(--color-text-primary, #2D231E);
+          margin: 0;
+          letter-spacing: -0.01em;
         }
         .comissao-modal-subtitle {
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary, #a1a1aa);
-          margin-top: 0.125rem;
+          font-size: var(--font-size-xs, 0.8125rem);
+          color: var(--color-text-secondary, #70625B);
+          margin-top: 0.25rem;
+        }
+        .comissao-prof-highlight {
+          color: var(--color-brand-primary, #D96C00);
+          font-weight: 700;
         }
         .comissao-close-btn {
-          color: var(--color-text-muted, #71717a);
-          padding: 0.25rem;
-          border-radius: 0.375rem;
-          transition: all 0.15s ease;
+          color: var(--color-text-secondary, #70625B);
+          padding: 0.35rem;
+          border-radius: var(--radius-sm, 0.375rem);
+          transition: all 0.2s ease;
           background: transparent;
           border: none;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .comissao-close-btn:hover {
-          color: var(--color-text-primary, #f4f4f5);
-          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
         }
         .comissao-summary-box {
-          background: rgba(255, 255, 255, 0.02);
-          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
-          padding: 0.875rem 1.5rem;
+          background: var(--color-bg-primary, #FFF1E6);
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          padding: 1rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 0.375rem;
+          gap: 0.45rem;
         }
         .comissao-summary-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 0.8125rem;
+          font-size: var(--font-size-xs, 0.8125rem);
         }
         .comissao-summary-label {
-          color: var(--color-text-secondary, #a1a1aa);
+          color: var(--color-text-secondary, #70625B);
+          font-weight: 600;
         }
         .comissao-summary-val {
-          color: var(--color-text-primary, #e4e4e7);
+          color: var(--color-text-primary, #2D231E);
           font-variant-numeric: tabular-nums;
+          font-weight: 700;
+        }
+        .comissao-summary-val--paid {
+          color: var(--color-success, #0E9F6E);
+        }
+        .comissao-summary-val--pending {
+          color: var(--color-brand-primary, #D96C00);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 800;
         }
         .comissao-summary-item.highlight {
-          border-top: 1px dashed var(--color-border, rgba(255, 255, 255, 0.1));
-          padding-top: 0.375rem;
+          border-top: 1px dashed var(--color-border, #EADED6);
+          padding-top: 0.5rem;
           margin-top: 0.25rem;
         }
         .comissao-modal-body {
           padding: 1.25rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 1.15rem;
+          background: var(--color-bg-secondary, #ffffff);
         }
         .comissao-field-group {
           display: flex;
           flex-direction: column;
-          gap: 0.375rem;
+          gap: 0.4rem;
         }
         .comissao-label {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          color: var(--color-text-primary, #e4e4e7);
+          font-size: var(--font-size-xs, 0.8125rem);
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .comissao-quick-action {
-          font-size: 0.75rem;
-          color: var(--color-brand-primary, #f59e0b);
+          font-size: var(--font-size-xs, 0.75rem);
+          color: var(--color-brand-primary, #D96C00);
           background: transparent;
           border: none;
           cursor: pointer;
-          font-weight: 500;
+          font-weight: 700;
           text-decoration: underline;
+          transition: color 0.2s ease;
         }
         .comissao-quick-action:hover {
-          color: var(--color-brand-hover, #fbbf24);
+          color: var(--color-brand-hover, #9C3F00);
         }
         .comissao-input-container {
           position: relative;
@@ -372,64 +401,68 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         }
         .comissao-input-prefix {
           position: absolute;
-          left: 1rem;
-          color: var(--color-text-muted, #71717a);
-          font-weight: 500;
+          left: 1.15rem;
+          color: var(--color-brand-primary, #D96C00);
+          font-weight: 800;
           font-size: 1.125rem;
         }
         .comissao-input {
           width: 100%;
-          background: var(--color-bg-primary, #09090b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
-          border-radius: 0.5rem;
-          padding: 0.75rem 1rem 0.75rem 3rem;
-          color: var(--color-text-primary, #f4f4f5);
-          font-size: 1.25rem;
-          font-weight: 600;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1.5px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          padding: 0.75rem 1rem 0.75rem 3.25rem;
+          color: var(--color-text-primary, #2D231E);
+          font-size: 1.35rem;
+          font-weight: 800;
           font-variant-numeric: tabular-nums;
           outline: none;
-          transition: border-color 0.15s ease;
+          transition: all 0.2s ease;
         }
         .comissao-input:focus {
-          border-color: var(--color-brand-primary, #f59e0b);
+          border-color: var(--color-brand-primary, #D96C00);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .comissao-select, .comissao-date-input {
           width: 100%;
-          background: var(--color-bg-primary, #09090b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
-          border-radius: 0.5rem;
-          padding: 0.625rem 0.875rem;
-          color: var(--color-text-primary, #f4f4f5);
-          font-size: 0.875rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          padding: 0.65rem 0.85rem;
+          color: var(--color-text-primary, #2D231E);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 600;
           outline: none;
           cursor: pointer;
-          transition: border-color 0.15s ease;
+          transition: all 0.2s ease;
         }
         .comissao-select:focus, .comissao-date-input:focus {
-          border-color: var(--color-brand-primary, #f59e0b);
+          border-color: var(--color-brand-primary, #D96C00);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .comissao-textarea {
           width: 100%;
-          background: var(--color-bg-primary, #09090b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
-          border-radius: 0.5rem;
-          padding: 0.625rem 0.875rem;
-          color: var(--color-text-primary, #f4f4f5);
-          font-size: 0.875rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          padding: 0.65rem 0.85rem;
+          color: var(--color-text-primary, #2D231E);
+          font-size: var(--font-size-sm, 0.875rem);
           outline: none;
           resize: none;
-          transition: border-color 0.15s ease;
+          transition: all 0.2s ease;
         }
         .comissao-textarea:focus {
-          border-color: var(--color-brand-primary, #f59e0b);
+          border-color: var(--color-brand-primary, #D96C00);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .comissao-error-banner {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          color: var(--color-error, #f87171);
-          padding: 0.625rem 0.875rem;
-          border-radius: 0.5rem;
-          font-size: 0.8125rem;
+          background: rgba(224, 36, 36, 0.1);
+          border: 1px solid rgba(224, 36, 36, 0.25);
+          color: var(--color-error, #E02424);
+          padding: 0.65rem 0.85rem;
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-xs, 0.8125rem);
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -440,38 +473,43 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 0.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--color-border, #EADED6);
         }
         .comissao-cancel-btn {
-          padding: 0.625rem 1rem;
-          color: var(--color-text-secondary, #a1a1aa);
-          background: transparent;
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 500;
+          padding: 0.65rem 1.25rem;
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s ease;
         }
         .comissao-cancel-btn:hover:not(:disabled) {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--color-text-primary, #f4f4f5);
+          border-color: var(--color-brand-primary, #D96C00);
+          color: var(--color-brand-primary, #D96C00);
         }
         .comissao-submit-btn {
-          padding: 0.625rem 1.25rem;
-          color: #18181b;
-          background: var(--color-brand-primary, #f59e0b);
+          padding: 0.65rem 1.35rem;
+          color: #FFF1E6;
+          background: var(--color-brand-primary, #D96C00);
           border: none;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 600;
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          transition: all 0.15s ease;
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .comissao-submit-btn:hover:not(:disabled) {
-          background: var(--color-brand-hover, #fbbf24);
+          background: var(--color-brand-hover, #9C3F00);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
         }
         .comissao-submit-btn:disabled {
           opacity: 0.5;

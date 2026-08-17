@@ -69,7 +69,7 @@ describe('QuitacaoComissaoModal', () => {
     fireEvent.change(dateInput, { target: { value: '2026-08-10' } });
 
     // Submeter formulário
-    const submitBtn = screen.getByRole('button', { name: /Confirmar pagamento/i });
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {

@@ -151,7 +151,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     render(<Financeiro />);
 
     await waitFor(() => {
-      expect(screen.getByText('Caixa diário & Turnos')).toBeInTheDocument();
+      expect(screen.getByText(/Caixa diário e turnos/i)).toBeInTheDocument();
     });
 
     // Clicar na aba Repasses de comissões

@@ -156,29 +156,29 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
         <div className="detalhes-modal-header">
           <div>
             <h3 id="modal-detalhes-comissao-title" className="detalhes-modal-title">
-              Atendimentos e itens faturados
+              Extrato de atendimentos e itens faturados
             </h3>
             <p className="detalhes-modal-subtitle">
-              Profissional: <strong>{professional.name}</strong> • Total faturado:{' '}
-              <span className="text-amber-400 font-semibold">{formatCurrency(totalFaturado)}</span>
+              Produção de <strong>{professional.name}</strong> • Total faturado:{' '}
+              <span className="detalhes-total-highlight">{formatCurrency(totalFaturado)}</span>
             </p>
           </div>
           <button
             onClick={onClose}
             className="detalhes-close-btn"
-            aria-label="Fechar modal"
+            aria-label="Fechar extrato"
             type="button"
           >
-            <HugeiconsIcon icon={Cancel01Icon} size={18} />
+            <HugeiconsIcon icon={Cancel01Icon} size={20} />
           </button>
         </div>
 
         <div className="detalhes-modal-body">
           {loading ? (
-            <div className="py-8 text-center text-slate-400 text-sm">Carregando itens faturados...</div>
+            <div className="detalhes-empty-state">Buscando itens faturados...</div>
           ) : items.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-sm">
-              Nenhum item faturado encontrado para este profissional no período selecionado.
+            <div className="detalhes-empty-state">
+              Nenhum item ou serviço concluído para este profissional no período selecionado.
             </div>
           ) : (
             <div className="detalhes-items-list">
@@ -187,7 +187,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
                   <div className="detalhes-item-icon">
                     <HugeiconsIcon
                       icon={item.item_type === 'produto' || item.product_name ? ShoppingBag01Icon : ScissorIcon}
-                      size={16}
+                      size={18}
                     />
                   </div>
                   <div className="detalhes-item-info">
@@ -214,7 +214,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
             onClick={onClose}
             className="detalhes-btn-close"
           >
-            Fechar
+            Fechar extrato
           </button>
         </div>
       </div>
@@ -224,84 +224,107 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(4px);
+          background: rgba(20, 17, 15, 0.55);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 1rem;
         }
         .detalhes-modal-shell {
-          background: var(--color-bg-secondary, #18181b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-          border-radius: 1rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-lg, 1rem);
           width: 100%;
-          max-width: 540px;
+          max-width: 560px;
           max-height: 85vh;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
           overflow: hidden;
-          animation: detalhesFadeIn 0.15s ease-out;
+          animation: detalhesFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes detalhesFadeIn {
-          from { opacity: 0; transform: scale(0.97); }
-          to { opacity: 1; transform: scale(1); }
+          from { opacity: 0; transform: scale(0.96) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .detalhes-modal-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          background: var(--color-bg-secondary, #ffffff);
         }
         .detalhes-modal-title {
           font-size: 1.125rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #f4f4f5);
+          font-weight: 800;
+          color: var(--color-text-primary, #2D231E);
+          margin: 0;
+          letter-spacing: -0.01em;
         }
         .detalhes-modal-subtitle {
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary, #a1a1aa);
-          margin-top: 0.125rem;
+          font-size: var(--font-size-xs, 0.8125rem);
+          color: var(--color-text-secondary, #70625B);
+          margin-top: 0.25rem;
+        }
+        .detalhes-total-highlight {
+          color: var(--color-brand-primary, #D96C00);
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
         }
         .detalhes-close-btn {
-          color: var(--color-text-muted, #71717a);
-          padding: 0.25rem;
-          border-radius: 0.375rem;
+          color: var(--color-text-secondary, #70625B);
+          padding: 0.35rem;
+          border-radius: var(--radius-sm, 0.375rem);
           background: transparent;
           border: none;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
         }
         .detalhes-close-btn:hover {
-          color: var(--color-text-primary, #f4f4f5);
-          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
         }
         .detalhes-modal-body {
           padding: 1.25rem 1.5rem;
           overflow-y: auto;
           flex: 1;
         }
+        .detalhes-empty-state {
+          padding: 2.5rem 1rem;
+          text-align: center;
+          font-size: var(--font-size-sm, 0.875rem);
+          color: var(--color-text-secondary, #70625B);
+        }
         .detalhes-items-list {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
         .detalhes-item-row {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
-          border-radius: 0.5rem;
+          gap: 0.85rem;
+          padding: 0.85rem 1rem;
+          background: var(--color-bg-primary, #FFF1E6);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          transition: all 0.2s ease;
+        }
+        .detalhes-item-row:hover {
+          border-color: var(--color-brand-soft, #F2B277);
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));
         }
         .detalhes-item-icon {
-          width: 2rem;
-          height: 2rem;
-          border-radius: 0.375rem;
-          background: rgba(245, 158, 11, 0.1);
-          color: var(--color-brand-primary, #f59e0b);
+          width: 2.25rem;
+          height: 2.25rem;
+          border-radius: var(--radius-md, 0.375rem);
+          background: rgba(217, 108, 0, 0.12);
+          color: var(--color-brand-primary, #D96C00);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -312,41 +335,46 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           min-width: 0;
         }
         .detalhes-item-name {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--color-text-primary, #f4f4f5);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          margin: 0;
         }
         .detalhes-item-sub {
-          font-size: 0.75rem;
-          color: var(--color-text-muted, #71717a);
+          font-size: var(--font-size-xs, 0.75rem);
+          color: var(--color-text-secondary, #70625B);
+          margin-top: 0.15rem;
         }
         .detalhes-item-price {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #f4f4f5);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 800;
+          color: var(--color-text-primary, #2D231E);
           font-variant-numeric: tabular-nums;
         }
         .detalhes-modal-footer {
           padding: 1rem 1.5rem;
-          border-top: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+          border-top: 1px solid var(--color-border, #EADED6);
           display: flex;
           justify-content: flex-end;
+          background: var(--color-bg-secondary, #ffffff);
         }
         .detalhes-btn-close {
-          padding: 0.5rem 1rem;
-          color: var(--color-text-primary, #f4f4f5);
-          background: rgba(255, 255, 255, 0.1);
-          border: none;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 500;
+          padding: 0.6rem 1.25rem;
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
           cursor: pointer;
+          transition: all 0.2s ease;
         }
         .detalhes-btn-close:hover {
-          background: rgba(255, 255, 255, 0.15);
+          border-color: var(--color-brand-primary, #D96C00);
+          color: var(--color-brand-primary, #D96C00);
         }
       `}</style>
     </div>

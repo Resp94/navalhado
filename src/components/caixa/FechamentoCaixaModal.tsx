@@ -86,7 +86,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
               Fechamento e conferência de caixa
             </h3>
             <p className="caixa-modal-subtitle">
-              Conferência física do dinheiro em gaveta do turno
+              Conte o dinheiro físico da gaveta para validar o fechamento do turno com segurança.
             </p>
           </div>
           <button
@@ -110,7 +110,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           </div>
           <div className="caixa-breakdown-item expected">
             <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado:</span>
-            <span className="caixa-breakdown-val font-bold text-amber-500">
+            <span className="caixa-breakdown-val font-bold caixa-val-highlight">
               {formatCurrency(expectedAmount)}
             </span>
           </div>
@@ -119,7 +119,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         <form onSubmit={handleConfirm} className="caixa-modal-body">
           <div className="caixa-field-group">
             <label htmlFor="closing-amount-input" className="caixa-label">
-              Valor contado na gaveta física (R$) *
+              Valor total em dinheiro contado na gaveta *
             </label>
             <div className="caixa-input-container">
               <span className="caixa-input-prefix">R$</span>
@@ -136,7 +136,6 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             </div>
           </div>
 
-          {/* Destaque de Divergência / Conferência */}
           <div
             className={`caixa-conferencia-badge ${
               Math.abs(difference) < 0.01
@@ -146,7 +145,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
                 : 'shortage'
             }`}
           >
-            <div className="flex items-center gap-2">
+            <span className="caixa-conferencia-icon">
               <HugeiconsIcon
                 icon={
                   Math.abs(difference) < 0.01
@@ -155,21 +154,14 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
                 }
                 size={18}
               />
-              <span className="font-medium text-sm">
-                {Math.abs(difference) < 0.01
-                  ? 'Caixa exato (sem divergência)'
-                  : difference > 0
-                  ? `Sobra de caixa: +${formatCurrency(difference)}`
-                  : `Quebra de caixa: ${formatCurrency(difference)}`}
-              </span>
-            </div>
-            <p className="text-xs mt-1 text-slate-400">
+            </span>
+            <span className="caixa-conferencia-text">
               {Math.abs(difference) < 0.01
-                ? 'O valor físico bate exatamente com os lançamentos do sistema.'
+                ? 'Conferência exata. O valor contado bate perfeitamente com o esperado.'
                 : difference > 0
-                ? 'Há mais dinheiro na gaveta do que o registrado nas comandas.'
-                : 'Há menos dinheiro na gaveta física do que o apurado pelo sistema.'}
-            </p>
+                ? `Sobra de caixa identificada (+${formatCurrency(difference)}). O valor físico é maior que o registrado.`
+                : `Divergência de caixa identificada (${formatCurrency(difference)}). O valor físico é menor que o esperado.`}
+            </span>
           </div>
 
           <div className="caixa-field-group">
@@ -182,7 +174,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Justificativa de troco ou divergência..."
+              placeholder="Ex: Sobra referente a gorjeta ou arredondamento de troco..."
             />
           </div>
 
@@ -204,7 +196,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             </button>
             <button
               type="submit"
-              className="caixa-submit-action-btn bg-red-600 hover:bg-red-500"
+              className="caixa-submit-action-btn"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -212,7 +204,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
               ) : (
                 <>
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} />
-                  <span>Confirmar fechamento</span>
+                  <span>Encerrar turno e fechar caixa</span>
                 </>
               )}
             </button>
@@ -225,98 +217,116 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(4px);
+          background: rgba(20, 17, 15, 0.55);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 1rem;
         }
         .caixa-modal-shell {
-          background: var(--color-bg-secondary, #18181b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-          border-radius: 1rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-lg, 1rem);
           width: 100%;
-          max-width: 480px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          max-width: 500px;
+          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
           overflow: hidden;
-          animation: caixaFadeIn 0.15s ease-out;
+          animation: caixaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes caixaFadeIn {
-          from { opacity: 0; transform: scale(0.97); }
-          to { opacity: 1; transform: scale(1); }
+          from { opacity: 0; transform: scale(0.96) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .caixa-modal-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          background: var(--color-bg-secondary, #ffffff);
         }
         .caixa-modal-title {
           font-size: 1.125rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #f4f4f5);
+          font-weight: 800;
+          color: var(--color-text-primary, #2D231E);
+          margin: 0;
+          letter-spacing: -0.01em;
         }
         .caixa-modal-subtitle {
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary, #a1a1aa);
-          margin-top: 0.125rem;
+          font-size: var(--font-size-xs, 0.8125rem);
+          color: var(--color-text-secondary, #70625B);
+          margin-top: 0.25rem;
+          line-height: 1.4;
         }
         .caixa-close-btn {
-          color: var(--color-text-muted, #71717a);
-          padding: 0.25rem;
-          border-radius: 0.375rem;
-          transition: all 0.15s ease;
+          color: var(--color-text-secondary, #70625B);
+          padding: 0.35rem;
+          border-radius: var(--radius-sm, 0.375rem);
+          transition: all 0.2s ease;
           background: transparent;
           border: none;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
         .caixa-close-btn:hover {
-          color: var(--color-text-primary, #f4f4f5);
-          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
         }
         .caixa-breakdown-summary {
-          background: rgba(255, 255, 255, 0.02);
-          border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
-          padding: 0.875rem 1.5rem;
+          background: var(--color-bg-primary, #FFF1E6);
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          padding: 1rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 0.375rem;
+          gap: 0.45rem;
         }
         .caixa-breakdown-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 0.8125rem;
+          font-size: var(--font-size-xs, 0.8125rem);
         }
         .caixa-breakdown-label {
-          color: var(--color-text-secondary, #a1a1aa);
+          color: var(--color-text-secondary, #70625B);
+          font-weight: 600;
         }
         .caixa-breakdown-val {
-          color: var(--color-text-primary, #e4e4e7);
+          color: var(--color-text-primary, #2D231E);
           font-variant-numeric: tabular-nums;
+          font-weight: 700;
+        }
+        .caixa-val-highlight {
+          color: var(--color-brand-primary, #D96C00);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 800;
         }
         .caixa-breakdown-item.expected {
-          border-top: 1px dashed var(--color-border, rgba(255, 255, 255, 0.1));
-          padding-top: 0.375rem;
+          border-top: 1px dashed var(--color-border, #EADED6);
+          padding-top: 0.5rem;
           margin-top: 0.25rem;
         }
         .caixa-modal-body {
           padding: 1.25rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 1.15rem;
+          background: var(--color-bg-secondary, #ffffff);
         }
         .caixa-field-group {
           display: flex;
           flex-direction: column;
-          gap: 0.375rem;
+          gap: 0.4rem;
         }
         .caixa-label {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          color: var(--color-text-primary, #e4e4e7);
+          font-size: var(--font-size-xs, 0.8125rem);
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .caixa-input-container {
           position: relative;
@@ -325,69 +335,84 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         }
         .caixa-input-prefix {
           position: absolute;
-          left: 1rem;
-          color: var(--color-text-muted, #71717a);
-          font-weight: 500;
+          left: 1.15rem;
+          color: var(--color-brand-primary, #D96C00);
+          font-weight: 800;
           font-size: 1.125rem;
         }
         .caixa-input {
           width: 100%;
-          background: var(--color-bg-primary, #09090b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
-          border-radius: 0.5rem;
-          padding: 0.75rem 1rem 0.75rem 3rem;
-          color: var(--color-text-primary, #f4f4f5);
-          font-size: 1.25rem;
-          font-weight: 600;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1.5px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          padding: 0.75rem 1rem 0.75rem 3.25rem;
+          color: var(--color-text-primary, #2D231E);
+          font-size: 1.35rem;
+          font-weight: 800;
           font-variant-numeric: tabular-nums;
           outline: none;
-          transition: border-color 0.15s ease;
+          transition: all 0.2s ease;
         }
         .caixa-input:focus {
-          border-color: var(--color-brand-primary, #f59e0b);
+          border-color: var(--color-brand-primary, #D96C00);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .caixa-conferencia-badge {
-          padding: 0.75rem;
-          border-radius: 0.5rem;
-          border: 1px solid transparent;
+          padding: 0.85rem 1rem;
+          border-radius: var(--radius-md, 0.5rem);
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+        }
+        .caixa-conferencia-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .caixa-conferencia-text {
+          font-size: var(--font-size-xs, 0.8125rem);
+          font-weight: 700;
+          line-height: 1.35;
         }
         .caixa-conferencia-badge.exact {
-          background: rgba(16, 185, 129, 0.1);
-          border-color: rgba(16, 185, 129, 0.25);
-          color: var(--color-success, #34d399);
+          background: var(--color-success-bg, rgba(14, 159, 110, 0.1));
+          border: 1px solid rgba(14, 159, 110, 0.3);
+          color: var(--color-success, #0E9F6E);
         }
         .caixa-conferencia-badge.surplus {
-          background: rgba(59, 130, 246, 0.1);
-          border-color: rgba(59, 130, 246, 0.25);
-          color: var(--color-info, #60a5fa);
+          background: rgba(63, 131, 248, 0.1);
+          border: 1px solid rgba(63, 131, 248, 0.3);
+          color: var(--color-info, #1C64F2);
         }
         .caixa-conferencia-badge.shortage {
-          background: rgba(239, 68, 68, 0.1);
-          border-color: rgba(239, 68, 68, 0.25);
-          color: var(--color-error, #f87171);
+          background: rgba(224, 36, 36, 0.1);
+          border: 1px solid rgba(224, 36, 36, 0.3);
+          color: var(--color-error, #E02424);
         }
         .caixa-textarea {
           width: 100%;
-          background: var(--color-bg-primary, #09090b);
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
-          border-radius: 0.5rem;
-          padding: 0.625rem 0.875rem;
-          color: var(--color-text-primary, #f4f4f5);
-          font-size: 0.875rem;
+          background: var(--color-bg-secondary, #ffffff);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          padding: 0.65rem 0.85rem;
+          color: var(--color-text-primary, #2D231E);
+          font-size: var(--font-size-sm, 0.875rem);
           outline: none;
           resize: none;
-          transition: border-color 0.15s ease;
+          transition: all 0.2s ease;
         }
         .caixa-textarea:focus {
-          border-color: var(--color-brand-primary, #f59e0b);
+          border-color: var(--color-brand-primary, #D96C00);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
         .caixa-error-banner {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          color: var(--color-error, #f87171);
-          padding: 0.625rem 0.875rem;
-          border-radius: 0.5rem;
-          font-size: 0.8125rem;
+          background: rgba(224, 36, 36, 0.1);
+          border: 1px solid rgba(224, 36, 36, 0.25);
+          color: var(--color-error, #E02424);
+          padding: 0.65rem 0.85rem;
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-xs, 0.8125rem);
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -398,34 +423,43 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 0.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--color-border, #EADED6);
         }
         .caixa-cancel-action-btn {
-          padding: 0.625rem 1rem;
-          color: var(--color-text-secondary, #a1a1aa);
-          background: transparent;
-          border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 500;
+          padding: 0.65rem 1.25rem;
+          color: var(--color-text-primary, #2D231E);
+          background: var(--color-bg-primary, #FFF1E6);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s ease;
         }
         .caixa-cancel-action-btn:hover:not(:disabled) {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--color-text-primary, #f4f4f5);
+          border-color: var(--color-brand-primary, #D96C00);
+          color: var(--color-brand-primary, #D96C00);
         }
         .caixa-submit-action-btn {
-          padding: 0.625rem 1.25rem;
+          padding: 0.65rem 1.35rem;
           color: #ffffff;
+          background: var(--color-error, #E02424);
           border: none;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 600;
+          border-radius: var(--radius-md, 0.5rem);
+          font-size: var(--font-size-sm, 0.875rem);
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          transition: all 0.15s ease;
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .caixa-submit-action-btn:hover:not(:disabled) {
+          background: #C81E1E;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(224, 36, 36, 0.25);
         }
         .caixa-submit-action-btn:disabled {
           opacity: 0.5;

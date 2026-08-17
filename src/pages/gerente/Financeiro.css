@@ -1,0 +1,592 @@
+/* ==========================================================================
+   Design System Navalhado - Módulo Hub Financeiro & Controle de Caixa
+   Paleta Terrosa Premium: Mandarin Glow, Deep Amber, Peach Veil & Warm Charcoal
+   ========================================================================== */
+
+.financeiro-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  padding-bottom: 3rem;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   1. Header do Hub Financeiro
+   ========================================================================== */
+.financeiro-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+@media (min-width: 768px) {
+  .financeiro-header {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.financeiro-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.financeiro-header-title svg {
+  color: var(--color-brand-primary);
+}
+
+.financeiro-header-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+/* Seletor de Período */
+.financeiro-period-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.period-tab-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.period-tab-btn:hover {
+  color: var(--color-brand-primary);
+}
+
+.period-tab-btn--active {
+  background: var(--color-brand-primary);
+  color: #FFF1E6 !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.period-tab-btn:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 1px;
+}
+
+/* ==========================================================================
+   2. Bento Grid de KPIs Consolidados
+   ========================================================================== */
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-brand-soft);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kpi-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon-wrap--revenue {
+  background: rgba(217, 108, 0, 0.12);
+  color: var(--color-brand-primary);
+}
+
+.kpi-icon-wrap--services {
+  background: rgba(63, 131, 248, 0.12);
+  color: var(--color-info);
+}
+
+.kpi-icon-wrap--products {
+  background: rgba(156, 63, 0, 0.12);
+  color: var(--color-brand-hover);
+}
+
+.kpi-icon-wrap--commission {
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--color-warning);
+}
+
+.kpi-icon-wrap--profit {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.kpi-value--profit {
+  color: var(--color-success);
+}
+
+.kpi-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.kpi-meta--pending {
+  color: var(--color-brand-primary);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   3. Abas Principais de Navegação Operacional
+   ========================================================================== */
+.financeiro-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+  margin-top: 0.5rem;
+}
+
+.nav-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.nav-tab-btn:hover {
+  color: var(--color-brand-primary);
+}
+
+.nav-tab-btn--active {
+  color: var(--color-brand-primary);
+  border-bottom-color: var(--color-brand-primary);
+}
+
+.nav-tab-badge {
+  padding: 0.15rem 0.5rem;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: var(--radius-full);
+  background: rgba(217, 108, 0, 0.15);
+  color: var(--color-brand-deep);
+  border: 1px solid var(--color-brand-soft);
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   4. Banner de Turno Ativo
+   ========================================================================== */
+.turn-banner {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 768px) {
+  .turn-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.turn-banner-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.turn-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.turn-banner-icon--active {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.turn-banner-icon--closed {
+  background: rgba(217, 108, 0, 0.12);
+  color: var(--color-brand-primary);
+}
+
+.turn-banner-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.turn-banner-title {
+  font-size: var(--font-size-base);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.turn-status-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.turn-status-badge--active {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid rgba(14, 159, 110, 0.3);
+}
+
+.turn-status-badge--closed {
+  background: rgba(217, 108, 0, 0.12);
+  color: var(--color-brand-deep);
+  border: 1px solid var(--color-brand-soft);
+}
+
+.turn-banner-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+.btn-turn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btn-turn-action--close {
+  background: var(--color-error);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-turn-action--close:hover {
+  background: #d83a3a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(240, 82, 82, 0.25);
+}
+
+.btn-turn-action--open {
+  background: var(--color-brand-primary);
+  color: #FFF1E6;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-turn-action--open:hover {
+  background: var(--color-brand-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
+}
+
+/* ==========================================================================
+   5. Grid Intermediário (Formas de Pagamento & Histórico)
+   ========================================================================== */
+.financeiro-split-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .financeiro-split-grid {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+.card-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-size-base);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.card-panel-title svg {
+  color: var(--color-brand-primary);
+}
+
+.card-panel-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 0.2rem;
+}
+
+/* Barras de Métodos de Pagamento */
+.payment-methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.payment-method-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.payment-method-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+}
+
+.payment-method-name {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.payment-method-amount {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.payment-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.payment-progress-bar {
+  height: 100%;
+  background: var(--color-brand-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.5s ease;
+}
+
+/* ==========================================================================
+   6. Tabelas do Hub Financeiro
+   ========================================================================== */
+.table-responsive-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  background: var(--color-bg-secondary);
+}
+
+.financeiro-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.financeiro-data-table th {
+  background: var(--color-bg-primary);
+  padding: 0.75rem 1rem;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.financeiro-data-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.financeiro-data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.financeiro-data-table tr:hover td {
+  background: rgba(217, 108, 0, 0.025);
+}
+
+/* Avatares e Badges na Tabela */
+.prof-avatar-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: rgba(217, 108, 0, 0.15);
+  color: var(--color-brand-deep);
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.cell-prof-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+}
+
+.cell-pending-amount {
+  font-weight: 800;
+  color: var(--color-brand-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-paid-amount {
+  font-weight: 700;
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.btn-table-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.btn-table-action--ghost {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.btn-table-action--ghost:hover {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+}
+
+.btn-table-action--primary {
+  background: var(--color-brand-primary);
+  color: #FFF1E6;
+}
+
+.btn-table-action--primary:hover {
+  background: var(--color-brand-hover);
+  box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
+}
+
+.table-empty-notice {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}

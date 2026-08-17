@@ -86,7 +86,7 @@ describe('FechamentoCaixaModal', () => {
     expect(screen.getByText('Fechamento e conferência de caixa')).toBeDefined();
 
     // Digitar valor contado na gaveta (250,00)
-    const input = screen.getByLabelText(/Valor contado na gaveta física/i);
+    const input = screen.getByLabelText(/Valor total em dinheiro contado na gaveta/i);
     fireEvent.change(input, { target: { value: '25000' } });
 
     // Digitar observações
@@ -94,7 +94,7 @@ describe('FechamentoCaixaModal', () => {
     fireEvent.change(notesInput, { target: { value: 'Fechado sem problemas' } });
 
     // Submeter
-    const submitBtn = screen.getByRole('button', { name: /Confirmar fechamento/i });
+    const submitBtn = screen.getByRole('button', { name: /Encerrar turno e fechar caixa/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
