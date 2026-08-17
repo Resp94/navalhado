@@ -11,6 +11,7 @@ describe('ComandaRepository', () => {
     adicionarItem: vi.fn(),
     removerItem: vi.fn(),
     liquidarComanda: vi.fn(),
+    reabrirComanda: vi.fn(),
   };
 
   const repository = new ComandaRepository(mockAdapter);
@@ -85,5 +86,24 @@ describe('ComandaRepository', () => {
 
     expect(res).toEqual(fakeComanda);
     expect(mockAdapter.criarComanda).toHaveBeenCalled();
+  });
+
+  it('reabre comanda delegando para o adapter', async () => {
+    const fakeReaberta = {
+      id: 'c-1',
+      tenant_id: 't-123',
+      appointment_id: null,
+      customer_id: null,
+      status: 'aberta' as const,
+      total_amount: 50,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+    };
+    vi.mocked(mockAdapter.reabrirComanda).mockResolvedValueOnce(fakeReaberta);
+
+    const res = await repository.reopenComanda('c-1', 't-123');
+    expect(res).toEqual(fakeReaberta);
+    expect(mockAdapter.reabrirComanda).toHaveBeenCalledWith('c-1', 't-123');
   });
 });

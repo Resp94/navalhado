@@ -145,7 +145,8 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     // Preencher formulário de cadastro
     fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Lucas Barbeiro' } });
     fireEvent.change(screen.getByLabelText(/WhatsApp \/ Celular/i), { target: { value: '(11) 98888-8888' } });
-    fireEvent.change(screen.getByLabelText(/Comissão \(%\)/i), { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText(/Comissão/i), { target: { value: '50' } });
+
 
     // Modificar horários de almoço da Segunda-feira (que já está ativa por padrão)
     const breakStartInputs = screen.getAllByLabelText('Início do Almoço');

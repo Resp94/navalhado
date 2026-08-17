@@ -99,9 +99,46 @@ interface CardLayout {
   width: string;
 }
 
+// Mapeamento e auxílio de horários de funcionamento por dia da semana
+const DAY_KEYS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+
+export const getDayBusinessHours = (
+  dateStr: string,
+  businessHours?: Record<string, { active: boolean; open: string; close: string }>
+) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayIndex = dateObj.getDay();
+  const key = DAY_KEYS[dayIndex];
+
+  const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
+    segunda: { active: true, open: '09:00', close: '18:00' },
+    terca: { active: true, open: '09:00', close: '18:00' },
+    quarta: { active: true, open: '09:00', close: '18:00' },
+    quinta: { active: true, open: '09:00', close: '18:00' },
+    sexta: { active: true, open: '09:00', close: '18:00' },
+    sabado: { active: true, open: '09:00', close: '15:00' },
+    domingo: { active: false, open: '09:00', close: '12:00' },
+  };
+
+  if (businessHours && businessHours[key]) {
+    return {
+      active: businessHours[key].active !== false,
+      open: businessHours[key].open || '09:00',
+      close: businessHours[key].close || '18:00',
+      dayLabel: key,
+    };
+  }
+
+  return {
+    ...defaultBh[key],
+    dayLabel: key,
+  };
+};
+
 // Configurações da Grade Temporal
 const SLOT_DURATION_MINUTES = 30;
-const SLOT_HEIGHT_PX = 52; // Altura em pixels de cada bloco de 30 min
+const SLOT_HEIGHT_PX = 104; // Altura em pixels de cada bloco de 30 min (espaço confortável e legível para todas as linhas e botões)
 
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
@@ -178,8 +215,6 @@ export const Agenda: React.FC = () => {
   // Horários de Início e Término da Grade (Padrão 08:00 às 20:00)
   const gridStartHour = 8;
   const gridEndHour = 20;
-  const businessHoursStart = '08:00';
-  const businessHoursEnd = '20:00';
   const totalGridMinutes = (gridEndHour - gridStartHour) * 60;
 
   // Gerar Slots de Horário da Régua
@@ -244,6 +279,19 @@ export const Agenda: React.FC = () => {
     const todayStr = dateInZone(new Date(), tenant.timezone);
     return selectedDate === todayStr;
   }, [selectedDate, tenant.timezone]);
+
+  // Fechar dropdown de filtro ao clicar fora
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.agenda-filter-container')) {
+        setIsFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFilterOpen]);
 
   // Carregar dados de Apoio (Profissionais, Serviços, Clientes)
   const loadInitialData = useCallback(async () => {
@@ -470,6 +518,12 @@ export const Agenda: React.FC = () => {
     const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
 
+    const dayBh = getDayBusinessHours(dateToCheck, tenant.businessHours);
+    if (!dayBh.active) {
+      addToast('A barbearia não abre neste dia conforme as configurações de funcionamento.', 'warning');
+      return;
+    }
+
     if (timeSlot) {
       const isPast =
         dateToCheck < currentLocalDate ||
@@ -480,10 +534,10 @@ export const Agenda: React.FC = () => {
       }
 
       const isOutsideHours =
-        timeSlot < businessHoursStart ||
-        timeSlot >= businessHoursEnd;
+        timeSlot < dayBh.open ||
+        timeSlot >= dayBh.close;
       if (isOutsideHours) {
-        addToast('Horário fora do expediente da barbearia.', 'warning');
+        addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
         return;
       }
     }
@@ -508,11 +562,11 @@ export const Agenda: React.FC = () => {
       setFormTime(timeSlot);
     } else {
       // Se não especificou slot, sugerir o próximo horário válido
-      if (dateToCheck === currentLocalDate && currentLocalTime > '08:00') {
-        const nextSlot = timeSlots.find((s) => s >= currentLocalTime && s >= businessHoursStart && s < businessHoursEnd);
-        setFormTime(nextSlot || businessHoursStart);
+      if (dateToCheck === currentLocalDate && currentLocalTime > dayBh.open) {
+        const nextSlot = timeSlots.find((s) => s >= currentLocalTime && s >= dayBh.open && s < dayBh.close);
+        setFormTime(nextSlot || dayBh.open);
       } else {
-        setFormTime(businessHoursStart);
+        setFormTime(dayBh.open);
       }
     }
 
@@ -621,12 +675,19 @@ export const Agenda: React.FC = () => {
         return;
       }
 
+      const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+      if (!dayBh.active) {
+        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
       // Bloqueio fora do expediente
       if (
-        formTime < businessHoursStart ||
-        formTime >= businessHoursEnd
+        formTime < dayBh.open ||
+        formTime >= dayBh.close
       ) {
-        addToast('Horário selecionado está fora do expediente da barbearia.', 'warning');
+        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
         setSavingAppointment(false);
         return;
       }
@@ -1016,32 +1077,32 @@ export const Agenda: React.FC = () => {
             type="button"
             className="btn-agenda-espera"
             onClick={() => setIsEsperaDrawerOpen(true)}
-            title="Lista de Espera Diária"
+            title="Ver fila de clientes aguardando no balcão"
           >
             <HugeiconsIcon icon={UserGroupIcon} size={16} />
             <span>Espera</span>
           </button>
 
-          {/* Botão + Bloquear Horário */}
+          {/* Botão Bloquear Horário */}
           <button
             type="button"
             className="btn-agenda-bloquear"
             onClick={() => setIsBloqueioModalOpen(true)}
-            title="Bloquear Horário"
+            title="Pausar horário para almoço, descanso ou saída"
           >
             <HugeiconsIcon icon={UnavailableIcon} size={16} />
-            <span>+ Bloquear</span>
+            <span>Bloquear</span>
           </button>
 
-          {/* Botão Mestre + Encaixe */}
+          {/* Botão Mestre Encaixe */}
           <button
             type="button"
             className="btn-master-encaixe"
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
-            title="Novo Encaixe Rápido"
+            title="Atender cliente que chegou agora sem agendamento"
           >
             <HugeiconsIcon icon={PlusSignIcon} size={18} />
-            <span>+ Encaixe</span>
+            <span>Encaixe</span>
           </button>
         </div>
       </header>
@@ -1121,12 +1182,16 @@ export const Agenda: React.FC = () => {
                             const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
                             const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
 
+                            const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+                            const isDayClosed = !dayBh.active;
+
                             const isPast =
                               selectedDate < currentLocalDate ||
                               (selectedDate === currentLocalDate && slot < currentLocalTime);
                             const isOutsideHours =
-                              slot < businessHoursStart ||
-                              slot >= businessHoursEnd;
+                              isDayClosed ||
+                              slot < dayBh.open ||
+                              slot >= dayBh.close;
 
                             const slotApps = profAppointments.filter(
                               (app) =>
@@ -1144,12 +1209,16 @@ export const Agenda: React.FC = () => {
                             else if (isSlotFull) slotClass += ' grid-slot-cell--full';
 
                             const handleCellClick = () => {
+                              if (isDayClosed) {
+                                addToast('A barbearia está fechada neste dia conforme as configurações.', 'warning');
+                                return;
+                              }
                               if (isPast) {
                                 addToast('Horário já decorrido.', 'warning');
                                 return;
                               }
                               if (isOutsideHours) {
-                                addToast('Horário fora do funcionamento da barbearia.', 'warning');
+                                addToast(`Horário fora do funcionamento da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
                                 return;
                               }
                               if (isSlotFull) {
@@ -1169,10 +1238,12 @@ export const Agenda: React.FC = () => {
                                 className={slotClass}
                                 onClick={handleCellClick}
                                 title={
-                                  isPast
+                                  isDayClosed
+                                    ? `Barbearia fechada neste dia (${slot})`
+                                    : isPast
                                     ? `Horário decorrido (${slot})`
                                     : isOutsideHours
-                                    ? `Fora do expediente (${slot})`
+                                    ? `Fora do expediente (${slot}) - Funcionamento: ${dayBh.open} às ${dayBh.close}`
                                     : isSlotFull
                                     ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} com ${prof.name}`
@@ -1380,19 +1451,27 @@ export const Agenda: React.FC = () => {
                     });
                     const layoutMap = calculateAppointmentsLayout(dayAppointments);
 
+                    const dayBh = getDayBusinessHours(day.dateStr, tenant.businessHours);
+                    const isDayClosed = !dayBh.active;
+
                     return (
                       <div
                         key={day.dateStr}
-                        className="professional-timeline-column"
+                        className="professional-timeline-column week-timeline-column"
                         data-testid={`week-col-${day.dateStr}`}
                       >
                         <div className="prof-col-header">
                           <div className="prof-col-info">
-                            <h4 title={day.label}>
-                              {day.shortWeekday} • {day.label}
+                            <h4 title={day.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>{day.shortWeekday} • {day.label}</span>
+                              {isDayClosed && (
+                                <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#EF4444', color: 'white', fontWeight: 800 }}>
+                                  Fechado
+                                </span>
+                              )}
                             </h4>
                             <span className="prof-col-count">
-                              {dayAppointments.length} atendimento(s)
+                              {isDayClosed ? 'Fechado' : `${dayAppointments.length} atendimento(s)`}
                             </span>
                           </div>
                         </div>
@@ -1407,8 +1486,9 @@ export const Agenda: React.FC = () => {
                               day.dateStr < currentLocalDate ||
                               (day.dateStr === currentLocalDate && slot < currentLocalTime);
                             const isOutsideHours =
-                              slot < businessHoursStart ||
-                              slot >= businessHoursEnd;
+                              isDayClosed ||
+                              slot < dayBh.open ||
+                              slot >= dayBh.close;
 
                             const slotApps = dayAppointments.filter(
                               (app) =>
@@ -1426,12 +1506,16 @@ export const Agenda: React.FC = () => {
                             else if (isSlotFull) slotClass += ' grid-slot-cell--full';
 
                             const handleCellClick = () => {
+                              if (isDayClosed) {
+                                addToast('A barbearia não abre neste dia conforme as configurações.', 'warning');
+                                return;
+                              }
                               if (isPast) {
                                 addToast('Horário já decorrido.', 'warning');
                                 return;
                               }
                               if (isOutsideHours) {
-                                addToast('Horário fora do expediente da barbearia.', 'warning');
+                                addToast(`Horário fora do funcionamento da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
                                 return;
                               }
                               if (isSlotFull) {
@@ -1452,10 +1536,12 @@ export const Agenda: React.FC = () => {
                                 className={slotClass}
                                 onClick={handleCellClick}
                                 title={
-                                  isPast
+                                  isDayClosed
+                                    ? `Barbearia fechada neste dia (${slot})`
+                                    : isPast
                                     ? `Horário decorrido (${slot})`
                                     : isOutsideHours
-                                    ? `Fora do expediente (${slot})`
+                                    ? `Fora do expediente (${slot}) - Funcionamento: ${dayBh.open} às ${dayBh.close}`
                                     : isSlotFull
                                     ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} em ${day.label}`
@@ -1510,10 +1596,21 @@ export const Agenda: React.FC = () => {
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
+                            let statusClass = 'card-status--pending';
+                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                              statusClass = 'card-status--completed';
+                            } else if (app.status === 'in_progress') {
+                              statusClass = 'card-status--in-progress';
+                            } else if (app.is_fitting) {
+                              statusClass = 'card-status--fitting';
+                            } else if (app.status === 'confirmed') {
+                              statusClass = 'card-status--confirmed';
+                            }
+
                             return (
                               <div
                                 key={app.id}
-                                className="timeline-appointment-card card-status--confirmed"
+                                className={`timeline-appointment-card ${statusClass}`}
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -1527,10 +1624,26 @@ export const Agenda: React.FC = () => {
                                   <span className="card-time-badge">
                                     {timeStart} - {timeEnd}
                                   </span>
+                                  <div className="card-badges-row">
+                                    {app.is_fitting && (
+                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                        Encaixe
+                                      </span>
+                                    )}
+                                    {app.payment_status === 'paid' && (
+                                      <span className="badge-chip badge-chip--paid" title="Pago">
+                                        Pago
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="card-client-row">
-                                  <span className="card-client-name">{app.customer?.name}</span>
-                                  <span className="card-service-name">{app.service?.name}</span>
+                                  <span className="card-client-name" title={app.customer?.name}>
+                                    {app.customer?.name || 'Cliente'}
+                                  </span>
+                                  <span className="card-service-name" title={app.service?.name}>
+                                    {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
+                                  </span>
                                 </div>
                               </div>
                             );
@@ -1548,7 +1661,7 @@ export const Agenda: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={formIsFitting ? 'Novo Encaixe Rápido' : 'Novo Agendamento'}
+        title={formIsFitting ? 'Novo encaixe rápido' : 'Novo agendamento'}
       >
         <form onSubmit={handleSaveAppointment} className="modal-agenda-form">
           {/* Seletor de Modo do Cliente */}
@@ -1558,14 +1671,14 @@ export const Agenda: React.FC = () => {
               className={`segmented-btn ${customerMode === 'existing' ? 'segmented-btn--active' : ''}`}
               onClick={() => setCustomerMode('existing')}
             >
-              Cliente Cadastrado
+              Cliente cadastrado
             </button>
             <button
               type="button"
               className={`segmented-btn ${customerMode === 'new' ? 'segmented-btn--active' : ''}`}
               onClick={() => setCustomerMode('new')}
             >
-              + Novo Cliente
+              Cliente rápido de balcão
             </button>
           </div>
 
@@ -1590,7 +1703,7 @@ export const Agenda: React.FC = () => {
           ) : (
             <div className="form-row-2col">
               <div className="form-group">
-                <label htmlFor="new-customer-name">Nome do Cliente</label>
+                <label htmlFor="new-customer-name">Nome do cliente</label>
                 <input
                   id="new-customer-name"
                   type="text"
@@ -1602,7 +1715,7 @@ export const Agenda: React.FC = () => {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="new-customer-phone">WhatsApp / Celular</label>
+                <label htmlFor="new-customer-phone">WhatsApp ou celular</label>
                 <input
                   id="new-customer-phone"
                   type="tel"
@@ -1646,46 +1759,62 @@ export const Agenda: React.FC = () => {
               >
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} - R$ {Number(s.price).toFixed(2)} ({s.duration_minutes} min)
+                    {s.name}
                   </option>
                 ))}
               </select>
+              {services.find((s) => s.id === formServiceId) && (
+                <div className="service-meta-pill">
+                  <span>Duração: <strong>{services.find((s) => s.id === formServiceId)?.duration_minutes} min</strong></span>
+                  <span>•</span>
+                  <span>Valor: <strong>R$ {Number(services.find((s) => s.id === formServiceId)?.price).toFixed(2)}</strong></span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Horário e Encaixe */}
-          <div className="form-row-2col">
-            <div className="form-group">
-              <label htmlFor="form-time">Horário de Início</label>
-              <input
-                id="form-time"
-                type="time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
-                className="input-text"
-                required
-              />
-            </div>
+          {/* Horário */}
+          <div className="form-group">
+            <label htmlFor="form-time">Horário de início</label>
+            <input
+              id="form-time"
+              type="time"
+              value={formTime}
+              onChange={(e) => setFormTime(e.target.value)}
+              className="input-text"
+              required
+            />
+          </div>
 
-            <div className="form-group form-group--checkbox">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={formIsFitting}
-                  onChange={(e) => setFormIsFitting(e.target.checked)}
-                />
-                <span>Marcar como Encaixe de Balcão</span>
-              </label>
+          {/* Card de Encaixe de Balcão */}
+          <div className={`fitting-toggle-card ${formIsFitting ? 'fitting-toggle-card--active' : ''}`}>
+            <div className="fitting-toggle-info">
+              <div className="fitting-toggle-header">
+                <span className="fitting-toggle-title">Encaixe de balcão (50% do tempo)</span>
+                {formIsFitting && <span className="badge-fitting-active">Ativo</span>}
+              </div>
+              <span className="fitting-toggle-desc">
+                Permite atender dois clientes no mesmo horário dividindo a coluna da grade.
+              </span>
             </div>
+            <label className="checkbox-label" style={{ margin: 0, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                aria-label="Marcar como Encaixe de Balcão"
+                checked={formIsFitting}
+                onChange={(e) => setFormIsFitting(e.target.checked)}
+              />
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-brand-primary)' }}>Encaixe</span>
+            </label>
           </div>
 
           {/* Observações */}
           <div className="form-group">
-            <label htmlFor="form-notes">Observações do Atendimento (Opcional)</label>
+            <label htmlFor="form-notes">Observações do atendimento (opcional)</label>
             <textarea
               id="form-notes"
               rows={2}
-              placeholder="Ex: Cliente prefere tesoura no topo..."
+              placeholder="Ex: Cliente prefere tesoura no topo, café sem açúcar..."
               value={formNotes}
               onChange={(e) => setFormNotes(e.target.value)}
               className="input-textarea"
@@ -1702,7 +1831,13 @@ export const Agenda: React.FC = () => {
               Cancelar
             </button>
             <button type="submit" className="btn-primary" disabled={savingAppointment}>
-              {savingAppointment ? 'Salvando...' : 'Confirmar Agendamento'}
+              {savingAppointment ? (
+                <span>Salvando...</span>
+              ) : formIsFitting ? (
+                <span>Confirmar encaixe na agenda</span>
+              ) : (
+                <span>Salvar agendamento</span>
+              )}
             </button>
           </div>
         </form>
@@ -1829,6 +1964,8 @@ export const Agenda: React.FC = () => {
 
         /* HEADER DE CONTROLE */
         .agenda-header-control {
+          position: relative;
+          z-index: 50;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1988,9 +2125,9 @@ export const Agenda: React.FC = () => {
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          box-shadow: var(--shadow-xl);
+          box-shadow: 0 12px 28px -4px rgba(20, 17, 15, 0.2), var(--shadow-xl);
           padding: 0.75rem;
-          z-index: 120;
+          z-index: 1000;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
@@ -2167,12 +2304,12 @@ export const Agenda: React.FC = () => {
         }
 
         .time-slot-label {
-          height: 52px;
+          height: 104px;
           display: flex;
           align-items: flex-start;
           justify-content: center;
-          padding-top: 4px;
-          font-size: 0.72rem;
+          padding-top: 6px;
+          font-size: 0.75rem;
           font-weight: 700;
           color: var(--color-text-secondary);
           border-bottom: 1px dashed rgba(234, 222, 214, 0.4);
@@ -2190,6 +2327,11 @@ export const Agenda: React.FC = () => {
           border-right: 1px solid rgba(234, 222, 214, 0.7);
           display: flex;
           flex-direction: column;
+        }
+
+        .week-timeline-column {
+          min-width: 140px;
+          flex: 1;
         }
 
         .professional-timeline-column:last-child {
@@ -2241,7 +2383,7 @@ export const Agenda: React.FC = () => {
         }
 
         .grid-slot-cell {
-          height: 52px;
+          height: 104px;
           border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
           cursor: pointer;
           position: relative;
@@ -2362,17 +2504,16 @@ export const Agenda: React.FC = () => {
         .timeline-appointment-card {
           position: absolute;
           border-radius: var(--radius-md);
-          padding: 0.45rem 0.6rem;
+          padding: 0.4rem 0.55rem;
           z-index: 10;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           overflow: hidden;
+          box-sizing: border-box;
           background-color: var(--color-bg-secondary);
           box-shadow: var(--shadow-sm);
           border: 1px solid var(--color-border);
-          border-left-width: 4px;
-          border-left-style: solid;
           cursor: pointer;
           transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
         }
@@ -2386,27 +2527,27 @@ export const Agenda: React.FC = () => {
 
         /* Status Visual Semântico */
         .card-status--pending {
-          border-left-color: var(--color-warning);
+          border-color: rgba(217, 119, 6, 0.4);
           background-color: var(--color-warning-bg);
         }
 
         .card-status--confirmed {
-          border-left-color: var(--color-brand-primary);
+          border-color: rgba(217, 108, 0, 0.3);
           background-color: var(--color-bg-secondary);
         }
 
         .card-status--fitting {
-          border-left-color: var(--color-brand-deep);
+          border-color: rgba(106, 46, 0, 0.35);
           background-color: rgba(242, 178, 119, 0.2);
         }
 
         .card-status--in-progress {
-          border-left-color: var(--color-info);
+          border-color: rgba(63, 131, 248, 0.4);
           background-color: var(--color-info-bg);
         }
 
         .card-status--completed {
-          border-left-color: var(--color-success);
+          border-color: rgba(14, 159, 110, 0.4);
           background-color: var(--color-success-bg);
         }
 
@@ -2418,7 +2559,7 @@ export const Agenda: React.FC = () => {
         }
 
         .card-time-badge {
-          font-size: 0.7rem;
+          font-size: 0.72rem;
           font-weight: 800;
           color: var(--color-text-primary);
         }
@@ -2455,29 +2596,32 @@ export const Agenda: React.FC = () => {
         .card-client-row {
           display: flex;
           flex-direction: column;
-          gap: 0.1rem;
-          margin: 0.2rem 0;
+          gap: 0.05rem;
+          margin: 0.1rem 0;
         }
 
         .card-client-name {
-          font-size: var(--font-size-xs);
+          font-size: 0.85rem;
           font-weight: 700;
           color: var(--color-text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.15;
         }
 
         .card-service-name {
-          font-size: 0.7rem;
+          font-size: 0.72rem;
           color: var(--color-text-secondary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.15;
+          font-weight: 500;
         }
 
         .card-notes-snippet {
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           color: var(--color-brand-primary);
           font-style: italic;
           display: flex;
@@ -2486,13 +2630,15 @@ export const Agenda: React.FC = () => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1;
+          margin-top: 1px;
         }
 
         /* Toolbar de Ações Rápidas */
         .card-actions-toolbar {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
+          gap: 0.25rem;
           margin-top: auto;
           padding-top: 0.2rem;
           border-top: 1px solid rgba(0, 0, 0, 0.05);
@@ -2502,10 +2648,10 @@ export const Agenda: React.FC = () => {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 0.25rem;
+          gap: 0.2rem;
           border: none;
           border-radius: var(--radius-sm);
-          padding: 0.25rem 0.45rem;
+          padding: 0.2rem 0.45rem;
           font-size: 0.65rem;
           font-weight: 700;
           font-family: var(--font-family-base);
@@ -2629,6 +2775,14 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-family: inherit;
+          box-sizing: border-box;
+        }
+
+        .input-textarea {
+          resize: vertical;
+          min-height: 60px;
+          max-height: 160px;
+          line-height: 1.4;
         }
 
         .input-text:focus,
@@ -2638,13 +2792,75 @@ export const Agenda: React.FC = () => {
           border-color: var(--color-brand-primary);
         }
 
+        .service-meta-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-top: 0.25rem;
+          font-size: 0.72rem;
+          color: var(--color-text-secondary);
+        }
+
+        .service-meta-pill strong {
+          color: var(--color-brand-primary);
+        }
+
+        .fitting-toggle-card {
+          padding: 0.75rem 0.9rem;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          transition: all 0.2s ease;
+        }
+
+        .fitting-toggle-card--active {
+          background-color: rgba(242, 178, 119, 0.15);
+          border-color: var(--color-brand-soft);
+        }
+
+        .fitting-toggle-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .fitting-toggle-header {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .fitting-toggle-title {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .badge-fitting-active {
+          font-size: 0.62rem;
+          font-weight: 700;
+          padding: 0.1rem 0.35rem;
+          border-radius: var(--radius-sm);
+          background-color: var(--color-brand-primary);
+          color: white;
+          text-transform: uppercase;
+        }
+
+        .fitting-toggle-desc {
+          font-size: 0.7rem;
+          color: var(--color-text-secondary);
+        }
+
         .checkbox-label {
           display: flex;
           align-items: center;
           gap: 0.5rem;
           font-size: var(--font-size-sm);
           cursor: pointer;
-          margin-top: 1.5rem;
         }
 
         .modal-actions-footer {

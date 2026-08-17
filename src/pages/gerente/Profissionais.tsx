@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { SupabaseProfessionalServicesAdapter } from '../../modules/profissionais/servicesAdapter';
+import type { ProfessionalServiceItem } from '../../modules/profissionais/types';
 
 interface Professional {
   id: string;
@@ -26,23 +28,52 @@ const DAYS_OF_WEEK = [
   { key: 'sunday', label: 'Domingo' },
 ];
 
+const CloseIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+
+const ScissorIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <line x1="20" x2="8.12" y1="4" y2="15.88" />
+    <line x1="14.47" x2="20" y1="14.48" y2="20" />
+    <line x1="8.12" x2="12" y1="8.12" y2="12" />
+  </svg>
+);
+
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const navigate = useNavigate();
   const { addToast } = useToast();
 
+  const servicesAdapter = useMemo(
+    () => new SupabaseProfessionalServicesAdapter(supabase),
+    []
+  );
+
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Estados do Formulário
+  // Estados do Formulário de Profissional
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [commission, setCommission] = useState('40');
   const [isActive, setIsActive] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  
+
+  // Estados do Modal de Associação de Serviços (N:N)
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
+  const [selectedProfForServices, setSelectedProfForServices] = useState<Professional | null>(null);
+  const [profServicesList, setProfServicesList] = useState<ProfessionalServiceItem[]>([]);
+  const [loadingProfServices, setLoadingProfServices] = useState(false);
+  const [savingProfServices, setSavingProfServices] = useState(false);
+
   // Escala de horários semanal padrão
   const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string; break_start?: string; break_end?: string }>>({
     monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
@@ -78,7 +109,8 @@ export const Profissionais: React.FC = () => {
 
   useGSAP(() => {
     if (!loading && professionals.length > 0) {
-      gsap.fromTo('.prof-card', 
+      gsap.fromTo(
+        '.prof-card',
         { opacity: 0, y: 15 },
         { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' }
       );
@@ -111,7 +143,6 @@ export const Profissionais: React.FC = () => {
     setIsActive(prof.is_active);
     setSelectedUserId(prof.user_id);
 
-    // Carregar escala semanal
     const newSchedule = {
       monday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
       tuesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
@@ -141,22 +172,26 @@ export const Profissionais: React.FC = () => {
   };
 
   const handleScheduleDayToggle = (day: string) => {
-    setSchedule(prev => ({
+    setSchedule((prev) => ({
       ...prev,
       [day]: {
         ...prev[day],
-        active: !prev[day].active
-      }
+        active: !prev[day].active,
+      },
     }));
   };
 
-  const handleScheduleTimeChange = (day: string, type: 'start' | 'end' | 'break_start' | 'break_end', value: string) => {
-    setSchedule(prev => ({
+  const handleScheduleTimeChange = (
+    day: string,
+    type: 'start' | 'end' | 'break_start' | 'break_end',
+    value: string
+  ) => {
+    setSchedule((prev) => ({
       ...prev,
       [day]: {
         ...prev[day],
-        [type]: value
-      }
+        [type]: value,
+      },
     }));
   };
 
@@ -178,7 +213,6 @@ export const Profissionais: React.FC = () => {
     try {
       setSaving(true);
 
-      // Estruturar a weekly_schedule em JSONB
       const weeklyScheduleJSON: Record<string, { start: string; end: string; break_start?: string; break_end?: string }> = {};
       Object.keys(schedule).forEach((day) => {
         if (schedule[day].active) {
@@ -199,7 +233,7 @@ export const Profissionais: React.FC = () => {
         weekly_schedule: weeklyScheduleJSON,
         is_active: isActive,
         user_id: selectedUserId,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       if (editingId) {
@@ -212,11 +246,23 @@ export const Profissionais: React.FC = () => {
         if (error) throw error;
         addToast('Profissional atualizado com sucesso!', 'success');
       } else {
-        const { error } = await supabase
+        const { data: newProf, error } = await supabase
           .from('professionals')
-          .insert([profData]);
+          .insert([profData])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Auto-habilita todos os serviços ativos da barbearia com 40 min padrão para o novo barbeiro
+        if (newProf?.id) {
+          try {
+            await servicesAdapter.enableAllServicesDefault(tenant.tenantId, newProf.id, 40);
+          } catch (autoErr) {
+            console.error('Erro ao auto-vincular serviços ao profissional:', autoErr);
+          }
+        }
+
         addToast('Profissional cadastrado com sucesso!', 'success');
       }
 
@@ -230,25 +276,104 @@ export const Profissionais: React.FC = () => {
     }
   };
 
+  // Funções do Modal de Associação de Serviços
+  const handleOpenServicesModal = async (prof: Professional) => {
+    setSelectedProfForServices(prof);
+    setIsServicesModalOpen(true);
+    try {
+      setLoadingProfServices(true);
+      const list = await servicesAdapter.getProfessionalServices(tenant.tenantId, prof.id);
+      setProfServicesList(list);
+    } catch (error: any) {
+      console.error('Erro ao carregar serviços do profissional:', error);
+      addToast('Não foi possível carregar a lista de serviços.', 'error');
+    } finally {
+      setLoadingProfServices(false);
+    }
+  };
+
+  const handleToggleService = (serviceId: string) => {
+    setProfServicesList((prev) =>
+      prev.map((s) => (s.service_id === serviceId ? { ...s, is_enabled: !s.is_enabled } : s))
+    );
+  };
+
+  const handleDurationChange = (serviceId: string, duration: number) => {
+    setProfServicesList((prev) =>
+      prev.map((s) => (s.service_id === serviceId ? { ...s, custom_duration_minutes: duration } : s))
+    );
+  };
+
+  const handleCommissionChange = (serviceId: string, customComm: number | null) => {
+    setProfServicesList((prev) =>
+      prev.map((s) =>
+        s.service_id === serviceId ? { ...s, custom_commission_percentage: customComm } : s
+      )
+    );
+  };
+
+  const handleEnableAllServices = () => {
+    setProfServicesList((prev) =>
+      prev.map((s) => ({
+        ...s,
+        is_enabled: true,
+        custom_duration_minutes: s.custom_duration_minutes || s.base_duration_minutes || 40,
+      }))
+    );
+    addToast('Todos os serviços foram habilitados com 40 min padrão.', 'info');
+  };
+
+  const handleDisableAllServices = () => {
+    setProfServicesList((prev) => prev.map((s) => ({ ...s, is_enabled: false })));
+  };
+
+  const handleSaveServices = async () => {
+    if (!selectedProfForServices) return;
+    try {
+      setSavingProfServices(true);
+      await servicesAdapter.saveProfessionalServices(
+        tenant.tenantId,
+        selectedProfForServices.id,
+        profServicesList.map((s) => ({
+          service_id: s.service_id,
+          custom_duration_minutes: s.custom_duration_minutes || 40,
+          custom_commission_percentage: s.custom_commission_percentage,
+          is_enabled: s.is_enabled,
+        }))
+      );
+      addToast('Configurações de serviços salvas com sucesso!', 'success');
+      setIsServicesModalOpen(false);
+    } catch (error: any) {
+      console.error('Erro ao salvar serviços do profissional:', error);
+      addToast('Erro ao salvar serviços do profissional.', 'error');
+    } finally {
+      setSavingProfServices(false);
+    }
+  };
+
   return (
     <div className="prof-page">
       <div className="prof-header-intro">
-        <span style={{
-          display: 'inline-block',
-          backgroundColor: 'rgba(217, 108, 0, 0.08)',
-          color: 'var(--color-brand-primary)',
-          fontSize: '10px',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          padding: '4px 12px',
-          borderRadius: '9999px',
-          marginBottom: '0.5rem'
-        }}>
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: 'rgba(217, 108, 0, 0.08)',
+            color: 'var(--color-brand-primary)',
+            fontSize: '10px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            padding: '4px 12px',
+            borderRadius: '9999px',
+            marginBottom: '0.5rem',
+          }}
+        >
           Gestão
         </span>
         <h2>Equipe e Escala</h2>
-        <p style={{ margin: '4px 0 0' }}>Cadastre seus barbeiros, configure a comissão (%) de cada um e edite a escala de dias e horários de trabalho.</p>
+        <p style={{ margin: '4px 0 0' }}>
+          Cadastre seus barbeiros, configure a comissão (%) de cada um, vincule serviços com duração individual e edite a escala de trabalho.
+        </p>
       </div>
 
       <div className="prof-grid">
@@ -259,12 +384,12 @@ export const Profissionais: React.FC = () => {
           <form onSubmit={handleSubmit} className="prof-form">
             <div className="form-group">
               <label htmlFor="prof-name">Nome do Barbeiro</label>
-              <input 
+              <input
                 id="prof-name"
-                type="text" 
-                placeholder="Ex: Carlos Silva" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
+                type="text"
+                placeholder="Ex: Carlos Silva"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
@@ -272,26 +397,26 @@ export const Profissionais: React.FC = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="prof-phone">WhatsApp / Celular</label>
-                <input 
+                <input
                   id="prof-phone"
-                  type="text" 
-                  placeholder="Ex: (11) 99999-9999" 
-                  value={phone} 
-                  onChange={(e) => setPhone(e.target.value)} 
+                  type="text"
+                  placeholder="Ex: (11) 99999-9999"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="prof-commission">Comissão (%)</label>
-                <input 
+                <label htmlFor="prof-commission">Comissão Padrão (%)</label>
+                <input
                   id="prof-commission"
-                  type="number" 
-                  min="0" 
-                  max="100" 
-                  placeholder="Ex: 40" 
-                  value={commission} 
-                  onChange={(e) => setCommission(e.target.value)} 
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="Ex: 40"
+                  value={commission}
+                  onChange={(e) => setCommission(e.target.value)}
                   required
                 />
               </div>
@@ -304,10 +429,13 @@ export const Profissionais: React.FC = () => {
                 {DAYS_OF_WEEK.map((day) => {
                   const daySched = schedule[day.key];
                   return (
-                    <div key={day.key} className={`schedule-day-item ${daySched.active ? 'schedule-day-item--active' : ''}`}>
+                    <div
+                      key={day.key}
+                      className={`schedule-day-item ${daySched.active ? 'schedule-day-item--active' : ''}`}
+                    >
                       <div className="day-checkbox">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           id={`check-${day.key}`}
                           checked={daySched.active}
                           onChange={() => handleScheduleDayToggle(day.key)}
@@ -320,17 +448,17 @@ export const Profissionais: React.FC = () => {
                           {/* Horário de Trabalho */}
                           <div className="schedule-row">
                             <span className="schedule-row-label">Trabalho:</span>
-                            <input 
-                              type="time" 
+                            <input
+                              type="time"
                               className="day-times-input"
-                              value={daySched.start} 
+                              value={daySched.start}
                               onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
                             />
                             <span>às</span>
-                            <input 
-                              type="time" 
+                            <input
+                              type="time"
                               className="day-times-input"
-                              value={daySched.end} 
+                              value={daySched.end}
                               onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
                             />
                           </div>
@@ -338,20 +466,24 @@ export const Profissionais: React.FC = () => {
                           {/* Intervalo de Almoço */}
                           <div className="schedule-row">
                             <span className="schedule-row-label">Almoço:</span>
-                            <input 
-                              type="time" 
+                            <input
+                              type="time"
                               className="day-times-input"
-                              value={daySched.break_start || '12:00'} 
+                              value={daySched.break_start || '12:00'}
                               aria-label="Início do Almoço"
-                              onChange={(e) => handleScheduleTimeChange(day.key, 'break_start', e.target.value)}
+                              onChange={(e) =>
+                                handleScheduleTimeChange(day.key, 'break_start', e.target.value)
+                              }
                             />
                             <span>às</span>
-                            <input 
-                              type="time" 
+                            <input
+                              type="time"
                               className="day-times-input"
-                              value={daySched.break_end || '13:00'} 
+                              value={daySched.break_end || '13:00'}
                               aria-label="Fim do Almoço"
-                              onChange={(e) => handleScheduleTimeChange(day.key, 'break_end', e.target.value)}
+                              onChange={(e) =>
+                                handleScheduleTimeChange(day.key, 'break_end', e.target.value)
+                              }
                             />
                           </div>
                         </div>
@@ -364,11 +496,11 @@ export const Profissionais: React.FC = () => {
 
             {editingId && (
               <div className="form-group checkbox-group">
-                <input 
-                  type="checkbox" 
-                  id="prof-active" 
-                  checked={isActive} 
-                  onChange={(e) => setIsActive(e.target.checked)} 
+                <input
+                  type="checkbox"
+                  id="prof-active"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
                 />
                 <label htmlFor="prof-active">Profissional Ativo (Exibir na agenda de clientes)</label>
               </div>
@@ -381,7 +513,13 @@ export const Profissionais: React.FC = () => {
                 </button>
               )}
               <button type="submit" disabled={saving} className="btn btn--primary">
-                {saving ? <div className="spinner spinner--sm" /> : (editingId ? 'Salvar Alterações' : 'Cadastrar Profissional')}
+                {saving ? (
+                  <div className="spinner spinner--sm" />
+                ) : editingId ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Cadastrar Profissional'
+                )}
               </button>
             </div>
           </form>
@@ -391,7 +529,7 @@ export const Profissionais: React.FC = () => {
         <section className="list-section card">
           <div className="list-header">
             <h3>Membros da Equipe</h3>
-            <button 
+            <button
               onClick={() => navigate('/profissionais/cadastro-acesso')}
               className="btn btn--primary btn--sm"
               style={{ borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem' }}
@@ -402,31 +540,42 @@ export const Profissionais: React.FC = () => {
 
           {loading ? (
             <div className="loading-state">
-              <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} />
+              <div
+                className="spinner"
+                style={{
+                  borderColor: 'var(--color-brand-primary)',
+                  borderTopColor: 'transparent',
+                }}
+              />
               <p>Carregando equipe...</p>
             </div>
           ) : professionals.length === 0 ? (
             <div className="empty-state">
               <p>Nenhum profissional cadastrado.</p>
-              <span className="empty-desc">Cadastre o primeiro barbeiro utilizando o formulário ao lado.</span>
+              <span className="empty-desc">
+                Cadastre o primeiro barbeiro utilizando o formulário ao lado.
+              </span>
             </div>
           ) : (
             <div className="prof-list-container">
               {professionals.map((prof) => (
-                <div key={prof.id} className={`prof-card ${!prof.is_active ? 'prof-card--inactive' : ''}`}>
+                <div
+                  key={prof.id}
+                  className={`prof-card ${!prof.is_active ? 'prof-card--inactive' : ''}`}
+                >
                   <div className="prof-card-header">
                     <div className="prof-card-title-group">
-                      <div className="prof-avatar">
-                        {prof.name.charAt(0).toUpperCase()}
-                      </div>
+                      <div className="prof-avatar">{prof.name.charAt(0).toUpperCase()}</div>
                       <div>
                         <h4>{prof.name}</h4>
                         <span className="prof-phone">{prof.phone}</span>
                       </div>
                     </div>
-                    
+
                     <div className="prof-commission-badge">
-                      <span>Comissão: <strong>{prof.commission_percentage}%</strong></span>
+                      <span>
+                        Comissão: <strong>{prof.commission_percentage}%</strong>
+                      </span>
                     </div>
                   </div>
 
@@ -436,14 +585,16 @@ export const Profissionais: React.FC = () => {
                       {DAYS_OF_WEEK.map((day) => {
                         const dayData = prof.weekly_schedule?.[day.key] as any;
                         const labelCurto = day.label.substring(0, 3);
-                        const isActive = !!dayData;
-                        
-                        if (isActive) {
-                          const breakInfo = dayData.break_start ? ` (Almoço: ${dayData.break_start} - ${dayData.break_end})` : '';
+                        const isDayActive = !!dayData;
+
+                        if (isDayActive) {
+                          const breakInfo = dayData.break_start
+                            ? ` (Almoço: ${dayData.break_start} - ${dayData.break_end})`
+                            : '';
                           return (
-                            <div 
-                              key={day.key} 
-                              className="badge-schedule-active" 
+                            <div
+                              key={day.key}
+                              className="badge-schedule-active"
                               title={`${day.label}: ${dayData.start} - ${dayData.end}${breakInfo}`}
                             >
                               <span className="badge-day-name">{labelCurto}</span>
@@ -452,9 +603,9 @@ export const Profissionais: React.FC = () => {
                           );
                         } else {
                           return (
-                            <div 
-                              key={day.key} 
-                              className="badge-schedule-inactive" 
+                            <div
+                              key={day.key}
+                              className="badge-schedule-inactive"
                               title={`${day.label}: Folga`}
                             >
                               <span className="badge-day-name">{labelCurto}</span>
@@ -469,18 +620,34 @@ export const Profissionais: React.FC = () => {
                   <div className="prof-card-actions">
                     <div className="login-status">
                       {prof.user_id ? (
-                        <span className="status-badge status-badge--linked" title="Este barbeiro já tem login vinculado">
+                        <span
+                          className="status-badge status-badge--linked"
+                          title="Este barbeiro já tem login vinculado"
+                        >
                           Login Vinculado
                         </span>
                       ) : (
-                        <span className="status-badge status-badge--unlinked" title="Este barbeiro não consegue logar">
+                        <span
+                          className="status-badge status-badge--unlinked"
+                          title="Este barbeiro não consegue logar"
+                        >
                           Sem Login
                         </span>
                       )}
                     </div>
 
                     <div className="action-buttons">
-                      <button onClick={() => handleEdit(prof)} className="btn-action btn-action--edit">
+                      <button
+                        onClick={() => handleOpenServicesModal(prof)}
+                        className="btn-action btn-action--services"
+                        title="Configurar serviços e tempos específicos deste barbeiro"
+                      >
+                        <ScissorIcon /> Serviços e Tempos
+                      </button>
+                      <button
+                        onClick={() => handleEdit(prof)}
+                        className="btn-action btn-action--edit"
+                      >
                         Editar Escala/Dados
                       </button>
                     </div>
@@ -491,6 +658,167 @@ export const Profissionais: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL (DOUBLE-BEZEL) */}
+      {isServicesModalOpen && selectedProfForServices && (
+        <div className="modal-backdrop">
+          <div className="modal-content shadow-xl animate-spring" style={{ maxWidth: '680px' }}>
+            <header className="modal-header">
+              <div>
+                <span className="modal-eyebrow">Autonomia de Duração</span>
+                <h3 className="modal-title">
+                  Serviços Atendidos por {selectedProfForServices.name}
+                </h3>
+              </div>
+              <button onClick={() => setIsServicesModalOpen(false)} className="btn-close-modal">
+                <CloseIcon />
+              </button>
+            </header>
+
+            <div className="modal-body">
+              <p className="modal-desc">
+                Defina quais serviços este profissional realiza na barbearia e a duração individual
+                (tempo de corte/atendimento). O padrão é de <strong>40 minutos</strong>.
+              </p>
+
+              <div className="modal-services-toolbar">
+                <button
+                  type="button"
+                  onClick={handleEnableAllServices}
+                  className="btn btn--outline btn--xs"
+                >
+                  Habilitar Todos (40 min padrão)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisableAllServices}
+                  className="btn btn--outline-secondary btn--xs"
+                >
+                  Desabilitar Todos
+                </button>
+              </div>
+
+              {loadingProfServices ? (
+                <div className="loading-state py-4">
+                  <div className="spinner mb-2" />
+                  <p>Carregando catálogo de serviços...</p>
+                </div>
+              ) : profServicesList.length === 0 ? (
+                <div className="empty-state">
+                  <p>Nenhum serviço cadastrado na barbearia.</p>
+                </div>
+              ) : (
+                <div className="services-association-table-wrap">
+                  <table className="services-association-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40px' }}>Atende?</th>
+                        <th>Serviço</th>
+                        <th style={{ width: '130px' }}>Duração (min)</th>
+                        <th style={{ width: '130px' }}>Comissão (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profServicesList.map((svc) => (
+                        <tr
+                          key={svc.service_id}
+                          className={!svc.is_enabled ? 'row-service-disabled' : ''}
+                        >
+                          <td style={{ textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={svc.is_enabled}
+                              onChange={() => handleToggleService(svc.service_id)}
+                              aria-label={`Habilitar ${svc.service_name}`}
+                            />
+                          </td>
+                          <td>
+                            <div className="service-info-cell">
+                              <strong>{svc.service_name}</strong>
+                              <span className="text-muted text-xs">
+                                R$ {svc.base_price.toFixed(2).replace('.', ',')}{' '}
+                                {svc.service_category && `• ${svc.service_category}`}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="input-suffix-wrapper">
+                              <input
+                                type="number"
+                                min="10"
+                                max="300"
+                                step="5"
+                                disabled={!svc.is_enabled}
+                                value={svc.custom_duration_minutes}
+                                onChange={(e) =>
+                                  handleDurationChange(
+                                    svc.service_id,
+                                    parseInt(e.target.value, 10) || 40
+                                  )
+                                }
+                                className="form-control form-control--sm font-mono text-center"
+                                placeholder="40"
+                              />
+                              <span className="input-suffix">min</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="input-suffix-wrapper">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                disabled={!svc.is_enabled}
+                                value={
+                                  svc.custom_commission_percentage !== null &&
+                                  svc.custom_commission_percentage !== undefined
+                                    ? svc.custom_commission_percentage
+                                    : ''
+                                }
+                                onChange={(e) =>
+                                  handleCommissionChange(
+                                    svc.service_id,
+                                    e.target.value === '' ? null : parseFloat(e.target.value)
+                                  )
+                                }
+                                className="form-control form-control--sm font-mono text-center"
+                                placeholder={`${selectedProfForServices.commission_percentage}%`}
+                              />
+                              <span className="input-suffix">%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <footer className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setIsServicesModalOpen(false)}
+                  className="btn btn--outline"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveServices}
+                  disabled={savingProfServices}
+                  className="btn btn--primary"
+                >
+                  {savingProfServices ? (
+                    <div className="spinner spinner--sm" />
+                  ) : (
+                    'Salvar Configurações'
+                  )}
+                </button>
+              </footer>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .prof-page {
@@ -525,58 +853,25 @@ export const Profissionais: React.FC = () => {
         }
 
         .card {
-          position: relative;
-          background: linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,241,230,0.25) 100%);
-          backdrop-filter: blur(16px) saturate(140%);
-          -webkit-backdrop-filter: blur(16px) saturate(140%);
-          border: 1px solid rgba(234, 222, 214, 0.35);
-          border-radius: calc(var(--radius-lg) + 2px);
+          background: rgba(255, 255, 255, 0.65);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
           padding: 1.5rem;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.5),
-            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
-            var(--shadow-sm);
-          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-          overflow: hidden;
+          box-shadow: var(--shadow-sm);
         }
 
-        .card::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: calc(var(--radius-lg) + 2px);
-          padding: 1px;
-          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(234,222,214,0.08) 50%, rgba(255,255,255,0.15) 100%);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
-        }
-
-        .card h3 {
+        .form-section h3, .list-header h3 {
           font-size: var(--font-size-lg);
           font-weight: 800;
-          margin-bottom: 1.25rem;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.8);
-          padding-bottom: 0.5rem;
           color: var(--color-text-primary);
+          margin-bottom: 1.25rem;
         }
 
         .list-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 1.25rem;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.8);
-          padding-bottom: 0.5rem;
-        }
-
-        .list-header h3 {
-          margin-bottom: 0;
-          border-bottom: none;
-          padding-bottom: 0;
-          font-weight: 800;
-          color: var(--color-text-primary);
         }
 
         .prof-form {
@@ -585,103 +880,80 @@ export const Profissionais: React.FC = () => {
           gap: 1rem;
         }
 
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+
         .form-group {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
         }
 
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
         .form-group label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.05em;
+          color: var(--color-text-secondary);
         }
 
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group select {
-          padding: 0.65rem 0.875rem;
+        .form-group input, .form-group select {
+          padding: 0.65rem 0.85rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          background-color: rgba(255, 255, 255, 0.75);
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           outline: none;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s ease;
         }
 
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
           border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
-        }
-
-        .checkbox-group {
-          flex-direction: row;
-          align-items: center;
-          gap: 0.5rem;
-          margin: 0.5rem 0;
-        }
-
-        .checkbox-group label {
-          text-transform: none;
-          font-weight: 600;
-          font-size: var(--font-size-sm);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
         .schedule-section {
-          border-top: 1px solid rgba(234, 222, 214, 0.8);
-          padding-top: 1rem;
+          background: rgba(234, 222, 214, 0.2);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 1rem;
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
-          min-width: 0;
         }
 
         .schedule-title {
           font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.08em;
+          color: var(--color-brand-primary);
         }
 
         .schedule-list {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
-          min-width: 0;
         }
 
         .schedule-day-item {
-          display: grid;
-          grid-template-columns: 115px 1fr;
-          align-items: start;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.2) 100%);
-          border: 1px solid rgba(234, 222, 214, 0.4);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-          min-width: 0;
-        }
-
-        .schedule-day-item > * {
-          min-width: 0;
+          padding: 0.6rem 0.85rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
         }
 
         .schedule-day-item--active {
-          border-color: rgba(217, 108, 0, 0.2);
-          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,241,230,0.4) 100%);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+          border-color: rgba(217, 108, 0, 0.3);
+          background: #ffffff;
         }
 
         .day-checkbox {
@@ -692,350 +964,299 @@ export const Profissionais: React.FC = () => {
 
         .day-checkbox label {
           font-size: var(--font-size-sm);
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .day-checkbox input[type="checkbox"] {
-          accent-color: var(--color-brand-primary);
+          font-weight: 700;
           cursor: pointer;
         }
 
         .day-schedule-details {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
-          padding: 0.25rem 0;
+          gap: 0.35rem;
+          padding-top: 0.35rem;
+          border-top: 1px dashed var(--color-border);
         }
 
         .schedule-row {
           display: flex;
           align-items: center;
-          gap: 0.2rem;
-          min-width: 0;
-        }
-
-        .schedule-row > * {
-          min-width: 0;
-        }
-
-        .schedule-row-label {
-          font-size: 0.6rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          width: 62px;
-          flex-shrink: 0;
-        }
-
-        .day-times-input {
-          padding: 0.2rem 0.15rem;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          background-color: rgba(255, 255, 255, 0.9);
-          color: var(--color-text-primary);
-          font-size: 0.7rem;
-          outline: none;
-          transition: all 0.2s ease;
-          text-align: center;
-          width: 68px;
-          min-width: 0;
-          flex-shrink: 1;
-          flex-grow: 0;
-          box-sizing: border-box;
-          -webkit-appearance: none;
-          appearance: none;
-          -moz-appearance: textfield;
-        }
-
-        .day-times-input:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.08);
-        }
-
-        .schedule-row span {
-          font-size: 0.65rem;
-          color: var(--color-text-secondary);
-          flex-shrink: 0;
-        }
-
-        .form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-          border-top: 1px solid rgba(234, 222, 214, 0.8);
-          padding-top: 1rem;
-        }
-
-        .loading-state,
-        .empty-state {
-          padding: 4rem 1.5rem;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
           gap: 0.5rem;
-          color: var(--color-text-secondary);
-          border: 1.5px dashed rgba(234, 222, 214, 0.8);
-          border-radius: var(--radius-lg);
-          background-color: rgba(255, 255, 255, 0.25);
-        }
-
-        .empty-desc {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
         }
 
-        .prof-card {
-          position: relative;
-          background: linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,241,230,0.25) 100%);
-          backdrop-filter: blur(16px) saturate(140%);
-          -webkit-backdrop-filter: blur(16px) saturate(140%);
-          border: 1px solid rgba(234, 222, 214, 0.35);
-          border-radius: calc(var(--radius-lg) + 2px);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.875rem;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.5),
-            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
-            var(--shadow-sm);
-          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-          min-height: 0;
+        .schedule-row-label {
+          min-width: 55px;
+          font-weight: 600;
         }
 
-        .prof-card::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: calc(var(--radius-lg) + 2px);
-          padding: 1px;
-          background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(234,222,214,0.08) 50%, rgba(255,255,255,0.15) 100%);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
+        .day-times-input {
+          padding: 0.2rem 0.4rem;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          font-size: var(--font-size-xs);
+          background: var(--color-bg-secondary);
+        }
+
+        .checkbox-group {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .form-actions {
+          display: flex;
+          gap: 0.75rem;
+          margin-top: 0.5rem;
         }
 
         .prof-list-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-          gap: 1.25rem;
-          align-items: stretch;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .prof-card {
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .prof-card:hover {
-          transform: translateY(-3px);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.5),
-            inset 0 -1px 0 rgba(234, 222, 214, 0.12),
-            0 8px 28px rgba(45, 35, 30, 0.1),
-            0 2px 8px rgba(217, 108, 0, 0.06);
-          border-color: rgba(217, 108, 0, 0.25);
-        }
-
-        .prof-card--inactive {
-          opacity: 0.6;
-          border-style: dashed;
+          border-color: rgba(217, 108, 0, 0.4);
+          box-shadow: var(--shadow-md);
         }
 
         .prof-card-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 1rem;
+          align-items: center;
         }
 
         .prof-card-title-group {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .prof-avatar {
           width: 44px;
           height: 44px;
-          border-radius: var(--radius-full);
-          background-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--color-brand-primary) 0%, #b85d00 100%);
+          color: #ffffff;
           font-weight: 800;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.125rem;
-          border: 1.5px solid rgba(255, 255, 255, 0.6);
-          box-shadow: var(--shadow-sm);
+          font-size: 1.15rem;
+          display: grid;
+          place-items: center;
         }
 
         .prof-card-title-group h4 {
           font-size: var(--font-size-base);
-          font-weight: 700;
+          font-weight: 800;
           color: var(--color-text-primary);
+          margin: 0;
         }
 
         .prof-phone {
-          font-size: 0.75rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
+          font-family: monospace;
         }
 
         .prof-commission-badge {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%);
-          padding: 0.25rem 0.75rem;
-          border-radius: var(--radius-full);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          font-weight: 600;
-          white-space: nowrap;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-        }
-
-        .prof-commission-badge strong {
+          background: rgba(217, 108, 0, 0.1);
           color: var(--color-brand-primary);
-          font-weight: 800;
-        }
-
-        .prof-card-schedule {
-          display: flex;
-          flex-direction: column;
-          flex: 1;
+          padding: 0.35rem 0.75rem;
+          border-radius: var(--radius-full);
+          font-weight: 600;
         }
 
         .prof-card-schedule h5 {
-          font-size: 0.7rem;
-          font-weight: 800;
+          font-size: 11px;
           text-transform: uppercase;
-          color: var(--color-text-secondary);
           letter-spacing: 0.05em;
+          color: var(--color-text-secondary);
           margin-bottom: 0.5rem;
+          font-weight: 700;
         }
 
         .schedule-badges {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
           gap: 0.35rem;
-          width: 100%;
-          min-width: 0;
         }
 
         .badge-schedule-active {
+          background: rgba(217, 108, 0, 0.12);
+          border: 1px solid rgba(217, 108, 0, 0.25);
+          border-radius: var(--radius-sm);
+          padding: 0.35rem 0.2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 0.125rem;
-          background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.3rem 0.2rem;
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          min-width: 0;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+          gap: 0.15rem;
         }
 
         .badge-schedule-inactive {
+          background: rgba(0, 0, 0, 0.03);
+          border: 1px dashed var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 0.35rem 0.2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 0.125rem;
-          background: transparent;
-          border: 1px dashed rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-md);
-          padding: 0.3rem 0.2rem;
-          font-size: 0.65rem;
-          font-weight: 600;
-          color: var(--color-text-secondary);
           opacity: 0.4;
-          white-space: nowrap;
-          min-width: 0;
-        }
-
-        .badge-schedule-hours {
-          font-weight: 700;
-          font-size: 0.7rem;
-          color: var(--color-brand-primary);
-          line-height: 1.1;
-        }
-
-        .badge-schedule-inactive .badge-schedule-hours {
-          color: var(--color-text-secondary);
-          font-weight: 500;
         }
 
         .badge-day-name {
-          font-size: 0.65rem;
-          line-height: 1.1;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
         }
 
-        .no-schedule-text {
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-          font-style: italic;
+        .badge-schedule-hours {
+          font-size: 10px;
+          font-weight: 800;
+          color: var(--color-brand-primary);
         }
 
         .prof-card-actions {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-top: 1px solid rgba(234, 222, 214, 0.6);
+          border-top: 1px solid var(--color-border);
           padding-top: 0.75rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
-        .status-badge {
-          font-size: 0.7rem;
-          padding: 0.2rem 0.6rem;
-          border-radius: var(--radius-full);
-          font-weight: 700;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
-        }
-
-        .status-badge--linked {
-          background: linear-gradient(135deg, rgba(230, 244, 234, 0.6) 0%, rgba(230, 244, 234, 0.3) 100%);
-          color: var(--color-success);
-          border: 1px solid rgba(14, 159, 110, 0.2);
-        }
-
-        .status-badge--unlinked {
-          background: linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, rgba(254, 243, 199, 0.3) 100%);
-          color: var(--color-warning);
-          border: 1px solid rgba(217, 120, 6, 0.2);
+        .action-buttons {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .btn-action {
-          background: none;
-          border: 1px solid transparent;
-          font-size: 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 12px;
           font-weight: 700;
-          cursor: pointer;
-          padding: 0.3rem 0.6rem;
+          padding: 0.35rem 0.75rem;
           border-radius: var(--radius-md);
-          transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+          cursor: pointer;
+          border: 1px solid transparent;
+          transition: all 0.2s ease;
+        }
+
+        .btn-action--services {
+          background: rgba(45, 35, 30, 0.06);
+          color: var(--color-text-primary);
+          border-color: var(--color-border);
+        }
+
+        .btn-action--services:hover {
+          background: var(--color-brand-primary);
+          color: #ffffff;
+          border-color: var(--color-brand-primary);
         }
 
         .btn-action--edit {
+          background: rgba(217, 108, 0, 0.08);
           color: var(--color-brand-primary);
-          background: linear-gradient(135deg, rgba(217, 108, 0, 0.08) 0%, rgba(217, 108, 0, 0.04) 100%);
-          border: 1px solid rgba(217, 108, 0, 0.12);
+          border-color: rgba(217, 108, 0, 0.2);
         }
 
         .btn-action--edit:hover {
           background: var(--color-brand-primary);
-          color: white;
-          border-color: var(--color-brand-primary);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.2);
+          color: #ffffff;
         }
 
-        .btn-action:active {
-          transform: scale(0.97);
+        /* MODAL STYLES */
+        .modal-eyebrow {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          font-weight: 800;
+          color: var(--color-brand-primary);
+        }
+
+        .modal-desc {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          margin-bottom: 1rem;
+        }
+
+        .modal-services-toolbar {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+
+        .services-association-table-wrap {
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          max-height: 380px;
+          overflow-y: auto;
+        }
+
+        .services-association-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: var(--font-size-sm);
+        }
+
+        .services-association-table th {
+          background: var(--color-bg-secondary);
+          padding: 0.75rem 1rem;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          border-bottom: 1px solid var(--color-border);
+          text-align: left;
+        }
+
+        .services-association-table td {
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .row-service-disabled {
+          opacity: 0.45;
+          background: rgba(0, 0, 0, 0.02);
+        }
+
+        .service-info-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .input-suffix-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-suffix-wrapper input {
+          padding-right: 2rem !important;
+        }
+
+        .input-suffix {
+          position: absolute;
+          right: 0.6rem;
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          pointer-events: none;
         }
       `}</style>
     </div>

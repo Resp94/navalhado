@@ -22,9 +22,17 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
       setValidationError('Informe um nome com 2 a 100 caracteres.');
       return;
     }
+
+    const words = normalizedName.split(/\s+/).filter((w) => w.length > 0);
+    if (words.length < 2) {
+      setValidationError('Por favor, informe seu nome e sobrenome para agilizar seu atendimento.');
+      return;
+    }
+
     setValidationError('');
     await onSubmit(normalizedName);
   };
+
 
   return (
     <main
@@ -157,7 +165,7 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
                 color: 'var(--color-text-secondary)',
               }}
             >
-              Nome
+              Nome e Sobrenome
             </label>
 
             <div
@@ -174,7 +182,8 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
                 onChange={(event) => setName(event.target.value)}
                 disabled={saving}
                 autoComplete="name"
-                placeholder="Digite seu nome"
+                placeholder="Digite seu nome e sobrenome"
+
                 style={{
                   width: '100%',
                   border: '1px solid rgba(255, 255, 255, 0.72)',

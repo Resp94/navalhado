@@ -15,6 +15,7 @@ import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
+import { Produtos as GerenteProdutos } from './pages/gerente/Produtos';
 import { Whatsapp as GerenteWhatsapp } from './pages/gerente/Whatsapp';
 import { Clientes as GerenteClientes } from './pages/gerente/Clientes';
 import { Configuracoes as GerenteConfiguracoes } from './pages/gerente/Configuracoes';
@@ -48,10 +49,12 @@ function App() {
             <Route path="/profissionais" element={<GerenteProfissionais />} />
             <Route path="/profissionais/cadastro-acesso" element={<GerenteCadastroAcesso />} />
             <Route path="/servicos/cadastro" element={<GerenteServicos />} />
+            <Route path="/produtos" element={<GerenteProdutos />} />
             <Route path="/whatsapp" element={<GerenteWhatsapp />} />
             <Route path="/clientes" element={<GerenteClientes />} />
             <Route path="/configuracoes" element={<GerenteConfiguracoes />} />
           </Route>
+
           {/* Rotas do Barbeiro (Colaborador) */}
           <Route 
             element={

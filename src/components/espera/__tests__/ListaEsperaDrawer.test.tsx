@@ -67,11 +67,11 @@ describe('ListaEsperaDrawer', () => {
       />
     );
 
-    expect(screen.getByText('Lista de Espera do Dia')).toBeInTheDocument();
+    expect(screen.getByText(/Fila de espera/i)).toBeInTheDocument();
     expect(await screen.findByText('Marcos Paulo')).toBeInTheDocument();
   });
 
-  it('aciona callback onEncaixar ao clicar em Encaixar na Grade', async () => {
+  it('aciona callback onEncaixar ao clicar em Puxar para a cadeira', async () => {
     const fakeEntry = {
       id: 'w-1',
       tenant_id: 't-1',
@@ -94,9 +94,10 @@ describe('ListaEsperaDrawer', () => {
       />
     );
 
-    const btnEncaixar = await screen.findByRole('button', { name: /Encaixar na Grade/i });
+    const btnEncaixar = await screen.findByRole('button', { name: /Puxar para a cadeira/i });
     fireEvent.click(btnEncaixar);
 
     expect(mockOnEncaixar).toHaveBeenCalledWith(fakeEntry);
   });
 });
+

@@ -11,6 +11,15 @@ const { mockAddToast, mockNavigate, mockOutletContext } = vi.hoisted(() => ({
     logoUrl: null,
     timezone: 'America/Sao_Paulo',
     onboardingCompleted: true,
+    businessHours: {
+      segunda: { active: true, open: '08:00', close: '20:00' },
+      terca: { active: true, open: '08:00', close: '20:00' },
+      quarta: { active: true, open: '08:00', close: '20:00' },
+      quinta: { active: true, open: '08:00', close: '20:00' },
+      sexta: { active: true, open: '08:00', close: '20:00' },
+      sabado: { active: true, open: '08:00', close: '20:00' },
+      domingo: { active: true, open: '08:00', close: '20:00' },
+    },
   },
 }));
 
@@ -69,14 +78,18 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       notes: 'Cliente prefere tesoura',
       origin: 'whatsapp',
       professional_id: 'prof-1',
-      customer: { id: 'cust-1', name: 'Pedro Cliente', phone: '11988887777' },
-      service: { id: 'serv-1', name: 'Corte Tradicional', price: 45.0 },
+      customer_id: 'cust-1',
+      customer: mockCustomers[0],
+      service: mockServices[0],
+      professional: mockProfessionals[0],
     },
   ];
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-16T12:00:00.000Z')); // 09:00 em SP
     vi.clearAllMocks();
-
+    mockOutletContext.businessHours.domingo.active = true;
     mockFrom.mockImplementation((table: string) => {
       if (table === 'professionals') {
         return {
@@ -141,6 +154,19 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           }),
         };
       }
+      if (table === 'blocked_slots') {
+        return {
+          select: () => ({
+            eq: () => ({
+              gte: () => ({
+                lt: () => ({
+                  order: vi.fn().mockResolvedValue({ data: [], error: null }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
       return { select: vi.fn() };
     });
   });
@@ -149,7 +175,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
       expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
       expect(screen.getByText('Marcos Navalha')).toBeInTheDocument();
     });
@@ -171,13 +197,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Encaixe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Novo Encaixe Rápido')).toBeInTheDocument();
+      expect(screen.getByText(/Novo encaixe rápido/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Marcar como Encaixe de Balcão/i)).toBeChecked();
     });
   });
@@ -205,25 +231,30 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /\+ Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Encaixe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /\+ Novo Cliente/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Cliente rápido de balcão/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Novo Cliente/i }));
+    // Ajustar horário para 14:00 para garantir que seja futuro no dia de teste e dentro do expediente
+    const timeInput = screen.getByLabelText(/Horário/i);
+    fireEvent.change(timeInput, { target: { value: '14:00' } });
 
-    const nameInput = screen.getByLabelText(/Nome do Cliente/i);
-    const phoneInput = screen.getByLabelText(/WhatsApp \/ Celular/i);
+    fireEvent.click(screen.getByRole('button', { name: /Cliente rápido de balcão/i }));
+
+    const nameInput = screen.getByLabelText(/Nome do cliente/i);
+    const phoneInput = screen.getByLabelText(/WhatsApp ou celular/i);
 
     fireEvent.change(nameInput, { target: { value: 'Cliente Balcão Teste' } });
     fireEvent.change(phoneInput, { target: { value: '11977776666' } });
 
-    const submitBtn = screen.getByRole('button', { name: /Confirmar Agendamento/i });
+    const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
     fireEvent.click(submitBtn);
+
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(
@@ -231,5 +262,24 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         'success'
       );
     });
+  });
+
+  it('bloqueia clique e agendamento em dia fechado de acordo com businessHours', async () => {
+    mockOutletContext.businessHours.domingo.active = false;
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
+
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'A barbearia não abre neste dia conforme as configurações de funcionamento.',
+      'warning'
+    );
+
+    mockOutletContext.businessHours.domingo.active = true;
   });
 });

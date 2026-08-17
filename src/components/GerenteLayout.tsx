@@ -12,6 +12,7 @@ export interface TenantContextType {
   logoUrl: string | null;
   timezone: string;
   onboardingCompleted?: boolean;
+  businessHours?: Record<string, { active: boolean; open: string; close: string }>;
 }
 
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -20,6 +21,7 @@ import {
   UserIcon,
   UserGroupIcon,
   ScissorIcon,
+  PackageIcon,
   Money01Icon,
   WhatsappIcon,
   Settings02Icon,
@@ -76,7 +78,7 @@ export const GerenteLayout: React.FC = () => {
         if (profile.tenant_id) {
           const { data: tenant, error: tenantError } = await supabase
             .from('tenants')
-            .select('id, name, logo_url, timezone, onboarding_completed')
+            .select('id, name, logo_url, timezone, onboarding_completed, business_hours')
             .eq('id', profile.tenant_id)
             .single();
 
@@ -103,6 +105,7 @@ export const GerenteLayout: React.FC = () => {
               logoUrl: tenant.logo_url,
               timezone: tenant.timezone || 'America/Sao_Paulo',
               onboardingCompleted: isOnboardingCompleted,
+              businessHours: tenant.business_hours || undefined,
             });
           }
         } else {
@@ -167,10 +170,12 @@ export const GerenteLayout: React.FC = () => {
     { path: '/clientes', label: 'Clientes', icon: <HugeiconsIcon icon={UserIcon} size={18} /> },
     { path: '/profissionais', label: 'Equipe', icon: <HugeiconsIcon icon={UserGroupIcon} size={18} /> },
     { path: '/servicos/cadastro', label: 'Serviços', icon: <HugeiconsIcon icon={ScissorIcon} size={18} /> },
+    { path: '/produtos', label: 'Produtos', icon: <HugeiconsIcon icon={PackageIcon} size={18} /> },
     { path: '/financeiro', label: 'Financeiro', icon: <HugeiconsIcon icon={Money01Icon} size={18} /> },
     { path: '/whatsapp', label: 'WhatsApp', icon: <HugeiconsIcon icon={WhatsappIcon} size={18} /> },
     { path: '/configuracoes', label: 'Ajustes', icon: <HugeiconsIcon icon={Settings02Icon} size={18} /> },
   ];
+
 
   return (
     <>

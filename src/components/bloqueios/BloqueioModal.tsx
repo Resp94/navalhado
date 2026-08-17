@@ -110,13 +110,18 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     >
       <div className="bloqueio-modal-shell">
         <div className="bloqueio-modal-header">
-          <div>
-            <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
-              Bloquear Horário na Grade
-            </h3>
-            <p className="bloqueio-modal-subtitle">
-              Impede novos agendamentos neste intervalo
-            </p>
+          <div className="bloqueio-header-left">
+            <div className="bloqueio-icon-badge">
+              <HugeiconsIcon icon={Cancel01Icon} size={20} />
+            </div>
+            <div>
+              <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
+                Bloquear horário do barbeiro
+              </h3>
+              <p className="bloqueio-modal-subtitle">
+                Pausar agenda para almoço, folga ou compromisso pessoal
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -156,7 +161,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
           <div className="bloqueio-form-group">
             <label className="bloqueio-label">
-              Motivo do Bloqueio *
+              Motivo do bloqueio *
             </label>
             <select
               value={reason}
@@ -164,9 +169,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               className="bloqueio-select"
             >
               <option value="Almoço">Almoço</option>
-              <option value="Folga">Folga</option>
-              <option value="Consulta Médica">Consulta Médica</option>
-              <option value="Manutenção de Equipamento">Manutenção de Equipamento</option>
+              <option value="Folga do dia">Folga do dia</option>
+              <option value="Consulta médica">Consulta médica</option>
+              <option value="Manutenção de equipamento">Manutenção de equipamento</option>
               <option value="Treinamento">Treinamento</option>
               <option value="Outro">Outro</option>
             </select>
@@ -194,7 +199,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               className="bloqueio-checkbox"
             />
             <label htmlFor="isAllDay" className="bloqueio-checkbox-label">
-              Bloquear o dia inteiro
+              Bloquear o expediente inteiro deste dia
             </label>
           </div>
 
@@ -202,7 +207,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             <div className="bloqueio-time-row">
               <div className="bloqueio-form-group">
                 <label className="bloqueio-label">
-                  Início
+                  Horário de início
                 </label>
                 <div className="bloqueio-input-icon-wrapper">
                   <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
@@ -217,7 +222,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               </div>
               <div className="bloqueio-form-group">
                 <label className="bloqueio-label">
-                  Término
+                  Horário de término
                 </label>
                 <div className="bloqueio-input-icon-wrapper">
                   <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
@@ -251,7 +256,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               ) : (
                 <>
                   <HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} />
-                  <span>Confirmar Bloqueio</span>
+                  <span>Confirmar bloqueio</span>
                 </>
               )}
             </button>
@@ -276,7 +281,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
         .bloqueio-modal-shell {
           width: 100%;
-          max-width: 460px;
+          max-width: 480px;
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-xl);
@@ -328,8 +333,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         }
 
         .bloqueio-close-btn {
-          width: 32px;
-          height: 32px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-full);
           border: none;
           background: transparent;
@@ -365,16 +370,15 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         .bloqueio-form-group {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
-          flex: 1;
+          gap: 0.4rem;
         }
 
         .bloqueio-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
           color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
         .bloqueio-select,
@@ -382,6 +386,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           width: 100%;
           padding: 0.65rem 0.85rem;
           font-size: var(--font-size-sm);
+          font-weight: 600;
           color: var(--color-text-primary);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
@@ -393,14 +398,16 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         .bloqueio-select:focus,
         .bloqueio-input-date:focus {
           border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px var(--color-brand-lightest);
         }
 
         .bloqueio-checkbox-group {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding-top: 0.25rem;
+          padding: 0.5rem 0.75rem;
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
         }
 
         .bloqueio-checkbox {
@@ -420,12 +427,19 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         .bloqueio-time-row {
           display: flex;
           gap: 0.75rem;
+          width: 100%;
+        }
+
+        .bloqueio-time-row .bloqueio-form-group {
+          flex: 1;
+          min-width: 0;
         }
 
         .bloqueio-input-icon-wrapper {
           position: relative;
           display: flex;
           align-items: center;
+          width: 100%;
         }
 
         .bloqueio-input-icon {
@@ -437,6 +451,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
         .bloqueio-input-time {
           width: 100%;
+          box-sizing: border-box;
           padding: 0.65rem 0.85rem 0.65rem 2.25rem;
           font-size: var(--font-size-sm);
           font-weight: 600;
@@ -457,11 +472,12 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           align-items: center;
           gap: 0.75rem;
           padding-top: 0.5rem;
+          width: 100%;
         }
 
         .bloqueio-btn-secondary {
           flex: 1;
-          padding: 0.65rem 1rem;
+          padding: 0.75rem 1rem;
           border-radius: var(--radius-lg);
           border: 1px solid var(--color-border);
           background-color: var(--color-bg-primary);
@@ -470,6 +486,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
+          white-space: nowrap;
+          text-align: center;
         }
 
         .bloqueio-btn-secondary:hover {
@@ -477,8 +495,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         }
 
         .bloqueio-btn-danger {
-          flex: 1.5;
-          padding: 0.65rem 1.25rem;
+          flex: 1;
+          padding: 0.75rem 1rem;
           border-radius: var(--radius-lg);
           border: none;
           background-color: var(--color-error);
@@ -491,6 +509,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           justify-content: center;
           gap: 0.5rem;
           transition: all 0.2s ease;
+          white-space: nowrap;
         }
 
         .bloqueio-btn-danger:hover:not(:disabled) {

@@ -67,20 +67,26 @@ export const Modal: React.FC<ModalProps> = ({
 
         .modal-shell {
           width: 100%;
-          max-width: 440px;
+          max-width: 480px;
+          max-height: calc(100vh - 2rem);
+          max-height: calc(100dvh - 2rem);
+          display: flex;
+          flex-direction: column;
           padding: 4px;
           border-radius: calc(var(--radius-lg) + 4px);
           background: rgba(20, 17, 15, 0.08);
           box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, 0.15),
             0 8px 32px rgba(20, 17, 15, 0.25);
-          animation: springUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+          animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+          box-sizing: border-box;
         }
 
         .modal-card {
           background-color: var(--color-bg-secondary);
           border-radius: var(--radius-lg);
           width: 100%;
+          max-height: 100%;
           display: flex;
           flex-direction: column;
           box-shadow:
@@ -93,7 +99,8 @@ export const Modal: React.FC<ModalProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 1.25rem 1.5rem 0;
+          padding: 1.25rem 1.5rem 0.75rem;
+          flex-shrink: 0;
         }
 
         .modal-header__title {
@@ -107,14 +114,14 @@ export const Modal: React.FC<ModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 2rem;
-          height: 2rem;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-full);
           background: none;
           border: none;
           cursor: pointer;
           color: var(--color-text-secondary);
-          transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           outline: none;
         }
 
@@ -132,10 +139,13 @@ export const Modal: React.FC<ModalProps> = ({
         }
 
         .modal-body {
-          padding: 1.5rem;
+          padding: 0.75rem 1.5rem 1.5rem;
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          max-height: 100%;
         }
       `}</style>
     </div>

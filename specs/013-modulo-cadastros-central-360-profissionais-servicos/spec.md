@@ -36,16 +36,17 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
    - Aba 3 (Métricas e LTV): Total investido acumulado, ticket médio, total de visitas e frequência média em dias.
    - Ações rápidas de cabeçalho: Enviar WhatsApp, Nova Comanda e Novo Agendamento.
 
-4. **Gerenciador de Serviços e Comissões por Profissional:**
-   - Na tela `/profissionais`, modal com controle individual de serviços habilitados, permitindo ao profissional/gerente sobrescrever duração (padrão 40 min) e comissão específica.
+4. **Parametrização de Retorno e Disparo via Instância Uazapi Conectada:**
+   - Na tela `/servicos`, configuração do tempo de retorno (`return_period_days`) e template personalizado de mensagem.
+   - **Envio Direto via Uazapi (Sem links externos):** Tanto no acionamento manual pela Central 360 quanto no disparo agendado via Cron, as mensagens são enviadas diretamente pela instância conectada da barbearia (`public.whatsapp_instances`), preservando o histórico e garantindo entrega profissional.
+   - **Cron de Lembrete de Retorno:** Rotina agendada que localiza clientes cujo último serviço atingiu o tempo de retorno e realiza o disparo automatizado com controle de idempotência (`whatsapp_message_idempotency`).
 
 5. **Módulo de Produtos e Gestão de Estoque (`/produtos`):**
    - Na tela `/produtos` (acessada na Navbar superior via `PackageIcon`), gerenciamento completo de itens de vitrine (`retail`) e insumos de bancada (`internal_use`).
-   - Leitor de código de barras EAN-13, ponto de reposição (`min_stock_alert`), comissão de venda de balcão e badges visuais de estoque baixo.
+   - Ponto de reposição (`min_stock_alert`), comissão de venda de balcão, busca rápida por nome/marca e badges visuais de estoque baixo.
 
 6. **Validação Visual Obrigatória no Navegador:**
    - Após cada fase de implementação, realizar verificação visual automatizada no navegador (`http://localhost:5173`) confirmando renderização, responsividade, animações GSAP e fidelidade aos ícones existentes do Hugeicons.
-
 
 ---
 
@@ -57,7 +58,7 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
 3. As a Gerente in the Central 360 Drawer, I want to add and remove colorful custom tags (e.g., "VIP", "Barba Longa", "Exigente") to categorize client profiles.
 4. As a Gerente in the Central 360 Drawer, I want an aggregated financial tab displaying total spend (LTV), average ticket, total visits, and average days between visits.
 5. As a Gerente in the Central 360 Drawer, I want a unified timeline tab showing past appointments (status, date, barber, service) and paid Comandas with full itemized details.
-6. As a Gerente in the Central 360 Drawer, I want 1-click action buttons in the header to open WhatsApp directly or initiate a new Comanda/Appointment.
+6. As a Gerente in the Central 360 Drawer, I want a 1-click action button to trigger a WhatsApp message directly through our connected Uazapi instance without opening external browser tabs.
 7. As a Gerente on the Customers page, I want to filter the table by clicking active tags to quickly isolate specific client segments.
 
 ### B. Cadastro Público e Validação de Sobrenome
@@ -70,21 +71,22 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
 12. As a Gerente in the Professionals management modal, I want to enable or disable specific services for a barber with 1 click.
 13. As a Client on the booking channel, I want the available time slots to accurately reflect the custom duration of the selected barber, avoiding scheduling gaps or delays.
 
-### D. Serviços, Tempo de Retorno e Modalidades de Preço
+### D. Serviços, Tempo de Retorno e Automação Uazapi
 14. As a Gerente creating or editing a service, I want to configure the estimated return interval in days (`return_period_days`, e.g., 20 days) and a custom WhatsApp reminder message template.
-15. As a Gerente, I want to mark services as "Preço Fixo" (`fixed`) or "A partir de" (`starting_at`), making pricing clear for procedures with variable length or complexity.
+15. As a Gerente, I want a scheduled cron job to automatically check clients who reached their return interval and dispatch personalized messages via our connected Uazapi instance with idempotency protection.
+16. As a Gerente, I want to mark services as "Preço Fixo" (`fixed`) or "A partir de" (`starting_at`), making pricing clear for procedures with variable length or complexity.
+
 
 ### E. Produtos e Gestão de Estoque
 16. As a Gerente navigating via the top navbar, I want to click on "Produtos" (`PackageIcon`) to access the complete inventory and retail catalog.
-17. As a Gerente on the Products page, I want to filter products by usage type ("Todos", "Venda Balcão", "Insumo de Bancada") and search by name or barcode (EAN-13).
+17. As a Gerente on the Products page, I want to filter products by usage type ("Todos", "Venda Balcão", "Insumo de Bancada") and search by name, brand, or category.
 18. As a Gerente, I want products with stock equal to or below `min_stock_alert` to display a semantic warning badge ("Estoque Baixo"), highlighting items that need immediate replenishment.
-19. As a Gerente in the Product Modal (Double-Bezel), I want to create or edit items with brand, category, cost price, retail price, stock quantity, min stock alert, barcode, and barber sales commission percentage.
+19. As a Gerente in the Product Modal (Double-Bezel), I want to create or edit items with brand, category, unit type, cost price, retail price, stock quantity, min stock alert, and barber sales commission percentage.
 
 ### F. Integridade do Banco e Limpeza de Legados
 20. As a Developer, I want all database security policies on new tables to be strictly granular (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) with authenticated tenant isolation.
 21. As a Gerente viewing the Financial Dashboard, I want all revenue, payment method breakdowns, and commission metrics to calculate strictly from `public.comandas` and `public.comanda_pagamentos`.
 22. As a Developer, I want the legacy `public.payments` table safely dropped from the development database without breaking existing reports.
-
 
 ---
 
@@ -109,7 +111,6 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
 - **Estrutura Expandida de `public.products`**:
   ```sql
   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS product_type TEXT NOT NULL DEFAULT 'retail' CHECK (product_type IN ('retail', 'internal_use'));
-  ALTER TABLE public.products ADD COLUMN IF NOT EXISTS barcode TEXT NULL;
   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS min_stock_alert INTEGER NOT NULL DEFAULT 5 CHECK (min_stock_alert >= 0);
   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS brand TEXT NULL;
   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS category TEXT NULL;
@@ -117,9 +118,9 @@ Implementar a **Fase 1 do Módulo de Cadastros Avançado** no Navalhado, fundame
   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS commission_percentage NUMERIC(5,2) NULL CHECK (commission_percentage IS NULL OR (commission_percentage >= 0 AND commission_percentage <= 100));
 
   CREATE INDEX IF NOT EXISTS idx_products_tenant_type ON public.products (tenant_id, product_type);
-  CREATE INDEX IF NOT EXISTS idx_products_tenant_barcode ON public.products (tenant_id, barcode) WHERE barcode IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_products_tenant_low_stock ON public.products (tenant_id, stock_quantity, min_stock_alert);
   ```
+
 
 - **Tabela de Auditoria e Movimentações de Estoque (`public.product_movements`)**:
   ```sql

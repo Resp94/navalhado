@@ -1,12 +1,25 @@
-import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from '../types';
+import type {
+  Cliente,
+  ClienteInputData,
+  HistoricoVisitasCliente,
+  ComandaHistoricoCliente,
+  MetricasLTVCliente,
+  IClienteAdapter,
+} from '../types';
 
 export class InMemoryClienteAdapter implements IClienteAdapter {
   private clientes: Cliente[] = [];
   private appointmentsMap: Record<string, HistoricoVisitasCliente[]> = {};
+  private comandasMap: Record<string, ComandaHistoricoCliente[]> = {};
 
-  constructor(initialCustomers: Cliente[] = [], initialAppointments: Record<string, HistoricoVisitasCliente[]> = {}) {
+  constructor(
+    initialCustomers: Cliente[] = [],
+    initialAppointments: Record<string, HistoricoVisitasCliente[]> = {},
+    initialComandas: Record<string, ComandaHistoricoCliente[]> = {}
+  ) {
     this.clientes = [...initialCustomers];
     this.appointmentsMap = { ...initialAppointments };
+    this.comandasMap = { ...initialComandas };
   }
 
   async listarPorTenant(tenantId: string): Promise<Cliente[]> {
@@ -22,9 +35,13 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
           ...existing,
           name: input.name,
           phone: input.phone,
-          email: input.email ?? existing.email,
-          notes: input.notes ?? existing.notes,
-          cadastro_completo: input.cadastro_completo ?? true,
+          email: input.email !== undefined ? input.email : existing.email,
+          notes: input.notes !== undefined ? input.notes : existing.notes,
+          cadastro_completo: input.cadastro_completo ?? existing.cadastro_completo,
+          birth_date: input.birth_date !== undefined ? input.birth_date : existing.birth_date,
+          tags: input.tags !== undefined ? input.tags : existing.tags,
+          acquisition_channel: input.acquisition_channel !== undefined ? input.acquisition_channel : existing.acquisition_channel,
+          cpf: input.cpf !== undefined ? input.cpf : existing.cpf,
         };
         this.clientes[index] = updated;
         return updated;
@@ -40,6 +57,10 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
       notes: input.notes || null,
       cadastro_completo: input.cadastro_completo ?? true,
       token_acesso: `token_${Math.random().toString(36).substring(2, 9)}`,
+      birth_date: input.birth_date || null,
+      tags: input.tags || [],
+      acquisition_channel: input.acquisition_channel || null,
+      cpf: input.cpf || null,
       created_at: new Date().toISOString(),
     };
 
@@ -54,4 +75,53 @@ export class InMemoryClienteAdapter implements IClienteAdapter {
   async buscarHistoricoVisitas(clienteId: string): Promise<HistoricoVisitasCliente[]> {
     return this.appointmentsMap[clienteId] || [];
   }
+
+  async buscarHistoricoComandas(_tenantId: string, clienteId: string): Promise<ComandaHistoricoCliente[]> {
+    return this.comandasMap[clienteId] || [];
+  }
+
+  calcularMetricasLTV(
+    _clienteId: string,
+    appointments: HistoricoVisitasCliente[],
+    comandas: ComandaHistoricoCliente[]
+  ): MetricasLTVCliente {
+    const closedComandas = comandas.filter((c) => c.status === 'closed');
+    const completedAppointments = appointments.filter((a) => a.status === 'completed');
+
+    let totalSpend = 0;
+    if (closedComandas.length > 0) {
+      totalSpend = closedComandas.reduce((acc, c) => acc + c.total_final, 0);
+    } else {
+      totalSpend = completedAppointments.reduce((acc, a) => acc + a.service_price, 0);
+    }
+
+    const totalVisits = Math.max(closedComandas.length, completedAppointments.length);
+    const averageTicket = totalVisits > 0 ? totalSpend / totalVisits : 0;
+
+    const dates: number[] = [
+      ...closedComandas.map((c) => new Date(c.closed_at || c.created_at).getTime()),
+      ...completedAppointments.map((a) => new Date(a.start_time).getTime()),
+    ]
+      .filter((d) => !isNaN(d))
+      .sort((a, b) => a - b);
+
+    const uniqueDates = Array.from(new Set(dates.map((d) => new Date(d).toDateString()))).map((ds) => new Date(ds).getTime()).sort((a, b) => a - b);
+
+    let averageDaysBetweenVisits = 0;
+    if (uniqueDates.length > 1) {
+      const totalDiffDays = (uniqueDates[uniqueDates.length - 1] - uniqueDates[0]) / (1000 * 60 * 60 * 24);
+      averageDaysBetweenVisits = Math.round(totalDiffDays / (uniqueDates.length - 1));
+    }
+
+    const lastVisitDate = uniqueDates.length > 0 ? new Date(uniqueDates[uniqueDates.length - 1]).toISOString() : null;
+
+    return {
+      totalSpend,
+      averageTicket,
+      totalVisits,
+      averageDaysBetweenVisits,
+      lastVisitDate,
+    };
+  }
 }
+

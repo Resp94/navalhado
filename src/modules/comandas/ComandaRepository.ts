@@ -126,4 +126,15 @@ export class ComandaRepository {
 
     return await this.adapter.liquidarComanda(input);
   }
+
+  async reopenComanda(comandaId: string, tenantId: string): Promise<Comanda> {
+    if (!comandaId || !comandaId.trim()) {
+      throw new ComandaValidationError('ID da comanda é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new ComandaValidationError('ID da barbearia é obrigatório.');
+    }
+
+    return await this.adapter.reabrirComanda(comandaId, tenantId);
+  }
 }

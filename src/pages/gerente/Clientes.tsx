@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
@@ -53,25 +53,42 @@ const CopyIcon = () => (
   </svg>
 );
 
-const WhatsappIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.46h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+const TagIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
+    <path d="M7 7h.01" />
+  </svg>
+);
+
+const ReceiptIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
+    <path d="M8 7h8" />
+    <path d="M8 11h8" />
+    <path d="M8 15h6" />
   </svg>
 );
 
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const {
     filteredCustomers,
     stats,
     loading,
+    loadingDetails,
     searchTerm,
     setSearchTerm,
     filterStatus,
     setFilterStatus,
+    selectedTagFilter,
+    setSelectedTagFilter,
+    allAvailableTags,
     history,
+    comandasHistory,
+    calculateLTVMetrics,
     saveCustomer,
     deleteCustomer,
     loadHistorico,
@@ -80,23 +97,36 @@ export const Clientes: React.FC = () => {
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Cliente | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', notes: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    birth_date: '',
+    acquisition_channel: '',
+    cpf: '',
+    notes: '',
+    tags: [] as string[],
+  });
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Cliente | null>(null);
+  const [activeTab360, setActiveTab360] = useState<'dados' | 'historico' | 'metricas'>('dados');
+  const [newTagInput, setNewTagInput] = useState('');
 
   useGSAP(() => {
     if (!loading) {
-      gsap.fromTo('.stat-card', 
+      gsap.fromTo(
+        '.stat-card',
         { opacity: 0, y: 15 },
         { opacity: 1, y: 0, duration: 0.5, stagger: 0.05, ease: 'cubic-bezier(0.16, 1, 0.3, 1)' }
       );
-      gsap.fromTo('.customer-row', 
+      gsap.fromTo(
+        '.customer-row',
         { opacity: 0, y: 8 },
         { opacity: 1, y: 0, duration: 0.4, stagger: 0.03, delay: 0.2, ease: 'cubic-bezier(0.16, 1, 0.3, 1)' }
       );
     }
-  }, [loading, filterStatus, searchTerm]);
+  }, [loading, filterStatus, searchTerm, selectedTagFilter]);
 
   const handleOpenModal = (customer: Cliente | null = null) => {
     if (customer) {
@@ -105,11 +135,24 @@ export const Clientes: React.FC = () => {
         name: customer.name === 'Cliente' ? '' : customer.name,
         phone: customer.phone,
         email: customer.email || '',
+        birth_date: customer.birth_date || '',
+        acquisition_channel: customer.acquisition_channel || '',
+        cpf: customer.cpf || '',
         notes: customer.notes || '',
+        tags: customer.tags || [],
       });
     } else {
       setEditingCustomer(null);
-      setFormData({ name: '', phone: '', email: '', notes: '' });
+      setFormData({
+        name: '',
+        phone: '',
+        email: '',
+        birth_date: '',
+        acquisition_channel: '',
+        cpf: '',
+        notes: '',
+        tags: [],
+      });
     }
     setIsModalOpen(true);
   };
@@ -121,11 +164,28 @@ export const Clientes: React.FC = () => {
       name: formData.name,
       phone: formData.phone,
       email: formData.email,
+      birth_date: formData.birth_date || null,
+      acquisition_channel: formData.acquisition_channel || null,
+      cpf: formData.cpf || null,
       notes: formData.notes,
+      tags: formData.tags,
     });
 
     if (success) {
       setIsModalOpen(false);
+      if (selectedCustomer && selectedCustomer.id === editingCustomer?.id) {
+        setSelectedCustomer({
+          ...selectedCustomer,
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email || null,
+          birth_date: formData.birth_date || null,
+          acquisition_channel: formData.acquisition_channel || null,
+          cpf: formData.cpf || null,
+          notes: formData.notes || null,
+          tags: formData.tags,
+        });
+      }
     }
   };
 
@@ -141,6 +201,7 @@ export const Clientes: React.FC = () => {
 
   const handleOpenDrawer = (customer: Cliente) => {
     setSelectedCustomer(customer);
+    setActiveTab360('dados');
     setIsDrawerOpen(true);
     loadHistorico(customer.id);
   };
@@ -151,13 +212,43 @@ export const Clientes: React.FC = () => {
     addToast('Link de agendamento copiado!', 'success');
   };
 
-  const handleSendWhatsApp = (phone: string, token: string, name: string) => {
-    const link = `${window.location.origin}/cliente/${token}`;
-    const cleanName = name === 'Cliente' ? 'amigo' : name;
-    const msg = `Olá, ${cleanName}! Aqui está o seu link exclusivo para agendamento na ${tenant.tenantName}: ${link}`;
-    const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank');
+  const handleAddTagToCustomer = async (tagText: string) => {
+    const clean = tagText.trim().replace(/^#/, '');
+    if (!clean || !selectedCustomer) return;
+    if (selectedCustomer.tags.includes(clean)) {
+      setNewTagInput('');
+      return;
+    }
+    const updatedTags = [...selectedCustomer.tags, clean];
+    const success = await saveCustomer({
+      id: selectedCustomer.id,
+      name: selectedCustomer.name,
+      phone: selectedCustomer.phone,
+      tags: updatedTags,
+    });
+    if (success) {
+      setSelectedCustomer({ ...selectedCustomer, tags: updatedTags });
+      setNewTagInput('');
+    }
   };
+
+  const handleRemoveTagFromCustomer = async (tagToRemove: string) => {
+    if (!selectedCustomer) return;
+    const updatedTags = selectedCustomer.tags.filter((t) => t !== tagToRemove);
+    const success = await saveCustomer({
+      id: selectedCustomer.id,
+      name: selectedCustomer.name,
+      phone: selectedCustomer.phone,
+      tags: updatedTags,
+    });
+    if (success) {
+      setSelectedCustomer({ ...selectedCustomer, tags: updatedTags });
+    }
+  };
+
+  const ltvMetrics = selectedCustomer
+    ? calculateLTVMetrics(selectedCustomer.id)
+    : { totalSpend: 0, averageTicket: 0, totalVisits: 0, averageDaysBetweenVisits: 0, lastVisitDate: null };
 
   return (
     <div className="clientes-page">
@@ -171,7 +262,7 @@ export const Clientes: React.FC = () => {
         <div className="stat-card">
           <span className="stat-card__eyebrow">Cadastros Completos</span>
           <span className="stat-card__number stat-card__number--success">{stats.completosCount}</span>
-          <span className="stat-card__helper">Dados de nome confirmados</span>
+          <span className="stat-card__helper">Nome e sobrenome confirmados</span>
         </div>
         <div className="stat-card">
           <span className="stat-card__eyebrow">WhatsApp (Provisórios)</span>
@@ -183,10 +274,12 @@ export const Clientes: React.FC = () => {
       {/* 2. CONTROLES E BUSCA */}
       <div className="clients-controls-bar">
         <div className="search-input-wrapper">
-          <span className="search-icon"><SearchIcon /></span>
-          <input 
-            type="text" 
-            placeholder="Buscar por nome ou telefone..." 
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
+          <input
+            type="text"
+            placeholder="Buscar por nome, telefone, CPF ou tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="form-control"
@@ -194,20 +287,20 @@ export const Clientes: React.FC = () => {
         </div>
 
         <div className="filter-group-container">
-          <button 
-            onClick={() => setFilterStatus('todos')} 
+          <button
+            onClick={() => setFilterStatus('todos')}
             className={`btn-filter ${filterStatus === 'todos' ? 'btn-filter--active' : ''}`}
           >
             Todos
           </button>
-          <button 
-            onClick={() => setFilterStatus('completos')} 
+          <button
+            onClick={() => setFilterStatus('completos')}
             className={`btn-filter ${filterStatus === 'completos' ? 'btn-filter--active' : ''}`}
           >
             Completos
           </button>
-          <button 
-            onClick={() => setFilterStatus('provisorios')} 
+          <button
+            onClick={() => setFilterStatus('provisorios')}
             className={`btn-filter ${filterStatus === 'provisorios' ? 'btn-filter--active' : ''}`}
           >
             WhatsApp
@@ -218,6 +311,30 @@ export const Clientes: React.FC = () => {
           <UserPlusIcon /> Adicionar Cliente
         </button>
       </div>
+
+      {/* 2.1 BARRA DE FILTRO POR TAGS */}
+      {allAvailableTags.length > 0 && (
+        <div className="tags-filter-bar">
+          <span className="tags-filter-label">
+            <TagIcon /> Tags:
+          </span>
+          <button
+            onClick={() => setSelectedTagFilter(null)}
+            className={`tag-chip-btn ${selectedTagFilter === null ? 'tag-chip-btn--active' : ''}`}
+          >
+            Todas
+          </button>
+          {allAvailableTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
+              className={`tag-chip-btn ${selectedTagFilter === tag ? 'tag-chip-btn--active' : ''}`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 3. TABELA DE CLIENTES */}
       <div className="table-container shadow-glass">
@@ -234,9 +351,10 @@ export const Clientes: React.FC = () => {
           <table className="customers-table">
             <thead>
               <tr>
-                <th>Nome</th>
+                <th>Nome e Perfil</th>
                 <th>Telefone</th>
-                <th>Status Cadastro</th>
+                <th>Tags</th>
+                <th>Status</th>
                 <th>Cadastrado Em</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
@@ -252,34 +370,48 @@ export const Clientes: React.FC = () => {
                   </td>
                   <td className="font-mono">{customer.phone}</td>
                   <td>
+                    <div className="customer-tags-inline">
+                      {customer.tags && customer.tags.length > 0 ? (
+                        customer.tags.slice(0, 2).map((t) => (
+                          <span key={t} className="badge-tag">
+                            #{t}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted text-xs">—</span>
+                      )}
+                      {customer.tags && customer.tags.length > 2 && (
+                        <span className="badge-tag-more">+{customer.tags.length - 2}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
                     {customer.cadastro_completo ? (
                       <span className="badge badge--success">Cadastrado</span>
                     ) : (
-                      <span className="badge badge--warning">WhatsApp (Provisório)</span>
+                      <span className="badge badge--warning">WhatsApp</span>
                     )}
                   </td>
-                  <td>
-                    {new Date(customer.created_at).toLocaleDateString('pt-BR')}
-                  </td>
+                  <td>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
                   <td>
                     <div className="actions-cell">
-                      <button 
-                        onClick={() => handleOpenDrawer(customer)} 
+                      <button
+                        onClick={() => handleOpenDrawer(customer)}
                         className="btn btn--outline btn--xs"
                         aria-label="Ver Detalhes"
                       >
-                        Ver Detalhes
+                        Central 360º
                       </button>
-                      <button 
-                        onClick={() => handleOpenModal(customer)} 
+                      <button
+                        onClick={() => handleOpenModal(customer)}
                         className="btn btn-icon-only"
                         title="Editar"
                         aria-label="Editar"
                       >
                         <EditIcon />
                       </button>
-                      <button 
-                        onClick={() => handleDeleteSubmit(customer.id)} 
+                      <button
+                        onClick={() => handleDeleteSubmit(customer.id)}
                         className="btn btn-icon-only btn-icon-only--danger"
                         title="Excluir"
                         aria-label="Excluir"
@@ -295,7 +427,7 @@ export const Clientes: React.FC = () => {
         )}
       </div>
 
-      {/* 4. MODAL DE CADASTRO/EDIÇÃO */}
+      {/* 4. MODAL DE CADASTRO/EDIÇÃO (DOUBLE-BEZEL) */}
       {isModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-content shadow-xl animate-spring">
@@ -310,10 +442,10 @@ export const Clientes: React.FC = () => {
 
             <form onSubmit={handleSaveSubmit} className="modal-body">
               <div className="form-group">
-                <label htmlFor="name-input">Nome *</label>
-                <input 
+                <label htmlFor="name-input">Nome e Sobrenome *</label>
+                <input
                   id="name-input"
-                  type="text" 
+                  type="text"
                   aria-label="Nome"
                   required
                   placeholder="Ex: João da Silva"
@@ -323,37 +455,80 @@ export const Clientes: React.FC = () => {
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
-                <input 
-                  id="phone-input"
-                  type="text" 
-                  required
-                  placeholder="Ex: 11999998888"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="form-control"
-                />
+              <div className="form-group-row">
+                <div className="form-group">
+                  <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
+                  <input
+                    id="phone-input"
+                    type="text"
+                    required
+                    placeholder="Ex: 11999998888"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="birthdate-input">Data de Nascimento</label>
+                  <input
+                    id="birthdate-input"
+                    type="date"
+                    value={formData.birth_date}
+                    onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group-row">
+                <div className="form-group">
+                  <label htmlFor="email-input">E-mail (Opcional)</label>
+                  <input
+                    id="email-input"
+                    type="email"
+                    placeholder="Ex: joao@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="cpf-input">CPF (Opcional)</label>
+                  <input
+                    id="cpf-input"
+                    type="text"
+                    placeholder="Ex: 000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="email-input">E-mail (Opcional)</label>
-                <input 
-                  id="email-input"
-                  type="email" 
-                  placeholder="Ex: joao@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                <label htmlFor="channel-select">Canal de Aquisição</label>
+                <select
+                  id="channel-select"
+                  value={formData.acquisition_channel}
+                  onChange={(e) => setFormData({ ...formData, acquisition_channel: e.target.value })}
                   className="form-control"
-                />
+                >
+                  <option value="">Selecione como conheceu...</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="Indicação">Indicação de Amigo</option>
+                  <option value="Google">Google / Pesquisa</option>
+                  <option value="Passagem">Passou em frente</option>
+                  <option value="Tráfego Pago">Anúncio Online</option>
+                  <option value="Outro">Outro</option>
+                </select>
               </div>
 
               <div className="form-group">
-                <label htmlFor="notes-textarea">Observações Internas</label>
-                <textarea 
+                <label htmlFor="notes-textarea">Observações de Atendimento</label>
+                <textarea
                   id="notes-textarea"
-                  rows={3}
-                  placeholder="Preferências de corte, observações de atendimento..."
+                  rows={2}
+                  placeholder="Preferências de corte, café preferido, restrições..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="form-control"
@@ -361,17 +536,10 @@ export const Clientes: React.FC = () => {
               </div>
 
               <footer className="modal-footer">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="btn btn--outline"
-                >
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn--outline">
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
-                  className="btn btn--primary"
-                >
+                <button type="submit" className="btn btn--primary">
                   Salvar Cliente
                 </button>
               </footer>
@@ -380,129 +548,335 @@ export const Clientes: React.FC = () => {
         </div>
       )}
 
-      {/* 5. GAVETA LATERAL DE DETALHES DO CLIENTE */}
+      {/* 5. CENTRAL 360 DO CLIENTE (DRAWER LATERAL GSAP) */}
       {isDrawerOpen && selectedCustomer && (
         <>
           <div className="drawer-backdrop" onClick={() => setIsDrawerOpen(false)} />
-          <div className="drawer-container shadow-xl">
+          <div className="drawer-container shadow-xl animate-drawer">
+            {/* Header da Central 360 */}
             <header className="drawer-header">
-              <div>
-                <span className="drawer-header__eyebrow">
-                  {selectedCustomer.cadastro_completo ? 'Cadastro Completo' : 'Cliente Provisório'}
-                </span>
-                <h3 className="drawer-header__title">Detalhes do Cliente</h3>
+              <div className="drawer-header__main">
+                <div className="customer-avatar-badge">
+                  {selectedCustomer.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase() || 'CL'}
+                </div>
+                <div>
+                  <div className="drawer-header__eyebrow-row">
+                    <span className="drawer-header__eyebrow">
+                      {selectedCustomer.cadastro_completo ? 'Perfil Confirmado' : 'Cliente Provisório'}
+                    </span>
+                  </div>
+                  <h3 className="drawer-header__title">{selectedCustomer.name}</h3>
+                  <span className="drawer-header__subtitle font-mono">{selectedCustomer.phone}</span>
+                </div>
               </div>
               <button onClick={() => setIsDrawerOpen(false)} className="btn-close-modal">
                 <CloseIcon />
               </button>
             </header>
 
+            {/* Ações Rápidas de Topo */}
+            <div className="drawer-quick-actions">
+              <button
+                onClick={() => {
+                  handleCopyLink(selectedCustomer.token_acesso);
+                }}
+                className="btn btn--outline btn--xs"
+                title="Copiar link exclusivo do cliente"
+              >
+                <CopyIcon /> Copiar Link
+              </button>
+              <button
+                onClick={() => {
+                  navigate('/agenda');
+                  addToast(`Iniciando agendamento para ${selectedCustomer.name}`, 'info');
+                }}
+                className="btn btn--outline btn--xs"
+              >
+                <ReceiptIcon /> Nova Comanda
+              </button>
+              <button onClick={() => handleOpenModal(selectedCustomer)} className="btn btn--primary btn--xs">
+                <EditIcon /> Editar
+              </button>
+            </div>
+
+            {/* Abas de Navegação 360 */}
+            <div className="drawer-tabs-nav">
+              <button
+                onClick={() => setActiveTab360('dados')}
+                className={`drawer-tab-btn ${activeTab360 === 'dados' ? 'drawer-tab-btn--active' : ''}`}
+              >
+                Dados e Tags
+              </button>
+              <button
+                onClick={() => setActiveTab360('historico')}
+                className={`drawer-tab-btn ${activeTab360 === 'historico' ? 'drawer-tab-btn--active' : ''}`}
+              >
+                Linha do Tempo ({history.length + comandasHistory.length})
+              </button>
+              <button
+                onClick={() => setActiveTab360('metricas')}
+                className={`drawer-tab-btn ${activeTab360 === 'metricas' ? 'drawer-tab-btn--active' : ''}`}
+              >
+                Métricas e LTV
+              </button>
+            </div>
+
+            {/* Corpo do Drawer com base na Aba Ativa */}
             <div className="drawer-body">
-              <div className="drawer-section card shadow-glass">
-                <h4 className="drawer-section__title">Dados Pessoais</h4>
-                <div className="drawer-info-list">
-                  <div className="drawer-info-item">
-                    <span className="info-label">Nome:</span>
-                    <strong className="info-value">{selectedCustomer.name}</strong>
-                  </div>
-                  <div className="drawer-info-item">
-                    <span className="info-label">Telefone:</span>
-                    <span className="info-value font-mono">{selectedCustomer.phone}</span>
-                  </div>
-                  {selectedCustomer.email && (
-                    <div className="drawer-info-item">
-                      <span className="info-label">E-mail:</span>
-                      <span className="info-value">{selectedCustomer.email}</span>
-                    </div>
-                  )}
-                  {selectedCustomer.notes && (
-                    <div className="drawer-info-item drawer-info-item--full">
-                      <span className="info-label">Observações:</span>
-                      <p className="info-value text-italic">{selectedCustomer.notes}</p>
-                    </div>
-                  )}
+              {loadingDetails ? (
+                <div className="loading-state py-4">
+                  <div className="spinner mb-2" />
+                  <p>Carregando perfil 360º...</p>
                 </div>
-              </div>
-
-              {/* LINK E WHATSAPP */}
-              <div className="drawer-section card shadow-glass highlight-section">
-                <h4 className="drawer-section__title">Link de Agendamento Exclusivo</h4>
-                <p className="highlight-section__text">
-                  Este link identifica o cliente e a barbearia automaticamente sem a necessidade de login.
-                </p>
-                <div className="link-copy-container">
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={`${window.location.origin}/cliente/${selectedCustomer.token_acesso}`}
-                    className="form-control link-readonly-input font-mono"
-                  />
-                  <button 
-                    onClick={() => handleCopyLink(selectedCustomer.token_acesso)}
-                    className="btn btn--outline btn-copy-icon"
-                    title="Copiar Link"
-                  >
-                    <CopyIcon />
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => handleSendWhatsApp(selectedCustomer.phone, selectedCustomer.token_acesso, selectedCustomer.name)}
-                  className="btn-whatsapp-direct"
-                >
-                  <WhatsappIcon /> Enviar Link pelo WhatsApp
-                </button>
-              </div>
-
-              {/* HISTÓRICO DE VISITAS */}
-              <div className="drawer-section card shadow-glass">
-                <h4 className="drawer-section__title">Histórico de Visitas</h4>
-                {history.length === 0 ? (
-                  <div className="empty-state empty-state-drawer">
-                    Nenhum agendamento encontrado no histórico deste cliente.
-                  </div>
-                ) : (
-                  <div className="appointments-timeline">
-                    {history.map((app) => (
-                      <div key={app.id} className="appointment-card">
-                        <div className="appointment-card__header">
-                          <strong className="appointment-service">
-                            {app.service_name}
-                          </strong>
-                          <span className={`badge badge--appt-${app.status}`}>
-                            {app.status === 'completed' && 'Concluído'}
-                            {app.status === 'confirmed' && 'Confirmado'}
-                            {app.status === 'pending' && 'Pendente'}
-                            {app.status === 'canceled' && 'Cancelado'}
-                          </span>
-                        </div>
-                        <div className="appointment-card__body">
-                          <div>
-                            <span className="appt-meta-label">Barbeiro:</span>{' '}
-                            <span>{app.professional_name}</span>
-                          </div>
-                          <div>
-                            <span className="appt-meta-label">Data/Hora:</span>{' '}
-                            <span>{new Date(app.start_time).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-                          </div>
-                          <div>
-                            <span className="appt-meta-label">Valor:</span>{' '}
-                            <strong className="text-brand">
-                              {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
-                            </strong>
-                          </div>
-                        </div>
+              ) : activeTab360 === 'dados' ? (
+                /* ABA 1: DADOS CADASTRAIS E TAGS */
+                <div className="tab-content-container">
+                  {/* TAGS INTERATIVAS */}
+                  <div className="drawer-section card shadow-glass">
+                    <h4 className="drawer-section__title">
+                      <TagIcon /> Tags e Categorias do Cliente
+                    </h4>
+                    <div className="tags-management-container">
+                      <div className="tags-chips-list">
+                        {selectedCustomer.tags && selectedCustomer.tags.length > 0 ? (
+                          selectedCustomer.tags.map((t) => (
+                            <span key={t} className="badge-tag-interactive">
+                              #{t}
+                              <button
+                                onClick={() => handleRemoveTagFromCustomer(t)}
+                                className="tag-remove-btn"
+                                title="Remover tag"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-muted text-sm">Nenhuma tag atribuída a este cliente.</span>
+                        )}
                       </div>
-                    ))}
+                      <div className="add-tag-inline">
+                        <input
+                          type="text"
+                          placeholder="Adicionar nova tag (ex: VIP, Barba Longa)..."
+                          value={newTagInput}
+                          onChange={(e) => setNewTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddTagToCustomer(newTagInput);
+                            }
+                          }}
+                          className="form-control form-control--sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddTagToCustomer(newTagInput)}
+                          className="btn btn--outline btn--sm"
+                        >
+                          Adicionar
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* INFORMAÇÕES PESSOAIS */}
+                  <div className="drawer-section card shadow-glass">
+                    <h4 className="drawer-section__title">Dados Cadastrais</h4>
+                    <div className="drawer-info-list">
+                      <div className="drawer-info-item">
+                        <span className="info-label">Nome:</span>
+                        <strong className="info-value">{selectedCustomer.name}</strong>
+                      </div>
+                      <div className="drawer-info-item">
+                        <span className="info-label">Telefone:</span>
+                        <span className="info-value font-mono">{selectedCustomer.phone}</span>
+                      </div>
+                      <div className="drawer-info-item">
+                        <span className="info-label">Aniversário:</span>
+                        <span className="info-value">
+                          {selectedCustomer.birth_date
+                            ? new Date(selectedCustomer.birth_date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: 'long',
+                              })
+                            : 'Não informado'}
+                        </span>
+                      </div>
+                      <div className="drawer-info-item">
+                        <span className="info-label">Canal de Aquisição:</span>
+                        <span className="info-value">{selectedCustomer.acquisition_channel || 'Não informado'}</span>
+                      </div>
+                      {selectedCustomer.cpf && (
+                        <div className="drawer-info-item">
+                          <span className="info-label">CPF:</span>
+                          <span className="info-value font-mono">{selectedCustomer.cpf}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.email && (
+                        <div className="drawer-info-item">
+                          <span className="info-label">E-mail:</span>
+                          <span className="info-value">{selectedCustomer.email}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.notes && (
+                        <div className="drawer-info-item drawer-info-item--full">
+                          <span className="info-label">Observações:</span>
+                          <p className="info-value text-italic">{selectedCustomer.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : activeTab360 === 'historico' ? (
+                /* ABA 2: LINHA DO TEMPO (AGENDAMENTOS E COMANDAS) */
+                <div className="tab-content-container">
+                  <div className="drawer-section card shadow-glass">
+                    <h4 className="drawer-section__title">Linha do Tempo de Atendimentos</h4>
+                    {history.length === 0 && comandasHistory.length === 0 ? (
+                      <div className="empty-state empty-state-drawer">
+                        Nenhum atendimento ou comanda encontrado no histórico.
+                      </div>
+                    ) : (
+                      <div className="timeline-unified-list">
+                        {comandasHistory.map((cmd) => (
+                          <div key={cmd.id} className="timeline-card timeline-card--comanda">
+                            <div className="timeline-card__header">
+                              <span className="timeline-type-badge">
+                                <ReceiptIcon /> Comanda #{cmd.comanda_number}
+                              </span>
+                              <span className={`badge badge--appt-${cmd.status === 'closed' ? 'completed' : 'pending'}`}>
+                                {cmd.status === 'closed' ? 'Paga' : 'Aberta'}
+                              </span>
+                            </div>
+                            <div className="timeline-card__body">
+                              <div className="timeline-items-list">
+                                {cmd.items.map((it) => (
+                                  <div key={it.id} className="timeline-item-row">
+                                    <span>
+                                      {it.quantity}x {it.name}
+                                    </span>
+                                    <span className="font-mono">
+                                      R$ {(it.quantity * it.unit_price).toFixed(2).replace('.', ',')}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="timeline-footer-row">
+                                <span className="text-muted text-xs">
+                                  {new Date(cmd.closed_at || cmd.created_at).toLocaleString('pt-BR', {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short',
+                                  })}
+                                </span>
+                                <strong className="text-brand">
+                                  Total: R$ {cmd.total_final.toFixed(2).replace('.', ',')}
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {history.map((app) => (
+                          <div key={app.id} className="timeline-card">
+                            <div className="timeline-card__header">
+                              <strong className="appointment-service">{app.service_name}</strong>
+                              <span className={`badge badge--appt-${app.status}`}>
+                                {app.status === 'completed' && 'Concluído'}
+                                {app.status === 'confirmed' && 'Confirmado'}
+                                {app.status === 'pending' && 'Pendente'}
+                                {app.status === 'canceled' && 'Cancelado'}
+                              </span>
+                            </div>
+                            <div className="timeline-card__body">
+                              <div className="appt-meta-row">
+                                <span className="appt-meta-label">Barbeiro:</span>
+                                <span>{app.professional_name}</span>
+                              </div>
+                              <div className="appt-meta-row">
+                                <span className="appt-meta-label">Data/Hora:</span>
+                                <span>
+                                  {new Date(app.start_time).toLocaleString('pt-BR', {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short',
+                                  })}
+                                </span>
+                              </div>
+                              <div className="appt-meta-row">
+                                <span className="appt-meta-label">Valor:</span>
+                                <strong className="text-brand">
+                                  {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ABA 3: MÉTRICAS E LTV */
+                <div className="tab-content-container">
+                  <div className="ltv-bento-grid">
+                    <div className="ltv-card card shadow-glass">
+                      <span className="ltv-card__label">Total Investido (LTV)</span>
+                      <span className="ltv-card__value text-brand font-mono">
+                        R$ {ltvMetrics.totalSpend.toFixed(2).replace('.', ',')}
+                      </span>
+                      <span className="ltv-card__hint">Faturamento acumulado do cliente</span>
+                    </div>
+
+                    <div className="ltv-card card shadow-glass">
+                      <span className="ltv-card__label">Ticket Médio</span>
+                      <span className="ltv-card__value font-mono">
+                        R$ {ltvMetrics.averageTicket.toFixed(2).replace('.', ',')}
+                      </span>
+                      <span className="ltv-card__hint">Gasto médio por visita</span>
+                    </div>
+
+                    <div className="ltv-card card shadow-glass">
+                      <span className="ltv-card__label">Total de Visitas</span>
+                      <span className="ltv-card__value">{ltvMetrics.totalVisits}</span>
+                      <span className="ltv-card__hint">Atendimentos concluídos</span>
+                    </div>
+
+                    <div className="ltv-card card shadow-glass">
+                      <span className="ltv-card__label">Frequência Média</span>
+                      <span className="ltv-card__value">
+                        {ltvMetrics.averageDaysBetweenVisits > 0
+                          ? `${ltvMetrics.averageDaysBetweenVisits} dias`
+                          : 'Primeira visita'}
+                      </span>
+                      <span className="ltv-card__hint">Intervalo médio entre retornos</span>
+                    </div>
+                  </div>
+
+                  {ltvMetrics.lastVisitDate && (
+                    <div className="last-visit-banner card shadow-glass mt-3">
+                      <span className="text-sm text-secondary">
+                        Última visita registrada em:{' '}
+                        <strong>
+                          {new Date(ltvMetrics.lastVisitDate).toLocaleDateString('pt-BR', {
+                            dateStyle: 'long',
+                          })}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </>
       )}
 
-      {/* ESTILOS LOCAIS REFINADOS */}
+      {/* ESTILOS LOCAIS DA CENTRAL 360 */}
       <style>{`
         .clientes-page {
           display: flex;
@@ -521,7 +895,6 @@ export const Clientes: React.FC = () => {
         .stat-card {
           background: rgba(255, 255, 255, 0.65);
           backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           padding: 1.25rem;
@@ -592,280 +965,76 @@ export const Clientes: React.FC = () => {
           font-size: var(--font-size-sm);
         }
 
-        .search-input-wrapper .form-control:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
-        }
-
-        .filter-group-container {
+        .tags-filter-bar {
           display: flex;
-          background: rgba(45, 35, 30, 0.04);
-          padding: 0.25rem;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-        }
-
-        .btn-filter {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          padding: 0.45rem 1rem;
-          cursor: pointer;
-          border-radius: calc(var(--radius-md) - 2px);
-          transition: all 0.2s ease;
-        }
-
-        .btn-filter--active {
-          background: var(--color-bg-secondary);
-          color: var(--color-brand-primary);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .table-container {
-          overflow: hidden;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-md);
-        }
-
-        .loading-state, .empty-state {
-          padding: 3rem;
-          text-align: center;
-          color: var(--color-text-secondary);
-          display: flex;
-          flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          padding: 0.5rem 0.25rem;
         }
 
-        .customers-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-        }
-
-        .customers-table th {
-          background-color: rgba(45, 35, 30, 0.02);
-          color: var(--color-text-secondary);
+        .tags-filter-label {
           font-size: var(--font-size-xs);
-          font-weight: 600;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          padding: 0.85rem 1.25rem;
-          border-bottom: 1px solid var(--color-border);
         }
 
-        .customers-table td {
-          padding: 1rem 1.25rem;
-          border-bottom: 1px solid var(--color-border);
-          vertical-align: middle;
-          font-size: var(--font-size-sm);
-        }
-
-        .customer-row {
-          transition: background-color 0.2s ease;
-        }
-
-        .customer-row:hover {
-          background-color: rgba(217, 108, 0, 0.015);
-        }
-
-        .customer-name-wrapper {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .customer-name {
-          color: var(--color-text-primary);
-          font-weight: 600;
-        }
-
-        .customer-email {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.2rem 0.6rem;
-          border-radius: var(--radius-full);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-        }
-
-        .badge--success {
-          background-color: var(--color-success-bg);
-          color: var(--color-success);
-        }
-
-        .badge--warning {
-          background-color: var(--color-warning-bg);
-          color: var(--color-warning);
-        }
-
-        .actions-cell {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.5rem;
-        }
-
-        .btn--outline {
+        .tag-chip-btn {
+          background: rgba(45, 35, 30, 0.05);
           border: 1px solid var(--color-border);
-          background: transparent;
-          color: var(--color-text-secondary);
+          padding: 0.25rem 0.65rem;
+          border-radius: 9999px;
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          color: var(--color-text-primary);
+          cursor: pointer;
+          transition: all 0.15s ease;
         }
 
-        .btn--outline:hover {
+        .tag-chip-btn:hover {
           border-color: var(--color-brand-primary);
           color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.02);
         }
 
-        .btn--xs {
-          padding: 0.3rem 0.75rem;
-          font-size: var(--font-size-xs);
-          border-radius: var(--radius-sm);
-        }
-
-        .btn-icon-only {
-          background: transparent;
-          border: 1px solid transparent;
-          color: var(--color-text-secondary);
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-md);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-icon-only:hover {
-          background-color: rgba(45, 35, 30, 0.04);
-          color: var(--color-text-primary);
-        }
-
-        .btn-icon-only--danger:hover {
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
-        }
-
-        /* MODAL */
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background-color: rgba(20, 17, 15, 0.4);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal-content {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          width: 100%;
-          max-width: 500px;
-          overflow: hidden;
-        }
-
-        .animate-spring {
-          animation: springUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .modal-title {
-          font-size: var(--font-size-base);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .btn-close-modal {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          padding: 0.2rem;
-          border-radius: var(--radius-sm);
-        }
-
-        .btn-close-modal:hover {
-          background-color: rgba(45, 35, 30, 0.05);
-          color: var(--color-text-primary);
-        }
-
-        .modal-body {
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .form-group .form-control {
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          outline: none;
-          font-size: var(--font-size-sm);
-        }
-
-        .form-group .form-control:focus {
+        .tag-chip-btn--active {
+          background: var(--color-brand-primary);
           border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
+          color: #ffffff;
         }
 
-        .form-help {
-          font-size: var(--font-size-xs);
+        .customer-tags-inline {
+          display: flex;
+          gap: 0.35rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .badge-tag {
+          font-size: 11px;
+          font-weight: 700;
+          background: rgba(217, 108, 0, 0.1);
+          color: var(--color-brand-primary);
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .badge-tag-more {
+          font-size: 10px;
+          font-weight: 700;
           color: var(--color-text-secondary);
         }
 
-        .modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        /* GAVETA LATERAL */
         .drawer-backdrop {
           position: fixed;
           inset: 0;
-          background-color: rgba(20, 17, 15, 0.3);
-          backdrop-filter: blur(2px);
-          z-index: 900;
+          background: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(4px);
+          z-index: 1000;
         }
 
         .drawer-container {
@@ -874,38 +1043,101 @@ export const Clientes: React.FC = () => {
           right: 0;
           bottom: 0;
           width: 100%;
-          max-width: 450px;
-          background-color: var(--color-bg-primary);
+          max-width: 520px;
+          background: var(--color-bg-primary);
           border-left: 1px solid var(--color-border);
-          z-index: 950;
+          z-index: 1001;
           display: flex;
           flex-direction: column;
-          animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
         }
 
         .drawer-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.25rem 1.5rem;
-          background-color: var(--color-bg-secondary);
+          padding: 1.5rem;
           border-bottom: 1px solid var(--color-border);
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          background: var(--color-bg-secondary);
+        }
+
+        .drawer-header__main {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .customer-avatar-badge {
+          width: 52px;
+          height: 52px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, var(--color-brand-primary) 0%, #b85d00 100%);
+          color: #ffffff;
+          font-weight: 800;
+          font-size: 1.25rem;
+          display: grid;
+          place-items: center;
+          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
         }
 
         .drawer-header__eyebrow {
-          font-size: var(--font-size-xs);
+          font-size: 10px;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.1em;
+          font-weight: 800;
           color: var(--color-brand-primary);
-          font-weight: 700;
-          display: block;
-          margin-bottom: 0.15rem;
         }
 
         .drawer-header__title {
-          font-size: var(--font-size-lg);
+          font-size: 1.25rem;
+          font-weight: 800;
+          margin: 0.15rem 0;
+          color: var(--color-text-primary);
+        }
+
+        .drawer-header__subtitle {
+          font-size: 0.85rem;
+          color: var(--color-text-secondary);
+        }
+
+        .drawer-quick-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          background: rgba(255, 255, 255, 0.4);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .drawer-tabs-nav {
+          display: flex;
+          border-bottom: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+        }
+
+        .drawer-tab-btn {
+          flex: 1;
+          padding: 0.85rem 0.5rem;
+          border: none;
+          background: transparent;
+          font-size: var(--font-size-xs);
           font-weight: 700;
-          margin: 0;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s ease;
+        }
+
+        .drawer-tab-btn:hover {
+          color: var(--color-text-primary);
+        }
+
+        .drawer-tab-btn--active {
+          color: var(--color-brand-primary);
+          border-bottom-color: var(--color-brand-primary);
+          background: rgba(217, 108, 0, 0.03);
         }
 
         .drawer-body {
@@ -914,187 +1146,149 @@ export const Clientes: React.FC = () => {
           padding: 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1.25rem;
         }
 
-        .drawer-section {
-          padding: 1.25rem;
+        .tab-content-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .tags-management-container {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
-          background-color: var(--color-bg-secondary);
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--color-border);
         }
 
-        .drawer-section__title {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          border-bottom: 1px solid var(--color-border);
-          padding-bottom: 0.4rem;
-        }
-
-        .drawer-info-list {
-          display: grid;
-          grid-template-columns: 1fr;
+        .tags-chips-list {
+          display: flex;
+          flex-wrap: wrap;
           gap: 0.5rem;
         }
 
-        .drawer-info-item {
-          display: flex;
-          justify-content: space-between;
-          font-size: var(--font-size-sm);
-          padding: 0.25rem 0;
+        .badge-tag-interactive {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: rgba(217, 108, 0, 0.12);
+          color: var(--color-brand-primary);
+          font-weight: 700;
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 6px;
         }
 
-        .drawer-info-item--full {
+        .tag-remove-btn {
+          background: none;
+          border: none;
+          color: var(--color-brand-primary);
+          font-weight: 800;
+          cursor: pointer;
+          padding: 0;
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        .add-tag-inline {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 0.25rem;
+        }
+
+        .ltv-bento-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+        }
+
+        .ltv-card {
+          padding: 1.15rem;
+          display: flex;
           flex-direction: column;
           gap: 0.25rem;
-          margin-top: 0.25rem;
         }
 
-        .info-label {
+        .ltv-card__label {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 700;
           color: var(--color-text-secondary);
-          font-weight: 500;
         }
 
-        .info-value {
+        .ltv-card__value {
+          font-size: 1.5rem;
+          font-weight: 800;
           color: var(--color-text-primary);
         }
 
-        .text-italic {
-          font-style: italic;
+        .ltv-card__hint {
+          font-size: 11px;
           color: var(--color-text-secondary);
         }
 
-        .highlight-section {
-          background-color: var(--color-brand-lightest);
-          border-color: var(--color-brand-soft);
-        }
-
-        .highlight-section__text {
-          font-size: var(--font-size-xs);
-          color: var(--color-brand-deep);
-          line-height: 1.4;
-        }
-
-        .link-copy-container {
-          display: flex;
-          gap: 0.5rem;
-          margin-top: 0.25rem;
-        }
-
-        .link-readonly-input {
-          font-size: var(--font-size-xs) !important;
-          background-color: rgba(255, 255, 255, 0.8) !important;
-          flex: 1;
-        }
-
-        .btn-copy-icon {
-          font-size: var(--font-size-xs) !important;
-          padding: 0.5rem 0.75rem !important;
-        }
-
-        .btn-whatsapp-direct {
-          background-color: #25D366;
-          color: #ffffff;
-          width: 100%;
-          border: none;
-          font-weight: 600;
-          font-size: var(--font-size-xs);
-          padding: 0.65rem 1rem;
-          border-radius: var(--radius-md);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          box-shadow: 0 4px 12px rgba(37, 211, 102, 0.15);
-          transition: all 0.3s ease;
-        }
-
-        .btn-whatsapp-direct:hover {
-          background-color: #20BA5A;
-          transform: translateY(-1px);
-          box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25);
-        }
-
-        .empty-state-drawer {
-          padding: 1.5rem;
-          text-align: center;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          border-style: dashed;
-        }
-
-        .appointments-timeline {
+        .timeline-unified-list {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
         }
 
-        .appointment-card {
-          padding: 1rem !important;
-          background-color: var(--color-bg-secondary);
+        .timeline-card {
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
+          padding: 0.85rem 1rem;
+          background: rgba(255, 255, 255, 0.6);
+        }
+
+        .timeline-card--comanda {
+          border-left: 3px solid var(--color-brand-primary);
+        }
+
+        .timeline-card__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+        }
+
+        .timeline-type-badge {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .timeline-items-list {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .appointment-card__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .appointment-service {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-primary);
-        }
-
-        .badge--appt-completed {
-          background-color: var(--color-success-bg);
-          color: var(--color-success);
-        }
-
-        .badge--appt-confirmed {
-          background-color: var(--color-info-bg);
-          color: var(--color-info);
-        }
-
-        .badge--appt-pending {
-          background-color: var(--color-warning-bg);
-          color: var(--color-warning);
-        }
-
-        .badge--appt-canceled {
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
-        }
-
-        .appointment-card__body {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.4rem;
+          gap: 0.25rem;
           font-size: var(--font-size-xs);
         }
 
-        .appt-meta-label {
-          color: var(--color-text-secondary);
+        .timeline-item-row {
+          display: flex;
+          justify-content: space-between;
+          color: var(--color-text-primary);
         }
 
-        .text-brand {
-          color: var(--color-brand-primary);
+        .timeline-footer-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px dashed var(--color-border);
         }
 
-        .font-mono {
-          font-family: monospace;
-          letter-spacing: 0.02em;
+        .form-group-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
         }
       `}</style>
     </div>

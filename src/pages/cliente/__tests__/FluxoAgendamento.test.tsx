@@ -57,16 +57,16 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     expect(
       await screen.findByRole('heading', { name: 'Como podemos chamar você?' }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('Nome')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Nome/i)).toBeInTheDocument();
     expect(screen.queryByText('Selecione o Serviço')).not.toBeInTheDocument();
   });
-  it('valida o nome antes de chamar a RPC de conclus�o', async () => {
+  it('valida o nome antes de chamar a RPC de conclusão', async () => {
     mockRpc.mockResolvedValueOnce({ data: [incompleteDetails], error: null });
 
     renderBookingRoute();
     await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
 
-    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'A' } });
+    fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: 'A' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -109,7 +109,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     renderBookingRoute();
     await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
-    fireEvent.change(screen.getByLabelText('Nome'), {
+    fireEvent.change(screen.getByLabelText(/Nome/i), {
       target: { value: '  Maria Silva  ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
@@ -121,7 +121,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     expect(window.location.pathname).not.toBe('/cliente/agendar');
   });
 
-  it('mant�m o formul�rio e mostra toast quando a conclus�o falha', async () => {
+  it('mantm o formulrio e mostra toast quando a concluso falha', async () => {
     mockRpc.mockImplementation(async (name: string) => {
       if (name === 'get_customer_details_by_token') {
         return { data: [incompleteDetails], error: null };
@@ -129,12 +129,12 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       if (name === 'complete_customer_registration') {
         return { data: null, error: { message: 'falhou' } };
       }
-      throw new Error(`Cat�logo n�o deveria carregar: ${name}`);
+      throw new Error(`Catálogo não deveria carregar: ${name}`);
     });
 
     renderBookingRoute();
     await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
-    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Maria' } });
+    fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: 'Maria Silva' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(

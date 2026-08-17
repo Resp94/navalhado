@@ -147,10 +147,10 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
         <div className="drawer-header">
           <div>
             <h3 id="drawer-espera-title" className="drawer-title">
-              Lista de Espera do Dia
+              Fila de espera da barbearia
             </h3>
             <p className="drawer-subtitle">
-              {aguardandoEntries.length} cliente(s) aguardando vaga
+              {aguardandoEntries.length} cliente(s) aguardando atendimento
             </p>
           </div>
           <button
@@ -172,12 +172,12 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
               className="btn-add-espera"
             >
               <HugeiconsIcon icon={PlusSignIcon} size={16} />
-              <span>Adicionar Cliente na Espera</span>
+              <span>Adicionar cliente na fila</span>
             </button>
           ) : (
             <form onSubmit={handleAddSubmit} className="espera-add-form">
               <div className="espera-form-header">
-                <h4 className="espera-form-title">Novo na Espera</h4>
+                <h4 className="espera-form-title">Novo cliente na fila</h4>
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
@@ -195,7 +195,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
               <div className="espera-form-group">
                 <label className="espera-label">
-                  Nome do Cliente *
+                  Nome do cliente *
                 </label>
                 <input
                   type="text"
@@ -209,7 +209,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
               <div className="espera-form-group">
                 <label className="espera-label">
-                  WhatsApp / Celular
+                  WhatsApp ou celular
                 </label>
                 <input
                   type="tel"
@@ -223,14 +223,14 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
               <div className="espera-form-row">
                 <div className="espera-form-group">
                   <label className="espera-label">
-                    Profissional Preferido
+                    Profissional de preferência
                   </label>
                   <select
                     value={profId}
                     onChange={(e) => setProfId(e.target.value)}
                     className="espera-select"
                   >
-                    <option value="">Qualquer Barbeiro (Rodízio)</option>
+                    <option value="">Qualquer barbeiro (rodízio do balcão)</option>
                     {professionals.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -281,7 +281,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                 ) : (
                   <>
                     <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} />
-                    <span>Salvar na Fila</span>
+                    <span>Adicionar à fila de espera</span>
                   </>
                 )}
               </button>
@@ -291,7 +291,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
           {/* Seção Fila Ativa */}
           <div className="espera-section">
             <h4 className="espera-section-title">
-              Aguardando ({aguardandoEntries.length})
+              Aguardando na casa ({aguardandoEntries.length})
             </h4>
 
             {loading ? (
@@ -338,7 +338,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                           </span>
                         )}
                         <span className="espera-meta-tag espera-meta-prof">
-                          {prof ? `Pref: ${prof.name}` : 'Qualquer Barbeiro'}
+                          {prof ? `Pref: ${prof.name}` : 'Qualquer barbeiro'}
                         </span>
                       </div>
 
@@ -352,7 +352,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                             type="button"
                             onClick={() => handleNotifyWhatsApp(entry)}
                             className="espera-action-whatsapp"
-                            title="Avisar no WhatsApp"
+                            title="Avisar no WhatsApp que a vez chegou"
                           >
                             <HugeiconsIcon icon={WhatsappIcon} size={14} />
                             <span>Avisar</span>
@@ -373,11 +373,11 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                           type="button"
                           onClick={() => onEncaixar(entry)}
                           className="espera-action-encaixar"
-                          title="Encaixar na Grade"
-                          aria-label="Encaixar na Grade"
+                          title="Puxar para a cadeira"
+                          aria-label="Puxar para a cadeira"
                         >
                           <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                          <span>Encaixar na Grade</span>
+                          <span>Puxar para a cadeira</span>
                         </button>
                       </div>
                     </div>
@@ -487,8 +487,8 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
         }
 
         .drawer-close-btn {
-          width: 32px;
-          height: 32px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-full);
           border: none;
           background: transparent;

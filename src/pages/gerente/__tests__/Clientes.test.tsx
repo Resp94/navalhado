@@ -59,12 +59,17 @@ vi.mock('../../../components/Toast', () => ({
 }));
 
 // Mock do react-router-dom para obter o contexto do tenant
-vi.mock('react-router-dom', () => ({
-  useOutletContext: () => ({
-    tenantId: 'tenant-test-id',
-    tenantName: 'Barbearia Estilo',
-  }),
-}));
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+    useOutletContext: () => ({
+      tenantId: 'tenant-test-id',
+      tenantName: 'Barbearia Estilo',
+    }),
+  };
+});
 
 // Mock do Supabase
 vi.mock('../../../lib/supabase', () => ({
@@ -181,9 +186,10 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
     });
 
-    const inputBusca = screen.getByPlaceholderText(/Buscar por nome ou telefone/i);
+    const inputBusca = screen.getByPlaceholderText(/Buscar por nome/i);
     
     // Digitar "João"
+
     fireEvent.change(inputBusca, { target: { value: 'João' } });
     
     expect(screen.getByText('João Silva')).toBeInTheDocument();
@@ -215,6 +221,11 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
           select: vi.fn().mockReturnValue(createDefaultBuilder(mockAppointments)),
         };
       }
+      if (table === 'customers') {
+        return {
+          select: vi.fn().mockReturnValue(createDefaultBuilder(mockCustomers)),
+        };
+      }
       return {
         select: mockSelect,
         insert: mockInsert,
@@ -234,8 +245,13 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     fireEvent.click(btnDetalhes);
 
     // Esperar a gaveta lateral abrir
+    expect(await screen.findByRole('button', { name: /Copiar Link/i })).toBeInTheDocument();
+
+    // Navegar para a aba Linha do Tempo
+    const tabTimeline = screen.getByRole('button', { name: /Linha do Tempo/i });
+    fireEvent.click(tabTimeline);
+
     await waitFor(() => {
-      expect(screen.getByText('Detalhes do Cliente')).toBeInTheDocument();
       expect(screen.getByText('Cabelo & Barba')).toBeInTheDocument();
       expect(screen.getByText('Lucas Barbeiro')).toBeInTheDocument();
       expect(screen.getByText('R$ 80,00')).toBeInTheDocument();

@@ -77,7 +77,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         <div className="caixa-modal-header">
           <div>
             <h3 id="modal-caixa-title" className="caixa-modal-title">
-              Abertura de Caixa Diário
+              Abertura de caixa do turno
             </h3>
             <p className="caixa-modal-subtitle">
               Nenhum caixa aberto para o turno atual
@@ -96,7 +96,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         <div className="caixa-info-alert">
           <HugeiconsIcon icon={InformationCircleIcon} size={18} className="caixa-alert-icon" />
           <p className="caixa-alert-text">
-            Para registrar recebimentos e manter o controle de sangria e fechamento, informe o fundo de troco inicial da gaveta.
+            Informe o valor em dinheiro guardado na gaveta para servir de troco aos primeiros clientes do dia.
           </p>
         </div>
 
@@ -109,7 +109,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         <form onSubmit={handleConfirm} className="caixa-modal-form">
           <div className="caixa-form-group">
             <label className="caixa-label">
-              Fundo de Troco Inicial (R$) *
+              Fundo de troco inicial da gaveta *
             </label>
             <div className="caixa-input-prefix-wrapper">
               <span className="caixa-input-prefix">R$</span>
@@ -127,7 +127,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
 
           <div className="caixa-form-group">
             <label className="caixa-label">
-              Observações (Opcional)
+              Observações do turno (opcional)
             </label>
             <input
               type="text"
@@ -152,11 +152,11 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
               className="caixa-btn-primary"
             >
               {isSubmitting ? (
-                <span>Abrindo...</span>
+                <span>Abrindo caixa...</span>
               ) : (
                 <>
                   <HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} />
-                  <span>Abrir Caixa</span>
+                  <span>Abrir caixa e liberar agenda</span>
                 </>
               )}
             </button>
@@ -233,8 +233,8 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         }
 
         .caixa-close-btn {
-          width: 32px;
-          height: 32px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-full);
           border: none;
           background: transparent;

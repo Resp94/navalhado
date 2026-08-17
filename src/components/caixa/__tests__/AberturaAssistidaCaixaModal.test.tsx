@@ -59,12 +59,12 @@ describe('AberturaAssistidaCaixaModal', () => {
       />
     );
 
-    expect(screen.getByText('Abertura de Caixa Diário')).toBeInTheDocument();
+    expect(screen.getByText(/Abertura de caixa/i)).toBeInTheDocument();
 
     const inputAmount = screen.getByPlaceholderText('0,00');
     fireEvent.change(inputAmount, { target: { value: '5000' } }); // 50,00
 
-    const submitBtn = screen.getByRole('button', { name: /Abrir Caixa/i });
+    const submitBtn = screen.getByRole('button', { name: /Abrir caixa/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {

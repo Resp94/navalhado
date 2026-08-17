@@ -6,16 +6,22 @@ import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-interface Service {
+export interface Service {
   id: string;
   name: string;
   description: string | null;
   price: number;
+  price_type: 'fixed' | 'starting_at';
   duration_minutes: number;
   category: string;
   commission_percentage: number | null;
+  return_period_days: number | null;
+  custom_reminder_template: string | null;
   is_active: boolean;
 }
+
+const DEFAULT_REMINDER_TEMPLATE =
+  'Olá, {cliente}! Já se passaram {dias} dias desde o seu último {servico} na Barbearia. Que tal agendar seu retorno para manter o visual em dia? Acesse: {link}';
 
 export const Servicos: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -30,9 +36,12 @@ export const Servicos: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [duration, setDuration] = useState(30);
+  const [priceType, setPriceType] = useState<'fixed' | 'starting_at'>('fixed');
+  const [duration, setDuration] = useState(40); // 40 minutos padrão
   const [category, setCategory] = useState('Cabelo');
   const [commission, setCommission] = useState('');
+  const [returnPeriodDays, setReturnPeriodDays] = useState<string>('20');
+  const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
   const [isActive, setIsActive] = useState(true);
 
   const categories = ['Cabelo', 'Barba', 'Sobrancelha', 'Combo', 'Outro'];
@@ -48,7 +57,13 @@ export const Servicos: React.FC = () => {
         .order('name', { ascending: true });
 
       if (error) throw error;
-      setServices(data || []);
+      setServices(
+        (data || []).map((s: any) => ({
+          ...s,
+          price_type: s.price_type || 'fixed',
+          duration_minutes: s.duration_minutes || 40,
+        }))
+      );
     } catch (error: any) {
       addToast('Não foi possível carregar o catálogo de serviços.', 'error');
     } finally {
@@ -62,7 +77,8 @@ export const Servicos: React.FC = () => {
 
   useGSAP(() => {
     if (!loading && services.length > 0) {
-      gsap.fromTo('.service-item-card', 
+      gsap.fromTo(
+        '.service-item-card',
         { opacity: 0, y: 15 },
         { opacity: 1, y: 0, duration: 0.5, stagger: 0.06, ease: 'power2.out' }
       );
@@ -74,9 +90,12 @@ export const Servicos: React.FC = () => {
     setName('');
     setDescription('');
     setPrice('');
-    setDuration(30);
+    setPriceType('fixed');
+    setDuration(40); // 40 min padrão
     setCategory('Cabelo');
     setCommission('');
+    setReturnPeriodDays('20');
+    setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
     setIsActive(true);
   };
 
@@ -90,9 +109,18 @@ export const Servicos: React.FC = () => {
         maximumFractionDigits: 2,
       })
     );
-    setDuration(service.duration_minutes);
+    setPriceType(service.price_type || 'fixed');
+    setDuration(service.duration_minutes || 40);
     setCategory(service.category);
-    setCommission(service.commission_percentage !== null ? service.commission_percentage.toString() : '');
+    setCommission(
+      service.commission_percentage !== null ? service.commission_percentage.toString() : ''
+    );
+    setReturnPeriodDays(
+      service.return_period_days !== null && service.return_period_days !== undefined
+        ? service.return_period_days.toString()
+        : '20'
+    );
+    setReminderTemplate(service.custom_reminder_template || DEFAULT_REMINDER_TEMPLATE);
     setIsActive(service.is_active);
   };
 
@@ -114,7 +142,10 @@ export const Servicos: React.FC = () => {
     const digits = e.target.value.replace(/\D/g, '');
     setPrice(digits ? formatPriceToBR(digits) : '');
   };
-  // ── Fim helpers ──
+
+  const insertTagIntoTemplate = (tag: string) => {
+    setReminderTemplate((prev) => `${prev} ${tag}`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,15 +165,17 @@ export const Servicos: React.FC = () => {
         name: name.trim(),
         description: description.trim() || null,
         price: parsePriceFromBR(price),
-        duration_minutes: duration,
+        price_type: priceType,
+        duration_minutes: duration || 40,
         category,
         commission_percentage: commission ? parseFloat(commission) : null,
+        return_period_days: returnPeriodDays ? parseInt(returnPeriodDays, 10) : 20,
+        custom_reminder_template: reminderTemplate.trim() || null,
         is_active: isActive,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       if (editingId) {
-        // Atualizar
         const { error } = await supabase
           .from('services')
           .update(serviceData)
@@ -152,10 +185,7 @@ export const Servicos: React.FC = () => {
         if (error) throw error;
         addToast('Serviço atualizado com sucesso!', 'success');
       } else {
-        // Inserir
-        const { error } = await supabase
-          .from('services')
-          .insert([serviceData]);
+        const { error } = await supabase.from('services').insert([serviceData]);
 
         if (error) throw error;
         addToast('Serviço criado com sucesso!', 'success');
@@ -187,27 +217,52 @@ export const Servicos: React.FC = () => {
     }
   };
 
+  // Preview dinâmico da mensagem do WhatsApp enviada pela instância Uazapi oficial
+  const previewMessage = reminderTemplate
+    .replace('{cliente}', 'Carlos')
+    .replace('{servico}', name || 'Corte')
+    .replace('{dias}', returnPeriodDays || '20')
+    .replace('{link}', `https://app.navalhado.com.br/cliente/exemplo`);
+
   return (
     <div className="services-page">
       <div className="services-header-intro">
-        <h2>Catálogo de Serviços</h2>
-        <p>Cadastre e gerencie os cortes, barbas, tratamentos e combos da barbearia.</p>
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: 'rgba(217, 108, 0, 0.08)',
+            color: 'var(--color-brand-primary)',
+            fontSize: '10px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            padding: '4px 12px',
+            borderRadius: '9999px',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Catálogo
+        </span>
+        <h2>Serviços e Parametrização Comercial</h2>
+        <p>
+          Configure os cortes, barbas, combos, tempos de retorno para reativação via WhatsApp (Uazapi) e tipo de preço.
+        </p>
       </div>
 
       <div className="services-grid">
         {/* Painel do Formulário */}
         <section className="form-section card">
           <h3>{editingId ? 'Editar Serviço' : 'Novo Serviço'}</h3>
-          
+
           <form onSubmit={handleSubmit} className="service-form">
             <div className="form-group">
-              <label htmlFor="service-name">Nome do Serviço</label>
-              <input 
+              <label htmlFor="service-name">Nome do Serviço *</label>
+              <input
                 id="service-name"
-                type="text" 
-                placeholder="Ex: Corte Degradê, Barboterapia" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
+                type="text"
+                placeholder="Ex: Corte Degradê, Barboterapia"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
@@ -215,55 +270,92 @@ export const Servicos: React.FC = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="service-category">Categoria</label>
-                <select 
+                <select
                   id="service-category"
-                  value={category} 
+                  value={category}
                   onChange={(e) => setCategory(e.target.value)}
                 >
                   {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label htmlFor="service-price">Preço (R$)</label>
-                <input 
+                <label htmlFor="price-type-select">Tipo de Preço</label>
+                <select
+                  id="price-type-select"
+                  value={priceType}
+                  onChange={(e) => setPriceType(e.target.value as 'fixed' | 'starting_at')}
+                >
+                  <option value="fixed">Preço Fixo</option>
+                  <option value="starting_at">A partir de</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="service-price">
+                  {priceType === 'starting_at' ? 'Valor Inicial (R$) *' : 'Preço Fixo (R$) *'}
+                </label>
+                <input
                   id="service-price"
                   type="text"
                   inputMode="decimal"
-                  placeholder="Ex: 50,00" 
-                  value={price} 
+                  placeholder="Ex: 50,00"
+                  value={price}
                   onChange={handlePriceChange}
                   required
                 />
               </div>
+
+              <div className="form-group">
+                <label htmlFor="service-commission">
+                  Comissão (%) <span className="label-optional">Opcional</span>
+                </label>
+                <div className="input-group">
+                  <input
+                    id="service-commission"
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Ex: 45"
+                    value={commission}
+                    onChange={(e) => setCommission(e.target.value)}
+                  />
+                  <span className="input-group__suffix">%</span>
+                </div>
+              </div>
             </div>
 
+            {/* DURAÇÃO PADRÃO */}
             <div className="form-group">
               <label>
-                Duração:{' '}
+                Duração Padrão:{' '}
                 <span className="duration-highlight">
                   {duration < 60
                     ? `${duration} minutos`
                     : duration % 60 === 0
-                      ? `${duration / 60} ${duration === 60 ? 'hora' : 'horas'}`
-                      : `${Math.floor(duration / 60)} ${Math.floor(duration / 60) === 1 ? 'hora' : 'horas'} e ${duration % 60} min`
-                  }
+                    ? `${duration / 60} ${duration === 60 ? 'hora' : 'horas'}`
+                    : `${Math.floor(duration / 60)}h ${duration % 60}min`}
                 </span>
               </label>
               <div className="slider-container">
-                <input 
-                  type="range" 
-                  min="5" 
-                  max="180" 
-                  step="5" 
-                  value={duration} 
-                  onChange={(e) => setDuration(parseInt(e.target.value))}
+                <input
+                  type="range"
+                  min="5"
+                  max="180"
+                  step="5"
+                  value={duration}
+                  onChange={(e) => setDuration(parseInt(e.target.value, 10))}
                   className="duration-slider"
                 />
                 <div className="slider-labels">
                   <span>5m</span>
+                  <span>40m (padrão)</span>
                   <span>1h</span>
                   <span>2h</span>
                   <span>3h</span>
@@ -271,29 +363,87 @@ export const Servicos: React.FC = () => {
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="service-commission">Comissão (%) <span className="label-optional">Opcional</span></label>
-              <div className="input-group">
-                <input 
-                  id="service-commission"
-                  type="number" 
-                  min="0" 
-                  max="100" 
-                  placeholder="Ex: 45" 
-                  value={commission} 
-                  onChange={(e) => setCommission(e.target.value)}
-                />
-                <span className="input-group__suffix">%</span>
+            {/* SEÇÃO COMERCIAL: TEMPO DE RETORNO E TEMPLATE UAZAPI */}
+            <div className="commercial-section">
+              <div className="form-group">
+                <label htmlFor="return-period-input">
+                  Tempo Recomendado de Retorno (Dias)
+                </label>
+                <div className="input-group">
+                  <input
+                    id="return-period-input"
+                    type="number"
+                    min="1"
+                    max="365"
+                    placeholder="Ex: 20"
+                    value={returnPeriodDays}
+                    onChange={(e) => setReturnPeriodDays(e.target.value)}
+                  />
+                  <span className="input-group__suffix">dias</span>
+                </div>
+                <span className="input-helper">
+                  Usado pelo motor de reativação para lembrar clientes quando estiver na hora de cortar.
+                </span>
               </div>
-              <span className="input-helper">Deixe em branco para usar a comissão padrão do barbeiro</span>
+
+              <div className="form-group">
+                <label htmlFor="template-textarea">Template de Mensagem de Retorno (WhatsApp Uazapi)</label>
+                <div className="template-tags-helper">
+                  <span>Inserir tag:</span>
+                  <button
+                    type="button"
+                    onClick={() => insertTagIntoTemplate('{cliente}')}
+                    className="tag-helper-btn"
+                  >
+                    {'{cliente}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertTagIntoTemplate('{servico}')}
+                    className="tag-helper-btn"
+                  >
+                    {'{servico}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertTagIntoTemplate('{dias}')}
+                    className="tag-helper-btn"
+                  >
+                    {'{dias}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertTagIntoTemplate('{link}')}
+                    className="tag-helper-btn"
+                  >
+                    {'{link}'}
+                  </button>
+                </div>
+                <textarea
+                  id="template-textarea"
+                  rows={3}
+                  value={reminderTemplate}
+                  onChange={(e) => setReminderTemplate(e.target.value)}
+                  className="form-control"
+                  placeholder="Mensagem disparada pela instância conectada da barbearia..."
+                />
+              </div>
+
+              {/* PREVIEW DA MENSAGEM */}
+              <div className="whatsapp-preview-card">
+                <div className="whatsapp-preview-header">
+                  <span>Prévia do WhatsApp (Instância Conectada)</span>
+                </div>
+                <p className="whatsapp-preview-text">{previewMessage}</p>
+              </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="service-desc">Descrição</label>
-              <textarea 
+              <label htmlFor="service-desc">Descrição do Serviço</label>
+              <textarea
                 id="service-desc"
                 placeholder="Descreva detalhes do serviço que o cliente verá ao agendar..."
-                rows={3}
+                rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -301,11 +451,11 @@ export const Servicos: React.FC = () => {
 
             {editingId && (
               <div className="form-group checkbox-group">
-                <input 
-                  type="checkbox" 
-                  id="service-active" 
-                  checked={isActive} 
-                  onChange={(e) => setIsActive(e.target.checked)} 
+                <input
+                  type="checkbox"
+                  id="service-active"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
                 />
                 <label htmlFor="service-active">Serviço Ativo para novos agendamentos</label>
               </div>
@@ -318,7 +468,13 @@ export const Servicos: React.FC = () => {
                 </button>
               )}
               <button type="submit" disabled={saving} className="btn btn--primary">
-                {saving ? <div className="spinner spinner--sm" /> : (editingId ? 'Salvar Alterações' : 'Adicionar Serviço')}
+                {saving ? (
+                  <div className="spinner spinner--sm" />
+                ) : editingId ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Adicionar Serviço'
+                )}
               </button>
             </div>
           </form>
@@ -330,7 +486,13 @@ export const Servicos: React.FC = () => {
 
           {loading ? (
             <div className="loading-state">
-              <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} />
+              <div
+                className="spinner"
+                style={{
+                  borderColor: 'var(--color-brand-primary)',
+                  borderTopColor: 'transparent',
+                }}
+              />
               <p>Carregando serviços...</p>
             </div>
           ) : services.length === 0 ? (
@@ -341,7 +503,7 @@ export const Servicos: React.FC = () => {
           ) : (
             <div className="services-list-container">
               {categories.map((cat) => {
-                const catServices = services.filter(s => s.category === cat);
+                const catServices = services.filter((s) => s.category === cat);
                 if (catServices.length === 0) return null;
 
                 return (
@@ -349,41 +511,59 @@ export const Servicos: React.FC = () => {
                     <h4 className="category-title">{cat}</h4>
                     <div className="services-items-grid">
                       {catServices.map((service) => (
-                        <div key={service.id} className={`service-item-card ${!service.is_active ? 'service-item-card--inactive' : ''}`}>
-                          <div className="service-item-main">
-                            <div className="service-item-details">
+                        <div
+                          key={service.id}
+                          className={`service-item-card ${
+                            !service.is_active ? 'service-item-card--inactive' : ''
+                          }`}
+                        >
+                          <div className="service-card-main">
+                            <div className="service-info-header">
                               <h5>{service.name}</h5>
-                              {service.description && <p className="service-item-desc">{service.description}</p>}
-                              <div className="service-item-badges">
-                                <span className="badge badge--duration">
-                                {service.duration_minutes < 60
-                                  ? `${service.duration_minutes} min`
-                                  : service.duration_minutes % 60 === 0
-                                    ? `${service.duration_minutes / 60}h`
-                                    : `${Math.floor(service.duration_minutes / 60)}h${service.duration_minutes % 60}`
-                                }
-                              </span>
-                                {service.commission_percentage !== null && (
-                                  <span className="badge badge--commission">Comissão: {service.commission_percentage}%</span>
+                              <div className="service-price-block">
+                                {service.price_type === 'starting_at' && (
+                                  <span className="price-type-tag">A partir de</span>
                                 )}
+                                <span className="service-price font-mono">
+                                  R$ {service.price.toFixed(2).replace('.', ',')}
+                                </span>
                               </div>
                             </div>
-                            <div className="service-item-price">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.price)}
+
+                            {service.description && (
+                              <p className="service-description">{service.description}</p>
+                            )}
+
+                            <div className="service-meta-badges">
+                              <span className="meta-badge">
+                                ⏱ {service.duration_minutes || 40} min
+                              </span>
+                              {service.return_period_days && (
+                                <span className="meta-badge meta-badge--retorno">
+                                  🔄 Retorno: ~{service.return_period_days} dias
+                                </span>
+                              )}
+                              {service.commission_percentage !== null && (
+                                <span className="meta-badge meta-badge--comm">
+                                  Comissão: {service.commission_percentage}%
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div className="service-item-actions">
-                            <button 
+                          <div className="service-card-footer">
+                            <button
                               onClick={() => toggleServiceStatus(service.id, service.is_active)}
-                              className={`btn-action ${service.is_active ? 'btn-action--deactivate' : 'btn-action--activate'}`}
-                              title={service.is_active ? 'Desativar serviço' : 'Ativar serviço'}
+                              className={`status-toggle-btn ${
+                                service.is_active ? 'status-toggle-btn--active' : ''
+                              }`}
                             >
-                              {service.is_active ? 'Desativar' : 'Ativar'}
+                              {service.is_active ? 'Ativo' : 'Inativo'}
                             </button>
-                            <button 
+
+                            <button
                               onClick={() => handleEdit(service)}
-                              className="btn-action btn-action--edit"
+                              className="btn-action-edit"
                             >
                               Editar
                             </button>
@@ -404,13 +584,13 @@ export const Servicos: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .services-header-intro h2 {
           font-size: var(--font-size-xl);
-          font-weight: 700;
+          font-weight: 800;
           color: var(--color-text-primary);
+          letter-spacing: -0.02em;
         }
 
         .services-header-intro p {
@@ -420,7 +600,7 @@ export const Servicos: React.FC = () => {
 
         .services-grid {
           display: grid;
-          grid-template-columns: 380px 1fr;
+          grid-template-columns: 440px 1fr;
           gap: 1.5rem;
           align-items: start;
         }
@@ -432,19 +612,19 @@ export const Servicos: React.FC = () => {
         }
 
         .card {
-          background-color: var(--color-bg-secondary);
+          background: rgba(255, 255, 255, 0.65);
+          backdrop-filter: blur(12px);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           padding: 1.5rem;
           box-shadow: var(--shadow-sm);
         }
 
-        .card h3 {
+        .form-section h3, .list-section h3 {
           font-size: var(--font-size-lg);
-          font-weight: 600;
+          font-weight: 800;
+          color: var(--color-text-primary);
           margin-bottom: 1.25rem;
-          border-bottom: 1px solid var(--color-border);
-          padding-bottom: 0.5rem;
         }
 
         .service-form {
@@ -453,78 +633,139 @@ export const Servicos: React.FC = () => {
           gap: 1rem;
         }
 
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+
         .form-group {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
         }
 
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .form-row .form-group {
-          min-width: 0;
-        }
-
-        .form-row .form-group input,
-        .form-row .form-group select {
-          width: 100%;
-          min-width: 0;
-        }
-
         .form-group label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.05em;
+          color: var(--color-text-secondary);
         }
 
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group select,
-        .form-group textarea {
-          padding: 0.65rem 0.875rem;
+        .label-optional {
+          font-size: 10px;
+          text-transform: none;
+          color: var(--color-text-secondary);
+          opacity: 0.8;
+          font-weight: 400;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+          padding: 0.65rem 0.85rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          background-color: rgba(255, 255, 255, 0.75);
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           outline: none;
-          max-width: 100%;
+          transition: all 0.2s ease;
         }
 
-        .form-group textarea {
-          resize: vertical;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
           border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.1);
-        }
-
-        .checkbox-group {
-          flex-direction: row;
-          align-items: center;
-          gap: 0.5rem;
-          margin: 0.5rem 0;
-        }
-
-        .checkbox-group label {
-          text-transform: none;
-          font-weight: 600;
-          font-size: var(--font-size-sm);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
         .duration-highlight {
           color: var(--color-brand-primary);
           font-weight: 800;
+        }
+
+        .slider-container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .duration-slider {
+          accent-color: var(--color-brand-primary);
+          cursor: pointer;
+        }
+
+        .slider-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 10px;
+          color: var(--color-text-secondary);
+        }
+
+        .commercial-section {
+          background: rgba(234, 222, 214, 0.25);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .template-tags-helper {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          flex-wrap: wrap;
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          margin-bottom: 0.25rem;
+        }
+
+        .tag-helper-btn {
+          background: rgba(217, 108, 0, 0.1);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          border-radius: 4px;
+          color: var(--color-brand-primary);
+          font-size: 11px;
+          font-weight: 700;
+          padding: 2px 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .tag-helper-btn:hover {
+          background: var(--color-brand-primary);
+          color: #ffffff;
+        }
+
+        .whatsapp-preview-card {
+          background: #ffffff;
+          border: 1px solid #25d36640;
+          border-left: 3px solid #25d366;
+          border-radius: 8px;
+          padding: 0.75rem;
+          font-size: 12px;
+        }
+
+        .whatsapp-preview-header {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #128c7e;
+          margin-bottom: 0.35rem;
+        }
+
+        .whatsapp-preview-text {
+          color: #1f2937;
+          margin: 0;
+          line-height: 1.4;
+          word-break: break-word;
+        }
+
+        .input-helper {
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          line-height: 1.3;
         }
 
         .input-group {
@@ -535,127 +776,27 @@ export const Servicos: React.FC = () => {
 
         .input-group input {
           width: 100%;
-          padding-right: 2.75rem;
-        }
-
-        /* Remove as setas do input number */
-        .input-group input[type="number"]::-webkit-outer-spin-button,
-        .input-group input[type="number"]::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        .input-group input[type="number"] {
-          -moz-appearance: textfield;
+          padding-right: 2.2rem;
         }
 
         .input-group__suffix {
           position: absolute;
-          right: 0.875rem;
+          right: 0.75rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
           font-weight: 700;
-          pointer-events: none;
-          line-height: 1;
         }
 
-        .label-optional {
-          font-weight: 400;
-          text-transform: none;
-          letter-spacing: normal;
-          color: var(--color-text-secondary);
-          font-size: 0.65rem;
-        }
-
-        .input-helper {
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
-          margin-top: 0.1rem;
-        }
-
-        .slider-container {
-          padding: 0.5rem 0;
-        }
-
-        .duration-slider {
-          width: 100%;
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-          height: 6px;
-          border-radius: var(--radius-full);
-          background: rgba(234, 222, 214, 0.8);
-          outline: none;
-          transition: all 0.3s ease;
-        }
-
-        .slider-labels {
-          display: flex;
-          justify-content: space-between;
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
-          margin-top: 0.25rem;
-          font-weight: 600;
+        .checkbox-group {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .form-actions {
           display: flex;
-          justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 0.5rem;
-        }
-
-        .btn--outline-secondary {
-          background-color: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .btn--outline-secondary:hover {
-          background-color: rgba(255, 255, 255, 0.5);
-          transform: translateY(-1px);
-        }
-
-        .btn--primary {
-          background-color: var(--color-brand-primary);
-          color: white;
-          border: none;
-          font-weight: 700;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .btn--primary:hover {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-1px);
-        }
-
-        .btn--primary:active {
-          transform: scale(0.97);
-        }
-
-        .loading-state,
-        .empty-state {
-          padding: 4rem 1.5rem;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          color: var(--color-text-secondary);
-          border: 1.5px dashed rgba(234, 222, 214, 0.8);
-          border-radius: var(--radius-lg);
-          background-color: rgba(255, 255, 255, 0.25);
-        }
-
-        .empty-desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
         }
 
         .services-list-container {
@@ -664,171 +805,155 @@ export const Servicos: React.FC = () => {
           gap: 1.5rem;
         }
 
-        .category-group {
+        .category-title {
+          font-size: var(--font-size-xs);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--color-brand-primary);
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.35rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .services-items-grid {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
         }
 
-        .category-title {
-          font-size: var(--font-size-sm);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-brand-primary);
-          border-left: 3.5px solid var(--color-brand-primary);
-          padding-left: 0.5rem;
-          line-height: 1.2;
-        }
-
-        .services-items-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 1rem;
-        }
-
         .service-item-card {
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.5);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 1rem 1.25rem;
           display: flex;
-          flex-direction: column;
           justify-content: space-between;
+          align-items: center;
           gap: 1rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s ease;
         }
 
         .service-item-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
-          border-color: rgba(217, 108, 0, 0.3);
+          border-color: rgba(217, 108, 0, 0.35);
+          box-shadow: var(--shadow-sm);
         }
 
         .service-item-card--inactive {
-          opacity: 0.65;
-          border-style: dashed;
+          opacity: 0.5;
         }
 
-        .service-item-main {
+        .service-card-main {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          flex: 1;
+        }
+
+        .service-info-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 0.5rem;
+          align-items: baseline;
         }
 
-        .service-item-details h5 {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
+        .service-info-header h5 {
+          font-size: var(--font-size-base);
+          font-weight: 800;
           color: var(--color-text-primary);
-          margin-bottom: 0.15rem;
+          margin: 0;
         }
 
-        .service-item-desc {
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-          line-height: 1.3;
-          margin-bottom: 0.5rem;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .service-item-badges {
+        .service-price-block {
           display: flex;
-          flex-wrap: wrap;
+          align-items: center;
           gap: 0.35rem;
         }
 
-        .badge {
-          font-size: 0.65rem;
-          padding: 0.2rem 0.5rem;
-          border-radius: var(--radius-sm);
+        .price-type-tag {
+          font-size: 10px;
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
           font-weight: 700;
         }
 
-        .badge--duration {
-          background-color: rgba(234, 222, 214, 0.6);
-          color: var(--color-text-primary);
-        }
-
-        .badge--commission {
-          background-color: rgba(254, 243, 199, 0.5);
-          color: var(--color-warning);
-          border: 1px solid rgba(217, 120, 6, 0.15);
-        }
-
-        .service-item-price {
-          font-size: var(--font-size-sm);
+        .service-price {
+          font-size: var(--font-size-base);
           font-weight: 800;
           color: var(--color-brand-primary);
-          white-space: nowrap;
         }
 
-        .service-item-actions {
+        .service-description {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0;
+        }
+
+        .service-meta-badges {
           display: flex;
-          justify-content: flex-end;
           gap: 0.5rem;
-          border-top: 1px solid rgba(234, 222, 214, 0.6);
-          padding-top: 0.65rem;
+          flex-wrap: wrap;
+          margin-top: 0.25rem;
         }
 
-        .btn-action {
-          background: none;
-          border: none;
-          font-size: 0.75rem;
-          font-weight: 700;
-          cursor: pointer;
-          padding: 0.25rem 0.5rem;
-          border-radius: var(--radius-sm);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        .meta-badge {
+          font-size: 11px;
+          background: rgba(45, 35, 30, 0.06);
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+          color: var(--color-text-secondary);
+          font-weight: 600;
         }
 
-        .btn-action--edit {
+        .meta-badge--retorno {
+          background: rgba(217, 108, 0, 0.1);
           color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.12);
         }
 
-        .btn-action--edit:hover {
-          background-color: var(--color-brand-primary);
-          color: white;
-          border-color: var(--color-brand-primary);
-          transform: translateY(-1px);
-        }
-
-        .btn-action--deactivate {
-          color: var(--color-error);
-          background-color: rgba(240, 82, 82, 0.08);
-          border: 1px solid rgba(240, 82, 82, 0.12);
-        }
-
-        .btn-action--deactivate:hover {
-          background-color: var(--color-error);
-          color: white;
-          border-color: var(--color-error);
-          transform: translateY(-1px);
-        }
-
-        .btn-action--activate {
+        .meta-badge--comm {
+          background: rgba(14, 159, 110, 0.1);
           color: var(--color-success);
-          background-color: rgba(14, 159, 110, 0.08);
-          border: 1px solid rgba(14, 159, 110, 0.12);
         }
 
-        .btn-action--activate:hover {
-          background-color: var(--color-success);
-          color: white;
-          border-color: var(--color-success);
-          transform: translateY(-1px);
+        .service-card-footer {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
-        .btn-action:active {
-          transform: scale(0.95);
+        .status-toggle-btn {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 0.3rem 0.65rem;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-border);
+          background: transparent;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .status-toggle-btn--active {
+          background: rgba(14, 159, 110, 0.12);
+          border-color: rgba(14, 159, 110, 0.3);
+          color: var(--color-success);
+        }
+
+        .btn-action-edit {
+          font-size: 12px;
+          font-weight: 700;
+          padding: 0.35rem 0.75rem;
+          border-radius: var(--radius-md);
+          background: rgba(217, 108, 0, 0.08);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          color: var(--color-brand-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-action-edit:hover {
+          background: var(--color-brand-primary);
+          color: #ffffff;
         }
       `}</style>
     </div>

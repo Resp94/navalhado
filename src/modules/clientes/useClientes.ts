@@ -3,9 +3,22 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { ClienteConstraintError, ClienteRepository, ClienteValidationError } from './ClienteRepository';
 import { SupabaseClienteAdapter } from './adapters/SupabaseClienteAdapter';
-import type { Cliente, ClienteInputData, EstatisticasCliente, HistoricoVisitasCliente, StatusFiltroCliente } from './types';
+import type {
+  Cliente,
+  ClienteInputData,
+  EstatisticasCliente,
+  HistoricoVisitasCliente,
+  ComandaHistoricoCliente,
+  MetricasLTVCliente,
+  StatusFiltroCliente,
+} from './types';
 
-export function filterClientes(customers: Cliente[], searchTerm: string, filterStatus: StatusFiltroCliente): Cliente[] {
+export function filterClientes(
+  customers: Cliente[],
+  searchTerm: string,
+  filterStatus: StatusFiltroCliente,
+  tagFilter?: string | null
+): Cliente[] {
   const term = searchTerm.toLowerCase().trim();
 
   return customers.filter((customer) => {
@@ -13,9 +26,15 @@ export function filterClientes(customers: Cliente[], searchTerm: string, filterS
       !term ||
       customer.name.toLowerCase().includes(term) ||
       customer.phone.includes(term) ||
-      (customer.email && customer.email.toLowerCase().includes(term));
+      (customer.email && customer.email.toLowerCase().includes(term)) ||
+      (customer.cpf && customer.cpf.includes(term)) ||
+      (customer.tags && customer.tags.some((t) => t.toLowerCase().includes(term)));
 
     if (!matchesSearch) return false;
+
+    if (tagFilter && (!customer.tags || !customer.tags.includes(tagFilter))) {
+      return false;
+    }
 
     if (filterStatus === 'completos') return customer.cadastro_completo;
     if (filterStatus === 'provisorios') return !customer.cadastro_completo;
@@ -46,9 +65,12 @@ export function useClientes(tenantId: string) {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<StatusFiltroCliente>('todos');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
 
-  // Gaveta lateral de histórico
+  // Gaveta lateral de histórico (Central 360)
   const [history, setHistory] = useState<HistoricoVisitasCliente[]>([]);
+  const [comandasHistory, setComandasHistory] = useState<ComandaHistoricoCliente[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     if (!tenantId) return;
@@ -68,9 +90,20 @@ export function useClientes(tenantId: string) {
     loadCustomers();
   }, [loadCustomers]);
 
+  // Lista de todas as tags únicas existentes nos clientes da barbearia
+  const allAvailableTags = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (Array.isArray(c.tags)) {
+        c.tags.forEach((t) => set.add(t));
+      }
+    });
+    return Array.from(set).sort();
+  }, [customers]);
+
   const filteredCustomers = useMemo(() => {
-    return filterClientes(customers, searchTerm, filterStatus);
-  }, [customers, searchTerm, filterStatus]);
+    return filterClientes(customers, searchTerm, filterStatus, selectedTagFilter);
+  }, [customers, searchTerm, filterStatus, selectedTagFilter]);
 
   const stats: EstatisticasCliente = useMemo(() => {
     return calculateClienteStats(customers);
@@ -115,28 +148,50 @@ export function useClientes(tenantId: string) {
 
   const loadHistorico = async (customerId: string) => {
     try {
+      setLoadingDetails(true);
       setHistory([]);
-      const data = await repository.getHistoricoVisitas(customerId);
-      setHistory(data);
+      setComandasHistory([]);
+      const [visitas, comandas] = await Promise.all([
+        repository.getHistoricoVisitas(customerId),
+        repository.getHistoricoComandas(tenantId, customerId),
+      ]);
+      setHistory(visitas);
+      setComandasHistory(comandas);
     } catch (error: any) {
       console.error('Erro ao carregar histórico:', error);
-      addToast('Erro ao carregar histórico de visitas.', 'error');
+      addToast('Erro ao carregar histórico de visitas e comandas.', 'error');
+    } finally {
+      setLoadingDetails(false);
     }
   };
+
+  const calculateLTVMetrics = useCallback(
+    (customerId: string): MetricasLTVCliente => {
+      return repository.calculateLTV(customerId, history, comandasHistory);
+    },
+    [repository, history, comandasHistory]
+  );
 
   return {
     customers,
     filteredCustomers,
     stats,
     loading,
+    loadingDetails,
     searchTerm,
     setSearchTerm,
     filterStatus,
     setFilterStatus,
+    selectedTagFilter,
+    setSelectedTagFilter,
+    allAvailableTags,
     history,
+    comandasHistory,
+    calculateLTVMetrics,
     saveCustomer,
     deleteCustomer,
     loadHistorico,
     reload: loadCustomers,
   };
 }
+

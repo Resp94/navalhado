@@ -223,10 +223,81 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
     if (comandaFechada.appointment_id) {
       await supabase
         .from('appointments')
-        .update({ status: 'completed' })
+        .update({ status: 'completed', payment_status: 'paid' })
         .eq('id', comandaFechada.appointment_id);
     }
 
     return comandaFechada as Comanda;
+  }
+
+  async reabrirComanda(comandaId: string, _tenantId: string): Promise<Comanda> {
+    // 1. Obter comanda atual com itens e pagamentos
+    const { data: comandaAtual, error: fetchError } = await supabase
+      .from('comandas')
+      .select('*, itens:comanda_itens(*), pagamentos:comanda_pagamentos(*)')
+      .eq('id', comandaId)
+      .single();
+
+    if (fetchError || !comandaAtual) {
+      throw new Error(`Comanda não encontrada: ${fetchError?.message}`);
+    }
+
+    // 2. Devolver estoque de produtos se houver
+    if (comandaAtual.itens && comandaAtual.itens.length > 0) {
+      for (const item of comandaAtual.itens) {
+        if (item.item_type === 'produto' && item.product_id) {
+          const { data: prod } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', item.product_id)
+            .single();
+
+          if (prod) {
+            await supabase
+              .from('products')
+              .update({ stock_quantity: prod.stock_quantity + item.quantity })
+              .eq('id', item.product_id);
+          }
+        }
+      }
+    }
+
+    // 3. Excluir pagamentos registrados
+    const { error: delPagError } = await supabase
+      .from('comanda_pagamentos')
+      .delete()
+      .eq('comanda_id', comandaId);
+
+    if (delPagError) {
+      console.error('Erro ao excluir pagamentos ao reabrir comanda:', delPagError);
+    }
+
+    // 4. Atualizar comanda para status 'aberta'
+    const { data: comandaReaberta, error: updateError } = await supabase
+      .from('comandas')
+      .update({
+        status: 'aberta',
+        closed_at: null,
+      })
+      .eq('id', comandaId)
+      .select('*, itens:comanda_itens(*)')
+      .single();
+
+    if (updateError || !comandaReaberta) {
+      throw new Error(`Erro ao reabrir comanda: ${updateError?.message}`);
+    }
+
+    // 5. Se vinculado a um agendamento, voltar agendamento para 'confirmed' / payment_status 'pending'
+    if (comandaAtual.appointment_id) {
+      await supabase
+        .from('appointments')
+        .update({
+          status: 'confirmed',
+          payment_status: 'pending',
+        })
+        .eq('id', comandaAtual.appointment_id);
+    }
+
+    return comandaReaberta as Comanda;
   }
 }

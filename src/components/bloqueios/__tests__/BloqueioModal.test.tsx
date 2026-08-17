@@ -63,9 +63,9 @@ describe('BloqueioModal', () => {
       />
     );
 
-    expect(screen.getByText('Bloquear Horário na Grade')).toBeInTheDocument();
+    expect(screen.getByText(/Bloquear horário/i)).toBeInTheDocument();
 
-    const submitBtn = screen.getByRole('button', { name: /Confirmar Bloqueio/i });
+    const submitBtn = screen.getByRole('button', { name: /Confirmar bloqueio/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {

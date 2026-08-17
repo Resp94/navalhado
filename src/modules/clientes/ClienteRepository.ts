@@ -96,4 +96,14 @@ export class ClienteRepository {
     if (!customerId) return [];
     return await this.adapter.buscarHistoricoVisitas(customerId);
   }
+
+  async getHistoricoComandas(tenantId: string, customerId: string) {
+    if (!customerId) return [];
+    return await this.adapter.buscarHistoricoComandas(tenantId, customerId);
+  }
+
+  calculateLTV(customerId: string, appointments: HistoricoVisitasCliente[], comandas: any[]) {
+    return this.adapter.calcularMetricasLTV(customerId, appointments, comandas);
+  }
 }
+

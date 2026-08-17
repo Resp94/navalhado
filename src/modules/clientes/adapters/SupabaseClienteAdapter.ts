@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Cliente, ClienteInputData, HistoricoVisitasCliente, IClienteAdapter } from '../types';
+import type {
+  Cliente,
+  ClienteInputData,
+  HistoricoVisitasCliente,
+  ComandaHistoricoCliente,
+  MetricasLTVCliente,
+  IClienteAdapter,
+} from '../types';
 
 export class SupabaseClienteAdapter implements IClienteAdapter {
   private supabase: SupabaseClient;
@@ -15,6 +22,10 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
       email: input.email || null,
       notes: input.notes || null,
       cadastro_completo: input.cadastro_completo ?? true,
+      birth_date: input.birth_date || null,
+      tags: input.tags || [],
+      acquisition_channel: input.acquisition_channel || null,
+      cpf: input.cpf || null,
     };
   }
 
@@ -26,7 +37,10 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
       .order('name');
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map((row: any) => ({
+      ...row,
+      tags: row.tags || [],
+    }));
   }
 
   async salvarCliente(tenantId: string, input: ClienteInputData): Promise<Cliente> {
@@ -42,7 +56,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         .single();
 
       if (error) throw error;
-      return data;
+      return { ...data, tags: data.tags || [] };
     } else {
       const { data, error } = await this.supabase
         .from('customers')
@@ -54,7 +68,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         .single();
 
       if (error) throw error;
-      return data;
+      return { ...data, tags: data.tags || [] };
     }
   }
 
@@ -94,9 +108,107 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         status: row.status,
         payment_status: row.payment_status,
         service_name: service?.name || 'Serviço',
-        service_price: service?.price ?? 0,
+        service_price: Number(service?.price ?? 0),
         professional_name: professional?.name || 'Barbeiro',
       };
     });
   }
+
+  async buscarHistoricoComandas(tenantId: string, clienteId: string): Promise<ComandaHistoricoCliente[]> {
+    const { data, error } = await this.supabase
+      .from('comandas')
+      .select(`
+        id,
+        status,
+        total_amount,
+        discount_amount,
+        tip_amount,
+        closed_at,
+        created_at,
+        comanda_itens (
+          id,
+          quantity,
+          unit_price,
+          item_type,
+          services ( name ),
+          products ( name )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('customer_id', clienteId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((row: any, index: number) => {
+      const totalFinal =
+        Number(row.total_amount || 0) - Number(row.discount_amount || 0) + Number(row.tip_amount || 0);
+
+      return {
+        id: row.id,
+        comanda_number: index + 1,
+        status: row.status,
+        total_final: totalFinal,
+        closed_at: row.closed_at,
+        created_at: row.created_at,
+        items: (row.comanda_itens || []).map((item: any) => {
+          const svc = Array.isArray(item.services) ? item.services[0] : item.services;
+          const prd = Array.isArray(item.products) ? item.products[0] : item.products;
+          return {
+            id: item.id,
+            name: svc?.name || prd?.name || 'Item',
+            quantity: item.quantity,
+            unit_price: Number(item.unit_price || 0),
+            item_type: item.item_type,
+          };
+        }),
+      };
+    });
+  }
+
+
+  calcularMetricasLTV(
+    _clienteId: string,
+    appointments: HistoricoVisitasCliente[],
+    comandas: ComandaHistoricoCliente[]
+  ): MetricasLTVCliente {
+    const closedComandas = comandas.filter((c) => c.status === 'closed');
+    const completedAppointments = appointments.filter((a) => a.status === 'completed');
+
+    let totalSpend = 0;
+    if (closedComandas.length > 0) {
+      totalSpend = closedComandas.reduce((acc, c) => acc + c.total_final, 0);
+    } else {
+      totalSpend = completedAppointments.reduce((acc, a) => acc + a.service_price, 0);
+    }
+
+    const totalVisits = Math.max(closedComandas.length, completedAppointments.length);
+    const averageTicket = totalVisits > 0 ? totalSpend / totalVisits : 0;
+
+    const dates: number[] = [
+      ...closedComandas.map((c) => new Date(c.closed_at || c.created_at).getTime()),
+      ...completedAppointments.map((a) => new Date(a.start_time).getTime()),
+    ]
+      .filter((d) => !isNaN(d))
+      .sort((a, b) => a - b);
+
+    const uniqueDates = Array.from(new Set(dates.map((d) => new Date(d).toDateString()))).map((ds) => new Date(ds).getTime()).sort((a, b) => a - b);
+
+    let averageDaysBetweenVisits = 0;
+    if (uniqueDates.length > 1) {
+      const totalDiffDays = (uniqueDates[uniqueDates.length - 1] - uniqueDates[0]) / (1000 * 60 * 60 * 24);
+      averageDaysBetweenVisits = Math.round(totalDiffDays / (uniqueDates.length - 1));
+    }
+
+    const lastVisitDate = uniqueDates.length > 0 ? new Date(uniqueDates[uniqueDates.length - 1]).toISOString() : null;
+
+    return {
+      totalSpend,
+      averageTicket,
+      totalVisits,
+      averageDaysBetweenVisits,
+      lastVisitDate,
+    };
+  }
 }
+

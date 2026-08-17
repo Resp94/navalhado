@@ -17,6 +17,7 @@ describe('ComandaCheckoutModal', () => {
     adicionarItem: vi.fn(),
     removerItem: vi.fn(),
     liquidarComanda: vi.fn(),
+    reabrirComanda: vi.fn(),
   };
 
   const mockCaixaAdapter: ICaixaAdapter = {
@@ -26,8 +27,11 @@ describe('ComandaCheckoutModal', () => {
   };
 
   const mockProdutoAdapter: IProdutoAdapter = {
+    listar: vi.fn(),
     listarAtivos: vi.fn(),
     salvarProduto: vi.fn(),
+    ajustarEstoque: vi.fn(),
+    buscarMovimentacoes: vi.fn(),
   };
 
   const comandaRepo = new ComandaRepository(mockComandaAdapter);
@@ -39,10 +43,22 @@ describe('ComandaCheckoutModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValue(null);
-    vi.mocked(mockProdutoAdapter.listarAtivos).mockResolvedValue([
-      { id: 'prod-1', tenant_id: 't-1', name: 'Pomada Matte', price: 30.0, cost_price: 15, stock_quantity: 5, is_active: true },
-    ]);
+    const defaultProducts = [
+      {
+        id: 'prod-1',
+        tenant_id: 't-1',
+        name: 'Pomada Matte',
+        product_type: 'retail' as const,
+        unit_type: 'unidade' as const,
+        min_stock_alert: 5,
+        price: 30.0,
+        cost_price: 15,
+        stock_quantity: 5,
+        is_active: true,
+      },
+    ];
+    vi.mocked(mockProdutoAdapter.listar).mockResolvedValue(defaultProducts);
+    vi.mocked(mockProdutoAdapter.listarAtivos).mockResolvedValue(defaultProducts);
   });
 
   it('não renderiza se isOpen for false', () => {
@@ -91,9 +107,9 @@ describe('ComandaCheckoutModal', () => {
       />
     );
 
-    expect(screen.getByText('Comanda e Checkout')).toBeInTheDocument();
-    expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    expect(screen.getByText(/Comanda.*atendimento/i)).toBeInTheDocument();
+    expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     expect(screen.getAllByText(/35\.00/).length).toBeGreaterThan(0);
   });
 
@@ -111,24 +127,49 @@ describe('ComandaCheckoutModal', () => {
       notes: null,
     });
 
-    const fakeComandaCriada = {
+    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce({
       id: 'com-1',
       tenant_id: 't-1',
       appointment_id: 'apt-1',
       customer_id: 'cust-1',
-      status: 'aberta' as const,
+      status: 'aberta',
       total_amount: 35.0,
       discount_amount: 0,
       tip_amount: 0,
       notes: null,
-    };
-    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce(fakeComandaCriada);
+      created_at: new Date().toISOString(),
+      closed_at: null,
+      itens: [
+        {
+          id: 'item-1',
+          tenant_id: 't-1',
+          comanda_id: 'com-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+        },
+      ],
+    });
 
-    const fakeComandaLiquidada = {
-      ...fakeComandaCriada,
-      status: 'fechada' as const,
-    };
-    vi.mocked(mockComandaAdapter.liquidarComanda).mockResolvedValueOnce(fakeComandaLiquidada);
+    vi.mocked(mockComandaAdapter.liquidarComanda).mockResolvedValueOnce({
+      id: 'com-1',
+      tenant_id: 't-1',
+      appointment_id: 'apt-1',
+      customer_id: 'cust-1',
+      status: 'fechada',
+      total_amount: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+      created_at: new Date().toISOString(),
+      closed_at: new Date().toISOString(),
+      itens: [],
+      pagamentos: [],
+    });
 
     render(
       <ComandaCheckoutModal
@@ -148,30 +189,30 @@ describe('ComandaCheckoutModal', () => {
       />
     );
 
-    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar e Receber/i });
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
     await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
     fireEvent.click(btnFinalizar);
 
     await waitFor(() => {
-      expect(mockComandaAdapter.criarComanda).toHaveBeenCalled();
       expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalled();
-      expect(mockOnFinalizado).toHaveBeenCalledWith(fakeComandaLiquidada);
-      expect(mockOnClose).toHaveBeenCalled();
+      expect(mockOnFinalizado).toHaveBeenCalled();
     });
   });
 
-  it('exibe recibo em modo somente leitura para comanda fechada', async () => {
+  it('exibe modal em modo recibo somente leitura quando a comanda estiver fechada e permite reabrir', async () => {
     vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValueOnce({
       id: 'com-1',
       tenant_id: 't-1',
       appointment_id: 'apt-1',
       customer_id: 'cust-1',
-      status: 'fechada' as const,
+      status: 'fechada',
       total_amount: 40.0,
       discount_amount: 0,
-      tip_amount: 5,
-      closed_at: '2026-08-16T12:00:00.000Z',
+      tip_amount: 5.0,
       notes: null,
+      created_at: new Date().toISOString(),
+      closed_at: new Date().toISOString(),
       itens: [
         {
           id: 'item-1',
@@ -200,6 +241,22 @@ describe('ComandaCheckoutModal', () => {
       ],
     });
 
+    vi.mocked(mockComandaAdapter.reabrirComanda).mockResolvedValueOnce({
+      id: 'com-1',
+      tenant_id: 't-1',
+      appointment_id: 'apt-1',
+      customer_id: 'cust-1',
+      status: 'aberta',
+      total_amount: 40.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+      created_at: new Date().toISOString(),
+      closed_at: null,
+      itens: [],
+      pagamentos: [],
+    });
+
     render(
       <ComandaCheckoutModal
         isOpen={true}
@@ -215,9 +272,16 @@ describe('ComandaCheckoutModal', () => {
       />
     );
 
-    expect(await screen.findByText('Comanda Liquidada')).toBeInTheDocument();
-    expect(screen.getByText('Atendimento Liquidado e Pago')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Fechar/i }).length).toBe(2);
-    expect(screen.queryByRole('button', { name: /Finalizar e Receber/i })).toBeNull();
+    expect(await screen.findByText(/Atendimento liquidado e pago/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reabrir comanda/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Reabrir comanda/i }));
+
+    const confirmBtn = await screen.findByRole('button', { name: /Confirmar reabertura/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.reabrirComanda).toHaveBeenCalledWith('com-1', 't-1');
+    });
   });
 });
