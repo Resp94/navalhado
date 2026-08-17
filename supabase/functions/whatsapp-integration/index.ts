@@ -63,18 +63,29 @@ export const DEFAULT_TEMPLATES = {
     "Olá, {cliente}! Para escolher seu serviço e agendar um horário na *{barbearia}*, acesse: {link}",
 };
 
+export interface WhatsappTemplateVariables {
+  cliente?: string;
+  barbearia?: string;
+  servico?: string;
+  profissional?: string;
+  data?: string;
+  horario?: string;
+  link?: string;
+  [key: string]: string | undefined;
+}
+
 export const formatMessageTemplate = (
   customTemplate: string | null | undefined,
   fallbackTemplate: string,
-  variables: Record<string, string>
+  variables: WhatsappTemplateVariables
 ): string => {
   const template = customTemplate && customTemplate.trim().length > 0
     ? customTemplate
     : fallbackTemplate;
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
     const lowerKey = key.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(variables, lowerKey)) {
-      return variables[lowerKey];
+    if (Object.prototype.hasOwnProperty.call(variables, lowerKey) && variables[lowerKey] !== undefined) {
+      return variables[lowerKey] as string;
     }
     return match;
   });

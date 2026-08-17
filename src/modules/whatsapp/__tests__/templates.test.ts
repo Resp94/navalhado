@@ -52,4 +52,13 @@ describe('WhatsApp Templates Module', () => {
     const keys = TEMPLATE_CONFIGS.map((c) => c.key);
     expect(keys).toEqual(['confirmation', 'reschedule', 'cancellation', 'reminder', 'first_contact']);
   });
+
+  it('should preserve unknown tags by default for exact parity with Edge Function', () => {
+    const template = 'Olá {cliente}! Serviço: {servico_personalizado}, link: {link}';
+    const result = interpolateTemplate(template, {
+      cliente: 'Marcos',
+      link: 'https://exemplo.com',
+    });
+    expect(result).toBe('Olá Marcos! Serviço: {servico_personalizado}, link: https://exemplo.com');
+  });
 });

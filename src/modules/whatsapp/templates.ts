@@ -107,7 +107,18 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   },
 ];
 
-export const SAMPLE_MOCK_VARIABLES: Record<string, string> = {
+export interface WhatsappTemplateVariables {
+  cliente?: string;
+  barbearia?: string;
+  servico?: string;
+  profissional?: string;
+  data?: string;
+  horario?: string;
+  link?: string;
+  [key: string]: string | undefined;
+}
+
+export const SAMPLE_MOCK_VARIABLES: WhatsappTemplateVariables = {
   cliente: 'Lucas Silva',
   barbearia: 'Navalhado Club',
   servico: 'Corte Degradê & Barba',
@@ -119,18 +130,19 @@ export const SAMPLE_MOCK_VARIABLES: Record<string, string> = {
 
 /**
  * Substitui todas as tags dinâmicas no formato `{tag}` pelos valores informados.
- * Se a tag não existir no mapa de variáveis, mantém o token intacto ou vazio dependendo de preserveUnknown.
+ * Se a tag não existir no mapa de variáveis, mantém o token intacto (preserveUnknown=true)
+ * para garantir paridade exata com o gateway de envio da Edge Function.
  */
 export const interpolateTemplate = (
   template: string,
-  variables: Record<string, string>,
-  preserveUnknown = false
+  variables: WhatsappTemplateVariables,
+  preserveUnknown = true
 ): string => {
   if (!template) return '';
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
     const lowerKey = key.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(variables, lowerKey)) {
-      return variables[lowerKey];
+    if (Object.prototype.hasOwnProperty.call(variables, lowerKey) && variables[lowerKey] !== undefined) {
+      return variables[lowerKey] as string;
     }
     return preserveUnknown ? match : '';
   });

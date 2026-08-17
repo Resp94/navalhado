@@ -266,14 +266,29 @@ export const Whatsapp: React.FC = () => {
     if (!loading) {
       gsap.fromTo('.card-whatsapp', 
         { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.6, stagger: 0.08, ease: 'cubic-bezier(0.32, 0.72, 0, 1)' }
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
       );
       gsap.fromTo('.rule-row', 
         { opacity: 0, x: -10 },
-        { opacity: 1, x: 0, duration: 0.4, stagger: 0.05, delay: 0.35, ease: 'cubic-bezier(0.32, 0.72, 0, 1)' }
+        { opacity: 1, x: 0, duration: 0.35, stagger: 0.05, delay: 0.2, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
       );
     }
   }, [loading]);
+
+  useGSAP(() => {
+    if (!loading && instance) {
+      gsap.fromTo(
+        '.template-split-view',
+        { opacity: 0.6, y: 6 },
+        { opacity: 1, y: 0, duration: 0.25, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+      );
+      gsap.fromTo(
+        '.whatsapp-balloon',
+        { scale: 0.97, opacity: 0.85 },
+        { scale: 1, opacity: 1, duration: 0.25, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+      );
+    }
+  }, [activeTab, loading, instance]);
 
   const handleCreateInstance = async () => {
     try {
@@ -1164,7 +1179,7 @@ export const Whatsapp: React.FC = () => {
           border-radius: 1.25rem;
           border: 1px solid rgba(234, 222, 214, 0.5);
           box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           overflow: hidden;
         }
 
@@ -1400,7 +1415,7 @@ export const Whatsapp: React.FC = () => {
           border-radius: var(--radius-lg);
           border: 1px solid rgba(234, 222, 214, 0.5);
           background: rgba(255, 255, 255, 0.4);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .rule-row:hover {
@@ -1516,7 +1531,7 @@ export const Whatsapp: React.FC = () => {
           cursor: pointer;
           border-radius: 20px;
           background-color: rgba(234, 222, 214, 0.8);
-          transition: 0.3s;
+          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .slider::before {
@@ -1529,7 +1544,7 @@ export const Whatsapp: React.FC = () => {
           background-color: white;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
           content: '';
-          transition: 0.3s;
+          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .switch input:checked + .slider {
@@ -1584,7 +1599,7 @@ export const Whatsapp: React.FC = () => {
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
         }
 
@@ -1671,7 +1686,7 @@ export const Whatsapp: React.FC = () => {
           color: var(--color-text-primary);
           font-size: 0.75rem;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .tag-chip-btn code {
@@ -1712,7 +1727,7 @@ export const Whatsapp: React.FC = () => {
           line-height: 1.5;
           outline: none;
           resize: vertical;
-          transition: all 0.3s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .template-textarea:focus {
@@ -1748,9 +1763,9 @@ export const Whatsapp: React.FC = () => {
           gap: 0.75rem;
           padding: 0.75rem 1rem;
           border-radius: var(--radius-md);
-          background: var(--color-warning-bg);
-          border: 1px solid rgba(217, 119, 6, 0.3);
-          color: #78350F;
+          background: rgba(217, 119, 6, 0.08);
+          border: 1px solid rgba(217, 119, 6, 0.25);
+          color: var(--color-text-primary);
         }
 
         .alert-icon {
@@ -1980,7 +1995,7 @@ export const Whatsapp: React.FC = () => {
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           outline: none;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           font-family: var(--font-family-base);
         }
 
@@ -2003,7 +2018,7 @@ export const Whatsapp: React.FC = () => {
           gap: 0.5rem;
           font-weight: 700;
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           border: none;
           font-size: var(--font-size-sm);
           white-space: nowrap;
