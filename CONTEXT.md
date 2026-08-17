@@ -129,6 +129,23 @@ _Avoid_: Produto genérico, mercadoria mista
 Quantidade mínima estipulada (`min_stock_alert`) que dispara avisos visuais no painel do Gerente para recompra preventiva de mercadorias e insumos antes do desabastecimento.
 _Avoid_: Estoque zerado surpresa, contagem cega
 
+**Hub Financeiro (Rota /financeiro)**:
+Superfície central de gestão financeira operacional do Gerente no Navalhado, organizada em duas abas especializadas: Caixa Diário & Turnos (ciclo de abertura com fundo de troco, conferência e fechamento de sessões físicas de caixa) e Repasses de Comissões (gestão de saldos acumulados da equipe, detalhamento de atendimentos e quitação formal de pagamentos aos barbeiros). Relatórios profundos de BI e DRE estendido são delegados à futura rota de relatórios.
+_Avoid_: Tela de relatórios analíticos, gráficos de BI soltos, dashboard contábil genérico
+
+**Abertura de Caixa do Turno**:
+Registro formal do início da operação física de frente de caixa (`cash_sessions`), no qual o operador declara o montante em dinheiro mantido na gaveta como Fundo de Troco Inicial para subsidiar trocos aos primeiros atendimentos.
+_Avoid_: Caixa aberto no ar, início tácito de turno
+
+**Fechamento de Caixa com Conferência**:
+Conclusão formal da sessão de caixa (`cash_sessions`), onde o operador declara a contagem física final das cédulas na gaveta e o sistema confronta com os recebimentos calculados em dinheiro das comandas liquidadas no turno, registrando eventuais sobras ou quebras de caixa.
+_Avoid_: Fechamento cego automático, zeramento de gaveta sem conferência
+
+**Quitação de Comissão**:
+Transação formal de liquidação e repasse de valores faturados por um profissional (`commission_payouts`), registrando o valor pago, a forma de liquidação (PIX, dinheiro da gaveta, transferência bancária), data do pagamento e observações contábeis.
+_Avoid_: Baixa verbal de comissão, anotação em papel, repasse não rastreado
+
+
 
 
 
