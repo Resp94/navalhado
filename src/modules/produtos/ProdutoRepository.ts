@@ -28,24 +28,14 @@ export class ProdutoRepository {
   }
 
   async saveProduct(
-    tenantIdOrInput: string | (ProductInputData & { tenant_id?: string }),
-    maybeInput?: ProductInputData
+    tenantId: string,
+    input: ProductInputData,
+    id?: string
   ): Promise<Product> {
-    let tenantId: string;
-    let input: ProductInputData;
-
-    if (typeof tenantIdOrInput === 'string') {
-      tenantId = tenantIdOrInput;
-      input = maybeInput || { name: '', price: 0 };
-    } else {
-      tenantId = tenantIdOrInput.tenant_id || '';
-      input = tenantIdOrInput;
-    }
-
     if (!tenantId || !tenantId.trim()) {
       throw new ProdutoValidationError('ID da barbearia (tenant) é obrigatório.');
     }
-    if (!input.name || !input.name.trim()) {
+    if (!input || !input.name || !input.name.trim()) {
       throw new ProdutoValidationError('O nome do produto é obrigatório.');
     }
     if (input.price < 0) {
@@ -66,7 +56,7 @@ export class ProdutoRepository {
       is_active: input.is_active ?? true,
     };
 
-    return await this.adapter.salvarProduto(tenantId, payload);
+    return await this.adapter.salvarProduto(tenantId, payload, id);
   }
 
 

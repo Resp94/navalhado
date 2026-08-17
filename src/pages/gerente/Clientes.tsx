@@ -7,67 +7,30 @@ import type { Cliente } from '../../modules/clientes/types';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-// Ícones Inline SVG
-const SearchIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-);
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Search01Icon,
+  UserAdd01Icon,
+  Edit01Icon,
+  Delete02Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  Tag01Icon,
+  Invoice01Icon,
+  WhatsappIcon,
+  Calendar01Icon,
+} from '@hugeicons/core-free-icons';
 
-const UserPlusIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <line x1="19" x2="19" y1="8" y2="14" />
-    <line x1="22" x2="16" y1="11" y2="11" />
-  </svg>
-);
+// Ícones Oficiais Hugeicons
+const SearchIcon = () => <HugeiconsIcon icon={Search01Icon} size={18} />;
+const UserPlusIcon = () => <HugeiconsIcon icon={UserAdd01Icon} size={18} />;
+const EditIcon = () => <HugeiconsIcon icon={Edit01Icon} size={16} />;
+const TrashIcon = () => <HugeiconsIcon icon={Delete02Icon} size={16} />;
+const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
+const CopyIcon = () => <HugeiconsIcon icon={Copy01Icon} size={16} />;
+const TagIcon = () => <HugeiconsIcon icon={Tag01Icon} size={14} />;
+const ReceiptIcon = () => <HugeiconsIcon icon={Invoice01Icon} size={14} />;
 
-const EditIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 20h9" />
-    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
-  </svg>
-);
-
-const CopyIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-  </svg>
-);
-
-const TagIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
-    <path d="M7 7h.01" />
-  </svg>
-);
-
-const ReceiptIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
-    <path d="M8 7h8" />
-    <path d="M8 11h8" />
-    <path d="M8 15h6" />
-  </svg>
-);
 
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -590,19 +553,32 @@ export const Clientes: React.FC = () => {
               >
                 <CopyIcon /> Copiar Link
               </button>
+              {selectedCustomer.phone && (
+                <a
+                  href={`https://wa.me/55${selectedCustomer.phone.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn--outline btn--xs"
+                  title="Chamar no WhatsApp"
+                >
+                  <HugeiconsIcon icon={WhatsappIcon} size={14} /> WhatsApp
+                </a>
+              )}
               <button
                 onClick={() => {
                   navigate('/agenda');
                   addToast(`Iniciando agendamento para ${selectedCustomer.name}`, 'info');
                 }}
                 className="btn btn--outline btn--xs"
+                title="Agendar horário na grade"
               >
-                <ReceiptIcon /> Nova Comanda
+                <HugeiconsIcon icon={Calendar01Icon} size={14} /> Novo Agendamento
               </button>
               <button onClick={() => handleOpenModal(selectedCustomer)} className="btn btn--primary btn--xs">
                 <EditIcon /> Editar
               </button>
             </div>
+
 
             {/* Abas de Navegação 360 */}
             <div className="drawer-tabs-nav">
@@ -1071,7 +1047,7 @@ export const Clientes: React.FC = () => {
           width: 52px;
           height: 52px;
           border-radius: 16px;
-          background: linear-gradient(135deg, var(--color-brand-primary) 0%, #b85d00 100%);
+          background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-deep, #6A2E00) 100%);
           color: #ffffff;
           font-weight: 800;
           font-size: 1.25rem;

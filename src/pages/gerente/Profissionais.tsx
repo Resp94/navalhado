@@ -28,22 +28,15 @@ const DAYS_OF_WEEK = [
   { key: 'sunday', label: 'Domingo' },
 ];
 
-const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
-  </svg>
-);
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Cancel01Icon,
+  ScissorIcon as HugeScissorIcon,
+} from '@hugeicons/core-free-icons';
 
-const ScissorIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="6" r="3" />
-    <circle cx="6" cy="18" r="3" />
-    <line x1="20" x2="8.12" y1="4" y2="15.88" />
-    <line x1="14.47" x2="20" y1="14.48" y2="20" />
-    <line x1="8.12" x2="12" y1="8.12" y2="12" />
-  </svg>
-);
+const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
+const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={16} />;
+
 
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();

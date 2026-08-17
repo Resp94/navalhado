@@ -72,6 +72,18 @@ interface PagamentoLinha {
   receivedCash: number;
 }
 
+const mapInitialServices = (services?: Array<{ service_id: string; name: string; price: number; professional_id?: string | null }>): ItemLocal[] => {
+  return (services || []).map((s, idx) => ({
+    tempId: `init-${idx}`,
+    item_type: 'servico',
+    service_id: s.service_id,
+    professional_id: s.professional_id,
+    name: s.name,
+    quantity: 1,
+    unit_price: s.price,
+  }));
+};
+
 export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   isOpen,
   tenantId,
@@ -188,45 +200,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           }
         } else {
           // Itens iniciais a partir do agendamento
-          const init: ItemLocal[] = (initialServices || []).map((s, idx) => ({
-            tempId: `init-${idx}`,
-            item_type: 'servico',
-            service_id: s.service_id,
-            professional_id: s.professional_id,
-            name: s.name,
-            quantity: 1,
-            unit_price: s.price,
-          }));
-          setItens(init);
+          setItens(mapInitialServices(initialServices));
         }
       }).catch((err) => {
         console.error('Erro ao verificar comanda existente:', err);
-        const init: ItemLocal[] = (initialServices || []).map((s, idx) => ({
-          tempId: `init-${idx}`,
-          item_type: 'servico',
-          service_id: s.service_id,
-          professional_id: s.professional_id,
-          name: s.name,
-          quantity: 1,
-          unit_price: s.price,
-        }));
-        setItens(init);
+        setItens(mapInitialServices(initialServices));
       }).finally(() => {
         setIsLoadingComanda(false);
       });
     } else {
-      const init: ItemLocal[] = (initialServices || []).map((s, idx) => ({
-        tempId: `init-${idx}`,
-        item_type: 'servico',
-        service_id: s.service_id,
-        professional_id: s.professional_id,
-        name: s.name,
-        quantity: 1,
-        unit_price: s.price,
-      }));
-      setItens(init);
+      setItens(mapInitialServices(initialServices));
       setIsLoadingComanda(false);
     }
+
   }, [isOpen, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
 
   const isClosed = loadedComanda?.status === 'fechada';
@@ -410,7 +396,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     if (Math.abs(effectiveTotalPago - totalFinal) > 0.01) {
       setErrorMsg(
-        `O total dos pagamentos (R$ ${effectiveTotalPago.toFixed(2)}) deve ser igual ao valor total da conta (R$ ${totalFinal.toFixed(2)}).`
+        `O total dos pagamentos (R$ ${effectiveTotalPago.toFixed(2)}) deve ser igual ao valor total da comanda (R$ ${totalFinal.toFixed(2)}).`
       );
       return;
     }
@@ -1223,7 +1209,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           width: 36px;
           height: 36px;
           border-radius: var(--radius-full);
-          background-color: rgba(34, 197, 94, 0.15);
+          background-color: var(--color-success-bg, rgba(14, 159, 110, 0.15));
           color: var(--color-success);
           display: flex;
           align-items: center;
@@ -1252,7 +1238,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           letter-spacing: 0.05em;
           padding: 0.25rem 0.6rem;
           border-radius: var(--radius-full);
-          background-color: rgba(34, 197, 94, 0.15);
+          background-color: var(--color-success-bg, rgba(14, 159, 110, 0.15));
           color: var(--color-success);
           border: 1px solid var(--color-success);
           flex-shrink: 0;
