@@ -551,58 +551,6 @@ describe('Whatsapp Config Page - TDD', () => {
     });
   });
 
-  it('deve disparar mensagem de teste enviando os dados para a Edge Function', async () => {
-    mockMaybeSingle.mockResolvedValue({
-      data: {
-        id: 'inst-123',
-        tenant_id: 'tenant-test-id',
-        instance_name: 'nav_estilo_123',
-        instance_token: 'key_123',
-        status: 'connected',
-        qr_code: null,
-        send_confirmation: true,
-        send_reminders: false,
-        reminder_hours: 2,
-        send_cancellation: true,
-      },
-      error: null,
-    });
-
-    mockFunctionsInvoke.mockResolvedValue({
-      data: { success: true },
-      error: null
-    });
-
-    render(<Whatsapp />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Disparar Mensagem')).toBeInTheDocument();
-    });
-
-    const phoneInput = screen.getByLabelText('Número com DDD (Apenas números)') as HTMLInputElement;
-    const msgTextarea = screen.getByLabelText('Mensagem') as HTMLTextAreaElement;
-    const submitButton = screen.getByRole('button', { name: 'Enviar Mensagem de Teste' });
-
-    // Preencher formulário
-    fireEvent.change(phoneInput, { target: { value: '11999999999' } });
-    fireEvent.change(msgTextarea, { target: { value: 'Teste de mensagem' } });
-
-    // Submeter formulário
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-test', {
-        body: {
-          tenant_id: 'tenant-test-id',
-          number: '11999999999',
-          text: 'Teste de mensagem'
-        }
-      });
-    });
-
-    expect(mockAddToast).toHaveBeenCalledWith('Mensagem de teste disparada com sucesso para 11999999999!', 'success');
-  });
-
   it('deve ativar a integracao criando a instancia na VPS com action create', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: null,

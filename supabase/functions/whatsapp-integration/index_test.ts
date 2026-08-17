@@ -1783,7 +1783,7 @@ Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant
   }
 });
 
-Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS send text and succeed", async () => {
+Deno.test("POST /send-manual - should authenticate user, verify tenant, call VPS send text and succeed", async () => {
   const restoreFetch = setupMockFetch({
     // Mock obter usuario via Supabase Auth
     "auth/v1/user": {
@@ -1807,7 +1807,7 @@ Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS s
     }
   });
 
-  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-test", {
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-manual", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1828,7 +1828,7 @@ Deno.test("POST /send-test - should authenticate user, verify tenant, call VPS s
   restoreFetch();
 });
 
-Deno.test("POST /send-test delegates message delivery through the provider gateway", async () => {
+Deno.test("POST /send-manual delegates message delivery through the provider gateway", async () => {
   const providerCalls: Array<Record<string, unknown>> = [];
   const provider = createProviderStub({
     sendText: (input) => {
@@ -1853,7 +1853,7 @@ Deno.test("POST /send-test delegates message delivery through the provider gatew
 
   try {
     const testHandler = createHandler({ providerFactory: () => provider });
-    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-test", {
+    const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-manual", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2026,13 +2026,13 @@ const createSendTestRequest = (
     text: "Mensagem de teste",
   },
   authorization = "Bearer mock-user-token",
-) => new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-test", {
+) => new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-manual", {
   method: "POST",
   headers: { "Content-Type": "application/json", Authorization: authorization },
   body: typeof body === "string" ? body : JSON.stringify(body),
 });
 
-Deno.test("POST /send-test only permits gerente and proprietario roles", async () => {
+Deno.test("POST /send-manual only permits gerente and proprietario roles", async () => {
   for (const [role, expectedStatus] of [["barbeiro", 403], ["gerente", 200], ["proprietario", 200]] as const) {
     const mock = setupSendTestFetch({ role });
     try {
@@ -2045,7 +2045,7 @@ Deno.test("POST /send-test only permits gerente and proprietario roles", async (
   }
 });
 
-Deno.test("POST /send-test requires a Bearer authorization scheme", async () => {
+Deno.test("POST /send-manual requires a Bearer authorization scheme", async () => {
   const mock = setupSendTestFetch();
   try {
     const res = await handler(createSendTestRequest(undefined, "Basic mock-user-token"));
@@ -2056,7 +2056,7 @@ Deno.test("POST /send-test requires a Bearer authorization scheme", async () => 
   }
 });
 
-Deno.test("POST /send-test rejects malformed JSON", async () => {
+Deno.test("POST /send-manual rejects malformed JSON", async () => {
   const mock = setupSendTestFetch();
   try {
     const res = await handler(createSendTestRequest("{"));
@@ -2068,7 +2068,7 @@ Deno.test("POST /send-test rejects malformed JSON", async () => {
   }
 });
 
-Deno.test("POST /send-test rejects invalid phone and message values", async () => {
+Deno.test("POST /send-manual rejects invalid phone and message values", async () => {
   const invalidBodies = [
     { tenant_id: "tenant-456", number: "not-a-phone", text: "Mensagem" },
     { tenant_id: "tenant-456", number: "11999991111", text: "   " },
@@ -2088,7 +2088,7 @@ Deno.test("POST /send-test rejects invalid phone and message values", async () =
   }
 });
 
-Deno.test("POST /send-test does not expose upstream response bodies", async () => {
+Deno.test("POST /send-manual does not expose upstream response bodies", async () => {
   const mock = setupSendTestFetch({
     sendStatus: 502,
     sendBody: { error: "token=mock-instance-key service_role=mock-service-role-key" },

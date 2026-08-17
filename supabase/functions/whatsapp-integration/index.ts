@@ -1678,9 +1678,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     }
 
     // -------------------------------------------------------------------------
-    // ROTA: /send-manual | /send-direct | /send-test (Manual WhatsApp Dispatch)
+    // ROTA: /send-manual | /send-direct (Manual / Template Test WhatsApp Dispatch)
     // -------------------------------------------------------------------------
-    if (path.endsWith("/send-manual") || path.endsWith("/send-direct") || path.endsWith("/send-test")) {
+    if (path.endsWith("/send-manual") || path.endsWith("/send-direct")) {
       if (req.method !== "POST") {
         return new Response(JSON.stringify({ error: "Method not allowed" }), {
           status: 405,

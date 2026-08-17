@@ -139,8 +139,6 @@ export const Whatsapp: React.FC = () => {
   const [instance, setInstance] = useState<WhatsappInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [testPhone, setTestPhone] = useState('');
-  const [testMessage, setTestMessage] = useState('Olá! Esta é uma mensagem de teste do sistema Navalhado.');
 
   // Estados de Personalização de Templates
   const [activeTab, setActiveTab] = useState<WhatsappTemplateKey>('confirmation');
@@ -542,7 +540,7 @@ export const Whatsapp: React.FC = () => {
   };
 
   const handleSendTemplateTest = async () => {
-    const targetPhone = testPhoneForTemplate.trim() || testPhone.trim();
+    const targetPhone = testPhoneForTemplate.trim();
     if (!targetPhone) {
       addToast('Informe o número de telefone com DDD para receber o teste.', 'warning');
       return;
@@ -570,35 +568,6 @@ export const Whatsapp: React.FC = () => {
       addToast(error?.message || 'Erro ao disparar teste do modelo.', 'error');
     } finally {
       setSendingTemplateTest(false);
-    }
-  };
-
-  const handleSendTestMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testPhone.trim()) {
-      addToast('Informe o número de telefone do destinatário.', 'warning');
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-
-      const { error } = await supabase.functions.invoke('whatsapp-integration/send-test', {
-        body: {
-          tenant_id: tenant.tenantId,
-          number: testPhone,
-          text: testMessage,
-        },
-      });
-
-      if (error) throw error;
-
-      addToast(`Mensagem de teste disparada com sucesso para ${testPhone}!`, 'success');
-    } catch (error: any) {
-      console.error('Error sending test message:', error);
-      addToast(error?.message || 'Erro ao disparar mensagem de teste.', 'error');
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -1054,46 +1023,6 @@ export const Whatsapp: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* ═══ Card: Mensagem de Teste Avulsa (só quando conectado) ═══ */}
-          {instance.status === 'connected' && (
-            <div className="card-whatsapp">
-              <div className="card-whatsapp__header">
-                <div>
-                  <span className="card-whatsapp__eyebrow">Disparo Avulso</span>
-                  <h3 className="card-whatsapp__title">Disparar Mensagem</h3>
-                </div>
-              </div>
-              <div className="card-whatsapp__body">
-                <form onSubmit={handleSendTestMessage} className="test-form">
-                  <div className="form-group">
-                    <label htmlFor="test-phone">Número com DDD (Apenas números)</label>
-                    <input
-                      id="test-phone"
-                      type="text"
-                      placeholder="Ex: 11999999999"
-                      value={testPhone}
-                      onChange={(e) => setTestPhone(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="test-msg">Mensagem</label>
-                    <textarea
-                      id="test-msg"
-                      rows={3}
-                      value={testMessage}
-                      onChange={(e) => setTestMessage(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <button type="submit" disabled={actionLoading} className="btn btn--primary">
-                    {actionLoading ? <div className="spinner spinner--sm" /> : 'Enviar Mensagem de Teste'}
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1958,52 +1887,6 @@ export const Whatsapp: React.FC = () => {
         .btn--test-send:hover {
           background: #075E54;
           transform: translateY(-1px);
-        }
-
-        /* ═══ TEST FORM ═══ */
-        .test-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .form-group label {
-          font-size: 0.65rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 0.7rem 1rem;
-          border: 1px solid rgba(234, 222, 214, 0.6);
-          border-radius: var(--radius-md);
-          background: rgba(255, 255, 255, 0.7);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          outline: none;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          font-family: var(--font-family-base);
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.08);
-          background: rgba(255, 255, 255, 0.95);
-        }
-
-        .form-group textarea {
-          resize: vertical;
         }
 
         /* ═══ BUTTONS ═══ */
