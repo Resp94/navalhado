@@ -55,8 +55,9 @@ Cores para feedbacks visuais, mantendo o nível de contraste e acessibilidade ex
 
 ## 🔤 Tipografia
 
-*   **Fonte Principal (Interface e Títulos):** `Inter`, sans-serif.
-    *   *Alternativa:* `System UI` (caso a fonte não carregue).
+*   **Fonte Display e Títulos:** `Outfit`, sans-serif (títulos de páginas, métricas e cabeçalhos).
+*   **Fonte Principal de Interface:** `Inter`, sans-serif (corpo de texto, inputs, tabelas e botões).
+    *   *Alternativa:* `System UI` (caso a fonte externa não carregue).
 *   **Tamanhos de Fonte (Scale):**
     *   `font-size-xs`: `0.75rem` (12px) - Informações de rodapé, micro-textos.
     *   `font-size-sm`: `0.875rem` (14px) - Texto padrão de inputs, labels, tabelas.

@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
 import type { Cliente } from '../../modules/clientes/types';
+import { DEFAULT_LTV_METRICS } from '../../modules/clientes/types';
 import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -216,6 +217,19 @@ export const Clientes: React.FC = () => {
     addToast('Link de agendamento copiado com sucesso!', 'success');
   };
 
+  const handleUpdateCustomerTags = async (updatedTags: string[]) => {
+    if (!selectedCustomer) return;
+    const success = await saveCustomer({
+      id: selectedCustomer.id,
+      name: selectedCustomer.name,
+      phone: selectedCustomer.phone,
+      tags: updatedTags,
+    });
+    if (success) {
+      setSelectedCustomer({ ...selectedCustomer, tags: updatedTags });
+    }
+  };
+
   const handleAddTagToCustomer = async (tagText: string) => {
     const clean = tagText.trim().replace(/^#/, '');
     if (!clean || !selectedCustomer) return;
@@ -224,35 +238,19 @@ export const Clientes: React.FC = () => {
       return;
     }
     const updatedTags = [...selectedCustomer.tags, clean];
-    const success = await saveCustomer({
-      id: selectedCustomer.id,
-      name: selectedCustomer.name,
-      phone: selectedCustomer.phone,
-      tags: updatedTags,
-    });
-    if (success) {
-      setSelectedCustomer({ ...selectedCustomer, tags: updatedTags });
-      setNewTagInput('');
-    }
+    await handleUpdateCustomerTags(updatedTags);
+    setNewTagInput('');
   };
 
   const handleRemoveTagFromCustomer = async (tagToRemove: string) => {
     if (!selectedCustomer) return;
     const updatedTags = selectedCustomer.tags.filter((t) => t !== tagToRemove);
-    const success = await saveCustomer({
-      id: selectedCustomer.id,
-      name: selectedCustomer.name,
-      phone: selectedCustomer.phone,
-      tags: updatedTags,
-    });
-    if (success) {
-      setSelectedCustomer({ ...selectedCustomer, tags: updatedTags });
-    }
+    await handleUpdateCustomerTags(updatedTags);
   };
 
   const ltvMetrics = selectedCustomer
     ? calculateLTVMetrics(selectedCustomer.id)
-    : { totalSpend: 0, averageTicket: 0, totalVisits: 0, averageDaysBetweenVisits: 0, lastVisitDate: null };
+    : DEFAULT_LTV_METRICS;
 
   return (
     <div className="clientes-page">
@@ -718,7 +716,7 @@ export const Clientes: React.FC = () => {
               </button>
             </header>
 
-            {/* Ações Rápidas de Topo (Design Navalhado - Sem Roxo) */}
+            {/* Ações Rápidas de Topo (Conforme Spec: WhatsApp, Nova Comanda, Novo Agendamento e Copiar Link) */}
             <div className="drawer-quick-actions" role="toolbar" aria-label="Ações rápidas do cliente">
               <button
                 type="button"
@@ -743,6 +741,18 @@ export const Clientes: React.FC = () => {
                   <HugeiconsIcon icon={WhatsappIcon} size={15} /> WhatsApp
                 </a>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/comandas?clienteId=${selectedCustomer.id}`);
+                  addToast(`Iniciando comanda para ${selectedCustomer.name}`, 'info');
+                }}
+                className="btn btn-drawer-action"
+                title="Abrir comanda para este cliente"
+                aria-label="Nova comanda"
+              >
+                <ReceiptIcon /> Nova comanda
+              </button>
               <button
                 type="button"
                 onClick={() => {

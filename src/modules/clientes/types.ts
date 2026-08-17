@@ -63,6 +63,14 @@ export interface MetricasLTVCliente {
   lastVisitDate: string | null;
 }
 
+export const DEFAULT_LTV_METRICS: MetricasLTVCliente = {
+  totalSpend: 0,
+  averageTicket: 0,
+  totalVisits: 0,
+  averageDaysBetweenVisits: 0,
+  lastVisitDate: null,
+};
+
 export interface EstatisticasCliente {
   totalCount: number;
   completosCount: number;

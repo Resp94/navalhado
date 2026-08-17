@@ -6,6 +6,7 @@ import type {
   ComandaHistoricoCliente,
   MetricasLTVCliente,
 } from './types';
+import { DEFAULT_LTV_METRICS } from './types';
 
 export class ClienteValidationError extends Error {
   constructor(message: string) {
@@ -136,7 +137,7 @@ export class ClienteRepository {
     comandas: ComandaHistoricoCliente[]
   ): MetricasLTVCliente {
     if (!customerId) {
-      return { totalSpend: 0, averageTicket: 0, totalVisits: 0, averageDaysBetweenVisits: 0, lastVisitDate: null };
+      return { ...DEFAULT_LTV_METRICS };
     }
     return this.adapter.calcularMetricasLTV(customerId, appointments || [], comandas || []);
   }

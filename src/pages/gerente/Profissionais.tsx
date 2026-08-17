@@ -7,6 +7,15 @@ import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { SupabaseProfessionalServicesAdapter } from '../../modules/profissionais/servicesAdapter';
 import type { ProfessionalServiceItem } from '../../modules/profissionais/types';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Cancel01Icon,
+  ScissorIcon as HugeScissorIcon,
+  UserGroupIcon,
+  CheckmarkCircle02Icon,
+  AlertCircleIcon,
+  Clock01Icon,
+} from '@hugeicons/core-free-icons';
 
 interface Professional {
   id: string;
@@ -28,15 +37,11 @@ const DAYS_OF_WEEK = [
   { key: 'sunday', label: 'Domingo' },
 ];
 
-import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  Cancel01Icon,
-  ScissorIcon as HugeScissorIcon,
-} from '@hugeicons/core-free-icons';
-
 const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
-const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={16} />;
-
+const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={15} />;
+const CheckIcon = () => <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} />;
+const AlertIcon = () => <HugeiconsIcon icon={AlertCircleIcon} size={13} />;
+const ClockIcon = () => <HugeiconsIcon icon={Clock01Icon} size={13} />;
 
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -100,13 +105,33 @@ export const Profissionais: React.FC = () => {
     fetchProfessionals();
   }, [tenant.tenantId]);
 
+  // Listener para fechar modal com tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isServicesModalOpen) {
+        setIsServicesModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isServicesModalOpen]);
+
+  // Animação GSAP com respeito a prefers-reduced-motion e compatibilidade de testes
   useGSAP(() => {
     if (!loading && professionals.length > 0) {
-      gsap.fromTo(
-        '.prof-card',
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' }
-      );
+      const prefersReduced =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReduced) {
+        gsap.set('.prof-card', { opacity: 1, y: 0 });
+      } else {
+        gsap.fromTo(
+          '.prof-card',
+          { opacity: 0, y: 15 },
+          { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' }
+        );
+      }
     }
   }, [loading, professionals]);
 
@@ -346,33 +371,22 @@ export const Profissionais: React.FC = () => {
 
   return (
     <div className="prof-page">
-      <div className="prof-header-intro">
-        <span
-          style={{
-            display: 'inline-block',
-            backgroundColor: 'rgba(217, 108, 0, 0.08)',
-            color: 'var(--color-brand-primary)',
-            fontSize: '10px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.15em',
-            padding: '4px 12px',
-            borderRadius: '9999px',
-            marginBottom: '0.5rem',
-          }}
-        >
-          Gestão
-        </span>
-        <h2>Equipe e Escala</h2>
-        <p style={{ margin: '4px 0 0' }}>
-          Cadastre seus barbeiros, configure a comissão (%) de cada um, vincule serviços com duração individual e edite a escala de trabalho.
+      <header className="prof-header-intro">
+        <h2>Equipe e escala da barbearia</h2>
+        <p>
+          Cadastre seus barbeiros, configure a comissão de cada profissional, personalize o tempo de atendimento por corte e organize os horários de atendimento na semana.
         </p>
-      </div>
+      </header>
 
       <div className="prof-grid">
         {/* Painel do Formulário */}
-        <section className="form-section card">
-          <h3>{editingId ? 'Editar Profissional' : 'Novo Profissional'}</h3>
+        <section className="form-section card" aria-labelledby="prof-form-heading">
+          <div className="section-title-wrap">
+            <h3 id="prof-form-heading">{editingId ? 'Editar Profissional' : 'Novo Profissional'}</h3>
+            <span className="section-subtitle">
+              {editingId ? 'Atualize os dados e os dias de atendimento do barbeiro' : 'Preencha os dados cadastrais do novo barbeiro da equipe'}
+            </span>
+          </div>
 
           <form onSubmit={handleSubmit} className="prof-form">
             <div className="form-group">
@@ -417,7 +431,10 @@ export const Profissionais: React.FC = () => {
 
             {/* SEÇÃO DA ESCALA DE TRABALHO */}
             <div className="schedule-section">
-              <span className="schedule-title">Escala Semanal de Trabalho</span>
+              <div className="schedule-section-header">
+                <ClockIcon />
+                <span className="schedule-title">Escala semanal de atendimento</span>
+              </div>
               <div className="schedule-list">
                 {DAYS_OF_WEEK.map((day) => {
                   const daySched = schedule[day.key];
@@ -440,18 +457,20 @@ export const Profissionais: React.FC = () => {
                         <div className="day-schedule-details">
                           {/* Horário de Trabalho */}
                           <div className="schedule-row">
-                            <span className="schedule-row-label">Trabalho:</span>
+                            <span className="schedule-row-label">Expediente:</span>
                             <input
                               type="time"
                               className="day-times-input"
                               value={daySched.start}
+                              aria-label={`Início do expediente de ${day.label}`}
                               onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
                             />
-                            <span>às</span>
+                            <span className="schedule-row-sep">às</span>
                             <input
                               type="time"
                               className="day-times-input"
                               value={daySched.end}
+                              aria-label={`Fim do expediente de ${day.label}`}
                               onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
                             />
                           </div>
@@ -468,7 +487,7 @@ export const Profissionais: React.FC = () => {
                                 handleScheduleTimeChange(day.key, 'break_start', e.target.value)
                               }
                             />
-                            <span>às</span>
+                            <span className="schedule-row-sep">às</span>
                             <input
                               type="time"
                               className="day-times-input"
@@ -495,7 +514,7 @@ export const Profissionais: React.FC = () => {
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                 />
-                <label htmlFor="prof-active">Profissional Ativo (Exibir na agenda de clientes)</label>
+                <label htmlFor="prof-active">Barbeiro ativo na agenda de clientes</label>
               </div>
             )}
 
@@ -519,15 +538,22 @@ export const Profissionais: React.FC = () => {
         </section>
 
         {/* Painel da Listagem */}
-        <section className="list-section card">
+        <section className="list-section card" aria-labelledby="prof-list-heading">
           <div className="list-header">
-            <h3>Membros da Equipe</h3>
+            <div className="list-header-left">
+              <h3 id="prof-list-heading">Membros da equipe</h3>
+              {!loading && (
+                <span className="team-count-chip">
+                  {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => navigate('/profissionais/cadastro-acesso')}
               className="btn btn--primary btn--sm"
-              style={{ borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem' }}
+              style={{ borderRadius: 'var(--radius-md)', padding: '0.45rem 0.9rem' }}
             >
-              Criar Acesso / Login
+              Criar acesso do barbeiro
             </button>
           </div>
 
@@ -544,9 +570,12 @@ export const Profissionais: React.FC = () => {
             </div>
           ) : professionals.length === 0 ? (
             <div className="empty-state">
-              <p>Nenhum profissional cadastrado.</p>
+              <div className="empty-state-icon">
+                <HugeiconsIcon icon={UserGroupIcon} size={32} />
+              </div>
+              <p>Nenhum barbeiro cadastrado na barbearia.</p>
               <span className="empty-desc">
-                Cadastre o primeiro barbeiro utilizando o formulário ao lado.
+                Cadastre o primeiro profissional no formulário ao lado para liberar a agenda e permitir novos agendamentos.
               </span>
             </div>
           ) : (
@@ -558,9 +587,16 @@ export const Profissionais: React.FC = () => {
                 >
                   <div className="prof-card-header">
                     <div className="prof-card-title-group">
-                      <div className="prof-avatar">{prof.name.charAt(0).toUpperCase()}</div>
-                      <div>
-                        <h4>{prof.name}</h4>
+                      <div className="prof-avatar" aria-hidden="true">
+                        {prof.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="prof-meta-wrap">
+                        <div className="prof-name-row">
+                          <h4>{prof.name}</h4>
+                          {!prof.is_active && (
+                            <span className="prof-inactive-tag">Inativo</span>
+                          )}
+                        </div>
                         <span className="prof-phone">{prof.phone}</span>
                       </div>
                     </div>
@@ -573,7 +609,7 @@ export const Profissionais: React.FC = () => {
                   </div>
 
                   <div className="prof-card-schedule">
-                    <h5>Escala de Trabalho</h5>
+                    <h5>Escala de atendimento</h5>
                     <div className="schedule-badges">
                       {DAYS_OF_WEEK.map((day) => {
                         const dayData = prof.weekly_schedule?.[day.key] as any;
@@ -582,13 +618,13 @@ export const Profissionais: React.FC = () => {
 
                         if (isDayActive) {
                           const breakInfo = dayData.break_start
-                            ? ` (Almoço: ${dayData.break_start} - ${dayData.break_end})`
+                            ? ` (Almoço: ${dayData.break_start} às ${dayData.break_end})`
                             : '';
                           return (
                             <div
                               key={day.key}
                               className="badge-schedule-active"
-                              title={`${day.label}: ${dayData.start} - ${dayData.end}${breakInfo}`}
+                              title={`${day.label}: ${dayData.start} às ${dayData.end}${breakInfo}`}
                             >
                               <span className="badge-day-name">{labelCurto}</span>
                               <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
@@ -602,7 +638,7 @@ export const Profissionais: React.FC = () => {
                               title={`${day.label}: Folga`}
                             >
                               <span className="badge-day-name">{labelCurto}</span>
-                              <span className="badge-schedule-hours">—</span>
+                              <span className="badge-schedule-hours">Folga</span>
                             </div>
                           );
                         }
@@ -615,16 +651,16 @@ export const Profissionais: React.FC = () => {
                       {prof.user_id ? (
                         <span
                           className="status-badge status-badge--linked"
-                          title="Este barbeiro já tem login vinculado"
+                          title="Este barbeiro já possui login de acesso"
                         >
-                          Login Vinculado
+                          <CheckIcon /> Login vinculado
                         </span>
                       ) : (
                         <span
                           className="status-badge status-badge--unlinked"
-                          title="Este barbeiro não consegue logar"
+                          title="Este barbeiro ainda não possui acesso ao painel"
                         >
-                          Sem Login
+                          <AlertIcon /> Sem login
                         </span>
                       )}
                     </div>
@@ -633,13 +669,14 @@ export const Profissionais: React.FC = () => {
                       <button
                         onClick={() => handleOpenServicesModal(prof)}
                         className="btn-action btn-action--services"
-                        title="Configurar serviços e tempos específicos deste barbeiro"
+                        title="Configurar serviços atendidos e tempo de corte deste barbeiro"
                       >
-                        <ScissorIcon /> Serviços e Tempos
+                        <ScissorIcon /> Serviços e tempos
                       </button>
                       <button
                         onClick={() => handleEdit(prof)}
                         className="btn-action btn-action--edit"
+                        title="Editar dados e escala deste barbeiro"
                       >
                         Editar Escala/Dados
                       </button>
@@ -652,26 +689,42 @@ export const Profissionais: React.FC = () => {
         </section>
       </div>
 
-      {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL (DOUBLE-BEZEL) */}
+      {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL */}
       {isServicesModalOpen && selectedProfForServices && (
-        <div className="modal-backdrop">
-          <div className="modal-content shadow-xl animate-spring" style={{ maxWidth: '680px' }}>
+        <div 
+          className="modal-backdrop" 
+          onClick={(e) => { 
+            if (e.target === e.currentTarget) setIsServicesModalOpen(false); 
+          }}
+        >
+          <div 
+            className="modal-content shadow-xl animate-spring" 
+            style={{ maxWidth: '680px' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-services-title"
+          >
             <header className="modal-header">
               <div>
-                <span className="modal-eyebrow">Autonomia de Duração</span>
-                <h3 className="modal-title">
-                  Serviços Atendidos por {selectedProfForServices.name}
+                <span className="modal-eyebrow">Tempo e comissão por serviço</span>
+                <h3 id="modal-services-title" className="modal-title">
+                  Serviços atendidos por {selectedProfForServices.name}
                 </h3>
               </div>
-              <button onClick={() => setIsServicesModalOpen(false)} className="btn-close-modal">
+              <button 
+                type="button"
+                onClick={() => setIsServicesModalOpen(false)} 
+                className="btn-close-modal"
+                aria-label="Fechar modal de serviços"
+                title="Fechar"
+              >
                 <CloseIcon />
               </button>
             </header>
 
             <div className="modal-body">
               <p className="modal-desc">
-                Defina quais serviços este profissional realiza na barbearia e a duração individual
-                (tempo de corte/atendimento). O padrão é de <strong>40 minutos</strong>.
+                Defina quais serviços este profissional realiza na barbearia e a duração individual de cada atendimento. O padrão da barbearia é de <strong>40 minutos</strong>.
               </p>
 
               <div className="modal-services-toolbar">
@@ -680,14 +733,14 @@ export const Profissionais: React.FC = () => {
                   onClick={handleEnableAllServices}
                   className="btn btn--outline btn--xs"
                 >
-                  Habilitar Todos (40 min padrão)
+                  Habilitar todos (40 min padrão)
                 </button>
                 <button
                   type="button"
                   onClick={handleDisableAllServices}
                   className="btn btn--outline-secondary btn--xs"
                 >
-                  Desabilitar Todos
+                  Desabilitar todos
                 </button>
               </div>
 
@@ -705,10 +758,10 @@ export const Profissionais: React.FC = () => {
                   <table className="services-association-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '40px' }}>Atende?</th>
+                        <th style={{ width: '48px', textAlign: 'center' }}>Atende?</th>
                         <th>Serviço</th>
-                        <th style={{ width: '130px' }}>Duração (min)</th>
-                        <th style={{ width: '130px' }}>Comissão (%)</th>
+                        <th style={{ width: '135px' }}>Duração (min)</th>
+                        <th style={{ width: '135px' }}>Comissão (%)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -743,6 +796,7 @@ export const Profissionais: React.FC = () => {
                                 step="5"
                                 disabled={!svc.is_enabled}
                                 value={svc.custom_duration_minutes}
+                                aria-label={`Duração em minutos para ${svc.service_name}`}
                                 onChange={(e) =>
                                   handleDurationChange(
                                     svc.service_id,
@@ -768,6 +822,7 @@ export const Profissionais: React.FC = () => {
                                     ? svc.custom_commission_percentage
                                     : ''
                                 }
+                                aria-label={`Comissão personalizada em porcentagem para ${svc.service_name}`}
                                 onChange={(e) =>
                                   handleCommissionChange(
                                     svc.service_id,
@@ -804,7 +859,7 @@ export const Profissionais: React.FC = () => {
                   {savingProfServices ? (
                     <div className="spinner spinner--sm" />
                   ) : (
-                    'Salvar Configurações'
+                    'Salvar configurações'
                   )}
                 </button>
               </footer>
@@ -820,16 +875,28 @@ export const Profissionais: React.FC = () => {
           gap: 1.5rem;
         }
 
+        .prof-header-intro {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.25rem;
+        }
+
         .prof-header-intro h2 {
-          font-size: var(--font-size-xl);
+          font-size: var(--font-size-2xl);
           font-weight: 800;
           color: var(--color-text-primary);
-          letter-spacing: -0.02em;
+          letter-spacing: -0.025em;
+          margin: 0;
+          line-height: 1.2;
         }
 
         .prof-header-intro p {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
+          margin: 0;
+          max-width: 72ch;
+          line-height: 1.5;
         }
 
         .prof-grid {
@@ -846,25 +913,66 @@ export const Profissionais: React.FC = () => {
         }
 
         .card {
-          background: rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(12px);
+          background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           padding: 1.5rem;
           box-shadow: var(--shadow-sm);
         }
 
-        .form-section h3, .list-header h3 {
+        .section-title-wrap {
+          margin-bottom: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .section-title-wrap h3 {
           font-size: var(--font-size-lg);
           font-weight: 800;
           color: var(--color-text-primary);
-          margin-bottom: 1.25rem;
+          margin: 0;
+          letter-spacing: -0.015em;
+        }
+
+        .section-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
         }
 
         .list-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+          margin-bottom: 1.25rem;
+        }
+
+        .list-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .list-header-left h3 {
+          font-size: var(--font-size-lg);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+          letter-spacing: -0.015em;
+        }
+
+        .team-count-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 8px;
+          background: var(--color-bg-primary);
+          color: var(--color-brand-deep);
+          font-size: 11px;
+          font-weight: 700;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-border);
         }
 
         .prof-form {
@@ -877,6 +985,13 @@ export const Profissionais: React.FC = () => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 0.75rem;
+          align-items: start;
+        }
+
+        @media (max-width: 480px) {
+          .form-row {
+            grid-template-columns: 1fr;
+          }
         }
 
         .form-group {
@@ -889,19 +1004,25 @@ export const Profissionais: React.FC = () => {
           font-size: var(--font-size-xs);
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
           color: var(--color-text-secondary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.2;
         }
 
         .form-group input, .form-group select {
           padding: 0.65rem 0.85rem;
+          min-height: 42px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           outline: none;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          width: 100%;
         }
 
         .form-group input:focus, .form-group select:focus {
@@ -909,8 +1030,12 @@ export const Profissionais: React.FC = () => {
           box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
+        .form-group input::placeholder {
+          color: rgba(112, 98, 91, 0.6);
+        }
+
         .schedule-section {
-          background: rgba(234, 222, 214, 0.2);
+          background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           padding: 1rem;
@@ -919,12 +1044,19 @@ export const Profissionais: React.FC = () => {
           gap: 0.75rem;
         }
 
+        .schedule-section-header {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          color: var(--color-brand-deep);
+        }
+
         .schedule-title {
           font-size: var(--font-size-xs);
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: var(--color-brand-primary);
+          color: var(--color-brand-deep);
         }
 
         .schedule-list {
@@ -937,16 +1069,17 @@ export const Profissionais: React.FC = () => {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 0.6rem 0.85rem;
+          padding: 0.65rem 0.85rem;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .schedule-day-item--active {
-          border-color: rgba(217, 108, 0, 0.3);
-          background: #ffffff;
+          border-color: var(--color-brand-soft);
+          background: var(--color-bg-secondary);
+          box-shadow: 0 1px 3px rgba(217, 108, 0, 0.05);
         }
 
         .day-checkbox {
@@ -955,17 +1088,25 @@ export const Profissionais: React.FC = () => {
           gap: 0.5rem;
         }
 
+        .day-checkbox input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--color-brand-primary);
+          cursor: pointer;
+        }
+
         .day-checkbox label {
           font-size: var(--font-size-sm);
           font-weight: 700;
           cursor: pointer;
+          color: var(--color-text-primary);
         }
 
         .day-schedule-details {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
-          padding-top: 0.35rem;
+          gap: 0.5rem;
+          padding-top: 0.5rem;
           border-top: 1px dashed var(--color-border);
         }
 
@@ -975,19 +1116,35 @@ export const Profissionais: React.FC = () => {
           gap: 0.5rem;
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
+          flex-wrap: wrap;
         }
 
         .schedule-row-label {
-          min-width: 55px;
-          font-weight: 600;
+          min-width: 68px;
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .schedule-row-sep {
+          color: var(--color-text-secondary);
+          font-size: 11px;
         }
 
         .day-times-input {
-          padding: 0.2rem 0.4rem;
+          padding: 0.35rem 0.5rem;
+          min-height: 36px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           font-size: var(--font-size-xs);
+          font-variant-numeric: tabular-nums;
           background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .day-times-input:focus {
+          border-color: var(--color-brand-primary);
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
         }
 
         .checkbox-group {
@@ -996,10 +1153,30 @@ export const Profissionais: React.FC = () => {
           gap: 0.5rem;
         }
 
+        .checkbox-group input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--color-brand-primary);
+          cursor: pointer;
+        }
+
         .form-actions {
           display: flex;
           gap: 0.75rem;
           margin-top: 0.5rem;
+        }
+
+        .btn--outline-secondary {
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          border-radius: var(--radius-md);
+        }
+
+        .btn--outline-secondary:hover {
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          border-color: var(--color-brand-soft);
         }
 
         .prof-list-container {
@@ -1016,18 +1193,25 @@ export const Profissionais: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
         }
 
         .prof-card:hover {
-          border-color: rgba(217, 108, 0, 0.4);
+          border-color: var(--color-brand-soft);
           box-shadow: var(--shadow-md);
+          transform: translateY(-1px);
+        }
+
+        .prof-card--inactive {
+          opacity: 0.65;
+          background: var(--color-bg-primary);
         }
 
         .prof-card-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 0.75rem;
         }
 
         .prof-card-title-group {
@@ -1037,37 +1221,66 @@ export const Profissionais: React.FC = () => {
         }
 
         .prof-avatar {
-          width: 44px;
-          height: 44px;
+          width: 46px;
+          height: 46px;
           border-radius: 12px;
-          background: linear-gradient(135deg, var(--color-brand-primary) 0%, #b85d00 100%);
+          background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-deep) 100%);
           color: #ffffff;
           font-weight: 800;
-          font-size: 1.15rem;
+          font-size: 1.2rem;
           display: grid;
           place-items: center;
+          flex-shrink: 0;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(217, 108, 0, 0.2);
         }
 
-        .prof-card-title-group h4 {
+        .prof-meta-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .prof-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .prof-name-row h4 {
           font-size: var(--font-size-base);
           font-weight: 800;
           color: var(--color-text-primary);
           margin: 0;
+          letter-spacing: -0.01em;
+        }
+
+        .prof-inactive-tag {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          padding: 1px 6px;
+          border-radius: var(--radius-sm);
+          background: var(--color-warning-bg);
+          color: var(--color-warning);
+          border: 1px solid rgba(217, 119, 6, 0.2);
         }
 
         .prof-phone {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          font-family: monospace;
+          font-variant-numeric: tabular-nums;
         }
 
         .prof-commission-badge {
           font-size: var(--font-size-xs);
-          background: rgba(217, 108, 0, 0.1);
-          color: var(--color-brand-primary);
+          background: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          border: 1px solid rgba(217, 108, 0, 0.2);
           padding: 0.35rem 0.75rem;
           border-radius: var(--radius-full);
           font-weight: 600;
+          white-space: nowrap;
+          box-shadow: 0 1px 2px rgba(217, 108, 0, 0.05);
         }
 
         .prof-card-schedule h5 {
@@ -1081,42 +1294,63 @@ export const Profissionais: React.FC = () => {
 
         .schedule-badges {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 0.35rem;
         }
 
+        @media (max-width: 640px) {
+          .schedule-badges {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 0.4rem;
+            scrollbar-width: thin;
+          }
+          .badge-schedule-active, .badge-schedule-inactive {
+            min-width: 48px;
+            flex-shrink: 0;
+          }
+        }
+
         .badge-schedule-active {
-          background: rgba(217, 108, 0, 0.12);
-          border: 1px solid rgba(217, 108, 0, 0.25);
+          background: var(--color-brand-lightest);
+          border: 1px solid var(--color-brand-soft);
           border-radius: var(--radius-sm);
-          padding: 0.35rem 0.2rem;
+          padding: 0.4rem 0.25rem;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.15rem;
+          transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .badge-schedule-active:hover {
+          border-color: var(--color-brand-primary);
+          transform: translateY(-1px);
         }
 
         .badge-schedule-inactive {
-          background: rgba(0, 0, 0, 0.03);
+          background: transparent;
           border: 1px dashed var(--color-border);
           border-radius: var(--radius-sm);
-          padding: 0.35rem 0.2rem;
+          padding: 0.4rem 0.25rem;
           display: flex;
           flex-direction: column;
           align-items: center;
-          opacity: 0.4;
+          opacity: 0.55;
         }
 
         .badge-day-name {
           font-size: 10px;
           font-weight: 700;
           text-transform: uppercase;
+          color: var(--color-text-secondary);
         }
 
         .badge-schedule-hours {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 800;
-          color: var(--color-brand-primary);
+          font-variant-numeric: tabular-nums;
+          color: var(--color-brand-deep);
         }
 
         .prof-card-actions {
@@ -1129,27 +1363,57 @@ export const Profissionais: React.FC = () => {
           gap: 0.5rem;
         }
 
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: var(--radius-full);
+        }
+
+        .status-badge--linked {
+          background: var(--color-success-bg);
+          color: var(--color-success);
+          border: 1px solid rgba(14, 159, 110, 0.25);
+        }
+
+        .status-badge--unlinked {
+          background: var(--color-warning-bg);
+          color: var(--color-warning);
+          border: 1px solid rgba(217, 119, 6, 0.25);
+        }
+
         .action-buttons {
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          flex-wrap: wrap;
         }
 
         .btn-action {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: 0.4rem;
           font-size: 12px;
           font-weight: 700;
-          padding: 0.35rem 0.75rem;
+          min-height: 38px;
+          padding: 0.45rem 0.85rem;
           border-radius: var(--radius-md);
           cursor: pointer;
           border: 1px solid transparent;
           transition: all 0.2s ease;
+          outline: none;
+        }
+
+        .btn-action:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
         }
 
         .btn-action--services {
-          background: rgba(45, 35, 30, 0.06);
+          background: var(--color-bg-primary);
           color: var(--color-text-primary);
           border-color: var(--color-border);
         }
@@ -1158,38 +1422,123 @@ export const Profissionais: React.FC = () => {
           background: var(--color-brand-primary);
           color: #ffffff;
           border-color: var(--color-brand-primary);
+          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
         }
 
         .btn-action--edit {
-          background: rgba(217, 108, 0, 0.08);
-          color: var(--color-brand-primary);
-          border-color: rgba(217, 108, 0, 0.2);
+          background: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          border-color: var(--color-brand-soft);
         }
 
         .btn-action--edit:hover {
           background: var(--color-brand-primary);
           color: #ffffff;
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
         }
 
         /* MODAL STYLES */
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(20, 17, 15, 0.5);
+          backdrop-filter: blur(8px);
+          display: grid;
+          place-items: center;
+          z-index: 1000;
+          padding: 1rem;
+        }
+
+        .modal-content {
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          width: 100%;
+          overflow: hidden;
+          box-shadow: var(--shadow-xl);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+        }
+
         .modal-eyebrow {
-          font-size: 10px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           font-weight: 800;
-          color: var(--color-brand-primary);
+          color: var(--color-brand-deep);
+          display: block;
+          margin-bottom: 0.2rem;
+        }
+
+        .modal-title {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+
+        .btn-close-modal {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          padding: 0.35rem;
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .btn-close-modal:hover {
+          color: var(--color-text-primary);
+          background: var(--color-bg-primary);
+        }
+
+        .modal-body {
+          padding: 1.25rem 1.5rem;
         }
 
         .modal-desc {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
           margin-bottom: 1rem;
+          line-height: 1.5;
         }
 
         .modal-services-toolbar {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .btn--outline {
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          border-radius: var(--radius-md);
+        }
+
+        .btn--outline:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-brand-primary);
+          background: var(--color-bg-primary);
+        }
+
+        .btn--xs {
+          padding: 0.35rem 0.75rem;
+          font-size: 11px;
+          font-weight: 700;
         }
 
         .services-association-table-wrap {
@@ -1198,6 +1547,8 @@ export const Profissionais: React.FC = () => {
           overflow: hidden;
           max-height: 380px;
           overflow-y: auto;
+          overflow-x: auto;
+          background: var(--color-bg-secondary);
         }
 
         .services-association-table {
@@ -1207,7 +1558,7 @@ export const Profissionais: React.FC = () => {
         }
 
         .services-association-table th {
-          background: var(--color-bg-secondary);
+          background: var(--color-bg-primary);
           padding: 0.75rem 1rem;
           font-size: 11px;
           text-transform: uppercase;
@@ -1216,6 +1567,9 @@ export const Profissionais: React.FC = () => {
           color: var(--color-text-secondary);
           border-bottom: 1px solid var(--color-border);
           text-align: left;
+          position: sticky;
+          top: 0;
+          z-index: 1;
         }
 
         .services-association-table td {
@@ -1223,15 +1577,30 @@ export const Profissionais: React.FC = () => {
           border-bottom: 1px solid var(--color-border);
         }
 
+        .services-association-table input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--color-brand-primary);
+          cursor: pointer;
+        }
+
         .row-service-disabled {
-          opacity: 0.45;
-          background: rgba(0, 0, 0, 0.02);
+          opacity: 0.5;
+          background: var(--color-bg-primary);
         }
 
         .service-info-cell {
           display: flex;
           flex-direction: column;
           gap: 0.15rem;
+        }
+
+        .text-muted {
+          color: var(--color-text-secondary);
+        }
+
+        .text-xs {
+          font-size: var(--font-size-xs);
         }
 
         .input-suffix-wrapper {
@@ -1242,6 +1611,21 @@ export const Profissionais: React.FC = () => {
 
         .input-suffix-wrapper input {
           padding-right: 2rem !important;
+          min-height: 36px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          font-size: var(--font-size-xs);
+          font-variant-numeric: tabular-nums;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          width: 100%;
+          text-align: center;
+        }
+
+        .input-suffix-wrapper input:focus {
+          border-color: var(--color-brand-primary);
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
         }
 
         .input-suffix {
@@ -1250,6 +1634,55 @@ export const Profissionais: React.FC = () => {
           font-size: 11px;
           color: var(--color-text-secondary);
           pointer-events: none;
+          font-weight: 600;
+        }
+
+        .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          padding-top: 1.25rem;
+          margin-top: 1rem;
+          border-top: 1px solid var(--color-border);
+        }
+
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2.5rem 1.5rem;
+          text-align: center;
+          color: var(--color-text-secondary);
+          gap: 0.5rem;
+        }
+
+        .empty-state-icon {
+          color: var(--color-brand-soft);
+          margin-bottom: 0.25rem;
+        }
+
+        .empty-state p {
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .empty-desc {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          max-width: 34ch;
+        }
+
+        .loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 1rem;
+          gap: 0.75rem;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
         }
       `}</style>
     </div>
