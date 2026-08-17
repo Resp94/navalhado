@@ -194,11 +194,10 @@ export const GerenteLayout: React.FC = () => {
               />
             ) : (
               <div className="gerente-header__logo">
-                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '20px', height: '20px', display: 'block' }} />
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '36px', height: '36px', display: 'block' }} />
               </div>
             )}
-            <div>
-              <span className="gerente-header__eyebrow">Painel Barbearia</span>
+            <div className="gerente-header__title-container">
               <h1 className="gerente-header__title">{tenantInfo.tenantName}</h1>
             </div>
           </div>
@@ -287,52 +286,48 @@ export const GerenteLayout: React.FC = () => {
         .gerente-header__brand {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          gap: 0.65rem;
+          text-decoration: none;
+          flex-shrink: 0;
         }
 
         .gerente-header__brand:hover {
-          transform: scale(1.02);
+          opacity: 0.9;
         }
 
         .gerente-header__logo-img {
-          width: 38px;
-          height: 38px;
+          width: 36px;
+          height: 36px;
           border-radius: var(--radius-md);
           object-fit: cover;
           border: 1px solid var(--color-border);
+          flex-shrink: 0;
         }
 
         .gerente-header__logo {
-          background-color: rgba(219, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          padding: 0.5rem;
-          border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(219, 108, 0, 0.15);
+          flex-shrink: 0;
         }
 
-        .gerente-header__logo img {
-          /* Sem rotação */
-        }
-
-        .gerente-header__eyebrow {
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: var(--color-brand-primary);
-          font-weight: 600;
-          display: block;
+        .gerente-header__title-container {
+          max-width: 140px;
+          display: flex;
+          align-items: center;
         }
 
         .gerente-header__title {
-          font-size: var(--font-size-base);
+          font-size: 0.8125rem;
           font-weight: 700;
           margin: 0;
-          line-height: 1.1;
+          line-height: 1.15;
           color: var(--color-text-primary);
+          text-wrap: balance;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         .gerente-header__nav {

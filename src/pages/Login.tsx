@@ -162,10 +162,8 @@ export const Login: React.FC = () => {
           <div className="login-card">
             {/* HEADER */}
             <div className="login-card__header">
-              <span className="login-card__eyebrow">plataforma</span>
-
-              <div className="login-card__icon">
-                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
+              <div className="login-card__logo">
+                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '56px', height: '56px', display: 'block' }} />
               </div>
 
               <h1 className="login-card__title">Navalhado</h1>
@@ -355,52 +353,16 @@ export const Login: React.FC = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.375rem;
+          gap: 0.5rem;
           animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
           animation-delay: 0.08s;
         }
 
-        .login-card__eyebrow {
-          display: inline-block;
-          padding: 0.25rem 0.75rem;
-          border-radius: var(--radius-full);
-          background: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
-          font-size: 0.625rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.2em;
-          margin-bottom: 0.25rem;
-        }
-
-        .login-card__icon {
-          background: linear-gradient(135deg, var(--color-brand-lightest) 0%, #FFE4D6 100%);
-          padding: 0.875rem;
-          border-radius: var(--radius-full);
+        .login-card__logo {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--color-brand-primary);
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.5),
-            0 4px 14px rgba(217, 108, 0, 0.12);
           margin-bottom: 0.25rem;
-          transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1),
-                      box-shadow 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .login-card__icon img {
-          transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .login-card:hover .login-card__icon {
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.5),
-            0 6px 20px rgba(217, 108, 0, 0.18);
-        }
-
-        .login-card:hover .login-card__icon img {
-          transform: scale(1.1);
         }
 
         .login-card__title {

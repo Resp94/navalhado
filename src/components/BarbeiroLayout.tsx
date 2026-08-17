@@ -202,10 +202,9 @@ export const BarbeiroLayout: React.FC = () => {
         <header className="barbeiro-header">
           <div className="barbeiro-header__brand" onClick={() => navigate('/minha-agenda')} style={{ cursor: 'pointer' }}>
             <div className="barbeiro-header__logo">
-              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '18px', height: '18px', display: 'block' }} />
+              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '34px', height: '34px', display: 'block' }} />
             </div>
-            <div>
-              <span className="barbeiro-header__eyebrow">Navalhado</span>
+            <div className="barbeiro-header__title-container">
               <h1 className="barbeiro-header__title">{tenantName || 'Colaborador'}</h1>
             </div>
           </div>
@@ -339,49 +338,37 @@ export const BarbeiroLayout: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.65rem;
-          transition: transform 0.2s ease;
+          flex-shrink: 0;
         }
 
         .barbeiro-header__brand:hover {
-          transform: scale(1.01);
+          opacity: 0.9;
         }
 
         .barbeiro-header__logo {
-          background-color: rgba(219, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          padding: 0.5rem;
-          border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(219, 108, 0, 0.15);
+          flex-shrink: 0;
         }
 
-        .barbeiro-header__logo img {
-          /* Sem rotação */
-        }
-
-        .barbeiro-header__eyebrow {
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          color: var(--color-brand-primary);
-          font-weight: 700;
-          display: block;
+        .barbeiro-header__title-container {
+          max-width: 140px;
+          display: flex;
+          align-items: center;
         }
 
         .barbeiro-header__title {
-          font-size: var(--font-size-sm);
+          font-size: 0.8125rem;
           font-weight: 700;
           margin: 0;
-          line-height: 1.1;
+          line-height: 1.15;
           color: var(--color-text-primary);
-        }
-
-        @media (min-width: 640px) {
-          .barbeiro-header__title {
-            font-size: var(--font-size-base);
-          }
+          text-wrap: balance;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         /* NAVEGAÇÃO DESKTOP */

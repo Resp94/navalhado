@@ -155,10 +155,9 @@ export const Tenants: React.FC = () => {
         <header className="admin-header">
           <div className="admin-header__brand" onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>
             <div className="admin-header__logo">
-              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '22px', height: '22px', display: 'block' }} />
+              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '34px', height: '34px', display: 'block' }} />
             </div>
             <div>
-              <span className="admin-header__eyebrow">SaaS Admin</span>
               <h1 className="admin-header__title">Navalhado</h1>
             </div>
           </div>
@@ -478,27 +477,9 @@ export const Tenants: React.FC = () => {
         }
 
         .admin-header__logo {
-          background-color: rgba(219, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          padding: 0.5rem;
-          border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(219, 108, 0, 0.15);
-        }
-
-        .admin-header__logo img {
-          /* Sem rotação */
-        }
-
-        .admin-header__eyebrow {
-          font-size: 0.65rem;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: var(--color-brand-primary);
-          font-weight: 600;
-          display: block;
         }
 
         .admin-header__title {
