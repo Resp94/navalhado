@@ -301,11 +301,12 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
     });
 
-    // Mock do confirm ANTES do clique
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
-
     const btnExcluir = screen.getAllByRole('button', { name: /Excluir/i })[0];
     fireEvent.click(btnExcluir);
+
+    // Modal de confirmação seguro abre
+    const btnConfirmar = await screen.findByRole('button', { name: /Sim, Excluir/i });
+    fireEvent.click(btnConfirmar);
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(
@@ -322,11 +323,12 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       expect(screen.getByText('Visitante Zap')).toBeInTheDocument();
     });
 
-    // Mock do confirm ANTES do clique
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
-
     const btnExcluir = screen.getAllByRole('button', { name: /Excluir/i })[1];
     fireEvent.click(btnExcluir);
+
+    // Modal de confirmação seguro abre
+    const btnConfirmar = await screen.findByRole('button', { name: /Sim, Excluir/i });
+    fireEvent.click(btnConfirmar);
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Cliente excluído com sucesso!', 'success');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
@@ -6,6 +6,7 @@ import { useClientes } from '../../modules/clientes/useClientes';
 import type { Cliente } from '../../modules/clientes/types';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import './Clientes.css';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -19,6 +20,7 @@ import {
   Invoice01Icon,
   WhatsappIcon,
   Calendar01Icon,
+  AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 // Ícones Oficiais Hugeicons
@@ -30,7 +32,6 @@ const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
 const CopyIcon = () => <HugeiconsIcon icon={Copy01Icon} size={16} />;
 const TagIcon = () => <HugeiconsIcon icon={Tag01Icon} size={14} />;
 const ReceiptIcon = () => <HugeiconsIcon icon={Invoice01Icon} size={14} />;
-
 
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -59,6 +60,7 @@ export const Clientes: React.FC = () => {
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Cliente | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -71,25 +73,52 @@ export const Clientes: React.FC = () => {
     tags: [] as string[],
   });
 
+  // Modal de Exclusão
+  const [customerToDelete, setCustomerToDelete] = useState<Cliente | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Central 360 do Cliente (Drawer)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Cliente | null>(null);
   const [activeTab360, setActiveTab360] = useState<'dados' | 'historico' | 'metricas'>('dados');
   const [newTagInput, setNewTagInput] = useState('');
 
+  // Acessibilidade: Fechar modal e drawer ao pressionar Escape
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (customerToDelete) {
+          setCustomerToDelete(null);
+        } else if (isModalOpen) {
+          setIsModalOpen(false);
+        } else if (isDrawerOpen) {
+          setIsDrawerOpen(false);
+        }
+      }
+    },
+    [customerToDelete, isModalOpen, isDrawerOpen]
+  );
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Animação GSAP otimizada: disparada apenas na carga inicial e troca de status/tag
   useGSAP(() => {
     if (!loading) {
       gsap.fromTo(
         '.stat-card',
-        { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.05, ease: 'cubic-bezier(0.16, 1, 0.3, 1)' }
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: 'power2.out' }
       );
       gsap.fromTo(
         '.customer-row',
-        { opacity: 0, y: 8 },
-        { opacity: 1, y: 0, duration: 0.4, stagger: 0.03, delay: 0.2, ease: 'cubic-bezier(0.16, 1, 0.3, 1)' }
+        { opacity: 0, y: 6 },
+        { opacity: 1, y: 0, duration: 0.3, stagger: 0.02, delay: 0.1, ease: 'power2.out' }
       );
     }
-  }, [loading, filterStatus, searchTerm, selectedTagFilter]);
+  }, [loading, filterStatus, selectedTagFilter]);
 
   const handleOpenModal = (customer: Cliente | null = null) => {
     if (customer) {
@@ -122,43 +151,54 @@ export const Clientes: React.FC = () => {
 
   const handleSaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await saveCustomer({
-      id: editingCustomer?.id,
-      name: formData.name,
-      phone: formData.phone,
-      email: formData.email,
-      birth_date: formData.birth_date || null,
-      acquisition_channel: formData.acquisition_channel || null,
-      cpf: formData.cpf || null,
-      notes: formData.notes,
-      tags: formData.tags,
-    });
+    setIsSaving(true);
+    try {
+      const success = await saveCustomer({
+        id: editingCustomer?.id,
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        birth_date: formData.birth_date || null,
+        acquisition_channel: formData.acquisition_channel || null,
+        cpf: formData.cpf || null,
+        notes: formData.notes,
+        tags: formData.tags,
+      });
 
-    if (success) {
-      setIsModalOpen(false);
-      if (selectedCustomer && selectedCustomer.id === editingCustomer?.id) {
-        setSelectedCustomer({
-          ...selectedCustomer,
-          name: formData.name,
-          phone: formData.phone,
-          email: formData.email || null,
-          birth_date: formData.birth_date || null,
-          acquisition_channel: formData.acquisition_channel || null,
-          cpf: formData.cpf || null,
-          notes: formData.notes || null,
-          tags: formData.tags,
-        });
+      if (success) {
+        setIsModalOpen(false);
+        if (selectedCustomer && selectedCustomer.id === editingCustomer?.id) {
+          setSelectedCustomer({
+            ...selectedCustomer,
+            name: formData.name,
+            phone: formData.phone,
+            email: formData.email || null,
+            birth_date: formData.birth_date || null,
+            acquisition_channel: formData.acquisition_channel || null,
+            cpf: formData.cpf || null,
+            notes: formData.notes || null,
+            tags: formData.tags,
+          });
+        }
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDeleteSubmit = async (customerId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este cliente definitivamente?')) {
-      return;
-    }
-    const success = await deleteCustomer(customerId);
-    if (success && selectedCustomer?.id === customerId) {
-      setIsDrawerOpen(false);
+  const handleConfirmDelete = async () => {
+    if (!customerToDelete) return;
+    setIsDeleting(true);
+    try {
+      const success = await deleteCustomer(customerToDelete.id);
+      if (success) {
+        if (selectedCustomer?.id === customerToDelete.id) {
+          setIsDrawerOpen(false);
+        }
+        setCustomerToDelete(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -172,7 +212,7 @@ export const Clientes: React.FC = () => {
   const handleCopyLink = (token: string) => {
     const link = `${window.location.origin}/cliente/${token}`;
     navigator.clipboard.writeText(link);
-    addToast('Link de agendamento copiado!', 'success');
+    addToast('Link de agendamento copiado com sucesso!', 'success');
   };
 
   const handleAddTagToCustomer = async (tagText: string) => {
@@ -216,82 +256,98 @@ export const Clientes: React.FC = () => {
   return (
     <div className="clientes-page">
       {/* 1. ESTATÍSTICAS DA BASE */}
-      <section className="stat-cards-grid">
+      <section className="stat-cards-grid" aria-label="Resumo da carteira de clientes">
         <div className="stat-card">
-          <span className="stat-card__eyebrow">Total da Base</span>
+          <span className="stat-card__eyebrow">Total da base</span>
           <span className="stat-card__number">{stats.totalCount}</span>
           <span className="stat-card__helper">Clientes na carteira</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card__eyebrow">Cadastros Completos</span>
+          <span className="stat-card__eyebrow">Cadastros completos</span>
           <span className="stat-card__number stat-card__number--success">{stats.completosCount}</span>
-          <span className="stat-card__helper">Nome e sobrenome confirmados</span>
+          <span className="stat-card__helper">Nome e dados confirmados</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card__eyebrow">WhatsApp (Provisórios)</span>
+          <span className="stat-card__eyebrow">Contatos rápidos</span>
           <span className="stat-card__number stat-card__number--warning">{stats.provisoriosCount}</span>
-          <span className="stat-card__helper">Apenas primeiro contato</span>
+          <span className="stat-card__helper">Apenas primeiro contato pelo WhatsApp</span>
         </div>
       </section>
 
       {/* 2. CONTROLES E BUSCA */}
-      <div className="clients-controls-bar">
+      <div className="clients-controls-bar" role="search" aria-label="Controles e busca de clientes">
         <div className="search-input-wrapper">
-          <span className="search-icon">
+          <span className="search-icon" aria-hidden="true">
             <SearchIcon />
           </span>
           <input
             type="text"
             placeholder="Buscar por nome, telefone, CPF ou tag..."
+            aria-label="Pesquisar na base de clientes"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="form-control"
           />
         </div>
 
-        <div className="filter-group-container">
+        <div className="filter-group-container" role="group" aria-label="Filtrar por status de cadastro">
           <button
+            type="button"
             onClick={() => setFilterStatus('todos')}
             className={`btn-filter ${filterStatus === 'todos' ? 'btn-filter--active' : ''}`}
+            aria-pressed={filterStatus === 'todos'}
           >
             Todos
           </button>
           <button
+            type="button"
             onClick={() => setFilterStatus('completos')}
             className={`btn-filter ${filterStatus === 'completos' ? 'btn-filter--active' : ''}`}
+            aria-pressed={filterStatus === 'completos'}
           >
             Completos
           </button>
           <button
+            type="button"
             onClick={() => setFilterStatus('provisorios')}
             className={`btn-filter ${filterStatus === 'provisorios' ? 'btn-filter--active' : ''}`}
+            aria-pressed={filterStatus === 'provisorios'}
           >
             WhatsApp
           </button>
         </div>
 
-        <button onClick={() => handleOpenModal(null)} className="btn btn--primary btn-add-client">
-          <UserPlusIcon /> Adicionar Cliente
+        <button
+          type="button"
+          onClick={() => handleOpenModal(null)}
+          className="btn btn--primary btn-add-client"
+          aria-label="Adicionar novo cliente"
+        >
+          <UserPlusIcon /> Adicionar cliente
         </button>
       </div>
 
       {/* 2.1 BARRA DE FILTRO POR TAGS */}
       {allAvailableTags.length > 0 && (
-        <div className="tags-filter-bar">
+        <div className="tags-filter-bar" role="group" aria-label="Filtro de tags">
           <span className="tags-filter-label">
             <TagIcon /> Tags:
           </span>
           <button
+            type="button"
             onClick={() => setSelectedTagFilter(null)}
             className={`tag-chip-btn ${selectedTagFilter === null ? 'tag-chip-btn--active' : ''}`}
+            aria-pressed={selectedTagFilter === null}
           >
             Todas
           </button>
           {allAvailableTags.map((tag) => (
             <button
+              type="button"
               key={tag}
               onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
               className={`tag-chip-btn ${selectedTagFilter === tag ? 'tag-chip-btn--active' : ''}`}
+              aria-pressed={selectedTagFilter === tag}
             >
               #{tag}
             </button>
@@ -302,24 +358,26 @@ export const Clientes: React.FC = () => {
       {/* 3. TABELA DE CLIENTES */}
       <div className="table-container shadow-glass">
         {loading ? (
-          <div className="loading-state">
+          <div className="loading-state" role="status">
             <div className="spinner mb-2" />
             <p>Carregando clientes...</p>
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="empty-state">
-            <p>Nenhum cliente encontrado para os filtros selecionados.</p>
+          <div className="empty-state" role="status">
+            <p>Nenhum cliente encontrado com os filtros selecionados.</p>
           </div>
         ) : (
-          <table className="customers-table">
+          <table className="customers-table" aria-label="Lista de clientes">
             <thead>
               <tr>
-                <th>Nome e Perfil</th>
-                <th>Telefone</th>
-                <th>Tags</th>
-                <th>Status</th>
-                <th>Cadastrado Em</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
+                <th scope="col">Nome e perfil</th>
+                <th scope="col">Telefone</th>
+                <th scope="col">Tags</th>
+                <th scope="col">Status</th>
+                <th scope="col">Cadastrado em</th>
+                <th scope="col" style={{ textAlign: 'right' }}>
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -341,7 +399,7 @@ export const Clientes: React.FC = () => {
                           </span>
                         ))
                       ) : (
-                        <span className="text-muted text-xs">—</span>
+                        <span className="text-muted text-xs">Sem tags</span>
                       )}
                       {customer.tags && customer.tags.length > 2 && (
                         <span className="badge-tag-more">+{customer.tags.length - 2}</span>
@@ -359,25 +417,28 @@ export const Clientes: React.FC = () => {
                   <td>
                     <div className="actions-cell">
                       <button
+                        type="button"
                         onClick={() => handleOpenDrawer(customer)}
                         className="btn btn--outline btn--xs"
-                        aria-label="Ver Detalhes"
+                        aria-label={`Ver detalhes de ${customer.name}`}
                       >
                         Central 360º
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleOpenModal(customer)}
-                        className="btn btn-icon-only"
-                        title="Editar"
-                        aria-label="Editar"
+                        className="btn-icon-only"
+                        title={`Editar ${customer.name}`}
+                        aria-label={`Editar ${customer.name}`}
                       >
                         <EditIcon />
                       </button>
                       <button
-                        onClick={() => handleDeleteSubmit(customer.id)}
-                        className="btn btn-icon-only btn-icon-only--danger"
-                        title="Excluir"
-                        aria-label="Excluir"
+                        type="button"
+                        onClick={() => setCustomerToDelete(customer)}
+                        className="btn-icon-only btn-icon-only--danger"
+                        title={`Excluir ${customer.name}`}
+                        aria-label={`Excluir ${customer.name}`}
                       >
                         <TrashIcon />
                       </button>
@@ -390,120 +451,162 @@ export const Clientes: React.FC = () => {
         )}
       </div>
 
-      {/* 4. MODAL DE CADASTRO/EDIÇÃO (DOUBLE-BEZEL) */}
+      {/* 4. MODAL DE CADASTRO/EDIÇÃO (SEM HEADER-ICON, ESTRUTURA LUXURY) */}
       {isModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-content shadow-xl animate-spring">
+        <div className="modal-backdrop" onClick={() => !isSaving && setIsModalOpen(false)}>
+          <div
+            className="modal-content shadow-xl animate-spring"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
             <header className="modal-header">
-              <h3 className="modal-title">
-                {editingCustomer ? 'Editar Dados do Cliente' : 'Novo Cadastro de Cliente'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="btn-close-modal">
+              <div className="modal-title-group">
+                <span className="modal-eyebrow">
+                  {editingCustomer ? 'Perfil do cliente' : 'Novo cadastro'}
+                </span>
+                <h3 id="modal-title" className="modal-title">
+                  {editingCustomer ? 'Editar dados do cliente' : 'Cadastrar novo cliente'}
+                </h3>
+                <span className="modal-subtitle">
+                  {editingCustomer
+                    ? `Atualize as informações e preferências de atendimento de ${editingCustomer.name}`
+                    : 'Preencha os dados cadastrais para adicionar à carteira da barbearia.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="btn-close-modal"
+                aria-label="Fechar janela"
+              >
                 <CloseIcon />
               </button>
             </header>
 
             <form onSubmit={handleSaveSubmit} className="modal-body">
-              <div className="form-group">
-                <label htmlFor="name-input">Nome e Sobrenome *</label>
-                <input
-                  id="name-input"
-                  type="text"
-                  aria-label="Nome"
-                  required
-                  placeholder="Ex: João da Silva"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="form-control"
-                />
-              </div>
-
-              <div className="form-group-row">
+              {/* Card 1: Dados principais */}
+              <div className="modal-form-card">
+                <span className="modal-card-title">
+                  <HugeiconsIcon icon={UserAdd01Icon} size={14} /> Dados principais
+                </span>
                 <div className="form-group">
-                  <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
+                  <label htmlFor="name-input">Nome e sobrenome *</label>
                   <input
-                    id="phone-input"
+                    id="name-input"
                     type="text"
                     required
-                    placeholder="Ex: 11999998888"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Ex: João da Silva"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="form-control"
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="birthdate-input">Data de Nascimento</label>
-                  <input
-                    id="birthdate-input"
-                    type="date"
-                    value={formData.birth_date}
-                    onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                    className="form-control"
-                  />
+
+                <div className="form-group-row">
+                  <div className="form-group">
+                    <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
+                    <input
+                      id="phone-input"
+                      type="text"
+                      required
+                      placeholder="Ex: 11999998888"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="birthdate-input">Data de nascimento</label>
+                    <input
+                      id="birthdate-input"
+                      type="date"
+                      value={formData.birth_date}
+                      onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group-row">
-                <div className="form-group">
-                  <label htmlFor="email-input">E-mail (Opcional)</label>
-                  <input
-                    id="email-input"
-                    type="email"
-                    placeholder="Ex: joao@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="form-control"
-                  />
+              {/* Card 2: Documentação e origem */}
+              <div className="modal-form-card">
+                <span className="modal-card-title">
+                  <HugeiconsIcon icon={Invoice01Icon} size={14} /> Documentação e origem
+                </span>
+                <div className="form-group-row">
+                  <div className="form-group">
+                    <label htmlFor="email-input">E-mail (opcional)</label>
+                    <input
+                      id="email-input"
+                      type="email"
+                      placeholder="Ex: joao@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="cpf-input">CPF (opcional)</label>
+                    <input
+                      id="cpf-input"
+                      type="text"
+                      placeholder="Ex: 000.000.000-00"
+                      value={formData.cpf}
+                      onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                      className="form-control"
+                    />
+                  </div>
                 </div>
+
                 <div className="form-group">
-                  <label htmlFor="cpf-input">CPF (Opcional)</label>
-                  <input
-                    id="cpf-input"
-                    type="text"
-                    placeholder="Ex: 000.000.000-00"
-                    value={formData.cpf}
-                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                  <label htmlFor="channel-select">Como conheceu a barbearia?</label>
+                  <select
+                    id="channel-select"
+                    value={formData.acquisition_channel}
+                    onChange={(e) => setFormData({ ...formData, acquisition_channel: e.target.value })}
                     className="form-control"
-                  />
+                  >
+                    <option value="">Selecione uma opção...</option>
+                    <option value="Instagram">Instagram ou redes sociais</option>
+                    <option value="Indicação">Indicação de amigo</option>
+                    <option value="Google">Google ou pesquisa no Maps</option>
+                    <option value="Passagem">Passou em frente</option>
+                    <option value="Tráfego Pago">Anúncio online</option>
+                    <option value="Outro">Outro canal</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="channel-select">Canal de Aquisição</label>
-                <select
-                  id="channel-select"
-                  value={formData.acquisition_channel}
-                  onChange={(e) => setFormData({ ...formData, acquisition_channel: e.target.value })}
-                  className="form-control"
-                >
-                  <option value="">Selecione como conheceu...</option>
-                  <option value="Instagram">Instagram</option>
-                  <option value="Indicação">Indicação de Amigo</option>
-                  <option value="Google">Google / Pesquisa</option>
-                  <option value="Passagem">Passou em frente</option>
-                  <option value="Tráfego Pago">Anúncio Online</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="notes-textarea">Observações de Atendimento</label>
-                <textarea
-                  id="notes-textarea"
-                  rows={2}
-                  placeholder="Preferências de corte, café preferido, restrições..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="form-control"
-                />
+              {/* Card 3: Preferências e atendimento */}
+              <div className="modal-form-card">
+                <span className="modal-card-title">
+                  <HugeiconsIcon icon={Tag01Icon} size={14} /> Preferências e atendimento
+                </span>
+                <div className="form-group">
+                  <label htmlFor="notes-textarea">Observações do barbeiro</label>
+                  <textarea
+                    id="notes-textarea"
+                    rows={2}
+                    placeholder="Preferências de corte, formato da barba, café favorito ou restrições..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="form-control"
+                  />
+                </div>
               </div>
 
               <footer className="modal-footer">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn--outline">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="btn btn--outline"
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn--primary">
-                  Salvar Cliente
+                <button type="submit" disabled={isSaving} className="btn btn--primary">
+                  {isSaving ? 'Salvando...' : editingCustomer ? 'Salvar alterações' : 'Salvar cliente'}
                 </button>
               </footer>
             </form>
@@ -511,90 +614,175 @@ export const Clientes: React.FC = () => {
         </div>
       )}
 
-      {/* 5. CENTRAL 360 DO CLIENTE (DRAWER LATERAL GSAP) */}
+      {/* 5. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (POLISHED & ACESSÍVEL) */}
+      {customerToDelete && (
+        <div className="modal-backdrop" onClick={() => !isDeleting && setCustomerToDelete(null)}>
+          <div
+            className="modal-content modal-delete-content shadow-xl animate-spring"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            aria-describedby="delete-dialog-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-delete-body">
+              <div className="delete-modal-header-group">
+                <span className="modal-eyebrow text-danger">Confirmação de exclusão</span>
+                <h3 id="delete-dialog-title" className="delete-modal-title">
+                  Excluir cadastro do cliente?
+                </h3>
+                <p id="delete-dialog-desc" className="delete-modal-description">
+                  Esta ação é permanente e vai remover o cliente da sua carteira ativa.
+                </p>
+              </div>
+
+              <div className="delete-customer-card">
+                <div className="customer-name-wrapper">
+                  <strong className="customer-name">{customerToDelete.name}</strong>
+                  <span className="customer-email font-mono">{customerToDelete.phone}</span>
+                </div>
+                {customerToDelete.cadastro_completo ? (
+                  <span className="badge badge--success">Cadastrado</span>
+                ) : (
+                  <span className="badge badge--warning">WhatsApp</span>
+                )}
+              </div>
+
+              <div className="delete-warning-box">
+                <HugeiconsIcon icon={AlertCircleIcon} size={18} />
+                <span>
+                  <strong>Aviso de segurança:</strong> clientes com agendamentos ou comandas registradas não podem ser excluídos para manter a integridade do histórico financeiro.
+                </span>
+              </div>
+            </div>
+
+            <footer className="modal-footer">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setCustomerToDelete(null)}
+                className="btn btn--outline"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="btn btn--danger"
+              >
+                {isDeleting ? 'Excluindo...' : 'Sim, excluir cliente'}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* 6. CENTRAL 360 DO CLIENTE (DRAWER LATERAL COM ARIA & COPY REFINADA) */}
       {isDrawerOpen && selectedCustomer && (
         <>
-          <div className="drawer-backdrop" onClick={() => setIsDrawerOpen(false)} />
-          <div className="drawer-container shadow-xl animate-drawer">
+          <div
+            className="drawer-backdrop"
+            onClick={() => setIsDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="drawer-container shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="drawer-title"
+          >
             {/* Header da Central 360 */}
             <header className="drawer-header">
               <div className="drawer-header__main">
-                <div className="customer-avatar-badge">
-                  {selectedCustomer.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase() || 'CL'}
-                </div>
-                <div>
+                <div className="drawer-header__text-group">
                   <div className="drawer-header__eyebrow-row">
                     <span className="drawer-header__eyebrow">
-                      {selectedCustomer.cadastro_completo ? 'Perfil Confirmado' : 'Cliente Provisório'}
+                      {selectedCustomer.cadastro_completo ? 'Perfil confirmado' : 'Primeiro contato (WhatsApp)'}
                     </span>
                   </div>
-                  <h3 className="drawer-header__title">{selectedCustomer.name}</h3>
+                  <h3 id="drawer-title" className="drawer-header__title">
+                    {selectedCustomer.name}
+                  </h3>
                   <span className="drawer-header__subtitle font-mono">{selectedCustomer.phone}</span>
                 </div>
               </div>
-              <button onClick={() => setIsDrawerOpen(false)} className="btn-close-modal">
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="btn-close-modal"
+                aria-label="Fechar Central 360"
+              >
                 <CloseIcon />
               </button>
             </header>
 
-            {/* Ações Rápidas de Topo */}
-            <div className="drawer-quick-actions">
+            {/* Ações Rápidas de Topo (Design Navalhado - Sem Roxo) */}
+            <div className="drawer-quick-actions" role="toolbar" aria-label="Ações rápidas do cliente">
               <button
+                type="button"
                 onClick={() => {
                   handleCopyLink(selectedCustomer.token_acesso);
                 }}
-                className="btn btn--outline btn--xs"
-                title="Copiar link exclusivo do cliente"
+                className="btn btn-drawer-action"
+                title="Copiar link de autoagendamento do cliente"
+                aria-label="Copiar link de agendamento"
               >
-                <CopyIcon /> Copiar Link
+                <CopyIcon /> Copiar link
               </button>
               {selectedCustomer.phone && (
                 <a
                   href={`https://wa.me/55${selectedCustomer.phone.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn--outline btn--xs"
-                  title="Chamar no WhatsApp"
+                  className="btn btn-drawer-action btn-drawer-action--whatsapp"
+                  title="Abrir conversa no WhatsApp"
+                  aria-label="Conversar no WhatsApp"
                 >
-                  <HugeiconsIcon icon={WhatsappIcon} size={14} /> WhatsApp
+                  <HugeiconsIcon icon={WhatsappIcon} size={15} /> WhatsApp
                 </a>
               )}
               <button
+                type="button"
                 onClick={() => {
                   navigate('/agenda');
                   addToast(`Iniciando agendamento para ${selectedCustomer.name}`, 'info');
                 }}
-                className="btn btn--outline btn--xs"
-                title="Agendar horário na grade"
+                className="btn btn--primary btn-drawer-action--primary"
+                title="Agendar novo horário na grade"
+                aria-label="Novo agendamento"
               >
-                <HugeiconsIcon icon={Calendar01Icon} size={14} /> Novo Agendamento
-              </button>
-              <button onClick={() => handleOpenModal(selectedCustomer)} className="btn btn--primary btn--xs">
-                <EditIcon /> Editar
+                <HugeiconsIcon icon={Calendar01Icon} size={15} /> Novo agendamento
               </button>
             </div>
 
-
             {/* Abas de Navegação 360 */}
-            <div className="drawer-tabs-nav">
+            <div className="drawer-tabs-nav" aria-label="Seções da Central 360">
               <button
+                type="button"
+                aria-selected={activeTab360 === 'dados'}
+                aria-controls="panel-dados"
+                id="tab-dados"
                 onClick={() => setActiveTab360('dados')}
                 className={`drawer-tab-btn ${activeTab360 === 'dados' ? 'drawer-tab-btn--active' : ''}`}
               >
-                Dados e Tags
+                Dados e tags
               </button>
               <button
+                type="button"
+                aria-selected={activeTab360 === 'historico'}
+                aria-controls="panel-historico"
+                id="tab-historico"
                 onClick={() => setActiveTab360('historico')}
                 className={`drawer-tab-btn ${activeTab360 === 'historico' ? 'drawer-tab-btn--active' : ''}`}
               >
-                Linha do Tempo ({history.length + comandasHistory.length})
+                Linha do tempo ({history.length + comandasHistory.length})
               </button>
               <button
+                type="button"
+                aria-selected={activeTab360 === 'metricas'}
+                aria-controls="panel-metricas"
+                id="tab-metricas"
                 onClick={() => setActiveTab360('metricas')}
                 className={`drawer-tab-btn ${activeTab360 === 'metricas' ? 'drawer-tab-btn--active' : ''}`}
               >
@@ -605,41 +793,49 @@ export const Clientes: React.FC = () => {
             {/* Corpo do Drawer com base na Aba Ativa */}
             <div className="drawer-body">
               {loadingDetails ? (
-                <div className="loading-state py-4">
+                <div className="loading-state py-4" role="status">
                   <div className="spinner mb-2" />
                   <p>Carregando perfil 360º...</p>
                 </div>
               ) : activeTab360 === 'dados' ? (
                 /* ABA 1: DADOS CADASTRAIS E TAGS */
-                <div className="tab-content-container">
+                <div
+                  id="panel-dados"
+                  role="tabpanel"
+                  aria-labelledby="tab-dados"
+                  className="tab-content-container"
+                >
                   {/* TAGS INTERATIVAS */}
                   <div className="drawer-section card shadow-glass">
                     <h4 className="drawer-section__title">
-                      <TagIcon /> Tags e Categorias do Cliente
+                      <TagIcon /> Tags e categorias do cliente
                     </h4>
                     <div className="tags-management-container">
-                      <div className="tags-chips-list">
+                      <div className="tags-chips-list" role="list" aria-label="Tags do cliente">
                         {selectedCustomer.tags && selectedCustomer.tags.length > 0 ? (
                           selectedCustomer.tags.map((t) => (
-                            <span key={t} className="badge-tag-interactive">
+                            <span key={t} className="badge-tag-interactive" role="listitem">
                               #{t}
                               <button
+                                type="button"
                                 onClick={() => handleRemoveTagFromCustomer(t)}
                                 className="tag-remove-btn"
-                                title="Remover tag"
+                                title={`Remover tag ${t}`}
+                                aria-label={`Remover tag ${t}`}
                               >
                                 &times;
                               </button>
                             </span>
                           ))
                         ) : (
-                          <span className="text-muted text-sm">Nenhuma tag atribuída a este cliente.</span>
+                          <span className="text-muted text-sm">Nenhuma tag atribuída a este cliente ainda.</span>
                         )}
                       </div>
                       <div className="add-tag-inline">
                         <input
                           type="text"
-                          placeholder="Adicionar nova tag (ex: VIP, Barba Longa)..."
+                          placeholder="Adicionar tag (ex: VIP, barba longa)..."
+                          aria-label="Nova tag"
                           value={newTagInput}
                           onChange={(e) => setNewTagInput(e.target.value)}
                           onKeyDown={(e) => {
@@ -654,6 +850,7 @@ export const Clientes: React.FC = () => {
                           type="button"
                           onClick={() => handleAddTagToCustomer(newTagInput)}
                           className="btn btn--outline btn--sm"
+                          aria-label="Adicionar tag ao cliente"
                         >
                           Adicionar
                         </button>
@@ -663,46 +860,46 @@ export const Clientes: React.FC = () => {
 
                   {/* INFORMAÇÕES PESSOAIS */}
                   <div className="drawer-section card shadow-glass">
-                    <h4 className="drawer-section__title">Dados Cadastrais</h4>
+                    <h4 className="drawer-section__title">Dados cadastrais</h4>
                     <div className="drawer-info-list">
                       <div className="drawer-info-item">
-                        <span className="info-label">Nome:</span>
+                        <span className="info-label">Nome completo:</span>
                         <strong className="info-value">{selectedCustomer.name}</strong>
                       </div>
                       <div className="drawer-info-item">
-                        <span className="info-label">Telefone:</span>
+                        <span className="info-label">Telefone WhatsApp:</span>
                         <span className="info-value font-mono">{selectedCustomer.phone}</span>
                       </div>
                       <div className="drawer-info-item">
-                        <span className="info-label">Aniversário:</span>
+                        <span className="info-label">Data de aniversário:</span>
                         <span className="info-value">
                           {selectedCustomer.birth_date
                             ? new Date(selectedCustomer.birth_date + 'T12:00:00').toLocaleDateString('pt-BR', {
                                 day: '2-digit',
                                 month: 'long',
                               })
-                            : 'Não informado'}
+                            : 'Não informada'}
                         </span>
                       </div>
                       <div className="drawer-info-item">
-                        <span className="info-label">Canal de Aquisição:</span>
+                        <span className="info-label">Canal de origem:</span>
                         <span className="info-value">{selectedCustomer.acquisition_channel || 'Não informado'}</span>
                       </div>
                       {selectedCustomer.cpf && (
                         <div className="drawer-info-item">
-                          <span className="info-label">CPF:</span>
+                          <span className="info-label">CPF do cliente:</span>
                           <span className="info-value font-mono">{selectedCustomer.cpf}</span>
                         </div>
                       )}
                       {selectedCustomer.email && (
                         <div className="drawer-info-item">
-                          <span className="info-label">E-mail:</span>
+                          <span className="info-label">E-mail de contato:</span>
                           <span className="info-value">{selectedCustomer.email}</span>
                         </div>
                       )}
                       {selectedCustomer.notes && (
                         <div className="drawer-info-item drawer-info-item--full">
-                          <span className="info-label">Observações:</span>
+                          <span className="info-label">Observações do atendimento:</span>
                           <p className="info-value text-italic">{selectedCustomer.notes}</p>
                         </div>
                       )}
@@ -711,23 +908,28 @@ export const Clientes: React.FC = () => {
                 </div>
               ) : activeTab360 === 'historico' ? (
                 /* ABA 2: LINHA DO TEMPO (AGENDAMENTOS E COMANDAS) */
-                <div className="tab-content-container">
+                <div
+                  id="panel-historico"
+                  role="tabpanel"
+                  aria-labelledby="tab-historico"
+                  className="tab-content-container"
+                >
                   <div className="drawer-section card shadow-glass">
-                    <h4 className="drawer-section__title">Linha do Tempo de Atendimentos</h4>
+                    <h4 className="drawer-section__title">Linha do tempo de atendimentos</h4>
                     {history.length === 0 && comandasHistory.length === 0 ? (
-                      <div className="empty-state empty-state-drawer">
-                        Nenhum atendimento ou comanda encontrado no histórico.
+                      <div className="empty-state empty-state-drawer" role="status">
+                        Nenhum atendimento ou comanda registrado até o momento.
                       </div>
                     ) : (
                       <div className="timeline-unified-list">
                         {comandasHistory.map((cmd) => (
-                          <div key={cmd.id} className="timeline-card timeline-card--comanda">
+                          <div key={cmd.id} className="timeline-card">
                             <div className="timeline-card__header">
                               <span className="timeline-type-badge">
                                 <ReceiptIcon /> Comanda #{cmd.comanda_number}
                               </span>
                               <span className={`badge badge--appt-${cmd.status === 'closed' ? 'completed' : 'pending'}`}>
-                                {cmd.status === 'closed' ? 'Paga' : 'Aberta'}
+                                {cmd.status === 'closed' ? 'Paga' : 'Em aberto'}
                               </span>
                             </div>
                             <div className="timeline-card__body">
@@ -771,11 +973,11 @@ export const Clientes: React.FC = () => {
                             </div>
                             <div className="timeline-card__body">
                               <div className="appt-meta-row">
-                                <span className="appt-meta-label">Barbeiro:</span>
+                                <span className="appt-meta-label">Profissional:</span>
                                 <span>{app.professional_name}</span>
                               </div>
                               <div className="appt-meta-row">
-                                <span className="appt-meta-label">Data/Hora:</span>
+                                <span className="appt-meta-label">Data e horário:</span>
                                 <span>
                                   {new Date(app.start_time).toLocaleString('pt-BR', {
                                     dateStyle: 'short',
@@ -784,7 +986,7 @@ export const Clientes: React.FC = () => {
                                 </span>
                               </div>
                               <div className="appt-meta-row">
-                                <span className="appt-meta-label">Valor:</span>
+                                <span className="appt-meta-label">Valor cobrado:</span>
                                 <strong className="text-brand">
                                   {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
                                 </strong>
@@ -798,32 +1000,37 @@ export const Clientes: React.FC = () => {
                 </div>
               ) : (
                 /* ABA 3: MÉTRICAS E LTV */
-                <div className="tab-content-container">
+                <div
+                  id="panel-metricas"
+                  role="tabpanel"
+                  aria-labelledby="tab-metricas"
+                  className="tab-content-container"
+                >
                   <div className="ltv-bento-grid">
                     <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Total Investido (LTV)</span>
+                      <span className="ltv-card__label">Total investido (LTV)</span>
                       <span className="ltv-card__value text-brand font-mono">
                         R$ {ltvMetrics.totalSpend.toFixed(2).replace('.', ',')}
                       </span>
-                      <span className="ltv-card__hint">Faturamento acumulado do cliente</span>
+                      <span className="ltv-card__hint">Faturamento total gerado por este cliente</span>
                     </div>
 
                     <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Ticket Médio</span>
+                      <span className="ltv-card__label">Ticket médio</span>
                       <span className="ltv-card__value font-mono">
                         R$ {ltvMetrics.averageTicket.toFixed(2).replace('.', ',')}
                       </span>
-                      <span className="ltv-card__hint">Gasto médio por visita</span>
+                      <span className="ltv-card__hint">Média gasta em cada atendimento</span>
                     </div>
 
                     <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Total de Visitas</span>
+                      <span className="ltv-card__label">Total de visitas</span>
                       <span className="ltv-card__value">{ltvMetrics.totalVisits}</span>
-                      <span className="ltv-card__hint">Atendimentos concluídos</span>
+                      <span className="ltv-card__hint">Atendimentos concluídos na barbearia</span>
                     </div>
 
                     <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Frequência Média</span>
+                      <span className="ltv-card__label">Frequência média</span>
                       <span className="ltv-card__value">
                         {ltvMetrics.averageDaysBetweenVisits > 0
                           ? `${ltvMetrics.averageDaysBetweenVisits} dias`
@@ -836,7 +1043,7 @@ export const Clientes: React.FC = () => {
                   {ltvMetrics.lastVisitDate && (
                     <div className="last-visit-banner card shadow-glass mt-3">
                       <span className="text-sm text-secondary">
-                        Última visita registrada em:{' '}
+                        Último atendimento registrado em:{' '}
                         <strong>
                           {new Date(ltvMetrics.lastVisitDate).toLocaleDateString('pt-BR', {
                             dateStyle: 'long',
@@ -851,422 +1058,6 @@ export const Clientes: React.FC = () => {
           </div>
         </>
       )}
-
-      {/* ESTILOS LOCAIS DA CENTRAL 360 */}
-      <style>{`
-        .clientes-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          width: 100%;
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .stat-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .stat-card {
-          background: rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(8px);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .stat-card__eyebrow {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 600;
-        }
-
-        .stat-card__number {
-          font-size: var(--font-size-3xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .stat-card__number--success {
-          color: var(--color-success);
-        }
-
-        .stat-card__number--warning {
-          color: var(--color-warning);
-        }
-
-        .stat-card__helper {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .clients-controls-bar {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .search-input-wrapper {
-          position: relative;
-          flex: 1;
-          min-width: 250px;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 0.85rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--color-text-secondary);
-          display: flex;
-          align-items: center;
-        }
-
-        .search-input-wrapper .form-control {
-          padding-left: 2.5rem;
-          height: 42px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-secondary);
-          width: 100%;
-          outline: none;
-          font-size: var(--font-size-sm);
-        }
-
-        .tags-filter-bar {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          padding: 0.5rem 0.25rem;
-        }
-
-        .tags-filter-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .tag-chip-btn {
-          background: rgba(45, 35, 30, 0.05);
-          border: 1px solid var(--color-border);
-          padding: 0.25rem 0.65rem;
-          border-radius: 9999px;
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .tag-chip-btn:hover {
-          border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
-        }
-
-        .tag-chip-btn--active {
-          background: var(--color-brand-primary);
-          border-color: var(--color-brand-primary);
-          color: #ffffff;
-        }
-
-        .customer-tags-inline {
-          display: flex;
-          gap: 0.35rem;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-
-        .badge-tag {
-          font-size: 11px;
-          font-weight: 700;
-          background: rgba(217, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-
-        .badge-tag-more {
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-        }
-
-        .drawer-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(4px);
-          z-index: 1000;
-        }
-
-        .drawer-container {
-          position: fixed;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          max-width: 520px;
-          background: var(--color-bg-primary);
-          border-left: 1px solid var(--color-border);
-          z-index: 1001;
-          display: flex;
-          flex-direction: column;
-          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .drawer-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          background: var(--color-bg-secondary);
-        }
-
-        .drawer-header__main {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .customer-avatar-badge {
-          width: 52px;
-          height: 52px;
-          border-radius: 16px;
-          background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-deep, #6A2E00) 100%);
-          color: #ffffff;
-          font-weight: 800;
-          font-size: 1.25rem;
-          display: grid;
-          place-items: center;
-          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
-        }
-
-        .drawer-header__eyebrow {
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          font-weight: 800;
-          color: var(--color-brand-primary);
-        }
-
-        .drawer-header__title {
-          font-size: 1.25rem;
-          font-weight: 800;
-          margin: 0.15rem 0;
-          color: var(--color-text-primary);
-        }
-
-        .drawer-header__subtitle {
-          font-size: 0.85rem;
-          color: var(--color-text-secondary);
-        }
-
-        .drawer-quick-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.5rem;
-          background: rgba(255, 255, 255, 0.4);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .drawer-tabs-nav {
-          display: flex;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-        }
-
-        .drawer-tab-btn {
-          flex: 1;
-          padding: 0.85rem 0.5rem;
-          border: none;
-          background: transparent;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          border-bottom: 2px solid transparent;
-          transition: all 0.2s ease;
-        }
-
-        .drawer-tab-btn:hover {
-          color: var(--color-text-primary);
-        }
-
-        .drawer-tab-btn--active {
-          color: var(--color-brand-primary);
-          border-bottom-color: var(--color-brand-primary);
-          background: rgba(217, 108, 0, 0.03);
-        }
-
-        .drawer-body {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .tab-content-container {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .tags-management-container {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .tags-chips-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-
-        .badge-tag-interactive {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary);
-          font-weight: 700;
-          font-size: 12px;
-          padding: 4px 8px;
-          border-radius: 6px;
-        }
-
-        .tag-remove-btn {
-          background: none;
-          border: none;
-          color: var(--color-brand-primary);
-          font-weight: 800;
-          cursor: pointer;
-          padding: 0;
-          font-size: 14px;
-          line-height: 1;
-        }
-
-        .add-tag-inline {
-          display: flex;
-          gap: 0.5rem;
-          margin-top: 0.25rem;
-        }
-
-        .ltv-bento-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1rem;
-        }
-
-        .ltv-card {
-          padding: 1.15rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .ltv-card__label {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-        }
-
-        .ltv-card__value {
-          font-size: 1.5rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .ltv-card__hint {
-          font-size: 11px;
-          color: var(--color-text-secondary);
-        }
-
-        .timeline-unified-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .timeline-card {
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.85rem 1rem;
-          background: rgba(255, 255, 255, 0.6);
-        }
-
-        .timeline-card--comanda {
-          border-left: 3px solid var(--color-brand-primary);
-        }
-
-        .timeline-card__header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.5rem;
-        }
-
-        .timeline-type-badge {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-        }
-
-        .timeline-items-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          font-size: var(--font-size-xs);
-        }
-
-        .timeline-item-row {
-          display: flex;
-          justify-content: space-between;
-          color: var(--color-text-primary);
-        }
-
-        .timeline-footer-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 0.5rem;
-          padding-top: 0.5rem;
-          border-top: 1px dashed var(--color-border);
-        }
-
-        .form-group-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-      `}</style>
     </div>
   );
 };
