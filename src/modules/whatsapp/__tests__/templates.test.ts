@@ -3,6 +3,7 @@ import {
   DEFAULT_TEMPLATES,
   interpolateTemplate,
   validateTemplateHasLink,
+  validateWhatsappTemplate,
   SAMPLE_MOCK_VARIABLES,
   TEMPLATE_CONFIGS,
 } from '../templates';
@@ -60,5 +61,23 @@ describe('WhatsApp Templates Module', () => {
       link: 'https://exemplo.com',
     });
     expect(result).toBe('Olá Marcos! Serviço: {servico_personalizado}, link: https://exemplo.com');
+  });
+
+  it('should validate domain template validation rules (link and character limit)', () => {
+    const valid = validateWhatsappTemplate('Seu link é {link}');
+    expect(valid.isValid).toBe(true);
+    expect(valid.hasLink).toBe(true);
+    expect(valid.isWithinLengthLimit).toBe(true);
+    expect(valid.errorMessage).toBeNull();
+
+    const missingLink = validateWhatsappTemplate('Sem o link de agendamento');
+    expect(missingLink.isValid).toBe(false);
+    expect(missingLink.hasLink).toBe(false);
+    expect(missingLink.errorMessage).toContain('{link}');
+
+    const tooLong = validateWhatsappTemplate('a'.repeat(2001) + '{link}');
+    expect(tooLong.isValid).toBe(false);
+    expect(tooLong.isWithinLengthLimit).toBe(false);
+    expect(tooLong.errorMessage).toContain('2000');
   });
 });

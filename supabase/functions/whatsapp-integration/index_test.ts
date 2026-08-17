@@ -2193,3 +2193,30 @@ Deno.test("formatMessageTemplate: falls back to canonical default template when 
   assertEquals(fromEmpty.includes("Olá, Lucas! Seu reagendamento na *Navalhado Club* foi confirmado!"), true);
 });
 
+Deno.test("formatMessageTemplate: formats cancellation, reminder and first_contact templates accurately", () => {
+  const cancelVariables: WhatsappTemplateVariables = {
+    cliente: "Marcos",
+    barbearia: "Navalhado Prime",
+    servico: "Barba",
+    profissional: "João",
+    data: "20/08/2026",
+    horario: "10:00",
+    link: "https://dev.navalhado.com.br/cliente/demo",
+  };
+  const cancelResult = formatMessageTemplate(null, DEFAULT_TEMPLATES.appointment_cancelled, cancelVariables);
+  assertEquals(cancelResult.includes("Seu agendamento na *Navalhado Prime* foi cancelado"), true);
+  assertEquals(cancelResult.includes("https://dev.navalhado.com.br/cliente/demo"), true);
+
+  const reminderResult = formatMessageTemplate("Lembrete: {cliente} às {horario} em {barbearia}. {link}", DEFAULT_TEMPLATES.appointment_reminder, cancelVariables);
+  assertEquals(reminderResult, "Lembrete: Marcos às 10:00 em Navalhado Prime. https://dev.navalhado.com.br/cliente/demo");
+
+  const firstContactVariables: WhatsappTemplateVariables = {
+    cliente: "Novo Cliente",
+    barbearia: "Navalhado Elite",
+    link: "https://dev.navalhado.com.br/cliente/novo/agendar",
+  };
+  const firstContactResult = formatMessageTemplate("Bem-vindo {cliente} à {barbearia}! Agende em: {link}", DEFAULT_TEMPLATES.first_contact, firstContactVariables);
+  assertEquals(firstContactResult, "Bem-vindo Novo Cliente à Navalhado Elite! Agende em: https://dev.navalhado.com.br/cliente/novo/agendar");
+});
+
+

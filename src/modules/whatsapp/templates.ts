@@ -149,9 +149,49 @@ export const interpolateTemplate = (
 };
 
 /**
+ * Limite máximo seguro de caracteres para modelos de mensagem do WhatsApp.
+ */
+export const MAX_TEMPLATE_LENGTH = 2000;
+
+export interface WhatsappTemplateValidationResult {
+  isValid: boolean;
+  hasLink: boolean;
+  isWithinLengthLimit: boolean;
+  length: number;
+  maxLength: number;
+  errorMessage: string | null;
+}
+
+/**
  * Valida se o template contém a tag `{link}` (obrigatória para todos os fluxos de autoatendimento).
  */
 export const validateTemplateHasLink = (template: string): boolean => {
   if (!template) return false;
   return /\{link\}/i.test(template);
+};
+
+/**
+ * Executa a validação completa de domínio do template de notificação.
+ */
+export const validateWhatsappTemplate = (template: string): WhatsappTemplateValidationResult => {
+  const text = template || '';
+  const length = text.length;
+  const hasLink = validateTemplateHasLink(text);
+  const isWithinLengthLimit = length <= MAX_TEMPLATE_LENGTH;
+
+  let errorMessage: string | null = null;
+  if (!hasLink) {
+    errorMessage = 'A mensagem precisa conter a tag {link} para que o cliente consiga acessar o agendamento.';
+  } else if (!isWithinLengthLimit) {
+    errorMessage = `O modelo excede o limite máximo permitido de ${MAX_TEMPLATE_LENGTH} caracteres.`;
+  }
+
+  return {
+    isValid: hasLink && isWithinLengthLimit,
+    hasLink,
+    isWithinLengthLimit,
+    length,
+    maxLength: MAX_TEMPLATE_LENGTH,
+    errorMessage,
+  };
 };

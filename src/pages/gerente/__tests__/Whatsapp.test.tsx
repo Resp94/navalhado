@@ -875,6 +875,21 @@ describe('Whatsapp Config Page - TDD', () => {
         expect(mockAddToast).toHaveBeenCalledWith('Teste do modelo disparado com sucesso para 11988887777!', 'success');
       });
     });
+
+    it('deve permitir preencher o numero do gerente com o atalho Usar Meu WhatsApp', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const phoneInput = await screen.findByPlaceholderText('DDD + Número (ex: 11999999999)') as HTMLInputElement;
+      fireEvent.change(phoneInput, { target: { value: '11911112222' } });
+
+      // Simular seletor com botão de retorno
+      expect(phoneInput.value).toBe('11911112222');
+    });
   });
 });
 

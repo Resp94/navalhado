@@ -1048,8 +1048,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         const { data: customerRow } = await supabase
           .from("customers")
           .select("name")
+          .eq("id", customer.customer_id)
+          .maybeSingle();
+        const clientName = customerRow?.name || pushName || "Cliente";
         const link = `${appUrl}/cliente/${customer.token_acesso}/agendar`;
-        const variables: Record<string, string> = {
+        const variables: WhatsappTemplateVariables = {
           cliente: clientName,
           barbearia: barbeariaNome,
           link,
@@ -1265,7 +1268,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const link = `${appUrl}/cliente/${customer.token_acesso}`;
 
-      const variables: Record<string, string> = {
+      const variables: WhatsappTemplateVariables = {
         cliente: customer.name || "Cliente",
         barbearia: tenant.name || "nossa barbearia",
         servico: service.name || "Serviço",
@@ -1446,7 +1449,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
-            const variables: Record<string, string> = {
+            const variables: WhatsappTemplateVariables = {
               cliente: customer.name || "Cliente",
               barbearia: tenant.name || "nossa barbearia",
               servico: service.name || "Serviço",

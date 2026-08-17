@@ -25,7 +25,7 @@ import {
   type WhatsappTemplateKey,
   type TemplateConfig,
   interpolateTemplate,
-  validateTemplateHasLink,
+  validateWhatsappTemplate,
   SAMPLE_MOCK_VARIABLES,
 } from '../../modules/whatsapp/templates';
 
@@ -150,12 +150,34 @@ export const Whatsapp: React.FC = () => {
     first_contact: DEFAULT_TEMPLATES.first_contact,
   });
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [managerPhone, setManagerPhone] = useState<string>('');
   const [testPhoneForTemplate, setTestPhoneForTemplate] = useState('');
   const [sendingTemplateTest, setSendingTemplateTest] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
+    const fetchManagerProfile = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) {
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('phone')
+            .eq('id', authData.user.id)
+            .maybeSingle();
+          if (userProfile?.phone) {
+            setManagerPhone(userProfile.phone);
+            setTestPhoneForTemplate(userProfile.phone);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch manager profile phone:', err);
+      }
+    };
+
+    fetchManagerProfile();
+
     const fetchInstance = async () => {
       try {
         setLoading(true);
@@ -466,7 +488,8 @@ export const Whatsapp: React.FC = () => {
   const currentConfig: TemplateConfig =
     TEMPLATE_CONFIGS.find((c) => c.key === activeTab) || TEMPLATE_CONFIGS[0];
   const activeDraftText = templateDrafts[activeTab] ?? '';
-  const isLinkValid = validateTemplateHasLink(activeDraftText);
+  const templateValidation = validateWhatsappTemplate(activeDraftText);
+  const isLinkValid = templateValidation.hasLink;
 
   const handleInsertTag = (tag: string) => {
     const textarea = textareaRef.current;
@@ -501,8 +524,12 @@ export const Whatsapp: React.FC = () => {
       return;
     }
 
-    if (!isLinkValid) {
-      addToast('A tag {link} é obrigatória para que o cliente acesse o Canal do Cliente.', 'warning');
+    if (!templateValidation.isValid) {
+      addToast(
+        templateValidation.errorMessage ||
+          'A tag {link} é obrigatória para que o cliente acesse o Canal do Cliente.',
+        'warning'
+      );
       return;
     }
 
@@ -992,7 +1019,19 @@ export const Whatsapp: React.FC = () => {
 
                   {/* Rodapé de Teste Rápido no WhatsApp Real */}
                   <div className="phone-preview-footer">
-                    <span className="test-action-label">Testar este modelo no seu celular:</span>
+                    <div className="test-action-header-row">
+                      <span className="test-action-label">Testar este modelo no seu celular:</span>
+                      {managerPhone && testPhoneForTemplate !== managerPhone && (
+                        <button
+                          type="button"
+                          className="btn-use-my-phone"
+                          onClick={() => setTestPhoneForTemplate(managerPhone)}
+                          title="Usar o número do gerente logado"
+                        >
+                          Usar Meu WhatsApp
+                        </button>
+                      )}
+                    </div>
                     <div className="test-action-inputs">
                       <input
                         type="text"
@@ -1104,7 +1143,7 @@ export const Whatsapp: React.FC = () => {
           border-radius: var(--radius-lg);
           border: 1px solid rgba(234, 222, 214, 0.5);
           box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           overflow: hidden;
         }
 
@@ -1354,7 +1393,7 @@ export const Whatsapp: React.FC = () => {
           justify-content: center;
           width: 32px;
           height: 32px;
-          border-radius: 10px;
+          border-radius: var(--radius-md);
           background: rgba(217, 108, 0, 0.06);
           border: 1px solid rgba(217, 108, 0, 0.08);
           color: var(--color-brand-primary);
@@ -1412,7 +1451,7 @@ export const Whatsapp: React.FC = () => {
 
         .reminder-settings__field .helper-text {
           margin: 0;
-          font-size: 0.85rem;
+          font-size: var(--font-size-sm);
         }
 
         .form-select {
@@ -1421,7 +1460,7 @@ export const Whatsapp: React.FC = () => {
           border-radius: var(--radius-sm);
           background: #fff;
           color: var(--color-text-primary);
-          font-size: 0.85rem;
+          font-size: var(--font-size-sm);
         }
 
         .form-select:disabled {
@@ -1454,9 +1493,9 @@ export const Whatsapp: React.FC = () => {
           position: absolute;
           inset: 0;
           cursor: pointer;
-          border-radius: 20px;
+          border-radius: var(--radius-full);
           background-color: rgba(234, 222, 214, 0.8);
-          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .slider::before {
@@ -1465,11 +1504,11 @@ export const Whatsapp: React.FC = () => {
           left: 3px;
           width: 14px;
           height: 14px;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           background-color: white;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
           content: '';
-          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .switch input:checked + .slider {
@@ -1619,7 +1658,7 @@ export const Whatsapp: React.FC = () => {
           font-weight: 700;
           background: rgba(217, 108, 0, 0.06);
           padding: 0.1rem 0.3rem;
-          border-radius: 3px;
+          border-radius: var(--radius-sm);
         }
 
         .tag-chip-btn:hover {
@@ -1714,7 +1753,7 @@ export const Whatsapp: React.FC = () => {
         .alert-content code {
           background: rgba(255, 255, 255, 0.6);
           padding: 0.1rem 0.3rem;
-          border-radius: 3px;
+          border-radius: var(--radius-sm);
           font-weight: 700;
         }
 
@@ -1805,7 +1844,7 @@ export const Whatsapp: React.FC = () => {
           align-self: flex-start;
           max-width: 90%;
           background: #FFFFFF;
-          border-radius: 0.5rem;
+          border-radius: var(--radius-md);
           border-top-left-radius: 0;
           padding: 0.65rem 0.85rem 0.4rem;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -1852,10 +1891,34 @@ export const Whatsapp: React.FC = () => {
           gap: 0.4rem;
         }
 
+        .test-action-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+
         .test-action-label {
-          font-size: 0.7rem;
+          font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-secondary);
+        }
+
+        .btn-use-my-phone {
+          background: rgba(217, 108, 0, 0.08);
+          color: var(--color-brand-primary);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          border-radius: var(--radius-sm);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          padding: 0.15rem 0.5rem;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-use-my-phone:hover {
+          background: var(--color-brand-primary);
+          color: #FFFFFF;
         }
 
         .test-action-inputs {
@@ -1953,7 +2016,7 @@ export const Whatsapp: React.FC = () => {
           height: 20px;
           border: 2px solid var(--color-brand-primary);
           border-top-color: transparent;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           animation: spin 0.6s linear infinite;
         }
 
