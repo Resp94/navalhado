@@ -2103,3 +2103,59 @@ Deno.test("POST /send-test does not expose upstream response bodies", async () =
     mock.restore();
   }
 });
+
+Deno.test("POST /process-return-reminders - should scan completed appointments and send return reminders with idempotency", async () => {
+  const pastDate = new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(); // 25 days ago
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: [{
+        id: "inst-1",
+        tenant_id: "tenant-return-1",
+        instance_name: "nav_return",
+        instance_token: "mock-instance-key",
+        status: "connected",
+      }]
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: [{
+        id: "app-ret-1",
+        tenant_id: "tenant-return-1",
+        customer_id: "cust-ret-1",
+        start_time: pastDate,
+        status: "completed",
+        customers: { id: "cust-ret-1", name: "Carlos Cliente", phone: "11988887777", token_acesso: "token-ret-123" },
+        professionals: { name: "Barbeiro Mestre" },
+        services: { id: "serv-1", name: "Corte Degradê", return_period_days: 20, whatsapp_reminder_template: "Olá, {nome_cliente}! Hora de voltar na {barbearia} para {nome_servico}: {link_agendamento}" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" }
+      }]
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 200,
+      body: []
+    },
+    "mock-vps.com/send/text": {
+      status: 200,
+      body: { success: true }
+    }
+  });
+
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/process-return-reminders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({})
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 200);
+  const data = await res.json();
+  assertEquals(data.status, "success");
+  assertEquals(data.processed, 1);
+
+  restoreFetch();
+});
+

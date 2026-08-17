@@ -18,6 +18,7 @@ vi.mock('@gsap/react', () => ({
 // Mocks hoisted do Vitest
 const {
   mockAddToast,
+  mockInvoke,
   mockSupabaseClient,
   mockSelect,
   mockInsert,
@@ -25,12 +26,16 @@ const {
   mockDelete,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
+  const mockInvoke = vi.fn();
   const mockSelect = vi.fn();
   const mockInsert = vi.fn();
   const mockUpdate = vi.fn();
   const mockDelete = vi.fn();
 
   const mockSupabaseClient = {
+    functions: {
+      invoke: mockInvoke,
+    },
     from: vi.fn().mockImplementation((_table) => {
       return {
         select: mockSelect,
@@ -43,6 +48,7 @@ const {
 
   return {
     mockAddToast,
+    mockInvoke,
     mockSupabaseClient,
     mockSelect,
     mockInsert,
@@ -332,6 +338,47 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Cliente excluído com sucesso!', 'success');
+    });
+  });
+
+  it('deve abrir modal de WhatsApp direto e disparar mensagem via Uazapi', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { success: true }, error: null });
+
+    render(<Clientes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btn360 = screen.getAllByRole('button', { name: /Ver Detalhes/i })[0];
+    fireEvent.click(btn360);
+
+    // Clicar no botão WhatsApp na Central 360
+    const btnZap = await screen.findByRole('button', { name: /Conversar no WhatsApp/i });
+    fireEvent.click(btnZap);
+
+    // Modal abre
+    expect(screen.getByText(/Enviar WhatsApp para João Silva/i)).toBeInTheDocument();
+
+    // Selecionar modelo de Agradecimento
+    const chipAgradecimento = screen.getByRole('button', { name: /🤝 Agradecimento/i });
+    fireEvent.click(chipAgradecimento);
+
+    // Disparar
+    const btnDisparar = screen.getByRole('button', { name: /Disparar pelo WhatsApp/i });
+    fireEvent.click(btnDisparar);
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('whatsapp-integration/send-test', {
+        body: expect.objectContaining({
+          tenant_id: 'tenant-test-id',
+          number: '5511999999999',
+        }),
+      });
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.stringContaining('via WhatsApp da barbearia'),
+        'success'
+      );
     });
   });
 });

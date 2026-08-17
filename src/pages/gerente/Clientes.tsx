@@ -6,6 +6,7 @@ import { useClientes } from '../../modules/clientes/useClientes';
 import type { Cliente } from '../../modules/clientes/types';
 import { DEFAULT_LTV_METRICS } from '../../modules/clientes/types';
 import { formatWhatsAppUrl } from '../../modules/clientes/utils';
+import { supabase } from '../../lib/supabase';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import './Clientes.css';
@@ -85,11 +86,19 @@ export const Clientes: React.FC = () => {
   const [activeTab360, setActiveTab360] = useState<'dados' | 'historico' | 'metricas'>('dados');
   const [newTagInput, setNewTagInput] = useState('');
 
+  // Modal de Disparo Direto de WhatsApp (Uazapi)
+  const [isDirectWhatsAppModalOpen, setIsDirectWhatsAppModalOpen] = useState(false);
+  const [whatsAppTemplate, setWhatsAppTemplate] = useState<'retorno' | 'agradecimento' | 'livre'>('retorno');
+  const [whatsAppCustomMessage, setWhatsAppCustomMessage] = useState('');
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+
   // Acessibilidade: Fechar modal e drawer ao pressionar Escape
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (customerToDelete) {
+        if (isDirectWhatsAppModalOpen) {
+          setIsDirectWhatsAppModalOpen(false);
+        } else if (customerToDelete) {
           setCustomerToDelete(null);
         } else if (isModalOpen) {
           setIsModalOpen(false);
@@ -98,7 +107,7 @@ export const Clientes: React.FC = () => {
         }
       }
     },
-    [customerToDelete, isModalOpen, isDrawerOpen]
+    [isDirectWhatsAppModalOpen, customerToDelete, isModalOpen, isDrawerOpen]
   );
 
   useEffect(() => {
@@ -194,13 +203,75 @@ export const Clientes: React.FC = () => {
     try {
       const success = await deleteCustomer(customerToDelete.id);
       if (success) {
+        addToast('Cliente removido com sucesso.', 'success');
+        setCustomerToDelete(null);
         if (selectedCustomer?.id === customerToDelete.id) {
           setIsDrawerOpen(false);
+          setSelectedCustomer(null);
         }
-        setCustomerToDelete(null);
       }
+    } catch (err: any) {
+      console.error('Erro ao excluir cliente:', err);
+      addToast(err?.message || 'Erro ao excluir cliente.', 'error');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleOpenDirectWhatsApp = (customer: Cliente) => {
+    const bookingLink = `${window.location.origin}/cliente/${customer.token_acesso}`;
+    const barbeariaName = tenant.tenantName || 'Barbearia';
+    const initialText = `Olá, ${customer.name}! Já faz um tempo desde seu último atendimento na *${barbeariaName}*. Que tal renovar o visual? Agende seu horário pelo link: ${bookingLink}`;
+
+    setWhatsAppTemplate('retorno');
+    setWhatsAppCustomMessage(initialText);
+    setIsDirectWhatsAppModalOpen(true);
+  };
+
+  const handleSelectTemplate = (template: 'retorno' | 'agradecimento' | 'livre') => {
+    setWhatsAppTemplate(template);
+    if (!selectedCustomer) return;
+    const bookingLink = `${window.location.origin}/cliente/${selectedCustomer.token_acesso}`;
+    const barbeariaName = tenant.tenantName || 'Barbearia';
+
+    if (template === 'retorno') {
+      setWhatsAppCustomMessage(`Olá, ${selectedCustomer.name}! Já faz um tempo desde seu último atendimento na *${barbeariaName}*. Que tal renovar o visual? Agende seu horário pelo link: ${bookingLink}`);
+    } else if (template === 'agradecimento') {
+      setWhatsAppCustomMessage(`Olá, ${selectedCustomer.name}! Agradecemos pela preferência e confiança na *${barbeariaName}*. Como foi sua experiência conosco? Esperamos você em breve!`);
+    } else {
+      setWhatsAppCustomMessage('');
+    }
+  };
+
+  const handleSendDirectWhatsApp = async () => {
+    if (!selectedCustomer || !selectedCustomer.phone) {
+      addToast('O cliente selecionado não possui telefone cadastrado.', 'warning');
+      return;
+    }
+    if (!whatsAppCustomMessage.trim()) {
+      addToast('A mensagem não pode estar vazia.', 'warning');
+      return;
+    }
+
+    try {
+      setIsSendingWhatsApp(true);
+      const { error } = await supabase.functions.invoke('whatsapp-integration/send-test', {
+        body: {
+          tenant_id: tenant.tenantId,
+          number: selectedCustomer.phone,
+          text: whatsAppCustomMessage.trim(),
+        },
+      });
+
+      if (error) throw error;
+
+      addToast(`Mensagem disparada com sucesso para ${selectedCustomer.name} via WhatsApp da barbearia!`, 'success');
+      setIsDirectWhatsAppModalOpen(false);
+    } catch (err: any) {
+      console.error('Erro ao enviar mensagem direta pelo WhatsApp:', err);
+      addToast(err?.message || 'Erro ao disparar mensagem. Verifique se a instância do WhatsApp está conectada.', 'error');
+    } finally {
+      setIsSendingWhatsApp(false);
     }
   };
 
@@ -730,16 +801,15 @@ export const Clientes: React.FC = () => {
                 <CopyIcon /> Copiar link
               </button>
               {selectedCustomer.phone && (
-                <a
-                  href={formatWhatsAppUrl(selectedCustomer.phone)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => handleOpenDirectWhatsApp(selectedCustomer)}
                   className="btn btn-drawer-action btn-drawer-action--whatsapp"
-                  title="Abrir conversa no WhatsApp"
+                  title="Disparar mensagem pelo WhatsApp da barbearia"
                   aria-label="Conversar no WhatsApp"
                 >
                   <HugeiconsIcon icon={WhatsappIcon} size={15} /> WhatsApp
-                </a>
+                </button>
               )}
               <button
                 type="button"
@@ -1062,6 +1132,130 @@ export const Clientes: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* 5. MODAL DE DISPARO DIRETO DE WHATSAPP (UAZAPI) */}
+      {isDirectWhatsAppModalOpen && selectedCustomer && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!isSendingWhatsApp) setIsDirectWhatsAppModalOpen(false);
+          }}
+        >
+          <div
+            className="modal-dialog modal-whatsapp-direct"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="whatsapp-modal-title"
+          >
+            <header className="modal-header">
+              <div className="modal-header__title-group">
+                <span className="modal-eyebrow">Mensageria Uazapi</span>
+                <h3 id="whatsapp-modal-title" className="modal-title">
+                  Enviar WhatsApp para {selectedCustomer.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn-icon-only"
+                onClick={() => setIsDirectWhatsAppModalOpen(false)}
+                disabled={isSendingWhatsApp}
+                aria-label="Fechar modal de WhatsApp"
+              >
+                <CloseIcon />
+              </button>
+            </header>
+
+            <div className="modal-body">
+              <div className="whatsapp-recipient-card">
+                <span className="recipient-label">Destinatário:</span>
+                <strong className="recipient-phone font-mono">{selectedCustomer.phone}</strong>
+              </div>
+
+              <div className="template-selector-group">
+                <label className="form-label">Escolha um modelo rápido:</label>
+                <div className="template-chips" role="radiogroup" aria-label="Modelos de mensagem">
+                  <button
+                    type="button"
+                    className={`btn-template-chip ${whatsAppTemplate === 'retorno' ? 'btn-template-chip--active' : ''}`}
+                    onClick={() => handleSelectTemplate('retorno')}
+                  >
+                    ⚡ Lembrete de retorno
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-template-chip ${whatsAppTemplate === 'agradecimento' ? 'btn-template-chip--active' : ''}`}
+                    onClick={() => handleSelectTemplate('agradecimento')}
+                  >
+                    🤝 Agradecimento
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-template-chip ${whatsAppTemplate === 'livre' ? 'btn-template-chip--active' : ''}`}
+                    onClick={() => handleSelectTemplate('livre')}
+                  >
+                    ✍️ Mensagem livre
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="whatsapp-message-textarea" className="form-label">
+                  Mensagem que será enviada pelo WhatsApp conectado da barbearia:
+                </label>
+                <textarea
+                  id="whatsapp-message-textarea"
+                  rows={4}
+                  value={whatsAppCustomMessage}
+                  onChange={(e) => setWhatsAppCustomMessage(e.target.value)}
+                  placeholder="Digite a mensagem para o cliente..."
+                  className="form-control"
+                  disabled={isSendingWhatsApp}
+                />
+              </div>
+
+              <div className="whatsapp-modal-fallback-row">
+                <span className="text-muted text-xs">Ou se preferir abrir manualmente no navegador:</span>
+                <a
+                  href={formatWhatsAppUrl(selectedCustomer.phone, whatsAppCustomMessage)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-whatsapp-web"
+                >
+                  Abrir no WhatsApp Web ↗
+                </a>
+              </div>
+            </div>
+
+            <footer className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setIsDirectWhatsAppModalOpen(false)}
+                className="btn btn--outline"
+                disabled={isSendingWhatsApp}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendDirectWhatsApp}
+                className="btn btn--primary btn-whatsapp-send"
+                disabled={isSendingWhatsApp || !whatsAppCustomMessage.trim()}
+              >
+                {isSendingWhatsApp ? (
+                  <>
+                    <span className="spinner spinner--sm" /> Disparando...
+                  </>
+                ) : (
+                  <>
+                    <HugeiconsIcon icon={WhatsappIcon} size={16} /> Disparar pelo WhatsApp
+                  </>
+                )}
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
     </div>
   );

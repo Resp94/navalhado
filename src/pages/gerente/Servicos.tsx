@@ -32,7 +32,7 @@ export interface Service {
 }
 
 const DEFAULT_REMINDER_TEMPLATE =
-  'Olá, {cliente}! Já se passaram {dias} dias desde o seu último {servico} na Barbearia. Que tal agendar seu retorno para manter o visual em dia? Acesse: {link}';
+  'Olá, {cliente}! Já faz {dias} dias desde o seu último {servico} na barbearia. Que tal agendar seu retorno para manter o visual em dia? Acesse: {link}';
 
 interface ServiceItemCardProps {
   service: Service;
@@ -341,27 +341,24 @@ export const Servicos: React.FC = () => {
   return (
     <div className="services-page">
       <div className="services-header-intro">
-        <span className="services-badge">
-          Catálogo
-        </span>
-        <h2>Serviços e Parametrização Comercial</h2>
+        <h2>Cardápio de serviços</h2>
         <p>
-          Configure os cortes, barbas, combos, tempos de retorno para reativação via WhatsApp (Uazapi) e tipo de preço.
+          Cadastre seus cortes, barbas e tratamentos com tempo de atendimento, comissão da equipe e lembretes automáticos de retorno pelo WhatsApp.
         </p>
       </div>
 
       <div className="services-grid">
         {/* Painel do Formulário */}
         <section className="form-section card">
-          <h3>{editingId ? 'Editar Serviço' : 'Novo Serviço'}</h3>
+          <h3>{editingId ? 'Editar serviço' : 'Cadastrar novo serviço'}</h3>
 
           <form onSubmit={handleSubmit} className="service-form">
             <div className="form-group">
-              <label htmlFor="service-name">Nome do Serviço *</label>
+              <label htmlFor="service-name">Nome do serviço *</label>
               <input
                 id="service-name"
                 type="text"
-                placeholder="Ex: Corte Degradê, Barboterapia"
+                placeholder="Ex: Corte degradê, Barboterapia, Combo navalhado"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -385,13 +382,13 @@ export const Servicos: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="price-type-select">Tipo de Preço</label>
+                <label htmlFor="price-type-select">Tipo de preço</label>
                 <select
                   id="price-type-select"
                   value={priceType}
                   onChange={(e) => setPriceType(e.target.value as 'fixed' | 'starting_at')}
                 >
-                  <option value="fixed">Preço Fixo</option>
+                  <option value="fixed">Preço fixo</option>
                   <option value="starting_at">A partir de</option>
                 </select>
               </div>
@@ -400,7 +397,7 @@ export const Servicos: React.FC = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="service-price">
-                  {priceType === 'starting_at' ? 'Valor Inicial *' : 'Preço Fixo *'}
+                  {priceType === 'starting_at' ? 'Valor inicial *' : 'Preço fixo *'}
                 </label>
                 <div className="input-group input-group--prefix">
                   <span className="input-group__prefix">R$</span>
@@ -418,7 +415,7 @@ export const Servicos: React.FC = () => {
 
               <div className="form-group">
                 <label htmlFor="service-commission">
-                  Comissão (%) <span className="label-optional">Opcional</span>
+                  Comissão do profissional <span className="label-optional">Opcional</span>
                 </label>
                 <div className="input-group">
                   <input
@@ -426,7 +423,7 @@ export const Servicos: React.FC = () => {
                     type="number"
                     min="0"
                     max="100"
-                    placeholder="Ex: 45"
+                    placeholder="Ex: 50"
                     value={commission}
                     onChange={(e) => setCommission(e.target.value)}
                   />
@@ -435,10 +432,10 @@ export const Servicos: React.FC = () => {
               </div>
             </div>
 
-            {/* DURAÇÃO PADRÃO */}
+            {/* TEMPO DE ATENDIMENTO */}
             <div className="form-group">
               <label htmlFor="service-duration">
-                Duração Padrão:{' '}
+                Tempo de atendimento:{' '}
                 <span className="duration-highlight">
                   {duration < 60
                     ? `${duration} minutos`
@@ -455,7 +452,7 @@ export const Servicos: React.FC = () => {
                   max="180"
                   step="5"
                   value={duration}
-                  aria-label="Duração padrão do serviço"
+                  aria-label="Tempo de atendimento do serviço"
                   aria-valuemin={5}
                   aria-valuemax={180}
                   aria-valuenow={duration}
@@ -464,20 +461,20 @@ export const Servicos: React.FC = () => {
                   className="duration-slider"
                 />
                 <div className="slider-labels" aria-hidden="true">
-                  <span>5m</span>
-                  <span>40m (padrão)</span>
-                  <span>1h</span>
-                  <span>2h</span>
-                  <span>3h</span>
+                  <span>5 min</span>
+                  <span>40 min (padrão)</span>
+                  <span>1 hora</span>
+                  <span>2 horas</span>
+                  <span>3 horas</span>
                 </div>
               </div>
             </div>
 
-            {/* SEÇÃO COMERCIAL: TEMPO DE RETORNO E TEMPLATE UAZAPI */}
+            {/* SEÇÃO COMERCIAL: TEMPO DE RETORNO E LEMBRETE NO WHATSAPP */}
             <div className="commercial-section">
               <div className="form-group">
                 <label htmlFor="return-period-input">
-                  Tempo Recomendado de Retorno (Dias)
+                  Tempo sugerido para retorno
                 </label>
                 <div className="input-group">
                   <input
@@ -493,19 +490,19 @@ export const Servicos: React.FC = () => {
                   <span className="input-group__suffix">dias</span>
                 </div>
                 <span id="return-period-helper" className="input-helper">
-                  Usado pelo motor de reativação para lembrar clientes quando estiver na hora de cortar.
+                  O Navalhado enviará um lembrete automático no WhatsApp para o cliente agendar a volta.
                 </span>
               </div>
 
               <div className="form-group">
-                <label htmlFor="template-textarea">Template de Mensagem de Retorno (WhatsApp Uazapi)</label>
+                <label htmlFor="template-textarea">Mensagem de lembrete no WhatsApp</label>
                 <div className="template-tags-helper">
-                  <span>Inserir tag:</span>
+                  <span>Toque para inserir tag:</span>
                   <button
                     type="button"
                     onClick={() => insertTagIntoTemplate('{cliente}')}
                     className="tag-helper-btn"
-                    aria-label="Inserir tag de nome do cliente no template"
+                    aria-label="Inserir tag de nome do cliente na mensagem"
                   >
                     {'{cliente}'}
                   </button>
@@ -513,7 +510,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{servico}')}
                     className="tag-helper-btn"
-                    aria-label="Inserir tag de nome do serviço no template"
+                    aria-label="Inserir tag de nome do serviço na mensagem"
                   >
                     {'{servico}'}
                   </button>
@@ -521,7 +518,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{dias}')}
                     className="tag-helper-btn"
-                    aria-label="Inserir tag de dias de retorno no template"
+                    aria-label="Inserir tag de dias de retorno na mensagem"
                   >
                     {'{dias}'}
                   </button>
@@ -529,7 +526,7 @@ export const Servicos: React.FC = () => {
                     type="button"
                     onClick={() => insertTagIntoTemplate('{link}')}
                     className="tag-helper-btn"
-                    aria-label="Inserir tag de link de agendamento no template"
+                    aria-label="Inserir tag de link de agendamento na mensagem"
                   >
                     {'{link}'}
                   </button>
@@ -540,7 +537,7 @@ export const Servicos: React.FC = () => {
                   value={reminderTemplate}
                   onChange={(e) => setReminderTemplate(e.target.value)}
                   className="form-control"
-                  placeholder="Mensagem disparada pela instância conectada da barbearia..."
+                  placeholder="Mensagem enviada automaticamente para o WhatsApp do cliente..."
                 />
               </div>
 
@@ -548,17 +545,19 @@ export const Servicos: React.FC = () => {
               <div className="whatsapp-preview-card">
                 <div className="whatsapp-preview-header">
                   <HugeiconsIcon icon={WhatsappIcon} size={15} />
-                  <span>Prévia do WhatsApp (Instância Conectada)</span>
+                  <span>Prévia da mensagem no WhatsApp</span>
                 </div>
                 <p className="whatsapp-preview-text">{previewMessage}</p>
               </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="service-desc">Descrição do Serviço</label>
+              <label htmlFor="service-desc">
+                Descrição do serviço <span className="label-optional">Opcional</span>
+              </label>
               <textarea
                 id="service-desc"
-                placeholder="Descreva detalhes do serviço que o cliente verá ao agendar..."
+                placeholder="Detalhes visíveis para o cliente durante o agendamento online..."
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -568,9 +567,9 @@ export const Servicos: React.FC = () => {
             {editingId && (
               <div className="form-group form-switch-group">
                 <label htmlFor="service-active" className="switch-text-label">
-                  Serviço ativo para novos agendamentos
+                  Serviço ativo para agendamento online
                 </label>
-                <label className="switch" aria-label="Status do serviço">
+                <label className="switch" aria-label="Status do serviço para agendamento">
                   <input
                     type="checkbox"
                     id="service-active"
@@ -586,7 +585,7 @@ export const Servicos: React.FC = () => {
               {editingId && (
                 <button type="button" onClick={resetForm} className="btn btn--outline-secondary">
                   <HugeiconsIcon icon={Cancel01Icon} size={16} />
-                  Cancelar
+                  Cancelar edição
                 </button>
               )}
               <button type="submit" disabled={saving} className="btn btn--primary">
@@ -595,12 +594,12 @@ export const Servicos: React.FC = () => {
                 ) : editingId ? (
                   <>
                     <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-                    Salvar Alterações
+                    Salvar alterações
                   </>
                 ) : (
                   <>
                     <HugeiconsIcon icon={PlusSignIcon} size={16} />
-                    Adicionar Serviço
+                    Cadastrar serviço
                   </>
                 )}
               </button>
@@ -610,7 +609,7 @@ export const Servicos: React.FC = () => {
 
         {/* Tabela de Listagem */}
         <section className="list-section card">
-          <h3>Lista de Serviços</h3>
+          <h3>Serviços cadastrados</h3>
 
           {loading ? (
             <div className="loading-state" role="status" aria-live="polite">
@@ -619,8 +618,8 @@ export const Servicos: React.FC = () => {
             </div>
           ) : services.length === 0 ? (
             <div className="empty-state">
-              <p>Nenhum serviço cadastrado.</p>
-              <span className="empty-desc">Cadastre o primeiro serviço no painel ao lado.</span>
+              <p>Nenhum serviço cadastrado ainda</p>
+              <span className="empty-desc">Preencha o formulário ao lado para montar o cardápio da sua barbearia.</span>
             </div>
           ) : (
             <div className="services-list-container" aria-busy={loading}>
@@ -651,19 +650,6 @@ export const Servicos: React.FC = () => {
           gap: 1.5rem;
         }
 
-        .services-badge {
-          display: inline-block;
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary);
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          padding: 4px 12px;
-          border-radius: var(--radius-full);
-          margin-bottom: 0.5rem;
-        }
-
         .services-header-intro h2 {
           font-size: var(--font-size-xl);
           font-weight: 800;
@@ -689,7 +675,7 @@ export const Servicos: React.FC = () => {
           }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 680px) {
           .card {
             padding: 1.15rem;
           }
@@ -704,7 +690,18 @@ export const Servicos: React.FC = () => {
             gap: 0.85rem;
           }
 
-          .service-card-footer {
+          .service-card-price {
+            flex-direction: row;
+            align-items: baseline;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+          }
+
+          .service-card-actions {
             justify-content: space-between;
             width: 100%;
             padding-top: 0.75rem;
@@ -891,6 +888,20 @@ export const Servicos: React.FC = () => {
           padding-right: 2.5rem;
         }
 
+        .input-group--prefix input {
+          padding-left: 2.25rem;
+          padding-right: 0.85rem;
+        }
+
+        .input-group__prefix {
+          position: absolute;
+          left: 0.75rem;
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          font-weight: 700;
+          pointer-events: none;
+        }
+
         .input-group__suffix {
           position: absolute;
           right: 0.75rem;
@@ -975,7 +986,7 @@ export const Servicos: React.FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 1rem;
+          gap: 1.25rem;
           transition: all 0.2s ease;
         }
 
@@ -988,22 +999,15 @@ export const Servicos: React.FC = () => {
           opacity: 0.6;
         }
 
-        .service-card-main {
+        .service-card-info {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
           flex: 1;
+          min-width: 0;
         }
 
-        .service-info-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-
-        .service-info-header h5 {
+        .service-name {
           font-size: var(--font-size-base);
           font-weight: 800;
           color: var(--color-text-primary);
@@ -1011,24 +1015,32 @@ export const Servicos: React.FC = () => {
           word-break: break-word;
         }
 
-        .service-price-block {
+        .service-card-price {
           display: flex;
-          align-items: center;
-          gap: 0.35rem;
+          flex-direction: column;
+          align-items: flex-end;
+          justify-content: center;
+          min-width: 110px;
+          flex-shrink: 0;
+          text-align: right;
         }
 
         .price-type-tag {
           font-size: 10px;
           color: var(--color-text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
           font-weight: 700;
+          line-height: 1.2;
         }
 
-        .service-price {
-          font-size: var(--font-size-base);
+        .service-price-value {
+          font-size: 1.1rem;
           font-weight: 800;
           color: var(--color-brand-primary);
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -0.01em;
+          line-height: 1.3;
         }
 
         .service-description {
@@ -1070,7 +1082,7 @@ export const Servicos: React.FC = () => {
           color: var(--color-success);
         }
 
-        .service-card-footer {
+        .service-card-actions {
           display: flex;
           align-items: center;
           gap: 0.85rem;
