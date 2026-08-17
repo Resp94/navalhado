@@ -1,10 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Money01Icon,
+  UserGroupIcon,
+  ShoppingBag01Icon,
+  Invoice01Icon,
+  Calendar03Icon,
+  Alert02Icon,
+} from '@hugeicons/core-free-icons';
 
 interface FinancialMetrics {
   total_revenue: number;
@@ -12,18 +21,34 @@ interface FinancialMetrics {
   net_revenue: number;
   revenue_by_method: Record<string, number>;
   commissions_by_professional: Array<{
+    professional_id?: string;
     professional_name: string;
     commission_sum: number;
     appointments_count: number;
   }>;
 }
 
+type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
+
+const METHOD_LABELS: Record<string, string> = {
+  pix: 'PIX',
+  credit_card: 'Cartão de crédito',
+  debit_card: 'Cartão de débito',
+  cash: 'Dinheiro em espécie',
+  dinheiro: 'Dinheiro em espécie',
+  cartao: 'Cartão',
+  cartao_credito: 'Cartão de crédito',
+  cartao_debito: 'Cartão de débito',
+  other: 'Outros',
+  outros: 'Outros',
+};
+
 export const Financeiro: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'this_month' | 'last_30_days' | 'last_90_days'>('this_month');
+  const [period, setPeriod] = useState<PeriodType>('this_month');
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
 
   const calculateDates = () => {
@@ -31,19 +56,15 @@ export const Financeiro: React.FC = () => {
     let startDate = new Date();
 
     if (period === 'this_month') {
-      // Primeiro dia do mês atual às 00:00:00
       startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     } else if (period === 'last_30_days') {
-      // 30 dias atrás
       startDate.setDate(now.getDate() - 30);
       startDate.setHours(0, 0, 0, 0);
     } else if (period === 'last_90_days') {
-      // 90 dias atrás
       startDate.setDate(now.getDate() - 90);
       startDate.setHours(0, 0, 0, 0);
     }
 
-    // Fim do dia atual às 23:59:59
     const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     return {
@@ -57,10 +78,10 @@ export const Financeiro: React.FC = () => {
       setLoading(true);
       const { start, end } = calculateDates();
 
-      // Chamando a RPC segura criada no Postgres
       const { data, error } = await supabase.rpc('get_tenant_financial_metrics', {
         p_start_date: start,
-        p_end_date: end
+        p_end_date: end,
+        p_tenant_id: tenant?.tenantId || null,
       });
 
       if (error) throw error;
@@ -75,21 +96,20 @@ export const Financeiro: React.FC = () => {
 
   useEffect(() => {
     fetchFinancialData();
-  }, [tenant.tenantId, period]);
+  }, [tenant?.tenantId, period]);
 
   useGSAP(() => {
+    const prefersReduced =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')?.matches
+        : false;
+    if (prefersReduced) return;
+
     if (!loading && metrics) {
-      const tl = gsap.timeline({
-        defaults: { ease: 'cubic-bezier(0.32, 0.72, 0, 1)' },
-      });
-      tl.fromTo('.bento-card',
-        { y: 30, opacity: 0, scale: 0.97 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.08 },
-      );
-      tl.fromTo('.bento-details .bento-card',
-        { y: 25, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, stagger: 0.1 },
-        '-=0.3',
+      gsap.fromTo(
+        '.bento-card',
+        { y: 16, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power2.out' }
       );
     }
   }, [loading, metrics]);
@@ -97,73 +117,98 @@ export const Financeiro: React.FC = () => {
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL'
-    }).format(val);
+      currency: 'BRL',
+    }).format(val || 0);
   };
 
-  // Obter métodos e valores ordenados para as barras de progresso
-  const getMethodList = () => {
+  const methodsList = useMemo(() => {
     if (!metrics || !metrics.revenue_by_method) return [];
-    
-    const methods = ['PIX', 'Cartão', 'Dinheiro'];
-    const list = methods.map((m) => ({
-      name: m,
-      val: metrics.revenue_by_method[m] || 0
-    }));
 
-    return list.sort((a, b) => b.val - a.val);
-  };
+    const rawMap = metrics.revenue_by_method;
+    const entries = Object.entries(rawMap);
 
-  const methodsList = getMethodList();
-  const maxMethodVal = Math.max(...methodsList.map(m => m.val), 1);
+    if (entries.length === 0) {
+      return [
+        { key: 'pix', name: 'PIX', val: 0 },
+        { key: 'credit_card', name: 'Cartão de crédito', val: 0 },
+        { key: 'cash', name: 'Dinheiro em espécie', val: 0 },
+      ];
+    }
+
+    return entries
+      .map(([rawKey, val]) => {
+        const normalizedKey = rawKey.toLowerCase().trim();
+        const label = METHOD_LABELS[normalizedKey] || rawKey;
+        return {
+          key: normalizedKey,
+          name: label,
+          val: Number(val) || 0,
+        };
+      })
+      .sort((a, b) => b.val - a.val);
+  }, [metrics]);
+
+  const maxMethodVal = useMemo(() => {
+    return Math.max(...methodsList.map((m) => m.val), 1);
+  }, [methodsList]);
+
+  const netMarginPercentage = useMemo(() => {
+    if (!metrics || metrics.total_revenue <= 0) return 0;
+    return Math.round((metrics.net_revenue / metrics.total_revenue) * 100);
+  }, [metrics]);
 
   return (
     <div className="financial-page">
-      <div className="financial-header-section">
-        <div>
-          <h2>Relatório Financeiro</h2>
+      <header className="financial-header-section">
+        <div className="financial-header-titles">
+          <h2>Relatório financeiro</h2>
           <p>Acompanhe o faturamento bruto, repasses de comissão e lucratividade líquida da barbearia.</p>
         </div>
 
-        {/* Seletor de Período Coeso */}
-        <div className="period-selector">
-          <button 
-            onClick={() => setPeriod('this_month')} 
+        <div className="period-selector" role="group" aria-label="Filtro de período do relatório financeiro">
+          <button
+            type="button"
+            onClick={() => setPeriod('this_month')}
             className={`period-btn ${period === 'this_month' ? 'period-btn--active' : ''}`}
+            aria-pressed={period === 'this_month'}
           >
-            Este Mês
+            Este mês
           </button>
-          <button 
-            onClick={() => setPeriod('last_30_days')} 
+          <button
+            type="button"
+            onClick={() => setPeriod('last_30_days')}
             className={`period-btn ${period === 'last_30_days' ? 'period-btn--active' : ''}`}
+            aria-pressed={period === 'last_30_days'}
           >
-            Últimos 30 Dias
+            Últimos 30 dias
           </button>
-          <button 
-            onClick={() => setPeriod('last_90_days')} 
+          <button
+            type="button"
+            onClick={() => setPeriod('last_90_days')}
             className={`period-btn ${period === 'last_90_days' ? 'period-btn--active' : ''}`}
+            aria-pressed={period === 'last_90_days'}
           >
-            Últimos 90 Dias
+            Últimos 90 dias
           </button>
         </div>
-      </div>
+      </header>
 
       {loading || !metrics ? (
-        <div className="skeleton-container-sub">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
-            <div className="skeleton" style={{ height: '120px' }} />
-            <div className="skeleton" style={{ height: '120px' }} />
-            <div className="skeleton" style={{ height: '120px' }} />
+        <div className="skeleton-container-sub" aria-busy="true" aria-label="Carregando dados financeiros">
+          <div className="skeleton-grid-top">
+            <div className="skeleton skeleton--card" />
+            <div className="skeleton skeleton--card" />
+            <div className="skeleton skeleton--card" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem', marginTop: '2.5rem' }}>
-            <div className="skeleton" style={{ height: '280px' }} />
-            <div className="skeleton" style={{ height: '280px' }} />
+          <div className="skeleton-grid-bottom">
+            <div className="skeleton skeleton--panel" />
+            <div className="skeleton skeleton--panel" />
           </div>
         </div>
       ) : (
         <div className="financial-content">
-          {/* ═══ BENTO METRICS GRID ═══ */}
-          <div className="bento-metrics">
+          {/* Bento Metrics Grid */}
+          <section className="bento-metrics" aria-label="Indicadores consolidados">
             {/* Card: Faturamento Bruto */}
             <div className="bento-card bento-card--primary">
               <div className="bento-card__shell">
@@ -171,13 +216,10 @@ export const Financeiro: React.FC = () => {
                   <div className="bento-card__header">
                     <div className="bento-card__eyebrow">
                       <span className="bento-card__eyebrow-dot" />
-                      Faturamento Bruto
+                      Faturamento bruto
                     </div>
                     <span className="bento-card__icon-box text-brand">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <line x1="12" x2="12" y1="2" y2="22" />
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                      </svg>
+                      <HugeiconsIcon icon={Money01Icon} size={18} aria-hidden="true" />
                     </span>
                   </div>
                   <div className="bento-card__value">{formatCurrency(metrics.total_revenue)}</div>
@@ -186,7 +228,7 @@ export const Financeiro: React.FC = () => {
               </div>
             </div>
 
-            {/* Card Superior Direito: Comissões */}
+            {/* Card: Comissões */}
             <div className="bento-card bento-card--sm">
               <div className="bento-card__shell">
                 <div className="bento-card__core">
@@ -196,12 +238,7 @@ export const Financeiro: React.FC = () => {
                       Comissões
                     </div>
                     <span className="bento-card__icon-box text-warning">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                      </svg>
+                      <HugeiconsIcon icon={UserGroupIcon} size={18} aria-hidden="true" />
                     </span>
                   </div>
                   <div className="bento-card__value">{formatCurrency(metrics.total_commission)}</div>
@@ -210,32 +247,31 @@ export const Financeiro: React.FC = () => {
               </div>
             </div>
 
-            {/* Card Inferior Direito: Líquido (highlight) */}
+            {/* Card: Faturamento Líquido */}
             <div className="bento-card bento-card--sm bento-card--accent">
               <div className="bento-card__shell">
                 <div className="bento-card__core">
                   <div className="bento-card__header">
                     <div className="bento-card__eyebrow">
                       <span className="bento-card__eyebrow-dot" />
-                      Faturamento Líquido
+                      Faturamento líquido
                     </div>
                     <span className="bento-card__icon-box text-success">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                        <polyline points="17 6 23 6 23 12" />
-                      </svg>
+                      <HugeiconsIcon icon={Invoice01Icon} size={18} aria-hidden="true" />
                     </span>
                   </div>
                   <div className="bento-card__value">{formatCurrency(metrics.net_revenue)}</div>
-                  <p className="bento-card__desc">Caixa livre após comissões</p>
+                  <p className="bento-card__desc">
+                    Caixa livre após comissões ({netMarginPercentage}% de margem)
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* ═══ BENTO DETAILS GRID ═══ */}
+          {/* Bento Details Grid */}
           <div className="bento-details">
-            {/* Card Esquerdo: Métodos de Pagamento (double-bezel) */}
+            {/* Card: Métodos de Pagamento */}
             <div className="bento-card">
               <div className="bento-card__shell">
                 <div className="bento-card__core">
@@ -244,9 +280,9 @@ export const Financeiro: React.FC = () => {
                       <span className="bento-card__eyebrow-dot" />
                       Receitas
                     </span>
-                    Faturamento por Método
+                    Faturamento por método
                   </h3>
-                  
+
                   {metrics.total_revenue === 0 ? (
                     <div className="empty-sub-state">
                       <p>Sem faturamento registrado neste período.</p>
@@ -254,9 +290,12 @@ export const Financeiro: React.FC = () => {
                   ) : (
                     <div className="methods-list">
                       {methodsList.map((method) => {
-                        const percentage = metrics.total_revenue > 0 ? (method.val / metrics.total_revenue) * 100 : 0;
+                        const percentage =
+                          metrics.total_revenue > 0
+                            ? (method.val / metrics.total_revenue) * 100
+                            : 0;
                         return (
-                          <div key={method.name} className="method-item">
+                          <div key={method.key} className="method-item">
                             <div className="method-item-header">
                               <span className="method-name">{method.name}</span>
                               <div className="method-vals">
@@ -265,9 +304,11 @@ export const Financeiro: React.FC = () => {
                               </div>
                             </div>
                             <div className="progress-bar-bg">
-                              <div 
-                                className="progress-bar-fill" 
-                                style={{ width: `${(method.val / maxMethodVal) * 100}%` }}
+                              <div
+                                className="progress-bar-fill"
+                                style={{
+                                  transform: `scaleX(${Math.min(1, Math.max(0, method.val / maxMethodVal))})`,
+                                }}
                               />
                             </div>
                           </div>
@@ -279,7 +320,7 @@ export const Financeiro: React.FC = () => {
               </div>
             </div>
 
-            {/* Card Direito: Comissões dos Profissionais (double-bezel, wide) */}
+            {/* Card: Comissões dos Profissionais */}
             <div className="bento-card bento-card--wide">
               <div className="bento-card__shell">
                 <div className="bento-card__core">
@@ -288,9 +329,9 @@ export const Financeiro: React.FC = () => {
                       <span className="bento-card__eyebrow-dot" />
                       Repasses
                     </span>
-                    Comissões e Atendimentos
+                    Comissões e atendimentos
                   </h3>
-                  
+
                   {metrics.commissions_by_professional.length === 0 ? (
                     <div className="empty-sub-state">
                       <p>Nenhum profissional realizou atendimentos no período.</p>
@@ -298,20 +339,23 @@ export const Financeiro: React.FC = () => {
                   ) : (
                     <div className="table-responsive">
                       <table className="financial-table">
+                        <caption className="sr-only">
+                          Demonstrativo consolidado de comissões e atendimentos por profissional
+                        </caption>
                         <thead>
                           <tr>
-                            <th>Profissional</th>
-                            <th style={{ textAlign: 'center' }}>Atendimentos</th>
-                            <th style={{ textAlign: 'right' }}>Comissão</th>
+                            <th scope="col">Profissional</th>
+                            <th scope="col" style={{ textAlign: 'center' }}>Atendimentos</th>
+                            <th scope="col" style={{ textAlign: 'right' }}>Comissão</th>
                           </tr>
                         </thead>
                         <tbody>
                           {metrics.commissions_by_professional.map((item, idx) => (
-                            <tr key={idx}>
+                            <tr key={item.professional_id || idx}>
                               <td>
                                 <div className="prof-cell">
-                                  <div className="prof-avatar-sm">
-                                    {item.professional_name.charAt(0).toUpperCase()}
+                                  <div className="prof-avatar-sm" aria-hidden="true">
+                                    {(item.professional_name || 'P').charAt(0).toUpperCase()}
                                   </div>
                                   <span className="prof-name">{item.professional_name}</span>
                                 </div>
@@ -339,76 +383,71 @@ export const Financeiro: React.FC = () => {
         .financial-page {
           display: flex;
           flex-direction: column;
-          gap: 2.5rem;
+          gap: 2rem;
+          width: 100%;
         }
 
         .financial-content {
           display: flex;
           flex-direction: column;
-          gap: 2.5rem;
+          gap: 2rem;
+          width: 100%;
         }
 
-        /* ═══ HEADER — liquid glass ═══ */
+        /* Header */
         .financial-header-section {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 1.5rem;
           padding: 1.25rem 1.75rem;
-          background: 
-            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
-            linear-gradient(145deg, rgba(255,255,255,0.78) 0%, rgba(255,241,230,0.5) 45%, rgba(255,255,255,0.72) 100%);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.25);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 32px -8px rgba(45, 35, 30, 0.08);
+          box-shadow: var(--shadow-sm);
         }
 
         @media (max-width: 768px) {
           .financial-header-section {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
+            padding: 1.25rem;
           }
         }
 
-        .financial-header-section h2 {
+        .financial-header-titles h2 {
           font-size: var(--font-size-xl);
           font-weight: 800;
           color: var(--color-text-primary);
           letter-spacing: -0.02em;
+          margin: 0 0 0.25rem 0;
         }
 
-        .financial-header-section p {
+        .financial-header-titles p {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
+          margin: 0;
         }
 
         .period-selector {
-          display: flex;
-          background: 
-            radial-gradient(ellipse 60% 80% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 80% at 70% 50%, rgba(217, 108, 0, 0.02) 0%, transparent 55%),
-            linear-gradient(145deg, rgba(255,255,255,0.85) 0%, rgba(255,241,230,0.4) 50%, rgba(255,255,255,0.75) 100%);
-          border: 1px solid rgba(255, 255, 255, 0.4);
+          display: inline-flex;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
           border-radius: var(--radius-full);
           padding: 0.25rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 16px -6px rgba(45, 35, 30, 0.08);
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          align-self: flex-start;
         }
 
         .period-btn {
-          background: none;
+          background: transparent;
           border: none;
-          padding: 0.5rem 1.25rem;
+          padding: 0.5rem 1.125rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
           border-radius: var(--radius-full);
           cursor: pointer;
           color: var(--color-text-secondary);
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .period-btn:hover {
@@ -417,15 +456,15 @@ export const Financeiro: React.FC = () => {
 
         .period-btn--active {
           background-color: var(--color-brand-primary);
-          color: white !important;
+          color: #ffffff !important;
           box-shadow: var(--shadow-sm);
         }
 
-        /* ═══ BENTO METRICS GRID ═══ */
+        /* Bento Metrics */
         .bento-metrics {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 2rem;
+          gap: 1.5rem;
           align-items: stretch;
         }
 
@@ -435,13 +474,12 @@ export const Financeiro: React.FC = () => {
           }
         }
 
-        /* ═══ BENTO DETAILS GRID ═══ */
+        /* Bento Details */
         .bento-details {
           display: grid;
-          grid-template-columns: 1fr 1.8fr;
-          gap: 2rem;
+          grid-template-columns: 1fr 1.75fr;
+          gap: 1.5rem;
           align-items: start;
-          grid-auto-flow: dense;
         }
 
         @media (max-width: 1024px) {
@@ -450,14 +488,13 @@ export const Financeiro: React.FC = () => {
           }
         }
 
-        /* ═══ CARD SYSTEM — clean with hover lift ═══ */
+        /* Cards */
         .bento-card {
-          opacity: 0; /* revealed by GSAP */
-          transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .bento-card:hover {
-          transform: translateY(-4px);
+          transform: translateY(-2px);
         }
 
         .bento-card__shell {
@@ -466,25 +503,14 @@ export const Financeiro: React.FC = () => {
 
         .bento-card__core {
           background-color: var(--color-bg-secondary);
-          border-radius: 1.25rem;
-          padding: 1.75rem;
-          border: 1px solid rgba(255, 255, 255, 0.7);
-          box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 8px 24px -8px rgba(45, 35, 30, 0.06);
+          border-radius: var(--radius-lg);
+          padding: 1.5rem;
+          border: 1px solid var(--color-border);
+          box-shadow: var(--shadow-sm);
           height: 100%;
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
-          transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .bento-card:hover .bento-card__core {
-          border-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 1px 3px rgba(45, 35, 30, 0.04), 0 12px 32px -10px rgba(45, 35, 30, 0.1);
-        }
-
-        /* Card highlight (líquido) — mesmo style dos demais */
-        .bento-card--accent .bento-card__core {
-          border-color: rgba(217, 108, 0, 0.15);
         }
 
         .bento-card__header {
@@ -497,9 +523,9 @@ export const Financeiro: React.FC = () => {
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
-          font-size: 0.65rem;
+          font-size: 0.6875rem;
           text-transform: uppercase;
-          letter-spacing: 0.15em;
+          letter-spacing: 0.08em;
           font-weight: 700;
           color: var(--color-text-secondary);
         }
@@ -517,9 +543,9 @@ export const Financeiro: React.FC = () => {
           justify-content: center;
           width: 32px;
           height: 32px;
-          border-radius: 10px;
-          background-color: rgba(45, 35, 30, 0.04);
-          border: 1px solid rgba(45, 35, 30, 0.06);
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
           flex-shrink: 0;
         }
 
@@ -539,43 +565,26 @@ export const Financeiro: React.FC = () => {
         }
 
         .bento-card__section-title {
-          font-size: var(--font-size-lg);
+          font-size: var(--font-size-md);
           font-weight: 800;
           color: var(--color-text-primary);
-          margin: 0 0 1.25rem;
+          margin: 0 0 1rem 0;
           padding-bottom: 0.75rem;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.7);
+          border-bottom: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
         }
 
         .bento-card__section-title .bento-card__eyebrow {
-          font-size: 0.6rem;
+          font-size: 0.625rem;
         }
 
-        /* ═══ TEXT COLORS ═══ */
-        .text-brand { color: var(--color-brand-primary); }
-        .text-success { color: var(--color-success); }
-        .text-warning { color: var(--color-warning); }
-
-        /* ═══ EMPTY STATE ═══ */
-        .empty-sub-state {
-          padding: 3rem 1.5rem;
-          text-align: center;
-          color: var(--color-text-secondary);
-          font-style: italic;
-          font-size: var(--font-size-sm);
-          border: 1.5px dashed rgba(234, 222, 214, 0.8);
-          border-radius: var(--radius-lg);
-          background-color: rgba(255, 255, 255, 0.25);
-        }
-
-        /* ═══ METHODS LIST ═══ */
+        /* Methods List */
         .methods-list {
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 1.125rem;
         }
 
         .method-item {
@@ -610,15 +619,15 @@ export const Financeiro: React.FC = () => {
         .method-perc {
           font-size: 0.75rem;
           color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.1);
-          padding: 0.15rem 0.45rem;
-          border-radius: 4px;
+          background-color: var(--color-brand-soft);
+          padding: 0.125rem 0.4rem;
+          border-radius: var(--radius-sm);
           font-weight: 700;
         }
 
         .progress-bar-bg {
-          height: 8px;
-          background-color: rgba(234, 222, 214, 0.6);
+          height: 7px;
+          background-color: var(--color-border);
           border-radius: var(--radius-full);
           overflow: hidden;
           width: 100%;
@@ -626,12 +635,14 @@ export const Financeiro: React.FC = () => {
 
         .progress-bar-fill {
           height: 100%;
-          background: linear-gradient(90deg, var(--color-brand-primary) 0%, #ff8b3d 100%);
+          width: 100%;
+          background: linear-gradient(90deg, var(--color-brand-primary) 0%, #d97706 100%);
           border-radius: var(--radius-full);
-          transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+          transform-origin: left;
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* ═══ TABLE ═══ */
+        /* Table */
         .table-responsive {
           width: 100%;
           overflow-x: auto;
@@ -647,16 +658,16 @@ export const Financeiro: React.FC = () => {
         .financial-table th {
           font-weight: 800;
           text-transform: uppercase;
-          font-size: 0.7rem;
+          font-size: 0.6875rem;
           letter-spacing: 0.05em;
           color: var(--color-text-secondary);
           padding: 0.75rem 1rem;
-          border-bottom: 2px solid rgba(234, 222, 214, 0.8);
+          border-bottom: 2px solid var(--color-border);
         }
 
         .financial-table td {
-          padding: 1rem;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.5);
+          padding: 0.875rem 1rem;
+          border-bottom: 1px solid var(--color-border);
           color: var(--color-text-primary);
           vertical-align: middle;
         }
@@ -672,8 +683,8 @@ export const Financeiro: React.FC = () => {
         }
 
         .prof-avatar-sm {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           border-radius: var(--radius-full);
           background-color: var(--color-brand-soft);
           color: var(--color-brand-deep);
@@ -681,32 +692,63 @@ export const Financeiro: React.FC = () => {
           align-items: center;
           justify-content: center;
           font-weight: 800;
-          font-size: 0.875rem;
-          border: 1.5px solid rgba(255, 255, 255, 0.6);
-          box-shadow: var(--shadow-sm);
+          font-size: 0.8125rem;
+          border: 1px solid var(--color-border);
         }
 
         .prof-name {
           font-weight: 700;
         }
 
-        /* ═══ SKELETON ═══ */
+        /* Empty State */
+        .empty-sub-state {
+          padding: 2.5rem 1.5rem;
+          text-align: center;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+          border: 1.5px dashed var(--color-border);
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+        }
+
+        /* Skeletons */
         .skeleton-container-sub {
           display: flex;
           flex-direction: column;
+          gap: 1.5rem;
           width: 100%;
         }
 
-        .skeleton {
-          background: linear-gradient(
-            90deg,
-            var(--color-bg-secondary) 25%,
-            var(--color-border) 37%,
-            var(--color-bg-secondary) 63%
-          );
-          background-size: 400% 100%;
-          animation: skeleton-loading 1.4s ease infinite;
-          border-radius: var(--radius-md);
+        .skeleton-grid-top {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+          .skeleton-grid-top {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .skeleton-grid-bottom {
+          display: grid;
+          grid-template-columns: 1fr 1.75fr;
+          gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+          .skeleton-grid-bottom {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .skeleton--card {
+          height: 120px;
+        }
+
+        .skeleton--panel {
+          height: 260px;
         }
       `}</style>
     </div>
