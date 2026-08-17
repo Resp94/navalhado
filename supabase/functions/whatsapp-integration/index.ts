@@ -1278,31 +1278,41 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         link,
       };
 
-      let messageText = "";
+      const TEMPLATE_RESOLVERS: Record<string, { custom: string | null | undefined; fallback: string; vars?: WhatsappTemplateVariables }> = {
+        appointment_created: {
+          custom: config.template_confirmation,
+          fallback: DEFAULT_TEMPLATES.appointment_created,
+        },
+        appointment_rescheduled: {
+          custom: config.template_reschedule,
+          fallback: DEFAULT_TEMPLATES.appointment_rescheduled,
+        },
+        appointment_updated: {
+          custom: config.template_reschedule,
+          fallback: DEFAULT_TEMPLATES.appointment_rescheduled,
+        },
+        appointment_cancelled: {
+          custom: config.template_cancellation,
+          fallback: DEFAULT_TEMPLATES.appointment_cancelled,
+          vars: {
+            ...variables,
+            link: `${appUrl}/cliente/${customer.token_acesso}/agendar`,
+          },
+        },
+      };
 
-      if (event === "appointment_created") {
-        messageText = formatMessageTemplate(
-          config.template_confirmation,
-          DEFAULT_TEMPLATES.appointment_created,
-          variables
-        );
-      } else if (event === "appointment_rescheduled" || event === "appointment_updated") {
-        messageText = formatMessageTemplate(
-          config.template_reschedule,
-          DEFAULT_TEMPLATES.appointment_rescheduled,
-          variables
-        );
-      } else if (event === "appointment_cancelled") {
-        const cancelVariables = {
-          ...variables,
-          link: `${appUrl}/cliente/${customer.token_acesso}/agendar`,
-        };
-        messageText = formatMessageTemplate(
-          config.template_cancellation,
-          DEFAULT_TEMPLATES.appointment_cancelled,
-          cancelVariables
-        );
+      const resolver = TEMPLATE_RESOLVERS[event];
+      if (!resolver) {
+        return new Response(JSON.stringify({ status: "skipped", reason: `Unsupported event: ${event}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
+
+      const messageText = formatMessageTemplate(
+        resolver.custom,
+        resolver.fallback,
+        resolver.vars || variables
+      );
 
       const reservation = await reserveOutboundMessage({
         tenantId: tenant_id,

@@ -1161,7 +1161,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .card-whatsapp__eyebrow {
-          font-size: 0.65rem;
+          font-size: var(--font-size-xs);
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.15em;
@@ -1186,7 +1186,7 @@ export const Whatsapp: React.FC = () => {
 
         /* ═══ STATUS PILL ═══ */
         .card-whatsapp__pill {
-          font-size: 0.65rem;
+          font-size: var(--font-size-xs);
           font-weight: 800;
           padding: 0.25rem 0.7rem;
           border-radius: var(--radius-full);
@@ -1217,9 +1217,9 @@ export const Whatsapp: React.FC = () => {
         }
 
         .card-whatsapp__pill--hibernated {
-          background: rgba(226, 232, 240, 0.7);
+          background: rgba(112, 98, 91, 0.08);
           color: var(--color-text-secondary);
-          border: 1px solid rgba(100, 116, 139, 0.25);
+          border: 1px solid rgba(112, 98, 91, 0.2);
         }
 
         /* ═══ INFO ROWS ═══ */
@@ -1241,13 +1241,13 @@ export const Whatsapp: React.FC = () => {
         }
 
         .info-row__label {
-          font-size: 0.75rem;
+          font-size: var(--font-size-xs);
           font-weight: 600;
           color: var(--color-text-secondary);
         }
 
         .info-row__value {
-          font-size: 0.8rem;
+          font-size: var(--font-size-sm);
           font-weight: 700;
           color: var(--color-text-primary);
         }
@@ -1258,7 +1258,7 @@ export const Whatsapp: React.FC = () => {
           border-radius: var(--radius-sm);
           border: 1px solid rgba(234, 222, 214, 0.5);
           color: var(--color-brand-primary);
-          font-size: 0.75rem;
+          font-size: var(--font-size-xs);
         }
 
         .info-row__value--green {
@@ -1273,7 +1273,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .helper-text {
-          font-size: 0.75rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           margin: 0;
           font-weight: 500;
@@ -1296,7 +1296,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .qr-desc {
-          font-size: 0.7rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           line-height: 1.4;
           font-weight: 500;
@@ -1416,7 +1416,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .rule-row__desc {
-          font-size: 0.7rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           line-height: 1.3;
           font-weight: 500;
@@ -1470,7 +1470,7 @@ export const Whatsapp: React.FC = () => {
 
         .reminder-settings__summary {
           color: var(--color-brand-primary);
-          font-size: 0.8rem;
+          font-size: var(--font-size-xs);
           font-weight: 600;
           letter-spacing: 0.01em;
         }
@@ -1626,7 +1626,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .tags-label {
-          font-size: 0.7rem;
+          font-size: var(--font-size-xs);
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -1648,7 +1648,7 @@ export const Whatsapp: React.FC = () => {
           border: 1px solid rgba(234, 222, 214, 0.8);
           background: #FFFFFF;
           color: var(--color-text-primary);
-          font-size: 0.75rem;
+          font-size: var(--font-size-xs);
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -1710,7 +1710,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .char-count {
-          font-size: 0.7rem;
+          font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           font-weight: 500;
         }
@@ -1745,7 +1745,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .alert-content p {
-          font-size: 0.72rem;
+          font-size: var(--font-size-xs);
           line-height: 1.35;
           margin: 0;
         }
@@ -1808,13 +1808,13 @@ export const Whatsapp: React.FC = () => {
         }
 
         .phone-name {
-          font-size: 0.85rem;
+          font-size: var(--font-size-sm);
           font-weight: 700;
           color: #FFFFFF;
         }
 
         .phone-status {
-          font-size: 0.65rem;
+          font-size: var(--font-size-xs);
           color: rgba(255, 255, 255, 0.75);
         }
 
@@ -1833,7 +1833,7 @@ export const Whatsapp: React.FC = () => {
           align-self: center;
           background: rgba(255, 255, 255, 0.75);
           color: #555;
-          font-size: 0.65rem;
+          font-size: var(--font-size-xs);
           font-weight: 700;
           padding: 0.2rem 0.6rem;
           border-radius: var(--radius-full);
@@ -1852,7 +1852,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .whatsapp-balloon__text {
-          font-size: 0.8rem;
+          font-size: var(--font-size-sm);
           color: #111B21;
           line-height: 1.45;
           word-break: break-word;
@@ -1871,7 +1871,7 @@ export const Whatsapp: React.FC = () => {
         }
 
         .whatsapp-time {
-          font-size: 0.6rem;
+          font-size: var(--font-size-xs);
           color: #667781;
         }
 
