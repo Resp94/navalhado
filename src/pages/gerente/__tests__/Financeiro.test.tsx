@@ -18,15 +18,17 @@ vi.mock('@gsap/react', () => ({
   },
 }));
 
-const { mockAddToast, mockRpc } = vi.hoisted(() => {
+const { mockAddToast, mockRpc, mockFrom } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockRpc = vi.fn();
-  return { mockAddToast, mockRpc };
+  const mockFrom = vi.fn();
+  return { mockAddToast, mockRpc, mockFrom };
 });
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
     rpc: mockRpc,
+    from: mockFrom,
   },
 }));
 
@@ -43,34 +45,47 @@ vi.mock('react-router-dom', () => ({
   }),
 }));
 
-describe('Página Financeiro (Gerente)', () => {
+describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default mock para consultas de tabela
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    });
   });
 
-  it('deve exibir métricas financeiras consolidadas ao carregar com sucesso', async () => {
+  it('deve exibir os 5 cards de KPIs consolidados ao carregar com sucesso', async () => {
     mockRpc.mockResolvedValueOnce({
       data: {
-        total_revenue: 1500.5,
-        total_commission: 600.2,
-        net_revenue: 900.3,
+        total_revenue: 2500.0,
+        services_revenue: 2000.0,
+        products_revenue: 500.0,
+        products_count: 10,
+        products_cost: 200.0,
+        total_commission: 800.0,
+        paid_commission: 350.0,
+        pending_commission: 450.0,
+        net_revenue: 1500.0,
         revenue_by_method: {
-          pix: 1000.5,
-          credit_card: 300,
-          cash: 200,
+          pix: 1500.0,
+          credit_card: 700.0,
+          cash: 300.0,
         },
         commissions_by_professional: [
           {
             professional_id: 'prof-1',
             professional_name: 'Carlos Barbeiro',
-            commission_sum: 400,
-            appointments_count: 8,
-          },
-          {
-            professional_id: 'prof-2',
-            professional_name: 'Ana Navalha',
-            commission_sum: 200.2,
-            appointments_count: 4,
+            commission_sum: 500.0,
+            paid_sum: 200.0,
+            pending_sum: 300.0,
+            appointments_count: 12,
           },
         ],
       },
@@ -80,32 +95,87 @@ describe('Página Financeiro (Gerente)', () => {
     render(<Financeiro />);
 
     await waitFor(() => {
-      expect(screen.getByText('Relatório financeiro')).toBeInTheDocument();
+      expect(screen.getByText('Hub financeiro')).toBeInTheDocument();
     });
 
-    // Faturamento bruto
-    expect(screen.getByText(/1\.500,50/)).toBeInTheDocument();
-    // Comissões
-    expect(screen.getByText(/600,20/)).toBeInTheDocument();
-    // Líquido
-    expect(screen.getByText(/900,30/)).toBeInTheDocument();
+    // 1. Faturamento bruto
+    expect(screen.getByText('Faturamento bruto')).toBeInTheDocument();
+    expect(screen.getByText(/2\.500,00/)).toBeInTheDocument();
 
-    // Métodos de pagamento mapeados
-    expect(screen.getByText('PIX')).toBeInTheDocument();
-    expect(screen.getByText('Cartão de crédito')).toBeInTheDocument();
-    expect(screen.getByText('Dinheiro em espécie')).toBeInTheDocument();
+    // 2. Serviços prestados
+    expect(screen.getByText('Serviços prestados')).toBeInTheDocument();
+    expect(screen.getByText(/2\.000,00/)).toBeInTheDocument();
 
-    // Profissionais
+    // 3. Venda de produtos
+    expect(screen.getByText('Venda de produtos')).toBeInTheDocument();
+    expect(screen.getAllByText(/500,00/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/10 itens/)).toBeInTheDocument();
+
+    // 4. Comissões da equipe
+    expect(screen.getByText('Comissões da equipe')).toBeInTheDocument();
+    expect(screen.getByText(/800,00/)).toBeInTheDocument();
+    expect(screen.getByText(/Pendente: R\$\s*450,00/)).toBeInTheDocument();
+
+    // 5. Lucro líquido livre
+    expect(screen.getByText('Lucro líquido livre')).toBeInTheDocument();
+    expect(screen.getAllByText(/1\.500,00/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('deve alternar entre as abas Caixa diário e Repasses de comissões', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        total_revenue: 1000.0,
+        services_revenue: 800.0,
+        products_revenue: 200.0,
+        products_count: 4,
+        products_cost: 80.0,
+        total_commission: 300.0,
+        paid_commission: 100.0,
+        pending_commission: 200.0,
+        net_revenue: 620.0,
+        revenue_by_method: { pix: 1000.0 },
+        commissions_by_professional: [
+          {
+            professional_id: 'prof-1',
+            professional_name: 'Carlos Barbeiro',
+            commission_sum: 300.0,
+            paid_sum: 100.0,
+            pending_sum: 200.0,
+            appointments_count: 5,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    render(<Financeiro />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Caixa diário & Turnos')).toBeInTheDocument();
+    });
+
+    // Clicar na aba Repasses de comissões
+    const comissoesTab = screen.getByRole('button', { name: /Repasses de comissões/i });
+    fireEvent.click(comissoesTab);
+
+    // Deve exibir tabela de comissões
+    expect(screen.getByText('Saldos de comissão por profissional')).toBeInTheDocument();
     expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
-    expect(screen.getByText('Ana Navalha')).toBeInTheDocument();
+    expect(screen.getByText('Pagar comissão')).toBeInTheDocument();
   });
 
   it('deve permitir trocar o período de consulta (30 dias, 90 dias)', async () => {
     mockRpc.mockResolvedValue({
       data: {
         total_revenue: 3000,
+        services_revenue: 2500,
+        products_revenue: 500,
+        products_count: 5,
+        products_cost: 200,
         total_commission: 1200,
-        net_revenue: 1800,
+        paid_commission: 400,
+        pending_commission: 800,
+        net_revenue: 1600,
         revenue_by_method: { pix: 3000 },
         commissions_by_professional: [],
       },
@@ -136,7 +206,7 @@ describe('Página Financeiro (Gerente)', () => {
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(
-        'Não foi possível carregar o relatório financeiro.',
+        'Não foi possível carregar os dados do painel financeiro.',
         'error'
       );
     });

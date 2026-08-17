@@ -7,6 +7,7 @@ describe('CaixaRepository', () => {
     obterSessaoAtiva: vi.fn(),
     abrirCaixa: vi.fn(),
     fecharCaixa: vi.fn(),
+    listarHistorico: vi.fn(),
   };
 
   const repository = new CaixaRepository(mockAdapter);
@@ -65,4 +66,36 @@ describe('CaixaRepository', () => {
       })
     ).rejects.toThrow(CaixaValidationError);
   });
+
+  it('lista histórico de caixas com sucesso', async () => {
+    const mockHistory = [
+      {
+        id: 'sess-2',
+        tenant_id: 't-1',
+        opened_by: 'user-1',
+        closed_by: 'user-1',
+        opened_at: '2026-08-17T08:00:00Z',
+        closed_at: '2026-08-17T18:00:00Z',
+        initial_amount: 50.0,
+        closing_amount: 350.0,
+        status: 'closed' as const,
+        notes: 'Fechamento sem divergência',
+      },
+    ];
+
+    vi.mocked(mockAdapter.listarHistorico).mockResolvedValueOnce(mockHistory);
+    const history = await repository.listHistory('t-1');
+    expect(history).toEqual(mockHistory);
+    expect(mockAdapter.listarHistorico).toHaveBeenCalledWith('t-1', 20);
+  });
+
+  it('lança erro ao fechar caixa sem ID de sessão', async () => {
+    await expect(
+      repository.closeSession({
+        session_id: '',
+        closing_amount: 100,
+      })
+    ).rejects.toThrow(CaixaValidationError);
+  });
 });
+

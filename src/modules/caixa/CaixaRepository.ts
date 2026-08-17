@@ -52,4 +52,34 @@ export class CaixaRepository {
 
     return await this.adapter.fecharCaixa(input);
   }
+
+  async listHistory(tenantId: string, limit = 20): Promise<CashSession[]> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+
+    return await this.adapter.listarHistorico(tenantId, limit);
+  }
+
+  // Aliases para compatibilidade total (pt-BR e en)
+  async obterSessaoAtiva(tenantId: string): Promise<CashSession | null> {
+    return await this.getActiveSession(tenantId);
+  }
+
+  async abrirCaixa(input: AbrirCaixaInput): Promise<CashSession> {
+    return await this.openSession(input);
+  }
+
+  async fecharCaixa(input: FecharCaixaInput): Promise<CashSession> {
+    return await this.closeSession(input);
+  }
+
+  async listarHistorico(tenantId: string, limit = 20): Promise<CashSession[]> {
+    return await this.listHistory(tenantId, limit);
+  }
+
+  async isCaixaAberto(tenantId: string): Promise<boolean> {
+    return await this.isCashierOpen(tenantId);
+  }
 }
+

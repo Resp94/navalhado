@@ -8,7 +8,8 @@ None — can start immediately.
 
 **Status:** ready-for-agent
 
-- [ ] Adicionar método `listarHistorico(tenantId: string, limit?: number)` em `ICaixaAdapter`, `SupabaseCaixaAdapter` e `CaixaRepository` ordenado por `opened_at DESC`.
-- [ ] Criar componente acessível `FechamentoCaixaModal.tsx` com máscara monetária em BRL, exibição do fundo de troco inicial e cálculo de diferença entre o valor apurado e o valor contado na gaveta.
-- [ ] Integrar chamada de `closeSession` via `CaixaRepository` persistindo `closing_amount`, `closed_by` e `notes`.
-- [ ] Adicionar testes unitários em `CaixaRepository.test.ts` validando a nova funcionalidade de histórico e fechamento com conferência.
+- [x] Adicionar método `listarHistorico(tenantId: string, limit?: number)` em `ICaixaAdapter`, `SupabaseCaixaAdapter` e `CaixaRepository` ordenado por `opened_at DESC`.
+- [x] Criar componente acessível `FechamentoCaixaModal.tsx` com máscara monetária em BRL, exibição do fundo de troco inicial e cálculo de diferença entre o valor apurado e o valor contado na gaveta.
+- [x] Integrar chamada de `closeSession` via `CaixaRepository` persistindo `closing_amount`, `closed_by` e `notes`.
+- [x] Adicionar testes unitários em `CaixaRepository.test.ts` validando a nova funcionalidade de histórico e fechamento com conferência.
+

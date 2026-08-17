@@ -9,8 +9,9 @@ Superfície operacional da Aba 1 no Hub Financeiro (`/financeiro`), exibindo o m
 
 **Status:** ready-for-agent
 
-- [ ] Implementar seletor de abas (`Caixa diário & Turnos` e `Repasses de comissões`) com controle de estado e acessibilidade via teclado.
-- [ ] Construir card/banner de monitoramento de sessão ativa consumindo `CaixaRepository.getActiveSession`.
-- [ ] Integrar fluxo de abertura assistida de caixa (`AberturaAssistidaCaixaModal.tsx`) atualizando o estado visual instantaneamente após abertura.
-- [ ] Integrar fluxo de fechamento de caixa (`FechamentoCaixaModal.tsx`) com recarregamento suave de métricas e histórico.
-- [ ] Renderizar tabela com lista de sessões anteriores consumindo `CaixaRepository.listarHistorico` (data/hora, operador, troco inicial, valor fechado, diferença e status).
+- [x] Implementar seletor de abas (`Caixa diário & Turnos` e `Repasses de comissões`) com controle de estado e acessibilidade via teclado.
+- [x] Construir card/banner de monitoramento de sessão ativa consumindo `CaixaRepository.getActiveSession`.
+- [x] Integrar fluxo de abertura assistida de caixa (`AberturaAssistidaCaixaModal.tsx`) atualizando o estado visual instantaneamente após abertura.
+- [x] Integrar fluxo de fechamento de caixa (`FechamentoCaixaModal.tsx`) com recarregamento suave de métricas e histórico.
+- [x] Renderizar tabela com lista de sessões anteriores consumindo `CaixaRepository.listarHistorico` (data/hora, operador, troco inicial, valor fechado, diferença e status).
+

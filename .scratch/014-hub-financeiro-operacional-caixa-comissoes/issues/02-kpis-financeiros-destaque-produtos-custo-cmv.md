@@ -8,7 +8,8 @@ None — can start immediately.
 
 **Status:** ready-for-agent
 
-- [ ] Integrar consumo da RPC `get_tenant_financial_metrics` com os novos campos de retorno (`services_revenue`, `products_revenue`, `products_count`, `products_cost`, `total_commission`, `paid_commission`, `pending_commission`, `net_revenue`).
-- [ ] Construir os 5 cards de KPIs superiores utilizando tokens de cor semântica e tipografia de alto contraste com suporte a tela responsiva.
-- [ ] Implementar seletor dinâmico de período com recálculo instantâneo sem recarregamento de página.
-- [ ] Exibir tooltip explicativo no card de Lucro Líquido detalhando a fórmula de dedução operacional: `Lucro Líquido = Faturamento - Comissões - Custo CMV`.
+- [x] Integrar consumo da RPC `get_tenant_financial_metrics` com os novos campos de retorno (`services_revenue`, `products_revenue`, `products_count`, `products_cost`, `total_commission`, `paid_commission`, `pending_commission`, `net_revenue`).
+- [x] Construir os 5 cards de KPIs superiores utilizando tokens de cor semântica e tipografia de alto contraste com suporte a tela responsiva.
+- [x] Implementar seletor dinâmico de período com recálculo instantâneo sem recarregamento de página.
+- [x] Exibir tooltip explicativo no card de Lucro Líquido detalhando a fórmula de dedução operacional: `Lucro Líquido = Faturamento - Comissões - Custo CMV`.
+

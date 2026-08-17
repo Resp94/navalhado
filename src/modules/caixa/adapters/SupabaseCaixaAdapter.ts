@@ -57,4 +57,20 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
 
     return data as CashSession;
   }
+
+  async listarHistorico(tenantId: string, limit = 20): Promise<CashSession[]> {
+    const { data, error } = await supabase
+      .from('cash_sessions')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('opened_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Erro ao listar histórico de caixas: ${error.message}`);
+    }
+
+    return (data || []) as CashSession[];
+  }
 }
+
