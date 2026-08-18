@@ -575,7 +575,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 0.75rem;
+  min-height: 36px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(234, 222, 214, 0.8);
   background: var(--color-bg-secondary);
@@ -583,6 +584,7 @@
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
 }
 
 .tag-chip-btn code {
@@ -815,7 +817,7 @@
 
 /* Rodapé do Simulador */
 .phone-preview-footer {
-  background: #FFFFFF;
+  background: var(--color-bg-secondary);
   padding: 0.85rem 1rem;
   border-top: 1px solid rgba(234, 222, 214, 0.6);
   display: flex;
@@ -843,9 +845,11 @@
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: 700;
-  padding: 0.15rem 0.5rem;
+  padding: 0.3rem 0.65rem;
+  min-height: 32px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
 }
 
 .btn-use-my-phone:hover {
@@ -960,4 +964,25 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ═══ ACCESSIBILITY: REDUCED MOTION ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .card-whatsapp,
+  .rule-row,
+  .slider,
+  .slider::before,
+  .template-tab-btn,
+  .tag-chip-btn,
+  .template-textarea,
+  .btn,
+  .btn-use-my-phone,
+  .btn--test-send {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .spinner {
+    animation: none !important;
+  }
 }

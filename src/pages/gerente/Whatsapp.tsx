@@ -1000,9 +1000,14 @@ export const Whatsapp: React.FC = () => {
                   </div>
 
                   {/* Área de Conversa do WhatsApp */}
-                  <div className="phone-chat-canvas">
+                  <div className="phone-chat-canvas" role="region" aria-label="Simulador de tela do WhatsApp">
                     <div className="chat-date-pill">Hoje</div>
-                    <div className="whatsapp-balloon">
+                    <div
+                      className="whatsapp-balloon"
+                      aria-live="polite"
+                      aria-atomic="true"
+                      aria-label="Prévia da mensagem formatada no WhatsApp"
+                    >
                       <div
                         className="whatsapp-balloon__text"
                         dangerouslySetInnerHTML={formatWhatsAppFormattedHtml(renderedPreviewText)}
@@ -1011,7 +1016,7 @@ export const Whatsapp: React.FC = () => {
                         <span className="whatsapp-time">
                           {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <span className="whatsapp-checks">
+                        <span className="whatsapp-checks" aria-hidden="true">
                           <HugeiconsIcon icon={Tick02Icon} size={12} />
                           <HugeiconsIcon icon={Tick02Icon} size={12} />
                         </span>
