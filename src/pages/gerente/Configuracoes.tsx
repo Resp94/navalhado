@@ -152,10 +152,15 @@ export const Configuracoes: React.FC = () => {
 
   useGSAP(() => {
     if (!loading) {
-      gsap.fromTo('.card-config', 
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.45, stagger: 0.1, ease: 'power2.out' }
-      );
+      const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      if (prefersReducedMotion) {
+        gsap.set('.card-config', { opacity: 1, y: 0 });
+      } else {
+        gsap.fromTo('.card-config', 
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.45, stagger: 0.1, ease: 'power2.out' }
+        );
+      }
     }
   }, [loading]);
 
@@ -475,7 +480,7 @@ export const Configuracoes: React.FC = () => {
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 120px', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
             {/* CEP */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="cep" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
@@ -505,7 +510,7 @@ export const Configuracoes: React.FC = () => {
             </div>
 
             {/* Logradouro / Rua */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: 'span 2' }}>
               <label htmlFor="address_street" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                 Rua ou avenida
               </label>
@@ -551,7 +556,7 @@ export const Configuracoes: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
             {/* Bairro */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="address_neighborhood" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
