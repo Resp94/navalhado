@@ -34,6 +34,7 @@ export interface AgendamentoCanal {
   cancellation_reason: string | null;
   professional_name: string;
   professional_id: string;
+  professional_phone?: string;
   service_name: string;
   service_id: string;
   service_price: number;

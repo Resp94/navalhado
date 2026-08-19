@@ -248,4 +248,61 @@ describe('Configuracoes Page - TDD', () => {
       expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
     });
   });
+
+  it('deve carregar as regras de agendamento e permitir alterar através dos chips rápidos', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+      address: 'Avenida Djalma Batista, 123',
+      timezone: 'America/Manaus',
+      slot_interval_minutes: 30,
+      min_booking_lead_time_minutes: 15,
+      min_cancellation_lead_time_minutes: 120,
+    };
+
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+    mockEqUpdate.mockResolvedValue({ error: null });
+
+    render(<Configuracoes />);
+
+    // Verificar se o cabeçalho das regras está presente
+    await screen.findByText('Regras de Agendamento Online');
+
+    // Verificar se os inputs numéricos estão com os valores iniciais do mock
+    const slotInput = screen.getByLabelText(/Intervalo entre Horários na Grade/i) as HTMLInputElement;
+    const bookingLeadInput = screen.getByLabelText(/Antecedência Mínima para Agendar/i) as HTMLInputElement;
+    const cancelLeadInput = screen.getByLabelText(/Antecedência Mínima para Cancelar/i) as HTMLInputElement;
+
+    expect(slotInput.value).toBe('30');
+    expect(bookingLeadInput.value).toBe('15');
+    expect(cancelLeadInput.value).toBe('120');
+
+    // Clicar nos chips para alterar os valores
+    const chip20min = screen.getByRole('button', { name: '20 min' });
+    fireEvent.click(chip20min);
+    expect(slotInput.value).toBe('20');
+
+    const chipSemLead = screen.getByRole('button', { name: 'Sem antecedência' });
+    fireEvent.click(chipSemLead);
+    expect(bookingLeadInput.value).toBe('0');
+
+    const chip4hCancel = screen.getByRole('button', { name: '4 horas' });
+    fireEvent.click(chip4hCancel);
+    expect(cancelLeadInput.value).toBe('240');
+
+    // Salvar alterações
+    const saveButton = screen.getByRole('button', { name: /Salvar Alterações/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        slot_interval_minutes: 20,
+        min_booking_lead_time_minutes: 0,
+        min_cancellation_lead_time_minutes: 240,
+      }));
+      expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
+    });
+  });
 });

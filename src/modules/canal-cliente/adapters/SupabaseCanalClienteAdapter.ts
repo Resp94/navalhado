@@ -152,7 +152,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       p_slot: input.startTime.includes('T') ? input.startTime.split('T')[1].substring(0, 5) : input.startTime,
     });
 
-    if (res.error) {
+    if (res.error && (res.error.code === 'PGRST202' || res.error.message?.includes('function'))) {
       res = await supabase.rpc('create_appointment_by_customer_token', {
         p_token: token,
         p_service_id: input.serviceId,
@@ -188,7 +188,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       p_new_slot: input.newSlot || null,
     });
 
-    if (res.error) {
+    if (res.error && (res.error.code === 'PGRST202' || res.error.message?.includes('function'))) {
       res = await supabase.rpc('reschedule_appointment_by_customer_token', {
         p_token: token,
         p_appointment_id: input.appointmentId,
@@ -218,7 +218,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       p_reason: motivo || 'Cancelado pelo cliente',
     });
 
-    if (res.error) {
+    if (res.error && (res.error.code === 'PGRST202' || res.error.message?.includes('function'))) {
       res = await supabase.rpc('cancel_appointment_by_customer_token', {
         p_token: token,
         p_appointment_id: appointmentId,
@@ -227,7 +227,12 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     }
 
     if (res.error) {
-      if (res.error.message.includes('prazo') || res.error.message.includes('regras')) {
+      if (
+        res.error.message.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') ||
+        res.error.message.includes('prazo') ||
+        res.error.message.includes('regras') ||
+        res.error.message.includes('expirou')
+      ) {
         throw new AgendamentoRegraCancelamentoError(res.error.message);
       }
       if (res.error.message.includes('token') || res.error.code === 'P0001') {

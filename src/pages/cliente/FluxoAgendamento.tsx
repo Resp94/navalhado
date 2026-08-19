@@ -15,6 +15,7 @@ import {
   ArrowRight01Icon,
   ArrowLeft01Icon,
   SparklesIcon,
+  InformationCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 interface Service {
@@ -948,6 +949,25 @@ export const FluxoAgendamento: React.FC = () => {
                 {formatFriendlyDate(selectedDate)} às {selectedSlot}
               </strong>
             </div>
+          </div>
+
+          {/* Card de Política da Barbearia */}
+          <div style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '12px',
+            padding: '0.85rem 1rem',
+            fontSize: '12px',
+            color: 'var(--color-text-secondary)',
+            display: 'flex',
+            gap: '8px',
+            alignItems: 'flex-start',
+            lineHeight: 1.4
+          }}>
+            <HugeiconsIcon icon={InformationCircleIcon} size={16} color="var(--color-brand-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>
+              <strong>Política da Barbearia:</strong> Cancelamentos ou alterações online podem ser feitos com antecedência pelo seu link. Caso surja um imprevisto em cima da hora, você poderá falar diretamente com seu barbeiro pelo WhatsApp.
+            </span>
           </div>
 
           {isRescheduling && (

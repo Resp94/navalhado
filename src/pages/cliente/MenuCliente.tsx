@@ -12,7 +12,8 @@ import {
   CancelCircleIcon,
   AlertCircleIcon,
   ArrowRight01Icon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  WhatsappIcon,
 } from '@hugeicons/core-free-icons';
 
 
@@ -25,6 +26,7 @@ interface Appointment {
   cancellation_reason: string | null;
   professional_name: string;
   professional_id: string;
+  professional_phone?: string;
   service_name: string;
   service_id: string;
   service_price: number;
@@ -60,6 +62,10 @@ export const MenuCliente: React.FC = () => {
   const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [canceling, setCanceling] = useState(false);
+
+  // Estados de Prazo Expirado / Redirecionamento WhatsApp
+  const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
+  const [expiredAppointment, setExpiredAppointment] = useState<Appointment | null>(null);
 
   // Controle de Abas (Ativos vs Histórico/Cancelados)
   const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
@@ -124,7 +130,24 @@ export const MenuCliente: React.FC = () => {
       await fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao cancelar agendamento:', err);
-      addToast(err.message || 'Erro ao cancelar o agendamento.', 'error');
+      const isDeadlineError = 
+        err.name === 'AgendamentoRegraCancelamentoError' ||
+        err.message?.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') ||
+        err.message?.includes('prazo') ||
+        err.message?.includes('expirou');
+
+      if (isDeadlineError) {
+        setIsCancelModalOpen(false);
+        const app = appointments.find(a => a.appointment_id === activeAppointmentId);
+        if (app) {
+          setExpiredAppointment(app);
+          setIsDeadlineModalOpen(true);
+        } else {
+          addToast(err.message || 'Prazo para cancelamento online expirado.', 'warning');
+        }
+      } else {
+        addToast(err.message || 'Erro ao cancelar o agendamento.', 'error');
+      }
     } finally {
       setCanceling(false);
     }
@@ -622,6 +645,23 @@ export const MenuCliente: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Policy notice on active appointment */}
+                      {app.status !== 'canceled' && app.status !== 'completed' && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11px',
+                          color: 'var(--color-text-secondary)',
+                          backgroundColor: 'rgba(234, 222, 214, 0.25)',
+                          padding: '6px 12px',
+                          borderRadius: '8px'
+                        }}>
+                          <HugeiconsIcon icon={InformationCircleIcon} size={14} color="var(--color-brand-primary)" style={{ flexShrink: 0 }} />
+                          <span>Cancelamento online com antecedência. Em caso de imprevisto próximo ao horário, fale no WhatsApp do barbeiro.</span>
+                        </div>
+                      )}
+
                       {/* Actions */}
                       {app.status !== 'canceled' && app.status !== 'completed' && new Date(app.start_time) > new Date() && (
                         <div style={{
@@ -766,6 +806,95 @@ export const MenuCliente: React.FC = () => {
               <HugeiconsIcon icon={CancelCircleIcon} size={16} strokeWidth={2.5} />
               {canceling ? 'Processando...' : 'Confirmar cancelamento'}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Prazo de Cancelamento Expirado - Redirecionamento WhatsApp */}
+      <Modal
+        isOpen={isDeadlineModalOpen}
+        onClose={() => setIsDeadlineModalOpen(false)}
+        title="Prazo de Cancelamento Expirado"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            backgroundColor: 'var(--color-warning-bg)',
+            border: '1px solid rgba(217, 119, 6, 0.2)',
+            borderRadius: '12px',
+            padding: '1rem',
+            color: 'var(--color-warning)'
+          }}>
+            <HugeiconsIcon icon={AlertCircleIcon} size={24} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '13px', lineHeight: 1.4 }}>
+              O prazo para cancelamento automático pelo aplicativo expirou. Para não deixar a cadeira do profissional vazia, por favor, avise-o diretamente pelo WhatsApp!
+            </span>
+          </div>
+
+          {expiredAppointment && (
+            <div style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              fontSize: '13px'
+            }}>
+              <div><strong>Profissional:</strong> {expiredAppointment.professional_name}</div>
+              <div><strong>Serviço:</strong> {expiredAppointment.service_name}</div>
+              <div><strong>Horário:</strong> {formatDateTime(expiredAppointment.start_time).fullString}</div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button
+              onClick={() => setIsDeadlineModalOpen(false)}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                padding: '10px 20px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Fechar
+            </button>
+
+            {expiredAppointment && (
+              <a
+                href={`https://wa.me/${(() => {
+                  const raw = (expiredAppointment.professional_phone || expiredAppointment.tenant_phone || '').replace(/\D/g, '');
+                  return raw.startsWith('55') ? raw : `55${raw}`;
+                })()}?text=${encodeURIComponent(`Olá, ${expiredAppointment.professional_name}! Sou o(a) ${customerDetails?.customer_name || 'cliente'} e tive um imprevisto com o meu agendamento de ${formatDateTime(expiredAppointment.start_time).fullString}. Poderia me ajudar a remarcar/cancelar?`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  backgroundColor: '#25D366',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '10px 24px',
+                  borderRadius: '9999px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  textDecoration: 'none'
+                }}
+              >
+                <HugeiconsIcon icon={WhatsappIcon} size={18} strokeWidth={2} />
+                Falar com o Barbeiro no WhatsApp
+              </a>
+            )}
           </div>
         </div>
       </Modal>

@@ -89,6 +89,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       cancellation_reason: null,
       professional_id: targetProfId,
       professional_name: 'Barbeiro Teste',
+      professional_phone: '92999999999',
       service_id: input.serviceId,
       service_name: 'Corte Teste',
       service_price: 50,

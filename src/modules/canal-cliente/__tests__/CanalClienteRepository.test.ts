@@ -157,4 +157,16 @@ describe('CanalClienteRepository', () => {
       AgendamentoRegraCancelamentoError
     );
   });
+
+  it('deve incluir o telefone do profissional nos agendamentos para contato direto via WhatsApp', async () => {
+    repository.definirTokenAcesso(validToken);
+    await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2026-07-25T10:00:00-03:00',
+    });
+
+    const { ativos } = await repository.obterAgendamentosSeparados();
+    expect(ativos[0].professional_phone).toBe('92999999999');
+  });
 });

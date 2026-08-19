@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — Motor de Banco de Dados, RPCs de Agendamento Dinâmico e Aplicação via MCP
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Consumir slots da RPC `get_available_slots_by_token` respeitando o passo de intervalo dinâmico configurado.
-- [ ] Validar que horários inferiores ao `min_booking_lead_time_minutes` não aparecem na listagem do dia atual.
-- [ ] Adicionar card/badge de aviso de política de agendamento e cancelamento dentro do modal de confirmação em `src/pages/cliente/FluxoAgendamento.tsx`.
-- [ ] Exibir mensagem amigável caso a validação de antecedência falhe na confirmação.
+- [x] Consumir slots da RPC `get_available_slots_by_token` respeitando o passo de intervalo dinâmico configurado.
+- [x] Validar que horários inferiores ao `min_booking_lead_time_minutes` não aparecem na listagem do dia atual.
+- [x] Adicionar card/badge de aviso de política de agendamento e cancelamento dentro do modal de confirmação em `src/pages/cliente/FluxoAgendamento.tsx`.
+- [x] Exibir mensagem amigável caso a validação de antecedência falhe na confirmação.

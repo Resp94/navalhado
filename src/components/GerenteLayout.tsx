@@ -13,6 +13,9 @@ export interface TenantContextType {
   timezone: string;
   onboardingCompleted?: boolean;
   businessHours?: Record<string, { active: boolean; open: string; close: string }>;
+  slotIntervalMinutes?: number;
+  minBookingLeadTimeMinutes?: number;
+  minCancellationLeadTimeMinutes?: number;
 }
 
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -78,7 +81,7 @@ export const GerenteLayout: React.FC = () => {
         if (profile.tenant_id) {
           const { data: tenant, error: tenantError } = await supabase
             .from('tenants')
-            .select('id, name, logo_url, timezone, onboarding_completed, business_hours')
+            .select('id, name, logo_url, timezone, onboarding_completed, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
             .eq('id', profile.tenant_id)
             .single();
 
@@ -106,6 +109,9 @@ export const GerenteLayout: React.FC = () => {
               timezone: tenant.timezone || 'America/Sao_Paulo',
               onboardingCompleted: isOnboardingCompleted,
               businessHours: tenant.business_hours || undefined,
+              slotIntervalMinutes: tenant.slot_interval_minutes ?? 30,
+              minBookingLeadTimeMinutes: tenant.min_booking_lead_time_minutes ?? 15,
+              minCancellationLeadTimeMinutes: tenant.min_cancellation_lead_time_minutes ?? 120,
             });
           }
         } else {
