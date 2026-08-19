@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
@@ -246,6 +246,39 @@ export const FluxoAgendamento: React.FC = () => {
     setSelectedSlot(slot);
     setIsConfirmModalOpen(true);
   };
+
+  // Filtragem defensiva de slots válidos (respeitando fuso horário, dia da semana, fim de expediente e antecedência mínima)
+  const filteredAvailableSlots = useMemo(() => {
+    const tz = customerDetails?.tenant_timezone || 'America/Sao_Paulo';
+    const todayStr = dateInZone(new Date(), tz);
+    const currentLocalTime = formatTimeInZone(new Date().toISOString(), tz);
+    const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours);
+
+    // Se o dia não está ativo no funcionamento da barbearia, não há slots
+    if (!dayBh.active) return [];
+
+    // Se a data selecionada for anterior a hoje, não há slots
+    if (selectedDate < todayStr) return [];
+
+    // Se a data selecionada for futura (amanhã em diante), todos os slots da grade do dia são válidos
+    if (selectedDate > todayStr) return availableSlots;
+
+    // Se a data selecionada for hoje:
+    // Se o horário atual já ultrapassou o horário de fechamento do expediente, zero slots
+    if (currentLocalTime >= dayBh.close) return [];
+
+    // Se ainda está dentro do horário de funcionamento de hoje:
+    // Ocultar horários que já passaram ou que não atendem à antecedência mínima de agendamento
+    const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 15;
+    const [currH, currM] = currentLocalTime.split(':').map(Number);
+    const minViableMinutes = currH * 60 + currM + leadTime;
+
+    return availableSlots.filter((slot) => {
+      const [sH, sM] = slot.split(':').map(Number);
+      const slotMin = sH * 60 + sM;
+      return slotMin >= minViableMinutes;
+    });
+  }, [availableSlots, selectedDate, customerDetails]);
 
   // Executa o agendamento no Supabase
   const handleConfirmBooking = async () => {
@@ -875,7 +908,7 @@ export const FluxoAgendamento: React.FC = () => {
                     animation: 'spin 0.8s cubic-bezier(0.32, 0.72, 0, 1) infinite'
                   }} />
                 </div>
-              ) : availableSlots.length === 0 ? (
+              ) : filteredAvailableSlots.length === 0 ? (
                 /* Empty state: Double-Bezel */
                 <div style={{
                   backgroundColor: 'rgba(234, 222, 214, 0.15)',
@@ -902,7 +935,7 @@ export const FluxoAgendamento: React.FC = () => {
                       const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours);
                       const isToday = selectedDate === todayStr;
                       const isClosedDay = !dayBh.active;
-                      const isTodayPast = isToday && (isClosedDay || currentLocalTime >= dayBh.close);
+                      const isTodayPast = isToday && (isClosedDay || currentLocalTime >= dayBh.close || availableSlots.length === 0);
 
                       if (isClosedDay) {
                         return (
@@ -916,7 +949,7 @@ export const FluxoAgendamento: React.FC = () => {
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600, maxWidth: '340px', lineHeight: 1.5 }}>
-                              O expediente de hoje já foi finalizado (Funcionamento: {dayBh.open} às {dayBh.close}). Selecione outro dia para agendar.
+                              O expediente da barbearia para o dia de hoje já foi encerrado (Funcionamento: {dayBh.open} às {dayBh.close}). Selecione outro dia para agendar.
                             </p>
                             <button
                               onClick={() => setSelectedDate(shiftCalendarDate(todayStr, 1))}
@@ -953,7 +986,7 @@ export const FluxoAgendamento: React.FC = () => {
                   gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))',
                   gap: '0.625rem'
                 }}>
-                  {availableSlots.map((slot) => (
+                  {filteredAvailableSlots.map((slot) => (
                     <button
                       key={slot}
                       onClick={() => handleSlotClick(slot)}

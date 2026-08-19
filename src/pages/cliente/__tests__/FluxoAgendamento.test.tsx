@@ -197,4 +197,44 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       });
     });
   });
+
+  it('exibe mensagem amigável de expediente encerrado quando não há slots para a data de hoje', async () => {
+    const completedDetails = { 
+      ...incompleteDetails, 
+      customer_name: 'Maria', 
+      cadastro_completo: true,
+      business_hours: {
+        segunda: { active: true, open: '09:00', close: '18:00' },
+        terca: { active: true, open: '09:00', close: '18:00' },
+        quarta: { active: true, open: '09:00', close: '18:00' },
+        quinta: { active: true, open: '09:00', close: '18:00' },
+        sexta: { active: true, open: '09:00', close: '18:00' },
+        sabado: { active: true, open: '09:00', close: '15:00' },
+        domingo: { active: false, open: '09:00', close: '12:00' }
+      }
+    };
+    const service = {
+      id: 'service-1',
+      name: 'Corte',
+      description: null,
+      price: 50,
+      duration_minutes: 30,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
+      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
+      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      if (name === 'get_available_slots_by_token') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute();
+    fireEvent.click(await screen.findByText('Corte'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+
+    expect(await screen.findByText(/expediente da barbearia para o dia de hoje já foi encerrado|Nenhum horário disponível/i)).toBeInTheDocument();
+  });
 });
