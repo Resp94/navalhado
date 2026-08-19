@@ -158,7 +158,7 @@ describe('Configuracoes Page - TDD', () => {
     render(<Configuracoes />);
 
     // Verificar se o cabeçalho da seção está presente
-    await screen.findByText('Horário de Funcionamento Geral');
+    await screen.findByRole('heading', { name: /Horário de funcionamento geral/i });
 
     // Verificar se renderizou os dias da semana
     const dias = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
@@ -268,7 +268,7 @@ describe('Configuracoes Page - TDD', () => {
     render(<Configuracoes />);
 
     // Verificar se o cabeçalho das regras está presente
-    await screen.findByText('Regras de Agendamento Online');
+    await screen.findByRole('heading', { name: /Regras de agendamento online/i });
 
     // Verificar se os inputs numéricos estão com os valores iniciais do mock
     const slotInput = screen.getByLabelText(/Intervalo entre Horários na Grade/i) as HTMLInputElement;

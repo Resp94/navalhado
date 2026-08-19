@@ -44,6 +44,15 @@ const daysOfWeek = [
   { key: 'domingo', label: 'Domingo' },
 ];
 
+const STANDARD_HOURS = [
+  '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30',
+  '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30',
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+  '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30'
+];
+
 const SLOT_INTERVAL_PRESETS = [
   { label: '15 min', value: 15 },
   { label: '20 min', value: 20 },
@@ -78,7 +87,7 @@ export const Configuracoes: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // States do Card 1: Perfil & Endereço
+  // States do Card 1: Perfil e Endereço
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -144,8 +153,8 @@ export const Configuracoes: React.FC = () => {
   useGSAP(() => {
     if (!loading) {
       gsap.fromTo('.card-config', 
-        { opacity: 0, y: 24 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'cubic-bezier(0.32, 0.72, 0, 1)' }
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.45, stagger: 0.1, ease: 'power2.out' }
       );
     }
   }, [loading]);
@@ -171,7 +180,7 @@ export const Configuracoes: React.FC = () => {
         const viaCepData = await res.json();
 
         if (viaCepData.erro) {
-          setCepError('CEP não encontrado. Preencha o endereço manualmente.');
+          setCepError('CEP não localizado. Você pode preencher os campos manualmente.');
           return;
         }
 
@@ -185,11 +194,10 @@ export const Configuracoes: React.FC = () => {
         setAddressCity(city);
         setAddressState(state);
 
-        // Constrói endereço resumo
-        const fullAddr = [street, neighborhood, `${city} - ${state}`].filter(Boolean).join(', ');
+        const fullAddr = [street, neighborhood, `${city}, ${state}`].filter(Boolean).join(', ');
         if (fullAddr) setAddress(fullAddr);
       } catch {
-        setCepError('Não foi possível consultar o CEP agora.');
+        setCepError('Não foi possível consultar o CEP no momento.');
       } finally {
         setLoadingCep(false);
       }
@@ -203,9 +211,8 @@ export const Configuracoes: React.FC = () => {
       return;
     }
 
-    // Monta string de endereço composta se houver campos preenchidos
     const fullAddress = addressStreet.trim()
-      ? `${addressStreet.trim()}${addressNumber ? `, ${addressNumber.trim()}` : ''}${addressNeighborhood ? ` - ${addressNeighborhood.trim()}` : ''}${addressCity ? `, ${addressCity.trim()}` : ''}${addressState ? ` - ${addressState.trim()}` : ''}`
+      ? `${addressStreet.trim()}${addressNumber ? `, ${addressNumber.trim()}` : ''}${addressNeighborhood ? `, ${addressNeighborhood.trim()}` : ''}${addressCity ? `, ${addressCity.trim()}` : ''}${addressState ? `, ${addressState.trim()}` : ''}`
       : address.trim();
 
     try {
@@ -291,14 +298,14 @@ export const Configuracoes: React.FC = () => {
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '3rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
+      {/* Cabeçalho */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.25rem' }}>
+        <div style={{ maxWidth: '620px' }}>
           <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: 'var(--color-text-primary)' }}>
-            Ajustes da Barbearia
+            Ajustes da barbearia
           </h2>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', margin: '6px 0 0' }}>
-            Gerencie os dados cadastrais, regras de antecedência de agendamento e horários de funcionamento.
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', margin: '6px 0 0', lineHeight: 1.5 }}>
+            Personalize os dados da sua barbearia, defina os horários de atendimento da equipe e controle as regras de agendamento online com total autonomia.
           </p>
         </div>
 
@@ -319,11 +326,11 @@ export const Configuracoes: React.FC = () => {
           }}
         >
           <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={2} />
-          {saving ? 'Salvando...' : 'Salvar Alterações'}
+          {saving ? 'Salvando...' : 'Salvar alterações'}
         </button>
       </div>
 
-      {/* CARD 1: Perfil & Contato */}
+      {/* CARD 1: Perfil e Localização */}
       <div className="card-config" style={{
         backgroundColor: 'var(--color-bg-secondary)',
         border: '1px solid var(--color-border)',
@@ -349,10 +356,10 @@ export const Configuracoes: React.FC = () => {
           </div>
           <div>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Perfil & Localização
+              Perfil e localização
             </h3>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Identificação do estabelecimento, contato e fuso horário oficial.
+              Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.
             </p>
           </div>
         </div>
@@ -361,7 +368,7 @@ export const Configuracoes: React.FC = () => {
           {/* Nome da Barbearia */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label htmlFor="name" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Nome da Barbearia
+              Nome da barbearia
             </label>
             <input
               id="name"
@@ -385,7 +392,7 @@ export const Configuracoes: React.FC = () => {
           {/* E-mail de Contato */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label htmlFor="email" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              E-mail de Contato
+              E-mail de contato
             </label>
             <input
               id="email"
@@ -433,7 +440,7 @@ export const Configuracoes: React.FC = () => {
           {/* Fuso Horário */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label htmlFor="timezone" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Fuso Horário
+              Fuso horário
             </label>
             <select
               id="timezone"
@@ -451,10 +458,10 @@ export const Configuracoes: React.FC = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value="America/Sao_Paulo">Horário de Brasília (UTC-3) - America/Sao_Paulo</option>
-              <option value="America/Manaus">Horário da Amazônia (UTC-4) - America/Manaus</option>
-              <option value="America/Rio_Branco">Horário do Acre (UTC-5) - America/Rio_Branco</option>
-              <option value="America/Noronha">Fernando de Noronha (UTC-2) - America/Noronha</option>
+              <option value="America/Sao_Paulo">Horário de Brasília (UTC-3)</option>
+              <option value="America/Manaus">Horário da Amazônia (UTC-4)</option>
+              <option value="America/Rio_Branco">Horário do Acre (UTC-5)</option>
+              <option value="America/Noronha">Fernando de Noronha (UTC-2)</option>
             </select>
           </div>
         </div>
@@ -464,7 +471,7 @@ export const Configuracoes: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <HugeiconsIcon icon={Location01Icon} size={16} color="var(--color-brand-primary)" />
             <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Endereço do Estabelecimento
+              Endereço do estabelecimento
             </span>
           </div>
 
@@ -500,14 +507,14 @@ export const Configuracoes: React.FC = () => {
             {/* Logradouro / Rua */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="address_street" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Rua / Avenida
+                Rua ou avenida
               </label>
               <input
                 id="address_street"
                 type="text"
                 value={addressStreet}
                 onChange={(e) => setAddressStreet(e.target.value)}
-                placeholder="Nome da rua"
+                placeholder="Ex: Rua das Flores"
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
@@ -530,7 +537,7 @@ export const Configuracoes: React.FC = () => {
                 type="text"
                 value={addressNumber}
                 onChange={(e) => setAddressNumber(e.target.value)}
-                placeholder="123"
+                placeholder="Ex: 123"
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
@@ -555,7 +562,7 @@ export const Configuracoes: React.FC = () => {
                 type="text"
                 value={addressNeighborhood}
                 onChange={(e) => setAddressNeighborhood(e.target.value)}
-                placeholder="Bairro"
+                placeholder="Ex: Centro"
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
@@ -578,7 +585,7 @@ export const Configuracoes: React.FC = () => {
                 type="text"
                 value={addressCity}
                 onChange={(e) => setAddressCity(e.target.value)}
-                placeholder="Cidade"
+                placeholder="Ex: São Paulo"
                 style={{
                   padding: '10px 14px',
                   borderRadius: 'var(--radius-md)',
@@ -624,14 +631,14 @@ export const Configuracoes: React.FC = () => {
           {/* Campo de Endereço Completo (legado/resumo) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label htmlFor="address" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-              Endereço Completo / Ponto de Referência
+              Endereço completo ou ponto de referência
             </label>
             <input
               id="address"
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Rua, Número, Bairro, Cidade - Estado"
+              placeholder="Rua, Número, Bairro, Cidade, Estado"
               style={{
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
@@ -672,23 +679,23 @@ export const Configuracoes: React.FC = () => {
           </div>
           <div>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Regras de Agendamento Online
+              Regras de agendamento online
             </h3>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Controle a frequência dos horários na grade pública e os prazos mínimos para reservar ou desmarcar.
+              Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.
             </p>
           </div>
         </div>
 
         {/* 2.1 Intervalo entre Horários */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <label htmlFor="slot_interval_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                Intervalo entre Horários na Grade
+                Intervalo entre horários na grade
               </label>
               <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-                De quanto em quanto tempo um novo horário é gerado para agendamento online.
+                Frequência de novos horários gerados para os clientes reservarem online.
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -746,10 +753,10 @@ export const Configuracoes: React.FC = () => {
 
         {/* 2.2 Antecedência Mínima para Agendamento */}
         <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <label htmlFor="min_booking_lead_time_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                Antecedência Mínima para Agendar
+                Antecedência mínima para agendar
               </label>
               <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
                 Tempo mínimo antes do corte em que o cliente ainda pode reservar um horário pelo link.
@@ -810,13 +817,13 @@ export const Configuracoes: React.FC = () => {
 
         {/* 2.3 Antecedência Mínima para Cancelamento */}
         <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               <label htmlFor="min_cancellation_lead_time_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                Antecedência Mínima para Cancelar / Reagendar
+                Antecedência mínima para cancelar ou reagendar
               </label>
               <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-                Após esse prazo, o cliente é orientado a entrar em contato diretamente no WhatsApp do barbeiro.
+                Após esse prazo, o cliente não consegue desmarcar pelo link e recebe um botão direto para conversar no WhatsApp do barbeiro.
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -899,10 +906,10 @@ export const Configuracoes: React.FC = () => {
           </div>
           <div>
             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Horário de Funcionamento Geral
+              Horário de funcionamento geral
             </h3>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Defina os dias em que a barbearia abre e os horários de abertura e fechamento da casa.
+              Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.
             </p>
           </div>
         </div>
@@ -949,16 +956,15 @@ export const Configuracoes: React.FC = () => {
                   </label>
                 </div>
 
-                {/* Inputs de Horário */}
+                {/* Seletores Padronizados de Horário */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    type="time"
+                  <select
                     value={schedule.open}
                     disabled={!schedule.active}
                     aria-label={`Abertura ${label}`}
                     onChange={(e) => handleTimeChange(key, 'open', e.target.value)}
                     style={{
-                      padding: '6px 12px',
+                      padding: '8px 12px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--color-border)',
                       backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
@@ -968,16 +974,21 @@ export const Configuracoes: React.FC = () => {
                       outline: 'none',
                       cursor: schedule.active ? 'pointer' : 'not-allowed'
                     }}
-                  />
+                  >
+                    {STANDARD_HOURS.map((hora) => (
+                      <option key={hora} value={hora}>
+                        {hora}
+                      </option>
+                    ))}
+                  </select>
                   <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', fontWeight: 600 }}>às</span>
-                  <input
-                    type="time"
+                  <select
                     value={schedule.close}
                     disabled={!schedule.active}
                     aria-label={`Fechamento ${label}`}
                     onChange={(e) => handleTimeChange(key, 'close', e.target.value)}
                     style={{
-                      padding: '6px 12px',
+                      padding: '8px 12px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--color-border)',
                       backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
@@ -987,7 +998,13 @@ export const Configuracoes: React.FC = () => {
                       outline: 'none',
                       cursor: schedule.active ? 'pointer' : 'not-allowed'
                     }}
-                  />
+                  >
+                    {STANDARD_HOURS.map((hora) => (
+                      <option key={hora} value={hora}>
+                        {hora}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             );
