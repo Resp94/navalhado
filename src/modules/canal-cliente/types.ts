@@ -6,6 +6,11 @@ export interface PerfilClienteCanal {
   tenant_name: string;
   tenant_phone: string;
   cadastro_completo: boolean;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
+  tenant_timezone?: string;
+  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
 }
 
 export interface ServicoCanal {
@@ -43,6 +48,9 @@ export interface AgendamentoCanal {
   tenant_id: string;
   tenant_phone: string;
   customer_name: string;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
 }
 
 export interface InputCriarAgendamento {

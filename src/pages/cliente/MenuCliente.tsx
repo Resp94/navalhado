@@ -35,6 +35,9 @@ interface Appointment {
   tenant_id: string;
   tenant_phone: string;
   customer_name: string;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
 }
 
 interface CustomerDetails {
@@ -43,7 +46,21 @@ interface CustomerDetails {
   tenant_id: string;
   tenant_name: string;
   tenant_phone: string;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
 }
+
+const formatLeadTime = (minutes?: number) => {
+  if (!minutes || minutes <= 0) return 'o horário agendado';
+  if (minutes < 60) return `${minutes} minutos antes`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (remainingMins === 0) {
+    return `${hours} ${hours === 1 ? 'hora' : 'horas'} antes`;
+  }
+  return `${hours}h ${remainingMins}min antes`;
+};
 
 export const MenuCliente: React.FC = () => {
 
@@ -658,7 +675,9 @@ export const MenuCliente: React.FC = () => {
                           borderRadius: '8px'
                         }}>
                           <HugeiconsIcon icon={InformationCircleIcon} size={14} color="var(--color-brand-primary)" style={{ flexShrink: 0 }} />
-                          <span>Cancelamento online com antecedência. Em caso de imprevisto próximo ao horário, fale no WhatsApp do barbeiro.</span>
+                          <span>
+                            Cancelamento online permitido <strong>{formatLeadTime(app.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong>. Em caso de imprevisto próximo ao horário, fale no WhatsApp do barbeiro.
+                          </span>
                         </div>
                       )}
 
@@ -736,6 +755,23 @@ export const MenuCliente: React.FC = () => {
           <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', margin: 0, lineHeight: 1.5 }}>
             Tem certeza de que deseja cancelar este agendamento? Esta ação não pode ser desfeita.
           </p>
+
+          {/* Aviso do Prazo da Política */}
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--color-brand-primary)',
+            backgroundColor: 'var(--color-brand-lightest)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <HugeiconsIcon icon={InformationCircleIcon} size={16} style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Regra da barbearia:</strong> Cancelamento online permitido <strong>{formatLeadTime(appointments.find(a => a.appointment_id === activeAppointmentId)?.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong>.
+            </span>
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
@@ -829,7 +865,7 @@ export const MenuCliente: React.FC = () => {
           }}>
             <HugeiconsIcon icon={AlertCircleIcon} size={24} style={{ flexShrink: 0 }} />
             <span style={{ fontSize: '13px', lineHeight: 1.4 }}>
-              O prazo para cancelamento automático pelo aplicativo expirou. Para não deixar a cadeira do profissional vazia, por favor, avise-o diretamente pelo WhatsApp!
+              O prazo para cancelamento automático pelo aplicativo ({formatLeadTime(expiredAppointment?.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}) expirou. Para não deixar a cadeira do profissional vazia, por favor, avise-o diretamente pelo WhatsApp!
             </span>
           </div>
 

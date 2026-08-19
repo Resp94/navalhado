@@ -71,6 +71,11 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_name: row.tenant_name,
       tenant_phone: row.tenant_phone,
       cadastro_completo: Boolean(row.cadastro_completo),
+      min_cancellation_lead_time_minutes: row.min_cancellation_lead_time_minutes ? Number(row.min_cancellation_lead_time_minutes) : undefined,
+      min_booking_lead_time_minutes: row.min_booking_lead_time_minutes ? Number(row.min_booking_lead_time_minutes) : undefined,
+      slot_interval_minutes: row.slot_interval_minutes ? Number(row.slot_interval_minutes) : undefined,
+      tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
     };
   }
 

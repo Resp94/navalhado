@@ -17,6 +17,8 @@ import {
   SparklesIcon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons';
+import { dateInZone, formatTimeInZone, shiftCalendarDate } from '../../lib/timezone';
+import { getDayBusinessHours } from '../gerente/Agenda';
 
 interface Service {
   id: string;
@@ -42,7 +44,23 @@ interface CustomerDetails {
   tenant_name: string;
   tenant_phone: string;
   cadastro_completo: boolean;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
+  tenant_timezone?: string;
+  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
 }
+
+const formatLeadTime = (minutes?: number) => {
+  if (!minutes || minutes <= 0) return 'o horário agendado';
+  if (minutes < 60) return `${minutes} minutos antes`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (remainingMins === 0) {
+    return `${hours} ${hours === 1 ? 'hora' : 'horas'} antes`;
+  }
+  return `${hours}h ${remainingMins}min antes`;
+};
 
 export const FluxoAgendamento: React.FC = () => {
   const location = useLocation();
@@ -132,6 +150,26 @@ export const FluxoAgendamento: React.FC = () => {
 
         const activeDetails = await canalClienteRepository.obterPerfil(token);
         setCustomerDetails(activeDetails as any);
+
+        const tz = activeDetails.tenant_timezone || 'America/Sao_Paulo';
+        const today = dateInZone(new Date(), tz);
+        const timeNow = formatTimeInZone(new Date().toISOString(), tz);
+        const dayBh = getDayBusinessHours(today, activeDetails.business_hours);
+
+        // Se o expediente de hoje já encerrou ou o dia está fechado, avança para o próximo dia útil aberto
+        if (!dayBh.active || timeNow >= dayBh.close) {
+          let nextDate = shiftCalendarDate(today, 1);
+          for (let i = 0; i < 7; i++) {
+            const nextBh = getDayBusinessHours(nextDate, activeDetails.business_hours);
+            if (nextBh.active) {
+              setSelectedDate(nextDate);
+              break;
+            }
+            nextDate = shiftCalendarDate(nextDate, 1);
+          }
+        } else {
+          setSelectedDate(today);
+        }
 
         if (!activeDetails.cadastro_completo) return;
 
@@ -783,7 +821,7 @@ export const FluxoAgendamento: React.FC = () => {
                 <input
                   type="date"
                   value={selectedDate}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={dateInZone(new Date(), customerDetails?.tenant_timezone || 'America/Sao_Paulo')}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   style={{
                     padding: '0.85rem 1rem 0.85rem 2.75rem',
@@ -848,7 +886,7 @@ export const FluxoAgendamento: React.FC = () => {
                   <div style={{
                     backgroundColor: 'var(--color-bg-secondary)',
                     borderRadius: 'calc(20px - 6px)',
-                    padding: '2.5rem 1.5rem',
+                    padding: '2rem 1.5rem',
                     textAlign: 'center',
                     color: 'var(--color-text-secondary)',
                     display: 'flex',
@@ -856,10 +894,57 @@ export const FluxoAgendamento: React.FC = () => {
                     alignItems: 'center',
                     gap: '10px'
                   }}>
-                    <HugeiconsIcon icon={AlertCircleIcon} size={24} color="var(--color-text-secondary)" />
-                    <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
-                      Nenhum horário disponível para a data selecionada. Tente outro dia ou profissional.
-                    </p>
+                    <HugeiconsIcon icon={AlertCircleIcon} size={28} color="var(--color-brand-primary)" />
+                    {(() => {
+                      const tz = customerDetails?.tenant_timezone || 'America/Sao_Paulo';
+                      const todayStr = dateInZone(new Date(), tz);
+                      const currentLocalTime = formatTimeInZone(new Date().toISOString(), tz);
+                      const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours);
+                      const isToday = selectedDate === todayStr;
+                      const isClosedDay = !dayBh.active;
+                      const isTodayPast = isToday && (isClosedDay || currentLocalTime >= dayBh.close);
+
+                      if (isClosedDay) {
+                        return (
+                          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600, maxWidth: '340px', lineHeight: 1.5 }}>
+                            A barbearia não abre neste dia da semana ({dayBh.dayLabel}). Selecione outro dia para agendar.
+                          </p>
+                        );
+                      }
+
+                      if (isTodayPast) {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600, maxWidth: '340px', lineHeight: 1.5 }}>
+                              O expediente de hoje já foi finalizado (Funcionamento: {dayBh.open} às {dayBh.close}). Selecione outro dia para agendar.
+                            </p>
+                            <button
+                              onClick={() => setSelectedDate(shiftCalendarDate(todayStr, 1))}
+                              style={{
+                                backgroundColor: 'var(--color-brand-primary)',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                padding: '8px 20px',
+                                borderRadius: '9999px',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                marginTop: '4px',
+                                boxShadow: '0 4px 12px rgba(217, 108, 0, 0.2)'
+                              }}
+                            >
+                              Ver horários para amanhã
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
+                          Nenhum horário disponível para a data selecionada. Tente outro dia ou profissional.
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -906,48 +991,77 @@ export const FluxoAgendamento: React.FC = () => {
             Confirme as informações abaixo para finalizar o seu agendamento na barbearia.
           </p>
 
+          {/* Resumo do Agendamento */}
           <div style={{
-            backgroundColor: 'rgba(234, 222, 214, 0.2)',
-            borderRadius: '20px',
+            backgroundColor: 'rgba(234, 222, 214, 0.25)',
+            borderRadius: '16px',
             border: '1px solid var(--color-border)',
             padding: '1.25rem',
             display: 'flex',
             flexDirection: 'column',
             gap: '0.85rem'
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-                Serviço
-              </span>
-              <strong style={{ fontSize: 'var(--font-size-base)', fontWeight: 800 }}>
-                {selectedService?.name}
-              </strong>
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <HugeiconsIcon icon={Time01Icon} size={14} color="var(--color-text-secondary)" />
-                R$ {Number(selectedService?.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {selectedService?.duration_minutes} minutos
-              </span>
+            {/* Serviço e Valor */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
+                  Serviço
+                </span>
+                <strong style={{ fontSize: '15px', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                  {selectedService?.name}
+                </strong>
+                <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <HugeiconsIcon icon={Time01Icon} size={14} color="var(--color-text-secondary)" />
+                  {selectedService?.duration_minutes} minutos
+                </span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block' }}>
+                  Valor
+                </span>
+                <strong style={{ fontSize: '15px', color: 'var(--color-brand-primary)', fontWeight: 800 }}>
+                  R$ {Number(selectedService?.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </strong>
+              </div>
             </div>
 
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
+            {/* Profissional */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', opacity: 0.8 }}>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
                 Profissional
               </span>
-              <strong style={{ fontSize: 'var(--font-size-base)', fontWeight: 800 }}>
-                {selectedProfessional?.name}
+              <strong style={{ fontSize: '15px', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                {selectedProfessional?.name || 'Tanto faz (qualquer barbeiro disponível)'}
               </strong>
             </div>
 
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-                Horário Escolhido
+            {/* Data e Horário com Destaque Visual */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
+                Data e Horário Escolhido
               </span>
-              <strong style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-brand-primary)', fontWeight: 800 }}>
-                {formatFriendlyDate(selectedDate)} às {selectedSlot}
-              </strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  {formatFriendlyDate(selectedDate)}
+                </span>
+                <span style={{
+                  backgroundColor: 'var(--color-brand-primary)',
+                  color: '#FFFFFF',
+                  padding: '4px 14px',
+                  borderRadius: '9999px',
+                  fontWeight: 800,
+                  fontSize: '14px',
+                  letterSpacing: '0.02em',
+                  boxShadow: '0 2px 6px rgba(217, 108, 0, 0.25)',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {selectedSlot || 'Horário a definir'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -966,7 +1080,7 @@ export const FluxoAgendamento: React.FC = () => {
           }}>
             <HugeiconsIcon icon={InformationCircleIcon} size={16} color="var(--color-brand-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>
-              <strong>Política da Barbearia:</strong> Cancelamentos ou alterações online podem ser feitos com antecedência pelo seu link. Caso surja um imprevisto em cima da hora, você poderá falar diretamente com seu barbeiro pelo WhatsApp.
+              <strong>Política da Barbearia:</strong> Cancelamentos ou alterações online podem ser feitos até <strong>{formatLeadTime(customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong> pelo seu link. Caso surja um imprevisto em cima da hora, você poderá falar diretamente com seu barbeiro pelo WhatsApp.
             </span>
           </div>
 

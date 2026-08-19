@@ -98,6 +98,9 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_name: perfil.tenant_name,
       tenant_phone: perfil.tenant_phone,
       customer_name: perfil.customer_name,
+      min_cancellation_lead_time_minutes: 120,
+      min_booking_lead_time_minutes: 15,
+      slot_interval_minutes: 30,
     };
 
     this.agendamentos.push(novoAgendamento);
