@@ -221,7 +221,7 @@ export const AcessoExpirado: React.FC = () => {
               border: '1px solid rgba(217, 108, 0, 0.12)',
             }}
           >
-            Link Expirado
+            Link expirado
           </span>
 
           {/* ── Icon Circle ── */}
@@ -266,7 +266,7 @@ export const AcessoExpirado: React.FC = () => {
                 lineHeight: 1.15,
               }}
             >
-              Link de Acesso Expirado
+              Link de acesso expirado
             </h1>
             <p
               style={{

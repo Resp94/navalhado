@@ -5,6 +5,8 @@ import { Modal } from '../../components/Modal';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
+import type { PerfilClienteCanal, AgendamentoCanal } from '../../modules/canal-cliente/types';
+import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { formatLeadTime } from '../../lib/timezone';
 import { 
   Calendar02Icon, 
@@ -17,41 +19,6 @@ import {
   WhatsappIcon,
 } from '@hugeicons/core-free-icons';
 
-
-interface Appointment {
-  appointment_id: string;
-  start_time: string;
-  end_time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'canceled';
-  payment_status: 'pending' | 'paid';
-  cancellation_reason: string | null;
-  professional_name: string;
-  professional_id: string;
-  professional_phone?: string;
-  service_name: string;
-  service_id: string;
-  service_price: number;
-  service_duration: number;
-  tenant_name: string;
-  tenant_id: string;
-  tenant_phone: string;
-  customer_name: string;
-  min_cancellation_lead_time_minutes?: number;
-  min_booking_lead_time_minutes?: number;
-  slot_interval_minutes?: number;
-}
-
-interface CustomerDetails {
-  customer_id: string;
-  customer_name: string;
-  tenant_id: string;
-  tenant_name: string;
-  tenant_phone: string;
-  min_cancellation_lead_time_minutes?: number;
-  min_booking_lead_time_minutes?: number;
-  slot_interval_minutes?: number;
-}
-
 export const MenuCliente: React.FC = () => {
 
   const [searchParams] = useSearchParams();
@@ -60,8 +27,8 @@ export const MenuCliente: React.FC = () => {
   const { addToast } = useToast();
   const canalClienteRepository = useCanalCliente();
 
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
+  const [appointments, setAppointments] = useState<AgendamentoCanal[]>([]);
+  const [customerDetails, setCustomerDetails] = useState<PerfilClienteCanal | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Estados de Cancelamento
@@ -72,7 +39,7 @@ export const MenuCliente: React.FC = () => {
 
   // Estados de Prazo Expirado / Redirecionamento WhatsApp
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
-  const [expiredAppointment, setExpiredAppointment] = useState<Appointment | null>(null);
+  const [expiredAppointment, setExpiredAppointment] = useState<AgendamentoCanal | null>(null);
 
   // Controle de Abas (Ativos vs Histórico/Cancelados)
   const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
@@ -94,7 +61,7 @@ export const MenuCliente: React.FC = () => {
         }
 
         const customer = await canalClienteRepository.obterPerfil();
-        setCustomerDetails(customer as any);
+        setCustomerDetails(customer);
 
         await fetchAppointments();
 
@@ -112,7 +79,7 @@ export const MenuCliente: React.FC = () => {
   const fetchAppointments = async () => {
     try {
       const { todos } = await canalClienteRepository.obterAgendamentosSeparados();
-      setAppointments(todos as any[]);
+      setAppointments(todos);
     } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
       addToast('Erro ao carregar seus agendamentos.', 'error');
@@ -139,7 +106,7 @@ export const MenuCliente: React.FC = () => {
       console.error('Erro ao cancelar agendamento:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       const isDeadlineError = 
-        (err as any)?.name === 'AgendamentoRegraCancelamentoError' ||
+        err instanceof AgendamentoRegraCancelamentoError ||
         errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') ||
         errorMessage.includes('prazo') ||
         errorMessage.includes('expirou');
@@ -161,7 +128,7 @@ export const MenuCliente: React.FC = () => {
     }
   };
 
-  const handleReschedule = (app: Appointment) => {
+  const handleReschedule = (app: AgendamentoCanal) => {
     const leadMinutes = app.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120;
     const startTimeMs = new Date(app.start_time).getTime();
     const isExpired = startTimeMs - Date.now() < leadMinutes * 60 * 1000;
@@ -212,15 +179,15 @@ export const MenuCliente: React.FC = () => {
     };
   };
 
-  const getStatusBadge = (status: Appointment['status']) => {
-    const styles: Record<Appointment['status'], React.CSSProperties> = {
+  const getStatusBadge = (status: AgendamentoCanal['status']) => {
+    const styles: Record<AgendamentoCanal['status'], React.CSSProperties> = {
       pending: { backgroundColor: 'var(--color-warning-bg)', color: 'var(--color-warning)', border: '1px solid rgba(217, 119, 6, 0.15)' },
       confirmed: { backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid rgba(14, 159, 110, 0.15)' },
       completed: { backgroundColor: 'var(--color-info-bg)', color: 'var(--color-info)', border: '1px solid rgba(63, 131, 248, 0.15)' },
       canceled: { backgroundColor: 'var(--color-error-bg)', color: 'var(--color-error)', border: '1px solid rgba(240, 82, 82, 0.15)' }
     };
 
-    const labels: Record<Appointment['status'], string> = {
+    const labels: Record<AgendamentoCanal['status'], string> = {
       pending: 'Pendente',
       confirmed: 'Confirmado',
       completed: 'Concluído',
@@ -634,7 +601,7 @@ export const MenuCliente: React.FC = () => {
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-                              Data e Hora
+                              Data e hora
                             </span>
                             <strong style={{ color: 'var(--color-brand-primary)', fontWeight: 800 }}>
                               {dateInfo.fullString}

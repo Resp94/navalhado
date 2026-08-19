@@ -17,39 +17,10 @@ import {
   SparklesIcon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons';
+import type { PerfilClienteCanal, ServicoCanal, ProfissionalCanal } from '../../modules/canal-cliente/types';
+import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
 import { getDayBusinessHours } from '../gerente/Agenda';
-
-interface Service {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  duration_minutes: number;
-  category: string;
-  is_active: boolean;
-}
-
-interface Professional {
-  id: string;
-  name: string;
-  phone: string;
-  is_active: boolean;
-}
-
-interface CustomerDetails {
-  customer_id: string;
-  customer_name: string;
-  tenant_id: string;
-  tenant_name: string;
-  tenant_phone: string;
-  cadastro_completo: boolean;
-  min_cancellation_lead_time_minutes?: number;
-  min_booking_lead_time_minutes?: number;
-  slot_interval_minutes?: number;
-  tenant_timezone?: string;
-  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
-}
 
 export const FluxoAgendamento: React.FC = () => {
   const location = useLocation();
@@ -59,13 +30,13 @@ export const FluxoAgendamento: React.FC = () => {
   const { addToast } = useToast();
 
   // Estados de Dados do Estabelecimento
-  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [customerDetails, setCustomerDetails] = useState<PerfilClienteCanal | null>(null);
+  const [services, setServices] = useState<ServicoCanal[]>([]);
+  const [professionals, setProfessionals] = useState<ProfissionalCanal[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Estados de Seleção do Fluxo
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedService, setSelectedService] = useState<ServicoCanal | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<{ id: string | null; name: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
@@ -96,12 +67,12 @@ export const FluxoAgendamento: React.FC = () => {
 
   const loadCatalog = useCallback(async (token: string) => {
     const { servicos, categorias } = await canalClienteRepository.obterCatalogoServicos(token);
-    setServices(servicos as any);
+    setServices(servicos);
     setCategories(categorias);
     if (categorias.length > 0) setActiveCategory(categorias[0]);
 
     const profs = await canalClienteRepository.obterProfissionais(token);
-    setProfessionals(profs as any);
+    setProfessionals(profs);
 
     const stateData = location.state as {
       serviceId?: string;
@@ -114,7 +85,7 @@ export const FluxoAgendamento: React.FC = () => {
       setRescheduleAppointmentId(stateData.rescheduleAppointmentId);
       if (stateData.serviceId) {
         const matchedService = (servicos || []).find((service) => service.id === stateData.serviceId);
-        if (matchedService) setSelectedService(matchedService as any);
+        if (matchedService) setSelectedService(matchedService);
       }
       if (stateData.professionalId !== undefined) {
         setSelectedProfessional({
@@ -138,7 +109,7 @@ export const FluxoAgendamento: React.FC = () => {
         }
 
         const activeDetails = await canalClienteRepository.obterPerfil(token);
-        setCustomerDetails(activeDetails as any);
+        setCustomerDetails(activeDetails);
 
         const tz = activeDetails.tenant_timezone || 'America/Sao_Paulo';
         const today = dateInZone(new Date(), tz);
@@ -180,7 +151,7 @@ export const FluxoAgendamento: React.FC = () => {
     try {
       const updatedPerfil = await canalClienteRepository.promoverCadastroCliente({ name }, canonicalToken);
       const activeDetails = updatedPerfil || (await canalClienteRepository.obterPerfil(canonicalToken));
-      setCustomerDetails(activeDetails as any);
+      setCustomerDetails(activeDetails);
       await loadCatalog(canonicalToken);
     } catch (err) {
       console.error('Erro ao concluir cadastro:', err);
@@ -221,7 +192,7 @@ export const FluxoAgendamento: React.FC = () => {
   }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken, canalClienteRepository]);
 
   // Seleções do usuário
-  const handleSelectService = (service: Service) => {
+  const handleSelectService = (service: ServicoCanal) => {
     setSelectedService(service);
     setEtapa(2);
   };
@@ -293,7 +264,7 @@ export const FluxoAgendamento: React.FC = () => {
     } catch (err: unknown) {
       console.error('Erro ao agendar horário:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
-      if (errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') || (err as any)?.name === 'AgendamentoRegraCancelamentoError') {
+      if (err instanceof AgendamentoRegraCancelamentoError || errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED')) {
         addToast('O prazo para alteração online deste agendamento expirou. Fale com o profissional pelo WhatsApp.', 'warning');
       } else {
         addToast(errorMessage || 'Erro ao realizar o agendamento.', 'error');

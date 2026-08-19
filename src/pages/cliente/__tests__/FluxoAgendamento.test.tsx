@@ -237,4 +237,41 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     expect(await screen.findByText(/expediente da barbearia para o dia de hoje já foi encerrado|Nenhum horário disponível/i)).toBeInTheDocument();
   });
+
+  it('exibe a política da barbearia no modal de confirmação do agendamento', async () => {
+    const completedDetails = { 
+      ...incompleteDetails, 
+      customer_name: 'Maria', 
+      cadastro_completo: true,
+      min_cancellation_lead_time_minutes: 180,
+    };
+    const service = {
+      id: 'service-1',
+      name: 'Corte',
+      description: null,
+      price: 50,
+      duration_minutes: 30,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
+      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
+      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      if (name === 'get_available_slots_by_token') return { data: ['23:30'], error: null };
+      return { data: null, error: null };
+    });
+
+    renderBookingRoute();
+    fireEvent.click(await screen.findByText('Corte'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+
+    const slotBtn = await screen.findByRole('button', { name: '23:30' });
+    fireEvent.click(slotBtn);
+
+    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
+    expect(screen.getByText(/Política da barbearia:/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 horas/i)).toBeInTheDocument();
+  });
 });
