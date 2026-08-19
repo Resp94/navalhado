@@ -5,6 +5,7 @@ import { Modal } from '../../components/Modal';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
+import { formatLeadTime } from '../../lib/timezone';
 import { 
   Calendar02Icon, 
   Time01Icon, 
@@ -50,17 +51,6 @@ interface CustomerDetails {
   min_booking_lead_time_minutes?: number;
   slot_interval_minutes?: number;
 }
-
-const formatLeadTime = (minutes?: number) => {
-  if (!minutes || minutes <= 0) return 'o horário agendado';
-  if (minutes < 60) return `${minutes} minutos antes`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMins = minutes % 60;
-  if (remainingMins === 0) {
-    return `${hours} ${hours === 1 ? 'hora' : 'horas'} antes`;
-  }
-  return `${hours}h ${remainingMins}min antes`;
-};
 
 export const MenuCliente: React.FC = () => {
 
@@ -145,13 +135,14 @@ export const MenuCliente: React.FC = () => {
       addToast('Agendamento cancelado com sucesso.', 'success');
       setIsCancelModalOpen(false);
       await fetchAppointments();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao cancelar agendamento:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
       const isDeadlineError = 
-        err.name === 'AgendamentoRegraCancelamentoError' ||
-        err.message?.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') ||
-        err.message?.includes('prazo') ||
-        err.message?.includes('expirou');
+        (err as any)?.name === 'AgendamentoRegraCancelamentoError' ||
+        errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') ||
+        errorMessage.includes('prazo') ||
+        errorMessage.includes('expirou');
 
       if (isDeadlineError) {
         setIsCancelModalOpen(false);
@@ -160,18 +151,27 @@ export const MenuCliente: React.FC = () => {
           setExpiredAppointment(app);
           setIsDeadlineModalOpen(true);
         } else {
-          addToast(err.message || 'Prazo para cancelamento online expirado.', 'warning');
+          addToast(errorMessage || 'Prazo para cancelamento online expirado.', 'warning');
         }
       } else {
-        addToast(err.message || 'Erro ao cancelar o agendamento.', 'error');
+        addToast(errorMessage || 'Erro ao cancelar o agendamento.', 'error');
       }
     } finally {
       setCanceling(false);
     }
   };
 
-
   const handleReschedule = (app: Appointment) => {
+    const leadMinutes = app.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120;
+    const startTimeMs = new Date(app.start_time).getTime();
+    const isExpired = startTimeMs - Date.now() < leadMinutes * 60 * 1000;
+
+    if (isExpired) {
+      setExpiredAppointment(app);
+      setIsDeadlineModalOpen(true);
+      return;
+    }
+
     navigate('/cliente/agendar', {
       state: {
         serviceId: app.service_id,
@@ -303,7 +303,7 @@ export const MenuCliente: React.FC = () => {
         }}>
           <div>
             <h1 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--color-text-secondary)', margin: '0 0 4px 0' }}>
-              Painel do Cliente
+              Painel do cliente
             </h1>
             <p style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
               Olá, {customerDetails?.customer_name.split(' ')[0]}
@@ -394,7 +394,7 @@ export const MenuCliente: React.FC = () => {
               e.currentTarget.style.backgroundColor = '#FFFFFF';
             }}
           >
-            <span>Agendar Novo Horário</span>
+            <span>Agendar novo horário</span>
             <div 
               className="btn-circle-small"
               style={{
@@ -424,7 +424,7 @@ export const MenuCliente: React.FC = () => {
             gap: '0.625rem',
             letterSpacing: '-0.01em'
           }}>
-            <span>Seus Agendamentos</span>
+            <span>Seus agendamentos</span>
           </h3>
 
           {/* Alternador de Abas (Glassmorphic Tray) */}
@@ -656,7 +656,7 @@ export const MenuCliente: React.FC = () => {
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, marginBottom: '4px' }}>
                             <HugeiconsIcon icon={AlertCircleIcon} size={16} strokeWidth={2.5} />
-                            Motivo do Cancelamento
+                            Motivo do cancelamento
                           </div>
                           {app.cancellation_reason}
                         </div>
@@ -749,7 +749,7 @@ export const MenuCliente: React.FC = () => {
       <Modal
         isOpen={isCancelModalOpen}
         onClose={() => setIsCancelModalOpen(false)}
-        title="Cancelar Agendamento"
+        title="Cancelar agendamento"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
           <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--color-text-primary)', margin: 0, lineHeight: 1.5 }}>
@@ -850,7 +850,7 @@ export const MenuCliente: React.FC = () => {
       <Modal
         isOpen={isDeadlineModalOpen}
         onClose={() => setIsDeadlineModalOpen(false)}
-        title="Prazo de Cancelamento Expirado"
+        title="Prazo de cancelamento expirado"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
           <div style={{
@@ -928,7 +928,7 @@ export const MenuCliente: React.FC = () => {
                 }}
               >
                 <HugeiconsIcon icon={WhatsappIcon} size={18} strokeWidth={2} />
-                Falar com o Barbeiro no WhatsApp
+                Falar com o barbeiro no WhatsApp
               </a>
             )}
           </div>

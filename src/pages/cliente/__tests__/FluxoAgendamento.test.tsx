@@ -78,7 +78,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     );
   });
 
-  it('conclui com o token da rota e s� ent�o libera o cat�logo', async () => {
+  it('conclui com o token da rota e só então libera o catálogo', async () => {
     const completedDetails = { ...incompleteDetails, customer_name: 'Maria Silva', cadastro_completo: true };
     const service = {
       id: 'service-1',
@@ -114,14 +114,14 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
-    expect(await screen.findByRole('heading', { name: 'Selecione o Serviço' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Como podemos chamar você?' }),
     ).not.toBeInTheDocument();
     expect(window.location.pathname).not.toBe('/cliente/agendar');
   });
 
-  it('mantm o formulrio e mostra toast quando a concluso falha', async () => {
+  it('mantém o formulário e mostra toast quando a conclusão falha', async () => {
     mockRpc.mockImplementation(async (name: string) => {
       if (name === 'get_customer_details_by_token') {
         return { data: [incompleteDetails], error: null };
@@ -146,7 +146,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     );
   });
 
-  it('cliente completo pula o formul�rio e carrega o cat�logo', async () => {
+  it('cliente completo pula o formulário e carrega o catálogo', async () => {
     const completedDetails = { ...incompleteDetails, customer_name: 'Maria', cadastro_completo: true };
     mockRpc.mockImplementation(async (name: string) => {
       if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
@@ -157,7 +157,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     renderBookingRoute();
 
-    expect(await screen.findByRole('heading', { name: 'Selecione o Serviço' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Como podemos chamar você?' }),
     ).not.toBeInTheDocument();

@@ -17,7 +17,7 @@ import {
   SparklesIcon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons';
-import { dateInZone, formatTimeInZone, shiftCalendarDate } from '../../lib/timezone';
+import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
 import { getDayBusinessHours } from '../gerente/Agenda';
 
 interface Service {
@@ -50,17 +50,6 @@ interface CustomerDetails {
   tenant_timezone?: string;
   business_hours?: Record<string, { active: boolean; open: string; close: string }>;
 }
-
-const formatLeadTime = (minutes?: number) => {
-  if (!minutes || minutes <= 0) return 'o horário agendado';
-  if (minutes < 60) return `${minutes} minutos antes`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMins = minutes % 60;
-  if (remainingMins === 0) {
-    return `${hours} ${hours === 1 ? 'hora' : 'horas'} antes`;
-  }
-  return `${hours}h ${remainingMins}min antes`;
-};
 
 export const FluxoAgendamento: React.FC = () => {
   const location = useLocation();
@@ -270,14 +259,8 @@ export const FluxoAgendamento: React.FC = () => {
     // Se ainda está dentro do horário de funcionamento de hoje:
     // Ocultar horários que já passaram ou que não atendem à antecedência mínima de agendamento
     const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 15;
-    const [currH, currM] = currentLocalTime.split(':').map(Number);
-    const minViableMinutes = currH * 60 + currM + leadTime;
 
-    return availableSlots.filter((slot) => {
-      const [sH, sM] = slot.split(':').map(Number);
-      const slotMin = sH * 60 + sM;
-      return slotMin >= minViableMinutes;
-    });
+    return availableSlots.filter((slot) => isSlotViableForToday(slot, currentLocalTime, leadTime));
   }, [availableSlots, selectedDate, customerDetails]);
 
   // Executa o agendamento no Supabase
@@ -307,9 +290,14 @@ export const FluxoAgendamento: React.FC = () => {
 
       setIsConfirmModalOpen(false);
       navigate('/cliente/menu');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao agendar horário:', err);
-      addToast(err.message || 'Erro ao realizar o agendamento.', 'error');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') || (err as any)?.name === 'AgendamentoRegraCancelamentoError') {
+        addToast('O prazo para alteração online deste agendamento expirou. Fale com o profissional pelo WhatsApp.', 'warning');
+      } else {
+        addToast(errorMessage || 'Erro ao realizar o agendamento.', 'error');
+      }
     } finally {
       setBooking(false);
     }
@@ -446,7 +434,7 @@ export const FluxoAgendamento: React.FC = () => {
 
           <div>
             <h1 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-              {isRescheduling ? 'Reagendar Horário' : 'Novo Agendamento'}
+              {isRescheduling ? 'Reagendar horário' : 'Novo agendamento'}
             </h1>
             <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: '2px 0 0 0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {customerDetails?.tenant_name}
@@ -562,7 +550,7 @@ export const FluxoAgendamento: React.FC = () => {
         {etapa === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>
-              Selecione o Serviço
+              Selecione o serviço
             </h2>
 
             {/* Abas Horizontais de Categoria (Glassmorphic Tray) */}
@@ -703,7 +691,7 @@ export const FluxoAgendamento: React.FC = () => {
         {etapa === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>
-              Selecione o Profissional
+              Selecione o profissional
             </h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -820,7 +808,7 @@ export const FluxoAgendamento: React.FC = () => {
         {etapa === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>
-              Selecione o Horário
+              Selecione o horário
             </h2>
 
             {/* Resumo Rápido (Double-Bezel style inside) */}
@@ -1017,7 +1005,7 @@ export const FluxoAgendamento: React.FC = () => {
       <Modal
         isOpen={isConfirmModalOpen}
         onClose={() => setIsConfirmModalOpen(false)}
-        title="Confirmar Agendamento"
+        title="Confirmar agendamento"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', color: 'var(--color-text-primary)' }}>
           <p style={{ margin: 0, fontSize: 'var(--font-size-base)', lineHeight: 1.5 }}>
@@ -1075,7 +1063,7 @@ export const FluxoAgendamento: React.FC = () => {
             {/* Data e Horário com Destaque Visual */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
-                Data e Horário Escolhido
+                Data e horário escolhido
               </span>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
@@ -1113,7 +1101,7 @@ export const FluxoAgendamento: React.FC = () => {
           }}>
             <HugeiconsIcon icon={InformationCircleIcon} size={16} color="var(--color-brand-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>
-              <strong>Política da Barbearia:</strong> Cancelamentos ou alterações online podem ser feitos até <strong>{formatLeadTime(customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong> pelo seu link. Caso surja um imprevisto em cima da hora, você poderá falar diretamente com seu barbeiro pelo WhatsApp.
+              <strong>Política da barbearia:</strong> Cancelamentos ou alterações online podem ser feitos até <strong>{formatLeadTime(customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong> pelo seu link. Caso surja um imprevisto em cima da hora, você poderá falar diretamente com seu barbeiro pelo WhatsApp.
             </span>
           </div>
 
@@ -1174,7 +1162,7 @@ export const FluxoAgendamento: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(217, 108, 0, 0.2)'
               }}
             >
-              {booking ? 'Confirmando...' : 'Confirmar e Agendar'}
+              {booking ? 'Confirmando...' : 'Confirmar e agendar'}
             </button>
           </div>
         </div>

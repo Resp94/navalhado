@@ -189,10 +189,10 @@ describe('MenuCliente - TDD', () => {
     fireEvent.click(confirmCancelBtn);
 
     // Deve abrir o modal de prazo expirado com o botão do WhatsApp
-    const expiredHeading = await screen.findByText('Prazo de Cancelamento Expirado');
+    const expiredHeading = await screen.findByText(/Prazo de cancelamento expirado/i);
     expect(expiredHeading).toBeInTheDocument();
 
-    const waButton = screen.getByRole('link', { name: /Falar com o Barbeiro no WhatsApp/i });
+    const waButton = screen.getByRole('link', { name: /Falar com o barbeiro no WhatsApp/i });
     expect(waButton).toBeInTheDocument();
     expect(waButton).toHaveAttribute('href', expect.stringContaining('5592988887777'));
   });

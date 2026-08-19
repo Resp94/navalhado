@@ -138,7 +138,7 @@ export const Configuracoes: React.FC = () => {
         setMinCancellationLeadTimeMinutes(data.min_cancellation_lead_time_minutes ?? 120);
         setBusinessHours(data.business_hours || defaultBusinessHours);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao carregar dados da barbearia:', error);
       addToast('Não foi possível carregar as configurações.', 'error');
     } finally {
@@ -216,9 +216,13 @@ export const Configuracoes: React.FC = () => {
       return;
     }
 
-    const fullAddress = addressStreet.trim()
-      ? `${addressStreet.trim()}${addressNumber ? `, ${addressNumber.trim()}` : ''}${addressNeighborhood ? `, ${addressNeighborhood.trim()}` : ''}${addressCity ? `, ${addressCity.trim()}` : ''}${addressState ? `, ${addressState.trim()}` : ''}`
-      : address.trim();
+    const fullAddress = address.trim() || [
+      addressStreet.trim(),
+      addressNumber.trim(),
+      addressNeighborhood.trim(),
+      addressCity.trim(),
+      addressState.trim()
+    ].filter(Boolean).join(', ');
 
     try {
       setSaving(true);
@@ -245,9 +249,10 @@ export const Configuracoes: React.FC = () => {
 
       if (error) throw error;
       addToast('Configurações atualizadas com sucesso.', 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao atualizar configurações:', error);
-      addToast(error.message || 'Erro ao salvar alterações.', 'error');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addToast(errorMessage || 'Erro ao salvar alterações.', 'error');
     } finally {
       setSaving(false);
     }

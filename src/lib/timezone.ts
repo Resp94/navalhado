@@ -92,3 +92,28 @@ export function shiftCalendarDate(date: string, days: number) {
   const midnightUtc = parseLocalDateTime(date, '00:00');
   return new Date(midnightUtc + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
+
+export function formatLeadTime(minutes?: number): string {
+  if (!minutes || minutes <= 0) return 'o horário agendado';
+  if (minutes < 60) return `${minutes} minutos antes`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (remainingMinutes === 0) {
+    return hours === 1 ? '1 hora antes' : `${hours} horas antes`;
+  }
+  return `${hours}h ${remainingMinutes}min antes`;
+}
+
+export function isSlotViableForToday(
+  slot: string,
+  currentLocalTime: string,
+  leadTimeMinutes: number = 15,
+): boolean {
+  const [slotH, slotM] = slot.split(':').map(Number);
+  const slotTotal = slotH * 60 + slotM;
+
+  const [currH, currM] = currentLocalTime.split(':').map(Number);
+  const minViableTotal = currH * 60 + currM + leadTimeMinutes;
+
+  return slotTotal >= minViableTotal;
+}
