@@ -1947,6 +1947,31 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           outline: 2px solid var(--color-brand-primary);
           outline-offset: 2px;
         }
+
+        @media (max-width: 768px) {
+          .comanda-modal-overlay {
+            align-items: flex-end;
+            padding: 0;
+          }
+          .comanda-modal-shell {
+            max-width: 100%;
+            max-height: 92vh;
+            max-height: 92dvh;
+            border-radius: 20px 20px 0 0;
+            padding: 0;
+            background: transparent;
+          }
+          .comanda-modal-card {
+            border-radius: 20px 20px 0 0;
+          }
+          .comanda-modal-footer {
+            padding-bottom: max(1.15rem, env(safe-area-inset-bottom, 1.15rem));
+          }
+          .comanda-btn-primary,
+          .comanda-btn-secondary {
+            min-height: 48px;
+          }
+        }
       `}</style>
     </>
   );

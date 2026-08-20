@@ -147,6 +147,47 @@ export const Modal: React.FC<ModalProps> = ({
           overscroll-behavior: contain;
           max-height: 100%;
         }
+
+        @media (max-width: 768px) {
+          .modal-overlay {
+            align-items: flex-end;
+            padding: 0;
+          }
+
+          .modal-shell {
+            max-width: 100%;
+            max-height: 88vh;
+            max-height: 88dvh;
+            border-radius: 20px 20px 0 0;
+            padding: 0;
+            background: transparent;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+            animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+
+          .modal-card {
+            border-radius: 20px 20px 0 0;
+            border-bottom: none;
+            padding-bottom: env(safe-area-inset-bottom, 1rem);
+          }
+
+          .modal-header {
+            padding: 1rem 1.25rem 0.5rem;
+          }
+
+          .modal-body {
+            padding: 0.75rem 1.25rem 1.25rem;
+          }
+        }
+
+        @keyframes slideUpMobile {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
       `}</style>
     </div>
   );

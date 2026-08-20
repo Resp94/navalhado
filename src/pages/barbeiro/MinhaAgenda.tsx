@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
-import { InfoIcon } from '../../components/Icons';
 import { dateInZone, formatTimeInZone, localDayUtcRange, shiftCalendarDate } from '../../lib/timezone';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { WhatsappIcon } from '@hugeicons/core-free-icons';
 
 // Ícones SVG inline adicionais para garantir visual limpo e profissional sem emojis
 const CalendarIcon: React.FC<{ size?: number; className?: string }> = ({ size = 20, className }) => (
@@ -552,15 +553,28 @@ export const MinhaAgenda: React.FC = () => {
                     <div className="customer-info">
                       <h4 className="customer-name">{app.customer.name}</h4>
                       {app.customer.phone && (
-                        <a 
-                          href={`tel:${app.customer.phone}`} 
-                          className="customer-phone"
-                          title="Ligar para cliente"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                        >
-                          <PhoneIcon size={12} />
-                          <span>{app.customer.phone}</span>
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+                          <a
+                            href={`https://wa.me/55${app.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${app.customer.name}! Tudo bem?`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-whatsapp-direct"
+                            title="Chamar no WhatsApp"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#25D366', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}
+                          >
+                            <HugeiconsIcon icon={WhatsappIcon} size={14} />
+                            <span>WhatsApp</span>
+                          </a>
+                          <a 
+                            href={`tel:${app.customer.phone}`} 
+                            className="customer-phone"
+                            title="Ligar para cliente"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <PhoneIcon size={12} />
+                            <span>{app.customer.phone}</span>
+                          </a>
+                        </div>
                       )}
                     </div>
 

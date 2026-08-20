@@ -467,17 +467,30 @@ export const Login: React.FC = () => {
         }
 
         /* Mobile refinements */
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
+          .login-page {
+            padding: 1rem 0.875rem;
+            align-items: flex-start;
+            padding-top: max(1.5rem, env(safe-area-inset-top, 1.5rem));
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
           .login-card__shell {
-            padding: 4px;
+            padding: 2px;
             border-radius: var(--radius-xl);
+            margin: auto 0;
           }
           .login-card {
-            padding: 2rem 1.25rem 1.75rem;
+            padding: 1.75rem 1.25rem 1.5rem;
             border-radius: calc(var(--radius-xl) - 2px);
+            gap: 1.25rem;
           }
           .login-card__title {
             font-size: var(--font-size-2xl);
+          }
+          .login-card__cta {
+            min-height: 48px;
           }
         }
       `}</style>

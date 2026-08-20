@@ -38,6 +38,7 @@ import {
   UnavailableIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons';
+import { MobileAgendaView } from './mobile/MobileAgendaView';
 
 // --- Interfaces de Domínio ---
 interface Professional {
@@ -959,18 +960,41 @@ export const Agenda: React.FC = () => {
 
   return (
     <div className="agenda-page">
-      {/* 1. HEADER DE CONTROLE OPERACIONAL */}
-      <header className="agenda-header-control">
-        <div className="agenda-header-left">
-          <div className="agenda-header-title">
-            <h2>{formattedDateTitle}</h2>
-            <p className="agenda-header-subtitle">
-              {viewMode === 'week'
-                ? `Visão semanal do profissional ${professionals.find((p) => p.id === selectedWeekProfId)?.name || ''}`
-                : `${visibleProfessionals.length} profissional(is) em atendimento`}
-            </p>
+      {/* ─── VISÃO MOBILE (<= 768px) ─── */}
+      <div className="agenda-mobile-view">
+        <MobileAgendaView
+          timezone={tenant.timezone}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          professionals={professionals}
+          appointments={appointments}
+          blockedSlots={blockedSlots}
+          timeSlots={timeSlots}
+          onOpenNewAppointment={(profId, slot) =>
+            handleOpenNewAppointment(profId, slot, false, selectedDate)
+          }
+          onOpenCheckout={handleOpenCheckout}
+          onOpenCancel={handleOpenCancelModal}
+          onStartService={handleStartService}
+          onDirectWhatsApp={handleDirectWhatsApp}
+          onRemoveBlock={handleRemoveBlock}
+        />
+      </div>
+
+      {/* ─── VISÃO DESKTOP (> 768px) ─── */}
+      <div className="agenda-desktop-view">
+        {/* 1. HEADER DE CONTROLE OPERACIONAL */}
+        <header className="agenda-header-control">
+          <div className="agenda-header-left">
+            <div className="agenda-header-title">
+              <h2>{formattedDateTitle}</h2>
+              <p className="agenda-header-subtitle">
+                {viewMode === 'week'
+                  ? `Visão semanal do profissional ${professionals.find((p) => p.id === selectedWeekProfId)?.name || ''}`
+                  : `${visibleProfessionals.length} profissional(is) em atendimento`}
+              </p>
+            </div>
           </div>
-        </div>
 
         <div className="agenda-header-actions">
           {/* Seletor de Escopo Temporal: Dia vs Semana */}
@@ -1675,6 +1699,7 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {/* 3. MODAL DE NOVO AGENDAMENTO / ENCAIXE */}
@@ -2981,6 +3006,26 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
+        }
+
+        .agenda-mobile-view {
+          display: none;
+        }
+
+        .agenda-desktop-view {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          width: 100%;
+        }
+
+        @media (max-width: 768px) {
+          .agenda-mobile-view {
+            display: block;
+          }
+          .agenda-desktop-view {
+            display: none !important;
+          }
         }
       `}</style>
     </div>

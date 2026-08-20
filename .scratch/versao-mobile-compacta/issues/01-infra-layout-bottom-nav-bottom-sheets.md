@@ -5,11 +5,11 @@ Implementar o ponto de corte de responsividade (`<= 768px`) nos layouts do Geren
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `GerenteLayout` e `BarbeiroLayout` alternam a apresentação visual quando o viewport for `<= 768px` vs `> 768px`.
-- [ ] Barra inferior fixa (`MobileBottomNav`) renderiza 5 abas para o Gerente (*Agenda*, *Comandas*, *Caixa*, *Clientes*, *Mais*) e 3 abas para o Barbeiro (*Minha Agenda*, *Comissões*, *Perfil*).
-- [ ] A barra inferior possui padding inferior dinâmico respeitando `env(safe-area-inset-bottom)`.
-- [ ] Container principal de conteúdo recebe padding inferior compensatório para evitar que elementos interativos fiquem cobertos pela barra de navegação.
-- [ ] Estrutura base de animação para modais deslizantes a partir da base (*Bottom Sheets*) com alça de arrasto (*drag handle*) e backdrop blur.
-- [ ] A navegação superior e a grade ampla do desktop (`> 768px`) permanecem totalmente intactas.
+- [x] `GerenteLayout` e `BarbeiroLayout` alternam a apresentação visual quando o viewport for `<= 768px` vs `> 768px`.
+- [x] Barra inferior fixa (`MobileBottomNav`) renderiza 5 abas para o Gerente (*Agenda*, *Comandas*, *Caixa*, *Clientes*, *Mais*) e 3 abas para o Barbeiro (*Minha Agenda*, *Comissões*, *Perfil*).
+- [x] A barra inferior possui padding inferior dinâmico respeitando `env(safe-area-inset-bottom)`.
+- [x] Container principal de conteúdo recebe padding inferior compensatório para evitar que elementos interativos fiquem cobertos pela barra de navegação.
+- [x] Estrutura base de animação para modais deslizantes a partir da base (*Bottom Sheets*) com alça de arrasto (*drag handle*) e backdrop blur.
+- [x] A navegação superior e a grade ampla do desktop (`> 768px`) permanecem totalmente intactas.

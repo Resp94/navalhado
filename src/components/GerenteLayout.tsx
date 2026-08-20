@@ -28,7 +28,12 @@ import {
   Money01Icon,
   WhatsappIcon,
   Settings02Icon,
+  Invoice01Icon,
+  Menu01Icon,
 } from '@hugeicons/core-free-icons';
+import { MobileBottomNav, type MobileNavItem } from './mobile/MobileBottomNav';
+import { MobileHeader } from './mobile/MobileHeader';
+import { MobileMaisDrawer } from './mobile/MobileMaisDrawer';
 
 export const GerenteLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +43,7 @@ export const GerenteLayout: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tenantInfo, setTenantInfo] = useState<TenantContextType | null>(null);
   const [managerName, setManagerName] = useState('Gerente');
+  const [isMaisOpen, setIsMaisOpen] = useState(false);
 
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useRealtimeNotifications({
     tenantId: tenantInfo?.tenantId || '',
@@ -182,13 +188,31 @@ export const GerenteLayout: React.FC = () => {
     { path: '/configuracoes', label: 'Ajustes', icon: <HugeiconsIcon icon={Settings02Icon} size={18} /> },
   ];
 
+  // 5 Abas Fixas da Bottom Navigation Bar Mobile
+  const mobileNavItems: MobileNavItem[] = [
+    { id: 'agenda', label: 'Agenda', icon: Calendar03Icon, path: '/agenda' },
+    { id: 'comandas', label: 'Comandas', icon: Invoice01Icon, path: '/comandas' },
+    { id: 'caixa', label: 'Caixa', icon: Money01Icon, path: '/financeiro' },
+    { id: 'clientes', label: 'Clientes', icon: UserIcon, path: '/clientes' },
+    { id: 'mais', label: 'Mais', icon: Menu01Icon, onClick: () => setIsMaisOpen(true) },
+  ];
 
   return (
     <>
       <div className="noise-overlay" />
 
       <div className="gerente-layout">
-        {/* NAVBAR SUPERIOR HORIZONTAL */}
+        {/* HEADER MOBILE (<= 768px) */}
+        <MobileHeader
+          tenantName={tenantInfo.tenantName}
+          logoUrl={tenantInfo.logoUrl}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAllAsRead={markAllAsRead}
+          onMarkAsRead={markAsRead}
+        />
+
+        {/* NAVBAR SUPERIOR HORIZONTAL DESKTOP (> 768px) */}
         <header className="gerente-header">
           {/* Logo e Nome da Barbearia */}
           <div className="gerente-header__brand" onClick={() => navigate('/agenda')} style={{ cursor: 'pointer' }}>
@@ -249,6 +273,19 @@ export const GerenteLayout: React.FC = () => {
         <main className="gerente-container">
           <Outlet context={tenantInfo} />
         </main>
+
+        {/* BARRA INFERIOR FIXA MOBILE (<= 768px) */}
+        <MobileBottomNav items={mobileNavItems} />
+
+        {/* GAVETA DO MENU MAIS MOBILE */}
+        <MobileMaisDrawer
+          isOpen={isMaisOpen}
+          onClose={() => setIsMaisOpen(false)}
+          tenantId={tenantInfo.tenantId}
+          tenantName={tenantInfo.tenantName}
+          managerName={managerName}
+          onLogout={handleLogout}
+        />
       </div>
 
       <style>{`
@@ -440,7 +477,17 @@ export const GerenteLayout: React.FC = () => {
           font-size: var(--font-size-xs);
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
+          .gerente-header {
+            display: none !important;
+          }
+          .gerente-container {
+            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
+            gap: 1rem;
+          }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
           .gerente-header {
             flex-direction: column;
             gap: 1rem;

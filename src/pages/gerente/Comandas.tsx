@@ -1,0 +1,659 @@
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import type { TenantContextType } from '../../components/GerenteLayout';
+import { supabase } from '../../lib/supabase';
+import { useToast } from '../../components/Toast';
+import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
+import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
+import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
+import type { Comanda } from '../../modules/comandas/types';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Invoice01Icon,
+  Search01Icon,
+  PlusSignIcon,
+  Money01Icon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  WhatsappIcon,
+  UserIcon,
+} from '@hugeicons/core-free-icons';
+
+interface ComandaEnriched extends Comanda {
+  customer_name?: string;
+  customer_phone?: string;
+  professional_name?: string;
+}
+
+export const Comandas: React.FC = () => {
+  const { tenant } = useOutletContext<TenantContextType>();
+  const { addToast } = useToast();
+
+  const [loading, setLoading] = useState(true);
+  const [comandas, setComandas] = useState<ComandaEnriched[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'open' | 'paid' | 'all'>('open');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Estados do Modal de Checkout
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedComanda, setSelectedComanda] = useState<ComandaEnriched | null>(null);
+  const [isNovaAvulsa, setIsNovaAvulsa] = useState(false);
+
+  // Dados auxiliares para o modal
+  const [services, setServices] = useState<Array<{ id: string; name: string; price: number }>>([]);
+  const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
+
+  const comandaRepo = useMemo(
+    () => new ComandaRepository(new SupabaseComandaAdapter(supabase)),
+    []
+  );
+
+  const carregarDados = useCallback(async () => {
+    if (!tenant?.id) return;
+    try {
+      setLoading(true);
+
+      // 1. Carregar serviços e profissionais
+      const [srvRes, profRes, cmdRes] = await Promise.all([
+        supabase
+          .from('services')
+          .select('id, name, price')
+          .eq('tenant_id', tenant.id)
+          .eq('is_active', true),
+        supabase
+          .from('professionals')
+          .select('id, name')
+          .eq('tenant_id', tenant.id)
+          .eq('is_active', true),
+        supabase
+          .from('comandas')
+          .select(`
+            *,
+            itens:comanda_itens(*),
+            customer:customers(id, name, phone),
+            appointment:appointments(
+              id,
+              professional:professionals(id, name)
+            )
+          `)
+          .eq('tenant_id', tenant.id)
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ]);
+
+      if (srvRes.data) setServices(srvRes.data);
+      if (profRes.data) setProfessionals(profRes.data);
+
+      if (cmdRes.data) {
+        const enriched: ComandaEnriched[] = cmdRes.data.map((c: any) => ({
+          ...c,
+          customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
+          customer_phone: c.customer?.phone || null,
+          professional_name: c.appointment?.professional?.name || 'Equipe',
+        }));
+        setComandas(enriched);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar comandas:', err);
+      addToast('Não foi possível carregar as comandas.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [tenant?.id, addToast]);
+
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
+
+  // Filtragem
+  const filteredComandas = useMemo(() => {
+    return comandas.filter((c) => {
+      // Filtro de status
+      if (statusFilter === 'open' && c.status !== 'open') return false;
+      if (statusFilter === 'paid' && c.status !== 'paid') return false;
+
+      // Filtro de busca
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const clientMatch = c.customer_name?.toLowerCase().includes(term);
+        const codeMatch = c.code?.toLowerCase().includes(term);
+        const profMatch = c.professional_name?.toLowerCase().includes(term);
+        return clientMatch || codeMatch || profMatch;
+      }
+      return true;
+    });
+  }, [comandas, statusFilter, searchTerm]);
+
+  const handleOpenCheckoutModal = (cmd: ComandaEnriched) => {
+    setSelectedComanda(cmd);
+    setIsNovaAvulsa(false);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleOpenNovaAvulsa = () => {
+    setSelectedComanda(null);
+    setIsNovaAvulsa(true);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleFinalizado = () => {
+    setIsCheckoutOpen(false);
+    setSelectedComanda(null);
+    setIsNovaAvulsa(false);
+    carregarDados();
+    addToast('Comanda atualizada com sucesso!', 'success');
+  };
+
+  const handleDirectWhatsApp = (phone: string, name: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Falamos da ${tenant?.name || 'barbearia'}.`);
+    window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
+  };
+
+  return (
+    <div className="comandas-page">
+      {/* ─── CABEÇALHO DA PÁGINA ─── */}
+      <div className="comandas-header">
+        <div className="comandas-header__titles">
+          <h1 className="comandas-header__title">Comandas & Atendimentos</h1>
+          <p className="comandas-header__subtitle">
+            Gerencie o consumo de produtos, serviços e checkout rápido de balcão
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="comandas-header__btn-nova"
+          onClick={handleOpenNovaAvulsa}
+        >
+          <HugeiconsIcon icon={PlusSignIcon} size={18} />
+          <span>Nova Comanda Avulsa</span>
+        </button>
+      </div>
+
+      {/* ─── FILTROS E BUSCA ─── */}
+      <div className="comandas-toolbar">
+        <div className="comandas-search">
+          <HugeiconsIcon icon={Search01Icon} size={18} className="comandas-search__icon" />
+          <input
+            type="text"
+            placeholder="Buscar por cliente, código ou profissional..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="comandas-search__input"
+          />
+        </div>
+
+        <div className="comandas-tabs">
+          <button
+            type="button"
+            className={`comandas-tab ${statusFilter === 'open' ? 'comandas-tab--active' : ''}`}
+            onClick={() => setStatusFilter('open')}
+          >
+            <span>Abertas</span>
+            <span className="comandas-tab__badge">
+              {comandas.filter((c) => c.status === 'open').length}
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`comandas-tab ${statusFilter === 'paid' ? 'comandas-tab--active' : ''}`}
+            onClick={() => setStatusFilter('paid')}
+          >
+            <span>Pagas</span>
+          </button>
+          <button
+            type="button"
+            className={`comandas-tab ${statusFilter === 'all' ? 'comandas-tab--active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
+            <span>Todas</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ─── LISTAGEM DE COMANDAS ─── */}
+      {loading ? (
+        <div className="comandas-loading">
+          <div className="spinner" />
+          <span>Carregando comandas...</span>
+        </div>
+      ) : filteredComandas.length === 0 ? (
+        <div className="comandas-empty">
+          <div className="comandas-empty__icon">
+            <HugeiconsIcon icon={Invoice01Icon} size={36} />
+          </div>
+          <h3>Nenhuma comanda encontrada</h3>
+          <p>
+            {searchTerm
+              ? 'Nenhum resultado para os termos pesquisados.'
+              : statusFilter === 'open'
+              ? 'Não há comandas abertas no momento.'
+              : 'Nenhum registro de comanda nesta categoria.'}
+          </p>
+          <button
+            type="button"
+            className="comandas-empty__btn"
+            onClick={handleOpenNovaAvulsa}
+          >
+            <HugeiconsIcon icon={PlusSignIcon} size={16} />
+            Abrir Comanda Avulsa
+          </button>
+        </div>
+      ) : (
+        <div className="comandas-grid">
+          {filteredComandas.map((cmd) => {
+            const isOpen = cmd.status === 'open';
+            const total = Number(cmd.total_amount || 0);
+            const itensCount = cmd.itens?.length || 0;
+
+            return (
+              <div
+                key={cmd.id}
+                className={`comanda-card ${isOpen ? 'comanda-card--open' : 'comanda-card--paid'}`}
+                onClick={() => handleOpenCheckoutModal(cmd)}
+              >
+                <div className="comanda-card__header">
+                  <div className="comanda-card__code">
+                    <HugeiconsIcon icon={Invoice01Icon} size={16} />
+                    <span>{cmd.code || `CMD-${cmd.id.slice(0, 5).toUpperCase()}`}</span>
+                  </div>
+                  <span className={`comanda-card__status ${isOpen ? 'status--open' : 'status--paid'}`}>
+                    {isOpen ? 'Aberta' : 'Paga'}
+                  </span>
+                </div>
+
+                <div className="comanda-card__body">
+                  <div className="comanda-card__client">
+                    <HugeiconsIcon icon={UserIcon} size={16} className="comanda-card__client-icon" />
+                    <span className="comanda-card__client-name">{cmd.customer_name}</span>
+                  </div>
+
+                  <div className="comanda-card__meta">
+                    <span className="comanda-card__prof">{cmd.professional_name}</span>
+                    <span className="comanda-card__itens-count">
+                      {itensCount} {itensCount === 1 ? 'item' : 'itens'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="comanda-card__footer">
+                  <div className="comanda-card__total">
+                    <span className="comanda-card__total-label">Total</span>
+                    <span className="comanda-card__total-value">R$ {total.toFixed(2)}</span>
+                  </div>
+
+                  <div className="comanda-card__actions" onClick={(e) => e.stopPropagation()}>
+                    {cmd.customer_phone && (
+                      <button
+                        type="button"
+                        className="comanda-card__action-btn comanda-card__action-btn--whatsapp"
+                        onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
+                        title="WhatsApp"
+                      >
+                        <HugeiconsIcon icon={WhatsappIcon} size={16} />
+                      </button>
+                    )}
+
+                    {isOpen ? (
+                      <button
+                        type="button"
+                        className="comanda-card__action-btn comanda-card__action-btn--checkout"
+                        onClick={() => handleOpenCheckoutModal(cmd)}
+                      >
+                        <HugeiconsIcon icon={Money01Icon} size={16} />
+                        <span>Cobrar</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="comanda-card__action-btn comanda-card__action-btn--view"
+                        onClick={() => handleOpenCheckoutModal(cmd)}
+                      >
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
+                        <span>Ver Detalhes</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── MODAL DE CHECKOUT / DETALHES ─── */}
+      {isCheckoutOpen && (
+        <ComandaCheckoutModal
+          isOpen={isCheckoutOpen}
+          tenantId={tenant.id}
+          appointmentId={selectedComanda?.appointment_id || null}
+          customerId={selectedComanda?.customer_id || null}
+          customerName={selectedComanda?.customer_name || 'Cliente Balcão'}
+          customerPhone={selectedComanda?.customer_phone || null}
+          availableServices={services}
+          availableProfessionals={professionals}
+          onClose={() => setIsCheckoutOpen(false)}
+          onFinalizado={handleFinalizado}
+        />
+      )}
+
+      <style>{`
+        .comandas-page {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          width: 100%;
+        }
+
+        .comandas-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+
+        .comandas-header__title {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .comandas-header__subtitle {
+          font-size: 0.875rem;
+          color: var(--color-text-secondary);
+          margin: 0.25rem 0 0;
+        }
+
+        .comandas-header__btn-nova {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--color-brand-primary, #f59e0b);
+          color: #18181b;
+          border: none;
+          padding: 0.65rem 1.15rem;
+          border-radius: 10px;
+          font-size: 0.875rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .comandas-header__btn-nova:hover {
+          opacity: 0.9;
+        }
+
+        .comandas-toolbar {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .comandas-search {
+          flex: 1;
+          min-width: 260px;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          padding: 0.6rem 0.875rem;
+        }
+
+        .comandas-search__icon {
+          color: var(--color-text-secondary);
+        }
+
+        .comandas-search__input {
+          background: transparent;
+          border: none;
+          color: var(--color-text-primary);
+          font-size: 0.875rem;
+          width: 100%;
+          outline: none;
+        }
+
+        .comandas-tabs {
+          display: flex;
+          gap: 0.375rem;
+          background: var(--color-bg-secondary);
+          padding: 3px;
+          border-radius: 10px;
+          border: 1px solid var(--color-border);
+        }
+
+        .comandas-tab {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.45rem 0.85rem;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          color: var(--color-text-secondary);
+          font-size: 0.8125rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comandas-tab--active {
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+        }
+
+        .comandas-tab__badge {
+          font-size: 0.6875rem;
+          background: rgba(245, 158, 11, 0.2);
+          color: #f59e0b;
+          padding: 1px 6px;
+          border-radius: 9999px;
+        }
+
+        .comandas-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 1rem;
+        }
+
+        .comanda-card {
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: 14px;
+          padding: 1.15rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.875rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
+        }
+
+        .comanda-card:hover {
+          border-color: var(--color-brand-primary, rgba(245, 158, 11, 0.4));
+          transform: translateY(-2px);
+        }
+
+        .comanda-card__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .comanda-card__code {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.8125rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-card__status {
+          font-size: 0.6875rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          padding: 2px 8px;
+          border-radius: 6px;
+        }
+
+        .status--open {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+        }
+
+        .status--paid {
+          background: rgba(16, 185, 129, 0.15);
+          color: #34d399;
+        }
+
+        .comanda-card__body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+
+        .comanda-card__client {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .comanda-card__client-icon {
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-card__client-name {
+          font-size: 1.0625rem;
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-card__meta {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.8125rem;
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-card__footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 0.75rem;
+          border-top: 1px solid var(--color-border);
+        }
+
+        .comanda-card__total-label {
+          font-size: 0.6875rem;
+          color: #71717a;
+          text-transform: uppercase;
+          display: block;
+        }
+
+        .comanda-card__total-value {
+          font-size: 1.125rem;
+          font-weight: 800;
+          color: #f59e0b;
+        }
+
+        .comanda-card__actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .comanda-card__action-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.5rem 0.875rem;
+          border-radius: 8px;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comanda-card__action-btn--whatsapp {
+          background: rgba(37, 211, 102, 0.12);
+          color: #25d366;
+          border: 1px solid rgba(37, 211, 102, 0.25);
+          padding: 0.5rem;
+        }
+
+        .comanda-card__action-btn--checkout {
+          background: #f59e0b;
+          color: #18181b;
+          font-weight: 700;
+        }
+
+        .comanda-card__action-btn--view {
+          background: rgba(255, 255, 255, 0.08);
+          color: #f4f4f5;
+        }
+
+        .comandas-loading,
+        .comandas-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 4rem 1.5rem;
+          text-align: center;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 16px;
+        }
+
+        .comandas-empty__icon {
+          color: #71717a;
+          margin-bottom: 0.75rem;
+        }
+
+        .comandas-empty__btn {
+          margin-top: 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: #f59e0b;
+          color: #18181b;
+          padding: 0.65rem 1.25rem;
+          border-radius: 10px;
+          border: none;
+          font-weight: 700;
+          font-size: 0.875rem;
+          cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+          .comandas-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .comandas-header__btn-nova {
+            justify-content: center;
+            padding: 0.85rem;
+            font-size: 0.9375rem;
+            min-height: 48px;
+          }
+          .comandas-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .comandas-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};

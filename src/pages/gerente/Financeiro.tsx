@@ -26,6 +26,7 @@ import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssi
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
 import { DetalhesComissaoModal } from '../../components/financeiro/DetalhesComissaoModal';
+import { MobileCaixaView } from './mobile/MobileCaixaView';
 
 export interface FinancialMetrics {
   total_revenue: number;
@@ -259,16 +260,31 @@ export const Financeiro: React.FC = () => {
 
   return (
     <div className="financeiro-page">
-      {/* 1. Header do Hub Financeiro */}
-      <header className="financeiro-header">
-        <div>
-          <h1 className="financeiro-header-title">
-            Hub financeiro
-          </h1>
-          <p className="financeiro-header-subtitle">
-            Acompanhe o faturamento em tempo real, controle o caixa diário e realize os repasses da sua equipe.
-          </p>
-        </div>
+      {/* ─── VISÃO MOBILE (<= 768px) ─── */}
+      <div className="financeiro-mobile-view">
+        <MobileCaixaView
+          activeSession={activeSession}
+          activeSessionCashReceipts={activeSessionCashReceipts}
+          metrics={metrics}
+          historySessions={historySessions}
+          onOpenAbertura={() => setIsAberturaModalOpen(true)}
+          onOpenFechamento={() => setIsFechamentoModalOpen(true)}
+          formatDate={formatDate}
+        />
+      </div>
+
+      {/* ─── VISÃO DESKTOP (> 768px) ─── */}
+      <div className="financeiro-desktop-view">
+        {/* 1. Header do Hub Financeiro */}
+        <header className="financeiro-header">
+          <div>
+            <h1 className="financeiro-header-title">
+              Hub financeiro
+            </h1>
+            <p className="financeiro-header-subtitle">
+              Acompanhe o faturamento em tempo real, controle o caixa diário e realize os repasses da sua equipe.
+            </p>
+          </div>
 
         {/* Filtro de Período */}
         <div className="financeiro-period-tabs">
@@ -694,6 +710,7 @@ export const Financeiro: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
 
       {/* Modais Integrados */}
       {/* Modal 1: Abertura de Caixa */}

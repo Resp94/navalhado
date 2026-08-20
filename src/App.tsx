@@ -11,6 +11,7 @@ import { BarbeiroLayout } from './components/BarbeiroLayout';
 import { MinhaAgenda } from './pages/barbeiro/MinhaAgenda';
 import { MinhasComissoes } from './pages/barbeiro/MinhasComissoes';
 import { Agenda as GerenteAgenda } from './pages/gerente/Agenda';
+import { Comandas as GerenteComandas } from './pages/gerente/Comandas';
 import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
@@ -44,7 +45,7 @@ function App() {
           >
             <Route path="/onboarding" element={<OnboardingWizard />} />
             <Route path="/agenda" element={<GerenteAgenda />} />
-            <Route path="/comandas" element={<Navigate to="/agenda" replace />} />
+            <Route path="/comandas" element={<GerenteComandas />} />
             <Route path="/dashboard" element={<Navigate to="/agenda" replace />} />
             <Route path="/financeiro" element={<GerenteFinanceiro />} />
             <Route path="/profissionais" element={<GerenteProfissionais />} />

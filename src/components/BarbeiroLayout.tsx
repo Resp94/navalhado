@@ -4,37 +4,14 @@ import { supabase } from '../lib/supabase';
 import { useToast } from './Toast';
 import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
 import { NotificationBell } from './NotificationBell';
-
-// SVGs de Ícones Inline para garantir que o componente seja autossuficiente e estilizado
-const CalendarIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-    <line x1="16" x2="16" y1="2" y2="6" />
-    <line x1="8" x2="8" y1="2" y2="6" />
-    <line x1="3" x2="21" y1="10" y2="10" />
-    <path d="M8 14h.01" />
-    <path d="M12 14h.01" />
-    <path d="M16 14h.01" />
-    <path d="M8 18h.01" />
-    <path d="M12 18h.01" />
-    <path d="M16 18h.01" />
-  </svg>
-);
-
-const AwardIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="6" />
-    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
-  </svg>
-);
-
-const LogOutIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" x2="9" y1="12" y2="12" />
-  </svg>
-);
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon,
+  Money01Icon,
+  Logout01Icon,
+} from '@hugeicons/core-free-icons';
+import { MobileBottomNav, type MobileNavItem } from './mobile/MobileBottomNav';
+import { MobileHeader } from './mobile/MobileHeader';
 
 export const BarbeiroLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -189,8 +166,14 @@ export const BarbeiroLayout: React.FC = () => {
   }
 
   const navLinks = [
-    { path: '/minha-agenda', label: 'Agenda', icon: <CalendarIcon size={20} /> },
-    { path: '/minhas-comissoes', label: 'Comissões', icon: <AwardIcon size={20} /> },
+    { path: '/minha-agenda', label: 'Agenda', icon: <HugeiconsIcon icon={Calendar03Icon} size={18} /> },
+    { path: '/minhas-comissoes', label: 'Comissões', icon: <HugeiconsIcon icon={Money01Icon} size={18} /> },
+  ];
+
+  const mobileNavItems: MobileNavItem[] = [
+    { id: 'agenda', label: 'Minha Agenda', icon: Calendar03Icon, path: '/minha-agenda' },
+    { id: 'comissoes', label: 'Comissões', icon: Money01Icon, path: '/minhas-comissoes' },
+    { id: 'perfil', label: 'Sair', icon: Logout01Icon, onClick: handleLogout },
   ];
 
   return (
@@ -198,7 +181,16 @@ export const BarbeiroLayout: React.FC = () => {
       <div className="noise-overlay" />
 
       <div className="barbeiro-layout">
-        {/* CABEÇALHO SUPERIOR (HEADER) */}
+        {/* HEADER MOBILE (<= 768px) */}
+        <MobileHeader
+          tenantName={tenantName || 'Barbeiro'}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAllAsRead={markAllAsRead}
+          onMarkAsRead={markAsRead}
+        />
+
+        {/* CABEÇALHO SUPERIOR DESKTOP (> 768px) */}
         <header className="barbeiro-header">
           <div className="barbeiro-header__brand" onClick={() => navigate('/minha-agenda')} style={{ cursor: 'pointer' }}>
             <div className="barbeiro-header__logo">
@@ -246,7 +238,7 @@ export const BarbeiroLayout: React.FC = () => {
               </div>
             </div>
             <button onClick={handleLogout} className="btn-logout" title="Sair da conta">
-              <LogOutIcon size={18} />
+              <HugeiconsIcon icon={Logout01Icon} size={16} />
               <span className="logout-text">Sair</span>
             </button>
           </div>
@@ -259,25 +251,8 @@ export const BarbeiroLayout: React.FC = () => {
           </div>
         </main>
 
-        {/* NAVEGAÇÃO INFERIOR (BOTTOM NAV) - Visível apenas no Mobile */}
-        <nav className="barbeiro-bottom-nav">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.path;
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`barbeiro-bottom-nav__item ${isActive ? 'barbeiro-bottom-nav__item--active' : ''}`}
-              >
-                <div className="barbeiro-bottom-nav__icon-box">
-                  {link.icon}
-                </div>
-                <span className="barbeiro-bottom-nav__text">{link.label}</span>
-                {isActive && <span className="barbeiro-bottom-nav__dot" />}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* NAVEGAÇÃO INFERIOR FIXA MOBILE (<= 768px) */}
+        <MobileBottomNav items={mobileNavItems} />
       </div>
 
       <style>{`
@@ -519,90 +494,11 @@ export const BarbeiroLayout: React.FC = () => {
         }
 
         @media (max-width: 768px) {
-          .barbeiro-header__nav-desktop {
-            display: none; /* Oculta no Mobile */
+          .barbeiro-header {
+            display: none !important;
           }
-          
-          .barbeiro-header__profile-meta {
-            display: none; /* Oculta texto de perfil no mobile */
-          }
-
-          .logout-text {
-            display: none; /* Oculta texto de logout no mobile */
-          }
-
-          .btn-logout {
-            padding: 0.45rem;
-          }
-
-          .barbeiro-bottom-nav {
-            display: flex;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 68px;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
-            background-color: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px) saturate(140%);
-            -webkit-backdrop-filter: blur(20px) saturate(140%);
-            border-top: 1px solid rgba(234, 222, 214, 0.7);
-            z-index: 1000;
-            box-shadow: 0 -4px 20px rgba(45, 35, 30, 0.05);
-            justify-content: space-around;
-            align-items: center;
-          }
-
-          .barbeiro-bottom-nav__item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            height: 100%;
-            color: var(--color-text-secondary);
-            text-decoration: none;
-            position: relative;
-            gap: 0.15rem;
-            transition: color 0.25s ease;
-          }
-
-          .barbeiro-bottom-nav__icon-box {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          }
-
-          .barbeiro-bottom-nav__item:active .barbeiro-bottom-nav__icon-box {
-            transform: scale(0.85);
-          }
-
-          .barbeiro-bottom-nav__item--active {
-            color: var(--color-brand-primary);
-          }
-
-          .barbeiro-bottom-nav__item--active .barbeiro-bottom-nav__icon-box {
-            transform: translateY(-2px) scale(1.1);
-          }
-
-          .barbeiro-bottom-nav__text {
-            font-size: var(--font-size-xs);
-            font-weight: 500;
-          }
-
-          .barbeiro-bottom-nav__item--active .barbeiro-bottom-nav__text {
-            font-weight: 700;
-          }
-
-          .barbeiro-bottom-nav__dot {
-            position: absolute;
-            bottom: 4px;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background-color: var(--color-brand-primary);
-            box-shadow: 0 0 6px var(--color-brand-soft);
+          .barbeiro-main {
+            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
           }
         }
       `}</style>

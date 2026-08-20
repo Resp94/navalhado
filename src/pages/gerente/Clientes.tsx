@@ -438,86 +438,95 @@ export const Clientes: React.FC = () => {
           </div>
         ) : (
           <table className="customers-table" aria-label="Lista de clientes">
-            <thead>
-              <tr>
-                <th scope="col">Nome e perfil</th>
-                <th scope="col">Telefone</th>
-                <th scope="col">Tags</th>
-                <th scope="col">Status</th>
-                <th scope="col">Cadastrado em</th>
-                <th scope="col" style={{ textAlign: 'right' }}>
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCustomers.map((customer) => (
-                <tr key={customer.id} className="customer-row">
-                  <td>
-                    <div className="customer-name-wrapper">
-                      <strong className="customer-name">{customer.name}</strong>
-                      {customer.email && <span className="customer-email">{customer.email}</span>}
-                    </div>
-                  </td>
-                  <td className="font-mono">{customer.phone}</td>
-                  <td>
-                    <div className="customer-tags-inline">
-                      {customer.tags && customer.tags.length > 0 ? (
-                        customer.tags.slice(0, 2).map((t) => (
-                          <span key={t} className="badge-tag">
-                            #{t}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted text-xs">Sem tags</span>
-                      )}
-                      {customer.tags && customer.tags.length > 2 && (
-                        <span className="badge-tag-more">+{customer.tags.length - 2}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    {customer.cadastro_completo ? (
-                      <span className="badge badge--success">Completo</span>
-                    ) : (
-                      <span className="badge badge--warning">Provisório</span>
-                    )}
-                  </td>
-                  <td>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td>
-                    <div className="actions-cell">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDrawer(customer)}
-                        className="btn btn--outline btn--xs"
-                        aria-label={`Ver detalhes de ${customer.name}`}
-                      >
-                        Central 360º
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenModal(customer)}
-                        className="btn-icon-only"
-                        title={`Editar ${customer.name}`}
-                        aria-label={`Editar ${customer.name}`}
-                      >
-                        <EditIcon />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomerToDelete(customer)}
-                        className="btn-icon-only btn-icon-only--danger"
-                        title={`Excluir ${customer.name}`}
-                        aria-label={`Excluir ${customer.name}`}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </td>
+              <thead>
+                <tr>
+                  <th scope="col">Nome e perfil</th>
+                  <th scope="col">Telefone</th>
+                  <th scope="col">Tags</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Cadastrado em</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>
+                    Ações
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredCustomers.map((customer) => (
+                  <tr key={customer.id} className="customer-row">
+                    <td>
+                      <div className="customer-name-wrapper">
+                        <strong className="customer-name">{customer.name}</strong>
+                        {customer.email && <span className="customer-email">{customer.email}</span>}
+                      </div>
+                    </td>
+                    <td className="font-mono">{customer.phone}</td>
+                    <td>
+                      <div className="customer-tags-inline">
+                        {customer.tags && customer.tags.length > 0 ? (
+                          customer.tags.slice(0, 2).map((t) => (
+                            <span key={t} className="badge-tag">
+                              #{t}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-muted text-xs">Sem tags</span>
+                        )}
+                        {customer.tags && customer.tags.length > 2 && (
+                          <span className="badge-tag-more">+{customer.tags.length - 2}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      {customer.cadastro_completo ? (
+                        <span className="badge badge--success">Completo</span>
+                      ) : (
+                        <span className="badge badge--warning">Provisório</span>
+                      )}
+                    </td>
+                    <td>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
+                    <td>
+                      <div className="actions-cell">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDirectWhatsApp(customer)}
+                          className="btn-icon-only btn-icon-only--whatsapp"
+                          title={`WhatsApp para ${customer.name}`}
+                          aria-label={`WhatsApp para ${customer.name}`}
+                        >
+                          <HugeiconsIcon icon={WhatsappIcon} size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDrawer(customer)}
+                          className="btn btn--outline btn--xs"
+                          aria-label={`Ver detalhes de ${customer.name}`}
+                        >
+                          Central 360º
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenModal(customer)}
+                          className="btn-icon-only"
+                          title={`Editar ${customer.name}`}
+                          aria-label={`Editar ${customer.name}`}
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomerToDelete(customer)}
+                          className="btn-icon-only btn-icon-only--danger"
+                          title={`Excluir ${customer.name}`}
+                          aria-label={`Excluir ${customer.name}`}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
         )}
       </div>
 
