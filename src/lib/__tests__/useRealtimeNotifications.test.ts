@@ -8,6 +8,7 @@ const {
   mockSelect,
   mockUpdate,
   mockEq,
+  mockIs,
   mockChannel,
   mockAddToast,
   setQueryResolveValue,
@@ -18,6 +19,7 @@ const {
   const mockSelect = vi.fn().mockReturnThis();
   const mockUpdate = vi.fn().mockReturnThis();
   const mockEq = vi.fn().mockReturnThis();
+  const mockIs = vi.fn().mockReturnThis();
   const mockOrder = vi.fn().mockReturnThis();
   const mockLimit = vi.fn().mockReturnThis();
   const mockAddToast = vi.fn();
@@ -29,6 +31,7 @@ const {
     select: mockSelect,
     update: mockUpdate,
     eq: mockEq,
+    is: mockIs,
     order: mockOrder,
     limit: mockLimit,
     then: vi.fn().mockImplementation((onfulfilled) => {
@@ -355,5 +358,101 @@ describe('useRealtimeNotifications', () => {
 
     expect(mockAddToast).not.toHaveBeenCalled();
     expect(result.current.notifications).toEqual([]);
+  });
+
+  it('deve notificar o Gerente apenas 1 vez quando o trigger do banco insere registro do gerente e registro do profissional simultaneamente', async () => {
+    // Quando o usuário é gerente (sem profissionalId ou com isGerente)
+    const { result } = renderHook(() => useRealtimeNotifications({
+      tenantId: 'tenant-1',
+      isGerente: true,
+    }));
+    await waitForEffects();
+
+    const realtimeCallback = getRealtimeCallback();
+
+    // Trigger do banco insere 2 registros:
+    // 1. Notificação para o Gerente (professional_id = null)
+    // 2. Notificação para o Barbeiro (professional_id = 'prof-1')
+    const managerNotif = {
+      id: 'notif-gerente',
+      tenant_id: 'tenant-1',
+      professional_id: null,
+      type: 'appointment_created',
+      title: 'Novo Agendamento',
+      message: 'João agendou Barba com Carlos para 22/08/2026 às 14:00.',
+      read: false,
+      created_at: '2026-08-21T18:00:00Z',
+    };
+
+    const barberNotif = {
+      id: 'notif-barbeiro',
+      tenant_id: 'tenant-1',
+      professional_id: 'prof-1',
+      type: 'appointment_created',
+      title: 'Novo Agendamento',
+      message: 'João agendou Barba com Carlos para 22/08/2026 às 14:00.',
+      read: false,
+      created_at: '2026-08-21T18:00:00Z',
+    };
+
+    await act(async () => {
+      realtimeCallback?.({ new: managerNotif });
+      realtimeCallback?.({ new: barberNotif });
+    });
+
+    // Deve notificar apenas UMA vez e conter apenas 1 notificação na lista do Gerente
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
+    expect(mockAddToast).toHaveBeenCalledWith(managerNotif.message, 'info');
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0].id).toBe('notif-gerente');
+    expect(result.current.unreadCount).toBe(1);
+  });
+
+  it('deve notificar o Barbeiro apenas 1 vez quando o trigger do banco insere registro do gerente e registro do profissional simultaneamente', async () => {
+    // Quando o usuário é barbeiro (profissionalId = 'prof-1')
+    const { result } = renderHook(() => useRealtimeNotifications({
+      tenantId: 'tenant-1',
+      profissionalId: 'prof-1',
+    }));
+    await waitForEffects();
+
+    const realtimeCallback = getRealtimeCallback();
+
+    // Trigger do banco insere 2 registros:
+    // 1. Notificação para o Gerente (professional_id = null)
+    // 2. Notificação para o Barbeiro (professional_id = 'prof-1')
+    const managerNotif = {
+      id: 'notif-gerente',
+      tenant_id: 'tenant-1',
+      professional_id: null,
+      type: 'appointment_created',
+      title: 'Novo Agendamento',
+      message: 'João agendou Barba com Carlos para 22/08/2026 às 14:00.',
+      read: false,
+      created_at: '2026-08-21T18:00:00Z',
+    };
+
+    const barberNotif = {
+      id: 'notif-barbeiro',
+      tenant_id: 'tenant-1',
+      professional_id: 'prof-1',
+      type: 'appointment_created',
+      title: 'Novo Agendamento',
+      message: 'João agendou Barba com Carlos para 22/08/2026 às 14:00.',
+      read: false,
+      created_at: '2026-08-21T18:00:00Z',
+    };
+
+    await act(async () => {
+      realtimeCallback?.({ new: managerNotif });
+      realtimeCallback?.({ new: barberNotif });
+    });
+
+    // Deve notificar apenas UMA vez e conter apenas 1 notificação na lista do Barbeiro
+    expect(mockAddToast).toHaveBeenCalledTimes(1);
+    expect(mockAddToast).toHaveBeenCalledWith(barberNotif.message, 'info');
+    expect(result.current.notifications).toHaveLength(1);
+    expect(result.current.notifications[0].id).toBe('notif-barbeiro');
+    expect(result.current.unreadCount).toBe(1);
   });
 });

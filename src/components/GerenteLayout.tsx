@@ -48,6 +48,7 @@ export const GerenteLayout: React.FC = () => {
 
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useRealtimeNotifications({
     tenantId: tenantInfo?.tenantId || '',
+    isGerente: true,
   });
 
   const fetchTenantData = React.useCallback(async () => {

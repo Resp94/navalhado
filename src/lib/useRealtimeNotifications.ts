@@ -13,12 +13,15 @@ export interface Notification {
   created_at: string;
 }
 
+export type RealtimeNotification = Notification;
+
 interface UseRealtimeNotificationsProps {
   tenantId: string;
   profissionalId?: string;
+  isGerente?: boolean;
 }
 
-export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealtimeNotificationsProps) {
+export function useRealtimeNotifications({ tenantId, profissionalId, isGerente }: UseRealtimeNotificationsProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { addToast } = useToast();
 
@@ -70,6 +73,8 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
 
       if (profissionalId) {
         query = query.eq('professional_id', profissionalId);
+      } else if (isGerente) {
+        query = query.is('professional_id', null);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -83,7 +88,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
     } catch (err) {
       console.error('Erro ao buscar notificações:', err);
     }
-  }, [tenantId, profissionalId]);
+  }, [tenantId, profissionalId, isGerente]);
 
   const markAsRead = useCallback(async (id: string) => {
     try {
@@ -113,6 +118,8 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
 
       if (profissionalId) {
         query = query.eq('professional_id', profissionalId);
+      } else if (isGerente) {
+        query = query.is('professional_id', null);
       }
 
       const { error } = await query;
@@ -126,7 +133,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
     } catch (err) {
       console.error('Erro ao marcar todas notificações como lidas:', err);
     }
-  }, [tenantId, profissionalId]);
+  }, [tenantId, profissionalId, isGerente]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -146,17 +153,29 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
         },
         (payload) => {
           const newNotif = payload.new as Notification;
+          if (!newNotif) return;
 
           // Valida se a notificação pertence a este tenant
           if (newNotif.tenant_id !== tenantId) return;
 
-          // Se profissionalId estiver definido, valida se a notificação é para este profissional (ou se é geral/nula)
-          if (profissionalId && newNotif.professional_id && newNotif.professional_id !== profissionalId) {
-            return;
+          // Filtro por destinatário:
+          // Se for Barbeiro: aceita APENAS as notificações destinadas a ele
+          if (profissionalId) {
+            if (newNotif.professional_id !== profissionalId) {
+              return;
+            }
+          } else if (isGerente) {
+            // Se for Gerente: aceita APENAS as notificações gerais/do gerente (professional_id nulo)
+            if (newNotif.professional_id !== null && newNotif.professional_id !== undefined) {
+              return;
+            }
           }
 
-          // Atualiza estado local adicionando a nova notificação
-          setNotifications((prev) => [newNotif, ...prev]);
+          // Atualiza estado local garantindo não duplicar por ID
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === newNotif.id)) return prev;
+            return [newNotif, ...prev];
+          });
 
           // Toca som ding-dong
           playDingDong();
@@ -170,7 +189,7 @@ export function useRealtimeNotifications({ tenantId, profissionalId }: UseRealti
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, profissionalId, fetchNotifications, playDingDong, addToast]);
+  }, [tenantId, profissionalId, isGerente, fetchNotifications, playDingDong, addToast]);
 
   return {
     notifications,
