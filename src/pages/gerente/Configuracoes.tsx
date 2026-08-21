@@ -308,14 +308,12 @@ export const Configuracoes: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '3rem' }}>
+    <form onSubmit={handleSave} className="config-form">
       {/* Cabeçalho */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.25rem' }}>
-        <div style={{ maxWidth: '620px' }}>
-          <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: 'var(--color-text-primary)' }}>
-            Ajustes da barbearia
-          </h2>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', margin: '6px 0 0', lineHeight: 1.5 }}>
+      <div className="config-header">
+        <div className="config-header-text">
+          <h2>Ajustes da barbearia</h2>
+          <p>
             Personalize os dados da sua barbearia, defina os horários de atendimento da equipe e controle as regras de agendamento online com total autonomia.
           </p>
         </div>
@@ -323,18 +321,7 @@ export const Configuracoes: React.FC = () => {
         <button
           type="submit"
           disabled={saving}
-          className="btn btn--primary"
-          style={{
-            padding: '12px 28px',
-            borderRadius: '9999px',
-            fontWeight: 700,
-            fontSize: '14px',
-            boxShadow: '0 4px 14px rgba(217, 108, 0, 0.2)',
-            cursor: saving ? 'not-allowed' : 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
+          className="btn btn--primary btn-save-config"
         >
           <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={2} />
           {saving ? 'Salvando...' : 'Salvar alterações'}
@@ -342,132 +329,65 @@ export const Configuracoes: React.FC = () => {
       </div>
 
       {/* CARD 1: Perfil e Localização */}
-      <div className="card-config" style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '2rem',
-        boxShadow: 'var(--shadow-sm)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: 'var(--color-brand-lightest)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-brand-primary)'
-          }}>
+      <div className="card card-config">
+        <div className="config-section-header">
+          <div className="config-icon-badge">
             <HugeiconsIcon icon={Store01Icon} size={22} strokeWidth={2} />
           </div>
           <div>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Perfil e localização
-            </h3>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.
-            </p>
+            <h3>Perfil e localização</h3>
+            <p>Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.</p>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <div className="config-fields-grid">
           {/* Nome da Barbearia */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor="name" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Nome da barbearia
-            </label>
+          <div className="form-group">
+            <label htmlFor="name">Nome da barbearia</label>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Barbearia Navalha de Ouro"
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 500,
-                outline: 'none'
-              }}
+              className="config-input"
             />
           </div>
 
           {/* E-mail de Contato */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor="email" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              E-mail de contato
-            </label>
+          <div className="form-group">
+            <label htmlFor="email">E-mail de contato</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contato@barbearia.com"
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 500,
-                outline: 'none'
-              }}
+              className="config-input"
             />
           </div>
 
           {/* Telefone */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor="phone" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Telefone
-            </label>
+          <div className="form-group">
+            <label htmlFor="phone">Telefone</label>
             <input
               id="phone"
               type="text"
               value={phone}
               onChange={handlePhoneChange}
               placeholder="(00) 00000-0000"
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 500,
-                outline: 'none'
-              }}
+              className="config-input"
             />
           </div>
 
           {/* Fuso Horário */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor="timezone" style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Fuso horário
-            </label>
+          <div className="form-group">
+            <label htmlFor="timezone">Fuso horário</label>
             <select
               id="timezone"
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 500,
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              className="config-select"
             >
               <option value="America/Sao_Paulo">Horário de Brasília (UTC-3)</option>
               <option value="America/Manaus">Horário da Amazônia (UTC-4)</option>
@@ -478,142 +398,86 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* Endereço Estruturado com CEP */}
-        <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="address-section">
+          <div className="address-section-title">
             <HugeiconsIcon icon={Location01Icon} size={16} color="var(--color-brand-primary)" />
-            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Endereço do estabelecimento
-            </span>
+            <span>Endereço do estabelecimento</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+          <div className="address-row-grid">
             {/* CEP */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="cep" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                CEP {loadingCep && <span style={{ color: 'var(--color-brand-primary)' }}>(Buscando...)</span>}
+            <div className="form-group cep-field">
+              <label htmlFor="cep">
+                CEP {loadingCep && <span className="cep-loading">(Buscando...)</span>}
               </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="cep"
-                  type="text"
-                  value={cep}
-                  onChange={handleCepChange}
-                  placeholder="00000-000"
-                  maxLength={9}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    backgroundColor: 'var(--color-bg-primary)',
-                    color: 'var(--color-text-primary)',
-                    fontSize: 'var(--font-size-sm)',
-                    fontWeight: 600,
-                    outline: 'none',
-                    width: '100%'
-                  }}
-                />
-              </div>
+              <input
+                id="cep"
+                type="text"
+                value={cep}
+                onChange={handleCepChange}
+                placeholder="00000-000"
+                maxLength={9}
+                className="config-input"
+              />
             </div>
 
             {/* Logradouro / Rua */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: 'span 2' }}>
-              <label htmlFor="address_street" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Rua ou avenida
-              </label>
+            <div className="form-group street-field">
+              <label htmlFor="address_street">Rua ou avenida</label>
               <input
                 id="address_street"
                 type="text"
                 value={addressStreet}
                 onChange={(e) => setAddressStreet(e.target.value)}
                 placeholder="Ex: Rua das Flores"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  outline: 'none'
-                }}
+                className="config-input"
               />
             </div>
 
             {/* Número */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="address_number" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Número
-              </label>
+            <div className="form-group number-field">
+              <label htmlFor="address_number">Número</label>
               <input
                 id="address_number"
                 type="text"
                 value={addressNumber}
                 onChange={(e) => setAddressNumber(e.target.value)}
                 placeholder="Ex: 123"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  outline: 'none'
-                }}
+                className="config-input"
               />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
+          <div className="address-sub-grid">
             {/* Bairro */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="address_neighborhood" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Bairro
-              </label>
+            <div className="form-group">
+              <label htmlFor="address_neighborhood">Bairro</label>
               <input
                 id="address_neighborhood"
                 type="text"
                 value={addressNeighborhood}
                 onChange={(e) => setAddressNeighborhood(e.target.value)}
                 placeholder="Ex: Centro"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  outline: 'none'
-                }}
+                className="config-input"
               />
             </div>
 
             {/* Cidade */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="address_city" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                Cidade
-              </label>
+            <div className="form-group">
+              <label htmlFor="address_city">Cidade</label>
               <input
                 id="address_city"
                 type="text"
                 value={addressCity}
                 onChange={(e) => setAddressCity(e.target.value)}
                 placeholder="Ex: São Paulo"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  outline: 'none'
-                }}
+                className="config-input"
               />
             </div>
 
             {/* UF */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label htmlFor="address_state" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                UF
-              </label>
+            <div className="form-group uf-field">
+              <label htmlFor="address_state">UF</label>
               <input
                 id="address_state"
                 type="text"
@@ -621,95 +485,54 @@ export const Configuracoes: React.FC = () => {
                 maxLength={2}
                 onChange={(e) => setAddressState(e.target.value.toUpperCase())}
                 placeholder="SP"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  outline: 'none',
-                  textTransform: 'uppercase'
-                }}
+                className="config-input uf-input"
               />
             </div>
           </div>
 
           {cepError && (
-            <span style={{ fontSize: '12px', color: 'var(--color-error)' }}>{cepError}</span>
+            <span className="cep-error">{cepError}</span>
           )}
 
           {/* Campo de Endereço Completo (legado/resumo) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label htmlFor="address" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-              Endereço completo ou ponto de referência
-            </label>
+          <div className="form-group">
+            <label htmlFor="address">Endereço completo ou ponto de referência</label>
             <input
               id="address"
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Rua, Número, Bairro, Cidade, Estado"
-              style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: 'var(--font-size-sm)',
-                outline: 'none'
-              }}
+              className="config-input"
             />
           </div>
         </div>
       </div>
 
       {/* CARD 2: Regras de Agendamento Online */}
-      <div className="card-config" style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '2rem',
-        boxShadow: 'var(--shadow-sm)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.75rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: 'var(--color-brand-lightest)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-brand-primary)'
-          }}>
+      <div className="card card-config">
+        <div className="config-section-header">
+          <div className="config-icon-badge">
             <HugeiconsIcon icon={Clock01Icon} size={22} strokeWidth={2} />
           </div>
           <div>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Regras de agendamento online
-            </h3>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.
-            </p>
+            <h3>Regras de agendamento online</h3>
+            <p>Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.</p>
           </div>
         </div>
 
         {/* 2.1 Intervalo entre Horários */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div className="lead-rule-block">
+          <div className="lead-rule-header">
             <div>
-              <label htmlFor="slot_interval_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              <label htmlFor="slot_interval_minutes" className="lead-rule-title">
                 Intervalo entre horários na grade
               </label>
-              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
+              <p className="lead-rule-desc">
                 Frequência de novos horários gerados para os clientes reservarem online.
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="lead-input-group">
               <input
                 id="slot_interval_minutes"
                 type="number"
@@ -717,24 +540,14 @@ export const Configuracoes: React.FC = () => {
                 max={240}
                 value={slotIntervalMinutes}
                 onChange={(e) => setSlotIntervalMinutes(Number(e.target.value))}
-                style={{
-                  width: '80px',
-                  padding: '6px 10px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: 700,
-                  textAlign: 'center'
-                }}
+                className="lead-number-input"
               />
-              <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>minutos</span>
+              <span className="lead-input-unit">minutos</span>
             </div>
           </div>
 
           {/* Chips de Intervalo */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="lead-chips-grid">
             {SLOT_INTERVAL_PRESETS.map((preset) => {
               const isSelected = slotIntervalMinutes === preset.value;
               return (
@@ -742,18 +555,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setSlotIntervalMinutes(preset.value)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '9999px',
-                    border: '1px solid',
-                    borderColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-border)',
-                    backgroundColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-bg-primary)',
-                    color: isSelected ? '#FFFFFF' : 'var(--color-text-primary)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -763,17 +565,17 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* 2.2 Antecedência Mínima para Agendamento */}
-        <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div className="lead-rule-block lead-rule-block--bordered">
+          <div className="lead-rule-header">
             <div>
-              <label htmlFor="min_booking_lead_time_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              <label htmlFor="min_booking_lead_time_minutes" className="lead-rule-title">
                 Antecedência mínima para agendar
               </label>
-              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
+              <p className="lead-rule-desc">
                 Tempo mínimo antes do corte em que o cliente ainda pode reservar um horário pelo link.
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="lead-input-group">
               <input
                 id="min_booking_lead_time_minutes"
                 type="number"
@@ -781,24 +583,14 @@ export const Configuracoes: React.FC = () => {
                 max={1440}
                 value={minBookingLeadTimeMinutes}
                 onChange={(e) => setMinBookingLeadTimeMinutes(Number(e.target.value))}
-                style={{
-                  width: '80px',
-                  padding: '6px 10px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: 700,
-                  textAlign: 'center'
-                }}
+                className="lead-number-input"
               />
-              <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>minutos</span>
+              <span className="lead-input-unit">minutos</span>
             </div>
           </div>
 
           {/* Chips de Antecedência de Agendamento */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="lead-chips-grid">
             {BOOKING_LEAD_TIME_PRESETS.map((preset) => {
               const isSelected = minBookingLeadTimeMinutes === preset.value;
               return (
@@ -806,18 +598,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setMinBookingLeadTimeMinutes(preset.value)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '9999px',
-                    border: '1px solid',
-                    borderColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-border)',
-                    backgroundColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-bg-primary)',
-                    color: isSelected ? '#FFFFFF' : 'var(--color-text-primary)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -827,17 +608,17 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* 2.3 Antecedência Mínima para Cancelamento */}
-        <div style={{ borderTop: '1px dashed var(--color-border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div className="lead-rule-block lead-rule-block--bordered">
+          <div className="lead-rule-header">
             <div>
-              <label htmlFor="min_cancellation_lead_time_minutes" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              <label htmlFor="min_cancellation_lead_time_minutes" className="lead-rule-title">
                 Antecedência mínima para cancelar ou reagendar
               </label>
-              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
+              <p className="lead-rule-desc">
                 Após esse prazo, o cliente não consegue desmarcar pelo link e recebe um botão direto para conversar no WhatsApp do barbeiro.
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="lead-input-group">
               <input
                 id="min_cancellation_lead_time_minutes"
                 type="number"
@@ -845,24 +626,14 @@ export const Configuracoes: React.FC = () => {
                 max={2880}
                 value={minCancellationLeadTimeMinutes}
                 onChange={(e) => setMinCancellationLeadTimeMinutes(Number(e.target.value))}
-                style={{
-                  width: '80px',
-                  padding: '6px 10px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                  fontWeight: 700,
-                  textAlign: 'center'
-                }}
+                className="lead-number-input"
               />
-              <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>minutos</span>
+              <span className="lead-input-unit">minutos</span>
             </div>
           </div>
 
           {/* Chips de Antecedência de Cancelamento */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="lead-chips-grid">
             {CANCELLATION_LEAD_TIME_PRESETS.map((preset) => {
               const isSelected = minCancellationLeadTimeMinutes === preset.value;
               return (
@@ -870,18 +641,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setMinCancellationLeadTimeMinutes(preset.value)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '9999px',
-                    border: '1px solid',
-                    borderColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-border)',
-                    backgroundColor: isSelected ? 'var(--color-brand-primary)' : 'var(--color-bg-primary)',
-                    color: isSelected ? '#FFFFFF' : 'var(--color-text-primary)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -892,99 +652,48 @@ export const Configuracoes: React.FC = () => {
       </div>
 
       {/* CARD 3: Horário de Funcionamento Geral */}
-      <div className="card-config" style={{
-        backgroundColor: 'var(--color-bg-secondary)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '2rem',
-        boxShadow: 'var(--shadow-sm)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: 'var(--color-brand-lightest)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--color-brand-primary)'
-          }}>
+      <div className="card card-config">
+        <div className="config-section-header">
+          <div className="config-icon-badge">
             <HugeiconsIcon icon={Calendar03Icon} size={22} strokeWidth={2} />
           </div>
           <div>
-            <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-              Horário de funcionamento geral
-            </h3>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '2px 0 0' }}>
-              Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.
-            </p>
+            <h3>Horário de funcionamento geral</h3>
+            <p>Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="business-hours-list">
           {daysOfWeek.map(({ key, label }) => {
             const schedule = businessHours[key] || defaultBusinessHours[key];
             return (
-              <div key={key} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--color-bg-primary)',
-                border: '1px solid var(--color-border)',
-                transition: 'all 0.2s ease',
-                opacity: schedule.active ? 1 : 0.6
-              }}>
+              <div
+                key={key}
+                className={`business-day-row ${schedule.active ? 'business-day-row--active' : 'business-day-row--inactive'}`}
+              >
                 {/* Checkbox e Nome do Dia */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '160px' }}>
+                <div className="business-day-header">
                   <input
                     id={`checkbox-${key}`}
                     type="checkbox"
                     checked={schedule.active}
                     aria-label={label}
                     onChange={(e) => handleDayActiveChange(key, e.target.checked)}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      borderRadius: '4px',
-                      border: '1px solid var(--color-border)',
-                      cursor: 'pointer',
-                      accentColor: 'var(--color-brand-primary)'
-                    }}
+                    className="business-checkbox"
                   />
-                  <label htmlFor={`checkbox-${key}`} style={{ 
-                    fontSize: 'var(--font-size-sm)', 
-                    fontWeight: 700, 
-                    color: 'var(--color-text-primary)',
-                    cursor: 'pointer'
-                  }}>
+                  <label htmlFor={`checkbox-${key}`} className="business-day-label">
                     {label}
                   </label>
                 </div>
 
                 {/* Seletores Padronizados de Horário */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="business-day-selects">
                   <select
                     value={schedule.open}
                     disabled={!schedule.active}
                     aria-label={`Abertura ${label}`}
                     onChange={(e) => handleTimeChange(key, 'open', e.target.value)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border)',
-                      backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
-                      color: 'var(--color-text-primary)',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 600,
-                      outline: 'none',
-                      cursor: schedule.active ? 'pointer' : 'not-allowed'
-                    }}
+                    className="business-time-select"
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
@@ -992,23 +701,13 @@ export const Configuracoes: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', fontWeight: 600 }}>às</span>
+                  <span className="business-time-sep">às</span>
                   <select
                     value={schedule.close}
                     disabled={!schedule.active}
                     aria-label={`Fechamento ${label}`}
                     onChange={(e) => handleTimeChange(key, 'close', e.target.value)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border)',
-                      backgroundColor: schedule.active ? 'var(--color-bg-secondary)' : 'var(--color-bg-disabled)',
-                      color: 'var(--color-text-primary)',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 600,
-                      outline: 'none',
-                      cursor: schedule.active ? 'pointer' : 'not-allowed'
-                    }}
+                    className="business-time-select"
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
@@ -1022,6 +721,453 @@ export const Configuracoes: React.FC = () => {
           })}
         </div>
       </div>
+
+      <style>{`
+        .config-form {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          padding-bottom: 3rem;
+        }
+
+        .config-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 1.25rem;
+        }
+
+        .config-header-text {
+          max-width: 620px;
+        }
+
+        .config-header-text h2 {
+          font-size: var(--font-size-xl);
+          font-weight: 800;
+          margin: 0;
+          letter-spacing: -0.02em;
+          color: var(--color-text-primary);
+        }
+
+        .config-header-text p {
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+          margin: 6px 0 0;
+          line-height: 1.5;
+        }
+
+        .btn-save-config {
+          padding: 12px 28px;
+          border-radius: var(--radius-full);
+          font-weight: 700;
+          font-size: 14px;
+          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.2);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 44px;
+        }
+
+        .card-config {
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          padding: 2rem;
+          box-shadow: var(--shadow-sm);
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .config-section-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border-bottom: 1px solid var(--color-border);
+          padding-bottom: 1rem;
+        }
+
+        .config-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          background-color: var(--color-brand-lightest);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-brand-primary);
+          flex-shrink: 0;
+        }
+
+        .config-section-header h3 {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          margin: 0;
+          color: var(--color-text-primary);
+        }
+
+        .config-section-header p {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 2px 0 0;
+        }
+
+        .config-fields-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1.25rem;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-group label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .config-input,
+        .config-select {
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 500;
+          outline: none;
+          min-height: 44px;
+          box-sizing: border-box;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .config-input:focus,
+        .config-select:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
+        }
+
+        .address-section {
+          border-top: 1px dashed var(--color-border);
+          padding-top: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .address-section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .address-row-grid {
+          display: grid;
+          grid-template-columns: 140px 1fr 100px;
+          gap: 1rem;
+        }
+
+        .address-sub-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 90px;
+          gap: 1rem;
+        }
+
+        .cep-loading {
+          color: var(--color-brand-primary);
+          font-size: 11px;
+        }
+
+        .cep-error {
+          font-size: 12px;
+          color: var(--color-error);
+        }
+
+        .uf-input {
+          text-transform: uppercase;
+          text-align: center;
+        }
+
+        .lead-rule-block {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .lead-rule-block--bordered {
+          border-top: 1px dashed var(--color-border);
+          padding-top: 1.25rem;
+        }
+
+        .lead-rule-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .lead-rule-title {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .lead-rule-desc {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 2px 0 0;
+        }
+
+        .lead-input-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .lead-number-input {
+          width: 80px;
+          padding: 8px 10px;
+          min-height: 40px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          text-align: center;
+          box-sizing: border-box;
+        }
+
+        .lead-number-input:focus {
+          border-color: var(--color-brand-primary);
+          outline: none;
+        }
+
+        .lead-input-unit {
+          font-size: 12px;
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+
+        .lead-chips-grid {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .lead-chip-btn {
+          padding: 6px 14px;
+          min-height: 38px;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .lead-chip-btn:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-brand-primary);
+        }
+
+        .lead-chip-btn--active {
+          border-color: var(--color-brand-primary);
+          background-color: var(--color-brand-primary);
+          color: #FFFFFF;
+        }
+
+        .lead-chip-btn--active:hover {
+          color: #FFFFFF;
+        }
+
+        .business-hours-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .business-day-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          transition: all 0.2s ease;
+          gap: 1rem;
+        }
+
+        .business-day-row--inactive {
+          opacity: 0.65;
+        }
+
+        .business-day-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 160px;
+        }
+
+        .business-checkbox {
+          width: 20px;
+          height: 20px;
+          border-radius: 4px;
+          border: 1px solid var(--color-border);
+          cursor: pointer;
+          accent-color: var(--color-brand-primary);
+          flex-shrink: 0;
+        }
+
+        .business-day-label {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          cursor: pointer;
+        }
+
+        .business-day-selects {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .business-time-select {
+          padding: 8px 12px;
+          min-height: 40px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          outline: none;
+          cursor: pointer;
+        }
+
+        .business-time-select:disabled {
+          cursor: not-allowed;
+          background-color: var(--color-bg-disabled);
+          opacity: 0.7;
+        }
+
+        .business-time-sep {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 640px) {
+          .config-form {
+            gap: 1.25rem;
+          }
+
+          .card-config {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            gap: 1.25rem;
+          }
+
+          .btn-save-config {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .config-fields-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+
+          .address-row-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .cep-field {
+            grid-column: span 2;
+          }
+
+          .address-sub-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .uf-field {
+            grid-column: span 2;
+          }
+
+          .business-day-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.65rem;
+            padding: 0.85rem 1rem;
+          }
+
+          .business-day-header {
+            min-width: 0;
+            width: 100%;
+          }
+
+          .business-day-selects {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .business-time-select {
+            flex: 1;
+            min-height: 44px;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .config-input,
+          .config-select,
+          .business-time-select {
+            font-size: 16px; /* Previne auto-zoom iOS */
+          }
+
+          .address-row-grid,
+          .address-sub-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .cep-field,
+          .uf-field {
+            grid-column: auto;
+          }
+
+          .lead-rule-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .lead-input-group {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .lead-number-input {
+            flex: 1;
+            min-height: 44px;
+          }
+        }
+      `}</style>
     </form>
   );
 };
