@@ -16,6 +16,7 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
+import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
 
 export interface Service {
   id: string;
@@ -159,8 +160,9 @@ export const Servicos: React.FC = () => {
         .order('name', { ascending: true });
 
       if (error) throw error;
+      const rawServices = (data || []) as Array<Service & { price_type?: 'fixed' | 'starting_at'; duration_minutes?: number }>;
       setServices(
-        (data || []).map((s: any) => ({
+        rawServices.map((s) => ({
           ...s,
           price_type: s.price_type || 'fixed',
           duration_minutes: s.duration_minutes || 40,
@@ -205,12 +207,7 @@ export const Servicos: React.FC = () => {
     setEditingId(service.id);
     setName(service.name);
     setDescription(service.description || '');
-    setPrice(
-      service.price.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    );
+    setPrice(formatCurrencyInput(service.price));
     setPriceType(service.price_type || 'fixed');
     setDuration(service.duration_minutes || 40);
     setCategory(service.category);
@@ -226,23 +223,9 @@ export const Servicos: React.FC = () => {
     setIsActive(service.is_active);
   }, []);
 
-  // ── Helpers de formatação monetária (pt-BR) ──
-  const formatPriceToBR = (digits: string): string => {
-    const padded = digits.padStart(3, '0');
-    const intPart = padded.slice(0, -2);
-    const centPart = padded.slice(-2);
-    const intFormatted = parseInt(intPart, 10).toLocaleString('pt-BR');
-    return `${intFormatted},${centPart}`;
-  };
-
-  const parsePriceFromBR = (formatted: string): number => {
-    const normalized = formatted.replace(/\./g, '').replace(',', '.');
-    return parseFloat(normalized);
-  };
-
   const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '');
-    setPrice(digits ? formatPriceToBR(digits) : '');
+    const rawVal = e.target.value;
+    setPrice(rawVal ? formatCurrencyInput(rawVal) : '');
   }, []);
 
   const insertTagIntoTemplate = useCallback((tag: string) => {
@@ -251,11 +234,12 @@ export const Servicos: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedPrice = parseCurrencyInput(price);
     if (!name.trim()) {
       addToast('O nome do serviço é obrigatório.', 'warning');
       return;
     }
-    if (!price || parsePriceFromBR(price) <= 0) {
+    if (!price || parsedPrice <= 0) {
       addToast('Informe um preço válido.', 'warning');
       return;
     }
@@ -266,7 +250,7 @@ export const Servicos: React.FC = () => {
         tenant_id: tenant.tenantId,
         name: name.trim(),
         description: description.trim() || null,
-        price: parsePriceFromBR(price),
+        price: parsedPrice,
         price_type: priceType,
         duration_minutes: duration || 40,
         category,
@@ -1226,8 +1210,12 @@ export const Servicos: React.FC = () => {
           }
 
           .tag-helper-btn {
-            min-height: 38px;
-            padding: 6px 12px;
+            min-height: 44px;
+            padding: 8px 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
           }
         }
       `}</style>

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MobileCaixaView } from '../MobileCaixaView';
+import { ToastProvider } from '../../../../components/Toast';
 
 describe('MobileCaixaView Component', () => {
   const mockMetrics = {
@@ -33,7 +34,11 @@ describe('MobileCaixaView Component', () => {
   };
 
   it('renderiza o status do caixa fechado com botão de abertura e cards de resumo', () => {
-    render(<MobileCaixaView {...defaultProps} />);
+    render(
+      <ToastProvider>
+        <MobileCaixaView {...defaultProps} />
+      </ToastProvider>
+    );
 
     expect(screen.getByText('Caixa fechado')).toBeInTheDocument();
     expect(screen.getByText('Abrir caixa do turno')).toBeInTheDocument();
@@ -59,11 +64,13 @@ describe('MobileCaixaView Component', () => {
     };
 
     render(
-      <MobileCaixaView
-        {...defaultProps}
-        activeSession={activeSession}
-        activeSessionCashReceipts={200}
-      />
+      <ToastProvider>
+        <MobileCaixaView
+          {...defaultProps}
+          activeSession={activeSession}
+          activeSessionCashReceipts={200}
+        />
+      </ToastProvider>
     );
 
     expect(screen.getByText('Caixa aberto')).toBeInTheDocument();

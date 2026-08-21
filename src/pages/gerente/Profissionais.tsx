@@ -17,12 +17,19 @@ import {
   Clock01Icon,
 } from '@hugeicons/core-free-icons';
 
+interface ProfessionalScheduleDay {
+  start: string;
+  end: string;
+  break_start?: string;
+  break_end?: string;
+}
+
 interface Professional {
   id: string;
   name: string;
   phone: string;
   commission_percentage: number;
-  weekly_schedule: Record<string, { start: string; end: string } | null> | null;
+  weekly_schedule: Record<string, ProfessionalScheduleDay | null> | null;
   is_active: boolean;
   user_id: string | null;
 }
@@ -173,7 +180,7 @@ export const Profissionais: React.FC = () => {
 
     if (prof.weekly_schedule) {
       Object.keys(prof.weekly_schedule).forEach((day) => {
-        const dayData = prof.weekly_schedule?.[day] as any;
+        const dayData = prof.weekly_schedule?.[day];
         if (dayData) {
           newSchedule[day as keyof typeof newSchedule] = {
             active: true,

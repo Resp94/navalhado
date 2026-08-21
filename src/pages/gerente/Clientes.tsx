@@ -1188,6 +1188,8 @@ export const Clientes: React.FC = () => {
                 <div className="template-chips" role="radiogroup" aria-label="Modelos de mensagem">
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={whatsAppTemplate === 'retorno'}
                     className={`btn-template-chip ${whatsAppTemplate === 'retorno' ? 'btn-template-chip--active' : ''}`}
                     onClick={() => handleSelectTemplate('retorno')}
                   >
@@ -1195,6 +1197,8 @@ export const Clientes: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={whatsAppTemplate === 'agradecimento'}
                     className={`btn-template-chip ${whatsAppTemplate === 'agradecimento' ? 'btn-template-chip--active' : ''}`}
                     onClick={() => handleSelectTemplate('agradecimento')}
                   >
@@ -1202,6 +1206,8 @@ export const Clientes: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={whatsAppTemplate === 'livre'}
                     className={`btn-template-chip ${whatsAppTemplate === 'livre' ? 'btn-template-chip--active' : ''}`}
                     onClick={() => handleSelectTemplate('livre')}
                   >

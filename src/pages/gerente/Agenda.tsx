@@ -797,6 +797,48 @@ export const Agenda: React.FC = () => {
         .eq('id', app.id);
 
       if (error) throw error;
+
+      // Garantir abertura automática de comanda vinculada ao agendamento
+      try {
+        const { data: existingComanda } = await supabase
+          .from('comandas')
+          .select('id')
+          .eq('appointment_id', app.id)
+          .maybeSingle();
+
+        if (!existingComanda && tenant.tenantId) {
+          const servicePrice = Number(app.service?.price || 0);
+          const { data: newComanda, error: cmdError } = await supabase
+            .from('comandas')
+            .insert({
+              tenant_id: tenant.tenantId,
+              appointment_id: app.id,
+              customer_id: app.customer?.id || null,
+              status: 'aberta',
+              total_amount: servicePrice,
+              discount_amount: 0,
+              tip_amount: 0,
+            })
+            .select()
+            .single();
+
+          if (!cmdError && newComanda && app.service?.id) {
+            await supabase.from('comanda_itens').insert({
+              comanda_id: newComanda.id,
+              tenant_id: tenant.tenantId,
+              item_type: 'servico',
+              service_id: app.service.id,
+              professional_id: app.professional_id || null,
+              quantity: 1,
+              unit_price: servicePrice,
+              total_price: servicePrice,
+            });
+          }
+        }
+      } catch (comandaErr) {
+        console.error('Erro ao abrir comanda automática para agendamento:', comandaErr);
+      }
+
       addToast(`Atendimento de ${app.customer.name} iniciado.`, 'success');
       fetchAppointments();
     } catch (err: any) {

@@ -14,11 +14,28 @@ export const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
 };
 
-// Limpa e formata o número de telefone do cliente para o padrão brasileiro DDI 55
-const formatPhoneNumber = (phone: string): string => {
+// Limpa e formata o número de telefone do cliente para o padrão brasileiro DDI 55 + 9 dígitos
+export const formatPhoneNumber = (phone: string): string => {
   let cleaned = phone.replace(/\D/g, "");
-  if (!cleaned.startsWith("55") && cleaned.length >= 10 && cleaned.length <= 11) {
-    cleaned = "55" + cleaned;
+  if (!cleaned.startsWith("55")) {
+    if (cleaned.length === 10) {
+      const ddd = cleaned.slice(0, 2);
+      const num = cleaned.slice(2);
+      if (["6", "7", "8", "9"].includes(num[0])) {
+        cleaned = `${ddd}9${num}`;
+      }
+    }
+    if (cleaned.length >= 10 && cleaned.length <= 11) {
+      cleaned = "55" + cleaned;
+    }
+  } else {
+    if (cleaned.length === 12) {
+      const ddd = cleaned.slice(2, 4);
+      const num = cleaned.slice(4);
+      if (["6", "7", "8", "9"].includes(num[0])) {
+        cleaned = `55${ddd}9${num}`;
+      }
+    }
   }
   return cleaned;
 };

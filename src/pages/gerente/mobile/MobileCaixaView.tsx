@@ -42,13 +42,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   onSuprimento,
   formatDate,
 }) => {
-  let addToast = (_msg: string, _type?: string) => {};
-  try {
-    const t = useToast();
-    if (t?.addToast) addToast = t.addToast;
-  } catch {
-    // fallback if rendered outside ToastProvider
-  }
+  const { addToast } = useToast();
 
   const [movementModalOpen, setMovementModalOpen] = useState(false);
   const [movementType, setMovementType] = useState<'sangria' | 'suprimento'>('sangria');
@@ -152,7 +146,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  className="mobile-agenda__movement-btn btn--sangria"
+                  className="mobile-caixa__movement-btn btn--sangria"
                   onClick={() => handleOpenMovement('sangria')}
                 >
                   <HugeiconsIcon icon={ArrowUp01Icon} size={15} />
@@ -416,12 +410,14 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           align-items: center;
           justify-content: center;
           gap: 0.35rem;
-          padding: 0.5rem;
+          padding: 0.65rem 0.5rem;
+          min-height: 44px;
           border-radius: var(--radius-md, 8px);
           font-size: 0.75rem;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          touch-action: manipulation;
         }
 
         .btn--suprimento {

@@ -361,7 +361,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     expect(screen.getByText(/Enviar WhatsApp para João Silva/i)).toBeInTheDocument();
 
     // Selecionar modelo de Agradecimento
-    const chipAgradecimento = screen.getByRole('button', { name: /🤝 Agradecimento/i });
+    const chipAgradecimento = screen.getByRole('radio', { name: /🤝 Agradecimento/i });
     fireEvent.click(chipAgradecimento);
 
     // Disparar

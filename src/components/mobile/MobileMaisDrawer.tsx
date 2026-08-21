@@ -14,8 +14,6 @@ import {
   Logout01Icon,
   Copy01Icon,
   Clock01Icon,
-  CheckmarkCircle02Icon,
-  AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 interface MobileMaisDrawerProps {
@@ -109,7 +107,12 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
 
         {/* Card de Status Operacional (WhatsApp & Horários) */}
         <div className="mobile-mais__status-overview">
-          <div className="mobile-mais__status-item" onClick={() => handleNavigate('/whatsapp')}>
+          <button
+            type="button"
+            className="mobile-mais__status-item"
+            onClick={() => handleNavigate('/whatsapp')}
+            aria-label={`Robô WhatsApp: ${whatsappStatus === 'connected' ? 'Conectado' : whatsappStatus === 'connecting' ? 'Conectando' : 'Desconectado'}. Clique para gerenciar.`}
+          >
             <div className="mobile-mais__status-item-header">
               <HugeiconsIcon icon={WhatsappIcon} size={16} />
               <span>Robô WhatsApp</span>
@@ -124,9 +127,14 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
                   : 'Desconectado'}
               </span>
             </div>
-          </div>
+          </button>
 
-          <div className="mobile-mais__status-item" onClick={() => handleNavigate('/configuracoes')}>
+          <button
+            type="button"
+            className="mobile-mais__status-item"
+            onClick={() => handleNavigate('/configuracoes')}
+            aria-label={`Funcionamento: ${activeDaysCount} dias ativos na semana. Clique para ajustar.`}
+          >
             <div className="mobile-mais__status-item-header">
               <HugeiconsIcon icon={Clock01Icon} size={16} />
               <span>Funcionamento</span>
@@ -134,7 +142,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
             <span className="mobile-mais__status-val">
               {activeDaysCount} dias ativos na semana
             </span>
-          </div>
+          </button>
         </div>
 
         {/* Card do Link de Agendamento do Cliente */}
@@ -294,15 +302,21 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         }
 
         .mobile-mais__status-item {
+          flex: 1;
           background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 8px);
+          border-radius: var(--radius-lg, 12px);
           padding: 0.75rem;
           display: flex;
           flex-direction: column;
           gap: 0.4rem;
           cursor: pointer;
+          min-height: 44px;
+          text-align: left;
+          font: inherit;
+          color: inherit;
           transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          touch-action: manipulation;
         }
 
         .mobile-mais__status-item:hover {

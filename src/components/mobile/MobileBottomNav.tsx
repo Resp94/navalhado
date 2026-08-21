@@ -6,7 +6,7 @@ import type { IconType } from '@hugeicons/react';
 export interface MobileNavItem {
   id: string;
   label: string;
-  icon: IconType | React.ComponentType<any> | React.ReactNode;
+  icon: IconType | React.ReactElement | React.ComponentType<{ size?: number; className?: string }>;
   path?: string;
   onClick?: () => void;
   badgeCount?: number;
@@ -31,11 +31,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
                 ? (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path))) 
                 : false;
 
-            const iconElement = React.isValidElement(item.icon) ? (
-              item.icon
-            ) : (
-              <HugeiconsIcon icon={item.icon as IconType} size={22} />
-            );
+            let iconElement: React.ReactNode;
+            if (React.isValidElement(item.icon)) {
+              iconElement = item.icon;
+            } else if (typeof item.icon === 'function') {
+              const CustomIcon = item.icon as React.ComponentType<{ size?: number; className?: string }>;
+              iconElement = <CustomIcon size={22} />;
+            } else {
+              iconElement = <HugeiconsIcon icon={item.icon as IconType} size={22} />;
+            }
 
             const content = (
               <>

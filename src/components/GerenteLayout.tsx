@@ -232,7 +232,12 @@ export const GerenteLayout: React.FC = () => {
         {/* NAVBAR SUPERIOR HORIZONTAL DESKTOP (> 768px) */}
         <header className="gerente-header">
           {/* Logo e Nome da Barbearia */}
-          <div className="gerente-header__brand" onClick={() => navigate('/agenda')} style={{ cursor: 'pointer' }}>
+          <button
+            type="button"
+            className="gerente-header__brand"
+            onClick={() => navigate('/agenda')}
+            aria-label={`Página inicial da barbearia ${tenantInfo.tenantName}`}
+          >
             {tenantInfo.logoUrl ? (
               <img 
                 src={tenantInfo.logoUrl} 
@@ -247,7 +252,7 @@ export const GerenteLayout: React.FC = () => {
             <div className="gerente-header__title-container">
               <h1 className="gerente-header__title">{tenantInfo.tenantName}</h1>
             </div>
-          </div>
+          </button>
 
           {/* Links Centrais Coesos */}
           <nav className="gerente-header__nav">
@@ -350,6 +355,13 @@ export const GerenteLayout: React.FC = () => {
           gap: 0.65rem;
           text-decoration: none;
           flex-shrink: 0;
+          background: transparent;
+          border: none;
+          padding: 0;
+          font: inherit;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
         }
 
         .gerente-header__brand:hover {

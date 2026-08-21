@@ -10,7 +10,6 @@ interface MobileHeaderProps {
   unreadCount: number;
   onMarkAllAsRead: () => void;
   onMarkAsRead: (id: string) => void;
-  onOpenMenu?: () => void;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -26,7 +25,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   return (
     <>
       <header className="mobile-header">
-        <div className="mobile-header__brand" onClick={() => navigate('/agenda')}>
+        <button
+          type="button"
+          className="mobile-header__brand"
+          onClick={() => navigate('/agenda')}
+          aria-label={`Página inicial da barbearia ${tenantName}`}
+        >
           {logoUrl ? (
             <img src={logoUrl} alt={tenantName} className="mobile-header__logo-img" />
           ) : (
@@ -35,7 +39,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             </div>
           )}
           <h1 className="mobile-header__title">{tenantName}</h1>
-        </div>
+        </button>
 
         <div className="mobile-header__actions">
           <NotificationBell
@@ -77,6 +81,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           gap: 0.625rem;
           cursor: pointer;
           min-width: 0;
+          background: transparent;
+          border: none;
+          padding: 0;
+          font: inherit;
+          color: inherit;
+          text-align: left;
         }
 
         .mobile-header__logo-img {

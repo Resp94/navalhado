@@ -182,9 +182,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   fontSize: 'var(--font-size-xs)',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '8px 12px',
+                  minHeight: '44px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   borderRadius: 'var(--radius-sm)',
                   transition: 'all 0.2s ease',
+                  touchAction: 'manipulation',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = 'var(--color-brand-hover)';
@@ -341,13 +345,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         border: 'none',
                         color: 'var(--color-brand-primary)',
                         cursor: 'pointer',
-                        padding: '4px',
+                        padding: '10px',
+                        minWidth: '44px',
+                        minHeight: '44px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderRadius: 'var(--radius-full)',
                         alignSelf: 'center',
                         transition: 'all 0.2s ease',
+                        touchAction: 'manipulation',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.color = 'var(--color-brand-hover)';
@@ -361,8 +368,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                       }}
                     >
                       <svg
-                        width="16"
-                        height="16"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"

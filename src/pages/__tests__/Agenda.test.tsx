@@ -242,7 +242,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     // Ajustar horário para 14:00 para garantir que seja futuro no dia de teste e dentro do expediente
-    const timeInput = screen.getByLabelText(/Horário/i);
+    const timeInput = screen.getByLabelText(/Horário de início/i);
     fireEvent.change(timeInput, { target: { value: '14:00' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Cliente rápido de balcão/i }));

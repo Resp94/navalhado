@@ -428,6 +428,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   <div
                     key={`empty-${item.time}-${idx}`}
                     className="mobile-agenda__empty-slot mobile-agenda__empty-slot--available"
+                    role="button"
+                    tabIndex={0}
                     onClick={() =>
                       onOpenNewAppointment(
                         selectedProfId === 'all' ? undefined : selectedProfId,
@@ -435,7 +437,18 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         false
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpenNewAppointment(
+                          selectedProfId === 'all' ? undefined : selectedProfId,
+                          item.time,
+                          false
+                        );
+                      }
+                    }}
                     title={`Toque para agendar às ${item.time}`}
+                    aria-label={`Horário vago às ${item.time}. Toque para agendar.`}
                   >
                     <span className="mobile-agenda__empty-slot-time">{item.time}</span>
                     <span className="mobile-agenda__empty-slot-text">
@@ -456,8 +469,17 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   <div
                     key={blk.id}
                     className="mobile-agenda__block-card"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onRemoveBlock(blk)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRemoveBlock(blk);
+                      }
+                    }}
                     title="Toque para remover este bloqueio"
+                    aria-label={`Bloqueio ${blk.reason} das ${tStart} às ${tEnd}. Toque para remover.`}
                   >
                     <div className="mobile-agenda__block-info">
                       <HugeiconsIcon icon={UnavailableIcon} size={16} />
@@ -490,8 +512,17 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   <div
                     key={app.id}
                     className={`mobile-agenda__card ${app.status === 'in_progress' ? 'mobile-agenda__card--active' : ''}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpenCheckout(app);
+                      }
+                    }}
                     title="Toque para ver detalhes ou receber a comanda"
+                    aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Status: ${statusBadge.label}. Toque para abrir comanda.`}
                   >
                     {/* Topo do Card: Horário + Status */}
                     <div className="mobile-agenda__card-header">
@@ -613,8 +644,10 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         }
 
         .mobile-agenda__nav-btn {
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-md, 8px);
           background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
@@ -624,6 +657,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           justify-content: center;
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          touch-action: manipulation;
         }
 
         .mobile-agenda__nav-btn:hover {
@@ -664,10 +698,14 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           border: 1px solid var(--color-brand-primary);
           color: var(--color-brand-primary);
           border-radius: var(--radius-sm, 6px);
-          padding: 6px 10px;
-          min-height: 36px;
+          padding: 8px 12px;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          touch-action: manipulation;
         }
 
         .mobile-agenda__today-btn:hover {
@@ -1117,8 +1155,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           align-items: center;
           justify-content: center;
           gap: 0.35rem;
-          min-height: 38px;
-          padding: 0.45rem 0.65rem;
+          min-height: 44px;
+          padding: 0.55rem 0.85rem;
           border-radius: var(--radius-md, 8px);
           font-size: 0.75rem;
           font-weight: 600;
@@ -1128,6 +1166,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           box-sizing: border-box;
           white-space: nowrap;
           flex-shrink: 0;
+          touch-action: manipulation;
         }
 
         .mobile-agenda__action-btn:active {
@@ -1155,9 +1194,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         .mobile-agenda__action-btn--cancel {
           background: rgba(240, 82, 82, 0.1);
           color: var(--color-error);
-          min-width: 38px;
-          min-height: 38px;
-          padding: 0.45rem 0.5rem;
+          min-width: 44px;
+          min-height: 44px;
+          padding: 0.55rem 0.65rem;
           margin-left: auto;
         }
 

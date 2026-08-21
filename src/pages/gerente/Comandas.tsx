@@ -85,12 +85,17 @@ export const Comandas: React.FC = () => {
       if (profRes.data) setProfessionals(profRes.data);
 
       if (cmdRes.data) {
-        const enriched: ComandaEnriched[] = cmdRes.data.map((c: any) => ({
-          ...c,
-          customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
-          customer_phone: c.customer?.phone || null,
-          professional_name: c.appointment?.professional?.name || 'Equipe',
-        }));
+        const enriched: ComandaEnriched[] = cmdRes.data.map((c: any) => {
+          const isAberta = c.status === 'aberta' || c.status === 'open';
+          const isPaga = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+          return {
+            ...c,
+            status: isAberta ? 'open' : isPaga ? 'paid' : c.status,
+            customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
+            customer_phone: c.customer?.phone || null,
+            professional_name: c.appointment?.professional?.name || 'Equipe',
+          };
+        });
         setComandas(enriched);
       }
     } catch (err: any) {
@@ -103,7 +108,24 @@ export const Comandas: React.FC = () => {
 
   useEffect(() => {
     carregarDados();
-  }, [carregarDados]);
+
+    if (!tenantId || typeof supabase.channel !== 'function') return;
+
+    const channel = supabase
+      .channel(`realtime-comandas-${tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comandas', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          carregarDados();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [carregarDados, tenantId]);
 
   // Filtragem
   const filteredComandas = useMemo(() => {
@@ -155,7 +177,7 @@ export const Comandas: React.FC = () => {
       {/* ─── CABEÇALHO DA PÁGINA ─── */}
       <div className="comandas-header">
         <div className="comandas-header__titles">
-          <h1 className="comandas-header__title">Comandas & Atendimentos</h1>
+          <h1 className="comandas-header__title">Comandas e atendimentos</h1>
           <p className="comandas-header__subtitle">
             Gerencie o consumo de produtos, serviços e checkout rápido de balcão
           </p>
@@ -167,7 +189,7 @@ export const Comandas: React.FC = () => {
           onClick={handleOpenNovaAvulsa}
         >
           <HugeiconsIcon icon={PlusSignIcon} size={18} />
-          <span>Nova Comanda Avulsa</span>
+          <span>Nova comanda avulsa</span>
         </button>
       </div>
 
@@ -237,7 +259,7 @@ export const Comandas: React.FC = () => {
             onClick={handleOpenNovaAvulsa}
           >
             <HugeiconsIcon icon={PlusSignIcon} size={16} />
-            Abrir Comanda Avulsa
+            Abrir comanda avulsa
           </button>
         </div>
       ) : (
@@ -311,7 +333,7 @@ export const Comandas: React.FC = () => {
                         onClick={() => handleOpenCheckoutModal(cmd)}
                       >
                         <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-                        <span>Ver Detalhes</span>
+                        <span>Ver detalhes</span>
                       </button>
                     )}
                   </div>
@@ -370,20 +392,20 @@ export const Comandas: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: var(--color-brand-primary, #f59e0b);
-          color: #18181b;
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
           border: none;
           padding: 0.65rem 1.15rem;
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           font-size: 0.875rem;
           font-weight: 700;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           flex-shrink: 0;
         }
 
         .comandas-header__btn-nova:hover {
-          opacity: 0.9;
+          background: var(--color-brand-hover);
         }
 
         .comandas-toolbar {
@@ -401,7 +423,7 @@ export const Comandas: React.FC = () => {
           gap: 0.5rem;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           padding: 0.6rem 0.875rem;
         }
 
@@ -423,7 +445,7 @@ export const Comandas: React.FC = () => {
           gap: 0.375rem;
           background: var(--color-bg-secondary);
           padding: 3px;
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           border: 1px solid var(--color-border);
         }
 
@@ -432,7 +454,7 @@ export const Comandas: React.FC = () => {
           align-items: center;
           gap: 0.375rem;
           padding: 0.45rem 0.85rem;
-          border-radius: 8px;
+          border-radius: var(--radius-sm, 8px);
           border: none;
           background: transparent;
           color: var(--color-text-secondary);
@@ -450,10 +472,10 @@ export const Comandas: React.FC = () => {
 
         .comandas-tab__badge {
           font-size: 0.6875rem;
-          background: rgba(245, 158, 11, 0.2);
-          color: #f59e0b;
+          background: rgba(217, 108, 0, 0.15);
+          color: var(--color-brand-primary);
           padding: 1px 6px;
-          border-radius: 9999px;
+          border-radius: var(--radius-full, 9999px);
         }
 
         .comandas-grid {
@@ -465,18 +487,18 @@ export const Comandas: React.FC = () => {
         .comanda-card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 14px;
+          border-radius: var(--radius-lg, 14px);
           padding: 1.15rem;
           display: flex;
           flex-direction: column;
           gap: 0.875rem;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
         }
 
         .comanda-card:hover {
-          border-color: var(--color-brand-primary, rgba(245, 158, 11, 0.4));
+          border-color: var(--color-brand-primary);
           transform: translateY(-2px);
         }
 
@@ -500,17 +522,17 @@ export const Comandas: React.FC = () => {
           font-weight: 700;
           text-transform: uppercase;
           padding: 2px 8px;
-          border-radius: 6px;
+          border-radius: var(--radius-sm, 6px);
         }
 
         .status--open {
-          background: rgba(245, 158, 11, 0.15);
-          color: #f59e0b;
+          background: rgba(217, 108, 0, 0.15);
+          color: var(--color-brand-primary);
         }
 
         .status--paid {
-          background: rgba(16, 185, 129, 0.15);
-          color: #34d399;
+          background: rgba(14, 159, 110, 0.15);
+          color: var(--color-success);
         }
 
         .comanda-card__body {
@@ -553,7 +575,7 @@ export const Comandas: React.FC = () => {
 
         .comanda-card__total-label {
           font-size: 0.6875rem;
-          color: #71717a;
+          color: var(--color-text-secondary);
           text-transform: uppercase;
           display: block;
         }
@@ -561,7 +583,7 @@ export const Comandas: React.FC = () => {
         .comanda-card__total-value {
           font-size: 1.125rem;
           font-weight: 800;
-          color: #f59e0b;
+          color: var(--color-brand-primary);
         }
 
         .comanda-card__actions {
@@ -575,7 +597,7 @@ export const Comandas: React.FC = () => {
           align-items: center;
           gap: 0.375rem;
           padding: 0.5rem 0.875rem;
-          border-radius: 8px;
+          border-radius: var(--radius-sm, 8px);
           font-size: 0.8125rem;
           font-weight: 600;
           border: none;
@@ -584,21 +606,22 @@ export const Comandas: React.FC = () => {
         }
 
         .comanda-card__action-btn--whatsapp {
-          background: rgba(37, 211, 102, 0.12);
-          color: #25d366;
-          border: 1px solid rgba(37, 211, 102, 0.25);
+          background: rgba(14, 159, 110, 0.12);
+          color: var(--color-success);
+          border: 1px solid rgba(14, 159, 110, 0.25);
           padding: 0.5rem;
         }
 
         .comanda-card__action-btn--checkout {
-          background: #f59e0b;
-          color: #18181b;
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
           font-weight: 700;
         }
 
         .comanda-card__action-btn--view {
-          background: rgba(255, 255, 255, 0.08);
-          color: #f4f4f5;
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          border: 1px solid var(--color-border);
         }
 
         .comandas-loading,
@@ -609,13 +632,13 @@ export const Comandas: React.FC = () => {
           justify-content: center;
           padding: 4rem 1.5rem;
           text-align: center;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 16px);
         }
 
         .comandas-empty__icon {
-          color: #71717a;
+          color: var(--color-text-secondary);
           margin-bottom: 0.75rem;
         }
 
@@ -624,14 +647,19 @@ export const Comandas: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: #f59e0b;
-          color: #18181b;
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
           padding: 0.65rem 1.25rem;
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           border: none;
           font-weight: 700;
           font-size: 0.875rem;
           cursor: pointer;
+          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .comandas-empty__btn:hover {
+          background: var(--color-brand-hover);
         }
 
         @media (max-width: 768px) {

@@ -293,13 +293,59 @@ export const MinhaAgenda: React.FC = () => {
   // Iniciar atendimento (transição para in_progress)
   const handleStartService = async (appId: string) => {
     try {
+      const targetApp = appointments.find((a) => a.id === appId);
+
       const { error } = await supabase
         .from('appointments')
         .update({ status: 'in_progress', updated_at: new Date().toISOString() })
         .eq('id', appId);
 
       if (error) throw error;
-      addToast('Atendimento iniciado!', 'success');
+
+      // Garantir abertura automática de comanda vinculada ao agendamento
+      if (targetApp && targetApp.tenant_id) {
+        try {
+          const { data: existingComanda } = await supabase
+            .from('comandas')
+            .select('id')
+            .eq('appointment_id', appId)
+            .maybeSingle();
+
+          if (!existingComanda) {
+            const servicePrice = Number(targetApp.service?.price || 0);
+            const { data: newComanda, error: cmdError } = await supabase
+              .from('comandas')
+              .insert({
+                tenant_id: targetApp.tenant_id,
+                appointment_id: appId,
+                customer_id: targetApp.customer?.id || null,
+                status: 'aberta',
+                total_amount: servicePrice,
+                discount_amount: 0,
+                tip_amount: 0,
+              })
+              .select()
+              .single();
+
+            if (!cmdError && newComanda && targetApp.service?.id) {
+              await supabase.from('comanda_itens').insert({
+                comanda_id: newComanda.id,
+                tenant_id: targetApp.tenant_id,
+                item_type: 'servico',
+                service_id: targetApp.service.id,
+                professional_id: targetApp.professional_id || null,
+                quantity: 1,
+                unit_price: servicePrice,
+                total_price: servicePrice,
+              });
+            }
+          }
+        } catch (comandaErr) {
+          console.error('Erro ao abrir comanda automática:', comandaErr);
+        }
+      }
+
+      addToast('Atendimento iniciado e comanda aberta!', 'success');
       fetchDailyAppointments();
     } catch (err: any) {
       console.error('Error starting appointment:', err);

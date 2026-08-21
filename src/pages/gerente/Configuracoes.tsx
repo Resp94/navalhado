@@ -1063,8 +1063,8 @@ export const Configuracoes: React.FC = () => {
 
         .business-time-select:disabled {
           cursor: not-allowed;
-          background-color: var(--color-bg-disabled);
-          opacity: 0.7;
+          background-color: var(--color-bg-primary);
+          opacity: 0.6;
         }
 
         .business-time-sep {

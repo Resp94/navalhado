@@ -31,8 +31,8 @@ describe('Comandas Page', () => {
       </ToastProvider>
     );
 
-    expect(screen.getByText('Comandas & Atendimentos')).toBeInTheDocument();
-    expect(screen.getByText('Nova Comanda Avulsa')).toBeInTheDocument();
+    expect(screen.getByText('Comandas e atendimentos')).toBeInTheDocument();
+    expect(screen.getByText('Nova comanda avulsa')).toBeInTheDocument();
     expect(screen.getByText('Abertas')).toBeInTheDocument();
     expect(screen.getByText('Pagas')).toBeInTheDocument();
     expect(screen.getByText('Todas')).toBeInTheDocument();

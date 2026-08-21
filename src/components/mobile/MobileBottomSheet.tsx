@@ -20,13 +20,20 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -138,12 +145,15 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
           border: none;
           color: var(--color-text-secondary);
           cursor: pointer;
-          padding: 4px;
+          padding: 10px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: var(--radius-md, 8px);
           display: flex;
           align-items: center;
           justify-content: center;
           transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          touch-action: manipulation;
         }
 
         .bottom-sheet-close:hover {

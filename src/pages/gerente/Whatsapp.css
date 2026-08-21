@@ -845,8 +845,11 @@
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: 700;
-  padding: 0.3rem 0.65rem;
-  min-height: 32px;
+  padding: 0.5rem 0.85rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   touch-action: manipulation;
@@ -997,9 +1000,12 @@
   }
 
   .template-tab-btn {
-    padding: 0.5rem 0.75rem;
-    font-size: 11px;
-    min-height: 40px;
+    padding: 0.6rem 0.85rem;
+    font-size: 12px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .template-split-view {
@@ -1074,9 +1080,12 @@
   }
 
   .tag-chip-btn {
-    font-size: 11px;
-    padding: 0.35rem 0.65rem;
-    min-height: 38px;
+    font-size: 12px;
+    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
