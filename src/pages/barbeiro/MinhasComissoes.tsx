@@ -526,7 +526,7 @@ export const MinhasComissoes: React.FC = () => {
         }
 
         .period-opt.active {
-          color: #FFF1E6;
+          color: var(--color-brand-lightest);
           background: var(--color-brand-primary);
           box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
         }

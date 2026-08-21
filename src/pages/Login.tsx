@@ -329,7 +329,7 @@ export const Login: React.FC = () => {
           border-radius: calc(var(--radius-xl) + 6px);
           background: rgba(217, 108, 0, 0.04);
           box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
-          animation: springUp 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+          animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
         .login-card {
@@ -354,8 +354,8 @@ export const Login: React.FC = () => {
           flex-direction: column;
           align-items: center;
           gap: 0.5rem;
-          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
-          animation-delay: 0.08s;
+          animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.05s;
         }
 
         .login-card__logo {
@@ -386,8 +386,8 @@ export const Login: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
-          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
-          animation-delay: 0.16s;
+          animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.1s;
         }
 
         .login-card__forgot {
@@ -426,8 +426,8 @@ export const Login: React.FC = () => {
           flex-direction: column;
           align-items: center;
           gap: 1rem;
-          animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
-          animation-delay: 0.1s;
+          animation: smoothFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: 0.05s;
         }
 
         .modal-reset__icon {
@@ -437,7 +437,7 @@ export const Login: React.FC = () => {
           width: 3rem;
           height: 3rem;
           border-radius: var(--radius-full);
-          background: linear-gradient(135deg, var(--color-brand-lightest) 0%, #FFE4D6 100%);
+          background: var(--color-brand-lightest);
           color: var(--color-brand-primary);
           box-shadow:
             inset 0 1px 1px rgba(255, 255, 255, 0.5),
@@ -491,6 +491,16 @@ export const Login: React.FC = () => {
           }
           .login-card__cta {
             min-height: 48px;
+          }
+        }
+        @keyframes smoothFadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

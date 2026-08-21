@@ -35,13 +35,13 @@ describe('MobileCaixaView Component', () => {
   it('renderiza o status do caixa fechado com botão de abertura e cards de resumo', () => {
     render(<MobileCaixaView {...defaultProps} />);
 
-    expect(screen.getByText('Caixa Fechado')).toBeInTheDocument();
-    expect(screen.getByText('Abrir Caixa do Turno')).toBeInTheDocument();
-    expect(screen.getByText('Faturamento Total')).toBeInTheDocument();
-    expect(screen.getByText('Recebimentos PIX')).toBeInTheDocument();
-    expect(screen.getByText('Relatórios Completos no Desktop')).toBeInTheDocument();
+    expect(screen.getByText('Caixa fechado')).toBeInTheDocument();
+    expect(screen.getByText('Abrir caixa do turno')).toBeInTheDocument();
+    expect(screen.getByText('Faturamento total')).toBeInTheDocument();
+    expect(screen.getByText('Recebimentos Pix')).toBeInTheDocument();
+    expect(screen.getByText('Relatórios completos no desktop')).toBeInTheDocument();
 
-    const openBtn = screen.getByRole('button', { name: /Abrir Caixa do Turno/i });
+    const openBtn = screen.getByRole('button', { name: /Abrir caixa do turno/i });
     fireEvent.click(openBtn);
     expect(defaultProps.onOpenAbertura).toHaveBeenCalledTimes(1);
   });
@@ -66,10 +66,10 @@ describe('MobileCaixaView Component', () => {
       />
     );
 
-    expect(screen.getByText('Caixa Aberto')).toBeInTheDocument();
-    expect(screen.getByText('Fechar Caixa do Turno')).toBeInTheDocument();
+    expect(screen.getByText('Caixa aberto')).toBeInTheDocument();
+    expect(screen.getByText('Fechar caixa do turno')).toBeInTheDocument();
 
-    const closeBtn = screen.getByRole('button', { name: /Fechar Caixa do Turno/i });
+    const closeBtn = screen.getByRole('button', { name: /Fechar caixa do turno/i });
     fireEvent.click(closeBtn);
     expect(defaultProps.onOpenFechamento).toHaveBeenCalledTimes(1);
   });

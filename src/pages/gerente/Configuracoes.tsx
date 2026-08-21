@@ -248,6 +248,7 @@ export const Configuracoes: React.FC = () => {
         .eq('id', tenant.tenantId);
 
       if (error) throw error;
+      await tenant.refreshTenant?.();
       addToast('Configurações atualizadas com sucesso.', 'success');
     } catch (error: unknown) {
       console.error('Erro ao atualizar configurações:', error);

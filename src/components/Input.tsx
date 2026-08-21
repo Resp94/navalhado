@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { MailIcon, LockIcon, EyeIcon, EyeOffIcon } from './Icons';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -12,8 +12,11 @@ export const Input: React.FC<InputProps> = ({
   icon,
   type = 'text',
   error,
+  id,
   ...props
 }) => {
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -63,12 +66,15 @@ export const Input: React.FC<InputProps> = ({
       width: '100%',
       textAlign: 'left'
     }}>
-      <label style={{
-        fontSize: 'var(--font-size-sm)',
-        color: error ? 'var(--color-error)' : 'var(--color-text-primary)',
-        fontWeight: 500,
-        transition: 'color 0.2s ease'
-      }}>
+      <label
+        htmlFor={inputId}
+        style={{
+          fontSize: 'var(--font-size-sm)',
+          color: error ? 'var(--color-error)' : 'var(--color-text-primary)',
+          fontWeight: 500,
+          transition: 'color 0.2s ease'
+        }}
+      >
         {label}
       </label>
       
@@ -92,6 +98,7 @@ export const Input: React.FC<InputProps> = ({
         )}
 
         <input
+          id={inputId}
           type={inputType}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}

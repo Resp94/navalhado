@@ -24,15 +24,15 @@ describe('MobileMaisDrawer Component', () => {
     );
 
     expect(screen.getByText('Lucas Gerente')).toBeInTheDocument();
-    expect(screen.getByText('Copiar Link da Barbearia')).toBeInTheDocument();
+    expect(screen.getByText('Copiar link da barbearia')).toBeInTheDocument();
     expect(screen.getByText('Equipe')).toBeInTheDocument();
     expect(screen.getByText('Serviços')).toBeInTheDocument();
     expect(screen.getByText('Produtos')).toBeInTheDocument();
     expect(screen.getByText('WhatsApp')).toBeInTheDocument();
     expect(screen.getByText('Ajustes')).toBeInTheDocument();
-    expect(screen.getByText('Sair da Conta')).toBeInTheDocument();
+    expect(screen.getByText('Sair da conta')).toBeInTheDocument();
 
-    const logoutBtn = screen.getByRole('button', { name: /Sair da Conta/i });
+    const logoutBtn = screen.getByRole('button', { name: /Sair da conta/i });
     fireEvent.click(logoutBtn);
     expect(defaultProps.onLogout).toHaveBeenCalledTimes(1);
   });

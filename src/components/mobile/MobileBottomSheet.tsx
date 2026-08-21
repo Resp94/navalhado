@@ -77,7 +77,7 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           z-index: 1000;
-          animation: bottomSheetFadeIn 0.25s ease-out both;
+          animation: bottomSheetFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
         }
 
         .bottom-sheet-panel {
@@ -86,14 +86,14 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
           right: 0;
           bottom: 0;
           z-index: 1001;
-          background: #141417;
-          border-top: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 20px 20px 0 0;
-          box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+          background: var(--color-bg-secondary);
+          border-top: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+          box-shadow: var(--shadow-lg, 0 -10px 40px rgba(0, 0, 0, 0.6));
           display: flex;
           flex-direction: column;
           padding-bottom: env(safe-area-inset-bottom, 1rem);
-          animation: bottomSheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: bottomSheetSlideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
           touch-action: pan-y;
         }
 
@@ -108,13 +108,13 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         .bottom-sheet-handle {
           width: 36px;
           height: 4px;
-          border-radius: 2px;
-          background: #52525b;
-          transition: background-color 0.2s;
+          border-radius: var(--radius-sm, 2px);
+          background: var(--color-border);
+          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .bottom-sheet-handle-container:hover .bottom-sheet-handle {
-          background: #71717a;
+          background: var(--color-brand-primary);
         }
 
         .bottom-sheet-header {
@@ -122,13 +122,13 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
           align-items: center;
           justify-content: space-between;
           padding: 0.5rem 1.25rem 0.75rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .bottom-sheet-title {
           font-size: 1.125rem;
           font-weight: 700;
-          color: #f4f4f5;
+          color: var(--color-text-primary);
           margin: 0;
           letter-spacing: -0.02em;
         }
@@ -136,18 +136,18 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         .bottom-sheet-close {
           background: transparent;
           border: none;
-          color: #a1a1aa;
+          color: var(--color-text-secondary);
           cursor: pointer;
           padding: 4px;
-          border-radius: 6px;
+          border-radius: var(--radius-md, 8px);
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: color 0.15s;
+          transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .bottom-sheet-close:hover {
-          color: #f4f4f5;
+          color: var(--color-text-primary);
         }
 
         .bottom-sheet-content {

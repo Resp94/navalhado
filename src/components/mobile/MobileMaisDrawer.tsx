@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { useToast } from '../Toast';
+import { supabase } from '../../lib/supabase';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Link01Icon,
@@ -12,6 +13,9 @@ import {
   Settings02Icon,
   Logout01Icon,
   Copy01Icon,
+  Clock01Icon,
+  CheckmarkCircle02Icon,
+  AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 
 interface MobileMaisDrawerProps {
@@ -20,6 +24,7 @@ interface MobileMaisDrawerProps {
   tenantId: string;
   tenantName: string;
   managerName: string;
+  businessHours?: Record<string, { active: boolean; open: string; close: string }>;
   onLogout: () => void;
 }
 
@@ -29,18 +34,52 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
   tenantId,
   tenantName,
   managerName,
+  businessHours,
   onLogout,
 }) => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'loading'>('loading');
+
+  useEffect(() => {
+    if (!isOpen || !tenantId) return;
+
+    let isMounted = true;
+    const checkWhatsapp = async () => {
+      try {
+        const { data } = await supabase
+          .from('whatsapp_instances')
+          .select('status')
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+
+        if (isMounted) {
+          if (data?.status === 'connected') {
+            setWhatsappStatus('connected');
+          } else if (data?.status === 'connecting') {
+            setWhatsappStatus('connecting');
+          } else {
+            setWhatsappStatus('disconnected');
+          }
+        }
+      } catch {
+        if (isMounted) setWhatsappStatus('disconnected');
+      }
+    };
+
+    checkWhatsapp();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, tenantId]);
 
   const handleCopyPublicLink = async () => {
     try {
       const publicUrl = `${window.location.origin}/cliente/agendar?tenant=${tenantId}`;
       await navigator.clipboard.writeText(publicUrl);
-      addToast('Link de agendamento copiado para a área de transferência!', 'success');
+      addToast('Link de agendamento copiado com sucesso.', 'success');
     } catch {
-      addToast('Erro ao copiar link.', 'error');
+      addToast('Não foi possível copiar o link de agendamento.', 'error');
     }
   };
 
@@ -49,8 +88,13 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
     navigate(path);
   };
 
+  // Resumo dos horários
+  const activeDaysCount = businessHours
+    ? Object.values(businessHours).filter((d) => d.active).length
+    : 6;
+
   return (
-    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Menu & Atalhos" maxHeight="90vh">
+    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Menu e atalhos" maxHeight="90vh">
       <div className="mobile-mais">
         {/* Card do Usuário / Barbearia */}
         <div className="mobile-mais__profile-card">
@@ -63,6 +107,36 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           </div>
         </div>
 
+        {/* Card de Status Operacional (WhatsApp & Horários) */}
+        <div className="mobile-mais__status-overview">
+          <div className="mobile-mais__status-item" onClick={() => handleNavigate('/whatsapp')}>
+            <div className="mobile-mais__status-item-header">
+              <HugeiconsIcon icon={WhatsappIcon} size={16} />
+              <span>Robô WhatsApp</span>
+            </div>
+            <div className="mobile-mais__status-pill">
+              <span className={`status-dot dot--${whatsappStatus}`} />
+              <span>
+                {whatsappStatus === 'connected'
+                  ? 'Conectado'
+                  : whatsappStatus === 'connecting'
+                  ? 'Conectando...'
+                  : 'Desconectado'}
+              </span>
+            </div>
+          </div>
+
+          <div className="mobile-mais__status-item" onClick={() => handleNavigate('/configuracoes')}>
+            <div className="mobile-mais__status-item-header">
+              <HugeiconsIcon icon={Clock01Icon} size={16} />
+              <span>Funcionamento</span>
+            </div>
+            <span className="mobile-mais__status-val">
+              {activeDaysCount} dias ativos na semana
+            </span>
+          </div>
+        </div>
+
         {/* Card do Link de Agendamento do Cliente */}
         <div className="mobile-mais__link-card">
           <div className="mobile-mais__link-header">
@@ -70,7 +144,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
               <HugeiconsIcon icon={Link01Icon} size={18} />
             </div>
             <div>
-              <span className="mobile-mais__link-title">Link de Agendamento Online</span>
+              <span className="mobile-mais__link-title">Link de agendamento online</span>
               <p className="mobile-mais__link-desc">Copie para divulgar no Instagram ou WhatsApp</p>
             </div>
           </div>
@@ -80,7 +154,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
             className="mobile-mais__link-btn"
           >
             <HugeiconsIcon icon={Copy01Icon} size={16} />
-            Copiar Link da Barbearia
+            Copiar link da barbearia
           </button>
         </div>
 
@@ -157,7 +231,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
             }}
           >
             <HugeiconsIcon icon={Logout01Icon} size={18} />
-            Sair da Conta
+            Sair da conta
           </button>
         </div>
       </div>
@@ -174,17 +248,17 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           align-items: center;
           gap: 0.875rem;
           padding: 0.875rem 1rem;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 12px;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
         }
 
         .mobile-mais__profile-avatar {
           width: 42px;
           height: 42px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-          color: #18181b;
+          border-radius: var(--radius-full, 50%);
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
           font-weight: 700;
           font-size: 1.125rem;
           display: flex;
@@ -202,21 +276,87 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         .mobile-mais__profile-name {
           font-size: 0.9375rem;
           font-weight: 600;
-          color: #f4f4f5;
+          color: var(--color-text-primary);
         }
 
         .mobile-mais__profile-role {
           font-size: 0.75rem;
-          color: #a1a1aa;
+          color: var(--color-text-secondary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
+        .mobile-mais__status-overview {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+
+        .mobile-mais__status-item {
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md, 8px);
+          padding: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          cursor: pointer;
+          transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-mais__status-item:hover {
+          border-color: var(--color-brand-primary);
+        }
+
+        .mobile-mais__status-item-header {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: var(--color-text-secondary);
+        }
+
+        .mobile-mais__status-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+
+        .status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+        }
+
+        .dot--connected {
+          background: var(--color-success);
+          box-shadow: 0 0 6px var(--color-success);
+        }
+
+        .dot--connecting {
+          background: var(--color-warning);
+        }
+
+        .dot--disconnected, .dot--loading {
+          background: var(--color-error);
+        }
+
+        .mobile-mais__status-val {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+
         .mobile-mais__link-card {
-          background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.04) 100%);
-          border: 1px solid rgba(245, 158, 11, 0.25);
-          border-radius: 12px;
+          background: rgba(217, 108, 0, 0.08);
+          border: 1px solid rgba(217, 108, 0, 0.25);
+          border-radius: var(--radius-lg, 12px);
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -232,9 +372,9 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         .mobile-mais__link-icon {
           width: 32px;
           height: 32px;
-          border-radius: 8px;
-          background: rgba(245, 158, 11, 0.2);
-          color: #f59e0b;
+          border-radius: var(--radius-md, 8px);
+          background: rgba(217, 108, 0, 0.15);
+          color: var(--color-brand-primary);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -244,13 +384,13 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         .mobile-mais__link-title {
           font-size: 0.875rem;
           font-weight: 600;
-          color: #f59e0b;
+          color: var(--color-brand-primary);
           display: block;
         }
 
         .mobile-mais__link-desc {
           font-size: 0.75rem;
-          color: #d4d4d8;
+          color: var(--color-text-secondary);
           margin: 2px 0 0;
         }
 
@@ -259,15 +399,19 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          background: #f59e0b;
-          color: #18181b;
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
           font-size: 0.8125rem;
           font-weight: 600;
           padding: 0.625rem;
-          border-radius: 8px;
+          border-radius: var(--radius-md, 8px);
           border: none;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-mais__link-btn:hover {
+          background: var(--color-brand-hover);
         }
 
         .mobile-mais__link-btn:active {
@@ -285,7 +429,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #71717a;
+          color: var(--color-text-secondary);
           padding-left: 0.25rem;
         }
 
@@ -302,17 +446,17 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           justify-content: center;
           gap: 0.5rem;
           padding: 1rem 0.5rem;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 12px;
-          color: #e4e4e7;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
+          color: var(--color-text-primary);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .mobile-mais__item:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.12);
+          border-color: var(--color-brand-primary);
+          background: var(--color-bg-secondary);
         }
 
         .mobile-mais__item:active {
@@ -320,7 +464,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         }
 
         .mobile-mais__item-icon {
-          color: #f59e0b;
+          color: var(--color-brand-primary);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -334,7 +478,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         .mobile-mais__footer {
           margin-top: 0.5rem;
           padding-top: 0.75rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-top: 1px solid var(--color-border);
         }
 
         .mobile-mais__logout-btn {
@@ -344,14 +488,14 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           justify-content: center;
           gap: 0.5rem;
           padding: 0.75rem;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          border-radius: 10px;
-          color: #ef4444;
+          background: rgba(240, 82, 82, 0.1);
+          border: 1px solid rgba(240, 82, 82, 0.25);
+          border-radius: var(--radius-md, 8px);
+          color: var(--color-error);
           font-size: 0.875rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .mobile-mais__logout-btn:active {

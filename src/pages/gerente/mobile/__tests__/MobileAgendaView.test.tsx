@@ -57,19 +57,32 @@ describe('MobileAgendaView Component', () => {
     fireEvent.click(marcosChip);
 
     // Marcos não tem agendamento, deve mostrar empty state específico
-    expect(screen.getByText('Sem agendamentos para esta data')).toBeInTheDocument();
+    expect(screen.getByText('Nenhum agendamento para este dia')).toBeInTheDocument();
   });
 
   it('aciona o botão de WhatsApp ao clicar no atalho', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
-    const whatsBtn = screen.getByTitle('Chamar no WhatsApp');
+    const whatsBtn = screen.getByTitle('Conversar com o cliente no WhatsApp');
     fireEvent.click(whatsBtn);
 
     expect(defaultProps.onDirectWhatsApp).toHaveBeenCalledWith(
       '11999998888',
       'Carlos Santos',
       expect.any(String)
+    );
+  });
+
+  it('aciona o botão de Encaixe com flag isFitting ativa', () => {
+    render(<MobileAgendaView {...defaultProps} />);
+
+    const encaixeBtn = screen.getByTitle('Atender cliente que chegou agora sem agendamento (Encaixe)');
+    fireEvent.click(encaixeBtn);
+
+    expect(defaultProps.onOpenNewAppointment).toHaveBeenCalledWith(
+      undefined,
+      undefined,
+      true
     );
   });
 });

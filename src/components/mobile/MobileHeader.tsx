@@ -1,11 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationBell } from '../NotificationBell';
+import type { RealtimeNotification } from '../../lib/useRealtimeNotifications';
 
 interface MobileHeaderProps {
   tenantName: string;
   logoUrl?: string | null;
-  notifications: any[];
+  notifications: RealtimeNotification[];
   unreadCount: number;
   onMarkAllAsRead: () => void;
   onMarkAsRead: (id: string) => void;
@@ -54,10 +55,10 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           left: 0;
           right: 0;
           z-index: 890;
-          background: rgba(18, 18, 20, 0.9);
+          background: var(--color-bg-secondary);
           backdrop-filter: blur(16px) saturate(180%);
           -webkit-backdrop-filter: blur(16px) saturate(180%);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid var(--color-border);
           padding: 0.625rem 1rem;
           padding-top: max(0.625rem, env(safe-area-inset-top, 0.625rem));
           align-items: center;
@@ -83,7 +84,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           height: 30px;
           border-radius: var(--radius-md);
           object-fit: cover;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid var(--color-border);
           flex-shrink: 0;
         }
 
@@ -97,7 +98,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         .mobile-header__title {
           font-size: 0.9375rem;
           font-weight: 700;
-          color: #f4f4f5;
+          color: var(--color-text-primary);
           margin: 0;
           letter-spacing: -0.02em;
           white-space: nowrap;

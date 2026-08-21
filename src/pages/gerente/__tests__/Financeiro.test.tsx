@@ -100,11 +100,11 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
 
     // 1. Faturamento bruto
     expect(screen.getByText('Faturamento bruto')).toBeInTheDocument();
-    expect(screen.getByText(/2\.500,00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2\.500,00/).length).toBeGreaterThanOrEqual(1);
 
     // 2. Serviços prestados
     expect(screen.getByText('Serviços prestados')).toBeInTheDocument();
-    expect(screen.getByText(/2\.000,00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2\.000,00/).length).toBeGreaterThanOrEqual(1);
 
     // 3. Venda de produtos
     expect(screen.getByText('Venda de produtos')).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
 
     // 4. Comissões da equipe
     expect(screen.getByText('Comissões da equipe')).toBeInTheDocument();
-    expect(screen.getByText(/800,00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/800,00/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Pendente: R\$\s*450,00/)).toBeInTheDocument();
 
     // 5. Lucro líquido livre

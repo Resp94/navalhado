@@ -485,7 +485,7 @@ export const BarbeiroLayout: React.FC = () => {
         /* TRANSITION/ANIMATION DA ROTA */
         .barbeiro-route-wrapper {
           width: 100%;
-          animation: springUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: smoothFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         /* NAVEGAÇÃO INFERIOR PARA MOBILE */
@@ -499,6 +499,17 @@ export const BarbeiroLayout: React.FC = () => {
           }
           .barbeiro-main {
             padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
+          }
+        }
+
+        @keyframes smoothFadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

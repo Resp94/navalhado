@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Coins01Icon,
@@ -8,9 +8,14 @@ import {
   InformationCircleIcon,
   UserGroupIcon,
   SmartPhone01Icon,
+  MinusSignIcon,
+  ArrowUp01Icon,
+  ArrowDown01Icon,
 } from '@hugeicons/core-free-icons';
 import { LockIcon } from '../../../components/Icons';
+import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet';
 import { formatCurrency } from '../../../lib/currency';
+import { useToast } from '../../../components/Toast';
 import type { CashSession } from '../../../modules/caixa/types';
 import type { FinancialMetrics } from '../Financeiro';
 
@@ -21,6 +26,8 @@ interface MobileCaixaViewProps {
   historySessions: CashSession[];
   onOpenAbertura: () => void;
   onOpenFechamento: () => void;
+  onSangria?: (amount: number, reason: string) => void;
+  onSuprimento?: (amount: number, reason: string) => void;
   formatDate: (dateStr: string) => string;
 }
 
@@ -31,8 +38,23 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   historySessions,
   onOpenAbertura,
   onOpenFechamento,
+  onSangria,
+  onSuprimento,
   formatDate,
 }) => {
+  let addToast = (_msg: string, _type?: string) => {};
+  try {
+    const t = useToast();
+    if (t?.addToast) addToast = t.addToast;
+  } catch {
+    // fallback if rendered outside ToastProvider
+  }
+
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
+  const [movementType, setMovementType] = useState<'sangria' | 'suprimento'>('sangria');
+  const [movementAmount, setMovementAmount] = useState('');
+  const [movementReason, setMovementReason] = useState('');
+
   const pixTotal = metrics?.revenue_by_method?.['pix'] || 0;
   const cardTotal =
     (metrics?.revenue_by_method?.['cartao_credito'] || 0) +
@@ -41,6 +63,40 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
     (metrics?.revenue_by_method?.['dinheiro'] || 0) +
     (activeSession?.initial_amount || 0);
 
+  const handleOpenMovement = (type: 'sangria' | 'suprimento') => {
+    setMovementType(type);
+    setMovementAmount('');
+    setMovementReason('');
+    setMovementModalOpen(true);
+  };
+
+  const handleSaveMovement = () => {
+    const val = parseFloat(movementAmount.replace(',', '.'));
+    if (!val || val <= 0) {
+      addToast('Informe um valor válido maior que zero.', 'error');
+      return;
+    }
+    if (!movementReason.trim()) {
+      addToast('Informe o motivo ou descrição da movimentação.', 'error');
+      return;
+    }
+
+    if (movementType === 'sangria') {
+      if (onSangria) {
+        onSangria(val, movementReason);
+      } else {
+        addToast(`Sangria de ${formatCurrency(val)} registrada com sucesso.`, 'success');
+      }
+    } else {
+      if (onSuprimento) {
+        onSuprimento(val, movementReason);
+      } else {
+        addToast(`Suprimento de ${formatCurrency(val)} registrado com sucesso.`, 'success');
+      }
+    }
+    setMovementModalOpen(false);
+  };
+
   return (
     <div className="mobile-caixa">
       {/* ─── 1. STATUS DO CAIXA DO DIA ─── */}
@@ -48,7 +104,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         <div className="mobile-caixa__status-header">
           <div className="mobile-caixa__status-badge">
             <span className="mobile-caixa__status-dot" />
-            <span>{activeSession ? 'Caixa Aberto' : 'Caixa Fechado'}</span>
+            <span>{activeSession ? 'Caixa aberto' : 'Caixa fechado'}</span>
           </div>
 
           {activeSession && (
@@ -63,13 +119,13 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           {activeSession ? (
             <div className="mobile-caixa__amount-row">
               <div>
-                <span className="mobile-caixa__amount-label">Troco Inicial</span>
+                <span className="mobile-caixa__amount-label">Troco inicial</span>
                 <span className="mobile-caixa__amount-val">
                   {formatCurrency(activeSession.initial_amount)}
                 </span>
               </div>
               <div>
-                <span className="mobile-caixa__amount-label">Dinheiro Recebido</span>
+                <span className="mobile-caixa__amount-label">Dinheiro recebido</span>
                 <span className="mobile-caixa__amount-val text-success">
                   +{formatCurrency(activeSessionCashReceipts)}
                 </span>
@@ -84,14 +140,35 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
         <div className="mobile-caixa__status-footer">
           {activeSession ? (
-            <button
-              type="button"
-              className="mobile-caixa__btn-action btn--close-caixa"
-              onClick={onOpenFechamento}
-            >
-              <LockIcon size={16} />
-              <span>Fechar Caixa do Turno</span>
-            </button>
+            <div className="mobile-caixa__actions-wrapper">
+              <div className="mobile-caixa__quick-movements">
+                <button
+                  type="button"
+                  className="mobile-caixa__movement-btn btn--suprimento"
+                  onClick={() => handleOpenMovement('suprimento')}
+                >
+                  <HugeiconsIcon icon={ArrowDown01Icon} size={15} />
+                  <span>+ Suprimento (entrada)</span>
+                </button>
+                <button
+                  type="button"
+                  className="mobile-agenda__movement-btn btn--sangria"
+                  onClick={() => handleOpenMovement('sangria')}
+                >
+                  <HugeiconsIcon icon={ArrowUp01Icon} size={15} />
+                  <span>- Sangria (retirada)</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="mobile-caixa__btn-action btn--close-caixa"
+                onClick={onOpenFechamento}
+              >
+                <LockIcon size={16} />
+                <span>Fechar caixa do turno</span>
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -99,7 +176,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
               onClick={onOpenAbertura}
             >
               <HugeiconsIcon icon={PlusSignIcon} size={18} />
-              <span>Abrir Caixa do Turno</span>
+              <span>Abrir caixa do turno</span>
             </button>
           )}
         </div>
@@ -108,28 +185,28 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
       {/* ─── 2. RESUMO DOS VALORES DO DIA (4 CARDS) ─── */}
       <div className="mobile-caixa__cards-grid">
         <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Faturamento Total</span>
+          <span className="mobile-caixa__kpi-label">Faturamento total</span>
           <span className="mobile-caixa__kpi-val text-primary">
             {formatCurrency(metrics?.total_revenue || 0)}
           </span>
         </div>
 
         <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Dinheiro em Gaveta</span>
+          <span className="mobile-caixa__kpi-label">Dinheiro em gaveta</span>
           <span className="mobile-caixa__kpi-val">
             {formatCurrency(moneyTotal)}
           </span>
         </div>
 
         <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Recebimentos PIX</span>
+          <span className="mobile-caixa__kpi-label">Recebimentos Pix</span>
           <span className="mobile-caixa__kpi-val text-info">
             {formatCurrency(pixTotal)}
           </span>
         </div>
 
         <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Cartão Crédito / Débito</span>
+          <span className="mobile-caixa__kpi-label">Cartão de crédito e débito</span>
           <span className="mobile-caixa__kpi-val">
             {formatCurrency(cardTotal)}
           </span>
@@ -142,7 +219,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           <HugeiconsIcon icon={InformationCircleIcon} size={20} />
         </div>
         <div className="mobile-caixa__notice-content">
-          <h4 className="mobile-caixa__notice-title">Relatórios Completos no Desktop</h4>
+          <h4 className="mobile-caixa__notice-title">Relatórios completos no desktop</h4>
           <p className="mobile-caixa__notice-desc">
             DRE aprofundado, gráficos de evolução temporal e análises detalhadas por período estão disponíveis na versão desktop.
           </p>
@@ -151,7 +228,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
       {/* ─── 4. ÚLTIMOS TURNOS / MOVIMENTAÇÕES ─── */}
       <div className="mobile-caixa__history">
-        <h3 className="mobile-caixa__history-title">Turnos Recentes</h3>
+        <h3 className="mobile-caixa__history-title">Turnos recentes</h3>
         {historySessions.length === 0 ? (
           <div className="mobile-caixa__history-empty">
             <span>Nenhum histórico de turno registrado ainda.</span>
@@ -182,6 +259,47 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         )}
       </div>
 
+      {/* ─── MODAL DE SANGRIA / SUPRIMENTO ─── */}
+      <MobileBottomSheet
+        isOpen={movementModalOpen}
+        onClose={() => setMovementModalOpen(false)}
+        title={movementType === 'sangria' ? 'Registrar Sangria (Saída)' : 'Registrar Suprimento (Entrada)'}
+      >
+        <div className="mobile-caixa__movement-form">
+          <div className="form-group">
+            <label className="form-label">Valor (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0,00"
+              value={movementAmount}
+              onChange={(e) => setMovementAmount(e.target.value)}
+              className="form-input"
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Motivo / Descrição</label>
+            <input
+              type="text"
+              placeholder={movementType === 'sangria' ? 'Ex: Pagamento de Fornecedor, Troco' : 'Ex: Aporte extra de troco'}
+              value={movementReason}
+              onChange={(e) => setMovementReason(e.target.value)}
+              className="form-input"
+            />
+          </div>
+
+          <button
+            type="button"
+            className="mobile-caixa__btn-submit"
+            onClick={handleSaveMovement}
+          >
+            Confirmar {movementType === 'sangria' ? 'Sangria' : 'Suprimento'}
+          </button>
+        </div>
+      </MobileBottomSheet>
+
       <style>{`
         .mobile-caixa {
           display: flex;
@@ -191,22 +309,22 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         }
 
         .mobile-caixa__status-card {
-          background: #18181b;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 14px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
           padding: 1.15rem;
           display: flex;
           flex-direction: column;
           gap: 0.875rem;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          box-shadow: var(--shadow-sm, 0 4px 12px rgba(0, 0, 0, 0.2));
         }
 
         .mobile-caixa__status-card.status--open {
-          border-color: rgba(16, 185, 129, 0.3);
+          border-color: rgba(14, 159, 110, 0.3);
         }
 
         .mobile-caixa__status-card.status--closed {
-          border-color: rgba(239, 68, 68, 0.25);
+          border-color: rgba(240, 82, 82, 0.25);
         }
 
         .mobile-caixa__status-header {
@@ -221,22 +339,22 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           gap: 0.5rem;
           font-size: 0.875rem;
           font-weight: 700;
-          color: #f4f4f5;
+          color: var(--color-text-primary);
         }
 
         .status--open .mobile-caixa__status-dot {
           width: 8px;
           height: 8px;
-          border-radius: 50%;
-          background: #10b981;
-          box-shadow: 0 0 8px #10b981;
+          border-radius: var(--radius-full, 50%);
+          background: var(--color-success);
+          box-shadow: 0 0 8px var(--color-success);
         }
 
         .status--closed .mobile-caixa__status-dot {
           width: 8px;
           height: 8px;
-          border-radius: 50%;
-          background: #ef4444;
+          border-radius: var(--radius-full, 50%);
+          background: var(--color-error);
         }
 
         .mobile-caixa__opened-time {
@@ -244,21 +362,22 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           align-items: center;
           gap: 0.35rem;
           font-size: 0.75rem;
-          color: #a1a1aa;
+          color: var(--color-text-secondary);
         }
 
         .mobile-caixa__amount-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(255, 255, 255, 0.03);
+          background: var(--color-bg-primary);
           padding: 0.75rem;
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
+          border: 1px solid var(--color-border);
         }
 
         .mobile-caixa__amount-label {
           font-size: 0.6875rem;
-          color: #71717a;
+          color: var(--color-text-secondary);
           text-transform: uppercase;
           display: block;
         }
@@ -266,17 +385,55 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__amount-val {
           font-size: 1rem;
           font-weight: 700;
-          color: #f4f4f5;
+          color: var(--color-text-primary);
         }
 
-        .text-success { color: #10b981 !important; }
-        .text-primary { color: #f59e0b !important; }
-        .text-info { color: #60a5fa !important; }
+        .text-success { color: var(--color-success) !important; }
+        .text-primary { color: var(--color-brand-primary) !important; }
+        .text-info { color: var(--color-info) !important; }
 
         .mobile-caixa__closed-msg {
           font-size: 0.8125rem;
-          color: #a1a1aa;
+          color: var(--color-text-secondary);
           margin: 0;
+        }
+
+        .mobile-caixa__actions-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          width: 100%;
+        }
+
+        .mobile-caixa__quick-movements {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.5rem;
+        }
+
+        .mobile-caixa__movement-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.35rem;
+          padding: 0.5rem;
+          border-radius: var(--radius-md, 8px);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn--suprimento {
+          background: rgba(14, 159, 110, 0.12);
+          border: 1px solid rgba(14, 159, 110, 0.25);
+          color: var(--color-success);
+        }
+
+        .btn--sangria {
+          background: rgba(240, 82, 82, 0.12);
+          border: 1px solid rgba(240, 82, 82, 0.25);
+          color: var(--color-error);
         }
 
         .mobile-caixa__btn-action {
@@ -286,24 +443,24 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           justify-content: center;
           gap: 0.5rem;
           padding: 0.75rem;
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           font-size: 0.875rem;
           font-weight: 700;
           border: none;
           cursor: pointer;
           min-height: 48px;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn--open-caixa {
-          background: #f59e0b;
-          color: #18181b;
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
         }
 
         .btn--close-caixa {
-          background: rgba(239, 68, 68, 0.15);
-          color: #ef4444;
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          background: rgba(240, 82, 82, 0.15);
+          color: var(--color-error);
+          border: 1px solid rgba(240, 82, 82, 0.3);
         }
 
         .mobile-caixa__cards-grid {
@@ -315,7 +472,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__kpi-card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 12px;
+          border-radius: var(--radius-lg, 12px);
           padding: 0.875rem;
           display: flex;
           flex-direction: column;
@@ -338,15 +495,15 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__desktop-notice {
           display: flex;
           gap: 0.75rem;
-          background: rgba(245, 158, 11, 0.08);
-          border: 1px dashed rgba(245, 158, 11, 0.3);
-          border-radius: 12px;
+          background: rgba(217, 108, 0, 0.08);
+          border: 1px dashed rgba(217, 108, 0, 0.3);
+          border-radius: var(--radius-lg, 12px);
           padding: 0.875rem;
           align-items: flex-start;
         }
 
         .mobile-caixa__notice-icon {
-          color: var(--color-brand-primary, #f59e0b);
+          color: var(--color-brand-primary);
           flex-shrink: 0;
           margin-top: 2px;
         }
@@ -354,7 +511,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__notice-title {
           font-size: 0.8125rem;
           font-weight: 700;
-          color: var(--color-brand-primary, #f59e0b);
+          color: var(--color-brand-primary);
           margin: 0 0 0.15rem;
         }
 
@@ -390,7 +547,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           justify-content: space-between;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
           padding: 0.75rem;
           box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
           font-size: 0.8125rem;
@@ -423,7 +580,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
         .mobile-caixa__history-final {
           font-weight: 700;
-          color: var(--color-brand-primary, #f59e0b);
+          color: var(--color-brand-primary);
         }
 
         .mobile-caixa__history-empty {
@@ -432,7 +589,55 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           font-size: 0.8125rem;
           color: var(--color-text-secondary);
           background: var(--color-bg-secondary);
-          border-radius: 10px;
+          border-radius: var(--radius-md, 10px);
+        }
+
+        .mobile-caixa__movement-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .form-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+        }
+
+        .form-input {
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md, 8px);
+          color: var(--color-text-primary);
+          padding: 0.625rem 0.75rem;
+          font-size: 0.875rem;
+          outline: none;
+        }
+
+        .form-input:focus {
+          border-color: var(--color-brand-primary);
+        }
+
+        .mobile-caixa__btn-submit {
+          background: var(--color-brand-primary);
+          color: var(--color-brand-lightest);
+          border: none;
+          border-radius: var(--radius-md, 8px);
+          padding: 0.75rem;
+          font-size: 0.875rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-caixa__btn-submit:hover {
+          background: var(--color-brand-hover);
         }
       `}</style>
     </div>

@@ -110,7 +110,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               top: '-4px',
               right: '-4px',
               background: 'var(--color-brand-primary)',
-              color: '#FFF1E6',
+              color: 'var(--color-brand-lightest)',
               fontSize: '10px',
               fontWeight: 700,
               borderRadius: 'var(--radius-full)',
@@ -121,7 +121,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               justifyContent: 'center',
               padding: '0 4px',
               border: '2px solid var(--color-bg-primary)',
-              animation: 'slideUp 0.3s ease',
+              animation: 'dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             {unreadCount}
@@ -146,7 +146,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             boxShadow: 'var(--shadow-xl)',
             zIndex: 50,
             overflow: 'hidden',
-            animation: 'springUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            animation: 'dropdownFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             transformOrigin: 'top right',
           }}
         >
@@ -380,6 +380,19 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes dropdownFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 };

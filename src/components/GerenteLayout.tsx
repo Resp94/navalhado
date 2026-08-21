@@ -16,6 +16,7 @@ export interface TenantContextType {
   slotIntervalMinutes?: number;
   minBookingLeadTimeMinutes?: number;
   minCancellationLeadTimeMinutes?: number;
+  refreshTenant?: () => Promise<void>;
 }
 
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -49,98 +50,113 @@ export const GerenteLayout: React.FC = () => {
     tenantId: tenantInfo?.tenantId || '',
   });
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchTenantData = React.useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/');
+        return;
+      }
 
-    const fetchTenantData = async () => {
-      try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          navigate('/');
-          return;
-        }
+      // 1. Buscar perfil para capturar o tenant_id e o nome do gerente
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('name, tenant_id, role')
+        .eq('id', user.id)
+        .single();
 
-        // 1. Buscar perfil para capturar o tenant_id e o nome do gerente
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('name, tenant_id, role')
-          .eq('id', user.id)
+      if (profileError || !profile) {
+        throw new Error('Não foi possível carregar as informações do seu perfil.');
+      }
+
+      if (profile.role !== 'gerente') {
+        addToast('Área restrita para gerentes.', 'warning');
+        navigate('/');
+        return;
+      }
+
+      setManagerName(profile.name);
+
+      // 2. Se possuir tenant_id, carregar os dados da barbearia
+      if (profile.tenant_id) {
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('id, name, logo_url, timezone, onboarding_completed, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
+          .eq('id', profile.tenant_id)
           .single();
 
-        if (profileError || !profile) {
-          throw new Error('Não foi possível carregar as informações do seu perfil.');
+        if (tenantError || !tenant) {
+          throw new Error('Não foi possível carregar os dados da barbearia.');
         }
 
-        if (profile.role !== 'gerente') {
-          addToast('Área restrita para gerentes.', 'warning');
-          navigate('/');
+        const isOnboardingCompleted = Boolean(tenant.onboarding_completed);
+
+        if (!isOnboardingCompleted && location.pathname !== '/onboarding') {
+          navigate('/onboarding');
           return;
         }
 
-        if (isMounted) {
-          setManagerName(profile.name);
+        if (isOnboardingCompleted && location.pathname === '/onboarding') {
+          navigate('/agenda');
+          return;
         }
 
-        // 2. Se possuir tenant_id, carregar os dados da barbearia
-        if (profile.tenant_id) {
-          const { data: tenant, error: tenantError } = await supabase
-            .from('tenants')
-            .select('id, name, logo_url, timezone, onboarding_completed, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
-            .eq('id', profile.tenant_id)
-            .single();
-
-          if (tenantError || !tenant) {
-            throw new Error('Não foi possível carregar os dados da barbearia.');
-          }
-
-          const isOnboardingCompleted = Boolean(tenant.onboarding_completed);
-
-          if (!isOnboardingCompleted && location.pathname !== '/onboarding') {
-            navigate('/onboarding');
-            return;
-          }
-
-          if (isOnboardingCompleted && location.pathname === '/onboarding') {
-            navigate('/agenda');
-            return;
-          }
-
-          if (isMounted) {
-            setTenantInfo({
-              tenantId: tenant.id,
-              tenantName: tenant.name,
-              logoUrl: tenant.logo_url,
-              timezone: tenant.timezone || 'America/Sao_Paulo',
-              onboardingCompleted: isOnboardingCompleted,
-              businessHours: tenant.business_hours || undefined,
-              slotIntervalMinutes: tenant.slot_interval_minutes ?? 30,
-              minBookingLeadTimeMinutes: tenant.min_booking_lead_time_minutes ?? 15,
-              minCancellationLeadTimeMinutes: tenant.min_cancellation_lead_time_minutes ?? 120,
-            });
-          }
-        } else {
-          addToast('Esta conta não está vinculada a nenhuma barbearia.', 'error');
-          navigate('/');
-        }
-      } catch (error: any) {
-        console.error('Error fetching tenant layout data:', error);
-        addToast(error.message || 'Erro ao carregar painel do gerente.', 'error');
+        setTenantInfo({
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          logoUrl: tenant.logo_url,
+          timezone: tenant.timezone || 'America/Sao_Paulo',
+          onboardingCompleted: isOnboardingCompleted,
+          businessHours: tenant.business_hours || undefined,
+          slotIntervalMinutes: tenant.slot_interval_minutes ?? 30,
+          minBookingLeadTimeMinutes: tenant.min_booking_lead_time_minutes ?? 15,
+          minCancellationLeadTimeMinutes: tenant.min_cancellation_lead_time_minutes ?? 120,
+          refreshTenant: fetchTenantData,
+        });
+      } else {
+        addToast('Esta conta não está vinculada a nenhuma barbearia.', 'error');
         navigate('/');
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
       }
-    };
+    } catch (error: any) {
+      console.error('Error fetching tenant layout data:', error);
+      addToast(error.message || 'Erro ao carregar painel do gerente.', 'error');
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, location.pathname, addToast]);
 
+  useEffect(() => {
     fetchTenantData();
+  }, [fetchTenantData]);
+
+  // Realtime subscription para atualização de configurações do tenant
+  useEffect(() => {
+    if (!tenantInfo?.tenantId || typeof supabase.channel !== 'function') return;
+
+    const channel = supabase
+      .channel(`tenant-updates-${tenantInfo.tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tenants',
+          filter: `id=eq.${tenantInfo.tenantId}`,
+        },
+        () => {
+          fetchTenantData();
+        }
+      )
+      .subscribe();
 
     return () => {
-      isMounted = false;
+      if (typeof supabase.removeChannel === 'function') {
+        supabase.removeChannel(channel);
+      }
     };
-  }, [navigate, addToast]);
+  }, [tenantInfo?.tenantId, fetchTenantData]);
 
   const handleLogout = async () => {
     try {
@@ -284,6 +300,7 @@ export const GerenteLayout: React.FC = () => {
           tenantId={tenantInfo.tenantId}
           tenantName={tenantInfo.tenantName}
           managerName={managerName}
+          businessHours={tenantInfo.businessHours}
           onLogout={handleLogout}
         />
       </div>

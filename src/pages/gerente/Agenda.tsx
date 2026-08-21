@@ -137,9 +137,9 @@ export const getDayBusinessHours = (
   };
 };
 
-// Configurações da Grade Temporal
-const SLOT_DURATION_MINUTES = 30;
-const SLOT_HEIGHT_PX = 104; // Altura em pixels de cada bloco de 30 min (espaço confortável e legível para todas as linhas e botões)
+// Configurações Padrão da Grade Temporal
+const DEFAULT_SLOT_DURATION_MINUTES = 30;
+const DEFAULT_SLOT_HEIGHT_PX = 104;
 
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
@@ -237,15 +237,26 @@ export const Agenda: React.FC = () => {
   const gridEndHour = 20;
   const totalGridMinutes = (gridEndHour - gridStartHour) * 60;
 
-  // Gerar Slots de Horário da Régua
+  // Intervalo e Altura Dinâmicos da Grade Conforme Configurações da Barbearia
+  const slotIntervalMinutes =
+    tenant.slotIntervalMinutes && tenant.slotIntervalMinutes > 0
+      ? tenant.slotIntervalMinutes
+      : DEFAULT_SLOT_DURATION_MINUTES;
+  const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
+  const pxPerMinute = slotHeightPx / slotIntervalMinutes;
+
+  // Gerar Slots de Horário da Régua Dinamicamente
   const timeSlots = useMemo(() => {
     const slots: string[] = [];
-    for (let hour = gridStartHour; hour < gridEndHour; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`);
-      slots.push(`${String(hour).padStart(2, '0')}:30`);
+    const startTotalMin = gridStartHour * 60;
+    const endTotalMin = gridEndHour * 60;
+    for (let m = startTotalMin; m < endTotalMin; m += slotIntervalMinutes) {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
     }
     return slots;
-  }, [gridStartHour, gridEndHour]);
+  }, [gridStartHour, gridEndHour, slotIntervalMinutes]);
 
   // Dias da Semana para Visão Semanal
   const weekDays = useMemo(() => {
@@ -881,13 +892,13 @@ export const Agenda: React.FC = () => {
     const [h, m] = timeStr.split(':').map(Number);
     const startMinutesFromGridStart = h * 60 + m - gridStartHour * 60;
 
-    const topPx = (startMinutesFromGridStart / SLOT_DURATION_MINUTES) * SLOT_HEIGHT_PX;
+    const topPx = startMinutesFromGridStart * pxPerMinute;
 
     // Calcular duração
     const endTimeStr = formatTimeInZone(endTimeIso, tenant.timezone);
     const [eh, em] = endTimeStr.split(':').map(Number);
-    const durationMinutes = Math.max(30, eh * 60 + em - (h * 60 + m));
-    const heightPx = (durationMinutes / SLOT_DURATION_MINUTES) * SLOT_HEIGHT_PX - 4;
+    const durationMinutes = Math.max(slotIntervalMinutes, eh * 60 + em - (h * 60 + m));
+    const heightPx = durationMinutes * pxPerMinute - 4;
 
     return { topPx: Math.max(0, topPx), heightPx: Math.max(36, heightPx) };
   };
@@ -955,8 +966,8 @@ export const Agenda: React.FC = () => {
   const redLineTopPx = useMemo(() => {
     const minutesFromStart = currentTimeMinutes - gridStartHour * 60;
     if (minutesFromStart < 0 || minutesFromStart > totalGridMinutes) return null;
-    return (minutesFromStart / SLOT_DURATION_MINUTES) * SLOT_HEIGHT_PX;
-  }, [currentTimeMinutes, gridStartHour, totalGridMinutes]);
+    return minutesFromStart * pxPerMinute;
+  }, [currentTimeMinutes, gridStartHour, totalGridMinutes, pxPerMinute]);
 
   return (
     <div className="agenda-page">
@@ -964,20 +975,23 @@ export const Agenda: React.FC = () => {
       <div className="agenda-mobile-view">
         <MobileAgendaView
           timezone={tenant.timezone}
+          businessHours={tenant.businessHours}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           professionals={professionals}
           appointments={appointments}
           blockedSlots={blockedSlots}
           timeSlots={timeSlots}
-          onOpenNewAppointment={(profId, slot) =>
-            handleOpenNewAppointment(profId, slot, false, selectedDate)
+          onOpenNewAppointment={(profId, slot, isFitting) =>
+            handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
           onOpenCheckout={handleOpenCheckout}
           onOpenCancel={handleOpenCancelModal}
           onStartService={handleStartService}
           onDirectWhatsApp={handleDirectWhatsApp}
           onRemoveBlock={handleRemoveBlock}
+          onOpenBloqueio={() => setIsBloqueioModalOpen(true)}
+          onOpenEspera={() => setIsEsperaDrawerOpen(true)}
         />
       </div>
 
@@ -1179,7 +1193,11 @@ export const Agenda: React.FC = () => {
               </div>
               <div className="timeline-axis-body">
                 {timeSlots.map((slot) => (
-                  <div key={slot} className="time-slot-label">
+                  <div
+                    key={slot}
+                    className="time-slot-label"
+                    style={{ height: `${slotHeightPx}px` }}
+                  >
                     <span>{slot}</span>
                   </div>
                 ))}
@@ -1279,7 +1297,9 @@ export const Agenda: React.FC = () => {
                               <div
                                 key={slot}
                                 className={slotClass}
+                                style={{ height: `${slotHeightPx}px` }}
                                 onClick={handleCellClick}
+                                data-testid={`slot-cell-${prof.id}-${slot}`}
                                 title={
                                   isDayClosed
                                     ? `Barbearia fechada neste dia (${slot})`
@@ -1578,7 +1598,9 @@ export const Agenda: React.FC = () => {
                               <div
                                 key={slot}
                                 className={slotClass}
+                                style={{ height: `${slotHeightPx}px` }}
                                 onClick={handleCellClick}
+                                data-testid={`week-slot-cell-${day.dateStr}-${slot}`}
                                 title={
                                   isDayClosed
                                     ? `Barbearia fechada neste dia (${slot})`
@@ -2354,7 +2376,8 @@ export const Agenda: React.FC = () => {
         }
 
         .time-slot-label {
-          height: 104px;
+          min-height: 50px;
+          box-sizing: border-box;
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -2433,7 +2456,8 @@ export const Agenda: React.FC = () => {
         }
 
         .grid-slot-cell {
-          height: 104px;
+          min-height: 50px;
+          box-sizing: border-box;
           border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
           cursor: pointer;
           position: relative;
@@ -2924,8 +2948,10 @@ export const Agenda: React.FC = () => {
         .modal-actions-footer {
           display: flex;
           justify-content: flex-end;
+          align-items: center;
           gap: 0.75rem;
           margin-top: 0.5rem;
+          flex-wrap: wrap;
         }
 
         .btn-secondary {
@@ -2937,6 +2963,8 @@ export const Agenda: React.FC = () => {
           font-weight: 600;
           color: var(--color-text-secondary);
           cursor: pointer;
+          min-height: 44px;
+          box-sizing: border-box;
         }
 
         .btn-primary {
@@ -2948,6 +2976,8 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-sm);
           font-weight: 700;
           cursor: pointer;
+          min-height: 44px;
+          box-sizing: border-box;
         }
 
         .btn-primary:hover {
@@ -2963,6 +2993,21 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-sm);
           font-weight: 700;
           cursor: pointer;
+          min-height: 44px;
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 480px) {
+          .modal-actions-footer {
+            flex-direction: column-reverse;
+            width: 100%;
+          }
+          .modal-actions-footer button {
+            width: 100%;
+          }
+          .form-row-2col {
+            grid-template-columns: 1fr !important;
+          }
         }
 
         .cancel-alert-text {

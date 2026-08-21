@@ -41,6 +41,12 @@ vi.mock('../../lib/supabase', () => ({
       getUser: () => mockGetUser(),
     },
     from: (table: string) => mockFrom(table),
+    channel: () => ({
+      on: () => ({
+        subscribe: vi.fn(),
+      }),
+    }),
+    removeChannel: vi.fn(),
   },
 }));
 

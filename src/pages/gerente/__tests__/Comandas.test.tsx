@@ -10,7 +10,9 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useOutletContext: () => ({
-      tenant: { id: 'tenant-123', name: 'Barbearia Navalha de Ouro' },
+      tenantId: 'tenant-123',
+      tenantName: 'Barbearia Navalha de Ouro',
+      timezone: 'America/Sao_Paulo',
     }),
   };
 });

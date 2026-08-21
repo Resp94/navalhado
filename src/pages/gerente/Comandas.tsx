@@ -26,7 +26,7 @@ interface ComandaEnriched extends Comanda {
 }
 
 export const Comandas: React.FC = () => {
-  const { tenant } = useOutletContext<TenantContextType>();
+  const { tenantId, tenantName } = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ export const Comandas: React.FC = () => {
   );
 
   const carregarDados = useCallback(async () => {
-    if (!tenant?.id) return;
+    if (!tenantId) return;
     try {
       setLoading(true);
 
@@ -58,12 +58,12 @@ export const Comandas: React.FC = () => {
         supabase
           .from('services')
           .select('id, name, price')
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', tenantId)
           .eq('is_active', true),
         supabase
           .from('professionals')
           .select('id, name')
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', tenantId)
           .eq('is_active', true),
         supabase
           .from('comandas')
@@ -76,7 +76,7 @@ export const Comandas: React.FC = () => {
               professional:professionals(id, name)
             )
           `)
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(100),
       ]);
@@ -99,7 +99,7 @@ export const Comandas: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenant?.id, addToast]);
+  }, [tenantId, addToast]);
 
   useEffect(() => {
     carregarDados();
@@ -146,7 +146,7 @@ export const Comandas: React.FC = () => {
 
   const handleDirectWhatsApp = (phone: string, name: string) => {
     const cleanPhone = phone.replace(/\D/g, '');
-    const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Falamos da ${tenant?.name || 'barbearia'}.`);
+    const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Falamos da ${tenantName || 'barbearia'}.`);
     window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
   };
 
@@ -326,7 +326,7 @@ export const Comandas: React.FC = () => {
       {isCheckoutOpen && (
         <ComandaCheckoutModal
           isOpen={isCheckoutOpen}
-          tenantId={tenant.id}
+          tenantId={tenantId}
           appointmentId={selectedComanda?.appointment_id || null}
           customerId={selectedComanda?.customer_id || null}
           customerName={selectedComanda?.customer_name || 'Cliente Balcão'}

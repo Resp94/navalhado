@@ -71,8 +71,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   const mockAppointments = [
     {
       id: 'app-1',
-      start_time: '2026-08-15T12:00:00.000Z', // 09:00 no fuso America/Sao_Paulo (UTC-3)
-      end_time: '2026-08-15T12:30:00.000Z',
+      start_time: '2026-08-16T12:00:00.000Z', // 09:00 no fuso America/Sao_Paulo (UTC-3)
+      end_time: '2026-08-16T12:30:00.000Z',
       status: 'confirmed',
       payment_status: 'pending',
       is_fitting: false,
@@ -176,9 +176,9 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
-      expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
-      expect(screen.getByText('Marcos Navalha')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+      expect(screen.getAllByText('Carlos Barbeiro').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Marcos Navalha').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -186,11 +186,11 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByText('Pedro Cliente')).toBeInTheDocument();
-      expect(screen.getByText(/Corte Tradicional/i)).toBeInTheDocument();
-      expect(screen.getByText(/Cliente prefere tesoura/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Cobrar/i })).toBeInTheDocument();
-      expect(screen.getByTitle(/WhatsApp/i)).toBeInTheDocument();
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Corte Tradicional/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Cliente prefere tesoura/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByRole('button', { name: /Cobrar/i }).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByTitle(/WhatsApp/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -198,10 +198,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Novo encaixe rápido/i)).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
+      expect(screen.getAllByText('Carlos Barbeiro').length).toBeGreaterThanOrEqual(1);
     });
 
     const filterBtn = screen.getByRole('button', { name: /Equipe/i });
@@ -232,10 +232,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Cliente rápido de balcão/i })).toBeInTheDocument();
@@ -256,7 +256,6 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
     fireEvent.click(submitBtn);
 
-
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(
         'Encaixe agendado com sucesso!',
@@ -271,10 +270,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Encaixe/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Encaixe/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
 
     expect(mockAddToast).toHaveBeenCalledWith(
       'A barbearia não abre neste dia conforme as configurações de funcionamento.',

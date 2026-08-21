@@ -459,7 +459,7 @@ const styles = `
   border-radius: calc(var(--radius-xl) + 6px);
   background: rgba(217, 108, 0, 0.04);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
-  animation: springUp 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   z-index: 2;
 }
 
@@ -514,8 +514,8 @@ const styles = `
   align-items: center;
   gap: 0.375rem;
   text-align: center;
-  animation: springUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
-  animation-delay: 0.08s;
+  animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.05s;
 }
 
 .signup-card__eyebrow {
@@ -532,7 +532,7 @@ const styles = `
 }
 
 .signup-card__icon {
-  background: linear-gradient(135deg, var(--color-brand-lightest) 0%, #FFE4D6 100%);
+  background: var(--color-brand-lightest);
   padding: 0.875rem;
   border-radius: var(--radius-full);
   display: flex;
@@ -801,6 +801,17 @@ const styles = `
   .plan-card__desc {
     width: 100%;
     margin-top: 0.25rem;
+  }
+}
+
+@keyframes smoothFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 `;

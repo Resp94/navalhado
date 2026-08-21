@@ -63,7 +63,7 @@ interface Appointment {
   id: string;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'canceled';
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'canceled';
   payment_status: 'pending' | 'paid';
   professional_id: string;
   tenant_id: string;
@@ -288,6 +288,23 @@ export const MinhaAgenda: React.FC = () => {
     };
     const parsed = new Date(dateStr + 'T12:00:00');
     return parsed.toLocaleDateString('pt-BR', options);
+  };
+
+  // Iniciar atendimento (transição para in_progress)
+  const handleStartService = async (appId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+        .eq('id', appId);
+
+      if (error) throw error;
+      addToast('Atendimento iniciado!', 'success');
+      fetchDailyAppointments();
+    } catch (err: any) {
+      console.error('Error starting appointment:', err);
+      addToast('Não foi possível iniciar o atendimento.', 'error');
+    }
   };
 
   // Abrir o modal de finalização do agendamento
@@ -560,7 +577,7 @@ export const MinhaAgenda: React.FC = () => {
                             rel="noopener noreferrer"
                             className="btn-whatsapp-direct"
                             title="Chamar no WhatsApp"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#25D366', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}
                           >
                             <HugeiconsIcon icon={WhatsappIcon} size={14} />
                             <span>WhatsApp</span>
@@ -590,19 +607,35 @@ export const MinhaAgenda: React.FC = () => {
                       <span className={`status-badge badge-${app.status}`}>
                         {app.status === 'pending' && 'Pendente'}
                         {app.status === 'confirmed' && 'Confirmado'}
+                        {app.status === 'in_progress' && 'Em Atendimento'}
                         {app.status === 'completed' && 'Concluído'}
                         {app.status === 'canceled' && 'Cancelado'}
                       </span>
 
-                      {/* Botão de Finalizar */}
-                      {(app.status === 'pending' || app.status === 'confirmed') && (
-                        <button
-                          onClick={() => handleOpenCheckout(app)}
-                          className="btn btn-finish"
-                        >
-                          Finalizar
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        {/* Botão de Iniciar Atendimento */}
+                        {(app.status === 'pending' || app.status === 'confirmed') && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartService(app.id)}
+                            className="btn btn-start"
+                            title="Iniciar Atendimento"
+                          >
+                            Iniciar
+                          </button>
+                        )}
+
+                        {/* Botão de Finalizar */}
+                        {(app.status === 'in_progress' || app.status === 'confirmed' || app.status === 'pending') && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCheckout(app)}
+                            className="btn btn-finish"
+                          >
+                            Finalizar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -766,7 +799,7 @@ export const MinhaAgenda: React.FC = () => {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-date-nav:hover {
@@ -896,8 +929,9 @@ export const MinhaAgenda: React.FC = () => {
           gap: 1rem;
           padding: 1rem;
           align-items: stretch;
-          border-left: 4px solid var(--color-border);
-          transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.2s ease;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
         }
 
         .appointment-card:hover {
@@ -906,20 +940,20 @@ export const MinhaAgenda: React.FC = () => {
         }
 
         .appointment-card.status-pending {
-          border-left-color: var(--color-warning);
+          border-color: rgba(217, 119, 6, 0.4);
         }
 
         .appointment-card.status-confirmed {
-          border-left-color: var(--color-info);
+          border-color: rgba(63, 131, 248, 0.4);
         }
 
         .appointment-card.status-completed {
-          border-left-color: var(--color-success);
+          border-color: rgba(14, 159, 110, 0.4);
           opacity: 0.85;
         }
 
         .appointment-card.status-canceled {
-          border-left-color: var(--color-error);
+          border-color: rgba(240, 82, 82, 0.4);
           opacity: 0.6;
         }
 
@@ -1009,6 +1043,11 @@ export const MinhaAgenda: React.FC = () => {
           color: var(--color-info);
         }
 
+        .badge-in_progress {
+          background-color: rgba(217, 108, 0, 0.15);
+          color: var(--color-brand-primary);
+        }
+
         .badge-completed {
           background-color: var(--color-success-bg);
           color: var(--color-success);
@@ -1019,9 +1058,26 @@ export const MinhaAgenda: React.FC = () => {
           color: var(--color-error);
         }
 
+        .btn-start {
+          background-color: var(--color-info);
+          color: var(--color-brand-lightest);
+          font-weight: 600;
+          font-size: var(--font-size-xs);
+          padding: 0.375rem 0.75rem;
+          border-radius: var(--radius-full);
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-start:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
+        }
+
         .btn-finish {
           background-color: var(--color-success);
-          color: #FFF1E6;
+          color: var(--color-brand-lightest);
           font-weight: 600;
           font-size: var(--font-size-xs);
           padding: 0.375rem 0.875rem;
@@ -1029,11 +1085,12 @@ export const MinhaAgenda: React.FC = () => {
           border: none;
           cursor: pointer;
           box-shadow: var(--shadow-sm);
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-finish:hover {
-          background-color: #0c825a;
+          background-color: var(--color-success);
+          opacity: 0.9;
           transform: translateY(-1px);
         }
 

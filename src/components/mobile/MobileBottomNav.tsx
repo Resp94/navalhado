@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
+import type { IconType } from '@hugeicons/react';
 
 export interface MobileNavItem {
   id: string;
   label: string;
-  icon: any;
+  icon: IconType | React.ComponentType<any> | React.ReactNode;
   path?: string;
   onClick?: () => void;
   badgeCount?: number;
@@ -21,7 +22,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
 
   return (
     <>
-      <nav className="mobile-bottom-nav" aria-label="Navegação Principal Mobile">
+      <nav className="mobile-bottom-nav" aria-label="Navegação principal mobile">
         <div className="mobile-bottom-nav__container">
           {items.map((item) => {
             const isActive = activeItemId 
@@ -30,10 +31,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
                 ? (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path))) 
                 : false;
 
+            const iconElement = React.isValidElement(item.icon) ? (
+              item.icon
+            ) : (
+              <HugeiconsIcon icon={item.icon as IconType} size={22} />
+            );
+
             const content = (
               <>
                 <div className="mobile-bottom-nav__icon-wrapper">
-                  <HugeiconsIcon icon={item.icon} size={22} />
+                  {iconElement}
                   {item.badgeCount && item.badgeCount > 0 ? (
                     <span className="mobile-bottom-nav__badge">{item.badgeCount > 99 ? '99+' : item.badgeCount}</span>
                   ) : null}
@@ -79,11 +86,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
           left: 0;
           right: 0;
           z-index: 900;
-          background: rgba(18, 18, 20, 0.88);
+          background: var(--color-bg-secondary);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+          border-top: 1px solid var(--color-border);
+          box-shadow: var(--shadow-lg, 0 -4px 24px rgba(0, 0, 0, 0.35));
           padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
@@ -113,12 +120,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
           height: 100%;
           background: transparent;
           border: none;
-          color: #a1a1aa;
+          color: var(--color-text-secondary);
           text-decoration: none;
           position: relative;
           cursor: pointer;
           padding: 6px 0;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           touch-action: manipulation;
           -webkit-tap-highlight-color: transparent;
         }
@@ -145,7 +152,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
         }
 
         .mobile-bottom-nav__item--active {
-          color: #f59e0b;
+          color: var(--color-brand-primary);
         }
 
         .mobile-bottom-nav__item--active .mobile-bottom-nav__label {
@@ -157,27 +164,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
           top: 0;
           width: 24px;
           height: 3px;
-          background: linear-gradient(90deg, #f59e0b, #d97706);
-          border-radius: 0 0 3px 3px;
-          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+          background: var(--color-brand-primary);
+          border-radius: 0 0 var(--radius-sm, 3px) var(--radius-sm, 3px);
+          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.4);
         }
 
         .mobile-bottom-nav__badge {
           position: absolute;
           top: -4px;
           right: -8px;
-          background: #ef4444;
-          color: #ffffff;
+          background: var(--color-error);
+          color: var(--color-brand-lightest);
           font-size: 0.625rem;
           font-weight: 700;
           min-width: 16px;
           height: 16px;
-          border-radius: 8px;
+          border-radius: var(--radius-full, 9999px);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 0 4px;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
         }
       `}</style>
     </>
