@@ -6,6 +6,16 @@ import {
   Delete02Icon,
   ScissorIcon,
   ShoppingBag01Icon,
+  QrCodeIcon,
+  CreditCardIcon,
+  CreditCardPosIcon,
+  Money01Icon,
+  Invoice01Icon,
+  Coins01Icon,
+  Discount01Icon,
+  AlertCircleIcon,
+  UserIcon,
+  WhatsappIcon,
 } from '@hugeicons/core-free-icons';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
 import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
@@ -72,7 +82,9 @@ interface PagamentoLinha {
   receivedCash: number;
 }
 
-const mapInitialServices = (services?: Array<{ service_id: string; name: string; price: number; professional_id?: string | null }>): ItemLocal[] => {
+const mapInitialServices = (
+  services?: Array<{ service_id: string; name: string; price: number; professional_id?: string | null }>
+): ItemLocal[] => {
   return (services || []).map((s, idx) => ({
     tempId: `init-${idx}`,
     item_type: 'servico',
@@ -82,6 +94,17 @@ const mapInitialServices = (services?: Array<{ service_id: string; name: string;
     quantity: 1,
     unit_price: s.price,
   }));
+};
+
+const methodConfigs: Record<
+  MetodoPagamento,
+  { label: string; icon: any; shortLabel?: string }
+> = {
+  pix: { label: 'PIX', icon: QrCodeIcon },
+  credit_card: { label: 'Cartão de crédito', icon: CreditCardIcon, shortLabel: 'Crédito' },
+  debit_card: { label: 'Cartão de débito', icon: CreditCardPosIcon, shortLabel: 'Débito' },
+  cash: { label: 'Dinheiro', icon: Money01Icon },
+  other: { label: 'Outro', icon: Invoice01Icon },
 };
 
 export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
@@ -138,6 +161,35 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     return (initialServices || []).map((s) => `${s.service_id}:${s.price}`).join('|');
   }, [initialServices]);
 
+  // Bloqueio de scroll do body e listener da tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (reopenConfirmOpen) {
+          setReopenConfirmOpen(false);
+        } else if (isAddingService) {
+          setIsAddingService(false);
+        } else if (isAddingProduct) {
+          setIsAddingProduct(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, reopenConfirmOpen, isAddingService, isAddingProduct, onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -149,6 +201,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setIsSplitting(false);
     setReopenConfirmOpen(false);
     setErrorMsg(null);
+    setIsAddingService(false);
+    setIsAddingProduct(false);
 
     // Carregar catálogo de produtos
     prodRepo.listActive(tenantId).then(setCatalogProducts).catch(console.error);
@@ -158,61 +212,63 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     // Inicializar itens da comanda
     if (appointmentId) {
-      comRepo.getByAppointmentId(appointmentId).then((existing) => {
-        if (existing) {
-          setComandaId(existing.id);
-          setLoadedComanda(existing);
+      comRepo
+        .getByAppointmentId(appointmentId)
+        .then((existing) => {
+          if (existing) {
+            setComandaId(existing.id);
+            setLoadedComanda(existing);
 
-          if (existing.itens && existing.itens.length > 0) {
-            setItens(
-              existing.itens.map((it) => ({
-                tempId: it.id,
-                id: it.id,
-                item_type: it.item_type,
-                service_id: it.service_id,
-                product_id: it.product_id,
-                professional_id: it.professional_id,
-                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
-                quantity: it.quantity,
-                unit_price: it.unit_price,
-              }))
-            );
-          }
-
-          if (existing.discount_amount) {
-            setDiscountValue(existing.discount_amount);
-            setDiscountType('fixed');
-          }
-          if (existing.tip_amount) {
-            setTipValue(existing.tip_amount);
-          }
-          if (existing.pagamentos && existing.pagamentos.length > 0) {
-            setPagamentos(
-              existing.pagamentos.map((p) => ({
-                method: p.payment_method,
-                amount: p.amount,
-                receivedCash: p.amount + (p.change_amount || 0),
-              }))
-            );
-            if (existing.pagamentos.length > 1) {
-              setIsSplitting(true);
+            if (existing.itens && existing.itens.length > 0) {
+              setItens(
+                existing.itens.map((it) => ({
+                  tempId: it.id,
+                  id: it.id,
+                  item_type: it.item_type,
+                  service_id: it.service_id,
+                  product_id: it.product_id,
+                  professional_id: it.professional_id,
+                  name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                  quantity: it.quantity,
+                  unit_price: it.unit_price,
+                }))
+              );
             }
+
+            if (existing.discount_amount) {
+              setDiscountValue(existing.discount_amount);
+              setDiscountType('fixed');
+            }
+            if (existing.tip_amount) {
+              setTipValue(existing.tip_amount);
+            }
+            if (existing.pagamentos && existing.pagamentos.length > 0) {
+              setPagamentos(
+                existing.pagamentos.map((p) => ({
+                  method: p.payment_method,
+                  amount: p.amount,
+                  receivedCash: p.amount + (p.change_amount || 0),
+                }))
+              );
+              if (existing.pagamentos.length > 1) {
+                setIsSplitting(true);
+              }
+            }
+          } else {
+            setItens(mapInitialServices(initialServices));
           }
-        } else {
-          // Itens iniciais a partir do agendamento
+        })
+        .catch((err) => {
+          console.error('Erro ao verificar comanda existente:', err);
           setItens(mapInitialServices(initialServices));
-        }
-      }).catch((err) => {
-        console.error('Erro ao verificar comanda existente:', err);
-        setItens(mapInitialServices(initialServices));
-      }).finally(() => {
-        setIsLoadingComanda(false);
-      });
+        })
+        .finally(() => {
+          setIsLoadingComanda(false);
+        });
     } else {
       setItens(mapInitialServices(initialServices));
       setIsLoadingComanda(false);
     }
-
   }, [isOpen, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
 
   const isClosed = loadedComanda?.status === 'fechada';
@@ -451,14 +507,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   };
 
-  const methodLabels: Record<MetodoPagamento, string> = {
-    pix: 'PIX',
-    credit_card: 'Cartão de crédito',
-    debit_card: 'Cartão de débito',
-    cash: 'Dinheiro',
-    other: 'Outro',
-  };
-
   return (
     <>
       <div
@@ -466,597 +514,743 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-checkout-title"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
       >
         <div className="comanda-modal-shell">
-          {/* Header */}
-          <div className="comanda-modal-header">
-            <div className="comanda-modal-header-info">
-              <h3 id="modal-checkout-title" className="comanda-modal-title">
-                {loadedComanda?.comanda_number ? `Comanda #${loadedComanda.comanda_number}` : 'Comanda de atendimento'}
-              </h3>
-              <p className="comanda-modal-subtitle">
-                Cliente: <strong>{customerName}</strong> {customerPhone && `• ${customerPhone}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="comanda-btn-close"
-              aria-label="Fechar modal de comanda"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} size={20} />
-            </button>
-          </div>
-
-          {/* Banner de Confirmação de Reabertura */}
-          {reopenConfirmOpen && (
-            <div style={{ margin: '0.75rem 1.25rem 0', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-warning-bg)', border: '1px solid var(--color-warning)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>
-                Deseja realmente reabrir esta comanda?
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-                Ao reabrir, os pagamentos registrados serão estornados e a comanda voltará para edição.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setReopenConfirmOpen(false)}
-                  className="btn-link-sm"
-                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={isReopening}
-                  onClick={handleReopenComanda}
-                  style={{ padding: '0.4rem 0.85rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-brand-primary)', color: 'white', border: 'none', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}
-                >
-                  {isReopening ? 'Reabrindo...' : 'Confirmar reabertura'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Body */}
-          <div className="comanda-modal-body">
-            {isLoadingComanda ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3.5rem 1rem', gap: '1rem', minHeight: '260px' }}>
-                <div style={{ width: '32px', height: '32px', border: '3px solid var(--color-brand-soft)', borderTopColor: 'var(--color-brand-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Carregando dados da comanda...</p>
-              </div>
-            ) : (
-              <>
-            {/* Banner de Comanda Fechada / Somente Leitura */}
-            {errorMsg && (
-              <div className="comanda-error-alert">
-                {errorMsg}
-              </div>
-            )}
-
-            {/* Banner de Comanda Fechada / Liquidada */}
-            {isClosed && (
-              <div className="comanda-closed-badge-banner">
-                <div className="comanda-closed-banner-left">
-                  <div className="comanda-closed-icon-badge">
-                    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={20} />
+          <div className="comanda-modal-card">
+            {/* Header com Double-Bezel e Detalhes da Comanda */}
+            <div className="comanda-modal-header">
+              <div className="comanda-modal-header-info">
+                <div className="comanda-modal-badge-wrapper">
+                  <div className="comanda-header-icon-badge">
+                    <HugeiconsIcon icon={Invoice01Icon} size={18} />
                   </div>
                   <div>
-                    <strong className="comanda-closed-title">Atendimento liquidado e pago</strong>
-                    {loadedComanda?.closed_at && (
-                      <span className="closed-time-detail">
-                        {new Date(loadedComanda.closed_at).toLocaleDateString('pt-BR')} às{' '}
-                        {new Date(loadedComanda.closed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    <div className="comanda-header-title-row">
+                      <h3 id="modal-checkout-title" className="comanda-modal-title">
+                        {loadedComanda?.comanda_number
+                          ? `Comanda #${loadedComanda.comanda_number}`
+                          : 'Comanda de atendimento'}
+                      </h3>
+                      <span
+                        className={`comanda-status-pill ${
+                          isClosed ? 'comanda-status-pill--closed' : 'comanda-status-pill--open'
+                        }`}
+                      >
+                        {isClosed ? 'Liquidada' : 'Em aberto'}
                       </span>
-                    )}
-                  </div>
-                </div>
-                <span className="comanda-receipt-badge">Recibo</span>
-              </div>
-            )}
-
-            {/* Lista de Itens */}
-            <div className="comanda-section">
-              <div className="comanda-section-header">
-                <h4 className="comanda-section-title">
-                  Itens consumidos ({itens.length})
-                </h4>
-                {!isClosed && (
-                  <div className="comanda-section-actions">
-                    <button
-                      type="button"
-                      onClick={() => { setIsAddingService(true); setIsAddingProduct(false); }}
-                      className="btn-add-item"
-                    >
-                      <HugeiconsIcon icon={ScissorIcon} size={14} />
-                      <span>Serviço</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setIsAddingProduct(true); setIsAddingService(false); }}
-                      className="btn-add-item"
-                    >
-                      <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
-                      <span>Produto</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Formulário Embutido: Adicionar Serviço */}
-              {!isClosed && isAddingService && (
-                <div className="add-item-box">
-                  <div className="add-item-header">
-                    <span className="add-item-title">Adicionar serviço</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingService(false)}
-                      className="btn-cancel-item"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                  <div className="add-item-row">
-                    <select
-                      value={selectedServiceId}
-                      onChange={(e) => setSelectedServiceId(e.target.value)}
-                      className="comanda-select flex-1"
-                    >
-                      <option value="">Selecione o serviço...</option>
-                      {availableServices.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={selectedProfId}
-                      onChange={(e) => setSelectedProfId(e.target.value)}
-                      className="comanda-select flex-1"
-                    >
-                      <option value="">Profissional...</option>
-                      {availableProfessionals.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      disabled={!selectedServiceId}
-                      onClick={handleAddServiceConfirm}
-                      className="btn-confirm-item"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Formulário Embutido: Adicionar Produto */}
-              {!isClosed && isAddingProduct && (
-                <div className="add-item-box">
-                  <div className="add-item-header">
-                    <span className="add-item-title">Adicionar produto</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingProduct(false)}
-                      className="btn-cancel-item"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                  <div className="add-item-row">
-                    <select
-                      value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
-                      className="comanda-select flex-1"
-                    >
-                      <option value="">Selecione o produto...</option>
-                      {catalogProducts.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      disabled={!selectedProductId}
-                      onClick={handleAddProductConfirm}
-                      className="btn-confirm-item"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Lista dos Itens da Comanda */}
-              <div className="comanda-items-list">
-                {itens.map((it) => (
-                  <div key={it.tempId} className="comanda-item-card">
-                    <div className="comanda-item-info">
-                      <div className="comanda-item-icon-tag">
-                        <HugeiconsIcon icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon} size={15} />
-                      </div>
-                      <div>
-                        <strong className="comanda-item-name">{it.name}</strong>
-                        <span className="comanda-item-detail">
-                          {it.item_type === 'servico' ? 'Serviço' : 'Produto'} • {it.quantity}x • R$ {it.unit_price.toFixed(2)}
-                        </span>
-                      </div>
                     </div>
-
-                    <div className="comanda-item-right">
-                      <span className="comanda-item-total">
-                        R$ {(it.quantity * it.unit_price).toFixed(2)}
+                    <div className="comanda-modal-subtitle">
+                      <span className="comanda-subtitle-customer">
+                        <HugeiconsIcon icon={UserIcon} size={13} className="inline-user-icon" />
+                        <span>
+                          Cliente: <strong>{customerName}</strong>
+                        </span>
                       </span>
-                      {!isClosed && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(it.tempId)}
-                          className="comanda-item-remove-btn"
-                          title="Remover item"
-                          aria-label="Remover item"
-                        >
-                          <HugeiconsIcon icon={Delete02Icon} size={16} />
-                        </button>
+                      {customerPhone && (
+                        <span className="comanda-customer-phone-tag">
+                          <HugeiconsIcon icon={WhatsappIcon} size={12} className="inline-phone-icon" />
+                          <span>{customerPhone}</span>
+                        </span>
                       )}
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="comanda-btn-close"
+                aria-label="Fechar modal de comanda"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} size={20} />
+              </button>
             </div>
 
-            {/* Desconto e Gorjeta (Apenas editável se aberta) */}
-            {!isClosed ? (
-              <div className="comanda-discount-tip-grid">
-                <div className="comanda-form-group">
-                  <label className="comanda-label">Desconto</label>
-                  <div className="comanda-input-segmented-wrapper">
-                    <div className="comanda-segmented-type">
-                      <button
-                        type="button"
-                        className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
-                        onClick={() => setDiscountType('fixed')}
-                      >
-                        R$
-                      </button>
-                      <button
-                        type="button"
-                        className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
-                        onClick={() => setDiscountType('percent')}
-                      >
-                        %
-                      </button>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={discountValue || ''}
-                      onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
-                      placeholder="0,00"
-                      className="comanda-input-num"
-                    />
+            {/* Banner de Confirmação de Reabertura */}
+            {reopenConfirmOpen && (
+              <div className="comanda-reopen-confirm-card" role="alert">
+                <div className="comanda-reopen-content">
+                  <div className="comanda-reopen-icon">
+                    <HugeiconsIcon icon={AlertCircleIcon} size={18} />
+                  </div>
+                  <div>
+                    <h4 className="comanda-reopen-title">Deseja realmente reabrir esta comanda?</h4>
+                    <p className="comanda-reopen-desc">
+                      Ao reabrir, os pagamentos registrados serão estornados e a comanda voltará para o status de edição.
+                    </p>
                   </div>
                 </div>
-
-                <div className="comanda-form-group">
-                  <label className="comanda-label">Gorjeta (R$)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={tipValue || ''}
-                    onChange={(e) => setTipValue(parseFloat(e.target.value) || 0)}
-                    placeholder="0,00"
-                    className="comanda-input-num"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {/* Sumário de Totais */}
-            <div className="comanda-summary-box">
-              <div className="summary-row">
-                <span>Subtotal:</span>
-                <span>R$ {subtotal.toFixed(2)}</span>
-              </div>
-              {discountAmount > 0 && (
-                <div className="summary-row summary-discount">
-                  <span>Desconto:</span>
-                  <span>- R$ {discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              {tipValue > 0 && (
-                <div className="summary-row summary-tip">
-                  <span>Gorjeta:</span>
-                  <span>+ R$ {tipValue.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="summary-row summary-total">
-                <span>{isClosed ? 'Total pago:' : 'Total:'}</span>
-                <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Formas de Pagamento */}
-            <div className="comanda-section">
-              <div className="comanda-section-header">
-                <h4 className="comanda-section-title">
-                  {isClosed ? 'Pagamentos registrados' : 'Forma de pagamento'}
-                </h4>
-                {!isClosed && !isSplitting && (
+                <div className="comanda-reopen-actions">
                   <button
                     type="button"
-                    onClick={handleEnableSplit}
-                    className="btn-split-toggle"
+                    onClick={() => setReopenConfirmOpen(false)}
+                    className="comanda-btn-ghost-sm"
                   >
-                    Dividir valor
+                    Cancelar
                   </button>
-                )}
-                {!isClosed && isSplitting && (
                   <button
                     type="button"
-                    onClick={handleDisableSplit}
-                    className="btn-split-cancel"
+                    disabled={isReopening}
+                    onClick={handleReopenComanda}
+                    className="comanda-btn-warning-sm"
                   >
-                    Forma única
+                    {isReopening ? 'Reabrindo...' : 'Confirmar reabertura'}
                   </button>
-                )}
+                </div>
               </div>
+            )}
 
-              {/* Modo de Visualização Fechada / Recibo */}
-              {isClosed ? (
-                <div className="comanda-payments-list">
-                  {pagamentos.map((pag, idx) => (
-                    <div key={idx} className="payment-receipt-row">
-                      <span className="payment-receipt-method">
-                        {methodLabels[pag.method] || pag.method}
+            {/* Body */}
+            <div className="comanda-modal-body">
+              {isLoadingComanda ? (
+                <div className="comanda-loading-state">
+                  <div className="comanda-spinner" />
+                  <p className="comanda-loading-text">Carregando dados da comanda...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Mensagem de Erro / Validação */}
+                  {errorMsg && (
+                    <div className="comanda-error-alert" role="alert">
+                      <HugeiconsIcon icon={AlertCircleIcon} size={16} />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Banner de Comanda Fechada / Liquidada (Modo Recibo) */}
+                  {isClosed && (
+                    <div className="comanda-closed-badge-banner">
+                      <div className="comanda-closed-banner-left">
+                        <div className="comanda-closed-icon-badge">
+                          <HugeiconsIcon icon={CheckmarkCircle01Icon} size={20} />
+                        </div>
+                        <div>
+                          <strong className="comanda-closed-title">Atendimento liquidado e pago</strong>
+                          {loadedComanda?.closed_at && (
+                            <span className="closed-time-detail">
+                              Fechado em {new Date(loadedComanda.closed_at).toLocaleDateString('pt-BR')} às{' '}
+                              {new Date(loadedComanda.closed_at).toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="comanda-receipt-badge">Recibo</span>
+                    </div>
+                  )}
+
+                  {/* Seção 1: Itens Consumidos */}
+                  <div className="comanda-section">
+                    <div className="comanda-section-header">
+                      <div className="comanda-section-title-wrap">
+                        <h4 className="comanda-section-title">Itens consumidos</h4>
+                        <span className="comanda-section-count-badge">{itens.length}</span>
+                      </div>
+                      {!isClosed && (
+                        <div className="comanda-section-actions">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingService((prev) => !prev);
+                              setIsAddingProduct(false);
+                            }}
+                            className={`btn-add-item ${isAddingService ? 'btn-add-item--active' : ''}`}
+                            aria-expanded={isAddingService}
+                          >
+                            <HugeiconsIcon icon={ScissorIcon} size={14} />
+                            <span>Serviço</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingProduct((prev) => !prev);
+                              setIsAddingService(false);
+                            }}
+                            className={`btn-add-item ${isAddingProduct ? 'btn-add-item--active' : ''}`}
+                            aria-expanded={isAddingProduct}
+                          >
+                            <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
+                            <span>Produto</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Formulário Embutido: Adicionar Serviço */}
+                    {!isClosed && isAddingService && (
+                      <div className="add-item-box">
+                        <div className="add-item-header">
+                          <span className="add-item-title">Adicionar novo serviço</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingService(false)}
+                            className="btn-cancel-item"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        <div className="add-item-row">
+                          <select
+                            value={selectedServiceId}
+                            onChange={(e) => setSelectedServiceId(e.target.value)}
+                            className="comanda-select flex-1"
+                            aria-label="Selecionar serviço"
+                          >
+                            <option value="">Selecione o serviço...</option>
+                            {availableServices.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} • R$ {s.price.toFixed(2)}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            value={selectedProfId}
+                            onChange={(e) => setSelectedProfId(e.target.value)}
+                            className="comanda-select flex-1"
+                            aria-label="Selecionar profissional"
+                          >
+                            <option value="">Profissional (opcional)...</option>
+                            {availableProfessionals.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            disabled={!selectedServiceId}
+                            onClick={handleAddServiceConfirm}
+                            className="btn-confirm-item"
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Formulário Embutido: Adicionar Produto */}
+                    {!isClosed && isAddingProduct && (
+                      <div className="add-item-box">
+                        <div className="add-item-header">
+                          <span className="add-item-title">Adicionar produto do estoque</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingProduct(false)}
+                            className="btn-cancel-item"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        <div className="add-item-row">
+                          <select
+                            value={selectedProductId}
+                            onChange={(e) => setSelectedProductId(e.target.value)}
+                            className="comanda-select flex-1"
+                            aria-label="Selecionar produto"
+                          >
+                            <option value="">Selecione o produto...</option>
+                            {catalogProducts.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} • R$ {p.price.toFixed(2)} (Estoque: {p.stock_quantity ?? 0})
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            disabled={!selectedProductId}
+                            onClick={handleAddProductConfirm}
+                            className="btn-confirm-item"
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lista dos Itens da Comanda */}
+                    <div className="comanda-items-list">
+                      {itens.length === 0 ? (
+                        <div className="comanda-empty-items">
+                          <p>Nenhum item adicionado à comanda ainda.</p>
+                        </div>
+                      ) : (
+                        itens.map((it) => (
+                          <div key={it.tempId} className="comanda-item-card">
+                            <div className="comanda-item-info">
+                              <div
+                                className={`comanda-item-icon-tag ${
+                                  it.item_type === 'servico'
+                                    ? 'comanda-item-icon-tag--service'
+                                    : 'comanda-item-icon-tag--product'
+                                }`}
+                              >
+                                <HugeiconsIcon
+                                  icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon}
+                                  size={16}
+                                />
+                              </div>
+                              <div className="comanda-item-text-group">
+                                <strong className="comanda-item-name">{it.name}</strong>
+                                <div className="comanda-item-detail">
+                                  <span className="comanda-type-tag">
+                                    {it.item_type === 'servico' ? 'Serviço' : 'Produto'}
+                                  </span>
+                                  <span>• {it.quantity}x</span>
+                                  <span>• R$ {it.unit_price.toFixed(2)}</span>
+                                  {it.professional_id &&
+                                    availableProfessionals.find((p) => p.id === it.professional_id) && (
+                                      <span className="comanda-prof-tag">
+                                        • {availableProfessionals.find((p) => p.id === it.professional_id)?.name}
+                                      </span>
+                                    )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="comanda-item-right">
+                              <span className="comanda-item-total">
+                                R$ {(it.quantity * it.unit_price).toFixed(2)}
+                              </span>
+                              {!isClosed && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(it.tempId)}
+                                  className="comanda-item-remove-btn"
+                                  title="Remover item"
+                                  aria-label={`Remover ${it.name}`}
+                                >
+                                  <HugeiconsIcon icon={Delete02Icon} size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Seção 2: Desconto e Gorjeta (Apenas editável se aberta) */}
+                  {!isClosed && (
+                    <div className="comanda-discount-tip-grid">
+                      <div className="comanda-form-group">
+                        <label className="comanda-label">
+                          <HugeiconsIcon icon={Discount01Icon} size={14} className="label-icon" />
+                          <span>Desconto</span>
+                        </label>
+                        <div className="comanda-input-segmented-wrapper">
+                          <div className="comanda-segmented-type" role="radiogroup" aria-label="Tipo de desconto">
+                            <button
+                              type="button"
+                              className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
+                              onClick={() => setDiscountType('fixed')}
+                              aria-label="Desconto em valor monetário"
+                            >
+                              R$
+                            </button>
+                            <button
+                              type="button"
+                              className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
+                              onClick={() => setDiscountType('percent')}
+                              aria-label="Desconto em porcentagem"
+                            >
+                              %
+                            </button>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            step={discountType === 'percent' ? '1' : '0.01'}
+                            value={discountValue || ''}
+                            onChange={(e) => setDiscountValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                            placeholder="0,00"
+                            className="comanda-input-num"
+                            aria-label="Valor do desconto"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="comanda-form-group">
+                        <label className="comanda-label">
+                          <HugeiconsIcon icon={Coins01Icon} size={14} className="label-icon" />
+                          <span>Gorjeta</span>
+                        </label>
+                        <div className="comanda-input-prefix-wrapper">
+                          <span className="comanda-input-prefix">R$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={tipValue || ''}
+                            onChange={(e) => setTipValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                            placeholder="0,00"
+                            className="comanda-input-num comanda-input-num--prefixed"
+                            aria-label="Valor da gorjeta"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seção 3: Sumário de Totais (Estilo Recibo de Luxo) */}
+                  <div className="comanda-summary-box">
+                    <div className="summary-row">
+                      <span className="summary-label">Subtotal</span>
+                      <span className="summary-value">R$ {subtotal.toFixed(2)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="summary-row summary-discount">
+                        <span className="summary-label">
+                          Desconto {discountType === 'percent' ? `(${discountValue}%)` : ''}
+                        </span>
+                        <span className="summary-value">- R$ {discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {tipValue > 0 && (
+                      <div className="summary-row summary-tip">
+                        <span className="summary-label">Gorjeta</span>
+                        <span className="summary-value">+ R$ {tipValue.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="summary-divider" />
+                    <div className="summary-row summary-total">
+                      <span className="summary-total-label">
+                        {isClosed ? 'Total liquidado' : 'Total a pagar'}
                       </span>
-                      <strong className="payment-receipt-amount">
-                        R$ {pag.amount.toFixed(2)}
-                      </strong>
+                      <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
                     </div>
-                  ))}
-                </div>
-              ) : !isSplitting ? (
-                /* Modo Pagamento Único: Botões de Acesso Rápido */
-                <div className="single-payment-container">
-                  <div className="quick-methods-grid">
-                    {(['pix', 'credit_card', 'debit_card', 'cash'] as MetodoPagamento[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => handleSelectSingleMethod(m)}
-                        className={`btn-quick-method ${pagamentos[0]?.method === m ? 'btn-quick-method--active' : ''}`}
-                      >
-                        {methodLabels[m]}
-                      </button>
-                    ))}
                   </div>
 
-                  {pagamentos[0]?.method === 'cash' && (
-                    <div className="cash-single-calculator">
-                      <div className="cash-quick-notes">
-                        <span className="cash-notes-label">Notas:</span>
+                  {/* Seção 4: Formas de Pagamento */}
+                  <div className="comanda-section">
+                    <div className="comanda-section-header">
+                      <div className="comanda-section-title-wrap">
+                        <h4 className="comanda-section-title">
+                          {isClosed ? 'Pagamentos registrados' : 'Forma de pagamento'}
+                        </h4>
+                      </div>
+                      {!isClosed && !isSplitting && (
                         <button
                           type="button"
-                          className={`btn-quick-note ${pagamentos[0]?.receivedCash === totalFinal ? 'btn-quick-note--active' : ''}`}
-                          onClick={() => setPagamentos([{ ...pagamentos[0], receivedCash: totalFinal }])}
+                          onClick={handleEnableSplit}
+                          className="btn-split-toggle"
                         >
-                          Exato
+                          Dividir pagamento
                         </button>
-                        {[50, 100, 200].map((note) => {
-                          if (note < totalFinal) return null;
+                      )}
+                      {!isClosed && isSplitting && (
+                        <button
+                          type="button"
+                          onClick={handleDisableSplit}
+                          className="btn-split-cancel"
+                        >
+                          Forma única
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Modo de Visualização Fechada / Recibo */}
+                    {isClosed ? (
+                      <div className="comanda-payments-list">
+                        {pagamentos.map((pag, idx) => {
+                          const conf = methodConfigs[pag.method] || { label: pag.method, icon: Invoice01Icon };
+                          const IconComp = conf.icon;
                           return (
-                            <button
-                              key={note}
-                              type="button"
-                              className={`btn-quick-note ${pagamentos[0]?.receivedCash === note ? 'btn-quick-note--active' : ''}`}
-                              onClick={() => setPagamentos([{ ...pagamentos[0], receivedCash: note }])}
-                            >
-                              R$ {note}
-                            </button>
+                            <div key={idx} className="payment-receipt-row">
+                              <span className="payment-receipt-method">
+                                <span className="payment-receipt-icon">
+                                  <HugeiconsIcon icon={IconComp} size={16} />
+                                </span>
+                                <span>{conf.label}</span>
+                              </span>
+                              <strong className="payment-receipt-amount">
+                                R$ {pag.amount.toFixed(2)}
+                              </strong>
+                            </div>
                           );
                         })}
                       </div>
-
-                      <label className="cash-input-field">
-                        <span>Valor recebido: R$</span>
-                        <input
-                          type="number"
-                          min={totalFinal}
-                          step="0.01"
-                          value={pagamentos[0]?.receivedCash || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setPagamentos([{ ...pagamentos[0], receivedCash: val }]);
-                          }}
-                          className="cash-received-input"
-                        />
-                      </label>
-
-                      {pagamentos[0]?.receivedCash > totalFinal && (
-                        <div className="cash-change-badge">
-                          <span>Troco a devolver:</span>
-                          <strong>R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}</strong>
+                    ) : !isSplitting ? (
+                      /* Modo Pagamento Único: Botões de Acesso Rápido com Ícones */
+                      <div className="single-payment-container">
+                        <div className="quick-methods-grid">
+                          {(['pix', 'credit_card', 'debit_card', 'cash'] as MetodoPagamento[]).map((m) => {
+                            const conf = methodConfigs[m];
+                            const IconComp = conf.icon;
+                            const isSelected = pagamentos[0]?.method === m;
+                            return (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => handleSelectSingleMethod(m)}
+                                className={`btn-quick-method ${isSelected ? 'btn-quick-method--active' : ''}`}
+                              >
+                                <HugeiconsIcon icon={IconComp} size={18} className="quick-method-icon" />
+                                <span className="quick-method-text">{conf.shortLabel || conf.label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Modo Pagamento Dividido */
-                <div className="split-payments-container">
-                  <div className="comanda-payments-list">
-                    {pagamentos.map((pag, idx) => {
-                      const change = pag.method === 'cash' && pag.receivedCash > pag.amount
-                        ? pag.receivedCash - pag.amount
-                        : 0;
 
-                      return (
-                        <div key={idx} className="payment-row-card">
-                          <div className="payment-row-main">
-                            <select
-                              value={pag.method}
-                              onChange={(e) => {
-                                const newMethod = e.target.value as MetodoPagamento;
-                                setPagamentos((prev) =>
-                                  prev.map((p, i) => (i === idx ? { ...p, method: newMethod } : p))
-                                );
-                              }}
-                              className="comanda-select payment-method-select"
-                            >
-                              <option value="pix">PIX</option>
-                              <option value="credit_card">Cartão de crédito</option>
-                              <option value="debit_card">Cartão de débito</option>
-                              <option value="cash">Dinheiro</option>
-                              <option value="other">Outro</option>
-                            </select>
-
-                            <div className="payment-amount-input-wrapper">
-                              <span className="payment-amount-prefix">R$</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={pag.amount || ''}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
-                                  setPagamentos((prev) =>
-                                    prev.map((p, i) => (i === idx ? { ...p, amount: val, receivedCash: Math.max(val, p.receivedCash) } : p))
-                                  );
-                                }}
-                                className="payment-amount-input"
-                              />
-                            </div>
-
-                            {pagamentos.length > 1 && (
+                        {pagamentos[0]?.method === 'cash' && (
+                          <div className="cash-single-calculator">
+                            <div className="cash-quick-notes">
+                              <span className="cash-notes-label">Cédulas rápidas:</span>
                               <button
                                 type="button"
-                                onClick={() => handleRemovePagamentoLinha(idx)}
-                                className="btn-remove-payment"
-                                title="Remover forma"
-                                aria-label="Remover forma"
+                                className={`btn-quick-note ${
+                                  pagamentos[0]?.receivedCash === totalFinal ? 'btn-quick-note--active' : ''
+                                }`}
+                                onClick={() =>
+                                  setPagamentos([{ ...pagamentos[0], receivedCash: totalFinal }])
+                                }
                               >
-                                <HugeiconsIcon icon={Delete02Icon} size={16} />
+                                Exato
                               </button>
-                            )}
-                          </div>
+                              {[50, 100, 200].map((note) => {
+                                if (note < totalFinal) return null;
+                                return (
+                                  <button
+                                    key={note}
+                                    type="button"
+                                    className={`btn-quick-note ${
+                                      pagamentos[0]?.receivedCash === note ? 'btn-quick-note--active' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setPagamentos([{ ...pagamentos[0], receivedCash: note }])
+                                    }
+                                  >
+                                    R$ {note}
+                                  </button>
+                                );
+                              })}
+                            </div>
 
-                          {pag.method === 'cash' && (
-                            <div className="cash-change-calculator">
-                              <label className="cash-input-field">
-                                <span>Recebido: R$</span>
+                            <label className="cash-input-field">
+                              <span className="cash-input-label">Valor entregue pelo cliente:</span>
+                              <div className="cash-input-wrap">
+                                <span className="cash-prefix">R$</span>
                                 <input
                                   type="number"
-                                  min={pag.amount}
+                                  min={totalFinal}
                                   step="0.01"
-                                  value={pag.receivedCash || ''}
+                                  value={pagamentos[0]?.receivedCash || ''}
                                   onChange={(e) => {
                                     const val = parseFloat(e.target.value) || 0;
-                                    setPagamentos((prev) =>
-                                      prev.map((p, i) => (i === idx ? { ...p, receivedCash: val } : p))
-                                    );
+                                    setPagamentos([{ ...pagamentos[0], receivedCash: val }]);
                                   }}
                                   className="cash-received-input"
+                                  placeholder="0,00"
                                 />
-                              </label>
-                              {change > 0 && (
-                                <div className="cash-change-badge">
-                                  <span>Troco:</span>
-                                  <strong>R$ {change.toFixed(2)}</strong>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                              </div>
+                            </label>
 
-                  <div className="split-payments-footer">
-                    <button
-                      type="button"
-                      onClick={handleAddPagamentoLinha}
-                      className="btn-add-split-line"
-                    >
-                      <span>Adicionar forma de pagamento</span>
-                    </button>
-                    <div className="split-summary-bar">
-                      <span>Total: R$ {totalFinal.toFixed(2)} • Pago: R$ {totalPago.toFixed(2)}</span>
-                      {saldoRestante > 0 ? (
-                        <span className="split-missing-alert">Falta: R$ {saldoRestante.toFixed(2)}</span>
-                      ) : (
-                        <span className="split-complete-alert">Completo</span>
-                      )}
-                    </div>
+                            {pagamentos[0]?.receivedCash > totalFinal && (
+                              <div className="cash-change-badge">
+                                <div className="cash-change-left">
+                                  <HugeiconsIcon icon={Coins01Icon} size={18} />
+                                  <span>Troco a devolver:</span>
+                                </div>
+                                <strong className="cash-change-val">
+                                  R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
+                                </strong>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Modo Pagamento Dividido */
+                      <div className="split-payments-container">
+                        <div className="comanda-payments-list">
+                          {pagamentos.map((pag, idx) => {
+                            const change =
+                              pag.method === 'cash' && pag.receivedCash > pag.amount
+                                ? pag.receivedCash - pag.amount
+                                : 0;
+
+                            return (
+                              <div key={idx} className="payment-row-card">
+                                <div className="payment-row-main">
+                                  <select
+                                    value={pag.method}
+                                    onChange={(e) => {
+                                      const newMethod = e.target.value as MetodoPagamento;
+                                      setPagamentos((prev) =>
+                                        prev.map((p, i) =>
+                                          i === idx ? { ...p, method: newMethod } : p
+                                        )
+                                      );
+                                    }}
+                                    className="comanda-select payment-method-select"
+                                    aria-label="Forma de pagamento"
+                                  >
+                                    <option value="pix">PIX</option>
+                                    <option value="credit_card">Cartão de crédito</option>
+                                    <option value="debit_card">Cartão de débito</option>
+                                    <option value="cash">Dinheiro</option>
+                                    <option value="other">Outro</option>
+                                  </select>
+
+                                  <div className="payment-amount-input-wrapper">
+                                    <span className="payment-amount-prefix">R$</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={pag.amount || ''}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setPagamentos((prev) =>
+                                          prev.map((p, i) =>
+                                            i === idx
+                                              ? { ...p, amount: val, receivedCash: Math.max(val, p.receivedCash) }
+                                              : p
+                                          )
+                                        );
+                                      }}
+                                      className="payment-amount-input"
+                                      aria-label="Valor desta forma"
+                                    />
+                                  </div>
+
+                                  {pagamentos.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemovePagamentoLinha(idx)}
+                                      className="btn-remove-payment"
+                                      title="Remover forma de pagamento"
+                                      aria-label="Remover forma de pagamento"
+                                    >
+                                      <HugeiconsIcon icon={Delete02Icon} size={16} />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {pag.method === 'cash' && (
+                                  <div className="cash-change-calculator">
+                                    <label className="cash-input-field-compact">
+                                      <span>Recebido: R$</span>
+                                      <input
+                                        type="number"
+                                        min={pag.amount}
+                                        step="0.01"
+                                        value={pag.receivedCash || ''}
+                                        onChange={(e) => {
+                                          const val = parseFloat(e.target.value) || 0;
+                                          setPagamentos((prev) =>
+                                            prev.map((p, i) =>
+                                              i === idx ? { ...p, receivedCash: val } : p
+                                            )
+                                          );
+                                        }}
+                                        className="cash-received-input-compact"
+                                      />
+                                    </label>
+                                    {change > 0 && (
+                                      <div className="cash-change-badge-compact">
+                                        <span>Troco:</span>
+                                        <strong>R$ {change.toFixed(2)}</strong>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="split-payments-footer">
+                          <button
+                            type="button"
+                            onClick={handleAddPagamentoLinha}
+                            className="btn-add-split-line"
+                          >
+                            <HugeiconsIcon icon={Invoice01Icon} size={15} />
+                            <span>+ Adicionar outra forma de pagamento</span>
+                          </button>
+                          <div className="split-summary-bar">
+                            <div className="split-summary-info">
+                              <span>Total: <strong>R$ {totalFinal.toFixed(2)}</strong></span>
+                              <span className="comanda-separator-bullet">•</span>
+                              <span>Pago: <strong>R$ {totalPago.toFixed(2)}</strong></span>
+                            </div>
+                            {saldoRestante > 0 ? (
+                              <span className="split-missing-alert">
+                                Falta: R$ {saldoRestante.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="split-complete-alert">
+                                ✓ Valor total coberto
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="comanda-modal-footer">
+              {isClosed ? (
+                <div className="comanda-footer-closed-actions">
+                  <button
+                    type="button"
+                    onClick={() => setReopenConfirmOpen(true)}
+                    disabled={isReopening}
+                    className="comanda-btn-reopen"
+                  >
+                    <HugeiconsIcon icon={AlertCircleIcon} size={16} />
+                    <span>{isReopening ? 'Reabrindo...' : 'Reabrir comanda'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="comanda-btn-primary"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              ) : (
+                <div className="comanda-footer-open-actions">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="comanda-btn-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
+                    onClick={handleFinalizar}
+                    className="comanda-btn-primary"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="comanda-btn-spinner" />
+                        <span>Processando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Finalizar e receber</span>
+                        <span className="comanda-btn-amount-badge">R$ {totalFinal.toFixed(2)}</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="comanda-modal-footer">
-            {isClosed ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.75rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setReopenConfirmOpen(true)}
-                  disabled={isReopening}
-                  className="btn-reopen-comanda"
-                  style={{
-                    padding: '0.6rem 1.1rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1.5px solid var(--color-brand-primary)',
-                    backgroundColor: 'transparent',
-                    color: 'var(--color-brand-primary)',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {isReopening ? 'Reabrindo...' : 'Reabrir comanda'}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="comanda-btn-primary"
-                  style={{ minWidth: '100px' }}
-                >
-                  Fechar
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="comanda-btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
-                  onClick={handleFinalizar}
-                  className="comanda-btn-primary"
-                >
-                  {isSubmitting ? (
-                    <span>Processando...</span>
-                  ) : (
-                    <span>Finalizar e receber (R$ {totalFinal.toFixed(2)})</span>
-                  )}
-                </button>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -1081,14 +1275,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         @keyframes slideUpModal {
-          from {
+          0% {
             opacity: 0;
-            transform: translateY(12px) scale(0.98);
+            transform: translateY(16px) scale(0.98);
           }
-          to {
+          100% {
             opacity: 1;
             transform: translateY(0) scale(1);
           }
+        }
+
+        @keyframes slideUpMobile {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         .comanda-modal-overlay {
@@ -1101,32 +1308,86 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           justify-content: center;
           z-index: 1050;
-          padding: 1rem;
-          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+          padding: 1.25rem;
+          animation: fadeIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
+        /* Double-Bezel Container */
         .comanda-modal-shell {
           width: 100%;
-          max-width: 600px;
+          max-width: 620px;
           max-height: calc(100dvh - 2.5rem);
+          display: flex;
+          flex-direction: column;
+          padding: 4px;
+          border-radius: calc(var(--radius-xl) + 4px);
+          background: rgba(20, 17, 15, 0.08);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.2),
+            0 24px 56px -12px rgba(20, 17, 15, 0.35),
+            var(--shadow-xl);
+          animation: slideUpModal 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+          box-sizing: border-box;
+          font-family: var(--font-family-base);
+        }
+
+        .comanda-modal-card {
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-xl);
-          box-shadow: 0 20px 48px -12px rgba(20, 17, 15, 0.28), var(--shadow-xl);
+          width: 100%;
+          max-height: 100%;
           display: flex;
           flex-direction: column;
+          box-shadow:
+            inset 0 1px 1px rgba(255, 255, 255, 0.6),
+            var(--shadow-lg);
           overflow: hidden;
-          font-family: var(--font-family-base);
           color: var(--color-text-primary);
-          animation: slideUpModal 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
+        /* Header */
         .comanda-modal-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
           border-bottom: 1px solid var(--color-border);
+          background: linear-gradient(to bottom, var(--color-bg-secondary), var(--color-bg-primary));
+          flex-shrink: 0;
+        }
+
+        .comanda-modal-header-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .comanda-modal-badge-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+        }
+
+        .comanda-header-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-md);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-primary);
+          border: 1px solid var(--color-brand-soft);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          box-shadow: var(--shadow-sm);
+        }
+
+        .comanda-header-title-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          flex-wrap: wrap;
         }
 
         .comanda-modal-title {
@@ -1134,40 +1395,185 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-weight: 700;
           color: var(--color-text-primary);
           margin: 0;
+          letter-spacing: -0.01em;
+        }
+
+        .comanda-status-pill {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 0.2rem 0.55rem;
+          border-radius: var(--radius-full);
+          line-height: 1.2;
+        }
+
+        .comanda-status-pill--open {
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning);
+          border: 1px solid var(--color-warning);
+        }
+
+        .comanda-status-pill--closed {
+          background-color: var(--color-success-bg);
+          color: var(--color-success);
+          border: 1px solid var(--color-success);
         }
 
         .comanda-modal-subtitle {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          margin: 0.2rem 0 0 0;
+          margin: 0.35rem 0 0 0;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          flex-wrap: wrap;
         }
 
-        .text-highlight {
+        .comanda-subtitle-customer {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          color: var(--color-text-secondary);
+        }
+
+        .comanda-subtitle-customer strong {
           color: var(--color-text-primary);
           font-weight: 700;
         }
 
-        .comanda-btn-close,
-        .comanda-close-btn {
-          min-width: 44px;
-          min-height: 44px;
+        .comanda-customer-phone-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          color: var(--color-text-primary);
+          font-weight: 700;
+          font-size: 0.75rem;
+          background-color: var(--color-bg-primary);
+          padding: 0.15rem 0.55rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          letter-spacing: 0.01em;
+        }
+
+        .inline-phone-icon {
+          color: var(--color-success);
+          flex-shrink: 0;
+        }
+
+        .inline-user-icon {
+          color: var(--color-brand-primary);
+          flex-shrink: 0;
+        }
+
+        .comanda-separator-bullet {
+          color: var(--color-text-secondary);
+          opacity: 0.5;
+        }
+
+        .comanda-btn-close {
+          width: 38px;
+          height: 38px;
           border-radius: var(--radius-full);
-          border: none;
+          border: 1px solid transparent;
           background: transparent;
           color: var(--color-text-secondary);
           display: inline-flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+          flex-shrink: 0;
         }
 
-        .comanda-btn-close:hover,
-        .comanda-close-btn:hover {
+        .comanda-btn-close:hover {
           background-color: var(--color-error-bg);
           color: var(--color-error);
+          border-color: var(--color-error);
+          transform: scale(1.05);
         }
 
+        /* Banner de Reabertura */
+        .comanda-reopen-confirm-card {
+          margin: 1rem 1.5rem 0;
+          padding: 0.9rem 1.15rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-warning-bg);
+          border: 1px solid var(--color-warning);
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .comanda-reopen-content {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+        }
+
+        .comanda-reopen-icon {
+          color: var(--color-warning);
+          margin-top: 0.1rem;
+          flex-shrink: 0;
+        }
+
+        .comanda-reopen-title {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .comanda-reopen-desc {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0 0;
+          line-height: 1.4;
+        }
+
+        .comanda-reopen-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.5rem;
+        }
+
+        .comanda-btn-ghost-sm {
+          padding: 0.35rem 0.75rem;
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          background: transparent;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comanda-btn-ghost-sm:hover {
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .comanda-btn-warning-sm {
+          padding: 0.4rem 0.9rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          background-color: var(--color-warning);
+          color: white;
+          border: none;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comanda-btn-warning-sm:hover:not(:disabled) {
+          filter: brightness(0.92);
+          transform: translateY(-1px);
+        }
+
+        /* Body */
         .comanda-modal-body {
           flex: 1;
           overflow-y: auto;
@@ -1175,24 +1581,52 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           padding: 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 1.35rem;
+        }
+
+        .comanda-loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 4rem 1rem;
+          gap: 1rem;
+          min-height: 280px;
+        }
+
+        .comanda-spinner {
+          width: 34px;
+          height: 34px;
+          border: 3px solid var(--color-brand-soft);
+          border-top-color: var(--color-brand-primary);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .comanda-loading-text {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          font-weight: 600;
         }
 
         .comanda-error-alert {
-          padding: 0.75rem 1rem;
+          padding: 0.85rem 1.15rem;
           border-radius: var(--radius-md);
           background-color: var(--color-error-bg);
           border: 1px solid var(--color-error);
           color: var(--color-error);
           font-size: var(--font-size-xs);
           font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .comanda-closed-badge-banner {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.9rem 1.15rem;
+          padding: 0.9rem 1.25rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-success-bg);
           border: 1px solid var(--color-success);
@@ -1206,15 +1640,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-closed-icon-badge {
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           border-radius: var(--radius-full);
-          background-color: var(--color-success-bg, rgba(14, 159, 110, 0.15));
+          background-color: white;
           color: var(--color-success);
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          box-shadow: var(--shadow-sm);
         }
 
         .comanda-closed-title {
@@ -1236,14 +1671,15 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          padding: 0.25rem 0.6rem;
+          padding: 0.3rem 0.75rem;
           border-radius: var(--radius-full);
-          background-color: var(--color-success-bg, rgba(14, 159, 110, 0.15));
-          color: var(--color-success);
-          border: 1px solid var(--color-success);
+          background-color: var(--color-success);
+          color: white;
           flex-shrink: 0;
+          box-shadow: var(--shadow-sm);
         }
 
+        /* Seção Geral */
         .comanda-section {
           display: flex;
           flex-direction: column;
@@ -1254,28 +1690,57 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 1rem;
+          width: 100%;
+        }
+
+        .comanda-section-title-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
         }
 
         .comanda-section-title {
           font-size: var(--font-size-xs);
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.05em;
           color: var(--color-text-secondary);
           margin: 0;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .comanda-section-count-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 20px;
+          height: 20px;
+          padding: 0 0.35rem;
+          font-size: 0.72rem;
+          font-weight: 800;
+          border-radius: var(--radius-full);
+          background-color: var(--color-brand-deep);
+          color: #FFF1E6;
+          line-height: 1;
+          box-sizing: border-box;
+          box-shadow: 0 1px 2px rgba(20, 17, 15, 0.15);
         }
 
         .comanda-section-actions {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.45rem;
         }
 
         .btn-add-item {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.65rem;
+          gap: 0.4rem;
+          padding: 0.45rem 0.85rem;
           border-radius: var(--radius-md);
           border: 1px solid var(--color-border);
           background-color: var(--color-bg-primary);
@@ -1283,22 +1748,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
-        .btn-add-item:hover {
+        .btn-add-item:hover,
+        .btn-add-item--active {
           background-color: var(--color-brand-lightest);
+          border-color: var(--color-brand-soft);
+          color: var(--color-brand-deep);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
         }
 
+        /* Caixas de Adição */
         .add-item-box {
-          padding: 0.85rem 1rem;
+          padding: 1rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border: 1.5px solid var(--color-brand-soft);
           display: flex;
           flex-direction: column;
-          gap: 0.65rem;
-          animation: fadeIn 0.15s ease-out;
+          gap: 0.75rem;
+          animation: fadeIn 0.2s ease-out;
+          box-shadow: var(--shadow-sm);
         }
 
         .add-item-header {
@@ -1311,7 +1783,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .add-item-title {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-primary);
+          color: var(--color-brand-deep);
         }
 
         .btn-cancel-item {
@@ -1335,10 +1807,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .add-item-row {
           display: flex;
           gap: 0.5rem;
+          align-items: center;
         }
 
         .btn-confirm-item {
-          padding: 0.4rem 0.85rem;
+          padding: 0.5rem 1rem;
           border-radius: var(--radius-md);
           border: none;
           background-color: var(--color-brand-primary);
@@ -1346,6 +1819,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+
+        .btn-confirm-item:hover:not(:disabled) {
+          background-color: var(--color-brand-hover);
+          transform: translateY(-1px);
         }
 
         .btn-confirm-item:disabled {
@@ -1353,110 +1833,163 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           cursor: not-allowed;
         }
 
+        /* Lista de Itens */
         .comanda-items-list {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.55rem;
+        }
+
+        .comanda-empty-items {
+          padding: 1.5rem;
+          text-align: center;
+          background-color: var(--color-bg-primary);
+          border: 1px dashed var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
         }
 
         .comanda-item-card {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md);
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
-          transition: border-color 0.2s ease;
+          transition: all 0.2s ease;
         }
 
         .comanda-item-card:hover {
           border-color: var(--color-brand-soft);
+          background-color: var(--color-bg-secondary);
+          box-shadow: var(--shadow-sm);
         }
 
         .comanda-item-info {
           display: flex;
           align-items: center;
-          gap: 0.6rem;
+          gap: 0.75rem;
+          min-width: 0;
         }
 
         .comanda-item-icon-tag {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--color-brand-primary);
           flex-shrink: 0;
         }
 
+        .comanda-item-icon-tag--service {
+          color: var(--color-brand-primary);
+        }
+
+        .comanda-item-icon-tag--product {
+          color: var(--color-warning);
+        }
+
+        .comanda-item-text-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          min-width: 0;
+        }
+
         .comanda-item-name {
-          display: block;
           font-size: var(--font-size-sm);
           font-weight: 700;
           color: var(--color-text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .comanda-item-detail {
-          display: block;
-          font-size: 0.7rem;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.72rem;
+          color: var(--color-text-secondary);
+          flex-wrap: wrap;
+        }
+
+        .comanda-type-tag {
+          font-weight: 700;
+          color: var(--color-brand-deep);
+        }
+
+        .comanda-prof-tag {
           color: var(--color-text-secondary);
         }
 
         .comanda-item-right {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
+          flex-shrink: 0;
         }
 
         .comanda-item-total {
           font-size: var(--font-size-sm);
-          font-weight: 700;
+          font-weight: 800;
           color: var(--color-text-primary);
         }
 
         .comanda-item-remove-btn {
           background: transparent;
-          border: none;
+          border: 1px solid transparent;
           color: var(--color-text-secondary);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.3rem;
-          border-radius: var(--radius-sm);
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-md);
           transition: all 0.2s ease;
         }
 
         .comanda-item-remove-btn:hover {
           color: var(--color-error);
           background-color: var(--color-error-bg);
+          border-color: var(--color-error);
         }
 
+        /* Desconto e Gorjeta */
         .comanda-discount-tip-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
 
         .comanda-form-group {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 0.4rem;
         }
 
         .comanda-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+
+        .label-icon {
+          color: var(--color-brand-primary);
         }
 
         .comanda-input-segmented-wrapper {
           display: flex;
-          gap: 0.35rem;
+          gap: 0.4rem;
         }
 
         .comanda-segmented-type {
@@ -1471,17 +2004,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .seg-type-btn {
           border: none;
           background: transparent;
-          padding: 0.45rem 0.65rem;
-          min-width: 36px;
+          padding: 0.5rem 0.75rem;
+          min-width: 38px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 700;
           color: var(--color-text-secondary);
           cursor: pointer;
           line-height: 1;
-          white-space: nowrap;
           transition: all 0.15s ease;
         }
 
@@ -1495,10 +2027,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: white;
         }
 
+        .comanda-input-prefix-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        .comanda-input-prefix {
+          position: absolute;
+          left: 0.85rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          pointer-events: none;
+        }
+
         .comanda-input-num,
         .comanda-select {
           width: 100%;
-          padding: 0.5rem 0.75rem;
+          padding: 0.6rem 0.85rem;
           font-size: var(--font-size-sm);
           color: var(--color-text-primary);
           background-color: var(--color-bg-primary);
@@ -1506,61 +2054,94 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           border-radius: var(--radius-md);
           outline: none;
           transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .comanda-input-num--prefixed {
+          padding-left: 2.2rem;
         }
 
         .comanda-input-num:focus,
         .comanda-select:focus {
           border-color: var(--color-brand-primary);
+          background-color: var(--color-bg-secondary);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
+        /* Sumário de Totais (Recibo) */
         .comanda-summary-box {
-          padding: 1rem;
+          padding: 1.15rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
-          font-size: var(--font-size-xs);
+          gap: 0.5rem;
+          box-shadow: inset 0 1px 2px rgba(20, 17, 15, 0.04);
         }
 
         .summary-row {
           display: flex;
           justify-content: space-between;
-          color: var(--color-text-secondary);
-          font-weight: 500;
+          align-items: center;
+          font-size: var(--font-size-xs);
         }
 
-        .summary-discount {
+        .summary-label {
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+
+        .summary-value {
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .summary-discount .summary-label,
+        .summary-discount .summary-value {
           color: var(--color-error);
           font-weight: 700;
         }
 
-        .summary-tip {
+        .summary-tip .summary-label,
+        .summary-tip .summary-value {
           color: var(--color-success);
           font-weight: 700;
         }
 
+        .summary-divider {
+          height: 1px;
+          background-color: var(--color-border);
+          margin: 0.25rem 0;
+        }
+
         .summary-total {
-          padding-top: 0.5rem;
-          border-top: 1px solid var(--color-border);
-          font-size: var(--font-size-base);
+          padding-top: 0.25rem;
+        }
+
+        .summary-total-label {
+          font-size: var(--font-size-sm);
           font-weight: 800;
           color: var(--color-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
         }
 
         .summary-total-value {
           color: var(--color-brand-primary);
-          font-size: var(--font-size-lg);
+          font-size: var(--font-size-xl);
+          font-weight: 800;
+          letter-spacing: -0.02em;
         }
 
+        /* Formas de Pagamento */
         .btn-split-toggle {
           background-color: var(--color-brand-lightest);
           border: 1px solid var(--color-brand-soft);
           color: var(--color-brand-deep);
           font-size: var(--font-size-xs);
           font-weight: 700;
-          padding: 0.35rem 0.7rem;
+          padding: 0.4rem 0.85rem;
           border-radius: var(--radius-md);
           cursor: pointer;
           transition: all 0.2s ease;
@@ -1569,6 +2150,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .btn-split-toggle:hover {
           background-color: var(--color-brand-soft);
           color: white;
+          transform: translateY(-1px);
         }
 
         .btn-split-cancel {
@@ -1577,7 +2159,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-text-secondary);
           font-size: var(--font-size-xs);
           font-weight: 600;
-          padding: 0.35rem 0.7rem;
+          padding: 0.4rem 0.85rem;
           border-radius: var(--radius-md);
           cursor: pointer;
           transition: all 0.15s ease;
@@ -1592,49 +2174,69 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .quick-methods-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
 
         .btn-quick-method {
-          padding: 0.65rem 0.5rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
+          padding: 0.85rem 0.5rem;
           border: 1.5px solid var(--color-border);
           background-color: var(--color-bg-primary);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-lg);
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-primary);
           cursor: pointer;
           text-align: center;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         .btn-quick-method:hover {
           border-color: var(--color-brand-soft);
+          background-color: var(--color-bg-secondary);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-sm);
         }
 
         .btn-quick-method--active {
           border-color: var(--color-brand-primary);
           background-color: var(--color-brand-lightest);
           color: var(--color-brand-deep);
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.15);
+          transform: translateY(-2px);
         }
 
+        .quick-method-icon {
+          color: var(--color-brand-primary);
+          transition: transform 0.2s ease;
+        }
+
+        .btn-quick-method:hover .quick-method-icon {
+          transform: scale(1.1);
+        }
+
+        /* Dinheiro & Troco */
         .cash-single-calculator {
-          margin-top: 0.75rem;
-          padding: 0.85rem 1rem;
+          margin-top: 0.85rem;
+          padding: 1rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.85rem;
+          animation: fadeIn 0.15s ease-out;
         }
 
         .cash-quick-notes {
           display: flex;
           align-items: center;
           flex-wrap: wrap;
-          gap: 0.35rem;
+          gap: 0.45rem;
         }
 
         .cash-notes-label {
@@ -1645,7 +2247,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .btn-quick-note {
-          padding: 0.3rem 0.6rem;
+          padding: 0.35rem 0.75rem;
           border-radius: var(--radius-full);
           border: 1px solid var(--color-border);
           background-color: var(--color-bg-secondary);
@@ -1664,50 +2266,113 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .btn-quick-note--active {
           border-color: var(--color-brand-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
+          background-color: var(--color-brand-primary);
+          color: white;
           box-shadow: var(--shadow-sm);
+        }
+
+        .cash-input-field {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+
+        .cash-input-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .cash-input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 140px;
+        }
+
+        .cash-prefix {
+          position: absolute;
+          left: 0.75rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .cash-received-input {
+          width: 100%;
+          padding: 0.5rem 0.75rem 0.5rem 2rem;
+          font-size: var(--font-size-sm);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
+          border: 1.5px solid var(--color-border);
+          border-radius: var(--radius-md);
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .cash-received-input:focus {
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
         .cash-change-badge {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.6rem 0.85rem;
+          padding: 0.75rem 1rem;
           border-radius: var(--radius-md);
-          background-color: rgba(34, 197, 94, 0.1);
+          background-color: var(--color-success-bg);
           border: 1px solid var(--color-success);
           color: var(--color-success);
           font-size: var(--font-size-xs);
         }
 
-        .cash-change-badge strong {
-          font-size: var(--font-size-sm);
-          font-weight: 800;
+        .cash-change-left {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 700;
         }
 
+        .cash-change-val {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-success);
+        }
+
+        /* Recibo de Pagamento */
         .payment-receipt-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0.85rem 1rem;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           font-size: var(--font-size-sm);
           transition: all 0.2s ease;
         }
 
-        .payment-receipt-row:hover {
-          border-color: var(--color-brand-soft);
-        }
-
         .payment-receipt-method {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--color-text-primary);
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.65rem;
+        }
+
+        .payment-receipt-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-md);
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-brand-primary);
         }
 
         .payment-receipt-amount {
@@ -1716,26 +2381,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-size: var(--font-size-sm);
         }
 
+        /* Split Payments */
         .split-payments-container {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
         }
 
-        .comanda-payments-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-        }
-
         .payment-row-card {
-          padding: 0.75rem;
-          border-radius: var(--radius-md);
+          padding: 0.85rem;
+          border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
 
         .payment-row-main {
@@ -1757,7 +2417,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .payment-amount-prefix {
           position: absolute;
-          left: 0.6rem;
+          left: 0.75rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-secondary);
@@ -1765,7 +2425,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .payment-amount-input {
           width: 100%;
-          padding: 0.5rem 0.5rem 0.5rem 2rem;
+          padding: 0.6rem 0.75rem 0.6rem 2.2rem;
           font-size: var(--font-size-sm);
           font-weight: 700;
           color: var(--color-text-primary);
@@ -1773,94 +2433,54 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           outline: none;
+          transition: all 0.2s ease;
         }
 
         .payment-amount-input:focus {
           border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
 
         .btn-remove-payment {
           background: transparent;
-          border: none;
+          border: 1px solid transparent;
           color: var(--color-text-secondary);
           cursor: pointer;
-          padding: 0.3rem;
-          border-radius: var(--radius-sm);
+          padding: 0.4rem;
+          border-radius: var(--radius-md);
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .btn-remove-payment:hover {
           color: var(--color-error);
-        }
-
-        .split-payments-footer {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        .btn-add-split-line {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.55rem 0.85rem;
-          border-radius: var(--radius-md);
-          border: 1px dashed var(--color-brand-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          width: 100%;
-          justify-content: center;
-          transition: all 0.2s ease;
-        }
-
-        .btn-add-split-line:hover {
-          background-color: var(--color-brand-soft);
-          color: white;
-        }
-
-        .split-summary-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-        }
-
-        .split-missing-alert {
-          color: var(--color-error);
-        }
-
-        .split-complete-alert {
-          color: var(--color-success);
+          background-color: var(--color-error-bg);
+          border-color: var(--color-error);
         }
 
         .cash-change-calculator {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-top: 0.35rem;
+          padding-top: 0.5rem;
           border-top: 1px solid var(--color-border);
           font-size: var(--font-size-xs);
         }
 
-        .cash-input-field {
+        .cash-input-field-compact {
           display: flex;
           align-items: center;
           gap: 0.4rem;
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
+          font-weight: 600;
         }
 
-        .cash-received-input {
-          width: 80px;
-          padding: 0.25rem 0.4rem;
+        .cash-received-input-compact {
+          width: 85px;
+          padding: 0.35rem 0.55rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-primary);
@@ -1869,24 +2489,103 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           border-radius: var(--radius-sm);
         }
 
-        .cash-change-badge {
+        .cash-change-badge-compact {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          color: var(--color-success);
           font-weight: 700;
-          color: var(--color-brand-primary);
         }
 
-        .comanda-modal-footer {
+        .split-payments-footer {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-top: 0.25rem;
+        }
+
+        .btn-add-split-line {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.7rem 1rem;
+          border-radius: var(--radius-lg);
+          border: 1.5px dashed var(--color-brand-primary);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-brand-deep);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          width: 100%;
+          justify-content: center;
+          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .btn-add-split-line:hover {
+          background-color: var(--color-brand-soft);
+          color: white;
+          transform: translateY(-1px);
+        }
+
+        .split-summary-bar {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.75rem;
-          padding: 1.15rem 1.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+        }
+
+        .split-summary-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--color-text-secondary);
+        }
+
+        .split-summary-info strong {
+          color: var(--color-text-primary);
+        }
+
+        .split-missing-alert {
+          color: var(--color-error);
+          background-color: var(--color-error-bg);
+          padding: 0.2rem 0.55rem;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-error);
+        }
+
+        .split-complete-alert {
+          color: var(--color-success);
+          background-color: var(--color-success-bg);
+          padding: 0.2rem 0.55rem;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-success);
+        }
+
+        /* Footer */
+        .comanda-modal-footer {
+          padding: 1.25rem 1.5rem;
           border-top: 1px solid var(--color-border);
           background-color: var(--color-bg-primary);
+          flex-shrink: 0;
+        }
+
+        .comanda-footer-open-actions,
+        .comanda-footer-closed-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.85rem;
+          width: 100%;
         }
 
         .comanda-btn-secondary {
-          padding: 0.7rem 1.25rem;
-          border-radius: var(--radius-md);
+          padding: 0.75rem 1.35rem;
+          border-radius: var(--radius-full);
           border: 1px solid var(--color-border);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
@@ -1898,11 +2597,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-btn-secondary:hover {
           background-color: var(--color-border);
+          transform: translateY(-1px);
         }
 
         .comanda-btn-primary {
-          padding: 0.7rem 1.5rem;
-          border-radius: var(--radius-md);
+          padding: 0.75rem 1.65rem;
+          border-radius: var(--radius-full);
           border: none;
           background-color: var(--color-brand-primary);
           color: white;
@@ -1911,17 +2611,64 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          transition: all 0.2s ease;
+          gap: 0.65rem;
+          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.25);
+          transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         .comanda-btn-primary:hover:not(:disabled) {
           background-color: var(--color-brand-hover);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(217, 108, 0, 0.35);
+        }
+
+        .comanda-btn-primary:active:not(:disabled) {
+          transform: scale(0.98);
         }
 
         .comanda-btn-primary:disabled {
-          opacity: 0.5;
+          background-color: var(--color-border);
+          color: var(--color-text-secondary);
           cursor: not-allowed;
+          box-shadow: none;
+          transform: none;
+        }
+
+        .comanda-btn-amount-badge {
+          background-color: rgba(255, 255, 255, 0.22);
+          padding: 0.15rem 0.55rem;
+          border-radius: var(--radius-full);
+          font-size: var(--font-size-xs);
+          font-weight: 800;
+        }
+
+        .comanda-btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .comanda-btn-reopen {
+          padding: 0.65rem 1.25rem;
+          border-radius: var(--radius-full);
+          border: 1.5px solid var(--color-brand-primary);
+          background-color: transparent;
+          color: var(--color-brand-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-btn-reopen:hover:not(:disabled) {
+          background-color: var(--color-brand-lightest);
+          transform: translateY(-1px);
         }
 
         .comanda-modal-body::-webkit-scrollbar {
@@ -1938,7 +2685,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-modal-body::-webkit-scrollbar-thumb:hover {
-          background-color: var(--color-text-secondary);
+          background-color: var(--color-brand-soft);
         }
 
         .comanda-modal-shell button:focus-visible,
@@ -1948,28 +2695,63 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           outline-offset: 2px;
         }
 
+        /* Responsividade Mobile-First */
         @media (max-width: 768px) {
           .comanda-modal-overlay {
             align-items: flex-end;
             padding: 0;
           }
+
           .comanda-modal-shell {
             max-width: 100%;
             max-height: 92vh;
             max-height: 92dvh;
-            border-radius: 20px 20px 0 0;
+            border-radius: 24px 24px 0 0;
             padding: 0;
             background: transparent;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
+            animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
           }
+
           .comanda-modal-card {
-            border-radius: 20px 20px 0 0;
+            border-radius: 24px 24px 0 0;
+            border-bottom: none;
           }
+
+          .comanda-modal-header {
+            padding: 1.15rem 1.25rem 0.85rem;
+          }
+
+          .comanda-modal-body {
+            padding: 1.15rem 1.25rem;
+          }
+
+          .comanda-section-header {
+            flex-wrap: nowrap;
+            gap: 0.75rem;
+          }
+
+          .comanda-discount-tip-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .quick-methods-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .add-item-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
           .comanda-modal-footer {
-            padding-bottom: max(1.15rem, env(safe-area-inset-bottom, 1.15rem));
+            padding: 1rem 1.25rem max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
           }
+
           .comanda-btn-primary,
-          .comanda-btn-secondary {
-            min-height: 48px;
+          .comanda-btn-secondary,
+          .comanda-btn-reopen {
+            min-height: 46px;
           }
         }
       `}</style>
