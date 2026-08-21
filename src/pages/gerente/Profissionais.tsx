@@ -458,45 +458,49 @@ export const Profissionais: React.FC = () => {
                           {/* Horário de Trabalho */}
                           <div className="schedule-row">
                             <span className="schedule-row-label">Expediente:</span>
-                            <input
-                              type="time"
-                              className="day-times-input"
-                              value={daySched.start}
-                              aria-label={`Início do expediente de ${day.label}`}
-                              onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
-                            />
-                            <span className="schedule-row-sep">às</span>
-                            <input
-                              type="time"
-                              className="day-times-input"
-                              value={daySched.end}
-                              aria-label={`Fim do expediente de ${day.label}`}
-                              onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
-                            />
+                            <div className="schedule-row-inputs">
+                              <input
+                                type="time"
+                                className="day-times-input"
+                                value={daySched.start}
+                                aria-label={`Início do expediente de ${day.label}`}
+                                onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
+                              />
+                              <span className="schedule-row-sep">às</span>
+                              <input
+                                type="time"
+                                className="day-times-input"
+                                value={daySched.end}
+                                aria-label={`Fim do expediente de ${day.label}`}
+                                onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
+                              />
+                            </div>
                           </div>
 
                           {/* Intervalo de Almoço */}
                           <div className="schedule-row">
                             <span className="schedule-row-label">Almoço:</span>
-                            <input
-                              type="time"
-                              className="day-times-input"
-                              value={daySched.break_start || '12:00'}
-                              aria-label="Início do Almoço"
-                              onChange={(e) =>
-                                handleScheduleTimeChange(day.key, 'break_start', e.target.value)
-                              }
-                            />
-                            <span className="schedule-row-sep">às</span>
-                            <input
-                              type="time"
-                              className="day-times-input"
-                              value={daySched.break_end || '13:00'}
-                              aria-label="Fim do Almoço"
-                              onChange={(e) =>
-                                handleScheduleTimeChange(day.key, 'break_end', e.target.value)
-                              }
-                            />
+                            <div className="schedule-row-inputs">
+                              <input
+                                type="time"
+                                className="day-times-input"
+                                value={daySched.break_start || '12:00'}
+                                aria-label="Início do Almoço"
+                                onChange={(e) =>
+                                  handleScheduleTimeChange(day.key, 'break_start', e.target.value)
+                                }
+                              />
+                              <span className="schedule-row-sep">às</span>
+                              <input
+                                type="time"
+                                className="day-times-input"
+                                value={daySched.break_end || '13:00'}
+                                aria-label="Fim do Almoço"
+                                onChange={(e) =>
+                                  handleScheduleTimeChange(day.key, 'break_end', e.target.value)
+                                }
+                              />
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1105,46 +1109,87 @@ export const Profissionais: React.FC = () => {
         .day-schedule-details {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
-          padding-top: 0.5rem;
+          gap: 0.65rem;
+          padding-top: 0.65rem;
           border-top: 1px dashed var(--color-border);
         }
 
         .schedule-row {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 0.5rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          flex-wrap: wrap;
+          width: 100%;
         }
 
         .schedule-row-label {
-          min-width: 68px;
+          font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-primary);
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          flex-shrink: 0;
+          min-width: 78px;
         }
 
-        .schedule-row-sep {
-          color: var(--color-text-secondary);
-          font-size: 11px;
+        .schedule-row-inputs {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          flex: 1;
+          min-width: 0;
+          justify-content: flex-end;
         }
 
         .day-times-input {
-          padding: 0.35rem 0.5rem;
-          min-height: 36px;
+          flex: 1;
+          min-width: 0;
+          max-width: 105px;
+          height: 38px;
+          padding: 0.35rem 0.4rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           font-size: var(--font-size-xs);
+          font-weight: 700;
           font-variant-numeric: tabular-nums;
           background: var(--color-bg-secondary);
           color: var(--color-text-primary);
+          text-align: center;
+          box-sizing: border-box;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .day-times-input:focus {
           border-color: var(--color-brand-primary);
           outline: none;
           box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
+        }
+
+        .schedule-row-sep {
+          color: var(--color-text-secondary);
+          font-size: 11px;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 480px) {
+          .schedule-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.35rem;
+          }
+
+          .schedule-row-inputs {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .day-times-input {
+            max-width: none;
+            width: 100%;
+            height: 42px;
+            font-size: var(--font-size-sm);
+          }
         }
 
         .checkbox-group {
@@ -1210,24 +1255,27 @@ export const Profissionais: React.FC = () => {
         .prof-card-header {
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
           gap: 0.75rem;
+          flex-wrap: wrap;
         }
 
         .prof-card-title-group {
           display: flex;
           align-items: center;
-          gap: 0.85rem;
+          gap: 0.75rem;
+          min-width: 0;
+          flex: 1 1 180px;
         }
 
         .prof-avatar {
-          width: 46px;
-          height: 46px;
+          width: 44px;
+          height: 44px;
           border-radius: 12px;
           background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-deep) 100%);
           color: #ffffff;
           font-weight: 800;
-          font-size: 1.2rem;
+          font-size: 1.15rem;
           display: grid;
           place-items: center;
           flex-shrink: 0;
@@ -1238,12 +1286,14 @@ export const Profissionais: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.15rem;
+          min-width: 0;
         }
 
         .prof-name-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.45rem;
+          flex-wrap: wrap;
         }
 
         .prof-name-row h4 {
@@ -1252,6 +1302,7 @@ export const Profissionais: React.FC = () => {
           color: var(--color-text-primary);
           margin: 0;
           letter-spacing: -0.01em;
+          word-break: break-word;
         }
 
         .prof-inactive-tag {
@@ -1276,11 +1327,19 @@ export const Profissionais: React.FC = () => {
           background: var(--color-brand-lightest);
           color: var(--color-brand-deep);
           border: 1px solid rgba(217, 108, 0, 0.2);
-          padding: 0.35rem 0.75rem;
+          padding: 0.35rem 0.65rem;
           border-radius: var(--radius-full);
           font-weight: 600;
           white-space: nowrap;
           box-shadow: 0 1px 2px rgba(217, 108, 0, 0.05);
+          flex-shrink: 0;
+        }
+
+        .prof-card-schedule {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          width: 100%;
         }
 
         .prof-card-schedule h5 {
@@ -1288,7 +1347,7 @@ export const Profissionais: React.FC = () => {
           text-transform: uppercase;
           letter-spacing: 0.05em;
           color: var(--color-text-secondary);
-          margin-bottom: 0.5rem;
+          margin: 0;
           font-weight: 700;
         }
 
@@ -1296,30 +1355,24 @@ export const Profissionais: React.FC = () => {
           display: grid;
           grid-template-columns: repeat(7, minmax(0, 1fr));
           gap: 0.35rem;
-        }
-
-        @media (max-width: 640px) {
-          .schedule-badges {
-            display: flex;
-            overflow-x: auto;
-            padding-bottom: 0.4rem;
-            scrollbar-width: thin;
-          }
-          .badge-schedule-active, .badge-schedule-inactive {
-            min-width: 48px;
-            flex-shrink: 0;
-          }
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .badge-schedule-active {
           background: var(--color-brand-lightest);
           border: 1px solid var(--color-brand-soft);
           border-radius: var(--radius-sm);
-          padding: 0.4rem 0.25rem;
+          padding: 0.4rem 0.2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: 0.15rem;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+          text-align: center;
           transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
@@ -1332,25 +1385,36 @@ export const Profissionais: React.FC = () => {
           background: transparent;
           border: 1px dashed var(--color-border);
           border-radius: var(--radius-sm);
-          padding: 0.4rem 0.25rem;
+          padding: 0.4rem 0.2rem;
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
+          gap: 0.15rem;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+          text-align: center;
           opacity: 0.55;
         }
 
         .badge-day-name {
-          font-size: 10px;
+          font-size: clamp(9px, 2.4vw, 11px);
           font-weight: 700;
           text-transform: uppercase;
           color: var(--color-text-secondary);
+          line-height: 1;
         }
 
         .badge-schedule-hours {
-          font-size: 11px;
+          font-size: clamp(9px, 2.4vw, 11px);
           font-weight: 800;
           font-variant-numeric: tabular-nums;
           color: var(--color-brand-deep);
+          line-height: 1.1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: clip;
         }
 
         .prof-card-actions {
@@ -1360,7 +1424,7 @@ export const Profissionais: React.FC = () => {
           border-top: 1px solid var(--color-border);
           padding-top: 0.75rem;
           flex-wrap: wrap;
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
 
         .status-badge {
@@ -1369,7 +1433,7 @@ export const Profissionais: React.FC = () => {
           gap: 0.3rem;
           font-size: 11px;
           font-weight: 700;
-          padding: 3px 8px;
+          padding: 4px 8px;
           border-radius: var(--radius-full);
         }
 
@@ -1395,10 +1459,11 @@ export const Profissionais: React.FC = () => {
         .btn-action {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 0.4rem;
           font-size: 12px;
           font-weight: 700;
-          min-height: 38px;
+          min-height: 40px;
           padding: 0.45rem 0.85rem;
           border-radius: var(--radius-md);
           cursor: pointer;
@@ -1436,6 +1501,76 @@ export const Profissionais: React.FC = () => {
           color: #ffffff;
           border-color: var(--color-brand-primary);
           box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
+        }
+
+        @media (max-width: 640px) {
+          .card {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+          }
+
+          .prof-card {
+            padding: 1rem;
+            gap: 0.75rem;
+          }
+
+          .list-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+          }
+
+          .list-header .btn {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          .schedule-badges {
+            gap: 0.25rem;
+          }
+
+          .badge-schedule-active,
+          .badge-schedule-inactive {
+            padding: 0.35rem 0.1rem;
+          }
+
+          .prof-card-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.65rem;
+          }
+
+          .login-status {
+            display: flex;
+            width: 100%;
+          }
+
+          .status-badge {
+            width: 100%;
+            justify-content: center;
+            min-height: 28px;
+          }
+
+          .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            width: 100%;
+          }
+
+          .btn-action {
+            min-height: 44px;
+            font-size: var(--font-size-xs);
+            padding: 0.5rem 0.4rem;
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .action-buttons {
+            grid-template-columns: 1fr;
+          }
         }
 
         /* MODAL STYLES */
