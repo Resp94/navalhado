@@ -410,8 +410,8 @@
 .switch {
   position: relative;
   display: inline-block;
-  width: 38px;
-  height: 20px;
+  width: 40px;
+  height: 24px;
   flex-shrink: 0;
 }
 
@@ -434,8 +434,8 @@
   position: absolute;
   bottom: 3px;
   left: 3px;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-full);
   background-color: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -452,7 +452,7 @@
 }
 
 .switch input:checked + .slider::before {
-  transform: translateX(18px);
+  transform: translateX(16px);
 }
 
 /* ═══ TEMPLATE EDITOR (SPLIT VIEW) ═══ */
@@ -964,6 +964,120 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ═══ RESPONSIVE MOBILE MEDIA QUERIES ═══ */
+@media (max-width: 640px) {
+  .whatsapp-page {
+    gap: 1.25rem;
+  }
+
+  .card.loading-state,
+  .card.empty-state {
+    padding: 2.5rem 1rem;
+  }
+
+  .card-whatsapp__header {
+    padding: 1rem 1rem 0;
+    gap: 0.5rem;
+  }
+
+  .card-whatsapp__body {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .template-editor-header {
+    padding: 1rem 1rem 0.25rem;
+  }
+
+  .template-tabs-container {
+    padding: 0.5rem 1rem;
+    gap: 0.35rem;
+  }
+
+  .template-tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 11px;
+    min-height: 40px;
+  }
+
+  .template-split-view {
+    padding: 1rem;
+    gap: 1.25rem;
+  }
+
+  .reminder-settings {
+    padding-left: 0;
+    padding-top: 0.35rem;
+    border-top: 1px dashed rgba(234, 222, 214, 0.6);
+    width: 100%;
+  }
+
+  .reminder-settings__field {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .form-select {
+    min-height: 42px;
+    font-size: 14px;
+  }
+
+  .template-editor-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .template-editor-actions .btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .phone-chat-canvas {
+    padding: 1rem 0.75rem;
+  }
+
+  .whatsapp-balloon {
+    max-width: 95%;
+  }
+
+  .phone-preview-footer {
+    padding: 0.75rem 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .test-action-inputs {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .test-phone-input {
+    min-height: 44px;
+    font-size: 16px; /* Evita zoom iOS */
+    width: 100%;
+  }
+
+  .btn--test-send {
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .template-editor-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .tag-chip-btn {
+    font-size: 11px;
+    padding: 0.35rem 0.65rem;
+    min-height: 38px;
+  }
 }
 
 /* ═══ ACCESSIBILITY: REDUCED MOTION ═══ */
