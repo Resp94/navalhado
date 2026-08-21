@@ -219,6 +219,7 @@ export const Clientes: React.FC = () => {
   };
 
   const handleOpenDirectWhatsApp = (customer: Cliente) => {
+    setSelectedCustomer(customer);
     const bookingLink = `${window.location.origin}/cliente/${customer.token_acesso}`;
     const barbeariaName = tenant.tenantName || 'Barbearia';
     const initialText = `Olá, ${customer.name}! Já faz um tempo desde seu último atendimento na *${barbeariaName}*. Que tal renovar o visual? Agende seu horário pelo link: ${bookingLink}`;
@@ -1152,7 +1153,7 @@ export const Clientes: React.FC = () => {
           }}
         >
           <div
-            className="modal-dialog modal-whatsapp-direct"
+            className="modal-content modal-whatsapp-direct"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
