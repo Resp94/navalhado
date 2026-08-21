@@ -41,21 +41,21 @@ import {
 import { MobileAgendaView } from './mobile/MobileAgendaView';
 
 // --- Interfaces de Domínio ---
-interface Professional {
+export interface Professional {
   id: string;
   name: string;
   is_active: boolean;
   phone?: string;
 }
 
-interface Service {
+export interface Service {
   id: string;
   name: string;
   price: number;
   duration_minutes: number;
 }
 
-interface Customer {
+export interface Customer {
   id: string;
   name: string;
   phone: string;
@@ -71,7 +71,7 @@ export type AppointmentStatus =
 
 export type PaymentStatus = 'pending' | 'paid';
 
-interface Appointment {
+export interface Appointment {
   id: string;
   start_time: string;
   end_time: string;

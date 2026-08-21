@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import type { IconType } from '@hugeicons/react';
+
+type HugeIconProp = React.ComponentProps<typeof HugeiconsIcon>['icon'];
 
 export interface MobileNavItem {
   id: string;
   label: string;
-  icon: IconType | React.ReactElement | React.ComponentType<{ size?: number; className?: string }>;
+  icon: HugeIconProp | React.ReactElement | React.ComponentType<{ size?: number; className?: string }>;
   path?: string;
   onClick?: () => void;
   badgeCount?: number;
@@ -38,7 +39,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeI
               const CustomIcon = item.icon as React.ComponentType<{ size?: number; className?: string }>;
               iconElement = <CustomIcon size={22} />;
             } else {
-              iconElement = <HugeiconsIcon icon={item.icon as IconType} size={22} />;
+              iconElement = <HugeiconsIcon icon={item.icon as HugeIconProp} size={22} />;
             }
 
             const content = (

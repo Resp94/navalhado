@@ -8,7 +8,6 @@ const {
   mockSelect,
   mockUpdate,
   mockEq,
-  mockIs,
   mockChannel,
   mockAddToast,
   setQueryResolveValue,

@@ -3,7 +3,6 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastProvider } from '../../../components/Toast';
 import { MinhaAgenda } from '../MinhaAgenda';
-import { supabase } from '../../../lib/supabase';
 
 // Mock do supabase auth
 vi.mock('../../../lib/supabase', () => {

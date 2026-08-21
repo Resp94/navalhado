@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Coins01Icon,
-  CheckmarkCircle02Icon,
   PlusSignIcon,
   Clock01Icon,
   InformationCircleIcon,
-  UserGroupIcon,
-  SmartPhone01Icon,
-  MinusSignIcon,
   ArrowUp01Icon,
   ArrowDown01Icon,
 } from '@hugeicons/core-free-icons';

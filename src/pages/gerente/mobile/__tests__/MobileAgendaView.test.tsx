@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MobileAgendaView } from '../MobileAgendaView';
+import type { Appointment } from '../../Agenda';
 
 describe('MobileAgendaView Component', () => {
   const mockProfessionals = [
@@ -8,7 +9,7 @@ describe('MobileAgendaView Component', () => {
     { id: 'prof-2', name: 'Marcos Silva', is_active: true },
   ];
 
-  const mockAppointments = [
+  const mockAppointments: Appointment[] = [
     {
       id: 'app-1',
       start_time: '2026-08-20T10:00:00Z',

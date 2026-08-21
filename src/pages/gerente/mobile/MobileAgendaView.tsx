@@ -20,42 +20,8 @@ import {
   shiftCalendarDate,
 } from '../../../lib/timezone';
 import { getDayBusinessHours } from '../Agenda';
-
-interface Professional {
-  id: string;
-  name: string;
-  is_active: boolean;
-  phone?: string;
-}
-
-interface Appointment {
-  id: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  payment_status: string;
-  is_fitting: boolean;
-  notes?: string | null;
-  customer: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  service: {
-    id: string;
-    name: string;
-    price: number;
-  };
-  professional_id: string;
-}
-
-interface BlockedSlot {
-  id: string;
-  professional_id: string;
-  start_time: string;
-  end_time: string;
-  reason: string;
-}
+import type { Appointment, Professional } from '../Agenda';
+import type { BlockedSlot } from '../../../modules/bloqueios/types';
 
 interface MobileAgendaViewProps {
   timezone: string;
@@ -69,9 +35,9 @@ interface MobileAgendaViewProps {
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
   onOpenCancel: (app: Appointment) => void;
-  onStartService: (app: Appointment) => void;
+  onStartService: (app: Appointment) => void | Promise<void>;
   onDirectWhatsApp: (phone: string, name: string, time: string) => void;
-  onRemoveBlock: (blk: BlockedSlot) => void;
+  onRemoveBlock: (blk: BlockedSlot) => void | Promise<void>;
   onOpenBloqueio?: () => void;
   onOpenEspera?: () => void;
 }
@@ -102,7 +68,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   onOpenEspera,
 }) => {
   const [selectedProfId, setSelectedProfId] = useState<string>('all');
-  const [showEmptySlots, setShowEmptySlots] = useState<boolean>(true);
+  const showEmptySlots = true;
 
   const todayStr = useMemo(() => dateInZone(new Date(), timezone), [timezone]);
   const isToday = selectedDate === todayStr;

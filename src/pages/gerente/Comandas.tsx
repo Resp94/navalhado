@@ -4,8 +4,6 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
-import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
-import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -14,7 +12,6 @@ import {
   PlusSignIcon,
   Money01Icon,
   CheckmarkCircle02Icon,
-  Clock01Icon,
   WhatsappIcon,
   UserIcon,
 } from '@hugeicons/core-free-icons';
@@ -31,22 +28,16 @@ export const Comandas: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [comandas, setComandas] = useState<ComandaEnriched[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'open' | 'paid' | 'all'>('open');
+  const [statusFilter, setStatusFilter] = useState<'aberta' | 'fechada' | 'all'>('aberta');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Estados do Modal de Checkout
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedComanda, setSelectedComanda] = useState<ComandaEnriched | null>(null);
-  const [isNovaAvulsa, setIsNovaAvulsa] = useState(false);
 
   // Dados auxiliares para o modal
   const [services, setServices] = useState<Array<{ id: string; name: string; price: number }>>([]);
   const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
-
-  const comandaRepo = useMemo(
-    () => new ComandaRepository(new SupabaseComandaAdapter(supabase)),
-    []
-  );
 
   const carregarDados = useCallback(async () => {
     if (!tenantId) return;
@@ -131,14 +122,14 @@ export const Comandas: React.FC = () => {
   const filteredComandas = useMemo(() => {
     return comandas.filter((c) => {
       // Filtro de status
-      if (statusFilter === 'open' && c.status !== 'open') return false;
-      if (statusFilter === 'paid' && c.status !== 'paid') return false;
+      if (statusFilter === 'aberta' && c.status !== 'aberta') return false;
+      if (statusFilter === 'fechada' && c.status !== 'fechada') return false;
 
       // Filtro de busca
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const clientMatch = c.customer_name?.toLowerCase().includes(term);
-        const codeMatch = c.code?.toLowerCase().includes(term);
+        const codeMatch = (c.comanda_number ? String(c.comanda_number) : '').toLowerCase().includes(term);
         const profMatch = c.professional_name?.toLowerCase().includes(term);
         return clientMatch || codeMatch || profMatch;
       }
@@ -148,20 +139,17 @@ export const Comandas: React.FC = () => {
 
   const handleOpenCheckoutModal = (cmd: ComandaEnriched) => {
     setSelectedComanda(cmd);
-    setIsNovaAvulsa(false);
     setIsCheckoutOpen(true);
   };
 
   const handleOpenNovaAvulsa = () => {
     setSelectedComanda(null);
-    setIsNovaAvulsa(true);
     setIsCheckoutOpen(true);
   };
 
   const handleFinalizado = () => {
     setIsCheckoutOpen(false);
     setSelectedComanda(null);
-    setIsNovaAvulsa(false);
     carregarDados();
     addToast('Comanda atualizada com sucesso!', 'success');
   };
@@ -209,18 +197,18 @@ export const Comandas: React.FC = () => {
         <div className="comandas-tabs">
           <button
             type="button"
-            className={`comandas-tab ${statusFilter === 'open' ? 'comandas-tab--active' : ''}`}
-            onClick={() => setStatusFilter('open')}
+            className={`comandas-tab ${statusFilter === 'aberta' ? 'comandas-tab--active' : ''}`}
+            onClick={() => setStatusFilter('aberta')}
           >
             <span>Abertas</span>
             <span className="comandas-tab__badge">
-              {comandas.filter((c) => c.status === 'open').length}
+              {comandas.filter((c) => c.status === 'aberta').length}
             </span>
           </button>
           <button
             type="button"
-            className={`comandas-tab ${statusFilter === 'paid' ? 'comandas-tab--active' : ''}`}
-            onClick={() => setStatusFilter('paid')}
+            className={`comandas-tab ${statusFilter === 'fechada' ? 'comandas-tab--active' : ''}`}
+            onClick={() => setStatusFilter('fechada')}
           >
             <span>Pagas</span>
           </button>
@@ -249,7 +237,7 @@ export const Comandas: React.FC = () => {
           <p>
             {searchTerm
               ? 'Nenhum resultado para os termos pesquisados.'
-              : statusFilter === 'open'
+              : statusFilter === 'aberta'
               ? 'Não há comandas abertas no momento.'
               : 'Nenhum registro de comanda nesta categoria.'}
           </p>
@@ -265,7 +253,7 @@ export const Comandas: React.FC = () => {
       ) : (
         <div className="comandas-grid">
           {filteredComandas.map((cmd) => {
-            const isOpen = cmd.status === 'open';
+            const isOpen = cmd.status === 'aberta';
             const total = Number(cmd.total_amount || 0);
             const itensCount = cmd.itens?.length || 0;
 
@@ -278,7 +266,7 @@ export const Comandas: React.FC = () => {
                 <div className="comanda-card__header">
                   <div className="comanda-card__code">
                     <HugeiconsIcon icon={Invoice01Icon} size={16} />
-                    <span>{cmd.code || `CMD-${cmd.id.slice(0, 5).toUpperCase()}`}</span>
+                    <span>{cmd.comanda_number ? `#${cmd.comanda_number}` : `CMD-${cmd.id.slice(0, 5).toUpperCase()}`}</span>
                   </div>
                   <span className={`comanda-card__status ${isOpen ? 'status--open' : 'status--paid'}`}>
                     {isOpen ? 'Aberta' : 'Paga'}

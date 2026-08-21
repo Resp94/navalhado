@@ -55,11 +55,13 @@ describe('MobileCaixaView Component', () => {
     const activeSession = {
       id: 'session-1',
       tenant_id: 'tenant-1',
-      operator_id: 'user-1',
+      opened_by: 'user-1',
+      closed_by: null,
       initial_amount: 100,
       opened_at: '2026-08-20T08:00:00Z',
       closed_at: null,
       closing_amount: null,
+      status: 'open' as const,
       notes: null,
     };
 
