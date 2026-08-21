@@ -16,6 +16,8 @@ CLAUDE.md
 skills-lock.json
 .agent/
 .opencode/
+.mcp.json
+mcp.json
 
 # GitHub AI prompts, preserve workflows
 .github/agents/
