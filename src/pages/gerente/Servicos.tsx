@@ -675,40 +675,6 @@ export const Servicos: React.FC = () => {
           }
         }
 
-        @media (max-width: 680px) {
-          .card {
-            padding: 1.15rem;
-          }
-
-          .form-row {
-            grid-template-columns: 1fr !important;
-          }
-
-          .service-item-card {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.85rem;
-          }
-
-          .service-card-price {
-            flex-direction: row;
-            align-items: baseline;
-            justify-content: space-between;
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            background: var(--color-bg-primary);
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--color-border);
-          }
-
-          .service-card-actions {
-            justify-content: space-between;
-            width: 100%;
-            padding-top: 0.75rem;
-            border-top: 1px solid var(--color-border);
-          }
-        }
-
         .card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
@@ -802,6 +768,7 @@ export const Servicos: React.FC = () => {
           justify-content: space-between;
           font-size: 11px;
           color: var(--color-text-secondary);
+          width: 100%;
         }
 
         .commercial-section {
@@ -832,7 +799,7 @@ export const Servicos: React.FC = () => {
           font-size: 12px;
           font-weight: 700;
           padding: 6px 10px;
-          min-height: 32px;
+          min-height: 36px;
           display: inline-flex;
           align-items: center;
           cursor: pointer;
@@ -944,9 +911,11 @@ export const Servicos: React.FC = () => {
           font-size: var(--font-size-sm);
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 0.4rem;
           cursor: pointer;
           transition: all 0.2s ease;
+          min-height: 44px;
         }
 
         .btn--outline-secondary:hover {
@@ -1091,9 +1060,10 @@ export const Servicos: React.FC = () => {
 
         /* Switch Toggle Component */
         .status-switch-wrapper {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           gap: 0.5rem;
+          min-height: 44px;
         }
 
         .status-switch-label {
@@ -1111,8 +1081,8 @@ export const Servicos: React.FC = () => {
         .switch {
           position: relative;
           display: inline-block;
-          width: 38px;
-          height: 22px;
+          width: 40px;
+          height: 24px;
           flex-shrink: 0;
         }
 
@@ -1136,8 +1106,8 @@ export const Servicos: React.FC = () => {
           position: absolute;
           bottom: 3px;
           left: 3px;
-          width: 16px;
-          height: 16px;
+          width: 18px;
+          height: 18px;
           border-radius: 50%;
           background-color: #ffffff;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -1161,7 +1131,7 @@ export const Servicos: React.FC = () => {
           font-size: 12px;
           font-weight: 700;
           padding: 0.5rem 0.95rem;
-          min-height: 36px;
+          min-height: 40px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1182,6 +1152,83 @@ export const Servicos: React.FC = () => {
         .spinner--brand {
           border-color: rgba(217, 108, 0, 0.2);
           border-top-color: var(--color-brand-primary);
+        }
+
+        @media (max-width: 680px) {
+          .card {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+          }
+
+          .form-row {
+            grid-template-columns: 1fr;
+          }
+
+          .service-item-card {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+            padding: 1rem;
+          }
+
+          .service-meta-badges {
+            gap: 0.35rem;
+          }
+
+          .meta-badge {
+            font-size: clamp(10px, 2.7vw, 11px);
+            padding: 3px 8px;
+          }
+
+          .service-card-price {
+            flex-direction: row;
+            align-items: baseline;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+            box-sizing: border-box;
+          }
+
+          .service-card-actions {
+            justify-content: space-between;
+            width: 100%;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--color-border);
+          }
+
+          .btn-action-edit {
+            min-height: 44px;
+            padding: 0.5rem 1.15rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .slider-labels {
+            font-size: 10px;
+          }
+          .slider-labels span:nth-child(3),
+          .slider-labels span:nth-child(4) {
+            display: none;
+          }
+
+          .form-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px;
+          }
+
+          .tag-helper-btn {
+            min-height: 38px;
+            padding: 6px 12px;
+          }
         }
       `}</style>
     </div>
