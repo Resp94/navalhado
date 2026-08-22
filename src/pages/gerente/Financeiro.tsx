@@ -20,7 +20,7 @@ import './Financeiro.css';
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { PAYMENT_METHOD_LABELS } from '../../modules/caixa/types';
-import type { CashSession } from '../../modules/caixa/types';
+import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
 import { formatCurrency } from '../../lib/currency';
 import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
@@ -77,6 +77,9 @@ export const Financeiro: React.FC = () => {
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
   const [activeSessionCashReceipts, setActiveSessionCashReceipts] = useState<number>(0);
+  const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary>({ total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 });
+  const [suprimentosTotal, setSuprimentosTotal] = useState<number>(0);
+  const [sangriasTotal, setSangriasTotal] = useState<number>(0);
   const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
@@ -133,10 +136,20 @@ export const Financeiro: React.FC = () => {
 
       if (session) {
         // Apurar recebimentos em dinheiro exclusivamente do turno ativo via repositório
-        const totalCash = await caixaRepo.getCashReceiptsSince(tenant.tenantId, session.opened_at);
+        const totalCash = await caixaRepo.getCashReceiptsSince(tenant.tenantId, session.opened_at, session.id);
         setActiveSessionCashReceipts(totalCash);
+
+        const turnPayments = await caixaRepo.getTurnPaymentsSummary(tenant.tenantId, session.opened_at, session.id);
+        setTurnSummary(turnPayments);
+
+        const movSummary = await caixaRepo.getMovementsSummary(session.id);
+        setSuprimentosTotal(movSummary.suprimentos);
+        setSangriasTotal(movSummary.sangrias);
       } else {
         setActiveSessionCashReceipts(0);
+        setTurnSummary({ total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 });
+        setSuprimentosTotal(0);
+        setSangriasTotal(0);
       }
 
       const history = await caixaRepo.listHistory(tenant.tenantId, 15);
@@ -192,9 +205,89 @@ export const Financeiro: React.FC = () => {
     }
   }, [tenant?.tenantId, calculateDates, caixaRepo, addToast]);
 
+  const handleSangria = async (amount: number, reason: string) => {
+    if (!activeSession || !tenant.tenantId) return;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      await caixaRepo.registerMovement({
+        tenant_id: tenant.tenantId,
+        cash_session_id: activeSession.id,
+        type: 'sangria',
+        amount,
+        reason,
+        performed_by: authData?.user?.id || null,
+      });
+      addToast(`Sangria de ${formatCurrency(amount)} registrada com sucesso.`, 'success');
+      await fetchFinancialData();
+    } catch (err: any) {
+      console.error('Erro ao registrar sangria:', err);
+      addToast(err?.message || 'Erro ao registrar sangria.', 'error');
+      throw err;
+    }
+  };
+
+  const handleSuprimento = async (amount: number, reason: string) => {
+    if (!activeSession || !tenant.tenantId) return;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      await caixaRepo.registerMovement({
+        tenant_id: tenant.tenantId,
+        cash_session_id: activeSession.id,
+        type: 'suprimento',
+        amount,
+        reason,
+        performed_by: authData?.user?.id || null,
+      });
+      addToast(`Suprimento de ${formatCurrency(amount)} registrado com sucesso.`, 'success');
+      await fetchFinancialData();
+    } catch (err: any) {
+      console.error('Erro ao registrar suprimento:', err);
+      addToast(err?.message || 'Erro ao registrar suprimento.', 'error');
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchFinancialData();
-  }, [fetchFinancialData]);
+
+    if (!tenant?.tenantId || typeof supabase.channel !== 'function') return;
+
+    const channel = supabase
+      .channel(`realtime-financeiro-${tenant.tenantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comandas', filter: `tenant_id=eq.${tenant.tenantId}` },
+        () => {
+          fetchFinancialData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comanda_pagamentos', filter: `tenant_id=eq.${tenant.tenantId}` },
+        () => {
+          fetchFinancialData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cash_sessions', filter: `tenant_id=eq.${tenant.tenantId}` },
+        () => {
+          fetchFinancialData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cash_movements', filter: `tenant_id=eq.${tenant.tenantId}` },
+        () => {
+          fetchFinancialData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchFinancialData, tenant?.tenantId]);
 
   const hasAnimatedEntrance = useRef(false);
 
@@ -265,10 +358,15 @@ export const Financeiro: React.FC = () => {
         <MobileCaixaView
           activeSession={activeSession}
           activeSessionCashReceipts={activeSessionCashReceipts}
+          turnSummary={turnSummary}
+          suprimentosTotal={suprimentosTotal}
+          sangriasTotal={sangriasTotal}
           metrics={metrics}
           historySessions={historySessions}
           onOpenAbertura={() => setIsAberturaModalOpen(true)}
           onOpenFechamento={() => setIsFechamentoModalOpen(true)}
+          onSangria={handleSangria}
+          onSuprimento={handleSuprimento}
           formatDate={formatDate}
         />
       </div>
@@ -437,7 +535,7 @@ export const Financeiro: React.FC = () => {
                 </div>
                 <p className="turn-banner-desc">
                   {activeSession
-                    ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco inicial: ${formatCurrency(activeSession.initial_amount)} • Entradas em dinheiro apuradas: ${formatCurrency(activeSessionCashReceipts)}`
+                    ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(Number(activeSession.initial_amount) + activeSessionCashReceipts + suprimentosTotal - sangriasTotal)}`
                     : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
                 </p>
               </div>
@@ -528,6 +626,7 @@ export const Financeiro: React.FC = () => {
                         <th>Abertura</th>
                         <th>Fechamento</th>
                         <th>Operador</th>
+                        <th>Arrecadado no turno</th>
                         <th>Troco inicial</th>
                         <th>Valor fechado</th>
                         <th>Observações</th>
@@ -535,33 +634,43 @@ export const Financeiro: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {historySessions.map((sess) => (
-                        <tr key={sess.id}>
-                          <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
-                          <td style={{ color: 'var(--color-text-secondary)' }}>{formatDate(sess.closed_at)}</td>
-                          <td style={{ fontWeight: 600 }}>
-                            {sess.opened_by_name || sess.closed_by_name || 'Operador'}
-                          </td>
-                          <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
-                          <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
-                            {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
-                          </td>
-                          <td style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
-                            {sess.notes || '-'}
-                          </td>
-                          <td>
-                            <span
-                              className={`turn-status-badge ${
-                                sess.status === 'open'
+                      {historySessions.map((sess) => {
+                        const isCurrentActive = activeSession?.id === sess.id;
+                        const revenue = isCurrentActive
+                          ? (turnSummary?.total || sess.total_revenue || 0)
+                          : (sess.total_revenue || 0);
+
+                        return (
+                          <tr key={sess.id}>
+                            <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
+                            <td style={{ color: 'var(--color-text-secondary)' }}>{formatDate(sess.closed_at)}</td>
+                            <td style={{ fontWeight: 600 }}>
+                              {sess.opened_by_name || sess.closed_by_name || 'Operador'}
+                            </td>
+                            <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: 'var(--color-brand-primary)' }}>
+                              {formatCurrency(revenue)}
+                            </td>
+                            <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
+                            <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                              {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
+                            </td>
+                            <td style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
+                              {sess.notes || '-'}
+                            </td>
+                            <td>
+                              <span
+                                className={`turn-status-badge ${
+                                  sess.status === 'open'
                                     ? 'turn-status-badge--active'
-                                  : 'turn-status-badge--closed'
-                              }`}
-                            >
-                              {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                                    : 'turn-status-badge--closed'
+                                }`}
+                              >
+                                {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -732,6 +841,9 @@ export const Financeiro: React.FC = () => {
         isOpen={isFechamentoModalOpen}
         session={activeSession}
         cashReceipts={activeSessionCashReceipts}
+        turnSummary={turnSummary}
+        suprimentos={suprimentosTotal}
+        sangrias={sangriasTotal}
         caixaRepo={caixaRepo}
         onCaixaFechado={(_closedSession) => {
           setActiveSession(null);

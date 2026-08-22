@@ -42,13 +42,13 @@ describe('MobileAgendaView Component', () => {
   it('renderiza o carrossel de barbeiros e lista o agendamento', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
-    expect(screen.getByText('Todos')).toBeInTheDocument();
+    expect(screen.queryByText('Todos')).not.toBeInTheDocument();
     expect(screen.getByText('Lucas')).toBeInTheDocument();
     expect(screen.getByText('Marcos')).toBeInTheDocument();
 
     expect(screen.getByText('Carlos Santos')).toBeInTheDocument();
-    expect(screen.getByText('Corte Degradê')).toBeInTheDocument();
-    expect(screen.getByText('R$ 45.00')).toBeInTheDocument();
+    expect(screen.getByText('11999998888')).toBeInTheDocument();
+    expect(screen.getByText(/CORTE DEGRADÊ - R\$ 45\.00/i)).toBeInTheDocument();
   });
 
   it('permite filtrar por profissional ao clicar no chip correspondente', () => {
@@ -61,27 +61,23 @@ describe('MobileAgendaView Component', () => {
     expect(screen.getByText('Nenhum agendamento para este dia')).toBeInTheDocument();
   });
 
-  it('aciona o botão de WhatsApp ao clicar no atalho', () => {
+  it('aciona a comanda ao clicar no card de agendamento compacto', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
-    const whatsBtn = screen.getByTitle('Conversar com o cliente no WhatsApp');
-    fireEvent.click(whatsBtn);
+    const card = screen.getByTitle('Toque para abrir a comanda');
+    fireEvent.click(card);
 
-    expect(defaultProps.onDirectWhatsApp).toHaveBeenCalledWith(
-      '11999998888',
-      'Carlos Santos',
-      expect.any(String)
-    );
+    expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
   });
 
-  it('aciona o botão de Encaixe com flag isFitting ativa', () => {
+  it('aciona o botão de Encaixe com flag isFitting ativa e o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
     const encaixeBtn = screen.getByTitle('Atender cliente que chegou agora sem agendamento (Encaixe)');
     fireEvent.click(encaixeBtn);
 
     expect(defaultProps.onOpenNewAppointment).toHaveBeenCalledWith(
-      undefined,
+      'prof-1',
       undefined,
       true
     );
@@ -120,5 +116,48 @@ describe('MobileAgendaView Component', () => {
     render(<MobileAgendaView {...props} />);
 
     expect(screen.getByText('Barbearia fechada neste dia')).toBeInTheDocument();
+  });
+
+  it('omite horários de intervalo na agenda do barbeiro e mantém o horário de retorno disponível', () => {
+    const profWithBreak = {
+      id: 'prof-1',
+      name: 'Carlos',
+      is_active: true,
+      weekly_schedule: {
+        thursday: {
+          active: true,
+          start: '08:00',
+          end: '18:00',
+          break_start: '12:00',
+          break_end: '13:00',
+        },
+      },
+    };
+
+    const props = {
+      ...defaultProps,
+      selectedDate: '2026-08-20', // Quinta-feira
+      selectedProfId: 'prof-1',
+      professionals: [profWithBreak],
+      timeSlots: ['11:20', '12:00', '12:40', '13:00', '13:40'],
+      appointments: [],
+      blockedSlots: [],
+      businessHours: {
+        quinta: { active: true, open: '08:00', close: '18:00' },
+      },
+    };
+
+    render(<MobileAgendaView {...props} />);
+
+    // 11:20 (antes do intervalo) deve estar visível
+    expect(screen.getByText('11:20')).toBeInTheDocument();
+
+    // 12:00 e 12:40 (dentro do intervalo 12:00 às 13:00) NÃO devem aparecer
+    expect(screen.queryByText('12:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('12:40')).not.toBeInTheDocument();
+
+    // 13:00 (retorno do intervalo) DEVE estar visível e disponível
+    expect(screen.getByText('13:00')).toBeInTheDocument();
+    expect(screen.getByText('13:40')).toBeInTheDocument();
   });
 });

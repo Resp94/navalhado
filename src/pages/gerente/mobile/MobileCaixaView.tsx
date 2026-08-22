@@ -3,7 +3,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   PlusSignIcon,
   Clock01Icon,
-  InformationCircleIcon,
   ArrowUp01Icon,
   ArrowDown01Icon,
 } from '@hugeicons/core-free-icons';
@@ -11,24 +10,30 @@ import { LockIcon } from '../../../components/Icons';
 import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet';
 import { formatCurrency } from '../../../lib/currency';
 import { useToast } from '../../../components/Toast';
-import type { CashSession } from '../../../modules/caixa/types';
+import type { CashSession, TurnPaymentsSummary } from '../../../modules/caixa/types';
 import type { FinancialMetrics } from '../Financeiro';
 
 interface MobileCaixaViewProps {
   activeSession: CashSession | null;
   activeSessionCashReceipts: number;
+  turnSummary?: TurnPaymentsSummary;
+  suprimentosTotal?: number;
+  sangriasTotal?: number;
   metrics: FinancialMetrics | null;
   historySessions: CashSession[];
   onOpenAbertura: () => void;
   onOpenFechamento: () => void;
-  onSangria?: (amount: number, reason: string) => void;
-  onSuprimento?: (amount: number, reason: string) => void;
+  onSangria?: (amount: number, reason: string) => Promise<void> | void;
+  onSuprimento?: (amount: number, reason: string) => Promise<void> | void;
   formatDate: (dateStr: string) => string;
 }
 
 export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   activeSession,
   activeSessionCashReceipts,
+  turnSummary,
+  suprimentosTotal = 0,
+  sangriasTotal = 0,
   metrics,
   historySessions,
   onOpenAbertura,
@@ -44,13 +49,19 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   const [movementAmount, setMovementAmount] = useState('');
   const [movementReason, setMovementReason] = useState('');
 
-  const pixTotal = metrics?.revenue_by_method?.['pix'] || 0;
+  const pixTotal = turnSummary?.pix ?? (metrics?.revenue_by_method?.['pix'] || 0);
   const cardTotal =
-    (metrics?.revenue_by_method?.['cartao_credito'] || 0) +
-    (metrics?.revenue_by_method?.['cartao_debito'] || 0);
-  const moneyTotal =
-    (metrics?.revenue_by_method?.['dinheiro'] || 0) +
-    (activeSession?.initial_amount || 0);
+    turnSummary?.cartao ??
+    ((metrics?.revenue_by_method?.['credit_card'] || metrics?.revenue_by_method?.['cartao_credito'] || 0) +
+      (metrics?.revenue_by_method?.['debit_card'] || metrics?.revenue_by_method?.['cartao_debito'] || 0));
+
+  const totalRevenue = Math.max(
+    Number(turnSummary?.total || 0),
+    Number(metrics?.total_revenue || 0)
+  );
+  
+  const initialAmount = Number(activeSession?.initial_amount) || 0;
+  const totalCashInDrawer = initialAmount + activeSessionCashReceipts + suprimentosTotal - sangriasTotal;
 
   const handleOpenMovement = (type: 'sangria' | 'suprimento') => {
     setMovementType(type);
@@ -59,7 +70,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
     setMovementModalOpen(true);
   };
 
-  const handleSaveMovement = () => {
+  const handleSaveMovement = async () => {
     const val = parseFloat(movementAmount.replace(',', '.'));
     if (!val || val <= 0) {
       addToast('Informe um valor válido maior que zero.', 'error');
@@ -70,20 +81,25 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
       return;
     }
 
-    if (movementType === 'sangria') {
-      if (onSangria) {
-        onSangria(val, movementReason);
+    try {
+      if (movementType === 'sangria') {
+        if (onSangria) {
+          await onSangria(val, movementReason);
+        } else {
+          addToast(`Sangria de ${formatCurrency(val)} registrada com sucesso.`, 'success');
+        }
       } else {
-        addToast(`Sangria de ${formatCurrency(val)} registrada com sucesso.`, 'success');
+        if (onSuprimento) {
+          await onSuprimento(val, movementReason);
+        } else {
+          addToast(`Suprimento de ${formatCurrency(val)} registrado com sucesso.`, 'success');
+        }
       }
-    } else {
-      if (onSuprimento) {
-        onSuprimento(val, movementReason);
-      } else {
-        addToast(`Suprimento de ${formatCurrency(val)} registrado com sucesso.`, 'success');
-      }
+      setMovementModalOpen(false);
+    } catch (err: any) {
+      console.error('Erro ao registrar movimentação:', err);
+      addToast(err?.message || 'Erro ao registrar movimentação.', 'error');
     }
-    setMovementModalOpen(false);
   };
 
   return (
@@ -110,15 +126,39 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
               <div>
                 <span className="mobile-caixa__amount-label">Troco inicial</span>
                 <span className="mobile-caixa__amount-val">
-                  {formatCurrency(activeSession.initial_amount)}
+                  {formatCurrency(initialAmount)}
                 </span>
               </div>
               <div>
-                <span className="mobile-caixa__amount-label">Dinheiro recebido</span>
+                <span className="mobile-caixa__amount-label">Entradas no turno</span>
                 <span className="mobile-caixa__amount-val text-success">
-                  +{formatCurrency(activeSessionCashReceipts)}
+                  +{formatCurrency(turnSummary?.total || 0)}
                 </span>
               </div>
+              {activeSessionCashReceipts > 0 && (
+                <div>
+                  <span className="mobile-caixa__amount-label">Dinheiro espécie</span>
+                  <span className="mobile-caixa__amount-val text-success">
+                    +{formatCurrency(activeSessionCashReceipts)}
+                  </span>
+                </div>
+              )}
+              {suprimentosTotal > 0 && (
+                <div>
+                  <span className="mobile-caixa__amount-label">Suprimentos</span>
+                  <span className="mobile-caixa__amount-val text-success">
+                    +{formatCurrency(suprimentosTotal)}
+                  </span>
+                </div>
+              )}
+              {sangriasTotal > 0 && (
+                <div>
+                  <span className="mobile-caixa__amount-label">Sangrias</span>
+                  <span className="mobile-caixa__amount-val text-danger">
+                    -{formatCurrency(sangriasTotal)}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="mobile-caixa__closed-msg">
@@ -176,14 +216,14 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         <div className="mobile-caixa__kpi-card">
           <span className="mobile-caixa__kpi-label">Faturamento total</span>
           <span className="mobile-caixa__kpi-val text-primary">
-            {formatCurrency(metrics?.total_revenue || 0)}
+            {formatCurrency(totalRevenue)}
           </span>
         </div>
 
         <div className="mobile-caixa__kpi-card">
           <span className="mobile-caixa__kpi-label">Dinheiro em gaveta</span>
           <span className="mobile-caixa__kpi-val">
-            {formatCurrency(moneyTotal)}
+            {formatCurrency(totalCashInDrawer)}
           </span>
         </div>
 
@@ -202,19 +242,6 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         </div>
       </div>
 
-      {/* ─── 3. BANNER INFORMATIVO (DESKTOP NOTIFICATION) ─── */}
-      <div className="mobile-caixa__desktop-notice">
-        <div className="mobile-caixa__notice-icon">
-          <HugeiconsIcon icon={InformationCircleIcon} size={20} />
-        </div>
-        <div className="mobile-caixa__notice-content">
-          <h4 className="mobile-caixa__notice-title">Relatórios completos no desktop</h4>
-          <p className="mobile-caixa__notice-desc">
-            DRE aprofundado, gráficos de evolução temporal e análises detalhadas por período estão disponíveis na versão desktop.
-          </p>
-        </div>
-      </div>
-
       {/* ─── 4. ÚLTIMOS TURNOS / MOVIMENTAÇÕES ─── */}
       <div className="mobile-caixa__history">
         <h3 className="mobile-caixa__history-title">Turnos recentes</h3>
@@ -224,26 +251,35 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           </div>
         ) : (
           <div className="mobile-caixa__history-list">
-            {historySessions.slice(0, 5).map((session) => (
-              <div key={session.id} className="mobile-caixa__history-item">
-                <div className="mobile-caixa__history-info">
-                  <span className="mobile-caixa__history-date">
-                    {formatDate(session.opened_at)}
-                  </span>
-                  <span className="mobile-caixa__history-status">
-                    {session.closed_at ? 'Fechado' : 'Aberto'}
-                  </span>
-                </div>
-                <div className="mobile-caixa__history-amounts">
-                  <span>Troco: {formatCurrency(session.initial_amount)}</span>
-                  {session.closing_amount !== null && (
-                    <span className="mobile-caixa__history-final">
-                      Final: {formatCurrency(session.closing_amount)}
+            {historySessions.slice(0, 5).map((session) => {
+              const isCurrentActive = activeSession?.id === session.id;
+              const revenue = isCurrentActive
+                ? (turnSummary?.total || session.total_revenue || 0)
+                : (session.total_revenue || 0);
+
+              return (
+                <div key={session.id} className="mobile-caixa__history-item">
+                  <div className="mobile-caixa__history-info">
+                    <span className="mobile-caixa__history-date">
+                      {formatDate(session.opened_at)}
                     </span>
-                  )}
+                    <span className={`mobile-caixa__history-status ${session.closed_at ? 'status--closed' : 'status--open'}`}>
+                      {session.closed_at ? 'Fechado' : 'Aberto (Em andamento)'}
+                    </span>
+                  </div>
+                  <div className="mobile-caixa__history-amounts">
+                    <span className="mobile-caixa__history-revenue">
+                      Arrecadado: {formatCurrency(revenue)}
+                    </span>
+                    <span className="mobile-caixa__history-drawer">
+                      {session.closed_at
+                        ? `Gaveta: ${formatCurrency(session.closing_amount ?? 0)}`
+                        : `Troco inicial: ${formatCurrency(session.initial_amount)}`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -557,7 +593,15 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
         .mobile-caixa__history-status {
           font-size: 0.6875rem;
-          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+
+        .mobile-caixa__history-status.status--open {
+          color: var(--color-success, #0E9F6E);
+        }
+
+        .mobile-caixa__history-status.status--closed {
+          color: var(--color-text-secondary, #70625B);
         }
 
         .mobile-caixa__history-amounts {
@@ -569,9 +613,15 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           color: var(--color-text-secondary);
         }
 
-        .mobile-caixa__history-final {
-          font-weight: 700;
-          color: var(--color-brand-primary);
+        .mobile-caixa__history-revenue {
+          font-size: 0.8125rem;
+          font-weight: 800;
+          color: var(--color-brand-primary, #D96C00);
+        }
+
+        .mobile-caixa__history-drawer {
+          font-size: 0.6875rem;
+          color: var(--color-text-secondary, #70625B);
         }
 
         .mobile-caixa__history-empty {

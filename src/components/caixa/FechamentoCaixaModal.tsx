@@ -1,20 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
   AlertCircleIcon,
+  Coins01Icon,
+  Invoice01Icon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
-import type { CashSession } from '../../modules/caixa/types';
+import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
 
 interface FechamentoCaixaModalProps {
   isOpen: boolean;
   session: CashSession | null;
   cashReceipts?: number; // Total de recebimentos em dinheiro apurados no turno
+  turnSummary?: TurnPaymentsSummary;
+  suprimentos?: number;
+  sangrias?: number;
   onCaixaFechado: (closedSession: CashSession) => void;
   onClose: () => void;
   caixaRepo?: CaixaRepository;
@@ -24,6 +29,9 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   isOpen,
   session,
   cashReceipts = 0,
+  turnSummary: initialTurnSummary,
+  suprimentos = 0,
+  sangrias = 0,
   onCaixaFechado,
   onClose,
   caixaRepo,
@@ -32,13 +40,31 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  if (!isOpen || !session) return null;
+  const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary | undefined>(initialTurnSummary);
 
   const repo = caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter());
 
+  useEffect(() => {
+    if (isOpen && session) {
+      if (initialTurnSummary) {
+        setTurnSummary(initialTurnSummary);
+      } else {
+        repo.getTurnPaymentsSummary(session.tenant_id, session.opened_at, session.id)
+          .then((res) => setTurnSummary(res))
+          .catch((err) => console.error('Erro ao carregar resumo de pagamentos no fechamento:', err));
+      }
+    }
+  }, [isOpen, session, initialTurnSummary]);
+
+  if (!isOpen || !session) return null;
+
+  const totalTurnRevenue = turnSummary?.total ?? cashReceipts;
+  const cashInTurn = turnSummary?.dinheiro ?? cashReceipts;
+  const pixInTurn = turnSummary?.pix ?? 0;
+  const cardInTurn = turnSummary?.cartao ?? 0;
+
   const initialAmount = Number(session.initial_amount) || 0;
-  const expectedAmount = initialAmount + cashReceipts;
+  const expectedAmount = initialAmount + cashInTurn + suprimentos - sangrias;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setClosingAmount(formatCurrencyInput(e.target.value));
@@ -85,7 +111,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
               Fechamento e conferência de caixa
             </h3>
             <p className="caixa-modal-subtitle">
-              Conte o dinheiro físico da gaveta para validar o fechamento do turno com segurança.
+              Resumo financeiro do turno e conferência do dinheiro físico na gaveta.
             </p>
           </div>
           <button
@@ -98,17 +124,61 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           </button>
         </div>
 
+        {/* ─── RESUMO DE ARRECADAÇÃO GERAL DO TURNO ─── */}
+        <div className="caixa-turn-revenue-card">
+          <div className="caixa-turn-revenue-header">
+            <span className="caixa-turn-revenue-label">
+              <HugeiconsIcon icon={Invoice01Icon} size={15} />
+              Total arrecadado no turno:
+            </span>
+            <span className="caixa-turn-revenue-val">
+              {formatCurrency(totalTurnRevenue)}
+            </span>
+          </div>
+          <div className="caixa-turn-methods-grid">
+            <div className="caixa-turn-method-badge">
+              <span className="caixa-turn-method-label">Pix</span>
+              <span className="caixa-turn-method-val text-info">{formatCurrency(pixInTurn)}</span>
+            </div>
+            <div className="caixa-turn-method-badge">
+              <span className="caixa-turn-method-label">Cartões</span>
+              <span className="caixa-turn-method-val">{formatCurrency(cardInTurn)}</span>
+            </div>
+            <div className="caixa-turn-method-badge">
+              <span className="caixa-turn-method-label">Dinheiro</span>
+              <span className="caixa-turn-method-val text-success">{formatCurrency(cashInTurn)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── CONFERÊNCIA FÍSICA DA GAVETA ─── */}
         <div className="caixa-breakdown-summary">
+          <div className="caixa-breakdown-title">
+            <HugeiconsIcon icon={Coins01Icon} size={15} />
+            <span>Conferência da gaveta (dinheiro físico)</span>
+          </div>
           <div className="caixa-breakdown-item">
             <span className="caixa-breakdown-label">Fundo de troco inicial:</span>
             <span className="caixa-breakdown-val">{formatCurrency(initialAmount)}</span>
           </div>
           <div className="caixa-breakdown-item">
-            <span className="caixa-breakdown-label">Entradas em dinheiro no turno:</span>
-            <span className="caixa-breakdown-val">{formatCurrency(cashReceipts)}</span>
+            <span className="caixa-breakdown-label">(+) Entradas em dinheiro (espécie):</span>
+            <span className="caixa-breakdown-val text-success">+{formatCurrency(cashInTurn)}</span>
           </div>
+          {suprimentos > 0 && (
+            <div className="caixa-breakdown-item">
+              <span className="caixa-breakdown-label">(+) Suprimentos (entradas avulsas):</span>
+              <span className="caixa-breakdown-val text-success">+{formatCurrency(suprimentos)}</span>
+            </div>
+          )}
+          {sangrias > 0 && (
+            <div className="caixa-breakdown-item">
+              <span className="caixa-breakdown-label">(-) Sangrias (retiradas):</span>
+              <span className="caixa-breakdown-val text-danger">-{formatCurrency(sangrias)}</span>
+            </div>
+          )}
           <div className="caixa-breakdown-item expected">
-            <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado:</span>
+            <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado na gaveta:</span>
             <span className="caixa-breakdown-val font-bold caixa-val-highlight">
               {formatCurrency(expectedAmount)}
             </span>
@@ -274,6 +344,70 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         .caixa-close-btn:hover {
           color: var(--color-text-primary, #2D231E);
           background: var(--color-bg-primary, #FFF1E6);
+        }
+        .caixa-turn-revenue-card {
+          background: #ffffff;
+          border-bottom: 1px solid var(--color-border, #EADED6);
+          padding: 1rem 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .caixa-turn-revenue-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .caixa-turn-revenue-label {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
+        }
+        .caixa-turn-revenue-val {
+          font-size: 1.125rem;
+          font-weight: 800;
+          color: var(--color-brand-primary, #D96C00);
+          letter-spacing: -0.01em;
+        }
+        .caixa-turn-methods-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.5rem;
+        }
+        .caixa-turn-method-badge {
+          background: var(--color-bg-primary, #FFF1E6);
+          border: 1px solid var(--color-border, #EADED6);
+          border-radius: 8px;
+          padding: 0.4rem 0.6rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 0.15rem;
+        }
+        .caixa-turn-method-label {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: var(--color-text-secondary, #70625B);
+        }
+        .caixa-turn-method-val {
+          font-size: 0.8125rem;
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
+        }
+        .caixa-breakdown-title {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--color-text-secondary, #70625B);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          margin-bottom: 0.25rem;
         }
         .caixa-breakdown-summary {
           background: var(--color-bg-primary, #FFF1E6);

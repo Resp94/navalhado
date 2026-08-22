@@ -31,6 +31,8 @@ export interface CashSession {
   created_at?: string;
   opened_by_name?: string;
   closed_by_name?: string;
+  total_revenue?: number;
+  payment_count?: number;
 }
 
 export interface AbrirCaixaInput {
@@ -47,10 +49,45 @@ export interface FecharCaixaInput {
   notes?: string | null;
 }
 
+export type CashMovementType = 'sangria' | 'suprimento';
+
+export interface CashMovement {
+  id: string;
+  tenant_id: string;
+  cash_session_id: string;
+  type: CashMovementType;
+  amount: number;
+  reason: string;
+  performed_by?: string | null;
+  created_at: string;
+}
+
+export interface RegistrarMovimentacaoInput {
+  tenant_id: string;
+  cash_session_id: string;
+  type: CashMovementType;
+  amount: number;
+  reason: string;
+  performed_by?: string | null;
+}
+
+export interface TurnPaymentsSummary {
+  total: number;
+  dinheiro: number;
+  pix: number;
+  cartao: number;
+  outros: number;
+  count: number;
+}
+
 export interface ICaixaAdapter {
   obterSessaoAtiva(tenantId: string): Promise<CashSession | null>;
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
   fecharCaixa(input: FecharCaixaInput): Promise<CashSession>;
   listarHistorico(tenantId: string, limit?: number): Promise<CashSession[]>;
-  obterEntradasDinheiro(tenantId: string, sinceDate: string): Promise<number>;
+  obterEntradasDinheiro(tenantId: string, sinceDate: string, sessionId?: string): Promise<number>;
+  obterResumoTurno(tenantId: string, sinceDate: string, sessionId?: string): Promise<TurnPaymentsSummary>;
+  registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement>;
+  listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
+  obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;
 }

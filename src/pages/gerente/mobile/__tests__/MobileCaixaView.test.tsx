@@ -44,7 +44,6 @@ describe('MobileCaixaView Component', () => {
     expect(screen.getByText('Abrir caixa do turno')).toBeInTheDocument();
     expect(screen.getByText('Faturamento total')).toBeInTheDocument();
     expect(screen.getByText('Recebimentos Pix')).toBeInTheDocument();
-    expect(screen.getByText('Relatórios completos no desktop')).toBeInTheDocument();
 
     const openBtn = screen.getByRole('button', { name: /Abrir caixa do turno/i });
     fireEvent.click(openBtn);

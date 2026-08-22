@@ -182,15 +182,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
-  it('exibe o card de agendamento na coluna do profissional correspondente com badges e ações', async () => {
+  it('exibe o card de agendamento na coluna do profissional correspondente com dados do serviço', async () => {
     render(<Agenda />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/Corte Tradicional/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/Cliente prefere tesoura/i).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByRole('button', { name: /Cobrar/i }).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByTitle(/WhatsApp/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 

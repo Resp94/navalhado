@@ -148,3 +148,45 @@ export const getProfessionalBreakMessage = (
       : 'de descanso';
   return `O profissional ${prof.name} está em horário de intervalo ${intervalStr}.`;
 };
+
+/**
+ * Gera slots de horários considerando o expediente e reiniciando a grade
+ * a partir do retorno do intervalo (break_end).
+ *
+ * Exemplo:
+ * start = '08:00', end = '18:00', interval = 40m, break_start = '12:00', break_end = '13:00'
+ * Manhã: 08:00, 08:40, 09:20, 10:00, 10:40, 11:20
+ * Intervalo (12:00 às 13:00): omitido da agenda
+ * Tarde (reinicia às 13:00): 13:00, 13:40, 14:20, 15:00, 15:40, 16:20, 17:00, 17:40
+ */
+export const generateTimeSlotsForSchedule = (
+  start: string,
+  end: string,
+  stepMinutes: number,
+  breakStart?: string,
+  breakEnd?: string
+): string[] => {
+  const step = Math.max(5, stepMinutes || 30);
+  const startMin = timeToMinutes(start);
+  const endMin = timeToMinutes(end);
+  const slots: string[] = [];
+
+  const hasBreak = Boolean(breakStart && breakEnd && timeToMinutes(breakStart!) < timeToMinutes(breakEnd!));
+  const bStartMin = hasBreak ? timeToMinutes(breakStart!) : endMin;
+  const bEndMin = hasBreak ? timeToMinutes(breakEnd!) : endMin;
+
+  // 1. Manhã / Período antes do intervalo (do start até o breakStart)
+  for (let m = startMin; m < Math.min(bStartMin, endMin); m += step) {
+    slots.push(minutesToTime(m));
+  }
+
+  // 2. Tarde / Período pós-intervalo: reinicia a grade estritamente no breakEnd
+  if (hasBreak && bEndMin < endMin) {
+    for (let m = bEndMin; m < endMin; m += step) {
+      slots.push(minutesToTime(m));
+    }
+  }
+
+  return slots;
+};
+

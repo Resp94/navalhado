@@ -1,4 +1,12 @@
-import type { AbrirCaixaInput, CashSession, FecharCaixaInput, ICaixaAdapter } from './types';
+import type {
+  AbrirCaixaInput,
+  CashMovement,
+  CashSession,
+  FecharCaixaInput,
+  ICaixaAdapter,
+  RegistrarMovimentacaoInput,
+  TurnPaymentsSummary,
+} from './types';
 
 export class CaixaValidationError extends Error {
   constructor(message: string) {
@@ -61,14 +69,55 @@ export class CaixaRepository {
     return await this.adapter.listarHistorico(tenantId, limit);
   }
 
-  async getCashReceiptsSince(tenantId: string, sinceDate: string): Promise<number> {
+  async getCashReceiptsSince(tenantId: string, sinceDate: string, sessionId?: string): Promise<number> {
     if (!tenantId || !tenantId.trim()) {
       throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
     }
-    if (!sinceDate) {
+    if (!sinceDate && !sessionId) {
       return 0;
     }
-    return await this.adapter.obterEntradasDinheiro(tenantId, sinceDate);
+    return await this.adapter.obterEntradasDinheiro(tenantId, sinceDate, sessionId);
+  }
+
+  async getTurnPaymentsSummary(tenantId: string, sinceDate: string, sessionId?: string): Promise<TurnPaymentsSummary> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!sinceDate && !sessionId) {
+      return { total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 };
+    }
+    return await this.adapter.obterResumoTurno(tenantId, sinceDate, sessionId);
+  }
+
+  async registerMovement(input: RegistrarMovimentacaoInput): Promise<CashMovement> {
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.cash_session_id || !input.cash_session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (input.amount <= 0) {
+      throw new CaixaValidationError('O valor da movimentação deve ser maior que zero.');
+    }
+    if (!input.reason || !input.reason.trim()) {
+      throw new CaixaValidationError('O motivo da movimentação é obrigatório.');
+    }
+
+    return await this.adapter.registrarMovimentacao(input);
+  }
+
+  async listMovements(sessionId: string): Promise<CashMovement[]> {
+    if (!sessionId || !sessionId.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    return await this.adapter.listarMovimentacoes(sessionId);
+  }
+
+  async getMovementsSummary(sessionId: string): Promise<{ suprimentos: number; sangrias: number }> {
+    if (!sessionId || !sessionId.trim()) {
+      return { suprimentos: 0, sangrias: 0 };
+    }
+    return await this.adapter.obterResumoMovimentacoes(sessionId);
   }
 
   // Aliases para compatibilidade total (pt-BR e en)
@@ -92,8 +141,20 @@ export class CaixaRepository {
     return await this.isCashierOpen(tenantId);
   }
 
-  async obterEntradasDinheiro(tenantId: string, sinceDate: string): Promise<number> {
-    return await this.getCashReceiptsSince(tenantId, sinceDate);
+  async obterEntradasDinheiro(tenantId: string, sinceDate: string, sessionId?: string): Promise<number> {
+    return await this.adapter.obterEntradasDinheiro(tenantId, sinceDate, sessionId);
+  }
+
+  async registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement> {
+    return await this.registerMovement(input);
+  }
+
+  async listarMovimentacoes(sessionId: string): Promise<CashMovement[]> {
+    return await this.listMovements(sessionId);
+  }
+
+  async obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }> {
+    return await this.getMovementsSummary(sessionId);
   }
 }
 

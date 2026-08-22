@@ -6,6 +6,7 @@ import {
   getProfessionalBreakMessage,
   addMinutesToTime,
   timeToMinutes,
+  generateTimeSlotsForSchedule,
 } from '../../../lib/schedule';
 import type { ScheduleProfessional } from '../../../lib/schedule';
 
@@ -116,6 +117,42 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(timeToMinutes('09:30')).toBe(570);
       expect(addMinutesToTime('09:30', 45)).toBe('10:15');
       expect(addMinutesToTime('11:45', 30)).toBe('12:15');
+    });
+  });
+
+  describe('generateTimeSlotsForSchedule: reinício da grade após break_end', () => {
+    it('gera slots de manhã até o início do intervalo e reinicia a grade exatamente no término do intervalo', () => {
+      // Exemplo solicitado por Jonathas:
+      // Expediente: 08:00 às 18:00, Intervalo: 12:00 às 13:00, Grade: 40min
+      const slots = generateTimeSlotsForSchedule('08:00', '18:00', 40, '12:00', '13:00');
+
+      // Manhã
+      expect(slots).toContain('08:00');
+      expect(slots).toContain('08:40');
+      expect(slots).toContain('09:20');
+      expect(slots).toContain('10:00');
+      expect(slots).toContain('10:40');
+      expect(slots).toContain('11:20');
+
+      // Intervalo (12:00 às 13:00) NÃO deve conter slots
+      expect(slots).not.toContain('12:00');
+      expect(slots).not.toContain('12:40');
+
+      // Retorno do intervalo (13:00) DEVE estar disponível e a grade conta novamente a partir de 13:00
+      expect(slots).toContain('13:00');
+      expect(slots).toContain('13:40');
+      expect(slots).toContain('14:20');
+      expect(slots).toContain('15:00');
+      expect(slots).toContain('15:40');
+      expect(slots).toContain('16:20');
+      expect(slots).toContain('17:00');
+      expect(slots).toContain('17:40');
+      expect(slots).not.toContain('13:20');
+    });
+
+    it('funciona perfeitamente quando não há intervalo configurado', () => {
+      const slots = generateTimeSlotsForSchedule('08:00', '10:00', 30);
+      expect(slots).toEqual(['08:00', '08:30', '09:00', '09:30']);
     });
   });
 });

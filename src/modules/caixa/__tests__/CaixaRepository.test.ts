@@ -9,6 +9,10 @@ describe('CaixaRepository', () => {
     fecharCaixa: vi.fn(),
     listarHistorico: vi.fn(),
     obterEntradasDinheiro: vi.fn(),
+    obterResumoTurno: vi.fn(),
+    registrarMovimentacao: vi.fn(),
+    listarMovimentacoes: vi.fn(),
+    obterResumoMovimentacoes: vi.fn(),
   };
 
   const repository = new CaixaRepository(mockAdapter);
@@ -97,6 +101,67 @@ describe('CaixaRepository', () => {
         closing_amount: 100,
       })
     ).rejects.toThrow(CaixaValidationError);
+  });
+
+  describe('Movimentações (Sangrias e Suprimentos)', () => {
+    it('registra sangria com sucesso', async () => {
+      const mockMovement = {
+        id: 'mov-1',
+        tenant_id: 't-1',
+        cash_session_id: 'sess-1',
+        type: 'sangria' as const,
+        amount: 50,
+        reason: 'Pagamento de água',
+        performed_by: 'user-1',
+        created_at: new Date().toISOString(),
+      };
+
+      vi.mocked(mockAdapter.registrarMovimentacao).mockResolvedValueOnce(mockMovement);
+
+      const result = await repository.registerMovement({
+        tenant_id: 't-1',
+        cash_session_id: 'sess-1',
+        type: 'sangria',
+        amount: 50,
+        reason: 'Pagamento de água',
+        performed_by: 'user-1',
+      });
+
+      expect(result).toEqual(mockMovement);
+      expect(mockAdapter.registrarMovimentacao).toHaveBeenCalled();
+    });
+
+    it('valida valor e motivo obrigatórios na movimentação', async () => {
+      await expect(
+        repository.registerMovement({
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          type: 'sangria',
+          amount: 0,
+          reason: 'Teste',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+
+      await expect(
+        repository.registerMovement({
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          type: 'suprimento',
+          amount: 50,
+          reason: '   ',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+    });
+
+    it('obtém resumo de suprimentos e sangrias corretamente', async () => {
+      vi.mocked(mockAdapter.obterResumoMovimentacoes).mockResolvedValueOnce({
+        suprimentos: 100,
+        sangrias: 40,
+      });
+
+      const summary = await repository.getMovementsSummary('sess-1');
+      expect(summary).toEqual({ suprimentos: 100, sangrias: 40 });
+    });
   });
 });
 

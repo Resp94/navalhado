@@ -550,10 +550,20 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </span>
                       </span>
                       {customerPhone && (
-                        <span className="comanda-customer-phone-tag">
-                          <HugeiconsIcon icon={WhatsappIcon} size={12} className="inline-phone-icon" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cleanPhone = customerPhone.replace(/\D/g, '');
+                            const phoneWithCountry = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+                            const text = encodeURIComponent(`Olá ${customerName}, tudo bem? Falamos da barbearia.`);
+                            window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
+                          }}
+                          className="comanda-customer-phone-tag comanda-customer-phone-btn"
+                          title="Abrir conversa no WhatsApp com o cliente"
+                        >
+                          <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
                           <span>{customerPhone}</span>
-                        </span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1450,10 +1460,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-weight: 700;
           font-size: 0.75rem;
           background-color: var(--color-bg-primary);
-          padding: 0.15rem 0.55rem;
+          padding: 0.2rem 0.6rem;
           border-radius: var(--radius-sm);
           border: 1px solid var(--color-border);
           letter-spacing: 0.01em;
+        }
+
+        .comanda-customer-phone-btn {
+          cursor: pointer;
+          transition: all 0.2s ease;
+          user-select: none;
+        }
+
+        .comanda-customer-phone-btn:hover {
+          background-color: rgba(16, 185, 129, 0.12);
+          border-color: var(--color-success);
+          color: var(--color-success);
+        }
+
+        .comanda-customer-phone-btn:active {
+          transform: scale(0.97);
         }
 
         .inline-phone-icon {

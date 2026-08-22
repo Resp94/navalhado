@@ -25,12 +25,9 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar03Icon,
   Clock01Icon,
-  Money01Icon,
-  Cancel01Icon,
   PlusSignIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
-  WhatsappIcon,
   FilterIcon,
   CheckmarkCircle02Icon,
   Note01Icon,
@@ -44,6 +41,7 @@ import {
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
+  generateTimeSlotsForSchedule,
 } from '../../lib/schedule';
 import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
 
@@ -52,6 +50,7 @@ export {
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
+  generateTimeSlotsForSchedule,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
 
@@ -358,31 +357,91 @@ export const Agenda: React.FC = () => {
     if (viewMode === 'day' && !dayBh.active && appointments.length === 0 && blockedSlots.length === 0) {
       return [];
     }
-    const slots: string[] = [];
-    for (let m = gridStartTotalMin; m < gridEndTotalMin; m += slotIntervalMinutes) {
-      const hh = Math.floor(m / 60);
-      const mm = m % 60;
-      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+
+    if (selectedProfessionalIds.length === 1) {
+      const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
+      const profSchedule = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
+      if (profSchedule && profSchedule.active !== false && profSchedule.start && profSchedule.end) {
+        return generateTimeSlotsForSchedule(
+          profSchedule.start,
+          profSchedule.end,
+          slotIntervalMinutes,
+          profSchedule.break_start,
+          profSchedule.break_end
+        );
+      }
     }
-    return slots;
-  }, [gridStartTotalMin, gridEndTotalMin, slotIntervalMinutes, viewMode, selectedDate, tenant.businessHours, appointments.length, blockedSlots.length]);
+
+    const slotsSet = new Set<string>();
+    const baseSlots = generateTimeSlotsForSchedule(
+      dayBh.open || '08:00',
+      dayBh.close || '19:00',
+      slotIntervalMinutes
+    );
+    baseSlots.forEach((s) => slotsSet.add(s));
+
+    professionals.forEach((p) => {
+      if (!p.is_active) return;
+      const sched = getProfessionalDaySchedule(p, selectedDate);
+      if (sched && sched.active !== false && sched.start && sched.end) {
+        const pSlots = generateTimeSlotsForSchedule(
+          sched.start,
+          sched.end,
+          slotIntervalMinutes,
+          sched.break_start,
+          sched.break_end
+        );
+        pSlots.forEach((s) => slotsSet.add(s));
+      }
+    });
+
+    return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
+  }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
     const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
     if (!dayBh.active) return [];
-    const slots: string[] = [];
-    const [oh, om] = dayBh.open.split(':').map(Number);
-    const [ch, cm] = dayBh.close.split(':').map(Number);
-    const startMin = oh * 60 + om;
-    const endMin = ch * 60 + cm;
-    for (let m = startMin; m < endMin; m += slotIntervalMinutes) {
-      const hh = Math.floor(m / 60);
-      const mm = m % 60;
-      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+
+    if (formProfessionalId) {
+      const prof = professionals.find((p) => p.id === formProfessionalId);
+      const profSched = prof ? getProfessionalDaySchedule(prof, selectedDate) : null;
+      if (profSched && profSched.active !== false && profSched.start && profSched.end) {
+        return generateTimeSlotsForSchedule(
+          profSched.start,
+          profSched.end,
+          slotIntervalMinutes,
+          profSched.break_start,
+          profSched.break_end
+        );
+      }
     }
-    return slots;
-  }, [selectedDate, tenant.businessHours, slotIntervalMinutes]);
+
+    const slotsSet = new Set<string>();
+    const baseSlots = generateTimeSlotsForSchedule(
+      dayBh.open,
+      dayBh.close,
+      slotIntervalMinutes
+    );
+    baseSlots.forEach((s) => slotsSet.add(s));
+
+    professionals.forEach((p) => {
+      if (!p.is_active) return;
+      const sched = getProfessionalDaySchedule(p, selectedDate);
+      if (sched && sched.active !== false && sched.start && sched.end) {
+        const pSlots = generateTimeSlotsForSchedule(
+          sched.start,
+          sched.end,
+          slotIntervalMinutes,
+          sched.break_start,
+          sched.break_end
+        );
+        pSlots.forEach((s) => slotsSet.add(s));
+      }
+    });
+
+    return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
+  }, [selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
 
   const currentService = useMemo(
     () => services.find((s) => s.id === formServiceId),
@@ -1684,7 +1743,7 @@ export const Agenda: React.FC = () => {
                                   <span className="card-client-name" title={app.customer?.name}>
                                     {app.customer?.name || 'Cliente'}
                                   </span>
-                                  <span className="card-service-name" title={app.service?.name}>
+                              <span className="card-service-name" title={app.service?.name}>
                                     {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                   </span>
                                   {app.notes && (
@@ -1694,72 +1753,13 @@ export const Agenda: React.FC = () => {
                                   )}
                                 </div>
 
-                                {/* Ações Rápidas de 1 Clique */}
-                                <div className="card-actions-toolbar">
-                                  {app.customer?.phone && (
-                                    <button
-                                      type="button"
-                                      className="btn-card-action btn-action-whatsapp"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDirectWhatsApp(
-                                          app.customer.phone,
-                                          app.customer.name,
-                                          timeStart
-                                        );
-                                      }}
-                                      title="WhatsApp"
-                                    >
-                                      <HugeiconsIcon icon={WhatsappIcon} size={14} />
-                                    </button>
-                                  )}
-
-                                  {app.status === 'confirmed' && (
-                                    <button
-                                      type="button"
-                                      className="btn-card-action btn-action-start"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleStartService(app);
-                                      }}
-                                      title="Iniciar atendimento"
-                                    >
-                                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
-                                      <span>Iniciar</span>
-                                    </button>
-                                  )}
-
-                                  {app.payment_status !== 'paid' ? (
-                                    <button
-                                      type="button"
-                                      className="btn-card-action btn-action-pay"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenCheckout(app);
-                                      }}
-                                      title="Cobrar / Receber"
-                                    >
-                                      <HugeiconsIcon icon={Money01Icon} size={14} />
-                                      <span>Cobrar</span>
-                                    </button>
-                                  ) : (
+                                {app.payment_status === 'paid' && (
+                                  <div className="card-actions-toolbar">
                                     <span className="paid-confirmed-label">
-                                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} />
+                                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Pago
                                     </span>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    className="btn-card-action btn-action-cancel"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenCancelModal(app);
-                                    }}
-                                    title="Cancelar Agendamento"
-                                  >
-                                    <HugeiconsIcon icon={Cancel01Icon} size={14} />
-                                  </button>
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

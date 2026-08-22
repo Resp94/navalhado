@@ -78,10 +78,11 @@ export const Comandas: React.FC = () => {
       if (cmdRes.data) {
         const enriched: ComandaEnriched[] = cmdRes.data.map((c: any) => {
           const isAberta = c.status === 'aberta' || c.status === 'open';
-          const isPaga = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+          const isFechada = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+          const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : c.status;
           return {
             ...c,
-            status: isAberta ? 'open' : isPaga ? 'paid' : c.status,
+            status: normalizedStatus,
             customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
             customer_phone: c.customer?.phone || null,
             professional_name: c.appointment?.professional?.name || 'Equipe',
@@ -107,6 +108,13 @@ export const Comandas: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'comandas', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          carregarDados();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comanda_itens', filter: `tenant_id=eq.${tenantId}` },
         () => {
           carregarDados();
         }
