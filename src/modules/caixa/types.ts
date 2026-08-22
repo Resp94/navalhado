@@ -8,6 +8,26 @@ export type PaymentMethod =
   | 'transfer'
   | 'other';
 
+export type PaymentCategory = 'dinheiro' | 'pix' | 'cartao' | 'outros';
+
+export function getPaymentCategory(method?: string | null): PaymentCategory {
+  const m = (method || '').toLowerCase().trim();
+  if (m === 'cash' || m === 'dinheiro') return 'dinheiro';
+  if (m === 'pix') return 'pix';
+  if (
+    m === 'credit_card' ||
+    m === 'debit_card' ||
+    m === 'cartao_credito' ||
+    m === 'cartao_debito' ||
+    m === 'card' ||
+    m.includes('cartao') ||
+    m.includes('card')
+  ) {
+    return 'cartao';
+  }
+  return 'outros';
+}
+
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod | string, string> = {
   pix: 'PIX',
   credit_card: 'Cartão de crédito',

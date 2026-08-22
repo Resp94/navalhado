@@ -10,6 +10,7 @@ import { LockIcon } from '../../../components/Icons';
 import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet';
 import { formatCurrency } from '../../../lib/currency';
 import { useToast } from '../../../components/Toast';
+import { calculateExpectedDrawerCash } from '../../../modules/caixa/CaixaRepository';
 import type { CashSession, TurnPaymentsSummary } from '../../../modules/caixa/types';
 import type { FinancialMetrics } from '../Financeiro';
 
@@ -61,7 +62,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   );
   
   const initialAmount = Number(activeSession?.initial_amount) || 0;
-  const totalCashInDrawer = initialAmount + activeSessionCashReceipts + suprimentosTotal - sangriasTotal;
+  const totalCashInDrawer = calculateExpectedDrawerCash(initialAmount, activeSessionCashReceipts, suprimentosTotal, sangriasTotal);
 
   const handleOpenMovement = (type: 'sangria' | 'suprimento') => {
     setMovementType(type);

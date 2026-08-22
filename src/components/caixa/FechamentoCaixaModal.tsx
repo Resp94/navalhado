@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   CheckmarkCircle02Icon,
@@ -8,7 +8,7 @@ import {
   Invoice01Icon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
-import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
+import { CaixaRepository, calculateExpectedDrawerCash } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
@@ -41,8 +41,19 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary | undefined>(initialTurnSummary);
+  const [currentSuprimentos, setCurrentSuprimentos] = useState<number>(suprimentos);
+  const [currentSangrias, setCurrentSangrias] = useState<number>(sangrias);
 
-  const repo = caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter());
+  const defaultRepo = useMemo(() => new CaixaRepository(new SupabaseCaixaAdapter()), []);
+  const repo = caixaRepo || defaultRepo;
+
+  useEffect(() => {
+    setCurrentSuprimentos(suprimentos);
+  }, [suprimentos]);
+
+  useEffect(() => {
+    setCurrentSangrias(sangrias);
+  }, [sangrias]);
 
   useEffect(() => {
     if (isOpen && session) {
@@ -53,8 +64,17 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           .then((res) => setTurnSummary(res))
           .catch((err) => console.error('Erro ao carregar resumo de pagamentos no fechamento:', err));
       }
+
+      if (suprimentos === 0 && sangrias === 0) {
+        repo.getMovementsSummary(session.id)
+          .then((movRes) => {
+            setCurrentSuprimentos(movRes.suprimentos);
+            setCurrentSangrias(movRes.sangrias);
+          })
+          .catch((err) => console.error('Erro ao carregar movimentações no fechamento:', err));
+      }
     }
-  }, [isOpen, session, initialTurnSummary]);
+  }, [isOpen, session, initialTurnSummary, suprimentos, sangrias, repo]);
 
   if (!isOpen || !session) return null;
 
@@ -64,7 +84,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const cardInTurn = turnSummary?.cartao ?? 0;
 
   const initialAmount = Number(session.initial_amount) || 0;
-  const expectedAmount = initialAmount + cashInTurn + suprimentos - sangrias;
+  const expectedAmount = calculateExpectedDrawerCash(initialAmount, cashInTurn, currentSuprimentos, currentSangrias);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setClosingAmount(formatCurrencyInput(e.target.value));
@@ -90,8 +110,9 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
       });
 
       onCaixaFechado(closedSession);
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Não foi possível fechar a sessão de caixa.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Não foi possível fechar a sessão de caixa.';
+      setErrorMsg(message);
     } finally {
       setIsSubmitting(false);
     }

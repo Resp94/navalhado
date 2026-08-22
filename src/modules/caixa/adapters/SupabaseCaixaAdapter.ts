@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { getPaymentCategory } from '../types';
 import type {
   AbrirCaixaInput,
   CashMovement,
@@ -184,18 +185,12 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     for (const r of rows) {
       const amt = Number(r.amount) || 0;
       total += amt;
-      const method = (r.payment_method || '').toLowerCase();
-      if (method === 'cash' || method === 'dinheiro') {
+      const category = getPaymentCategory(r.payment_method);
+      if (category === 'dinheiro') {
         dinheiro += amt;
-      } else if (method === 'pix') {
+      } else if (category === 'pix') {
         pix += amt;
-      } else if (
-        method === 'credit_card' ||
-        method === 'debit_card' ||
-        method === 'cartao_credito' ||
-        method === 'cartao_debito' ||
-        method === 'card'
-      ) {
+      } else if (category === 'cartao') {
         cartao += amt;
       } else {
         outros += amt;
@@ -224,9 +219,9 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     }
 
     return {
-      ...data,
+      ...(data as CashMovement),
       amount: Number(data.amount) || 0,
-    } as CashMovement;
+    };
   }
 
   async listarMovimentacoes(sessionId: string): Promise<CashMovement[]> {
@@ -240,10 +235,11 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       throw new Error(`Erro ao listar movimentações de caixa: ${error.message}`);
     }
 
-    return ((data || []) as any[]).map((row) => ({
+    const rows = (data || []) as CashMovement[];
+    return rows.map((row) => ({
       ...row,
       amount: Number(row.amount) || 0,
-    })) as CashMovement[];
+    }));
   }
 
   async obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }> {

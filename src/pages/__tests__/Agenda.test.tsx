@@ -149,10 +149,42 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
               }),
             }),
           }),
-          insert: vi.fn().mockResolvedValue({ error: null }),
+          insert: (payload: any) => ({
+            select: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'app-new',
+                  ...payload,
+                },
+                error: null,
+              }),
+            }),
+          }),
           update: () => ({
             eq: vi.fn().mockResolvedValue({ error: null }),
           }),
+        };
+      }
+      if (table === 'comandas') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'cmd-new' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'comanda_itens') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
       if (table === 'blocked_slots') {
@@ -168,7 +200,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           }),
         };
       }
-      return { select: vi.fn() };
+      return { select: vi.fn(), insert: vi.fn() };
     });
   });
 

@@ -23,6 +23,7 @@ import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
+import { openWhatsApp } from '../../lib/whatsapp';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import type {
   Comanda,
@@ -553,10 +554,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            const cleanPhone = customerPhone.replace(/\D/g, '');
-                            const phoneWithCountry = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-                            const text = encodeURIComponent(`Olá ${customerName}, tudo bem? Falamos da barbearia.`);
-                            window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
+                            openWhatsApp(customerPhone, `Olá ${customerName}, tudo bem? Falamos da barbearia.`);
                           }}
                           className="comanda-customer-phone-tag comanda-customer-phone-btn"
                           title="Abrir conversa no WhatsApp com o cliente"

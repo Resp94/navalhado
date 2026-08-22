@@ -142,7 +142,7 @@ export class CaixaRepository {
   }
 
   async obterEntradasDinheiro(tenantId: string, sinceDate: string, sessionId?: string): Promise<number> {
-    return await this.adapter.obterEntradasDinheiro(tenantId, sinceDate, sessionId);
+    return await this.getCashReceiptsSince(tenantId, sinceDate, sessionId);
   }
 
   async registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement> {
@@ -156,5 +156,17 @@ export class CaixaRepository {
   async obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }> {
     return await this.getMovementsSummary(sessionId);
   }
+}
+
+/**
+ * Função de domínio pura para calcular o saldo esperado em gaveta física de dinheiro.
+ */
+export function calculateExpectedDrawerCash(
+  initialAmount: number,
+  cashReceipts: number,
+  suprimentos: number = 0,
+  sangrias: number = 0
+): number {
+  return Number(initialAmount || 0) + Number(cashReceipts || 0) + Number(suprimentos || 0) - Number(sangrias || 0);
 }
 

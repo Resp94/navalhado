@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
+import { openWhatsApp } from '../../lib/whatsapp';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -163,9 +164,7 @@ export const Comandas: React.FC = () => {
   };
 
   const handleDirectWhatsApp = (phone: string, name: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const msg = encodeURIComponent(`Olá ${name}! Tudo bem? Falamos da ${tenantName || 'barbearia'}.`);
-    window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
+    openWhatsApp(phone, `Olá ${name}! Tudo bem? Falamos da ${tenantName || 'barbearia'}.`);
   };
 
   return (

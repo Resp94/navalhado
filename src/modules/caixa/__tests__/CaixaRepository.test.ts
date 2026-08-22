@@ -163,5 +163,19 @@ describe('CaixaRepository', () => {
       expect(summary).toEqual({ suprimentos: 100, sangrias: 40 });
     });
   });
+
+  describe('calculateExpectedDrawerCash', () => {
+    it('calcula o saldo esperado com troco inicial, entradas, suprimentos e sangrias', async () => {
+      const { calculateExpectedDrawerCash } = await import('../CaixaRepository');
+      const total = calculateExpectedDrawerCash(100, 250, 50, 30);
+      expect(total).toBe(370); // 100 + 250 + 50 - 30
+    });
+
+    it('trata valores zerados ou indefinidos com segurança', async () => {
+      const { calculateExpectedDrawerCash } = await import('../CaixaRepository');
+      const total = calculateExpectedDrawerCash(0, 0);
+      expect(total).toBe(0);
+    });
+  });
 });
 

@@ -17,7 +17,7 @@ import {
 import { LockIcon } from '../../components/Icons';
 import './Financeiro.css';
 
-import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
+import { CaixaRepository, calculateExpectedDrawerCash } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { PAYMENT_METHOD_LABELS } from '../../modules/caixa/types';
 import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
@@ -535,7 +535,7 @@ export const Financeiro: React.FC = () => {
                 </div>
                 <p className="turn-banner-desc">
                   {activeSession
-                    ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(Number(activeSession.initial_amount) + activeSessionCashReceipts + suprimentosTotal - sangriasTotal)}`
+                    ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(calculateExpectedDrawerCash(Number(activeSession.initial_amount), activeSessionCashReceipts, suprimentosTotal, sangriasTotal))}`
                     : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
                 </p>
               </div>
