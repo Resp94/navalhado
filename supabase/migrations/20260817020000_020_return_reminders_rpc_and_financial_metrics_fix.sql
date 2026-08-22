@@ -35,7 +35,7 @@ BEGIN
       s.id AS s_id,
       s.name AS s_name,
       s.return_period_days AS s_return_days,
-      s.whatsapp_reminder_template AS s_template,
+      s.custom_reminder_template AS s_template,
       t.name AS t_name,
       FLOOR(EXTRACT(EPOCH FROM (timezone('utc'::text, now()) - a.start_time)) / 86400)::integer AS days_passed
     FROM public.appointments a

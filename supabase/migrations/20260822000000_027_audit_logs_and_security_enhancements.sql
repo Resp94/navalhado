@@ -30,10 +30,10 @@ DROP POLICY IF EXISTS audit_logs_select_policy ON public.audit_logs;
 CREATE POLICY audit_logs_select_policy ON public.audit_logs
 FOR SELECT TO authenticated
 USING (
-  (SELECT private.is_saas_admin())
+  private.is_saas_admin()
   OR (
-    tenant_id = (SELECT private.get_auth_tenant_id())
-    AND (SELECT private.get_auth_role()) = 'gerente'
+    tenant_id = private.get_auth_tenant_id()
+    AND private.get_auth_role() = 'gerente'
   )
 );
 
@@ -41,8 +41,8 @@ DROP POLICY IF EXISTS audit_logs_insert_policy ON public.audit_logs;
 CREATE POLICY audit_logs_insert_policy ON public.audit_logs
 FOR INSERT TO authenticated
 WITH CHECK (
-  (SELECT private.is_saas_admin())
-  OR tenant_id = (SELECT private.get_auth_tenant_id())
+  private.is_saas_admin()
+  OR tenant_id = private.get_auth_tenant_id()
 );
 
 -- Logs são estritamente imutáveis: revogar UPDATE e DELETE
@@ -58,7 +58,7 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO ''
-AS \$\$
+AS $$
 DECLARE
   v_tenant_id uuid;
   v_user_id uuid;
@@ -73,7 +73,7 @@ BEGIN
 
   RETURN v_log_id;
 END;
-\$\$;
+$$;
 
 REVOKE ALL ON FUNCTION public.log_audit_event(text, text, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.log_audit_event(text, text, jsonb) TO authenticated, service_role;

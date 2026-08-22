@@ -5,6 +5,8 @@
 -- 3. Calcula comissões dinâmicas por item (serviço/produto/profissional) no período especificado
 -- 4. Suporte seguro a proprietários e gerentes com parâmetro opcional p_tenant_id
 
+DROP FUNCTION IF EXISTS public.get_tenant_financial_metrics(timestamp with time zone, timestamp with time zone);
+
 CREATE OR REPLACE FUNCTION public.get_tenant_financial_metrics(
   p_start_date timestamp with time zone,
   p_end_date timestamp with time zone,
