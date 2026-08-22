@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import { LegalModal } from '../../components/legal/LegalModal';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
@@ -36,6 +37,7 @@ export const MenuCliente: React.FC = () => {
   const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [canceling, setCanceling] = useState(false);
+  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
 
   // Estados de Prazo Expirado / Redirecionamento WhatsApp
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
@@ -710,7 +712,35 @@ export const MenuCliente: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Rodapé Legal / LGPD */}
+        <div style={{ marginTop: '2.5rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+          <button
+            type="button"
+            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+            onClick={() => setLegalModalMode('terms')}
+          >
+            Termos de uso
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+            onClick={() => setLegalModalMode('privacy')}
+          >
+            Privacidade (LGPD)
+          </button>
+        </div>
       </main>
+
+      {/* ─── MODAL LGPD / TERMOS ─── */}
+      {legalModalMode && (
+        <LegalModal
+          isOpen={!!legalModalMode}
+          onClose={() => setLegalModalMode(null)}
+          mode={legalModalMode}
+        />
+      )}
 
       {/* Modal de Confirmação de Cancelamento */}
       <Modal

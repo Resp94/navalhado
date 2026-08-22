@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
+import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
 
 interface Plan {
@@ -26,6 +27,7 @@ export const CadastroBarbearia: React.FC = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
 
   // --- Etapa 1: Dados da Barbearia ---
   const [barbeariaNome, setBarbeariaNome] = useState('');
@@ -83,14 +85,14 @@ export const CadastroBarbearia: React.FC = () => {
 
   useEffect(() => {
     if (!gestorSenha) { setSenhaGestorError(''); return; }
-    setSenhaGestorError(gestorSenha.length >= 6 ? '' : 'Mínimo 6 caracteres.');
+    setSenhaGestorError(gestorSenha.length >= 8 ? '' : 'Mínimo 8 caracteres.');
   }, [gestorSenha]);
 
   // --- Força da Senha ---
   const getPasswordStrength = () => {
     if (!gestorSenha) return { score: 0, text: '', color: 'transparent' };
     let score = 0;
-    if (gestorSenha.length >= 6) score++;
+    if (gestorSenha.length >= 8) score++;
     if (/[A-Z]/.test(gestorSenha)) score++;
     if (/[0-9]/.test(gestorSenha)) score++;
     if (/[^A-Za-z0-9]/.test(gestorSenha)) score++;
@@ -329,7 +331,7 @@ export const CadastroBarbearia: React.FC = () => {
                       label="Senha de Acesso"
                       type="password"
                       icon="lock"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                       value={gestorSenha}
                       onChange={(e) => setGestorSenha(e.target.value)}
                       error={senhaGestorError}
@@ -422,10 +424,38 @@ export const CadastroBarbearia: React.FC = () => {
                   Fazer Login
                 </button>
               </div>
+
+              {/* Rodapé Legal / LGPD */}
+              <div className="signup-card__legal-footer" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border-subtle, rgba(255,255,255,0.08))', display: 'flex', justifyContent: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-tertiary, #999)' }}>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  onClick={() => setLegalModalMode('terms')}
+                >
+                  Termos de uso
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  onClick={() => setLegalModalMode('privacy')}
+                >
+                  Privacidade (LGPD)
+                </button>
+              </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* ─── MODAL LGPD / TERMOS ─── */}
+      {legalModalMode && (
+        <LegalModal
+          isOpen={!!legalModalMode}
+          onClose={() => setLegalModalMode(null)}
+          mode={legalModalMode}
+        />
+      )}
       <style>{styles}</style>
     </>
   );

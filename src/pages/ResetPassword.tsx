@@ -47,7 +47,7 @@ export const ResetPassword: React.FC = () => {
   // --- Validações em tempo real ---
   useEffect(() => {
     if (!password) { setPasswordError(''); return; }
-    setPasswordError(password.length >= 6 ? '' : 'Mínimo 6 caracteres.');
+    setPasswordError(password.length >= 8 ? '' : 'Mínimo 8 caracteres.');
   }, [password]);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export const ResetPassword: React.FC = () => {
   const getPasswordStrength = () => {
     if (!password) return { score: 0, text: '', color: 'transparent' };
     let score = 0;
-    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
     if (/[A-Z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
@@ -77,8 +77,8 @@ export const ResetPassword: React.FC = () => {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!password || password.length < 6) {
-      setPasswordError('A senha deve ter no mínimo 6 caracteres.');
+    if (!password || password.length < 8) {
+      setPasswordError('A senha deve ter no mínimo 8 caracteres.');
       return;
     }
 
@@ -194,7 +194,7 @@ export const ResetPassword: React.FC = () => {
                   label="Nova Senha"
                   type="password"
                   icon="lock"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   error={passwordError}

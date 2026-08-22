@@ -45,7 +45,7 @@ describe('CadastroBarbearia', () => {
 
     fireEvent.change(screen.getByPlaceholderText('Seu nome'), { target: { value: 'Gestor Seguro' } });
     fireEvent.change(screen.getByPlaceholderText('seu.login@email.com'), { target: { value: 'gestor@segura.test' } });
-    fireEvent.change(screen.getByPlaceholderText('Mínimo 6 caracteres'), { target: { value: 'SenhaForte123!' } });
+    fireEvent.change(screen.getByPlaceholderText('Mínimo 8 caracteres'), { target: { value: 'SenhaForte123!' } });
     const submitButton = screen.getByRole('button', { name: 'Criar conta' });
     await waitFor(() => expect(submitButton).toBeEnabled());
     fireEvent.click(submitButton);

@@ -8,10 +8,40 @@ import {
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
 
+export const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://dev.navalhado.com.br",
+  "https://navalhado.com.br",
+  "https://app.navalhado.com.br",
+];
+
+export const getCorsHeaders = (req?: Request): Record<string, string> => {
+  const origin = req?.headers.get("Origin") || req?.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : (origin ? "https://dev.navalhado.com.br" : "*");
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-db-trigger-secret",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+  };
+};
+
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-db-trigger-secret",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+};
+
+// Mascara número de telefone para conformidade com a LGPD nos logs de execução
+export const maskPhoneNumber = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length < 8) return "****";
+  return `${cleaned.slice(0, 4)}****${cleaned.slice(-4)}`;
 };
 
 // Limpa e formata o número de telefone do cliente para o padrão brasileiro DDI 55 + 9 dígitos
@@ -129,7 +159,7 @@ const isRecentPairing = (status: unknown, updatedAt: unknown): boolean => {
 export const createHandler = (dependencies: HandlerDependencies = {}) => async (req: Request): Promise<Response> => {
   // CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
   const url = new URL(req.url);
@@ -1385,7 +1415,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         attempts,
         expectedAttempt: reservation.attempts || 1,
       });
-      console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${clientPhone}`);
+      console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${maskPhoneNumber(clientPhone)}`);
       return new Response(JSON.stringify({ success: true, attempts, diagnostic_persisted: finalized }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1546,7 +1576,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
                 totalFailed++;
               }
 
-              console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${clientPhone}`);
+              console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${maskPhoneNumber(clientPhone)}`);
               const { error: markErr } = await supabase
                 .from("appointments")
                 .update({ reminder_sent: true })

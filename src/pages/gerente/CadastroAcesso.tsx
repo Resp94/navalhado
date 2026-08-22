@@ -65,8 +65,8 @@ export const CadastroAcesso: React.FC = () => {
       addToast('Informe um e-mail válido.', 'warning');
       return;
     }
-    if (password.length < 6) {
-      addToast('A senha deve ter pelo menos 6 caracteres.', 'warning');
+    if (password.length < 8) {
+      addToast('A senha deve ter pelo menos 8 caracteres.', 'warning');
       return;
     }
 
@@ -182,7 +182,7 @@ export const CadastroAcesso: React.FC = () => {
                 <input 
                   id="input-password"
                   type={showPassword ? 'text' : 'password'} 
-                  placeholder="Mínimo de 6 caracteres" 
+                  placeholder="Mínimo de 8 caracteres" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

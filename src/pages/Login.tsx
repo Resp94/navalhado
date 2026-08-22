@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
+import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, LockIcon } from '../components/Icons';
 
 export const Login: React.FC = () => {
@@ -21,6 +22,7 @@ export const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmailError, setResetEmailError] = useState('');
+  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
 
   // --- Validação inline em tempo real ---
   useEffect(() => {
@@ -31,7 +33,7 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (!password) { setPasswordError(''); return; }
-    setPasswordError(password.length >= 6 ? '' : 'Mínimo 6 caracteres.');
+    setPasswordError(password.length >= 8 ? '' : 'Mínimo 8 caracteres.');
   }, [password]);
 
   useEffect(() => {
@@ -43,16 +45,17 @@ export const Login: React.FC = () => {
   // --- Helpers ---
   const translateAuthError = (message: string) => {
     const msg = message.toLowerCase();
-    if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+    if (
+      msg.includes('invalid login credentials') ||
+      msg.includes('invalid credentials') ||
+      msg.includes('user not found')
+    ) {
       return 'E-mail ou senha incorretos. Tente novamente.';
     }
     if (msg.includes('email not confirmed')) {
       return 'Confirme seu e-mail antes de fazer login.';
     }
-    if (msg.includes('user not found')) {
-      return 'Nenhuma conta encontrada com este e-mail.';
-    }
-    return `Não foi possível entrar: ${message}`;
+    return 'Não foi possível entrar. Verifique suas credenciais e tente novamente.';
   };
 
   const resolveRole = async (userId: string): Promise<string> => {
@@ -89,9 +92,9 @@ export const Login: React.FC = () => {
       addToast('Digite seu e-mail para entrar.', 'error');
       return;
     }
-    if (!password || password.length < 6) {
-      setPasswordError('A senha deve ter no mínimo 6 caracteres.');
-      addToast('A senha precisa ter pelo menos 6 caracteres.', 'error');
+    if (!password || password.length < 8) {
+      setPasswordError('A senha deve ter no mínimo 8 caracteres.');
+      addToast('A senha precisa ter pelo menos 8 caracteres.', 'error');
       return;
     }
 
@@ -112,7 +115,7 @@ export const Login: React.FC = () => {
         }
       }
     } catch (error: any) {
-      addToast(translateAuthError(error.message), 'error');
+      addToast(translateAuthError(error.message || ''), 'error');
     } finally {
       setLoading(false);
     }
@@ -131,13 +134,15 @@ export const Login: React.FC = () => {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (error) throw error;
+      if (error) {
+        console.warn('[Auth] Erro ao processar recuperação:', error.message);
+      }
 
-      addToast('Link de recuperação enviado para seu e-mail.', 'success');
+      addToast('Se o e-mail estiver cadastrado, o link de recuperação foi enviado.', 'success');
       setIsResetOpen(false);
       setResetEmail('');
-    } catch (error: any) {
-      addToast(`Erro ao enviar recuperação: ${error.message}`, 'error');
+    } catch {
+      addToast('Se o e-mail estiver cadastrado, o link de recuperação foi enviado.', 'success');
     } finally {
       setResetLoading(false);
     }
@@ -190,7 +195,7 @@ export const Login: React.FC = () => {
                 label="Senha"
                 type="password"
                 icon="lock"
-                placeholder="mín. 6 caracteres"
+                placeholder="mín. 8 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={passwordError}
@@ -243,10 +248,38 @@ export const Login: React.FC = () => {
                   Criar conta
                 </button>
               </div>
+
+              {/* Rodapé Legal / LGPD */}
+              <div className="login-card__legal-footer" style={{ marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border-subtle, rgba(255,255,255,0.08))', display: 'flex', justifyContent: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-tertiary, #999)' }}>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  onClick={() => setLegalModalMode('terms')}
+                >
+                  Termos de uso
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  onClick={() => setLegalModalMode('privacy')}
+                >
+                  Privacidade (LGPD)
+                </button>
+              </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* ─── MODAL LGPD / TERMOS ─── */}
+      {legalModalMode && (
+        <LegalModal
+          isOpen={!!legalModalMode}
+          onClose={() => setLegalModalMode(null)}
+          mode={legalModalMode}
+        />
+      )}
 
       {/* ─── MODAL DE RECUPERAÇÃO ─── */}
       <Modal

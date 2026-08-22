@@ -41,7 +41,7 @@ describe('Login', () => {
   it('encerra a sessao e nao infere privilegios quando o perfil falha', async () => {
     render(<Login />);
     fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'admin@navalhado.com' } });
-    fireEvent.change(screen.getByPlaceholderText(/6 caracteres/), { target: { value: 'senha-segura' } });
+    fireEvent.change(screen.getByPlaceholderText(/8 caracteres/), { target: { value: 'senha-segura' } });
     fireEvent.click(screen.getByRole('button', { name: 'Acessar plataforma' }));
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
