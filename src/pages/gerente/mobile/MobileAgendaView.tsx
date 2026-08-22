@@ -19,7 +19,12 @@ import {
   formatTimeInZone,
   shiftCalendarDate,
 } from '../../../lib/timezone';
-import { getDayBusinessHours } from '../Agenda';
+import {
+  getDayBusinessHours,
+  getProfessionalDaySchedule,
+  isProfessionalOnBreak,
+  isProfessionalWorkingAt,
+} from '../Agenda';
 import type { Appointment, Professional } from '../Agenda';
 import type { BlockedSlot } from '../../../modules/bloqueios/types';
 
@@ -43,7 +48,7 @@ interface MobileAgendaViewProps {
 }
 
 interface TimelineItem {
-  type: 'appointment' | 'block' | 'empty';
+  type: 'appointment' | 'block' | 'empty' | 'break';
   time: string;
   appointment?: Appointment;
   block?: BlockedSlot;
@@ -153,7 +158,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
       items.push({ type: 'block', time, block: blk });
     });
 
-    // Adicionar Slots Vazios Interativos se solicitado e quando timeSlots estiver disponível e barbearia aberta
+    // Adicionar Slots Vazios Interativos e Intervalos se solicitado e quando timeSlots estiver disponível e barbearia aberta
     if (showEmptySlots && dayBh.active && timeSlots && timeSlots.length > 0) {
       timeSlots.forEach((slot) => {
         if (slot < dayBh.open || slot >= dayBh.close) return;
@@ -171,13 +176,25 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         });
 
         if (!isOccupiedByApp && !isOccupiedByBlock) {
+          // Restrições de intervalo são exclusivas da agenda do barbeiro selecionado (não exibidas na visão geral 'all')
+          if (selectedProfId !== 'all') {
+            const prof = professionals.find((p) => p.id === selectedProfId);
+            if (prof && isProfessionalOnBreak(prof, selectedDate, slot)) {
+              items.push({ type: 'break', time: slot });
+              return;
+            }
+            if (prof && !isProfessionalWorkingAt(prof, selectedDate, slot)) {
+              return;
+            }
+          }
+
           items.push({ type: 'empty', time: slot });
         }
       });
     }
 
     return items.sort((a, b) => a.time.localeCompare(b.time));
-  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh]);
+  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, selectedProfId, professionals, selectedDate]);
 
   return (
     <div className="mobile-agenda">
@@ -304,9 +321,13 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             <div className="mobile-agenda__empty-icon">
               <HugeiconsIcon icon={Calendar03Icon} size={32} />
             </div>
-            <h3 className="mobile-agenda__empty-title">Nenhum agendamento para este dia</h3>
+            <h3 className="mobile-agenda__empty-title">
+              {!dayBh.active ? 'Barbearia fechada neste dia' : 'Nenhum agendamento para este dia'}
+            </h3>
             <p className="mobile-agenda__empty-desc">
-              {selectedProfId === 'all'
+              {!dayBh.active
+                ? `Conforme o horário de funcionamento configurado, o estabelecimento não abre às ${dayBh.dayLabel}s.`
+                : selectedProfId === 'all'
                 ? 'Nenhum atendimento marcado para a equipe hoje.'
                 : `Nenhum atendimento para ${profNameMap.get(selectedProfId) || 'o profissional'} hoje.`}
             </p>
@@ -349,6 +370,29 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             )}
 
             {timelineItems.map((item, idx) => {
+              if (item.type === 'break') {
+                const selectedProf = professionals.find((p) => p.id === selectedProfId);
+                const sched = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
+                const breakLabel = sched?.break_end
+                  ? `Intervalo até ${sched.break_end}`
+                  : 'Horário de intervalo';
+
+                return (
+                  <div
+                    key={`break-${item.time}-${idx}`}
+                    className="mobile-agenda__empty-slot mobile-agenda__empty-slot--break"
+                    title={`Horário de intervalo (${item.time})`}
+                    aria-label={`Horário de intervalo às ${item.time}`}
+                  >
+                    <span className="mobile-agenda__empty-slot-time">{item.time}</span>
+                    <span className="mobile-agenda__empty-slot-text">
+                      <HugeiconsIcon icon={UnavailableIcon} size={14} />
+                      {breakLabel}
+                    </span>
+                  </div>
+                );
+              }
+
               if (item.type === 'empty') {
                 const isPast =
                   selectedDate < currentLocalDate ||
@@ -359,12 +403,32 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                     <div
                       key={`empty-${item.time}-${idx}`}
                       className="mobile-agenda__empty-slot mobile-agenda__empty-slot--past"
-                      title={`Horário já passou (${item.time})`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() =>
+                        onOpenNewAppointment(
+                          selectedProfId === 'all' ? undefined : selectedProfId,
+                          item.time,
+                          true
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpenNewAppointment(
+                            selectedProfId === 'all' ? undefined : selectedProfId,
+                            item.time,
+                            true
+                          );
+                        }
+                      }}
+                      title={`Horário já passou (${item.time}) - Toque para registrar encaixe`}
+                      aria-label={`Horário decorrido às ${item.time}. Toque para registrar encaixe.`}
                     >
                       <span className="mobile-agenda__empty-slot-time">{item.time}</span>
                       <span className="mobile-agenda__empty-slot-text">
                         <HugeiconsIcon icon={Clock01Icon} size={14} />
-                        Horário já passou
+                        Toque para encaixe
                       </span>
                     </div>
                   );
@@ -907,9 +971,34 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             rgba(0, 0, 0, 0.05) 6px,
             rgba(0, 0, 0, 0.05) 12px
           );
-          border: 1px solid var(--color-border);
-          opacity: 0.5;
+          border: 1px dashed var(--color-border);
+          opacity: 0.85;
+          cursor: pointer;
+        }
+
+        .mobile-agenda__empty-slot--past:hover,
+        .mobile-agenda__empty-slot--past:active {
+          border-color: var(--color-brand-primary);
+          background: rgba(217, 108, 0, 0.06);
+          opacity: 1;
+        }
+
+        .mobile-agenda__empty-slot--break {
+          background: repeating-linear-gradient(
+            45deg,
+            rgba(217, 108, 0, 0.03),
+            rgba(217, 108, 0, 0.03) 6px,
+            rgba(217, 108, 0, 0.07) 6px,
+            rgba(217, 108, 0, 0.07) 12px
+          );
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          opacity: 0.8;
           cursor: not-allowed;
+        }
+
+        .mobile-agenda__empty-slot--break .mobile-agenda__empty-slot-text {
+          color: var(--color-brand-primary, #d96c00);
+          font-weight: 700;
         }
 
         .mobile-agenda__empty-slot--closed {
