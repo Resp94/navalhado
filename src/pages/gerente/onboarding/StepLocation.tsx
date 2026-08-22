@@ -34,6 +34,9 @@ export const StepLocation: React.FC<StepLocationProps> = ({
             city: address.city,
             state: address.state,
           });
+          if (!address.street) {
+            setCepError('Cidade localizada. Por favor, preencha a rua e o bairro manualmente.');
+          }
         } else {
           setCepError('CEP não encontrado. Digite o endereço manualmente abaixo.');
         }
@@ -64,7 +67,7 @@ export const StepLocation: React.FC<StepLocationProps> = ({
   };
 
   const isValid =
-    data.cep.replace(/\D/g, '').length === 8 &&
+    cleanCepDigits(data.cep).length === 8 &&
     data.street.trim().length > 0 &&
     data.number.trim().length > 0 &&
     data.neighborhood.trim().length > 0 &&

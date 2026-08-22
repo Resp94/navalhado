@@ -88,5 +88,29 @@ describe('CEP Utils & Services', () => {
         state: 'AM',
       });
     });
+
+    it('trata adequadamente CEP de município com logradouro único (rua vazia)', async () => {
+      const mockSingleCepCity = {
+        ok: true,
+        json: async () => ({
+          cep: '13920-000',
+          logradouro: '',
+          bairro: '',
+          localidade: 'Pedreira',
+          uf: 'SP',
+        }),
+      };
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockSingleCepCity as any);
+
+      const result = await fetchAddressByCep('13920-000');
+      expect(result).toEqual({
+        cep: '13920-000',
+        street: '',
+        neighborhood: '',
+        city: 'Pedreira',
+        state: 'SP',
+      });
+    });
   });
 });

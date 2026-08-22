@@ -351,6 +351,23 @@ export const Agenda: React.FC = () => {
     return slots;
   }, [gridStartTotalMin, gridEndTotalMin, slotIntervalMinutes, viewMode, selectedDate, tenant.businessHours, appointments.length, blockedSlots.length]);
 
+  // Slots de Horário válidos para seleção no Modal de Novo Agendamento
+  const modalAvailableTimeSlots = useMemo(() => {
+    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+    if (!dayBh.active) return [];
+    const slots: string[] = [];
+    const [oh, om] = dayBh.open.split(':').map(Number);
+    const [ch, cm] = dayBh.close.split(':').map(Number);
+    const startMin = oh * 60 + om;
+    const endMin = ch * 60 + cm;
+    for (let m = startMin; m < endMin; m += slotIntervalMinutes) {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+    }
+    return slots;
+  }, [selectedDate, tenant.businessHours, slotIntervalMinutes]);
+
   // Data formatada por extenso em PT-BR
   const formattedDateTitle = useMemo(() => {
     try {
@@ -1975,14 +1992,30 @@ export const Agenda: React.FC = () => {
           {/* Horário */}
           <div className="form-group">
             <label htmlFor="form-time">Horário de início</label>
-            <input
-              id="form-time"
-              type="time"
-              value={formTime}
-              onChange={(e) => setFormTime(e.target.value)}
-              className="input-text"
-              required
-            />
+            {modalAvailableTimeSlots.length > 0 ? (
+              <select
+                id="form-time"
+                value={formTime}
+                onChange={(e) => setFormTime(e.target.value)}
+                className="input-select"
+                required
+              >
+                {modalAvailableTimeSlots.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="form-time"
+                type="time"
+                value={formTime}
+                onChange={(e) => setFormTime(e.target.value)}
+                className="input-text"
+                required
+              />
+            )}
           </div>
 
           {/* Card de Encaixe de Balcão */}

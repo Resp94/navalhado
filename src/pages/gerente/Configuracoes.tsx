@@ -180,6 +180,10 @@ export const Configuracoes: React.FC = () => {
 
           const fullAddr = [addressData.street, addressData.neighborhood, `${addressData.city}, ${addressData.state}`].filter(Boolean).join(', ');
           if (fullAddr) setAddress(fullAddr);
+
+          if (!addressData.street) {
+            setCepError('Cidade localizada. Por favor, preencha a rua e o bairro manualmente.');
+          }
         } else {
           setCepError('CEP não localizado. Você pode preencher os campos manualmente.');
         }

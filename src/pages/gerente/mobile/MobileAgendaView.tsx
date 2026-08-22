@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar03Icon,
@@ -70,14 +70,22 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   const [selectedProfId, setSelectedProfId] = useState<string>('all');
   const showEmptySlots = true;
 
-  const todayStr = useMemo(() => dateInZone(new Date(), timezone), [timezone]);
+  const [currentNow, setCurrentNow] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentNow(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayStr = useMemo(() => dateInZone(currentNow, timezone), [currentNow, timezone]);
   const isToday = selectedDate === todayStr;
 
-  const nowInstant = useMemo(() => new Date(), []);
-  const currentLocalDate = useMemo(() => dateInZone(nowInstant, timezone), [nowInstant, timezone]);
+  const currentLocalDate = useMemo(() => dateInZone(currentNow, timezone), [currentNow, timezone]);
   const currentLocalTime = useMemo(
-    () => formatTimeInZone(nowInstant.toISOString(), timezone),
-    [nowInstant, timezone]
+    () => formatTimeInZone(currentNow.toISOString(), timezone),
+    [currentNow, timezone]
   );
   const dayBh = useMemo(
     () => getDayBusinessHours(selectedDate, businessHours),

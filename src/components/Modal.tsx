@@ -24,10 +24,31 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.style.touchAction = 'none';
       document.documentElement.style.overflow = 'hidden';
 
+      // Prevenir gestos de pinça no Safari iOS exclusivamente quando o modal estiver aberto
+      const preventGesture = (e: Event) => {
+        e.preventDefault();
+      };
+
+      const preventMultiTouch = (e: TouchEvent) => {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      };
+
+      window.addEventListener('gesturestart', preventGesture, { passive: false });
+      window.addEventListener('gesturechange', preventGesture, { passive: false });
+      window.addEventListener('gestureend', preventGesture, { passive: false });
+      window.addEventListener('touchmove', preventMultiTouch, { passive: false });
+
       return () => {
         document.body.style.overflow = prevBodyOverflow;
         document.body.style.touchAction = prevTouchAction;
         document.documentElement.style.overflow = prevDocOverflow;
+
+        window.removeEventListener('gesturestart', preventGesture);
+        window.removeEventListener('gesturechange', preventGesture);
+        window.removeEventListener('gestureend', preventGesture);
+        window.removeEventListener('touchmove', preventMultiTouch);
       };
     }
   }, [isOpen]);
