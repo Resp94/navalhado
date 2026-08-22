@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { 
   ArrowRight01Icon 
@@ -19,10 +19,15 @@ export const StepLocation: React.FC<StepLocationProps> = ({
 }) => {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
+  const lastSearchedCepRef = useRef<string>('');
 
   const performLookup = async (cepValue: string) => {
     const cleanCep = cleanCepDigits(cepValue);
     if (cleanCep.length === 8) {
+      if (lastSearchedCepRef.current === cleanCep && data.street) {
+        return;
+      }
+      lastSearchedCepRef.current = cleanCep;
       setLoadingCep(true);
       setCepError(null);
       try {
@@ -61,8 +66,18 @@ export const StepLocation: React.FC<StepLocationProps> = ({
 
   const handleCepBlur = () => {
     const cleanCep = cleanCepDigits(data.cep);
-    if (cleanCep.length === 8 && !data.street) {
+    if (cleanCep.length === 8) {
       performLookup(cleanCep);
+    }
+  };
+
+  const handleCepKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cleanCep = cleanCepDigits(data.cep);
+      if (cleanCep.length === 8) {
+        performLookup(cleanCep);
+      }
     }
   };
 
@@ -107,6 +122,7 @@ export const StepLocation: React.FC<StepLocationProps> = ({
               value={data.cep}
               onChange={handleCepChange}
               onBlur={handleCepBlur}
+              onKeyDown={handleCepKeyDown}
               maxLength={9}
               autoFocus
             />

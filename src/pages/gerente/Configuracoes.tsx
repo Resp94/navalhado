@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
@@ -102,6 +102,7 @@ export const Configuracoes: React.FC = () => {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
+  const lastSearchedCepRef = useRef<string>('');
 
   // States do Card 2: Regras de Agendamento
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<number>(30);
@@ -168,6 +169,10 @@ export const Configuracoes: React.FC = () => {
   const performLookupCep = async (cepValue: string) => {
     const cleanCep = cleanCepDigits(cepValue);
     if (cleanCep.length === 8) {
+      if (lastSearchedCepRef.current === cleanCep && addressStreet) {
+        return;
+      }
+      lastSearchedCepRef.current = cleanCep;
       setLoadingCep(true);
       setCepError(null);
       try {
@@ -208,8 +213,18 @@ export const Configuracoes: React.FC = () => {
 
   const handleCepBlur = () => {
     const cleanCep = cleanCepDigits(cep);
-    if (cleanCep.length === 8 && !addressStreet) {
+    if (cleanCep.length === 8) {
       performLookupCep(cleanCep);
+    }
+  };
+
+  const handleCepKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const cleanCep = cleanCepDigits(cep);
+      if (cleanCep.length === 8) {
+        performLookupCep(cleanCep);
+      }
     }
   };
 
@@ -420,6 +435,7 @@ export const Configuracoes: React.FC = () => {
                 value={cep}
                 onChange={handleCepChange}
                 onBlur={handleCepBlur}
+                onKeyDown={handleCepKeyDown}
                 placeholder="00000-000"
                 maxLength={9}
                 className="config-input"
