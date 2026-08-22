@@ -3476,6 +3476,9 @@ export const Agenda: React.FC = () => {
         @media (max-width: 768px) {
           .agenda-mobile-view {
             display: block;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
           }
           .agenda-desktop-view {
             display: none !important;
