@@ -232,32 +232,6 @@ export const Agenda: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Horários de Início e Término da Grade (Padrão 08:00 às 20:00)
-  const gridStartHour = 8;
-  const gridEndHour = 20;
-  const totalGridMinutes = (gridEndHour - gridStartHour) * 60;
-
-  // Intervalo e Altura Dinâmicos da Grade Conforme Configurações da Barbearia
-  const slotIntervalMinutes =
-    tenant.slotIntervalMinutes && tenant.slotIntervalMinutes > 0
-      ? tenant.slotIntervalMinutes
-      : DEFAULT_SLOT_DURATION_MINUTES;
-  const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
-  const pxPerMinute = slotHeightPx / slotIntervalMinutes;
-
-  // Gerar Slots de Horário da Régua Dinamicamente
-  const timeSlots = useMemo(() => {
-    const slots: string[] = [];
-    const startTotalMin = gridStartHour * 60;
-    const endTotalMin = gridEndHour * 60;
-    for (let m = startTotalMin; m < endTotalMin; m += slotIntervalMinutes) {
-      const hh = Math.floor(m / 60);
-      const mm = m % 60;
-      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
-    }
-    return slots;
-  }, [gridStartHour, gridEndHour, slotIntervalMinutes]);
-
   // Dias da Semana para Visão Semanal
   const weekDays = useMemo(() => {
     const [y, m, d] = selectedDate.split('-').map(Number);
@@ -282,6 +256,100 @@ export const Agenda: React.FC = () => {
     }
     return days;
   }, [selectedDate]);
+
+  // Intervalo e Altura Dinâmicos da Grade Conforme Configurações da Barbearia
+  const slotIntervalMinutes =
+    tenant.slotIntervalMinutes && tenant.slotIntervalMinutes > 0
+      ? tenant.slotIntervalMinutes
+      : DEFAULT_SLOT_DURATION_MINUTES;
+  const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
+  const pxPerMinute = slotHeightPx / slotIntervalMinutes;
+
+  // Horários de Início e Término da Grade Dinâmicos Conforme Funcionamento da Barbearia
+  const { gridStartTotalMin, gridEndTotalMin } = useMemo(() => {
+    if (viewMode === 'week') {
+      let minOpen = 24 * 60;
+      let maxClose = 0;
+      let anyActive = false;
+
+      weekDays.forEach((d) => {
+        const bh = getDayBusinessHours(d.dateStr, tenant.businessHours);
+        if (bh.active) {
+          anyActive = true;
+          const [oh, om] = bh.open.split(':').map(Number);
+          const [ch, cm] = bh.close.split(':').map(Number);
+          minOpen = Math.min(minOpen, oh * 60 + om);
+          maxClose = Math.max(maxClose, ch * 60 + cm);
+        }
+      });
+
+      if (!anyActive) {
+        minOpen = 9 * 60;
+        maxClose = 18 * 60;
+      }
+
+      // Expandir se houver agendamentos ou bloqueios pontuais fora da grade regular
+      appointments.forEach((a) => {
+        const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
+        const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
+        minOpen = Math.min(minOpen, ah * 60 + am);
+        maxClose = Math.max(maxClose, eh * 60 + em);
+      });
+      blockedSlots.forEach((b) => {
+        const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
+        const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
+        minOpen = Math.min(minOpen, bh * 60 + bm);
+        maxClose = Math.max(maxClose, eh * 60 + em);
+      });
+
+      return { gridStartTotalMin: minOpen, gridEndTotalMin: maxClose };
+    }
+
+    // Visão Diária
+    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+    if (!dayBh.active) {
+      if (appointments.length === 0 && blockedSlots.length === 0) {
+        return { gridStartTotalMin: 9 * 60, gridEndTotalMin: 18 * 60 };
+      }
+    }
+
+    const [oh, om] = dayBh.open.split(':').map(Number);
+    const [ch, cm] = dayBh.close.split(':').map(Number);
+    let startMin = oh * 60 + om;
+    let endMin = ch * 60 + cm;
+
+    appointments.forEach((a) => {
+      const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
+      const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
+      startMin = Math.min(startMin, ah * 60 + am);
+      endMin = Math.max(endMin, eh * 60 + em);
+    });
+    blockedSlots.forEach((b) => {
+      const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
+      const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
+      startMin = Math.min(startMin, bh * 60 + bm);
+      endMin = Math.max(endMin, eh * 60 + em);
+    });
+
+    return { gridStartTotalMin: startMin, gridEndTotalMin: endMin };
+  }, [viewMode, selectedDate, weekDays, tenant.businessHours, appointments, blockedSlots, tenant.timezone]);
+
+  const totalGridMinutes = Math.max(slotIntervalMinutes, gridEndTotalMin - gridStartTotalMin);
+
+  // Gerar Slots de Horário da Régua Dinamicamente
+  const timeSlots = useMemo(() => {
+    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+    if (viewMode === 'day' && !dayBh.active && appointments.length === 0 && blockedSlots.length === 0) {
+      return [];
+    }
+    const slots: string[] = [];
+    for (let m = gridStartTotalMin; m < gridEndTotalMin; m += slotIntervalMinutes) {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      slots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+    }
+    return slots;
+  }, [gridStartTotalMin, gridEndTotalMin, slotIntervalMinutes, viewMode, selectedDate, tenant.businessHours, appointments.length, blockedSlots.length]);
 
   // Data formatada por extenso em PT-BR
   const formattedDateTitle = useMemo(() => {
@@ -932,7 +1000,7 @@ export const Agenda: React.FC = () => {
   const calculateCardPosition = (startTimeIso: string, endTimeIso: string) => {
     const timeStr = formatTimeInZone(startTimeIso, tenant.timezone);
     const [h, m] = timeStr.split(':').map(Number);
-    const startMinutesFromGridStart = h * 60 + m - gridStartHour * 60;
+    const startMinutesFromGridStart = (h * 60 + m) - gridStartTotalMin;
 
     const topPx = startMinutesFromGridStart * pxPerMinute;
 
@@ -1006,10 +1074,10 @@ export const Agenda: React.FC = () => {
 
   // Posição da Linha Vermelha de Tempo Real
   const redLineTopPx = useMemo(() => {
-    const minutesFromStart = currentTimeMinutes - gridStartHour * 60;
+    const minutesFromStart = currentTimeMinutes - gridStartTotalMin;
     if (minutesFromStart < 0 || minutesFromStart > totalGridMinutes) return null;
     return minutesFromStart * pxPerMinute;
-  }, [currentTimeMinutes, gridStartHour, totalGridMinutes, pxPerMinute]);
+  }, [currentTimeMinutes, gridStartTotalMin, totalGridMinutes, pxPerMinute]);
 
   return (
     <div className="agenda-page">
@@ -1224,6 +1292,23 @@ export const Agenda: React.FC = () => {
               onClick={() => setSelectedProfessionalIds(professionals.map((p) => p.id))}
             >
               Exibir Todos
+            </button>
+          </div>
+        ) : viewMode === 'day' && timeSlots.length === 0 ? (
+          <div className="agenda-empty-state" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', marginBottom: '1rem' }}>
+              <HugeiconsIcon icon={Calendar03Icon} size={32} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--color-text-primary)' }}>Barbearia fechada neste dia</h3>
+            <p style={{ color: 'var(--color-text-secondary)', maxWidth: '440px', margin: '0 auto 1.5rem', fontSize: '0.875rem' }}>
+              Conforme os horários de funcionamento configurados, o estabelecimento não abre neste dia.
+            </p>
+            <button
+              type="button"
+              className="btn-primary-sm"
+              onClick={handleToday}
+            >
+              Ir para hoje
             </button>
           </div>
         ) : (

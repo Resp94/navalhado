@@ -13,6 +13,7 @@ import {
   Location01Icon,
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
+import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
 
 interface DaySchedule {
   active: boolean;
@@ -164,48 +165,47 @@ export const Configuracoes: React.FC = () => {
     }
   }, [loading]);
 
-  const formatCep = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8);
-    if (digits.length > 5) {
-      return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-    }
-    return digits;
-  };
-
-  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCep(e.target.value);
-    setCep(formatted);
-    setCepError(null);
-
-    const cleanCep = formatted.replace(/\D/g, '');
+  const performLookupCep = async (cepValue: string) => {
+    const cleanCep = cleanCepDigits(cepValue);
     if (cleanCep.length === 8) {
       setLoadingCep(true);
+      setCepError(null);
       try {
-        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const viaCepData = await res.json();
+        const addressData = await fetchAddressByCep(cleanCep);
+        if (addressData) {
+          setAddressStreet(addressData.street);
+          setAddressNeighborhood(addressData.neighborhood);
+          setAddressCity(addressData.city);
+          setAddressState(addressData.state);
 
-        if (viaCepData.erro) {
+          const fullAddr = [addressData.street, addressData.neighborhood, `${addressData.city}, ${addressData.state}`].filter(Boolean).join(', ');
+          if (fullAddr) setAddress(fullAddr);
+        } else {
           setCepError('CEP não localizado. Você pode preencher os campos manualmente.');
-          return;
         }
-
-        const street = viaCepData.logradouro || '';
-        const neighborhood = viaCepData.bairro || '';
-        const city = viaCepData.localidade || '';
-        const state = viaCepData.uf || '';
-
-        setAddressStreet(street);
-        setAddressNeighborhood(neighborhood);
-        setAddressCity(city);
-        setAddressState(state);
-
-        const fullAddr = [street, neighborhood, `${city}, ${state}`].filter(Boolean).join(', ');
-        if (fullAddr) setAddress(fullAddr);
       } catch {
         setCepError('Não foi possível consultar o CEP no momento.');
       } finally {
         setLoadingCep(false);
       }
+    }
+  };
+
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCep(e.target.value);
+    setCep(formatted);
+    setCepError(null);
+
+    const cleanCep = cleanCepDigits(formatted);
+    if (cleanCep.length === 8) {
+      performLookupCep(cleanCep);
+    }
+  };
+
+  const handleCepBlur = () => {
+    const cleanCep = cleanCepDigits(cep);
+    if (cleanCep.length === 8 && !addressStreet) {
+      performLookupCep(cleanCep);
     }
   };
 
@@ -415,6 +415,7 @@ export const Configuracoes: React.FC = () => {
                 type="text"
                 value={cep}
                 onChange={handleCepChange}
+                onBlur={handleCepBlur}
                 placeholder="00000-000"
                 maxLength={9}
                 className="config-input"

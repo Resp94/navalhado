@@ -145,9 +145,11 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
       items.push({ type: 'block', time, block: blk });
     });
 
-    // Adicionar Slots Vazios Interativos se solicitado e quando timeSlots estiver disponível
-    if (showEmptySlots && timeSlots && timeSlots.length > 0) {
+    // Adicionar Slots Vazios Interativos se solicitado e quando timeSlots estiver disponível e barbearia aberta
+    if (showEmptySlots && dayBh.active && timeSlots && timeSlots.length > 0) {
       timeSlots.forEach((slot) => {
+        if (slot < dayBh.open || slot >= dayBh.close) return;
+
         const isOccupiedByApp = filteredAppointments.some((a) => {
           const tStart = formatTimeInZone(a.start_time, timezone);
           const tEnd = formatTimeInZone(a.end_time, timezone);
@@ -167,7 +169,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     }
 
     return items.sort((a, b) => a.time.localeCompare(b.time));
-  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone]);
+  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh]);
 
   return (
     <div className="mobile-agenda">
@@ -319,16 +321,18 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         ) : (
           <div className="mobile-agenda__cards-list">
             {filteredAppointments.length === 0 && (
-              <div className="mobile-agenda__empty-banner">
-                <div className="mobile-agenda__empty-icon-sm">
+              <div className={`mobile-agenda__empty-banner ${!dayBh.active ? 'mobile-agenda__empty-banner--closed' : ''}`}>
+                <div className="mobile-agenda__empty-icon-sm" style={{ color: !dayBh.active ? '#EF4444' : undefined }}>
                   <HugeiconsIcon icon={Calendar03Icon} size={20} />
                 </div>
                 <div className="mobile-agenda__empty-banner-content">
                   <h3 className="mobile-agenda__empty-title" style={{ fontSize: '0.875rem', margin: 0 }}>
-                    Nenhum agendamento para este dia
+                    {!dayBh.active ? 'Barbearia fechada neste dia' : 'Nenhum agendamento para este dia'}
                   </h3>
                   <p className="mobile-agenda__empty-desc" style={{ fontSize: '0.75rem', margin: 0 }}>
-                    {selectedProfId === 'all'
+                    {!dayBh.active
+                      ? `Conforme o horário de funcionamento configurado, o estabelecimento não abre às ${dayBh.dayLabel}s.`
+                      : selectedProfId === 'all'
                       ? 'Toque em qualquer horário disponível abaixo para agendar.'
                       : `Agenda disponível para ${profNameMap.get(selectedProfId) || 'o profissional'}. Toque abaixo para agendar.`}
                   </p>
@@ -338,12 +342,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
             {timelineItems.map((item, idx) => {
               if (item.type === 'empty') {
-                const isDayClosed = !dayBh.active;
                 const isPast =
                   selectedDate < currentLocalDate ||
                   (selectedDate === currentLocalDate && item.time < currentLocalTime);
-                const isOutsideHours =
-                  isDayClosed || item.time < dayBh.open || item.time >= dayBh.close;
 
                 if (isPast) {
                   return (
@@ -356,35 +357,6 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                       <span className="mobile-agenda__empty-slot-text">
                         <HugeiconsIcon icon={Clock01Icon} size={14} />
                         Horário já passou
-                      </span>
-                    </div>
-                  );
-                }
-
-                if (isOutsideHours) {
-                  let closedLabel = 'Barbearia fechada';
-                  if (isDayClosed) {
-                    closedLabel = 'Barbearia fechada hoje';
-                  } else if (item.time < dayBh.open) {
-                    closedLabel = `Barbearia fechada • Abre às ${dayBh.open}`;
-                  } else if (item.time >= dayBh.close) {
-                    closedLabel = `Barbearia fechada • Fecha às ${dayBh.close}`;
-                  }
-
-                  return (
-                    <div
-                      key={`empty-${item.time}-${idx}`}
-                      className="mobile-agenda__empty-slot mobile-agenda__empty-slot--closed"
-                      title={
-                        isDayClosed
-                          ? 'Barbearia fechada hoje'
-                          : `Barbearia fechada neste horário (atendimento das ${dayBh.open} às ${dayBh.close})`
-                      }
-                    >
-                      <span className="mobile-agenda__empty-slot-time">{item.time}</span>
-                      <span className="mobile-agenda__empty-slot-text">
-                        <HugeiconsIcon icon={UnavailableIcon} size={14} />
-                        {closedLabel}
                       </span>
                     </div>
                   );

@@ -4,6 +4,7 @@ import {
   ArrowRight01Icon 
 } from '@hugeicons/core-free-icons';
 import type { OnboardingLocation } from './types';
+import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../../lib/cep';
 
 interface StepLocationProps {
   data: OnboardingLocation;
@@ -19,62 +20,46 @@ export const StepLocation: React.FC<StepLocationProps> = ({
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
 
-  const formatCep = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8);
-    if (digits.length > 5) {
-      return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-    }
-    return digits;
-  };
-
-  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCep(e.target.value);
-    onChange({ cep: formatted });
-    setCepError(null);
-
-    const cleanCep = formatted.replace(/\D/g, '');
+  const performLookup = async (cepValue: string) => {
+    const cleanCep = cleanCepDigits(cepValue);
     if (cleanCep.length === 8) {
       setLoadingCep(true);
+      setCepError(null);
       try {
-        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-        const viaCepData = await res.json();
-
-        if (viaCepData.erro) {
+        const address = await fetchAddressByCep(cleanCep);
+        if (address) {
+          onChange({
+            street: address.street,
+            neighborhood: address.neighborhood,
+            city: address.city,
+            state: address.state,
+          });
+        } else {
           setCepError('CEP não encontrado. Digite o endereço manualmente abaixo.');
-          return;
-        }
-
-        const street = viaCepData.logradouro || '';
-        const neighborhood = viaCepData.bairro || '';
-        const city = viaCepData.localidade || '';
-        const state = viaCepData.uf || '';
-
-        onChange({
-          street,
-          neighborhood,
-          city,
-          state,
-        });
-
-        // Geocodificação aproximada via Nominatim
-        try {
-          const query = encodeURIComponent(`${street}, ${neighborhood}, ${city}, ${state}, Brasil`);
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`);
-          const geoData = await geoRes.json();
-          if (geoData && geoData.length > 0) {
-            onChange({
-              latitude: parseFloat(geoData[0].lat),
-              longitude: parseFloat(geoData[0].lon),
-            });
-          }
-        } catch {
-          // Geocodificação opcional
         }
       } catch {
         setCepError('Não foi possível buscar o CEP agora. Preencha os campos abaixo.');
       } finally {
         setLoadingCep(false);
       }
+    }
+  };
+
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCep(e.target.value);
+    onChange({ cep: formatted });
+    setCepError(null);
+
+    const cleanCep = cleanCepDigits(formatted);
+    if (cleanCep.length === 8) {
+      performLookup(cleanCep);
+    }
+  };
+
+  const handleCepBlur = () => {
+    const cleanCep = cleanCepDigits(data.cep);
+    if (cleanCep.length === 8 && !data.street) {
+      performLookup(cleanCep);
     }
   };
 
@@ -118,6 +103,7 @@ export const StepLocation: React.FC<StepLocationProps> = ({
               placeholder="00000-000"
               value={data.cep}
               onChange={handleCepChange}
+              onBlur={handleCepBlur}
               maxLength={9}
               autoFocus
             />

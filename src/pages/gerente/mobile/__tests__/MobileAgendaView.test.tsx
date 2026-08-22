@@ -86,4 +86,39 @@ describe('MobileAgendaView Component', () => {
       true
     );
   });
+
+  it('exibe apenas slots dentro do horário de funcionamento da barbearia', () => {
+    const props = {
+      ...defaultProps,
+      businessHours: {
+        quinta: { active: true, open: '09:00', close: '12:00' },
+      },
+      timeSlots: ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30'],
+      appointments: [],
+    };
+
+    render(<MobileAgendaView {...props} />);
+
+    // Não deve conter 08:00 nem 12:00
+    expect(screen.queryByText('08:00')).not.toBeInTheDocument();
+    expect(screen.queryByText('12:00')).not.toBeInTheDocument();
+
+    // Deve conter 09:00 e 11:30
+    expect(screen.getByText('09:00')).toBeInTheDocument();
+    expect(screen.getByText('11:30')).toBeInTheDocument();
+  });
+
+  it('exibe banner de barbearia fechada quando dia for inativo', () => {
+    const props = {
+      ...defaultProps,
+      businessHours: {
+        quinta: { active: false, open: '09:00', close: '18:00' },
+      },
+      appointments: [],
+    };
+
+    render(<MobileAgendaView {...props} />);
+
+    expect(screen.getByText('Barbearia fechada neste dia')).toBeInTheDocument();
+  });
 });

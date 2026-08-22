@@ -16,21 +16,28 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   useEffect(() => {
     if (isOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevDocOverflow = document.documentElement.style.overflow;
+      const prevTouchAction = document.body.style.touchAction;
+
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.touchAction = 'none';
+      document.documentElement.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.body.style.touchAction = prevTouchAction;
+        document.documentElement.style.overflow = prevDocOverflow;
+      };
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" onClick={onClose}>
       {/* Double-Bezel: outer shell */}
-      <div className="modal-shell">
+      <div className="modal-shell" onClick={(e) => e.stopPropagation()}>
         {/* Inner core */}
         <div className="modal-card">
           {/* Header */}
@@ -56,12 +63,17 @@ export const Modal: React.FC<ModalProps> = ({
         .modal-overlay {
           position: fixed;
           inset: 0;
+          width: 100vw;
+          height: 100vh;
+          height: 100dvh;
           background-color: rgba(20, 17, 15, 0.55);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 1000;
           padding: 1rem;
+          touch-action: none;
+          overscroll-behavior: contain;
           animation: fadeIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
@@ -80,6 +92,8 @@ export const Modal: React.FC<ModalProps> = ({
             0 8px 32px rgba(20, 17, 15, 0.25);
           animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
           box-sizing: border-box;
+          touch-action: pan-y;
+          overscroll-behavior: contain;
         }
 
         .modal-card {
@@ -93,6 +107,8 @@ export const Modal: React.FC<ModalProps> = ({
             inset 0 1px 1px rgba(255, 255, 255, 0.6),
             var(--shadow-lg);
           overflow: hidden;
+          touch-action: pan-y;
+          overscroll-behavior: contain;
         }
 
         .modal-header {
@@ -101,6 +117,8 @@ export const Modal: React.FC<ModalProps> = ({
           align-items: center;
           padding: 1.25rem 1.5rem 0.75rem;
           flex-shrink: 0;
+          user-select: none;
+          -webkit-user-select: none;
         }
 
         .modal-header__title {
@@ -144,7 +162,9 @@ export const Modal: React.FC<ModalProps> = ({
           flex-direction: column;
           gap: 1rem;
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
+          touch-action: pan-y;
           max-height: 100%;
         }
 
@@ -160,6 +180,7 @@ export const Modal: React.FC<ModalProps> = ({
             max-height: 88dvh;
             border-radius: 20px 20px 0 0;
             padding: 0;
+            margin: 0;
             background: transparent;
             box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
             animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -168,6 +189,7 @@ export const Modal: React.FC<ModalProps> = ({
           .modal-card {
             border-radius: 20px 20px 0 0;
             border-bottom: none;
+            max-height: 88dvh;
             padding-bottom: env(safe-area-inset-bottom, 1rem);
           }
 
