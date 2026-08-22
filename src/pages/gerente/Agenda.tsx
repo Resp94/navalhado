@@ -39,22 +39,29 @@ import {
   UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 import { MobileAgendaView } from './mobile/MobileAgendaView';
+import {
+  getProfessionalDaySchedule,
+  isProfessionalOnBreak,
+  isProfessionalWorkingAt,
+  getProfessionalBreakMessage,
+} from '../../lib/schedule';
+import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
+
+export {
+  getProfessionalDaySchedule,
+  isProfessionalOnBreak,
+  isProfessionalWorkingAt,
+  getProfessionalBreakMessage,
+};
+export type { ProfessionalDaySchedule, WeeklySchedule };
 
 // --- Interfaces de Domínio ---
-export interface ProfessionalDaySchedule {
-  active?: boolean;
-  start?: string;
-  end?: string;
-  break_start?: string;
-  break_end?: string;
-}
-
 export interface Professional {
   id: string;
   name: string;
   is_active: boolean;
   phone?: string;
-  weekly_schedule?: Record<string, ProfessionalDaySchedule | null> | null;
+  weekly_schedule?: WeeklySchedule | null;
 }
 
 export interface Service {
@@ -144,48 +151,6 @@ export const getDayBusinessHours = (
     ...defaultBh[key],
     dayLabel: key,
   };
-};
-
-const ENGLISH_DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const PT_DAY_KEYS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-
-export const getProfessionalDaySchedule = (
-  prof: Professional,
-  dateStr: string
-): ProfessionalDaySchedule | null => {
-  if (!prof.weekly_schedule) return null;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const dayIndex = dateObj.getDay();
-  const enKey = ENGLISH_DAY_KEYS[dayIndex];
-  const ptKey = PT_DAY_KEYS[dayIndex];
-  return prof.weekly_schedule[enKey] || prof.weekly_schedule[ptKey] || null;
-};
-
-export const isProfessionalOnBreak = (
-  prof: Professional,
-  dateStr: string,
-  timeSlot: string
-): boolean => {
-  const schedule = getProfessionalDaySchedule(prof, dateStr);
-  if (!schedule || schedule.active === false) return false;
-  if (!schedule.break_start || !schedule.break_end) return false;
-  return timeSlot >= schedule.break_start && timeSlot < schedule.break_end;
-};
-
-export const isProfessionalWorkingAt = (
-  prof: Professional,
-  dateStr: string,
-  timeSlot: string
-): boolean => {
-  if (!prof.is_active) return false;
-  const schedule = getProfessionalDaySchedule(prof, dateStr);
-  if (!schedule) return true;
-  if (schedule.active === false) return false;
-  if (schedule.start && timeSlot < schedule.start) return false;
-  if (schedule.end && timeSlot >= schedule.end) return false;
-  if (isProfessionalOnBreak(prof, dateStr, timeSlot)) return false;
-  return true;
 };
 
 // Configurações Padrão da Grade Temporal
@@ -419,13 +384,19 @@ export const Agenda: React.FC = () => {
     return slots;
   }, [selectedDate, tenant.businessHours, slotIntervalMinutes]);
 
-  // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga)
+  const currentService = useMemo(
+    () => services.find((s) => s.id === formServiceId),
+    [services, formServiceId]
+  );
+  const currentServiceDuration = currentService?.duration_minutes || slotIntervalMinutes;
+
+  // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
   const availableProfessionalsForFormTime = useMemo(() => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
-      return isProfessionalWorkingAt(p, selectedDate, formTime);
+      return isProfessionalWorkingAt(p, selectedDate, formTime, currentServiceDuration);
     });
-  }, [professionals, selectedDate, formTime]);
+  }, [professionals, selectedDate, formTime, currentServiceDuration]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
@@ -439,9 +410,13 @@ export const Agenda: React.FC = () => {
 
   // Sincronizar barbeiro selecionado caso o atual não esteja disponível no horário
   useEffect(() => {
-    if (isModalOpen && availableProfessionalsForFormTime.length > 0) {
-      if (!availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)) {
-        setFormProfessionalId(availableProfessionalsForFormTime[0].id);
+    if (isModalOpen) {
+      if (availableProfessionalsForFormTime.length > 0) {
+        if (!availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)) {
+          setFormProfessionalId(availableProfessionalsForFormTime[0].id);
+        }
+      } else {
+        setFormProfessionalId('');
       }
     }
   }, [isModalOpen, availableProfessionalsForFormTime, formProfessionalId]);
@@ -738,8 +713,7 @@ export const Agenda: React.FC = () => {
       if (profId) {
         const prof = professionals.find((p) => p.id === profId);
         if (prof && isProfessionalOnBreak(prof, dateToCheck, timeSlot)) {
-          const sched = getProfessionalDaySchedule(prof, dateToCheck);
-          addToast(`O profissional ${prof.name} está em horário de intervalo (${sched?.break_start || 'descanso'} às ${sched?.break_end || ''}).`, 'warning');
+          addToast(getProfessionalBreakMessage(prof, dateToCheck), 'warning');
           return;
         }
       }
@@ -894,15 +868,20 @@ export const Agenda: React.FC = () => {
 
       // Validação de intervalo e disponibilidade do barbeiro
       const selectedProf = professionals.find((p) => p.id === formProfessionalId);
-      if (selectedProf && isProfessionalOnBreak(selectedProf, selectedDate, formTime)) {
-        const sched = getProfessionalDaySchedule(selectedProf, selectedDate);
-        addToast(`O profissional ${selectedProf.name} está em horário de intervalo (${sched?.break_start || 'descanso'} às ${sched?.break_end || ''}).`, 'warning');
+      if (!selectedProf) {
+        addToast('Selecione um profissional disponível.', 'warning');
         setSavingAppointment(false);
         return;
       }
 
-      if (selectedProf && !isProfessionalWorkingAt(selectedProf, selectedDate, formTime)) {
-        addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
+      if (isProfessionalOnBreak(selectedProf, selectedDate, formTime, selectedService.duration_minutes)) {
+        addToast(getProfessionalBreakMessage(selectedProf, selectedDate), 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
+      if (!isProfessionalWorkingAt(selectedProf, selectedDate, formTime, selectedService.duration_minutes)) {
+        addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
         setSavingAppointment(false);
         return;
       }
@@ -1539,8 +1518,7 @@ export const Agenda: React.FC = () => {
                                 return;
                               }
                               if (isProfBreak) {
-                                const sched = getProfessionalDaySchedule(prof, selectedDate);
-                                addToast(`O profissional ${prof.name} está em horário de intervalo (${sched?.break_start || 'descanso'} às ${sched?.break_end || ''}).`, 'warning');
+                                addToast(getProfessionalBreakMessage(prof, selectedDate), 'warning');
                                 return;
                               }
                               if (isOutsideHours) {
@@ -1865,8 +1843,9 @@ export const Agenda: React.FC = () => {
                                 return;
                               }
                               if (isProfBreak) {
-                                const sched = weekProf ? getProfessionalDaySchedule(weekProf, day.dateStr) : null;
-                                addToast(`O profissional ${weekProf?.name || 'selecionado'} está em horário de intervalo (${sched?.break_start || 'descanso'} às ${sched?.break_end || ''}).`, 'warning');
+                                if (weekProf) {
+                                  addToast(getProfessionalBreakMessage(weekProf, day.dateStr), 'warning');
+                                }
                                 return;
                               }
                               if (isOutsideHours) {

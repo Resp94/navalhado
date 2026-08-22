@@ -19,13 +19,13 @@ import {
   formatTimeInZone,
   shiftCalendarDate,
 } from '../../../lib/timezone';
+import { getDayBusinessHours } from '../Agenda';
+import type { Appointment, Professional } from '../Agenda';
 import {
-  getDayBusinessHours,
   getProfessionalDaySchedule,
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
-} from '../Agenda';
-import type { Appointment, Professional } from '../Agenda';
+} from '../../../lib/schedule';
 import type { BlockedSlot } from '../../../modules/bloqueios/types';
 
 interface MobileAgendaViewProps {
@@ -369,7 +369,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
               </div>
             )}
 
-            {timelineItems.map((item, idx) => {
+            {timelineItems.map((item) => {
               if (item.type === 'break') {
                 const selectedProf = professionals.find((p) => p.id === selectedProfId);
                 const sched = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
@@ -379,7 +379,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
                 return (
                   <div
-                    key={`break-${item.time}-${idx}`}
+                    key={`break-${item.time}`}
                     className="mobile-agenda__empty-slot mobile-agenda__empty-slot--break"
                     title={`Horário de intervalo (${item.time})`}
                     aria-label={`Horário de intervalo às ${item.time}`}
@@ -401,7 +401,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 if (isPast) {
                   return (
                     <div
-                      key={`empty-${item.time}-${idx}`}
+                      key={`empty-past-${item.time}`}
                       className="mobile-agenda__empty-slot mobile-agenda__empty-slot--past"
                       role="button"
                       tabIndex={0}
@@ -436,7 +436,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
                 return (
                   <div
-                    key={`empty-${item.time}-${idx}`}
+                    key={`empty-avail-${item.time}`}
                     className="mobile-agenda__empty-slot mobile-agenda__empty-slot--available"
                     role="button"
                     tabIndex={0}
