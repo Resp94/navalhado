@@ -276,6 +276,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           justify-content: center;
           z-index: 1100;
           padding: 1rem;
+          box-sizing: border-box;
           animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
@@ -292,6 +293,10 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           gap: 1.25rem;
           font-family: var(--font-family-base);
           color: var(--color-text-primary);
+          box-sizing: border-box;
+          max-height: 90vh;
+          overflow-y: auto;
+          overflow-x: hidden;
         }
 
         .bloqueio-modal-header {
@@ -300,6 +305,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           justify-content: space-between;
           padding-bottom: 1rem;
           border-bottom: 1px solid var(--color-border);
+          box-sizing: border-box;
+          width: 100%;
         }
 
         .bloqueio-header-left {
@@ -359,18 +366,28 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           color: var(--color-error);
           font-size: var(--font-size-xs);
           font-weight: 600;
+          box-sizing: border-box;
+          width: 100%;
         }
 
         .bloqueio-modal-form {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
         }
 
         .bloqueio-form-group {
           display: flex;
           flex-direction: column;
           gap: 0.4rem;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
         }
 
         .bloqueio-label {
@@ -384,6 +401,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         .bloqueio-select,
         .bloqueio-input-date {
           width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
           padding: 0.65rem 0.85rem;
           font-size: var(--font-size-sm);
           font-weight: 600;
@@ -408,6 +428,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
+          box-sizing: border-box;
+          width: 100%;
+          max-width: 100%;
         }
 
         .bloqueio-checkbox {
@@ -415,6 +438,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           height: 16px;
           accent-color: var(--color-brand-primary);
           cursor: pointer;
+          flex-shrink: 0;
         }
 
         .bloqueio-checkbox-label {
@@ -428,6 +452,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           display: flex;
           gap: 0.75rem;
           width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
         }
 
         .bloqueio-time-row .bloqueio-form-group {
@@ -440,6 +467,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           display: flex;
           align-items: center;
           width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
         }
 
         .bloqueio-input-icon {
@@ -451,7 +481,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
         .bloqueio-input-time {
           width: 100%;
+          max-width: 100%;
           box-sizing: border-box;
+          min-width: 0;
           padding: 0.65rem 0.85rem 0.65rem 2.25rem;
           font-size: var(--font-size-sm);
           font-weight: 600;
@@ -473,6 +505,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           gap: 0.75rem;
           padding-top: 0.5rem;
           width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .bloqueio-btn-secondary {

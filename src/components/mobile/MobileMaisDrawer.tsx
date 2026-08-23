@@ -85,7 +85,14 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
 
   const handleNavigate = (path: string) => {
     onClose();
-    navigate(path);
+    if (path.startsWith('/agenda?action=')) {
+      const action = path.split('action=')[1].split('&')[0];
+      navigate(`/agenda?action=${action}&_t=${Date.now()}`, {
+        state: { action, timestamp: Date.now() },
+      });
+    } else {
+      navigate(path);
+    }
   };
 
   // Resumo dos horários

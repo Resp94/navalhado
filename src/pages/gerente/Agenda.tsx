@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useOutletContext, useLocation } from 'react-router-dom';
+import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
@@ -216,9 +216,17 @@ export const Agenda: React.FC = () => {
   const [cancelingAppointment, setCancelingAppointment] = useState(false);
 
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const clearActionUrl = useCallback(() => {
+    if (location.search && location.search.includes('action=')) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.search, location.pathname, navigate]);
 
   useEffect(() => {
     const locState = location.state as {
+      action?: string;
       openNewAppointment?: boolean;
       customerId?: string;
       customerName?: string;
@@ -226,7 +234,7 @@ export const Agenda: React.FC = () => {
     } | null;
 
     const searchParams = new URLSearchParams(location.search);
-    const action = searchParams.get('action');
+    const action = searchParams.get('action') || locState?.action;
 
     if (action === 'encaixe') {
       setFormIsFitting(true);
@@ -1080,6 +1088,7 @@ export const Agenda: React.FC = () => {
         'success'
       );
       setIsModalOpen(false);
+      clearActionUrl();
       fetchAppointments();
     } catch (err: unknown) {
       console.error('Erro ao salvar agendamento:', err);
@@ -2078,7 +2087,10 @@ export const Agenda: React.FC = () => {
       {/* 3. MODAL DE NOVO AGENDAMENTO / ENCAIXE */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          clearActionUrl();
+        }}
         title={formIsFitting ? 'Novo encaixe rápido' : 'Novo agendamento'}
       >
         <form onSubmit={handleSaveAppointment} className="modal-agenda-form">
@@ -2283,7 +2295,10 @@ export const Agenda: React.FC = () => {
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                clearActionUrl();
+              }}
               disabled={savingAppointment}
             >
               Cancelar
@@ -2343,8 +2358,13 @@ export const Agenda: React.FC = () => {
         defaultDateIso={selectedDate}
         defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
         timezone={tenant.timezone}
-        onClose={() => setIsBloqueioModalOpen(false)}
+        onClose={() => {
+          setIsBloqueioModalOpen(false);
+          clearActionUrl();
+        }}
         onBloqueioCriado={(_blk) => {
+          setIsBloqueioModalOpen(false);
+          clearActionUrl();
           addToast('Bloqueio criado com sucesso!', 'success');
           fetchBlockedSlots();
         }}
@@ -2405,7 +2425,10 @@ export const Agenda: React.FC = () => {
         currentDateIso={selectedDate}
         professionals={professionals}
         services={services}
-        onClose={() => setIsEsperaDrawerOpen(false)}
+        onClose={() => {
+          setIsEsperaDrawerOpen(false);
+          clearActionUrl();
+        }}
         onEncaixar={handleEncaixarFromWaitingList}
         esperaRepo={esperaRepository}
       />
