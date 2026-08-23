@@ -86,6 +86,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     },
   ];
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-08-16T12:00:00.000Z')); // 09:00 em SP
