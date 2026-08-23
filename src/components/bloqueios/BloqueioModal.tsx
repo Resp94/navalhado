@@ -4,7 +4,6 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
-  CheckmarkSquare02Icon,
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';

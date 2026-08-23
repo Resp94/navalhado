@@ -13,7 +13,6 @@ import {
   Edit01Icon,
   WhatsappIcon,
   PlusSignIcon,
-  CheckmarkCircle02Icon,
   Cancel01Icon,
   ArrowUp01Icon,
   ArrowDown01Icon,
@@ -518,10 +517,28 @@ export const Servicos: React.FC = () => {
                     <input type="number" value={returnPeriodDays} onChange={(e) => setReturnPeriodDays(e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label>Mensagem de lembrete</label>
+                    <div className="template-label-row">
+                      <label>Mensagem de lembrete</label>
+                      <div className="tag-chips-wrapper">
+                        {['{cliente}', '{servico}', '{dias}', '{link}'].map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => insertTagIntoTemplate(tag)}
+                            className="btn-tag-chip"
+                          >
+                            + {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <textarea rows={3} value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
                   </div>
                   <div className="whatsapp-preview-card">
+                    <div className="whatsapp-preview-header">
+                      <HugeiconsIcon icon={WhatsappIcon} size={14} />
+                      <span>Prévia no WhatsApp</span>
+                    </div>
                     <p className="whatsapp-preview-text">{previewMessage}</p>
                   </div>
                 </div>
@@ -1065,12 +1082,57 @@ export const Servicos: React.FC = () => {
           gap: 0.85rem;
         }
 
+        .template-label-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .tag-chips-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          flex-wrap: wrap;
+        }
+
+        .btn-tag-chip {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-brand-primary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-tag-chip:hover {
+          background: var(--color-brand-primary);
+          color: #ffffff;
+          border-color: var(--color-brand-primary);
+        }
+
         .whatsapp-preview-card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           padding: 0.875rem 1rem;
           font-size: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .whatsapp-preview-header {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 11px;
+          font-weight: 700;
+          color: #25D366;
         }
 
         .whatsapp-preview-text {
