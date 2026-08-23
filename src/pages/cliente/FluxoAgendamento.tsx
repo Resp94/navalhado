@@ -25,7 +25,7 @@ import { getDayBusinessHours } from '../gerente/Agenda';
 export const FluxoAgendamento: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { token: routeToken } = useParams();
+  const { token: routeToken, slug: routeSlug } = useParams();
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
 
@@ -53,13 +53,20 @@ export const FluxoAgendamento: React.FC = () => {
 
   // Estados de Abas de Categoria (Etapa 1)
   const [categories, setCategories] = useState<string[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('');
+  const [activeCategory, setActiveCategory] = useState<string>('Todos');
+
+  const filteredServices = useMemo(() => {
+    if (!activeCategory || activeCategory === 'Todos') {
+      return services;
+    }
+    return services.filter((s) => s.category === activeCategory);
+  }, [services, activeCategory]);
 
   // Modal de Confirmação
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
   const [savingRegistration, setSavingRegistration] = useState(false);
-  const [canonicalToken] = useState<string | null>(() =>
+  const [canonicalToken, setCanonicalToken] = useState<string | null>(() =>
     routeToken || searchParams.get('token') || localStorage.getItem('navalhado_customer_token')
   );
 
@@ -69,7 +76,7 @@ export const FluxoAgendamento: React.FC = () => {
     const { servicos, categorias } = await canalClienteRepository.obterCatalogoServicos(token);
     setServices(servicos);
     setCategories(categorias);
-    if (categorias.length > 0) setActiveCategory(categorias[0]);
+    setActiveCategory('Todos'); // 'Todos' é o padrão inicial
 
     const profs = await canalClienteRepository.obterProfissionais(token);
     setProfessionals(profs);
@@ -97,18 +104,44 @@ export const FluxoAgendamento: React.FC = () => {
     }
   }, [location.state, canalClienteRepository]);
 
-  // Carregar dados iniciais e tratar reagendamento
+  // Carregar dados iniciais e tratar reagendamento ou acesso por slug
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const token = canonicalToken;
-        if (!token) {
+        let token = canonicalToken;
+        let activeDetails: PerfilClienteCanal | null = null;
+        const tenantParam = searchParams.get('tenant');
+
+        if (routeSlug || tenantParam) {
+          const targetSlug = routeSlug || tenantParam;
+          try {
+            const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!);
+            token = initRes.token;
+            activeDetails = initRes.perfil;
+            setCanonicalToken(token);
+          } catch (slugErr) {
+            console.error('Erro ao resolver link por slug:', slugErr);
+            if (token) {
+              activeDetails = await canalClienteRepository.obterPerfil(token);
+            } else {
+              addToast('Estabelecimento não encontrado.', 'error');
+              navigate('/cliente/acesso-expirado');
+              return;
+            }
+          }
+        } else if (token) {
+          activeDetails = await canalClienteRepository.obterPerfil(token);
+        } else {
           addToast('Acesso não autorizado. Redirecionando...', 'error');
           navigate('/cliente/acesso-expirado');
           return;
         }
 
-        const activeDetails = await canalClienteRepository.obterPerfil(token);
+        if (!activeDetails) {
+          navigate('/cliente/acesso-expirado');
+          return;
+        }
+
         setCustomerDetails(activeDetails);
 
         const tz = activeDetails.tenant_timezone || 'America/Sao_Paulo';
@@ -133,7 +166,9 @@ export const FluxoAgendamento: React.FC = () => {
 
         if (!activeDetails.cadastro_completo) return;
 
-        await loadCatalog(token);
+        if (token) {
+          await loadCatalog(token);
+        }
       } catch (err) {
         console.error('Erro ao carregar dados do fluxo:', err);
         navigate('/cliente/acesso-expirado');
@@ -143,7 +178,7 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     loadInitialData();
-  }, [canonicalToken, navigate, addToast, loadCatalog, canalClienteRepository]);
+  }, [routeSlug, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository]);
 
   const handleCompleteRegistration = async (name: string) => {
     if (!canonicalToken) return;
@@ -332,8 +367,6 @@ export const FluxoAgendamento: React.FC = () => {
     );
   }
 
-  const filteredServices = services.filter(s => s.category === activeCategory);
-
   return (
     <div style={{
       minHeight: '100dvh',
@@ -511,6 +544,32 @@ export const FluxoAgendamento: React.FC = () => {
         </div>
       )}
 
+      {/* Banner de Reagendamento Ativo */}
+      {isRescheduling && (
+        <div style={{
+          maxWidth: '600px',
+          margin: '1rem auto 0',
+          padding: '0 1.25rem'
+        }}>
+          <div style={{
+            padding: '0.75rem 1rem',
+            backgroundColor: 'rgba(217, 108, 0, 0.08)',
+            border: '1px solid rgba(217, 108, 0, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '13px',
+            color: 'var(--color-text-primary)'
+          }}>
+            <HugeiconsIcon icon={InformationCircleIcon} size={18} style={{ color: 'var(--color-brand-primary)', flexShrink: 0 }} />
+            <div>
+              <strong>Reagendamento:</strong> Selecione a nova data e horário desejados abaixo.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Conteúdo do Fluxo */}
       <main style={{
         maxWidth: '600px',
@@ -525,7 +584,7 @@ export const FluxoAgendamento: React.FC = () => {
             </h2>
 
             {/* Abas Horizontais de Categoria (Glassmorphic Tray) */}
-            {categories.length > 1 && (
+            {services.length > 0 && (
               <div style={{
                 display: 'flex',
                 gap: '0.5rem',
@@ -534,6 +593,26 @@ export const FluxoAgendamento: React.FC = () => {
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none'
               }} className="categories-scroll">
+                {/* Botão "Todos" como primeira opção */}
+                <button
+                  key="Todos"
+                  onClick={() => setActiveCategory('Todos')}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '9999px',
+                    border: '1px solid',
+                    borderColor: activeCategory === 'Todos' ? 'var(--color-brand-primary)' : 'var(--color-border)',
+                    backgroundColor: activeCategory === 'Todos' ? 'var(--color-brand-primary)' : 'var(--color-bg-secondary)',
+                    color: activeCategory === 'Todos' ? '#FFFFFF' : 'var(--color-text-secondary)',
+                    fontWeight: activeCategory === 'Todos' ? 700 : 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: activeCategory === 'Todos' ? '0 4px 10px rgba(217, 108, 0, 0.15)' : 'none'
+                  }}
+                >
+                  Todos
+                </button>
                 {categories.map((cat) => {
                   const isActive = activeCategory === cat;
                   return (

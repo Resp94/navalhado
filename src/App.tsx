@@ -94,6 +94,10 @@ function App() {
           <Route path="/cliente/:token" element={<MenuCliente />} />
           <Route path="/cliente/:token/agendar" element={<FluxoAgendamento />} />
 
+          {/* Rotas Curtas do Canal do Cliente (ex: /brooklyn ou /brooklyn/agendar) */}
+          <Route path="/:slug" element={<FluxoAgendamento />} />
+          <Route path="/:slug/agendar" element={<FluxoAgendamento />} />
+
           {/* Rota Fallback para erros / 404 */}
           <Route path="*" element={<Login />} />
         </Routes>

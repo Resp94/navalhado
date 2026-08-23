@@ -70,6 +70,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_id: row.tenant_id,
       tenant_name: row.tenant_name,
       tenant_phone: row.tenant_phone,
+      tenant_slug: row.tenant_slug,
       cadastro_completo: Boolean(row.cadastro_completo),
       min_cancellation_lead_time_minutes: row.min_cancellation_lead_time_minutes ? Number(row.min_cancellation_lead_time_minutes) : undefined,
       min_booking_lead_time_minutes: row.min_booking_lead_time_minutes ? Number(row.min_booking_lead_time_minutes) : undefined,
@@ -77,6 +78,47 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
       business_hours: row.business_hours || undefined,
     };
+  }
+
+  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+    const { data, error } = await supabase.rpc('get_or_create_provisional_customer_by_slug', {
+      p_slug: slug,
+    });
+
+    if (error) {
+      throw new CanalClienteTokenError(error.message);
+    }
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      throw new CanalClienteTokenError('Estabelecimento não encontrado.');
+    }
+
+    const row = data[0];
+    const token = row.token_acesso;
+    this.definirToken(token);
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (row.tenant_name) localStorage.setItem('navalhado_tenant_name', row.tenant_name);
+      if (row.tenant_phone) localStorage.setItem('navalhado_tenant_phone', row.tenant_phone);
+    }
+
+    const perfil: PerfilClienteCanal = {
+      customer_id: row.customer_id,
+      customer_name: row.customer_name,
+      customer_phone: row.customer_phone || row.phone,
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone,
+      tenant_slug: row.tenant_slug,
+      cadastro_completo: Boolean(row.cadastro_completo),
+      min_cancellation_lead_time_minutes: row.min_cancellation_lead_time_minutes ? Number(row.min_cancellation_lead_time_minutes) : undefined,
+      min_booking_lead_time_minutes: row.min_booking_lead_time_minutes ? Number(row.min_booking_lead_time_minutes) : undefined,
+      slot_interval_minutes: row.slot_interval_minutes ? Number(row.slot_interval_minutes) : undefined,
+      tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
+    };
+
+    return { token, perfil };
   }
 
   async listarServicosPorToken(token: string): Promise<ServicoCanal[]> {

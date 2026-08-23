@@ -62,12 +62,19 @@ describe('CanalClienteRepository', () => {
     expect(perfil.tenant_name).toBe('Barbearia Navalhado');
   });
 
-  it('deve agrupar serviços por categoria corretamente', async () => {
+  it('deve agrupar serviços por categoria respeitando a ordem de aparição estratégica', async () => {
     repository.definirTokenAcesso(validToken);
     const { servicos, categorias } = await repository.obterCatalogoServicos();
 
     expect(servicos).toHaveLength(2);
-    expect(categorias).toEqual(['Barba', 'Cabelo']);
+    expect(categorias).toEqual(['Cabelo', 'Barba']);
+  });
+
+  it('deve inicializar cliente e perfil a partir do slug do estabelecimento', async () => {
+    const res = await repository.inicializarPorSlug('brooklyn');
+    expect(res.token).toBe('token_brooklyn');
+    expect(res.perfil.tenant_slug).toBe('brooklyn');
+    expect(repository.obterTokenAcesso()).toBe('token_brooklyn');
   });
 
   it('deve consultar horários disponíveis com parâmetros válidos', async () => {

@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
+  CheckmarkSquare02Icon,
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
 import { localDateTimeToIso } from '../../lib/timezone';
+import {
+  addMinutesToTime,
+  generateTimeSlotsForSchedule,
+  getDayBusinessHours,
+  getProfessionalDaySchedule,
+  type WeeklySchedule,
+} from '../../lib/schedule';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 
-interface ProfessionalOption {
+export interface ProfessionalOption {
   id: string;
   name: string;
+  is_active?: boolean;
+  weekly_schedule?: WeeklySchedule | null;
 }
 
 interface BloqueioModalProps {
@@ -21,8 +31,9 @@ interface BloqueioModalProps {
   professionals: ProfessionalOption[];
   defaultDateIso?: string; // YYYY-MM-DD
   defaultProfessionalId?: string;
-  defaultStartTime?: string; // HH:mm
   timezone?: string;
+  businessHours?: Record<string, { active: boolean; open: string; close: string }>;
+  slotIntervalMinutes?: number;
   onClose: () => void;
   onBloqueioCriado: (bloqueio: BlockedSlot) => void;
   bloqueioRepo?: BloqueioRepository;
@@ -34,8 +45,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   professionals,
   defaultDateIso,
   defaultProfessionalId,
-  defaultStartTime = '12:00',
   timezone = 'America/Sao_Paulo',
+  businessHours,
+  slotIntervalMinutes,
   onClose,
   onBloqueioCriado,
   bloqueioRepo,
@@ -47,12 +59,59 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     defaultProfessionalId || professionals[0]?.id || ''
   );
   const [date, setDate] = useState<string>(todayStr);
-  const [startTime, setStartTime] = useState<string>(defaultStartTime);
-  const [endTime, setEndTime] = useState<string>('13:00');
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [reason, setReason] = useState<string>('Almoço');
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const stepMinutes = slotIntervalMinutes && slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
+
+  // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro (omitindo o horário de almoço/intervalo)
+  const availableSlots = useMemo(() => {
+    if (!date || !selectedProfId) return [];
+
+    const dayBh = getDayBusinessHours(date, businessHours);
+    if (!dayBh.active) return [];
+
+    const selectedProf = professionals.find((p) => p.id === selectedProfId);
+    const profSched = selectedProf ? getProfessionalDaySchedule(selectedProf as any, date) : null;
+
+    if (profSched) {
+      if (profSched.active === false) {
+        return []; // Barbeiro de folga nesta data
+      }
+      if (profSched.start && profSched.end) {
+        return generateTimeSlotsForSchedule(
+          profSched.start,
+          profSched.end,
+          stepMinutes,
+          profSched.break_start,
+          profSched.break_end
+        );
+      }
+    }
+
+    return generateTimeSlotsForSchedule(
+      dayBh.open || '08:00',
+      dayBh.close || '19:00',
+      stepMinutes
+    );
+  }, [date, selectedProfId, businessHours, professionals, stepMinutes]);
+
+  const handleToggleSlot = (slot: string) => {
+    setSelectedSlots((prev) =>
+      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot].sort((a, b) => a.localeCompare(b))
+    );
+  };
+
+  const handleSelectAllSlots = () => {
+    setSelectedSlots([...availableSlots]);
+  };
+
+  const handleClearSlots = () => {
+    setSelectedSlots([]);
+  };
 
   if (!isOpen) return null;
 
@@ -65,34 +124,64 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
       return;
     }
 
-    let startIso: string;
-    let endIso: string;
-
-    if (isAllDay) {
-      startIso = localDateTimeToIso(date, '00:00', timezone);
-      endIso = localDateTimeToIso(date, '23:59', timezone);
-    } else {
-      startIso = localDateTimeToIso(date, startTime, timezone);
-      endIso = localDateTimeToIso(date, endTime, timezone);
-    }
-
-    if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
-      setErrorMsg('O horário de término deve ser posterior ao horário de início.');
+    if (!isAllDay && selectedSlots.length === 0) {
+      setErrorMsg('Selecione pelo menos um horário da grade para bloquear.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const bloqueio = await repo.createBlock({
-        tenant_id: tenantId,
-        professional_id: selectedProfId,
-        start_time: startIso,
-        end_time: endIso,
-        reason: reason.trim() || 'Bloqueio de Horário',
-        is_all_day: isAllDay,
-      });
+      if (isAllDay) {
+        const startIso = localDateTimeToIso(date, '00:00', timezone);
+        const endIso = localDateTimeToIso(date, '23:59', timezone);
 
-      onBloqueioCriado(bloqueio);
+        const bloqueio = await repo.createBlock({
+          tenant_id: tenantId,
+          professional_id: selectedProfId,
+          start_time: startIso,
+          end_time: endIso,
+          reason: reason.trim() || 'Bloqueio de Horário',
+          is_all_day: true,
+        });
+
+        onBloqueioCriado(bloqueio);
+      } else {
+        const sortedSlots = [...selectedSlots].sort((a, b) => a.localeCompare(b));
+        const intervals: Array<{ start: string; end: string }> = [];
+        let currentStart = sortedSlots[0];
+        let currentEnd = addMinutesToTime(currentStart, stepMinutes);
+
+        for (let i = 1; i < sortedSlots.length; i++) {
+          const slot = sortedSlots[i];
+          if (slot === currentEnd) {
+            currentEnd = addMinutesToTime(slot, stepMinutes);
+          } else {
+            intervals.push({ start: currentStart, end: currentEnd });
+            currentStart = slot;
+            currentEnd = addMinutesToTime(slot, stepMinutes);
+          }
+        }
+        intervals.push({ start: currentStart, end: currentEnd });
+
+        let lastCreated: BlockedSlot | null = null;
+        for (const intv of intervals) {
+          const startIso = localDateTimeToIso(date, intv.start, timezone);
+          const endIso = localDateTimeToIso(date, intv.end, timezone);
+          lastCreated = await repo.createBlock({
+            tenant_id: tenantId,
+            professional_id: selectedProfId,
+            start_time: startIso,
+            end_time: endIso,
+            reason: reason.trim() || 'Bloqueio de Horário',
+            is_all_day: false,
+          });
+        }
+
+        if (lastCreated) {
+          onBloqueioCriado(lastCreated);
+        }
+      }
+
       onClose();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Erro ao criar bloqueio de horário.');
@@ -119,7 +208,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
                 Bloquear horário do barbeiro
               </h3>
               <p className="bloqueio-modal-subtitle">
-                Pausar agenda para almoço, folga ou compromisso pessoal
+                Selecione os horários da grade para pausar a agenda
               </p>
             </div>
           </div>
@@ -146,7 +235,10 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </label>
             <select
               value={selectedProfId}
-              onChange={(e) => setSelectedProfId(e.target.value)}
+              onChange={(e) => {
+                setSelectedProfId(e.target.value);
+                setSelectedSlots([]);
+              }}
               className="bloqueio-select"
               required
             >
@@ -184,7 +276,10 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setSelectedSlots([]);
+              }}
               className="bloqueio-input-date"
               required
             />
@@ -204,37 +299,63 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           </div>
 
           {!isAllDay && (
-            <div className="bloqueio-time-row">
-              <div className="bloqueio-form-group">
+            <div className="bloqueio-slots-section">
+              <div className="bloqueio-slots-header">
                 <label className="bloqueio-label">
-                  Horário de início
+                  Horários para bloqueio * ({selectedSlots.length} selecionado{selectedSlots.length === 1 ? '' : 's'})
                 </label>
-                <div className="bloqueio-input-icon-wrapper">
-                  <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="bloqueio-input-time"
-                    required
-                  />
-                </div>
+                {availableSlots.length > 0 && (
+                  <div className="bloqueio-slots-actions">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSlots}
+                      className="btn-slot-quick-action"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearSlots}
+                      className="btn-slot-quick-action"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="bloqueio-form-group">
-                <label className="bloqueio-label">
-                  Horário de término
-                </label>
-                <div className="bloqueio-input-icon-wrapper">
-                  <HugeiconsIcon icon={Clock01Icon} size={16} className="bloqueio-input-icon" />
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="bloqueio-input-time"
-                    required
-                  />
+
+              {availableSlots.length === 0 ? (
+                <div className="bloqueio-no-slots">
+                  <HugeiconsIcon icon={Clock01Icon} size={18} />
+                  <span>Nenhum horário disponível para esta data (barbeiro de folga ou barbearia fechada).</span>
                 </div>
-              </div>
+              ) : (
+                <div className="bloqueio-slots-grid">
+                  {availableSlots.map((slot) => {
+                    const endSlot = addMinutesToTime(slot, stepMinutes);
+                    const isChecked = selectedSlots.includes(slot);
+
+                    return (
+                      <label
+                        key={slot}
+                        className={`bloqueio-slot-card ${
+                          isChecked ? 'bloqueio-slot-card--selected' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleSlot(slot)}
+                          className="bloqueio-slot-checkbox"
+                        />
+                        <span className="bloqueio-slot-time font-mono">
+                          {slot} - {endSlot}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -248,7 +369,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!isAllDay && availableSlots.length === 0)}
               className="bloqueio-btn-danger"
             >
               {isSubmitting ? (
@@ -282,7 +403,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
         .bloqueio-modal-shell {
           width: 100%;
-          max-width: 480px;
+          max-width: 520px;
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-xl);
@@ -448,55 +569,99 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           cursor: pointer;
         }
 
-        .bloqueio-time-row {
+        .bloqueio-slots-section {
           display: flex;
-          gap: 0.75rem;
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-        }
-
-        .bloqueio-time-row .bloqueio-form-group {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .bloqueio-input-icon-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-        }
-
-        .bloqueio-input-icon {
-          position: absolute;
-          left: 0.75rem;
-          color: var(--color-text-secondary);
-          pointer-events: none;
-        }
-
-        .bloqueio-input-time {
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-          padding: 0.65rem 0.85rem 0.65rem 2.25rem;
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          background-color: var(--color-bg-primary);
+          flex-direction: column;
+          gap: 0.5rem;
+          background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          outline: none;
-          transition: all 0.2s ease;
+          padding: 0.85rem;
         }
 
-        .bloqueio-input-time:focus {
+        .bloqueio-slots-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .bloqueio-slots-actions {
+          display: flex;
+          gap: 0.35rem;
+        }
+
+        .btn-slot-quick-action {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-slot-quick-action:hover {
+          background: var(--color-brand-primary);
+          color: #ffffff;
           border-color: var(--color-brand-primary);
+        }
+
+        .bloqueio-no-slots {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: rgba(217, 108, 0, 0.08);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          border-radius: var(--radius-sm);
+          color: var(--color-text-secondary);
+          font-size: 12px;
+        }
+
+        .bloqueio-slots-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 0.5rem;
+          max-height: 220px;
+          overflow-y: auto;
+          padding: 2px;
+        }
+
+        .bloqueio-slot-card {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.45rem 0.6rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .bloqueio-slot-card:hover {
+          border-color: rgba(217, 108, 0, 0.4);
+        }
+
+        .bloqueio-slot-card--selected {
+          background: rgba(217, 72, 72, 0.12);
+          border-color: var(--color-error);
+        }
+
+        .bloqueio-slot-checkbox {
+          width: 15px;
+          height: 15px;
+          accent-color: var(--color-error);
+          cursor: pointer;
+        }
+
+        .bloqueio-slot-time {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--color-text-primary);
         }
 
         .bloqueio-actions-footer {

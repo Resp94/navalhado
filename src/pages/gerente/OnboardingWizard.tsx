@@ -313,7 +313,7 @@ export const OnboardingWizard: React.FC = () => {
                     name: 'Corte Tradicional',
                     price: initialPrice,
                     durationMinutes: 30,
-                    category: 'cabelo',
+                    category: 'Cabelo',
                   },
                 ]);
               }

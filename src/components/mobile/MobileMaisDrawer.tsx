@@ -23,6 +23,7 @@ interface MobileMaisDrawerProps {
   onClose: () => void;
   tenantId: string;
   tenantName: string;
+  tenantSlug?: string;
   managerName: string;
   businessHours?: Record<string, { active: boolean; open: string; close: string }>;
   onLogout: () => void;
@@ -33,6 +34,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
   onClose,
   tenantId,
   tenantName,
+  tenantSlug,
   managerName,
   businessHours,
   onLogout,
@@ -75,7 +77,9 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
 
   const handleCopyPublicLink = async () => {
     try {
-      const publicUrl = `${window.location.origin}/cliente/agendar?tenant=${tenantId}`;
+      const publicUrl = tenantSlug
+        ? `${window.location.origin}/${tenantSlug}`
+        : `${window.location.origin}/cliente/agendar?tenant=${tenantId}`;
       await navigator.clipboard.writeText(publicUrl);
       addToast('Link de agendamento copiado com sucesso.', 'success');
     } catch {

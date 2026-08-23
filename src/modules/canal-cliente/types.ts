@@ -5,6 +5,7 @@ export interface PerfilClienteCanal {
   tenant_id: string;
   tenant_name: string;
   tenant_phone: string;
+  tenant_slug?: string;
   cadastro_completo: boolean;
   min_cancellation_lead_time_minutes?: number;
   min_booking_lead_time_minutes?: number;
@@ -21,6 +22,7 @@ export interface ServicoCanal {
   duration_minutes: number;
   category: string;
   is_active: boolean;
+  display_order?: number;
 }
 
 export interface ProfissionalCanal {
@@ -80,6 +82,7 @@ export interface ICanalClienteAdapter {
   definirToken(token: string): void;
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
+  inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;
   buscarHorariosDisponiveisPorToken(
@@ -106,5 +109,4 @@ export interface ICanalClienteAdapter {
     token: string,
     input: InputPromoverCadastroCliente
   ): Promise<PerfilClienteCanal | void>;
-
 }

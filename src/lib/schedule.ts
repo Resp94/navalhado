@@ -190,3 +190,37 @@ export const generateTimeSlotsForSchedule = (
   return slots;
 };
 
+/**
+ * Obtém o horário de funcionamento da barbearia para determinada data
+ */
+export const getDayBusinessHours = (
+  dateStr: string,
+  businessHours?: Record<string, { active: boolean; open: string; close: string }>
+) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayIndex = dateObj.getDay();
+  const key = PT_DAY_KEYS[dayIndex];
+
+  const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
+    segunda: { active: true, open: '09:00', close: '18:00' },
+    terca: { active: true, open: '09:00', close: '18:00' },
+    quarta: { active: true, open: '09:00', close: '18:00' },
+    quinta: { active: true, open: '09:00', close: '18:00' },
+    sexta: { active: true, open: '09:00', close: '18:00' },
+    sabado: { active: true, open: '09:00', close: '15:00' },
+    domingo: { active: false, open: '09:00', close: '12:00' },
+  };
+
+  return businessHours?.[key] || defaultBh[key] || { active: true, open: '09:00', close: '18:00' };
+};
+
+/**
+ * Normaliza o nome da categoria de um serviço (TitleCase, sem espaços extras)
+ * Ex: 'cabelo', 'Cabelo', 'CABELO', 'cabelo ' -> 'Cabelo'
+ */
+export const normalizeCategoryName = (category?: string | null): string => {
+  if (!category || !category.trim()) return 'Outro';
+  const trimmed = category.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+};

@@ -21,10 +21,10 @@ interface StepServicesProps {
 }
 
 const TEMPLATE_SERVICES = [
-  { name: 'Corte Tradicional', priceRatio: 1.0, durationMinutes: 30, category: 'cabelo' },
-  { name: 'Barba', priceRatio: 0.75, durationMinutes: 30, category: 'barba' },
-  { name: 'Corte e Barba', priceRatio: 1.6, durationMinutes: 45, category: 'combo' },
-  { name: 'Pezinho e Acabamento', priceRatio: 0.4, durationMinutes: 15, category: 'cabelo' },
+  { name: 'Corte Tradicional', priceRatio: 1.0, durationMinutes: 30, category: 'Cabelo' },
+  { name: 'Barba', priceRatio: 0.75, durationMinutes: 30, category: 'Barba' },
+  { name: 'Corte e Barba', priceRatio: 1.6, durationMinutes: 45, category: 'Combo' },
+  { name: 'Pezinho e Acabamento', priceRatio: 0.4, durationMinutes: 15, category: 'Cabelo' },
 ];
 
 const DURATION_OPTIONS = [
@@ -42,7 +42,7 @@ export const StepServices: React.FC<StepServicesProps> = ({
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customDuration, setCustomDuration] = useState('30');
-  const [customCategory, setCustomCategory] = useState('cabelo');
+  const [customCategory, setCustomCategory] = useState('Cabelo');
   const [showCustomForm, setShowCustomForm] = useState(false);
 
   const effectiveBasePrice = baseCutPrice > 0 ? baseCutPrice : 35;

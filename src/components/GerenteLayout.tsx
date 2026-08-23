@@ -9,6 +9,7 @@ import { useToast } from './Toast';
 export interface TenantContextType {
   tenantId: string;
   tenantName: string;
+  slug?: string;
   logoUrl: string | null;
   timezone: string;
   onboardingCompleted?: boolean;
@@ -83,7 +84,7 @@ export const GerenteLayout: React.FC = () => {
       if (profile.tenant_id) {
         const { data: tenant, error: tenantError } = await supabase
           .from('tenants')
-          .select('id, name, logo_url, timezone, onboarding_completed, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
+          .select('id, name, slug, logo_url, timezone, onboarding_completed, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
           .eq('id', profile.tenant_id)
           .single();
 
@@ -106,6 +107,7 @@ export const GerenteLayout: React.FC = () => {
         setTenantInfo({
           tenantId: tenant.id,
           tenantName: tenant.name,
+          slug: tenant.slug || undefined,
           logoUrl: tenant.logo_url,
           timezone: tenant.timezone || 'America/Sao_Paulo',
           onboardingCompleted: isOnboardingCompleted,
@@ -305,6 +307,7 @@ export const GerenteLayout: React.FC = () => {
           onClose={() => setIsMaisOpen(false)}
           tenantId={tenantInfo.tenantId}
           tenantName={tenantInfo.tenantName}
+          tenantSlug={tenantInfo.slug}
           managerName={managerName}
           businessHours={tenantInfo.businessHours}
           onLogout={handleLogout}

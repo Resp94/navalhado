@@ -38,7 +38,7 @@ describe('BloqueioModal', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('cria bloqueio de horário com sucesso', async () => {
+  it('cria bloqueio de horário com sucesso selecionando horários da grade', async () => {
     const fakeBloqueio = {
       id: 'blk-1',
       tenant_id: 't-1',
@@ -55,8 +55,9 @@ describe('BloqueioModal', () => {
         isOpen={true}
         tenantId="t-1"
         professionals={professionals}
-        defaultDateIso="2026-08-16"
+        defaultDateIso="2026-08-17"
         defaultProfessionalId="prof-1"
+        slotIntervalMinutes={30}
         onClose={mockOnClose}
         onBloqueioCriado={mockOnBloqueioCriado}
         bloqueioRepo={mockRepo}
@@ -64,6 +65,10 @@ describe('BloqueioModal', () => {
     );
 
     expect(screen.getByText(/Bloquear horário/i)).toBeInTheDocument();
+
+    // Clicar no botão 'Todos' para selecionar todos os slots da grade
+    const selectAllBtn = screen.getByRole('button', { name: /Todos/i });
+    fireEvent.click(selectAllBtn);
 
     const submitBtn = screen.getByRole('button', { name: /Confirmar bloqueio/i });
     fireEvent.click(submitBtn);
@@ -74,10 +79,53 @@ describe('BloqueioModal', () => {
           tenant_id: 't-1',
           professional_id: 'prof-1',
           reason: 'Almoço',
+          is_all_day: false,
         })
       );
-      expect(mockOnBloqueioCriado).toHaveBeenCalledWith(fakeBloqueio);
+      expect(mockOnBloqueioCriado).toHaveBeenCalled();
       expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
+  it('cria bloqueio de dia inteiro quando selecionado', async () => {
+    const fakeBloqueio = {
+      id: 'blk-all-day',
+      tenant_id: 't-1',
+      professional_id: 'prof-1',
+      start_time: '2026-08-17T03:00:00.000Z',
+      end_time: '2026-08-18T02:59:00.000Z',
+      reason: 'Folga do dia',
+      is_all_day: true,
+    };
+    vi.mocked(mockAdapter.criarBloqueio).mockResolvedValueOnce(fakeBloqueio);
+
+    render(
+      <BloqueioModal
+        isOpen={true}
+        tenantId="t-1"
+        professionals={professionals}
+        defaultDateIso="2026-08-17"
+        defaultProfessionalId="prof-1"
+        onClose={mockOnClose}
+        onBloqueioCriado={mockOnBloqueioCriado}
+        bloqueioRepo={mockRepo}
+      />
+    );
+
+    const allDayCheckbox = screen.getByLabelText(/Bloquear o expediente inteiro/i);
+    fireEvent.click(allDayCheckbox);
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar bloqueio/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockAdapter.criarBloqueio).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: 't-1',
+          professional_id: 'prof-1',
+          is_all_day: true,
+        })
+      );
     });
   });
 });

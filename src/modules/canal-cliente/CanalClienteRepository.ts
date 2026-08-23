@@ -41,6 +41,10 @@ export class CanalClienteRepository {
     this.adapter.definirToken(token.trim());
   }
 
+  obterTokenAcesso(): string | null {
+    return this.adapter.obterTokenAtual();
+  }
+
   limparTokenAcesso(): void {
     this.adapter.limparToken();
   }
@@ -54,6 +58,17 @@ export class CanalClienteRepository {
     return perfil;
   }
 
+  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    const res = await this.adapter.inicializarPorSlug(slug.trim());
+    if (res.token) {
+      this.adapter.definirToken(res.token);
+    }
+    return res;
+  }
+
   async obterCatalogoServicos(tokenParam?: string | null): Promise<{
     servicos: ServicoCanal[];
     categorias: string[];
@@ -62,13 +77,26 @@ export class CanalClienteRepository {
     const servicos = await this.adapter.listarServicosPorToken(token);
     const ativos = servicos.filter((s) => s.is_active !== false);
 
-    const categoriasUnicas = Array.from(
-      new Set(ativos.map((s) => s.category || 'Geral'))
-    ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    // Ordenar categorias pela ordem de aparição dos serviços ordenados estrategicamente e normalizar nomes
+    const seen = new Set<string>();
+    const categoriasOrdenadas: string[] = [];
+    const servicosNormalizados = ativos.map((s) => {
+      const cat = (s.category && s.category.trim())
+        ? s.category.trim().charAt(0).toUpperCase() + s.category.trim().slice(1).toLowerCase()
+        : 'Outro';
+      if (!seen.has(cat)) {
+        seen.add(cat);
+        categoriasOrdenadas.push(cat);
+      }
+      return {
+        ...s,
+        category: cat,
+      };
+    });
 
     return {
-      servicos: ativos,
-      categorias: categoriasUnicas,
+      servicos: servicosNormalizados,
+      categorias: categoriasOrdenadas,
     };
   }
 

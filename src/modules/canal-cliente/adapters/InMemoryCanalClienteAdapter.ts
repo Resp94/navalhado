@@ -41,6 +41,28 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     return this.perfis.get(token) || null;
   }
 
+  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+    if (!slug || slug === 'invalid') {
+      throw new CanalClienteTokenError('Estabelecimento não encontrado.');
+    }
+    const token = `token_${slug}`;
+    let perfil = this.perfis.get(token);
+    if (!perfil) {
+      perfil = {
+        customer_id: `cust_${slug}`,
+        customer_name: 'Cliente Provisório',
+        tenant_id: `tenant_${slug}`,
+        tenant_name: `Barbearia ${slug}`,
+        tenant_phone: '11999999999',
+        tenant_slug: slug,
+        cadastro_completo: false,
+      };
+      this.perfis.set(token, perfil);
+    }
+    this.definirToken(token);
+    return { token, perfil };
+  }
+
   async listarServicosPorToken(token: string): Promise<ServicoCanal[]> {
     if (!token || token === 'invalid') throw new CanalClienteTokenError();
     return this.servicos.filter((s) => s.is_active);

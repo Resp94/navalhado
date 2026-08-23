@@ -2358,6 +2358,8 @@ export const Agenda: React.FC = () => {
         defaultDateIso={selectedDate}
         defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
         timezone={tenant.timezone}
+        businessHours={tenant.businessHours}
+        slotIntervalMinutes={slotIntervalMinutes}
         onClose={() => {
           setIsBloqueioModalOpen(false);
           clearActionUrl();

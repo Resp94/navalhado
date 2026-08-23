@@ -15,6 +15,9 @@ import {
   PlusSignIcon,
   CheckmarkCircle02Icon,
   Cancel01Icon,
+  ArrowUp01Icon,
+  ArrowDown01Icon,
+  ScissorIcon,
 } from '@hugeicons/core-free-icons';
 import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
 
@@ -30,6 +33,7 @@ export interface Service {
   return_period_days: number | null;
   custom_reminder_template: string | null;
   is_active: boolean;
+  display_order?: number;
 }
 
 const DEFAULT_REMINDER_TEMPLATE =
@@ -37,21 +41,58 @@ const DEFAULT_REMINDER_TEMPLATE =
 
 interface ServiceItemCardProps {
   service: Service;
+  positionNumber?: number;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
   onToggleStatus: (id: string, currentStatus: boolean) => void;
   onEdit: (service: Service) => void;
 }
 
 const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
-  ({ service, onToggleStatus, onEdit }) => {
+  ({ service, positionNumber, isFirst, isLast, onMoveUp, onMoveDown, onToggleStatus, onEdit }) => {
     return (
       <div
         className={`service-item-card ${
           !service.is_active ? 'service-item-card--inactive' : ''
         }`}
       >
-        {/* Informações Principais */}
+        <div className="service-card-order-controls">
+          <button
+            type="button"
+            onClick={() => onMoveUp && onMoveUp(service.id)}
+            disabled={isFirst}
+            className="btn-order-arrow"
+            title="Subir posição no cardápio"
+            aria-label={`Subir serviço ${service.name}`}
+          >
+            <HugeiconsIcon icon={ArrowUp01Icon} size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onMoveDown && onMoveDown(service.id)}
+            disabled={isLast}
+            className="btn-order-arrow"
+            title="Descer posição no cardápio"
+            aria-label={`Descer serviço ${service.name}`}
+          >
+            <HugeiconsIcon icon={ArrowDown01Icon} size={14} />
+          </button>
+        </div>
+
         <div className="service-card-info">
-          <h5 className="service-name">{service.name}</h5>
+          <div className="service-name-row">
+            {positionNumber !== undefined && (
+              <span className="service-position-badge font-mono" title="Posição de exibição para o cliente">
+                #{positionNumber}
+              </span>
+            )}
+            <h5 className="service-name">{service.name}</h5>
+            {service.category && (
+              <span className="service-category-badge">{service.category}</span>
+            )}
+          </div>
 
           {service.description && (
             <p className="service-description">{service.description}</p>
@@ -77,7 +118,6 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
           </div>
         </div>
 
-        {/* Bloco de Preço Alinhado em Coluna Dedicada */}
         <div className="service-card-price">
           {service.price_type === 'starting_at' && (
             <span className="price-type-tag">A partir de</span>
@@ -87,13 +127,12 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
           </span>
         </div>
 
-        {/* Controles de Ação e Status */}
         <div className="service-card-actions">
           <div className="status-switch-wrapper">
-            <label
-              className="switch"
-              aria-label={`${service.is_active ? 'Desativar' : 'Ativar'} serviço ${service.name}`}
-            >
+            <span className={`status-switch-label ${service.is_active ? 'status-switch-label--active' : ''}`}>
+              {service.is_active ? 'Ativo' : 'Inativo'}
+            </span>
+            <label className="switch">
               <input
                 type="checkbox"
                 checked={service.is_active}
@@ -101,18 +140,11 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
               />
               <span className="slider" />
             </label>
-            <span
-              className={`status-switch-label ${
-                service.is_active ? 'status-switch-label--active' : ''
-              }`}
-            >
-              {service.is_active ? 'Ativo' : 'Inativo'}
-            </span>
           </div>
 
           <button
             type="button"
-            aria-label={`Editar configurações do serviço ${service.name}`}
+            aria-label={`Editar ${service.name}`}
             onClick={() => onEdit(service)}
             className="btn-action-edit"
           >
@@ -126,6 +158,12 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
 );
 ServiceItemCard.displayName = 'ServiceItemCard';
 
+export const normalizeCategoryName = (cat?: string | null): string => {
+  if (!cat || !cat.trim()) return 'Outro';
+  const trimmed = cat.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+};
+
 export const Servicos: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -133,14 +171,15 @@ export const Servicos: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>('Todos');
 
-  // Estados do Formulário
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [priceType, setPriceType] = useState<'fixed' | 'starting_at'>('fixed');
-  const [duration, setDuration] = useState(40); // 40 minutos padrão
+  const [duration, setDuration] = useState(40);
   const [category, setCategory] = useState('Cabelo');
   const [commission, setCommission] = useState('');
   const [returnPeriodDays, setReturnPeriodDays] = useState<string>('20');
@@ -156,16 +195,18 @@ export const Servicos: React.FC = () => {
         .from('services')
         .select('*')
         .eq('tenant_id', tenant.tenantId)
-        .order('category', { ascending: true })
-        .order('name', { ascending: true });
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       const rawServices = (data || []) as Array<Service & { price_type?: 'fixed' | 'starting_at'; duration_minutes?: number }>;
       setServices(
-        rawServices.map((s) => ({
+        rawServices.map((s, idx) => ({
           ...s,
+          category: normalizeCategoryName(s.category),
           price_type: s.price_type || 'fixed',
           duration_minutes: s.duration_minutes || 40,
+          display_order: s.display_order ?? idx + 1,
         }))
       );
     } catch (error: any) {
@@ -184,10 +225,10 @@ export const Servicos: React.FC = () => {
       gsap.fromTo(
         '.service-item-card',
         { opacity: 0, y: 15 },
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.06, ease: 'power2.out' }
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.04, ease: 'power2.out' }
       );
     }
-  }, [loading, services]);
+  }, [loading, services, filterCategory]);
 
   const resetForm = useCallback(() => {
     setEditingId(null);
@@ -195,13 +236,23 @@ export const Servicos: React.FC = () => {
     setDescription('');
     setPrice('');
     setPriceType('fixed');
-    setDuration(40); // 40 min padrão
+    setDuration(40);
     setCategory('Cabelo');
     setCommission('');
     setReturnPeriodDays('20');
     setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
     setIsActive(true);
   }, []);
+
+  const handleOpenCreateDrawer = useCallback(() => {
+    resetForm();
+    setIsDrawerOpen(true);
+  }, [resetForm]);
+
+  const handleCloseDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    resetForm();
+  }, [resetForm]);
 
   const handleEdit = useCallback((service: Service) => {
     setEditingId(service.id);
@@ -210,17 +261,12 @@ export const Servicos: React.FC = () => {
     setPrice(formatCurrencyInput(service.price));
     setPriceType(service.price_type || 'fixed');
     setDuration(service.duration_minutes || 40);
-    setCategory(service.category);
-    setCommission(
-      service.commission_percentage !== null ? service.commission_percentage.toString() : ''
-    );
-    setReturnPeriodDays(
-      service.return_period_days !== null && service.return_period_days !== undefined
-        ? service.return_period_days.toString()
-        : '20'
-    );
+    setCategory(normalizeCategoryName(service.category));
+    setCommission(service.commission_percentage !== null ? service.commission_percentage.toString() : '');
+    setReturnPeriodDays(service.return_period_days !== null ? service.return_period_days.toString() : '20');
     setReminderTemplate(service.custom_reminder_template || DEFAULT_REMINDER_TEMPLATE);
     setIsActive(service.is_active);
+    setIsDrawerOpen(true);
   }, []);
 
   const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,12 +281,8 @@ export const Servicos: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedPrice = parseCurrencyInput(price);
-    if (!name.trim()) {
-      addToast('O nome do serviço é obrigatório.', 'warning');
-      return;
-    }
-    if (!price || parsedPrice <= 0) {
-      addToast('Informe um preço válido.', 'warning');
+    if (!name.trim() || parsedPrice <= 0) {
+      addToast('Preencha os campos obrigatórios corretamente.', 'warning');
       return;
     }
 
@@ -252,68 +294,96 @@ export const Servicos: React.FC = () => {
         description: description.trim() || null,
         price: parsedPrice,
         price_type: priceType,
-        duration_minutes: duration || 40,
-        category,
+        duration_minutes: duration,
+        category: normalizeCategoryName(category),
         commission_percentage: commission ? parseFloat(commission) : null,
-        return_period_days: returnPeriodDays ? parseInt(returnPeriodDays, 10) : 20,
+        return_period_days: parseInt(returnPeriodDays, 10),
         custom_reminder_template: reminderTemplate.trim() || null,
         is_active: isActive,
+        display_order: editingId ? undefined : services.length + 1,
         updated_at: new Date().toISOString(),
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('services')
-          .update(serviceData)
-          .eq('id', editingId)
-          .eq('tenant_id', tenant.tenantId);
-
-        if (error) throw error;
+        await supabase.from('services').update(serviceData).eq('id', editingId).eq('tenant_id', tenant.tenantId);
         addToast('Serviço atualizado com sucesso!', 'success');
       } else {
-        const { error } = await supabase.from('services').insert([serviceData]);
-
-        if (error) throw error;
+        await supabase.from('services').insert([serviceData]);
         addToast('Serviço criado com sucesso!', 'success');
       }
-
-      resetForm();
+      handleCloseDrawer();
       fetchServices();
     } catch (error: any) {
-      console.error('Error saving service:', error);
       addToast('Não foi possível salvar o serviço.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleMoveService = useCallback(
+    async (serviceId: string, direction: 'up' | 'down') => {
+      const idx = services.findIndex((s) => s.id === serviceId);
+      if (idx === -1) return;
+      const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (targetIdx < 0 || targetIdx >= services.length) return;
+
+      const newServices = [...services];
+      const [moved] = newServices.splice(idx, 1);
+      newServices.splice(targetIdx, 0, moved);
+      const updated = newServices.map((s, i) => ({ ...s, display_order: i + 1 }));
+      setServices(updated);
+
+      try {
+        const updatePromises = updated.map((s) =>
+          supabase
+            .from('services')
+            .update({ display_order: s.display_order, updated_at: new Date().toISOString() })
+            .eq('id', s.id)
+            .eq('tenant_id', tenant.tenantId)
+        );
+
+        const results = await Promise.all(updatePromises);
+        const hasError = results.some((r) => r.error);
+        if (hasError) {
+          throw new Error('Falha ao atualizar uma ou mais posições no banco.');
+        }
+        addToast('Ordem dos serviços atualizada com sucesso!', 'success');
+      } catch (err) {
+        console.error('Erro ao reordenar:', err);
+        addToast('Erro ao salvar a nova ordem dos serviços.', 'error');
+        fetchServices();
+      }
+    },
+    [services, tenant.tenantId, addToast, fetchServices]
+  );
+
   const toggleServiceStatus = useCallback(async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('services')
-        .update({ is_active: !currentStatus, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('tenant_id', tenant.tenantId);
-
-      if (error) throw error;
-      addToast(`Serviço ${!currentStatus ? 'ativado' : 'desativado'} com sucesso!`, 'success');
+      await supabase.from('services').update({ is_active: !currentStatus }).eq('id', id);
       fetchServices();
-    } catch (error: any) {
-      addToast('Erro ao atualizar status do serviço.', 'error');
+    } catch {
+      addToast('Erro ao atualizar status.', 'error');
     }
-  }, [tenant.tenantId, addToast, fetchServices]);
+  }, [addToast, fetchServices]);
 
-  // Agrupamento memoizado de serviços por categoria
-  const categorizedServices = useMemo(() => {
-    return categories
-      .map((cat) => ({
-        category: cat,
-        items: services.filter((s) => s.category === cat),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [categories, services]);
+  const availableCategories = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = ['Todos'];
+    for (const s of services) {
+      const norm = normalizeCategoryName(s.category);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        list.push(norm);
+      }
+    }
+    return list;
+  }, [services]);
 
-  // Preview dinâmico da mensagem do WhatsApp enviada pela instância Uazapi oficial
+  const displayedServices = useMemo(() => {
+    if (filterCategory === 'Todos') return services;
+    return services.filter((s) => normalizeCategoryName(s.category) === filterCategory);
+  }, [services, filterCategory]);
+
   const previewMessage = useMemo(() => {
     return reminderTemplate
       .replace('{cliente}', 'Carlos')
@@ -325,313 +395,160 @@ export const Servicos: React.FC = () => {
   return (
     <div className="services-page">
       <div className="services-header-intro">
-        <h2>Cardápio de serviços</h2>
-        <p>
-          Cadastre seus cortes, barbas e tratamentos com tempo de atendimento, comissão da equipe e lembretes automáticos de retorno pelo WhatsApp.
-        </p>
+        <div className="services-header-text">
+          <h2>Cardápio de serviços</h2>
+          <p>Defina os cortes, barbas e combos, organize a ordem de exibição no link do cliente e configure mensagens automáticas de retorno.</p>
+        </div>
+        <button type="button" onClick={handleOpenCreateDrawer} className="btn btn--primary btn-create-service-cta">
+          <HugeiconsIcon icon={PlusSignIcon} size={18} />
+          <span>Cadastrar serviço</span>
+        </button>
       </div>
 
-      <div className="services-grid">
-        {/* Painel do Formulário */}
-        <section className="form-section card">
-          <h3>{editingId ? 'Editar serviço' : 'Cadastrar novo serviço'}</h3>
+      <div className="services-control-bar">
+        <div className="services-category-pills">
+          {availableCategories.map((cat) => (
+            <button key={cat} type="button" onClick={() => setFilterCategory(cat)} className={`filter-pill ${filterCategory === cat ? 'filter-pill--active' : ''}`}>
+              <span>{cat}</span>
+              <span className="filter-pill-count">{cat === 'Todos' ? services.length : services.filter(s => (s.category || 'Geral') === cat).length}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <form onSubmit={handleSubmit} className="service-form">
-            <div className="form-group">
-              <label htmlFor="service-name">Nome do serviço *</label>
-              <input
-                id="service-name"
-                type="text"
-                placeholder="Ex: Corte degradê, Barboterapia, Combo navalhado"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
+      <section className="services-list-wrapper card">
+        <div className="list-section-header">
+          <div className="list-title-row">
+            <div className="icon-badge">
+              <HugeiconsIcon icon={ScissorIcon} size={18} />
+            </div>
+            <div>
+              <h3>Ordem de exibição</h3>
+              <p className="list-section-subtitle">Use as setas para definir a prioridade no agendamento público.</p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="loading-state"><div className="spinner spinner--brand" /></div>
+        ) : displayedServices.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon-circle"><HugeiconsIcon icon={ScissorIcon} size={32} /></div>
+            <p>Nenhum serviço encontrado</p>
+            <button type="button" onClick={handleOpenCreateDrawer} className="btn btn--primary" style={{ marginTop: '1rem' }}>Cadastrar serviço</button>
+          </div>
+        ) : (
+          <div className="services-items-grid">
+            {displayedServices.map((service) => (
+              <ServiceItemCard
+                key={service.id}
+                service={service}
+                positionNumber={services.findIndex((s) => s.id === service.id) + 1}
+                isFirst={services.findIndex((s) => s.id === service.id) === 0}
+                isLast={services.findIndex((s) => s.id === service.id) === services.length - 1}
+                onMoveUp={() => handleMoveService(service.id, 'up')}
+                onMoveDown={() => handleMoveService(service.id, 'down')}
+                onToggleStatus={toggleServiceStatus}
+                onEdit={handleEdit}
               />
-            </div>
+            ))}
+          </div>
+        )}
+      </section>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="service-category">Categoria</label>
-                <select
-                  id="service-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="price-type-select">Tipo de preço</label>
-                <select
-                  id="price-type-select"
-                  value={priceType}
-                  onChange={(e) => setPriceType(e.target.value as 'fixed' | 'starting_at')}
-                >
-                  <option value="fixed">Preço fixo</option>
-                  <option value="starting_at">A partir de</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="service-price">
-                  {priceType === 'starting_at' ? 'Valor inicial *' : 'Preço fixo *'}
-                </label>
-                <div className="input-group input-group--prefix">
-                  <span className="input-group__prefix">R$</span>
-                  <input
-                    id="service-price"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={price}
-                    onChange={handlePriceChange}
-                    required
-                  />
+      {isDrawerOpen && (
+        <div className="service-drawer-overlay" onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}>
+          <div className="service-drawer-panel">
+            <div className="service-drawer-header">
+              <div className="drawer-header-info">
+                <div className="drawer-icon-badge"><HugeiconsIcon icon={ScissorIcon} size={20} /></div>
+                <div>
+                  <h3 className="drawer-title">{editingId ? 'Editar serviço' : 'Cadastrar novo serviço'}</h3>
                 </div>
               </div>
+              <button type="button" onClick={handleCloseDrawer} className="drawer-close-btn"><HugeiconsIcon icon={Cancel01Icon} size={20} /></button>
+            </div>
 
-              <div className="form-group">
-                <label htmlFor="service-commission">
-                  Comissão do profissional <span className="label-optional">Opcional</span>
-                </label>
-                <div className="input-group">
-                  <input
-                    id="service-commission"
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="Ex: 50"
-                    value={commission}
-                    onChange={(e) => setCommission(e.target.value)}
-                  />
-                  <span className="input-group__suffix">%</span>
+            <form onSubmit={handleSubmit} className="service-drawer-form">
+              <div className="service-drawer-body">
+                <div className="form-group">
+                  <label>Nome do serviço *</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
-              </div>
-            </div>
-
-            {/* TEMPO DE ATENDIMENTO */}
-            <div className="form-group">
-              <label htmlFor="service-duration">
-                Tempo de atendimento:{' '}
-                <span className="duration-highlight">
-                  {duration < 60
-                    ? `${duration} minutos`
-                    : duration % 60 === 0
-                    ? `${duration / 60} ${duration === 60 ? 'hora' : 'horas'}`
-                    : `${Math.floor(duration / 60)}h ${duration % 60}min`}
-                </span>
-              </label>
-              <div className="slider-container">
-                <input
-                  id="service-duration"
-                  type="range"
-                  min="5"
-                  max="180"
-                  step="5"
-                  value={duration}
-                  aria-label="Tempo de atendimento do serviço"
-                  aria-valuemin={5}
-                  aria-valuemax={180}
-                  aria-valuenow={duration}
-                  aria-valuetext={`${duration} minutos`}
-                  onChange={(e) => setDuration(parseInt(e.target.value, 10))}
-                  className="duration-slider"
-                />
-                <div className="slider-labels" aria-hidden="true">
-                  <span>5 min</span>
-                  <span>40 min (padrão)</span>
-                  <span>1 hora</span>
-                  <span>2 horas</span>
-                  <span>3 horas</span>
-                </div>
-              </div>
-            </div>
-
-            {/* SEÇÃO COMERCIAL: TEMPO DE RETORNO E LEMBRETE NO WHATSAPP */}
-            <div className="commercial-section">
-              <div className="form-group">
-                <label htmlFor="return-period-input">
-                  Tempo sugerido para retorno
-                </label>
-                <div className="input-group">
-                  <input
-                    id="return-period-input"
-                    type="number"
-                    min="1"
-                    max="365"
-                    placeholder="Ex: 20"
-                    value={returnPeriodDays}
-                    aria-describedby="return-period-helper"
-                    onChange={(e) => setReturnPeriodDays(e.target.value)}
-                  />
-                  <span className="input-group__suffix">dias</span>
-                </div>
-                <span id="return-period-helper" className="input-helper">
-                  O Navalhado enviará um lembrete automático no WhatsApp para o cliente agendar a volta.
-                </span>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="template-textarea">Mensagem de lembrete no WhatsApp</label>
-                <div className="template-tags-helper">
-                  <span>Toque para inserir tag:</span>
-                  <button
-                    type="button"
-                    onClick={() => insertTagIntoTemplate('{cliente}')}
-                    className="tag-helper-btn"
-                    aria-label="Inserir tag de nome do cliente na mensagem"
-                  >
-                    {'{cliente}'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertTagIntoTemplate('{servico}')}
-                    className="tag-helper-btn"
-                    aria-label="Inserir tag de nome do serviço na mensagem"
-                  >
-                    {'{servico}'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertTagIntoTemplate('{dias}')}
-                    className="tag-helper-btn"
-                    aria-label="Inserir tag de dias de retorno na mensagem"
-                  >
-                    {'{dias}'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertTagIntoTemplate('{link}')}
-                    className="tag-helper-btn"
-                    aria-label="Inserir tag de link de agendamento na mensagem"
-                  >
-                    {'{link}'}
-                  </button>
-                </div>
-                <textarea
-                  id="template-textarea"
-                  rows={3}
-                  value={reminderTemplate}
-                  onChange={(e) => setReminderTemplate(e.target.value)}
-                  className="form-control"
-                  placeholder="Mensagem enviada automaticamente para o WhatsApp do cliente..."
-                />
-              </div>
-
-              {/* PREVIEW DA MENSAGEM */}
-              <div className="whatsapp-preview-card">
-                <div className="whatsapp-preview-header">
-                  <HugeiconsIcon icon={WhatsappIcon} size={15} />
-                  <span>Prévia da mensagem no WhatsApp</span>
-                </div>
-                <p className="whatsapp-preview-text">{previewMessage}</p>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="service-desc">
-                Descrição do serviço <span className="label-optional">Opcional</span>
-              </label>
-              <textarea
-                id="service-desc"
-                placeholder="Detalhes visíveis para o cliente durante o agendamento online..."
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            {editingId && (
-              <div className="form-group form-switch-group">
-                <label htmlFor="service-active" className="switch-text-label">
-                  Serviço ativo para agendamento online
-                </label>
-                <label className="switch" aria-label="Status do serviço para agendamento">
-                  <input
-                    type="checkbox"
-                    id="service-active"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                  />
-                  <span className="slider" />
-                </label>
-              </div>
-            )}
-
-            <div className="form-actions">
-              {editingId && (
-                <button type="button" onClick={resetForm} className="btn btn--outline-secondary">
-                  <HugeiconsIcon icon={Cancel01Icon} size={16} />
-                  Cancelar edição
-                </button>
-              )}
-              <button type="submit" disabled={saving} className="btn btn--primary">
-                {saving ? (
-                  <div className="spinner spinner--sm" />
-                ) : editingId ? (
-                  <>
-                    <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-                    Salvar alterações
-                  </>
-                ) : (
-                  <>
-                    <HugeiconsIcon icon={PlusSignIcon} size={16} />
-                    Cadastrar serviço
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        {/* Tabela de Listagem */}
-        <section className="list-section card">
-          <h3>Serviços cadastrados</h3>
-
-          {loading ? (
-            <div className="loading-state" role="status" aria-live="polite">
-              <div className="spinner spinner--brand" />
-              <p>Carregando serviços...</p>
-            </div>
-          ) : services.length === 0 ? (
-            <div className="empty-state">
-              <p>Nenhum serviço cadastrado ainda</p>
-              <span className="empty-desc">Preencha o formulário ao lado para montar o cardápio da sua barbearia.</span>
-            </div>
-          ) : (
-            <div className="services-list-container" aria-busy={loading}>
-              {categorizedServices.map(({ category: cat, items }) => (
-                <div key={cat} className="category-group">
-                  <h4 className="category-title">{cat}</h4>
-                  <div className="services-items-grid">
-                    {items.map((service) => (
-                      <ServiceItemCard
-                        key={service.id}
-                        service={service}
-                        onToggleStatus={toggleServiceStatus}
-                        onEdit={handleEdit}
-                      />
-                    ))}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Categoria</label>
+                    <select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                  </div>
+                  <div className="form-group">
+                    <label>Tipo de preço</label>
+                    <select value={priceType} onChange={(e) => setPriceType(e.target.value as any)}><option value="fixed">Fixo</option><option value="starting_at">A partir de</option></select>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Valor *</label>
+                    <div className="input-group input-group--prefix"><span className="input-group__prefix">R$</span><input type="text" value={price} onChange={handlePriceChange} required /></div>
+                  </div>
+                  <div className="form-group">
+                    <label>Comissão (%)</label>
+                    <input type="number" value={commission} onChange={(e) => setCommission(e.target.value)} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Tempo estimado: <span className="duration-highlight">{duration} min</span></label>
+                  <input type="range" min="10" max="180" step="5" value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} className="duration-slider" />
+                </div>
+                <div className="commercial-section">
+                  <div className="form-group">
+                    <label>Dias para retorno</label>
+                    <input type="number" value={returnPeriodDays} onChange={(e) => setReturnPeriodDays(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Mensagem de lembrete</label>
+                    <textarea rows={3} value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
+                  </div>
+                  <div className="whatsapp-preview-card">
+                    <p className="whatsapp-preview-text">{previewMessage}</p>
+                  </div>
+                </div>
+                {editingId && (
+                  <div className="form-group form-switch-group">
+                    <label>Serviço ativo</label>
+                    <label className="switch"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /><span className="slider" /></label>
+                  </div>
+                )}
+              </div>
+              <div className="service-drawer-footer">
+                <button type="button" onClick={handleCloseDrawer} className="btn btn--outline-secondary" style={{ flex: 1 }}>Cancelar</button>
+                <button type="submit" disabled={saving} className="btn btn--primary" style={{ flex: 1.5 }}>{saving ? '...' : 'Salvar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-      <style>{`
+       <style>{`
         .services-page {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1.25rem;
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .services-header-intro {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .services-header-text {
+          flex: 1;
+          min-width: 260px;
         }
 
         .services-header-intro h2 {
@@ -639,24 +556,98 @@ export const Servicos: React.FC = () => {
           font-weight: 800;
           color: var(--color-text-primary);
           letter-spacing: -0.02em;
+          margin: 0 0 0.25rem 0;
         }
 
         .services-header-intro p {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
+          margin: 0;
         }
 
-        .services-grid {
-          display: grid;
-          grid-template-columns: 440px 1fr;
-          gap: 1.5rem;
-          align-items: start;
+        .btn-create-service-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.35rem;
+          font-weight: 700;
+          font-size: var(--font-size-sm);
+          border-radius: var(--radius-full, 9999px);
+          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.25);
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
-        @media (max-width: 1024px) {
-          .services-grid {
-            grid-template-columns: 1fr;
-          }
+        .services-control-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+          padding-bottom: 0.25rem;
+        }
+
+        .services-category-pills {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          overflow-x: auto;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+        }
+
+        .filter-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 6px 14px;
+          border-radius: var(--radius-full, 9999px);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+
+        .filter-pill:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-text-primary);
+        }
+
+        .filter-pill--active {
+          background: var(--color-brand-primary);
+          color: #ffffff;
+          border-color: var(--color-brand-primary);
+          box-shadow: 0 3px 10px rgba(217, 108, 0, 0.2);
+        }
+
+        .filter-pill-count {
+          font-size: 11px;
+          padding: 1px 6px;
+          border-radius: 10px;
+          background: rgba(0, 0, 0, 0.15);
+          font-weight: 700;
+        }
+
+        .filter-pill--active .filter-pill-count {
+          background: rgba(255, 255, 255, 0.25);
+          color: #ffffff;
+        }
+
+        .services-stats-summary {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+
+        .services-list-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
         }
 
         .card {
@@ -667,17 +658,337 @@ export const Servicos: React.FC = () => {
           box-shadow: var(--shadow-sm);
         }
 
-        .form-section h3, .list-section h3 {
-          font-size: var(--font-size-lg);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin-bottom: 1.25rem;
+        .list-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 0.85rem;
+          border-bottom: 1px solid var(--color-border);
         }
 
-        .service-form {
+        .list-title-row {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .icon-badge {
+          width: 36px;
+          height: 36px;
+          border-radius: var(--radius-md);
+          background: rgba(217, 108, 0, 0.1);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .list-section-header h3 {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .list-section-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0 0;
+        }
+
+        .services-items-grid {
           display: flex;
           flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .service-item-card {
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: 1rem 1.25rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           gap: 1rem;
+        }
+
+        .service-card-order-controls {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+
+        .btn-order-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          padding: 0;
+        }
+
+        .btn-order-arrow:hover:not(:disabled) {
+          background: var(--color-brand-primary);
+          color: #ffffff;
+          border-color: var(--color-brand-primary);
+        }
+
+        .btn-order-arrow:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .service-card-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .service-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .service-position-badge {
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--color-brand-primary);
+          background: rgba(217, 108, 0, 0.1);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+          flex-shrink: 0;
+        }
+
+        .service-category-badge {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          padding: 1px 6px;
+          border-radius: var(--radius-sm);
+        }
+
+        .service-name {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+          word-break: break-word;
+        }
+
+        .service-description {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin: 0;
+          line-height: 1.35;
+        }
+
+        .service-meta-badges {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-top: 0.15rem;
+        }
+
+        .meta-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          font-size: 11px;
+          color: var(--color-text-secondary);
+          background: var(--color-bg-secondary);
+          padding: 2px 7px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+        }
+
+        .meta-badge--retorno {
+          color: var(--color-brand-primary);
+          background: rgba(217, 108, 0, 0.08);
+          border-color: rgba(217, 108, 0, 0.2);
+        }
+
+        .meta-badge--comm {
+          color: var(--color-success);
+          background: rgba(54, 179, 126, 0.08);
+          border-color: rgba(54, 179, 126, 0.2);
+        }
+
+        .service-card-price {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          justify-content: center;
+          min-width: 100px;
+          flex-shrink: 0;
+          text-align: right;
+        }
+
+        .price-type-tag {
+          font-size: 10px;
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+        }
+
+        .service-price-value {
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: var(--color-brand-primary);
+        }
+
+        .service-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+          flex-shrink: 0;
+        }
+
+        .status-switch-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .status-switch-label {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          font-weight: 600;
+          min-width: 44px;
+        }
+
+        .status-switch-label--active {
+          color: var(--color-success);
+        }
+
+        .btn-action-edit {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 6px 12px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-action-edit:hover {
+          border-color: var(--color-brand-primary);
+          color: var(--color-brand-primary);
+        }
+
+        /* DRAWER OVERLAY & PANEL */
+        .service-drawer-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 1000;
+          display: flex;
+          justify-content: flex-end;
+          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .service-drawer-panel {
+          width: 100%;
+          max-width: 520px;
+          height: 100vh;
+          background: var(--color-bg-secondary);
+          border-left: 1px solid var(--color-border);
+          box-shadow: var(--shadow-xl);
+          display: flex;
+          flex-direction: column;
+          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .service-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .drawer-header-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .drawer-icon-badge {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-lg);
+          background: rgba(217, 108, 0, 0.12);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .drawer-title {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .drawer-close-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-primary);
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .drawer-close-btn:hover {
+          color: var(--color-text-primary);
+          border-color: var(--color-text-primary);
+        }
+
+        .service-drawer-form {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .service-drawer-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.15rem;
         }
 
         .form-row {
@@ -700,32 +1011,22 @@ export const Servicos: React.FC = () => {
           color: var(--color-text-secondary);
         }
 
-        .label-optional {
-          font-size: 10px;
-          text-transform: none;
-          color: var(--color-text-secondary);
-          opacity: 0.8;
-          font-weight: 400;
-        }
-
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
           padding: 0.7rem 0.85rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
+          background-color: var(--color-bg-primary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           outline: none;
           transition: all 0.2s ease;
         }
 
-        @media (max-width: 768px) {
-          .form-group input, .form-group select, .form-group textarea {
-            font-size: 16px; /* Evita auto-zoom do Safari iOS */
-          }
-        }
-
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
           border-color: var(--color-brand-primary);
           box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
         }
@@ -735,24 +1036,10 @@ export const Servicos: React.FC = () => {
           font-weight: 800;
         }
 
-        .slider-container {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
         .duration-slider {
           accent-color: var(--color-brand-primary);
           cursor: pointer;
           height: 32px;
-        }
-
-        .slider-labels {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          color: var(--color-text-secondary);
-          width: 100%;
         }
 
         .commercial-section {
@@ -765,36 +1052,6 @@ export const Servicos: React.FC = () => {
           gap: 0.85rem;
         }
 
-        .template-tags-helper {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          font-size: 11px;
-          color: var(--color-text-secondary);
-          margin-bottom: 0.25rem;
-        }
-
-        .tag-helper-btn {
-          background: rgba(217, 108, 0, 0.1);
-          border: 1px solid rgba(217, 108, 0, 0.25);
-          border-radius: var(--radius-sm);
-          color: var(--color-brand-primary);
-          font-size: 12px;
-          font-weight: 700;
-          padding: 6px 10px;
-          min-height: 36px;
-          display: inline-flex;
-          align-items: center;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .tag-helper-btn:hover {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-        }
-
         .whatsapp-preview-card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
@@ -803,29 +1060,11 @@ export const Servicos: React.FC = () => {
           font-size: 12px;
         }
 
-        .whatsapp-preview-header {
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-success);
-          margin-bottom: 0.35rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-
         .whatsapp-preview-text {
           color: var(--color-text-primary);
           margin: 0;
           line-height: 1.4;
           word-break: break-word;
-        }
-
-        .input-helper {
-          font-size: 11px;
-          color: var(--color-text-secondary);
-          line-height: 1.3;
         }
 
         .input-group {
@@ -853,14 +1092,6 @@ export const Servicos: React.FC = () => {
           pointer-events: none;
         }
 
-        .input-group__suffix {
-          position: absolute;
-          right: 0.75rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 700;
-        }
-
         .form-switch-group {
           display: flex;
           flex-direction: row;
@@ -872,17 +1103,13 @@ export const Servicos: React.FC = () => {
           border-radius: var(--radius-md);
         }
 
-        .switch-text-label {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          cursor: pointer;
-        }
-
-        .form-actions {
+        .service-drawer-footer {
           display: flex;
+          align-items: center;
           gap: 0.75rem;
-          margin-top: 0.5rem;
+          padding: 1rem 1.5rem;
+          border-top: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
         }
 
         .btn--outline-secondary {
@@ -908,314 +1135,145 @@ export const Servicos: React.FC = () => {
           border-color: var(--color-text-secondary);
         }
 
-        .services-list-container {
+        .empty-state {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .category-title {
-          font-size: var(--font-size-xs);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: var(--color-brand-primary);
-          margin-bottom: 0.75rem;
-          padding-bottom: 0.35rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .services-items-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .service-item-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 1rem 1.25rem;
-          display: flex;
-          justify-content: space-between;
           align-items: center;
-          gap: 1.25rem;
-          transition: all 0.2s ease;
-        }
-
-        .service-item-card:hover {
-          border-color: rgba(217, 108, 0, 0.35);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .service-item-card--inactive {
-          opacity: 0.6;
-        }
-
-        .service-card-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .service-name {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          word-break: break-word;
-        }
-
-        .service-card-price {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
           justify-content: center;
-          min-width: 110px;
-          flex-shrink: 0;
-          text-align: right;
+          padding: 3rem 1.5rem;
+          text-align: center;
         }
 
-        .price-type-tag {
-          font-size: 10px;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-weight: 700;
-          line-height: 1.2;
-        }
-
-        .service-price-value {
-          font-size: 1.1rem;
-          font-weight: 800;
+        .empty-icon-circle {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: rgba(217, 108, 0, 0.1);
           color: var(--color-brand-primary);
-          font-variant-numeric: tabular-nums;
-          letter-spacing: -0.01em;
-          line-height: 1.3;
-        }
-
-        .service-description {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0;
-          word-break: break-word;
-        }
-
-        .service-meta-badges {
-          display: flex;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          margin-top: 0.25rem;
-        }
-
-        .meta-badge {
-          font-size: 11px;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          padding: 3px 10px;
-          border-radius: var(--radius-full);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-        }
-
-        .meta-badge--retorno {
-          background: rgba(217, 108, 0, 0.12);
-          border-color: rgba(217, 108, 0, 0.25);
-          color: var(--color-brand-primary);
-        }
-
-        .meta-badge--comm {
-          background: var(--color-success-bg, rgba(14, 159, 110, 0.12));
-          border-color: rgba(14, 159, 110, 0.25);
-          color: var(--color-success);
-        }
-
-        .service-card-actions {
           display: flex;
           align-items: center;
-          gap: 0.85rem;
-          flex-shrink: 0;
+          justify-content: center;
+          margin-bottom: 1rem;
         }
 
-        /* Switch Toggle Component */
-        .status-switch-wrapper {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          min-height: 44px;
-        }
-
-        .status-switch-label {
-          font-size: var(--font-size-xs);
+        .empty-state p {
+          font-size: var(--font-size-base);
           font-weight: 700;
-          color: var(--color-text-secondary);
-          transition: color 0.2s ease;
-          min-width: 44px;
-        }
-
-        .status-switch-label--active {
-          color: var(--color-success);
+          color: var(--color-text-primary);
+          margin: 0 0 0.25rem 0;
         }
 
         .switch {
           position: relative;
           display: inline-block;
-          width: 40px;
-          height: 24px;
+          width: 38px;
+          height: 22px;
           flex-shrink: 0;
         }
 
         .switch input {
+          opacity: 0;
           width: 0;
           height: 0;
-          opacity: 0;
-          position: absolute;
         }
 
         .slider {
           position: absolute;
-          inset: 0;
           cursor: pointer;
-          border-radius: var(--radius-full);
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           background-color: var(--color-border);
-          transition: background-color 0.25s ease, box-shadow 0.25s ease;
+          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          border-radius: 22px;
         }
 
-        .slider::before {
+        .slider:before {
           position: absolute;
-          bottom: 3px;
+          content: "";
+          height: 16px;
+          width: 16px;
           left: 3px;
-          width: 18px;
-          height: 18px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           border-radius: 50%;
-          background-color: #ffffff;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-          content: '';
-          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
-        .switch input:checked + .slider {
+        input:checked + .slider {
           background-color: var(--color-success);
         }
 
-        .switch input:focus-visible + .slider {
-          box-shadow: 0 0 0 3px rgba(14, 159, 110, 0.25);
-        }
-
-        .switch input:checked + .slider::before {
+        input:checked + .slider:before {
           transform: translateX(16px);
         }
 
-        .btn-action-edit {
-          font-size: 12px;
-          font-weight: 700;
-          padding: 0.5rem 0.95rem;
-          min-height: 40px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          border-radius: var(--radius-md);
-          background: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.25);
-          color: var(--color-brand-primary);
-          cursor: pointer;
-          transition: all 0.2s ease;
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
         }
 
-        .btn-action-edit:hover {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
-        .spinner--brand {
-          border-color: rgba(217, 108, 0, 0.2);
-          border-top-color: var(--color-brand-primary);
-        }
-
-        @media (max-width: 680px) {
-          .card {
-            padding: 1rem;
-            border-radius: var(--radius-md);
+        /* RESPONSIVIDADE MOBILE */
+        @media (max-width: 768px) {
+          .service-drawer-overlay {
+            align-items: flex-end;
           }
 
-          .form-row {
-            grid-template-columns: 1fr;
+          .service-drawer-panel {
+            max-width: 100%;
+            height: 90vh;
+            border-radius: 20px 20px 0 0;
+            border-left: none;
+            border-top: 1px solid var(--color-border);
+            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           }
 
           .service-item-card {
             flex-direction: column;
-            align-items: stretch;
+            align-items: flex-start;
             gap: 0.75rem;
-            padding: 1rem;
-          }
-
-          .service-meta-badges {
-            gap: 0.35rem;
-          }
-
-          .meta-badge {
-            font-size: clamp(10px, 2.7vw, 11px);
-            padding: 3px 8px;
           }
 
           .service-card-price {
-            flex-direction: row;
-            align-items: baseline;
-            justify-content: space-between;
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            background: var(--color-bg-primary);
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--color-border);
-            box-sizing: border-box;
+            align-items: flex-start;
+            text-align: left;
           }
 
           .service-card-actions {
-            justify-content: space-between;
             width: 100%;
-            padding-top: 0.75rem;
+            justify-content: space-between;
+            padding-top: 0.5rem;
             border-top: 1px solid var(--color-border);
           }
 
-          .btn-action-edit {
-            min-height: 44px;
-            padding: 0.5rem 1.15rem;
+          .form-group input,
+          .form-group select,
+          .form-group textarea {
+            font-size: 16px;
           }
         }
 
-        @media (max-width: 480px) {
-          .slider-labels {
-            font-size: 10px;
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
           }
-          .slider-labels span:nth-child(3),
-          .slider-labels span:nth-child(4) {
-            display: none;
-          }
-
-          .form-actions {
-            flex-direction: column;
-            width: 100%;
-          }
-
-          .form-actions .btn {
-            width: 100%;
-            justify-content: center;
-            min-height: 44px;
-          }
-
-          .tag-helper-btn {
-            min-height: 44px;
-            padding: 8px 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: manipulation;
+          to {
+            transform: translateY(0);
           }
         }
       `}</style>
