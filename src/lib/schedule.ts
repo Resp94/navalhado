@@ -171,18 +171,27 @@ export const generateTimeSlotsForSchedule = (
   const endMin = timeToMinutes(end);
   const slots: string[] = [];
 
-  const hasBreak = Boolean(breakStart && breakEnd && timeToMinutes(breakStart!) < timeToMinutes(breakEnd!));
+  const hasBreak = Boolean(
+    breakStart &&
+    breakEnd &&
+    timeToMinutes(breakStart!) < timeToMinutes(breakEnd!) &&
+    timeToMinutes(breakStart!) > startMin &&
+    timeToMinutes(breakEnd!) < endMin
+  );
+
   const bStartMin = hasBreak ? timeToMinutes(breakStart!) : endMin;
   const bEndMin = hasBreak ? timeToMinutes(breakEnd!) : endMin;
 
-  // 1. Manhã / Período antes do intervalo (do start até o breakStart)
-  for (let m = startMin; m < Math.min(bStartMin, endMin); m += step) {
+  // 1. Manhã / Antes do intervalo (do start até o breakStart)
+  // Cada slot deve terminar estritamente antes ou no início do intervalo: m + step <= bStartMin
+  for (let m = startMin; m + step <= bStartMin && m + step <= endMin; m += step) {
     slots.push(minutesToTime(m));
   }
 
-  // 2. Tarde / Período pós-intervalo: reinicia a grade estritamente no breakEnd
+  // 2. Tarde / Pós-intervalo: reinicia a grade estritamente no horário de retorno do intervalo (breakEnd)
+  // Cada slot deve terminar estritamente antes ou no final do expediente: m + step <= endMin
   if (hasBreak && bEndMin < endMin) {
-    for (let m = bEndMin; m < endMin; m += step) {
+    for (let m = bEndMin; m + step <= endMin; m += step) {
       slots.push(minutesToTime(m));
     }
   }

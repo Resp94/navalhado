@@ -146,7 +146,8 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(slots).toContain('15:40');
       expect(slots).toContain('16:20');
       expect(slots).toContain('17:00');
-      expect(slots).toContain('17:40');
+      // 17:40 não cabe dentro de 18:00 com duração de 40min (terminaria às 18:20)
+      expect(slots).not.toContain('17:40');
       expect(slots).not.toContain('13:20');
     });
 
