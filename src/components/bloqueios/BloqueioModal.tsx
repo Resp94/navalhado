@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
@@ -64,6 +64,32 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultProfessionalId) {
+        setSelectedProfId(defaultProfessionalId);
+      } else if (professionals.length > 0 && !selectedProfId) {
+        setSelectedProfId(professionals[0].id);
+      }
+      if (defaultDateIso) {
+        setDate(defaultDateIso);
+      }
+      setSelectedSlots([]);
+      setErrorMsg(null);
+    }
+  }, [isOpen, defaultProfessionalId, defaultDateIso, professionals]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const stepMinutes = slotIntervalMinutes && slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
 

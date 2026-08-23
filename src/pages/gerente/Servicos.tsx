@@ -379,6 +379,12 @@ export const Servicos: React.FC = () => {
     return list;
   }, [services]);
 
+  const serviceIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    services.forEach((s, idx) => map.set(s.id, idx));
+    return map;
+  }, [services]);
+
   const displayedServices = useMemo(() => {
     if (filterCategory === 'Todos') return services;
     return services.filter((s) => normalizeCategoryName(s.category) === filterCategory);
@@ -439,19 +445,26 @@ export const Servicos: React.FC = () => {
           </div>
         ) : (
           <div className="services-items-grid">
-            {displayedServices.map((service) => (
-              <ServiceItemCard
-                key={service.id}
-                service={service}
-                positionNumber={services.findIndex((s) => s.id === service.id) + 1}
-                isFirst={services.findIndex((s) => s.id === service.id) === 0}
-                isLast={services.findIndex((s) => s.id === service.id) === services.length - 1}
-                onMoveUp={() => handleMoveService(service.id, 'up')}
-                onMoveDown={() => handleMoveService(service.id, 'down')}
-                onToggleStatus={toggleServiceStatus}
-                onEdit={handleEdit}
-              />
-            ))}
+            {displayedServices.map((service) => {
+              const index = serviceIndexMap.get(service.id) ?? 0;
+              const isFirst = index === 0;
+              const isLast = index === services.length - 1;
+              const positionNumber = index + 1;
+
+              return (
+                <ServiceItemCard
+                  key={service.id}
+                  service={service}
+                  positionNumber={positionNumber}
+                  isFirst={isFirst}
+                  isLast={isLast}
+                  onMoveUp={() => handleMoveService(service.id, 'up')}
+                  onMoveDown={() => handleMoveService(service.id, 'down')}
+                  onToggleStatus={toggleServiceStatus}
+                  onEdit={handleEdit}
+                />
+              );
+            })}
           </div>
         )}
       </section>
