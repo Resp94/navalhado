@@ -70,18 +70,20 @@ describe('MobileAgendaView Component', () => {
     expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
   });
 
-  it('aciona o botão de Encaixe com flag isFitting ativa e o profissional selecionado', () => {
+  it('aciona o toque em slot vazio para novo agendamento com o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
-    const encaixeBtn = screen.getByTitle('Atender cliente que chegou agora sem agendamento (Encaixe)');
-    fireEvent.click(encaixeBtn);
+    const slotBtn = screen.getByLabelText('Horário decorrido às 09:00. Toque para registrar encaixe.');
+    fireEvent.click(slotBtn);
 
     expect(defaultProps.onOpenNewAppointment).toHaveBeenCalledWith(
       'prof-1',
-      undefined,
+      '09:00',
       true
     );
   });
+
+
 
   it('exibe apenas slots dentro do horário de funcionamento da barbearia', () => {
     const props = {

@@ -25,6 +25,9 @@ describe('MobileMaisDrawer Component', () => {
 
     expect(screen.getByText('Lucas Gerente')).toBeInTheDocument();
     expect(screen.getByText('Copiar link da barbearia')).toBeInTheDocument();
+    expect(screen.getByText('Encaixe')).toBeInTheDocument();
+    expect(screen.getByText('Bloquear')).toBeInTheDocument();
+    expect(screen.getByText('Espera')).toBeInTheDocument();
     expect(screen.getByText('Equipe')).toBeInTheDocument();
     expect(screen.getByText('Serviços')).toBeInTheDocument();
     expect(screen.getByText('Produtos')).toBeInTheDocument();

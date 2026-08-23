@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar03Icon,
@@ -7,7 +7,6 @@ import {
   PlusSignIcon,
   UnavailableIcon,
   Clock01Icon,
-  UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 import {
   dateInZone,
@@ -63,8 +62,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   onStartService: _onStartService,
   onDirectWhatsApp: _onDirectWhatsApp,
   onRemoveBlock,
-  onOpenBloqueio,
-  onOpenEspera,
+  onOpenBloqueio: _onOpenBloqueio,
+  onOpenEspera: _onOpenEspera,
 }) => {
   // Filtrar profissionais ativos
   const activeProfessionals = useMemo(
@@ -109,22 +108,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     [selectedDate, businessHours]
   );
 
-  const dateInputRef = useRef<HTMLInputElement>(null);
-
   const handlePrevDay = () => onSelectDate(shiftCalendarDate(selectedDate, -1));
   const handleNextDay = () => onSelectDate(shiftCalendarDate(selectedDate, 1));
   const handleSetToday = () => onSelectDate(todayStr);
-
-  const handleOpenDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current.focus();
-        dateInputRef.current.click();
-      }
-    }
-  };
 
   // Agendamentos e bloqueios filtrados pelo profissional selecionado
   const filteredAppointments = useMemo(() => {
@@ -146,14 +132,13 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     return map;
   }, [professionals]);
 
-  // Formatação legível e compacta da data (ex: "22 Ago")
+  // Formatação legível da data em Sentence case (ex: "Sáb., 22 de ago.")
   const formattedDateTitle = useMemo(() => {
     const parts = selectedDate.split('-');
     if (parts.length === 3) {
       const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      const day = d.getDate();
-      const monthStr = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-      return `${day} ${monthStr.charAt(0).toUpperCase() + monthStr.slice(1)}`;
+      const str = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+      return str.charAt(0).toUpperCase() + str.slice(1);
     }
     return selectedDate;
   }, [selectedDate]);
@@ -211,7 +196,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
   return (
     <div className="mobile-agenda">
-      {/* ─── SELETOR DE DATA E AÇÕES RÁPIDAS (AO LADO DA DATA) ─── */}
+      {/* ─── SELETOR DE DATA ─── */}
       <div className="mobile-agenda__header-row">
         <div className="mobile-agenda__date-bar">
           <button
@@ -224,31 +209,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             <HugeiconsIcon icon={ArrowLeft01Icon} size={18} />
           </button>
 
-          <div
-            className="mobile-agenda__date-display"
-            onClick={handleOpenDatePicker}
-            role="button"
-            tabIndex={0}
-            title="Toque para escolher uma data no calendário"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleOpenDatePicker();
-              }
-            }}
-          >
-            <input
-              ref={dateInputRef}
-              type="date"
-              className="mobile-agenda__hidden-date-input"
-              value={selectedDate}
-              onChange={(e) => {
-                if (e.target.value) {
-                  onSelectDate(e.target.value);
-                }
-              }}
-              aria-label="Escolher data no calendário"
-            />
+          <div className="mobile-agenda__date-display">
             <span className="mobile-agenda__date-title">{formattedDateTitle}</span>
             {isToday ? (
               <span className="mobile-agenda__today-pill">Hoje</span>
@@ -256,10 +217,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
               <button
                 type="button"
                 className="mobile-agenda__today-pill mobile-agenda__today-pill--btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSetToday();
-                }}
+                onClick={handleSetToday}
                 title="Voltar para hoje"
               >
                 Hoje
@@ -276,49 +234,6 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           >
             <HugeiconsIcon icon={ArrowRight01Icon} size={18} />
           </button>
-        </div>
-
-        {/* ─── BOTÕES AO LADO DA DATA: ENCAIXE, BLOQUEIO, ESPERA ─── */}
-        <div className="mobile-agenda__quick-actions-bar">
-          <button
-            type="button"
-            className="mobile-agenda__action-btn mobile-agenda__action-btn--encaixe"
-            onClick={() =>
-              onOpenNewAppointment(
-                selectedProfId || undefined,
-                undefined,
-                true
-              )
-            }
-            title="Atender cliente que chegou agora sem agendamento (Encaixe)"
-          >
-            <HugeiconsIcon icon={PlusSignIcon} size={14} />
-            <span>Encaixe</span>
-          </button>
-
-          {onOpenBloqueio && (
-            <button
-              type="button"
-              className="mobile-agenda__action-btn mobile-agenda__action-btn--sub"
-              onClick={onOpenBloqueio}
-              title="Bloquear horário (almoço, saída)"
-            >
-              <HugeiconsIcon icon={UnavailableIcon} size={14} />
-              <span>Bloquear</span>
-            </button>
-          )}
-
-          {onOpenEspera && (
-            <button
-              type="button"
-              className="mobile-agenda__action-btn mobile-agenda__action-btn--sub"
-              onClick={onOpenEspera}
-              title="Fila de espera de clientes no balcão"
-            >
-              <HugeiconsIcon icon={UserGroupIcon} size={14} />
-              <span>Espera</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -580,60 +495,40 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         .mobile-agenda__header-row {
           display: flex;
           align-items: center;
-          justify-content: flex-start;
-          gap: 0.35rem;
           width: 100%;
           max-width: 100%;
           box-sizing: border-box;
         }
 
         .mobile-agenda__date-bar {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 0.2rem;
+          justify-content: space-between;
+          width: 100%;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 9px);
-          padding: 0.18rem 0.35rem;
-          flex-shrink: 0;
+          border-radius: var(--radius-md, 10px);
+          padding: 0.32rem 0.5rem;
           box-sizing: border-box;
         }
 
         .mobile-agenda__date-display {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.12rem 0.3rem;
-          border-radius: 6px;
-          position: relative;
-          cursor: pointer;
-          transition: background-color 0.15s ease;
+          gap: 0.375rem;
           user-select: none;
         }
 
-        .mobile-agenda__date-display:hover,
-        .mobile-agenda__date-display:active {
-          background: rgba(0, 0, 0, 0.05);
-        }
-
-        .mobile-agenda__hidden-date-input {
-          position: absolute;
-          opacity: 0;
-          width: 0;
-          height: 0;
-          pointer-events: none;
-        }
-
         .mobile-agenda__nav-btn {
-          width: 25px;
-          height: 25px;
-          min-width: 25px;
-          min-height: 25px;
-          border-radius: var(--radius-sm, 5px);
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          min-height: 28px;
+          border-radius: var(--radius-sm, 6px);
           background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           color: var(--color-text-primary);
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
@@ -652,7 +547,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         }
 
         .mobile-agenda__date-title {
-          font-size: 0.8125rem;
+          font-size: 0.84375rem;
           font-weight: 700;
           color: var(--color-text-primary);
           white-space: nowrap;
@@ -665,8 +560,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           text-transform: uppercase;
           background: rgba(217, 108, 0, 0.15);
           color: var(--color-brand-primary);
-          padding: 1px 4px;
-          border-radius: var(--radius-sm, 3px);
+          padding: 1.5px 5px;
+          border-radius: var(--radius-sm, 4px);
           white-space: nowrap;
           line-height: 1.2;
         }
@@ -682,57 +577,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           color: var(--color-brand-lightest);
         }
 
-        .mobile-agenda__quick-actions-bar {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.18rem;
-          flex-shrink: 0;
-          justify-content: flex-start;
-        }
 
-        .mobile-agenda__action-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.12rem;
-          padding: 0.26rem 0.32rem;
-          border-radius: var(--radius-md, 7px);
-          font-size: 0.65625rem;
-          font-weight: 700;
-          cursor: pointer;
-          min-height: 28px;
-          transition: all 0.15s ease;
-          white-space: nowrap;
-          box-sizing: border-box;
-          touch-action: manipulation;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__action-btn:active {
-          transform: scale(0.96);
-        }
-
-        .mobile-agenda__action-btn--encaixe {
-          background: rgba(217, 108, 0, 0.12);
-          border: 1px solid var(--color-brand-primary);
-          color: var(--color-brand-primary);
-        }
-
-        .mobile-agenda__action-btn--encaixe:hover {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-        }
-
-        .mobile-agenda__action-btn--sub {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-agenda__action-btn--sub:hover {
-          color: var(--color-text-primary);
-          border-color: var(--color-text-secondary);
-        }
 
         .mobile-agenda__prof-carousel {
           display: flex;

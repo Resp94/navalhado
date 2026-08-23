@@ -225,14 +225,28 @@ export const Agenda: React.FC = () => {
       isComanda?: boolean;
     } | null;
 
-    if (locState?.openNewAppointment || locState?.customerId) {
-      if (locState.customerId) {
+    const searchParams = new URLSearchParams(location.search);
+    const action = searchParams.get('action');
+
+    if (action === 'encaixe') {
+      setFormIsFitting(true);
+      if (locState?.customerId) {
         setCustomerMode('existing');
         setSelectedCustomerId(locState.customerId);
       }
       setIsModalOpen(true);
+    } else if (locState?.openNewAppointment || locState?.customerId) {
+      if (locState?.customerId) {
+        setCustomerMode('existing');
+        setSelectedCustomerId(locState.customerId);
+      }
+      setIsModalOpen(true);
+    } else if (action === 'bloqueio') {
+      setIsBloqueioModalOpen(true);
+    } else if (action === 'espera') {
+      setIsEsperaDrawerOpen(true);
     }
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   // Linha Vermelha de Tempo Real (Red Line)
   const [currentTimeMinutes, setCurrentTimeMinutes] = useState<number>(() => {

@@ -14,6 +14,8 @@ import {
   Logout01Icon,
   Copy01Icon,
   Clock01Icon,
+  PlusSignIcon,
+  UnavailableIcon,
 } from '@hugeicons/core-free-icons';
 
 interface MobileMaisDrawerProps {
@@ -171,6 +173,39 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           <span className="mobile-mais__section-title">Gerenciamento</span>
 
           <div className="mobile-mais__grid">
+            <button 
+              type="button" 
+              className="mobile-mais__item" 
+              onClick={() => handleNavigate('/agenda?action=encaixe')}
+            >
+              <div className="mobile-mais__item-icon">
+                <HugeiconsIcon icon={PlusSignIcon} size={20} />
+              </div>
+              <span className="mobile-mais__item-label">Encaixe</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="mobile-mais__item" 
+              onClick={() => handleNavigate('/agenda?action=bloqueio')}
+            >
+              <div className="mobile-mais__item-icon">
+                <HugeiconsIcon icon={UnavailableIcon} size={20} />
+              </div>
+              <span className="mobile-mais__item-label">Bloquear</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="mobile-mais__item" 
+              onClick={() => handleNavigate('/agenda?action=espera')}
+            >
+              <div className="mobile-mais__item-icon">
+                <HugeiconsIcon icon={UserGroupIcon} size={20} />
+              </div>
+              <span className="mobile-mais__item-label">Espera</span>
+            </button>
+
             <button 
               type="button" 
               className="mobile-mais__item" 
