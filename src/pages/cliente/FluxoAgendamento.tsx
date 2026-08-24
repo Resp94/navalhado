@@ -20,6 +20,7 @@ import {
 import type { PerfilClienteCanal, ServicoCanal, ProfissionalCanal } from '../../modules/canal-cliente/types';
 import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
+import { maskPhone } from '../../lib/whatsapp';
 import { getDayBusinessHours } from '../gerente/Agenda';
 
 export const FluxoAgendamento: React.FC = () => {
@@ -72,14 +73,6 @@ export const FluxoAgendamento: React.FC = () => {
   // Dados de identificação do cliente no agendamento (conforme vídeo)
   const [clientFullName, setClientFullName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-
-  const maskPhone = (val: string): string => {
-    const raw = val.replace(/\D/g, '').slice(0, 11);
-    if (raw.length <= 2) return raw ? `(${raw}` : '';
-    if (raw.length <= 6) return `(${raw.slice(0, 2)}) ${raw.slice(2)}`;
-    if (raw.length <= 10) return `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
-    return `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7, 11)}`;
-  };
 
   const handlePhoneChange = (val: string) => {
     setClientPhone(maskPhone(val));
@@ -304,8 +297,8 @@ export const FluxoAgendamento: React.FC = () => {
           { name: trimmedName, phone: cleanPhone },
           canonicalToken
         );
-        if (updateRes && (updateRes as any).token_acesso) {
-          activeToken = (updateRes as any).token_acesso;
+        if (updateRes && updateRes.token_acesso) {
+          activeToken = updateRes.token_acesso;
           setCanonicalToken(activeToken);
         }
         if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {

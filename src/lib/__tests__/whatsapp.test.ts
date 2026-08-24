@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   sanitizePhoneNumber,
   formatWhatsAppNumber,
+  maskPhone,
   buildWhatsAppUrl,
   interpolateTemplate,
   WHATSAPP_TEMPLATES,
@@ -27,6 +28,15 @@ describe('whatsapp utility', () => {
   it('formata número para padrão internacional com DDI 55 quando necessário', () => {
     expect(formatWhatsAppNumber('11987654321')).toBe('5511987654321');
     expect(formatWhatsAppNumber('5511987654321')).toBe('5511987654321');
+  });
+
+  it('aplica máscara de telefone brasileiro dinamicamente', () => {
+    expect(maskPhone('')).toBe('');
+    expect(maskPhone('92')).toBe('(92');
+    expect(maskPhone('929942')).toBe('(92) 9942');
+    expect(maskPhone('92994204756')).toBe('(92) 99420-4756');
+    expect(maskPhone('1133334444')).toBe('(11) 3333-4444');
+    expect(maskPhone(null)).toBe('');
   });
 
   it('constrói URL de WhatsApp com mensagem codificada', () => {
