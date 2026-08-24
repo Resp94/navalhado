@@ -73,10 +73,17 @@ export interface LiquidarComandaInput {
   }>;
 }
 
+export interface ComandaEnriched extends Comanda {
+  customer_name: string;
+  customer_phone?: string | null;
+  professional_name: string;
+}
+
 export interface IComandaAdapter {
   obterPorId(comandaId: string): Promise<Comanda | null>;
   obterPorAppointmentId(appointmentId: string): Promise<Comanda | null>;
   listarAbertas(tenantId: string): Promise<Comanda[]>;
+  listarTodas(tenantId: string): Promise<ComandaEnriched[]>;
   criarComanda(input: CriarComandaInput): Promise<Comanda>;
   adicionarItem(comandaId: string, tenantId: string, item: Omit<ComandaItem, 'id' | 'comanda_id' | 'tenant_id'>): Promise<ComandaItem>;
   removerItem(itemId: string, comandaId: string): Promise<void>;

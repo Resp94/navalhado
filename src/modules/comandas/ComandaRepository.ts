@@ -35,6 +35,13 @@ export class ComandaRepository {
     return await this.adapter.listarAbertas(tenantId);
   }
 
+  async listAll(tenantId: string): Promise<import('./types').ComandaEnriched[]> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new ComandaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    return await this.adapter.listarTodas(tenantId);
+  }
+
   async createComanda(input: CriarComandaInput): Promise<Comanda> {
     if (!input.tenant_id || !input.tenant_id.trim()) {
       throw new ComandaValidationError('ID da barbearia (tenant) é obrigatório.');

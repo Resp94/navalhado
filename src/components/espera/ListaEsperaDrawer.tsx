@@ -30,6 +30,7 @@ interface ListaEsperaDrawerProps {
   services: ServiceOption[];
   onClose: () => void;
   onEncaixar: (entry: WaitingListEntry) => void;
+  onDateChange?: (dateIso: string) => void;
   esperaRepo?: EsperaRepository;
 }
 
@@ -41,13 +42,19 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   services,
   onClose,
   onEncaixar,
+  onDateChange,
   esperaRepo,
 }) => {
   const repo = esperaRepo || new EsperaRepository(new SupabaseEsperaAdapter());
 
+  const [activeDate, setActiveDate] = useState<string>(currentDateIso);
   const [entries, setEntries] = useState<WaitingListEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+
+  useEffect(() => {
+    setActiveDate(currentDateIso);
+  }, [currentDateIso]);
 
   // Form states
   const [customerName, setCustomerName] = useState<string>('');
@@ -61,14 +68,14 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await repo.listByDate(tenantId, currentDateIso);
+      const data = await repo.listByDate(tenantId, activeDate);
       setEntries(data);
     } catch (err) {
       console.error('Erro ao carregar lista de espera:', err);
     } finally {
       setLoading(false);
     }
-  }, [tenantId, currentDateIso, repo]);
+  }, [tenantId, activeDate, repo]);
 
   useEffect(() => {
     if (isOpen) {
@@ -165,6 +172,24 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
         {/* Content */}
         <div className="drawer-body">
+          {/* Seletor de Data */}
+          <div className="drawer-date-bar">
+            <label htmlFor="drawer-date-input" className="drawer-date-label">
+              Data da fila:
+            </label>
+            <input
+              id="drawer-date-input"
+              type="date"
+              value={activeDate}
+              onChange={(e) => {
+                const newDate = e.target.value;
+                setActiveDate(newDate);
+                onDateChange?.(newDate);
+              }}
+              className="drawer-date-input"
+            />
+          </div>
+
           {!showAddForm ? (
             <button
               type="button"
@@ -512,6 +537,38 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
           display: flex;
           flex-direction: column;
           gap: 1.25rem;
+        }
+
+        .drawer-date-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.65rem 0.85rem;
+          background-color: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+        }
+
+        .drawer-date-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .drawer-date-input {
+          padding: 0.4rem 0.65rem;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 600;
+          outline: none;
+        }
+
+        .drawer-date-input:focus {
+          border-color: var(--color-brand-primary);
         }
 
         .btn-add-espera {

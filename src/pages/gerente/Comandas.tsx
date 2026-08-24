@@ -5,7 +5,9 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { openWhatsApp } from '../../lib/whatsapp';
-import type { Comanda } from '../../modules/comandas/types';
+import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
+import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
+import type { ComandaEnriched } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Invoice01Icon,
@@ -17,15 +19,10 @@ import {
   UserIcon,
 } from '@hugeicons/core-free-icons';
 
-interface ComandaEnriched extends Comanda {
-  customer_name?: string;
-  customer_phone?: string;
-  professional_name?: string;
-}
-
 export const Comandas: React.FC = () => {
   const { tenantId, tenantName } = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
+  const comandaRepo = useMemo(() => new ComandaRepository(new SupabaseComandaAdapter()), []);
 
   const [loading, setLoading] = useState(true);
   const [comandas, setComandas] = useState<ComandaEnriched[]>([]);
@@ -46,7 +43,7 @@ export const Comandas: React.FC = () => {
       setLoading(true);
 
       // 1. Carregar serviços e profissionais
-      const [srvRes, profRes, cmdRes] = await Promise.all([
+      const [srvRes, profRes, enrichedCmds] = await Promise.all([
         supabase
           .from('services')
           .select('id, name, price')
@@ -57,47 +54,19 @@ export const Comandas: React.FC = () => {
           .select('id, name')
           .eq('tenant_id', tenantId)
           .eq('is_active', true),
-        supabase
-          .from('comandas')
-          .select(`
-            *,
-            itens:comanda_itens(*),
-            customer:customers(id, name, phone),
-            appointment:appointments(
-              id,
-              professional:professionals(id, name)
-            )
-          `)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false })
-          .limit(100),
+        comandaRepo.listAll(tenantId),
       ]);
 
       if (srvRes.data) setServices(srvRes.data);
       if (profRes.data) setProfessionals(profRes.data);
-
-      if (cmdRes.data) {
-        const enriched: ComandaEnriched[] = cmdRes.data.map((c: any) => {
-          const isAberta = c.status === 'aberta' || c.status === 'open';
-          const isFechada = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
-          const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : c.status;
-          return {
-            ...c,
-            status: normalizedStatus,
-            customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
-            customer_phone: c.customer?.phone || null,
-            professional_name: c.appointment?.professional?.name || 'Equipe',
-          };
-        });
-        setComandas(enriched);
-      }
+      setComandas(enrichedCmds);
     } catch (err: any) {
       console.error('Erro ao carregar comandas:', err);
       addToast('Não foi possível carregar as comandas.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [tenantId, addToast]);
+  }, [tenantId, addToast, comandaRepo]);
 
   useEffect(() => {
     carregarDados();

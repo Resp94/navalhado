@@ -13,6 +13,7 @@ describe('ComandaCheckoutModal', () => {
     obterPorId: vi.fn(),
     obterPorAppointmentId: vi.fn(),
     listarAbertas: vi.fn(),
+    listarTodas: vi.fn(),
     criarComanda: vi.fn(),
     adicionarItem: vi.fn(),
     removerItem: vi.fn(),

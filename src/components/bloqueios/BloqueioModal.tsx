@@ -195,6 +195,20 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     setIsSubmitting(true);
     try {
       if (isAllDay) {
+        const conflictingAppts = appointments.filter((a) => {
+          if (a.status === 'canceled') return false;
+          const apptDate = dateInZone(new Date(a.start_time), timezone);
+          if (apptDate !== date) return false;
+          return selectedProfId === 'all' || a.professional_id === selectedProfId;
+        });
+
+        if (conflictingAppts.length > 0) {
+          setErrorMsg(
+            `Não é possível bloquear o dia inteiro: existem ${conflictingAppts.length} agendamento(s) ativo(s) nesta data para este profissional. Cancele ou reagende-os primeiro, ou selecione horários específicos.`
+          );
+          return;
+        }
+
         const startIso = localDateTimeToIso(date, '00:00', timezone);
         const endIso = localDateTimeToIso(date, '23:59', timezone);
 
