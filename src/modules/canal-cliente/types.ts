@@ -82,7 +82,7 @@ export interface ICanalClienteAdapter {
   definirToken(token: string): void;
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
-  inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }>;
+  inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;
   buscarHorariosDisponiveisPorToken(

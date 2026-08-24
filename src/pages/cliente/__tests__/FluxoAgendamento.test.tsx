@@ -55,22 +55,25 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     renderBookingRoute();
 
     expect(
-      await screen.findByRole('heading', { name: 'Como podemos chamar você?' }),
+      await screen.findByRole('heading', { name: 'Identificação do cliente' }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/Nome/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Ex: João/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Ex: Silva/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/\(11\) 99999-9999/i)).toBeInTheDocument();
     expect(screen.queryByText('Selecione o Serviço')).not.toBeInTheDocument();
   });
-  it('valida o nome antes de chamar a RPC de conclusão', async () => {
+
+  it('valida os campos antes de chamar a RPC de conclusão', async () => {
     mockRpc.mockResolvedValueOnce({ data: [incompleteDetails], error: null });
 
     renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
+    await screen.findByRole('heading', { name: 'Identificação do cliente' });
 
-    fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: 'A' } });
+    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'A' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Informe um nome com 2 a 100 caracteres.',
+      'Por favor, informe seu primeiro nome (mínimo 2 letras).',
     );
     expect(mockRpc).not.toHaveBeenCalledWith(
       'complete_customer_registration',
@@ -95,7 +98,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
         return { data: [incompleteDetails], error: null };
       }
       if (name === 'complete_customer_registration') {
-        expect(params).toEqual({ p_token: 'token-abc', p_name: 'Maria Silva' });
+        expect(params).toEqual({ p_token: 'token-abc', p_name: 'Maria Silva', p_phone: '11999998888' });
         return { data: [completedDetails], error: null };
       }
       if (name === 'get_services_by_customer_token') {
@@ -108,15 +111,15 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
 
     renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
-    fireEvent.change(screen.getByLabelText(/Nome/i), {
-      target: { value: '  Maria Silva  ' },
-    });
+    await screen.findByRole('heading', { name: 'Identificação do cliente' });
+    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'Maria' } });
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Silva/i), { target: { value: 'Silva' } });
+    fireEvent.change(screen.getByPlaceholderText(/\(11\) 99999-9999/i), { target: { value: '11999998888' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Como podemos chamar você?' }),
+      screen.queryByRole('heading', { name: 'Identificação do cliente' }),
     ).not.toBeInTheDocument();
     expect(window.location.pathname).not.toBe('/cliente/agendar');
   });
@@ -133,15 +136,17 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
 
     renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Como podemos chamar você?' });
-    fireEvent.change(screen.getByLabelText(/Nome/i), { target: { value: 'Maria Silva' } });
+    await screen.findByRole('heading', { name: 'Identificação do cliente' });
+    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'Maria' } });
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Silva/i), { target: { value: 'Silva' } });
+    fireEvent.change(screen.getByPlaceholderText(/\(11\) 99999-9999/i), { target: { value: '11999998888' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Como podemos chamar você?' }),
+      await screen.findByRole('heading', { name: 'Identificação do cliente' }),
     ).toBeInTheDocument();
     expect(mockAddToast).toHaveBeenCalledWith(
-      expect.stringContaining('salvar seu nome'),
+      expect.stringContaining('salvar seus dados'),
       'error',
     );
   });
@@ -159,7 +164,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Como podemos chamar você?' }),
+      screen.queryByRole('heading', { name: 'Identificação do cliente' }),
     ).not.toBeInTheDocument();
   });
 

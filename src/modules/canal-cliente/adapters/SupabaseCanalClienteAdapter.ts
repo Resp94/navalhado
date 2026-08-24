@@ -80,9 +80,15 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     };
   }
 
-  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+  async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+    const isUuid = (val?: string | null): boolean =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim()));
+
+    const validToken = isUuid(existingToken) ? existingToken!.trim() : null;
+
     const { data, error } = await supabase.rpc('get_or_create_provisional_customer_by_slug', {
       p_slug: slug,
+      p_existing_token: validToken,
     });
 
     if (error) {
@@ -312,6 +318,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     let res = await supabase.rpc('complete_customer_registration', {
       p_token: token,
       p_name: input.name,
+      p_phone: input.phone || null,
     });
 
     if (res.error) {

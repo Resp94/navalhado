@@ -6,7 +6,7 @@ import { useClientes } from '../../modules/clientes/useClientes';
 import type { Cliente } from '../../modules/clientes/types';
 import { DEFAULT_LTV_METRICS } from '../../modules/clientes/types';
 import { formatWhatsAppUrl } from '../../modules/clientes/utils';
-import { supabase } from '../../lib/supabase';
+import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import './Clientes.css';
@@ -222,7 +222,11 @@ export const Clientes: React.FC = () => {
     setSelectedCustomer(customer);
     const bookingLink = `${window.location.origin}/cliente/${customer.token_acesso}`;
     const barbeariaName = tenant.tenantName || 'Barbearia';
-    const initialText = `Olá, ${customer.name}! Já faz um tempo desde seu último atendimento na *${barbeariaName}*. Que tal renovar o visual? Agende seu horário pelo link: ${bookingLink}`;
+    const initialText = interpolateTemplate(WHATSAPP_TEMPLATES.retorno, {
+      customer_name: customer.name,
+      tenant_name: barbeariaName,
+      booking_link: bookingLink,
+    });
 
     setWhatsAppTemplate('retorno');
     setWhatsAppCustomMessage(initialText);
@@ -236,9 +240,21 @@ export const Clientes: React.FC = () => {
     const barbeariaName = tenant.tenantName || 'Barbearia';
 
     if (template === 'retorno') {
-      setWhatsAppCustomMessage(`Olá, ${selectedCustomer.name}! Já faz um tempo desde seu último atendimento na *${barbeariaName}*. Que tal renovar o visual? Agende seu horário pelo link: ${bookingLink}`);
+      setWhatsAppCustomMessage(
+        interpolateTemplate(WHATSAPP_TEMPLATES.retorno, {
+          customer_name: selectedCustomer.name,
+          tenant_name: barbeariaName,
+          booking_link: bookingLink,
+        })
+      );
     } else if (template === 'agradecimento') {
-      setWhatsAppCustomMessage(`Olá, ${selectedCustomer.name}! Agradecemos pela preferência e confiança na *${barbeariaName}*. Como foi sua experiência conosco? Esperamos você em breve!`);
+      setWhatsAppCustomMessage(
+        interpolateTemplate(WHATSAPP_TEMPLATES.agradecimento, {
+          customer_name: selectedCustomer.name,
+          tenant_name: barbeariaName,
+          booking_link: bookingLink,
+        })
+      );
     } else {
       setWhatsAppCustomMessage('');
     }
@@ -256,15 +272,11 @@ export const Clientes: React.FC = () => {
 
     try {
       setIsSendingWhatsApp(true);
-      const { error } = await supabase.functions.invoke('whatsapp-integration/send-manual', {
-        body: {
-          tenant_id: tenant.tenantId,
-          number: selectedCustomer.phone,
-          text: whatsAppCustomMessage.trim(),
-        },
-      });
-
-      if (error) throw error;
+      await sendManualWhatsAppMessage(
+        tenant.tenantId,
+        selectedCustomer.phone,
+        whatsAppCustomMessage.trim()
+      );
 
       addToast(`Mensagem disparada com sucesso para ${selectedCustomer.name} via WhatsApp da barbearia!`, 'success');
       setIsDirectWhatsAppModalOpen(false);

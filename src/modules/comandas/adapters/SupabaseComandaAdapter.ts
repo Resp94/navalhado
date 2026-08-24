@@ -45,6 +45,41 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
     return (data || []) as Comanda[];
   }
 
+  async listarTodas(tenantId: string): Promise<import('../types').ComandaEnriched[]> {
+    const { data, error } = await supabase
+      .from('comandas')
+      .select(`
+        *,
+        itens:comanda_itens(*),
+        customer:customers(id, name, phone),
+        appointment:appointments(
+          id,
+          professional:professionals(id, name)
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw new Error(`Erro ao listar comandas: ${error.message}`);
+    }
+
+    return (data || []).map((c: any) => {
+      const isAberta = c.status === 'aberta' || c.status === 'open';
+      const isFechada = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+      const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : 'cancelada';
+
+      return {
+        ...c,
+        status: normalizedStatus,
+        customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
+        customer_phone: c.customer?.phone || null,
+        professional_name: c.appointment?.professional?.name || 'Equipe',
+      };
+    });
+  }
+
   async criarComanda(input: CriarComandaInput): Promise<Comanda> {
     const totalItens = input.itens.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
 

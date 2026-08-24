@@ -58,11 +58,11 @@ export class CanalClienteRepository {
     return perfil;
   }
 
-  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+  async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
     if (!slug || !slug.trim()) {
       throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
     }
-    const res = await this.adapter.inicializarPorSlug(slug.trim());
+    const res = await this.adapter.inicializarPorSlug(slug.trim(), existingToken?.trim() || undefined);
     if (res.token) {
       this.adapter.definirToken(res.token);
     }

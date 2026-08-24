@@ -99,5 +99,41 @@ describe('ListaEsperaDrawer', () => {
 
     expect(mockOnEncaixar).toHaveBeenCalledWith(fakeEntry);
   });
+
+  it('permite trocar a data da fila de espera pelo seletor de data', async () => {
+    const mockOnDateChange = vi.fn();
+    vi.mocked(mockAdapter.listarPorData).mockResolvedValue([
+      {
+        id: 'w-2',
+        tenant_id: 't-1',
+        customer_name: 'Lucas Ferreira',
+        customer_phone: '11977776666',
+        status: 'aguardando' as const,
+      },
+    ]);
+
+    render(
+      <ListaEsperaDrawer
+        isOpen={true}
+        tenantId="t-1"
+        currentDateIso="2026-08-16"
+        professionals={professionals}
+        services={services}
+        onClose={mockOnClose}
+        onEncaixar={mockOnEncaixar}
+        onDateChange={mockOnDateChange}
+        esperaRepo={mockRepo}
+      />
+    );
+
+    const dateInput = screen.getByLabelText(/Data da fila:/i);
+    expect(dateInput).toHaveValue('2026-08-16');
+
+    fireEvent.change(dateInput, { target: { value: '2026-08-18' } });
+
+    expect(mockOnDateChange).toHaveBeenCalledWith('2026-08-18');
+    expect(mockAdapter.listarPorData).toHaveBeenCalledWith('t-1', '2026-08-18');
+  });
 });
+
 

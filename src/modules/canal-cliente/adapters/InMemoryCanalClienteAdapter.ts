@@ -41,11 +41,11 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     return this.perfis.get(token) || null;
   }
 
-  async inicializarPorSlug(slug: string): Promise<{ token: string; perfil: PerfilClienteCanal }> {
+  async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
     if (!slug || slug === 'invalid') {
       throw new CanalClienteTokenError('Estabelecimento não encontrado.');
     }
-    const token = `token_${slug}`;
+    const token = existingToken || `token_${slug}`;
     let perfil = this.perfis.get(token);
     if (!perfil) {
       perfil = {

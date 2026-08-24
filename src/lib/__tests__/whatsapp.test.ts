@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'vitest';
-import { sanitizePhoneNumber, formatWhatsAppNumber, buildWhatsAppUrl } from '../whatsapp';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  sanitizePhoneNumber,
+  formatWhatsAppNumber,
+  buildWhatsAppUrl,
+  interpolateTemplate,
+  WHATSAPP_TEMPLATES,
+  sendManualWhatsAppMessage,
+} from '../whatsapp';
+import { supabase } from '../supabase';
+
+vi.mock('../supabase', () => ({
+  supabase: {
+    functions: {
+      invoke: vi.fn(),
+    },
+  },
+}));
 
 describe('whatsapp utility', () => {
   it('higieniza caracteres não numéricos do telefone', () => {
@@ -18,4 +34,34 @@ describe('whatsapp utility', () => {
     expect(url).toContain('https://wa.me/5511987654321');
     expect(url).toContain('text=Ol%C3%A1%20Carlos');
   });
+
+  it('interpola variáveis no template corretamente', () => {
+    const result = interpolateTemplate(WHATSAPP_TEMPLATES.retorno, {
+      customer_name: 'Arthur',
+      tenant_name: 'Barbearia Premium',
+      booking_link: 'https://navalhado.com.br/cliente/123',
+    });
+
+    expect(result).toBe(
+      'Olá, Arthur! Já faz um tempo desde seu último atendimento na *Barbearia Premium*. Que tal renovar o visual? Agende seu horário pelo link: https://navalhado.com.br/cliente/123'
+    );
+  });
+
+  it('chama Edge Function com os parâmetros corretos ao disparar mensagem', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: { success: true },
+      error: null,
+    } as any);
+
+    await sendManualWhatsAppMessage('tenant-123', '11988887777', 'Mensagem de teste');
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
+      body: {
+        tenant_id: 'tenant-123',
+        number: '11988887777',
+        text: 'Mensagem de teste',
+      },
+    });
+  });
 });
+

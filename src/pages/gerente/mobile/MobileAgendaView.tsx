@@ -210,6 +210,16 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           </button>
 
           <div className="mobile-agenda__date-display">
+            <label className="mobile-agenda__calendar-picker" title="Escolher data no calendário">
+              <HugeiconsIcon icon={Calendar03Icon} size={15} className="mobile-agenda__calendar-icon" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => e.target.value && onSelectDate(e.target.value)}
+                className="mobile-agenda__date-input"
+                aria-label="Selecionar data da agenda"
+              />
+            </label>
             <span className="mobile-agenda__date-title">{formattedDateTitle}</span>
             {isToday ? (
               <span className="mobile-agenda__today-pill">Hoje</span>
@@ -489,7 +499,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           max-width: 100%;
           box-sizing: border-box;
           overflow-x: hidden;
-          padding-bottom: calc(95px + env(safe-area-inset-bottom, 20px));
+          padding-bottom: 0.5rem;
         }
 
         .mobile-agenda__header-row {
@@ -517,6 +527,47 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           align-items: center;
           gap: 0.375rem;
           user-select: none;
+        }
+
+        .mobile-agenda__calendar-picker {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: var(--radius-sm, 6px);
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          color: var(--color-brand-primary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .mobile-agenda__calendar-picker:hover {
+          border-color: var(--color-brand-primary);
+          background: var(--color-brand-lightest);
+        }
+
+        .mobile-agenda__calendar-picker:active {
+          transform: scale(0.92);
+        }
+
+        .mobile-agenda__calendar-icon {
+          pointer-events: none;
+        }
+
+        .mobile-agenda__date-input {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          width: 100%;
+          height: 100%;
+          cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
         }
 
         .mobile-agenda__nav-btn {

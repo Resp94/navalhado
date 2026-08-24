@@ -512,10 +512,18 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       if (existing) {
-        return new Response(JSON.stringify({ error: "A barbearia já possui uma integração de WhatsApp." }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const { data: existingInst } = await supabase
+          .from("whatsapp_instances")
+          .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords, created_at, updated_at")
+          .eq("id", existing.id)
+          .single();
+
+        if (existingInst) {
+          return new Response(JSON.stringify({ success: true, instance: existingInst }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
 
       const instanceName = `nav_${tenantId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}_${crypto.randomUUID().slice(0, 8)}`;
@@ -529,15 +537,23 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           instance_token: reservationToken,
           status: "disconnected",
         })
-        .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, created_at, updated_at")
+        .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords, created_at, updated_at")
         .single();
 
       if (reservationError || !reservation) {
         if (reservationError?.code === "23505") {
-          return new Response(JSON.stringify({ error: "A barbearia já possui uma integração de WhatsApp." }), {
-            status: 409,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          const { data: existingInst } = await supabase
+            .from("whatsapp_instances")
+            .select("id, tenant_id, provider, instance_name, status, send_confirmation, send_reminders, send_cancellation, reminder_hours, qr_code, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords, created_at, updated_at")
+            .eq("tenant_id", tenantId)
+            .single();
+
+          if (existingInst) {
+            return new Response(JSON.stringify({ success: true, instance: existingInst }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
         console.error("[WhatsApp-Integration] Falha ao reservar integração de WhatsApp");
         return new Response(JSON.stringify({ error: "Não foi possível iniciar a ativação do WhatsApp." }), {
@@ -881,7 +897,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { data: authenticatedInstance, error: instanceAuthError } = await supabase
         .from(instancesTable)
-        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, updated_at`)
+        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, auto_reply_keywords, updated_at`)
         .eq(instanceTokenColumn, cleanInstanceToken)
         .single();
 
@@ -974,6 +990,38 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         if (authenticatedInstance.status !== "connected") {
           console.warn(`[WhatsApp-Integration] Mensagem ignorada: instância não encontrada ou desconectada`);
           return new Response(JSON.stringify({ ignored: true, reason: "Instance unavailable" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const incomingText = String(
+          messagePayload.text ??
+          messagePayload.conversation ??
+          messagePayload.extendedTextMessage?.text ??
+          messagePayload.caption ??
+          messageInfo.Text ??
+          messageInfo.text ??
+          messageInfo.Caption ??
+          body.text ??
+          ""
+        ).trim();
+
+        // Normalizar texto da mensagem e palavras-chave (remover acentos, minúsculas)
+        const normalizeText = (str: string): string =>
+          str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+        const normalizedMessage = normalizeText(incomingText);
+        const rawKeywords = authenticatedInstance.auto_reply_keywords || "agendar, marcar, horario, link, corte, barba, agenda, atendimento";
+        const keywordsList = rawKeywords
+          .split(",")
+          .map((k: string) => normalizeText(k.trim()))
+          .filter((k: string) => k.length > 0);
+
+        const hasKeywordMatch = keywordsList.length === 0 || keywordsList.some((kw: string) => normalizedMessage.includes(kw));
+
+        if (!hasKeywordMatch) {
+          console.log(`[WhatsApp-Integration] Mensagem recebida ignorada: não contém palavras-chave de agendamento (Texto: '${incomingText}')`);
+          return new Response(JSON.stringify({ ignored: true, reason: "No keyword match" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }

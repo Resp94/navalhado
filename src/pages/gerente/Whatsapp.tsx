@@ -45,6 +45,7 @@ interface WhatsappInstance {
   template_cancellation?: string | null;
   template_reminder?: string | null;
   template_first_contact?: string | null;
+  auto_reply_keywords?: string | null;
 }
 
 type GatewayInstanceStatus =
@@ -66,7 +67,7 @@ type WhatsappSetting =
   | 'send_cancellation';
 
 const WHATSAPP_INSTANCE_COLUMNS =
-  'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact';
+  'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords';
 const STATUS_POLL_INTERVAL_MS = 2000;
 const STATUS_POLL_MAX_ATTEMPTS = 90;
 const TERMINAL_STATUSES = ['connected', 'disconnected', 'hibernated'];
@@ -93,6 +94,7 @@ const toWhatsappInstance = (row: Record<string, unknown>): WhatsappInstance => (
   template_cancellation: (row.template_cancellation as string | null) ?? null,
   template_reminder: (row.template_reminder as string | null) ?? null,
   template_first_contact: (row.template_first_contact as string | null) ?? null,
+  auto_reply_keywords: (row.auto_reply_keywords as string | null) ?? null,
 });
 
 const formatHoursToReadable = (hours: number): string =>
@@ -157,6 +159,7 @@ export const Whatsapp: React.FC = () => {
   // Estados de Personalização de Templates
   const [activeTab, setActiveTab] = useState<WhatsappTemplateKey>('confirmation');
   const [templateDrafts, setTemplateDrafts] = useState<Record<WhatsappTemplateKey, string>>(buildTemplateDrafts(null));
+  const [keywordsDraft, setKeywordsDraft] = useState<string>('agendar, marcar, horario, link, corte, barba, agenda, atendimento');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [managerPhone, setManagerPhone] = useState<string>('');
   const [testPhoneForTemplate, setTestPhoneForTemplate] = useState('');
@@ -200,6 +203,9 @@ export const Whatsapp: React.FC = () => {
           const parsed = toWhatsappInstance(data);
           setInstance(parsed);
           setTemplateDrafts(buildTemplateDrafts(parsed));
+          if (parsed.auto_reply_keywords) {
+            setKeywordsDraft(parsed.auto_reply_keywords);
+          }
         } else {
           setInstance(null);
         }
@@ -321,8 +327,17 @@ export const Whatsapp: React.FC = () => {
       );
 
       if (funcError || (funcData && funcData.error)) {
-        const errorMsg = funcData?.error || funcError?.message || 'Erro ao inicializar a Instância WhatsApp da barbearia.';
-        throw new Error(errorMsg);
+        let errorMsg = funcData?.error;
+        if (!errorMsg && funcError) {
+          if ('context' in funcError && typeof (funcError as any).context?.json === 'function') {
+            try {
+              const body = await (funcError as any).context.json();
+              if (body?.error) errorMsg = body.error;
+            } catch {}
+          }
+          if (!errorMsg) errorMsg = funcError.message;
+        }
+        throw new Error(errorMsg || 'Erro ao inicializar a Instância WhatsApp da barbearia.');
       }
 
       if (!funcData?.instance) throw new Error('A ativação não retornou uma instância válida.');
@@ -537,12 +552,18 @@ export const Whatsapp: React.FC = () => {
 
     try {
       setSavingTemplate(true);
+      const updatePayload: Record<string, unknown> = {
+        [currentConfig.column]: activeDraftText.trim(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (activeTab === 'first_contact') {
+        updatePayload.auto_reply_keywords = keywordsDraft.trim() || null;
+      }
+
       const { data, error } = await supabase
         .from('whatsapp_instances')
-        .update({
-          [currentConfig.column]: activeDraftText.trim(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', instance.id)
         .select(WHATSAPP_INSTANCE_COLUMNS)
         .single();
@@ -914,6 +935,36 @@ export const Whatsapp: React.FC = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Palavras-chave de Ativação (se Primeiro Contato) */}
+                {activeTab === 'first_contact' && (
+                  <div className="keywords-setting-group" style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="auto-reply-keywords" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '0.35rem' }}>
+                      Palavras-chave de ativação (separadas por vírgula):
+                    </label>
+                    <input
+                      id="auto-reply-keywords"
+                      type="text"
+                      value={keywordsDraft}
+                      onChange={(e) => setKeywordsDraft(e.target.value)}
+                      placeholder="Ex: agendar, marcar, horario, link, corte, barba, agenda, atendimento"
+                      style={{
+                        width: '100%',
+                        padding: '0.6rem 0.85rem',
+                        borderRadius: 'var(--radius-md, 8px)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-bg-primary)',
+                        color: 'var(--color-text-primary)',
+                        fontSize: '0.875rem',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.35rem' }}>
+                      O robô só enviará a mensagem com o link se o cliente enviar uma mensagem contendo ao menos uma dessas palavras-chave.
+                    </span>
+                  </div>
+                )}
 
                 {/* Textarea do Template */}
                 <div className="template-textarea-wrapper">

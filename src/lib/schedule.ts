@@ -72,7 +72,7 @@ export const getDayOfWeekIndex = (dateStr: string): number => {
  * Recupera o expediente configurado de um profissional para determinada data
  */
 export const getProfessionalDaySchedule = (
-  prof: ScheduleProfessional,
+  prof: { weekly_schedule?: WeeklySchedule | null },
   dateStr: string
 ): ProfessionalDaySchedule | null => {
   if (!prof.weekly_schedule) return null;
