@@ -2390,6 +2390,7 @@ export const Agenda: React.FC = () => {
         tenantId={tenant.tenantId}
         professionals={professionals}
         appointments={appointments}
+        blockedSlots={blockedSlots}
         defaultDateIso={selectedDate}
         defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
         timezone={tenant.timezone}

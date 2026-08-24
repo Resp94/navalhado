@@ -7,7 +7,8 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
-import { localDateTimeToIso, dateInZone, formatTimeInZone } from '../../lib/timezone';
+import { supabase } from '../../lib/supabase';
+import { localDateTimeToIso, localDayUtcRange, dateInZone, formatTimeInZone } from '../../lib/timezone';
 import {
   addMinutesToTime,
   generateTimeSlotsForSchedule,
@@ -37,6 +38,7 @@ interface BloqueioModalProps {
   tenantId: string;
   professionals: ProfessionalOption[];
   appointments?: BloqueioAppointmentOption[];
+  blockedSlots?: BlockedSlot[];
   defaultDateIso?: string; // YYYY-MM-DD
   defaultProfessionalId?: string;
   timezone?: string;
@@ -57,11 +59,12 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   businessHours,
   slotIntervalMinutes,
   appointments = [],
+  blockedSlots = [],
   onClose,
   onBloqueioCriado,
   bloqueioRepo,
 }) => {
-  const repo = bloqueioRepo || new BloqueioRepository(new SupabaseBloqueioAdapter());
+  const repo = useMemo(() => bloqueioRepo || new BloqueioRepository(new SupabaseBloqueioAdapter()), [bloqueioRepo]);
 
   const todayStr = defaultDateIso || new Date().toISOString().split('T')[0];
   const [selectedProfId, setSelectedProfId] = useState<string>(
@@ -73,6 +76,10 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   const [isAllDay, setIsAllDay] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Estados com dados do dia buscados dinamicamente para a data e profissional selecionados
+  const [dynamicAppointments, setDynamicAppointments] = useState<BloqueioAppointmentOption[]>([]);
+  const [dynamicBlockedSlots, setDynamicBlockedSlots] = useState<BlockedSlot[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,6 +96,52 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     }
   }, [isOpen, defaultProfessionalId, defaultDateIso, professionals]);
 
+  // Carregar agendamentos e bloqueios da data selecionada em tempo real para sincronização precisa
+  useEffect(() => {
+    if (!isOpen || !tenantId || !date) return;
+
+    let isMounted = true;
+    const loadDayData = async () => {
+      try {
+        const { start, endExclusive } = localDayUtcRange(date, timezone);
+        
+        // 1. Carregar bloqueios do dia
+        try {
+          const blkRes = await repo.listByDate(tenantId, start, endExclusive);
+          if (isMounted && Array.isArray(blkRes)) {
+            setDynamicBlockedSlots(blkRes);
+          }
+        } catch {
+          // Fallback silencioso usando prop inicial
+        }
+
+        // 2. Carregar agendamentos ativos do dia
+        try {
+          const { data: apptData, error: apptErr } = await supabase
+            .from('appointments')
+            .select('id, start_time, end_time, status, professional_id')
+            .eq('tenant_id', tenantId)
+            .gte('start_time', start)
+            .lt('start_time', endExclusive)
+            .neq('status', 'canceled');
+
+          if (!apptErr && apptData && isMounted) {
+            setDynamicAppointments(apptData as BloqueioAppointmentOption[]);
+          }
+        } catch {
+          // Fallback silencioso usando prop inicial
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar dados do dia no modal de bloqueio:', err);
+      }
+    };
+
+    loadDayData();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, tenantId, date, timezone, repo]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -102,7 +155,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
   const stepMinutes = slotIntervalMinutes && slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
 
-  // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro (omitindo o horário de almoço/intervalo e horários já agendados)
+  // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro
+  // (omitindo o horário de almoço/intervalo, horários com agendamento ativo e horários já bloqueados)
   const availableSlots = useMemo(() => {
     if (!date || !selectedProfId) return [];
 
@@ -135,10 +189,12 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
       );
     }
 
-    // Filtrar horários em que o profissional já possui agendamento confirmado/em andamento
-    const bookedIntervals = appointments
+    // 1. Filtrar horários em que o profissional já possui agendamento confirmado/em andamento
+    const activeAppts = dynamicAppointments.length > 0 ? dynamicAppointments : appointments;
+    const bookedIntervals = activeAppts
       .filter((a) => {
-        if (a.status === 'canceled' || a.professional_id !== selectedProfId) return false;
+        if (a.status === 'canceled') return false;
+        if (a.professional_id !== selectedProfId && selectedProfId !== 'all') return false;
         const apptDate = dateInZone(new Date(a.start_time), timezone);
         return apptDate === date;
       })
@@ -147,20 +203,43 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         end: formatTimeInZone(a.end_time, timezone),
       }));
 
-    if (bookedIntervals.length === 0) {
-      return baseSlots;
+    // 2. Filtrar horários em que o profissional já possui bloqueios existentes
+    const activeBlocks = dynamicBlockedSlots.length > 0 ? dynamicBlockedSlots : blockedSlots;
+    const dayBlocks = activeBlocks.filter((b) => {
+      if (b.professional_id && b.professional_id !== selectedProfId && selectedProfId !== 'all') return false;
+      const blockDate = dateInZone(new Date(b.start_time), timezone);
+      return blockDate === date;
+    });
+
+    // Se houver algum bloqueio de dia inteiro (is_all_day) para este profissional nesta data, todos os slots estão bloqueados
+    if (dayBlocks.some((b) => b.is_all_day)) {
+      return [];
     }
+
+    const blockedIntervals = dayBlocks.map((b) => ({
+      start: formatTimeInZone(b.start_time, timezone),
+      end: formatTimeInZone(b.end_time, timezone),
+    }));
 
     return baseSlots.filter((slot) => {
       const slotStart = slot;
       const slotEnd = addMinutesToTime(slot, stepMinutes);
+
       // O slot colide se iniciar antes do término do agendamento E terminar após o início do agendamento
-      const hasConflict = bookedIntervals.some(
+      const hasApptConflict = bookedIntervals.some(
         (b) => slotStart < b.end && slotEnd > b.start
       );
-      return !hasConflict;
+      if (hasApptConflict) return false;
+
+      // O slot colide se iniciar antes do término do bloqueio E terminar após o início do bloqueio
+      const hasBlockConflict = blockedIntervals.some(
+        (b) => slotStart < b.end && slotEnd > b.start
+      );
+      if (hasBlockConflict) return false;
+
+      return true;
     });
-  }, [date, selectedProfId, businessHours, professionals, stepMinutes, appointments, timezone]);
+  }, [date, selectedProfId, businessHours, professionals, stepMinutes, appointments, blockedSlots, dynamicAppointments, dynamicBlockedSlots, timezone]);
 
   const handleToggleSlot = (slot: string) => {
     setSelectedSlots((prev) =>
@@ -404,7 +483,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               {availableSlots.length === 0 ? (
                 <div className="bloqueio-no-slots">
                   <HugeiconsIcon icon={Clock01Icon} size={18} />
-                  <span>Nenhum horário disponível para esta data (barbeiro de folga ou barbearia fechada).</span>
+                  <span>Nenhum horário disponível para bloqueio nesta data (folga, barbearia fechada ou horários já ocupados por agendamentos/bloqueios).</span>
                 </div>
               ) : (
                 <div className="bloqueio-slots-grid">

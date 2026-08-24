@@ -162,6 +162,42 @@ describe('BloqueioModal', () => {
     expect(screen.getByText('09:00 - 09:30')).toBeInTheDocument();
   });
 
+  it('não exibe horários que já foram bloqueados na lista de slots para bloquear', () => {
+    const existingBlockedSlots = [
+      {
+        id: 'blk-1',
+        tenant_id: 't-1',
+        professional_id: 'prof-1',
+        start_time: '2026-08-17T15:00:00.000Z', // 12:00 no fuso de São Paulo
+        end_time: '2026-08-17T16:00:00.000Z',   // 13:00 no fuso de São Paulo
+        reason: 'Almoço',
+        is_all_day: false,
+      },
+    ];
+
+    render(
+      <BloqueioModal
+        isOpen={true}
+        tenantId="t-1"
+        professionals={professionals}
+        blockedSlots={existingBlockedSlots}
+        defaultDateIso="2026-08-17"
+        defaultProfessionalId="prof-1"
+        slotIntervalMinutes={30}
+        timezone="America/Sao_Paulo"
+        onClose={mockOnClose}
+        onBloqueioCriado={mockOnBloqueioCriado}
+        bloqueioRepo={mockRepo}
+      />
+    );
+
+    // Os horários das 12:00 - 12:30 e 12:30 - 13:00 não devem aparecer como opção porque já estão bloqueados
+    expect(screen.queryByText('12:00 - 12:30')).toBeNull();
+    expect(screen.queryByText('12:30 - 13:00')).toBeNull();
+    // Outros horários livres devem aparecer
+    expect(screen.getByText('09:00 - 09:30')).toBeInTheDocument();
+  });
+
   it('impede bloqueio de dia inteiro e exibe erro se houver agendamentos ativos na data', async () => {
     const existingAppointments = [
       {
