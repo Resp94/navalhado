@@ -107,7 +107,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         
         // 1. Carregar bloqueios do dia
         try {
-          const blkRes = await repo.listByDate(tenantId, start, endExclusive);
+          const blkRes = await repo.listByDateRange(tenantId, start, endExclusive);
           if (isMounted && Array.isArray(blkRes)) {
             setDynamicBlockedSlots(blkRes);
           }
