@@ -193,10 +193,10 @@ export const FluxoAgendamento: React.FC = () => {
   useEffect(() => {
     if (customerDetails) {
       if (customerDetails.customer_name && customerDetails.customer_name !== 'Cliente') {
-        setClientFullName((prev) => prev || customerDetails.customer_name);
+        setClientFullName(customerDetails.customer_name);
       }
       if (customerDetails.customer_phone) {
-        setClientPhone((prev) => prev || maskPhone(customerDetails.customer_phone || ''));
+        setClientPhone(maskPhone(customerDetails.customer_phone || ''));
       }
     }
   }, [customerDetails]);
@@ -291,21 +291,17 @@ export const FluxoAgendamento: React.FC = () => {
     setBooking(true);
     try {
       let activeToken = canonicalToken;
-      try {
-        const updateRes = await canalClienteRepository.promoverCadastroCliente(
-          { name: trimmedName, phone: cleanPhone },
-          canonicalToken
-        );
-        if (updateRes && updateRes.token_acesso) {
-          activeToken = updateRes.token_acesso;
-          setCanonicalToken(activeToken);
-        }
-        if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem('navalhado_token_' + customerDetails.tenant_slug, activeToken);
-          localStorage.setItem('navalhado_customer_token', activeToken);
-        }
-      } catch (regErr) {
-        console.warn('Erro ao sincronizar cadastro (prosseguindo com agendamento se possível):', regErr);
+      const updateRes = await canalClienteRepository.promoverCadastroCliente(
+        { name: trimmedName, phone: cleanPhone },
+        canonicalToken
+      );
+      if (updateRes && updateRes.token_acesso) {
+        activeToken = updateRes.token_acesso;
+        setCanonicalToken(activeToken);
+      }
+      if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('navalhado_token_' + customerDetails.tenant_slug, activeToken);
+        localStorage.setItem('navalhado_customer_token', activeToken);
       }
 
       if (isRescheduling && rescheduleAppointmentId) {
@@ -316,14 +312,14 @@ export const FluxoAgendamento: React.FC = () => {
           newDate: selectedDate,
           newSlot: selectedSlot,
           newStartTime: `${selectedDate}T${selectedSlot}:00`,
-        });
+        }, activeToken);
         addToast('Reagendamento concluído com sucesso!', 'success');
       } else {
         await canalClienteRepository.criarAgendamento({
           serviceId: selectedService.id,
           professionalId: selectedProfessional?.id || null,
           startTime: `${selectedDate}T${selectedSlot}:00`,
-        });
+        }, activeToken);
         addToast('Agendamento realizado com sucesso!', 'success');
       }
 
