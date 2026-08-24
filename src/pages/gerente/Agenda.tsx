@@ -199,6 +199,7 @@ export const Agenda: React.FC = () => {
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
 
   // Estados do Formulário de Agendamento / Encaixe
+  const [formDate, setFormDate] = useState(selectedDate);
   const [formProfessionalId, setFormProfessionalId] = useState('');
   const [formServiceId, setFormServiceId] = useState('');
   const [formTime, setFormTime] = useState('09:00');
@@ -842,6 +843,7 @@ export const Agenda: React.FC = () => {
       }
     }
 
+    setFormDate(dateToCheck);
     setFormIsFitting(finalIsFitting);
     setFormNotes('');
     setCustomerMode('existing');
@@ -866,7 +868,15 @@ export const Agenda: React.FC = () => {
     }
 
     setFormProfessionalId(targetProfId || professionals[0]?.id || '');
-    if (entry.service_id) setFormServiceId(entry.service_id);
+    setFormServiceId(entry.service_id || (services[0]?.id ?? ''));
+    setFormDate(selectedDate);
+    const nowInstant = new Date();
+    const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
+    setFormTime(
+      timeSlots.find((s) => s >= currentLocalTime) ||
+        timeSlots[0] ||
+        '09:00'
+    );
     setCustomerMode('new');
     setNewCustomerName(entry.customer_name);
     setNewCustomerPhone(entry.customer_phone || '');
@@ -939,8 +949,8 @@ export const Agenda: React.FC = () => {
       const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
 
       const isPastTime =
-        selectedDate < currentLocalDate ||
-        (selectedDate === currentLocalDate && formTime < currentLocalTime);
+        formDate < currentLocalDate ||
+        (formDate === currentLocalDate && formTime < currentLocalTime);
 
       if (isPastTime && !formIsFitting) {
         addToast('Horários já decorridos são permitidos exclusivamente como Encaixe de balcão.', 'warning');
@@ -956,19 +966,19 @@ export const Agenda: React.FC = () => {
         return;
       }
 
-      if (isProfessionalOnBreak(selectedProf, selectedDate, formTime, selectedService.duration_minutes)) {
-        addToast(getProfessionalBreakMessage(selectedProf, selectedDate), 'warning');
+      if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
+        addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
         setSavingAppointment(false);
         return;
       }
 
-      if (!isProfessionalWorkingAt(selectedProf, selectedDate, formTime, selectedService.duration_minutes)) {
+      if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
         addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
         setSavingAppointment(false);
         return;
       }
 
-      const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
       if (!dayBh.active) {
         addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
         setSavingAppointment(false);
@@ -1004,13 +1014,13 @@ export const Agenda: React.FC = () => {
       }
 
       // Calcular timestamps com Timezone
-      const startIso = localDateTimeToIso(selectedDate, formTime, tenant.timezone);
+      const startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
       const [sh, sm] = formTime.split(':').map(Number);
       const endTotalMinutes = sh * 60 + sm + selectedService.duration_minutes;
       const eh = Math.floor(endTotalMinutes / 60);
       const em = endTotalMinutes % 60;
       const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-      const endIso = localDateTimeToIso(selectedDate, endTimeStr, tenant.timezone);
+      const endIso = localDateTimeToIso(formDate, endTimeStr, tenant.timezone);
 
       const payload = {
         tenant_id: tenant.tenantId,
@@ -1206,6 +1216,16 @@ export const Agenda: React.FC = () => {
         .eq('id', targetAppointment.id);
 
       if (error) throw error;
+
+      // Também cancelar a comanda aberta correspondente se houver
+      await supabase
+        .from('comandas')
+        .update({
+          status: 'cancelada',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('appointment_id', targetAppointment.id)
+        .eq('status', 'aberta');
 
       addToast('Agendamento cancelado com sucesso.', 'success');
       setIsCancelModalOpen(false);
@@ -2219,33 +2239,47 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
 
-          {/* Horário */}
-          <div className="form-group">
-            <label htmlFor="form-time">Horário de início</label>
-            {modalAvailableTimeSlots.length > 0 ? (
-              <select
-                id="form-time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
-                className="input-select"
-                required
-              >
-                {modalAvailableTimeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
-                ))}
-              </select>
-            ) : (
+          {/* Data e Horário */}
+          <div className="form-row-2">
+            <div className="form-group">
+              <label htmlFor="form-date">Data do atendimento</label>
               <input
-                id="form-time"
-                type="time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
+                id="form-date"
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
                 className="input-text"
                 required
               />
-            )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="form-time">Horário de início</label>
+              {modalAvailableTimeSlots.length > 0 ? (
+                <select
+                  id="form-time"
+                  value={formTime}
+                  onChange={(e) => setFormTime(e.target.value)}
+                  className="input-select"
+                  required
+                >
+                  {modalAvailableTimeSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="form-time"
+                  type="time"
+                  value={formTime}
+                  onChange={(e) => setFormTime(e.target.value)}
+                  className="input-text"
+                  required
+                />
+              )}
+            </div>
           </div>
 
           {/* Card de Encaixe de Balcão */}
@@ -2355,6 +2389,7 @@ export const Agenda: React.FC = () => {
         isOpen={isBloqueioModalOpen}
         tenantId={tenant.tenantId}
         professionals={professionals}
+        appointments={appointments}
         defaultDateIso={selectedDate}
         defaultProfessionalId={selectedProfessionalIds[0] || professionals[0]?.id}
         timezone={tenant.timezone}

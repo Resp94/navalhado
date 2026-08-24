@@ -24,6 +24,7 @@ import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixa
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
+import { supabase } from '../../lib/supabase';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import type {
   Comanda,
@@ -156,6 +157,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [isLoadingComanda, setIsLoadingComanda] = useState(true);
   const [isReopening, setIsReopening] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const initialServicesKey = useMemo(() => {
@@ -171,7 +174,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (reopenConfirmOpen) {
+        if (cancelConfirmOpen) {
+          setCancelConfirmOpen(false);
+        } else if (reopenConfirmOpen) {
           setReopenConfirmOpen(false);
         } else if (isAddingService) {
           setIsAddingService(false);
@@ -189,7 +194,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, reopenConfirmOpen, isAddingService, isAddingProduct, onClose]);
+  }, [isOpen, cancelConfirmOpen, reopenConfirmOpen, isAddingService, isAddingProduct, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -201,6 +206,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setTipValue(0);
     setIsSplitting(false);
     setReopenConfirmOpen(false);
+    setCancelConfirmOpen(false);
     setErrorMsg(null);
     setIsAddingService(false);
     setIsAddingProduct(false);
@@ -508,6 +514,45 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   };
 
+  const handleCancelComandaEAgendamento = async () => {
+    setIsCanceling(true);
+    setErrorMsg(null);
+    try {
+      if (appointmentId) {
+        const { error: apptErr } = await supabase
+          .from('appointments')
+          .update({
+            status: 'canceled',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', appointmentId);
+        if (apptErr) throw apptErr;
+      }
+
+      if (comandaId) {
+        const { error: cmdErr } = await supabase
+          .from('comandas')
+          .update({
+            status: 'cancelada',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', comandaId);
+        if (cmdErr) throw cmdErr;
+      }
+
+      if (onFinalizado && loadedComanda) {
+        onFinalizado({ ...loadedComanda, status: 'cancelada' });
+      }
+      onClose();
+    } catch (err: any) {
+      console.error('Erro ao cancelar comanda e agendamento:', err);
+      setErrorMsg(err?.message || 'Erro ao cancelar atendimento.');
+    } finally {
+      setIsCanceling(false);
+      setCancelConfirmOpen(false);
+    }
+  };
+
   return (
     <>
       <div
@@ -606,6 +651,40 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     className="comanda-btn-warning-sm"
                   >
                     {isReopening ? 'Reabrindo...' : 'Confirmar reabertura'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Banner de Confirmação de Cancelamento */}
+            {cancelConfirmOpen && (
+              <div className="comanda-cancel-confirm-card" role="alert">
+                <div className="comanda-reopen-content">
+                  <div className="comanda-reopen-icon comanda-reopen-icon--danger">
+                    <HugeiconsIcon icon={Cancel01Icon} size={18} />
+                  </div>
+                  <div>
+                    <h4 className="comanda-reopen-title">Cancelar este agendamento e comanda?</h4>
+                    <p className="comanda-reopen-desc">
+                      O agendamento será cancelado na grade e a comanda aberta correspondente será cancelada automaticamente.
+                    </p>
+                  </div>
+                </div>
+                <div className="comanda-reopen-actions">
+                  <button
+                    type="button"
+                    onClick={() => setCancelConfirmOpen(false)}
+                    className="comanda-btn-ghost-sm"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isCanceling}
+                    onClick={handleCancelComandaEAgendamento}
+                    className="comanda-btn-danger-sm"
+                  >
+                    {isCanceling ? 'Cancelando...' : 'Confirmar cancelamento'}
                   </button>
                 </div>
               </div>
@@ -1231,13 +1310,23 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 </div>
               ) : (
                 <div className="comanda-footer-open-actions">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="comanda-btn-secondary"
-                  >
-                    Cancelar
-                  </button>
+                  <div className="comanda-footer-left-actions">
+                    <button
+                      type="button"
+                      onClick={() => setCancelConfirmOpen(true)}
+                      className="comanda-btn-danger-outline"
+                      title="Cancelar este agendamento e comanda"
+                    >
+                      Cancelar atendimento
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="comanda-btn-secondary"
+                    >
+                      Fechar
+                    </button>
+                  </div>
                   <button
                     type="button"
                     disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
@@ -1593,6 +1682,39 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-btn-warning-sm:hover:not(:disabled) {
+          filter: brightness(0.92);
+          transform: translateY(-1px);
+        }
+
+        .comanda-cancel-confirm-card {
+          margin: 1rem 1.5rem 0;
+          padding: 0.9rem 1.15rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-error-bg, rgba(239, 68, 68, 0.08));
+          border: 1px solid var(--color-error, #ef4444);
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .comanda-reopen-icon--danger {
+          color: var(--color-error, #ef4444);
+        }
+
+        .comanda-btn-danger-sm {
+          padding: 0.4rem 0.9rem;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          background-color: var(--color-error, #ef4444);
+          color: white;
+          border: none;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comanda-btn-danger-sm:hover:not(:disabled) {
           filter: brightness(0.92);
           transform: translateY(-1px);
         }
@@ -2607,6 +2729,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           width: 100%;
         }
 
+        .comanda-footer-left-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .comanda-btn-danger-outline {
+          padding: 0.75rem 1.15rem;
+          border-radius: var(--radius-full);
+          border: 1px solid var(--color-error, #ef4444);
+          background-color: transparent;
+          color: var(--color-error, #ef4444);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .comanda-btn-danger-outline:hover {
+          background-color: var(--color-error-bg, rgba(239, 68, 68, 0.08));
+          transform: translateY(-1px);
+        }
+
         .comanda-btn-secondary {
           padding: 0.75rem 1.35rem;
           border-radius: var(--radius-full);
@@ -2772,10 +2917,43 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             padding: 1rem 1.25rem max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
           }
 
-          .comanda-btn-primary,
+          .comanda-footer-open-actions,
+          .comanda-footer-closed-actions {
+            flex-direction: column-reverse;
+            gap: 0.65rem;
+            width: 100%;
+          }
+
+          .comanda-footer-left-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            width: 100%;
+          }
+
+          .comanda-btn-primary {
+            width: 100%;
+            min-height: 48px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            font-size: var(--font-size-sm);
+            white-space: nowrap;
+          }
+
           .comanda-btn-secondary,
+          .comanda-btn-danger-outline,
           .comanda-btn-reopen {
-            min-height: 46px;
+            width: 100%;
+            min-height: 44px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0.65rem 0.5rem;
+            font-size: var(--font-size-xs);
+            white-space: nowrap;
           }
         }
       `}</style>

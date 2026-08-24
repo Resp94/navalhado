@@ -129,7 +129,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
     await waitFor(() => {
       expect(mockSelect).toHaveBeenCalledWith(
-        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact'
+        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords'
       );
     });
 

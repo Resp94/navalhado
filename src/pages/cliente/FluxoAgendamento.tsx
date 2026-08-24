@@ -115,10 +115,18 @@ export const FluxoAgendamento: React.FC = () => {
         if (routeSlug || tenantParam) {
           const targetSlug = routeSlug || tenantParam;
           try {
-            const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!);
+            let storedToken: string | undefined;
+            if (typeof window !== 'undefined' && window.localStorage) {
+              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || localStorage.getItem('navalhado_token') || undefined;
+            }
+            const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!, storedToken);
             token = initRes.token;
             activeDetails = initRes.perfil;
             setCanonicalToken(token);
+            if (typeof window !== 'undefined' && window.localStorage) {
+              localStorage.setItem('navalhado_token_' + targetSlug, token);
+              localStorage.setItem('navalhado_token', token);
+            }
           } catch (slugErr) {
             console.error('Erro ao resolver link por slug:', slugErr);
             if (token) {
@@ -180,17 +188,26 @@ export const FluxoAgendamento: React.FC = () => {
     loadInitialData();
   }, [routeSlug, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository]);
 
-  const handleCompleteRegistration = async (name: string) => {
+  const handleCompleteRegistration = async (dados: { name: string; phone: string }) => {
     if (!canonicalToken) return;
     setSavingRegistration(true);
     try {
-      const updatedPerfil = await canalClienteRepository.promoverCadastroCliente({ name }, canonicalToken);
+      const updatedPerfil = await canalClienteRepository.promoverCadastroCliente(
+        { name: dados.name, phone: dados.phone },
+        canonicalToken
+      );
       const activeDetails = updatedPerfil || (await canalClienteRepository.obterPerfil(canonicalToken));
       setCustomerDetails(activeDetails);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (activeDetails.tenant_slug) {
+          localStorage.setItem('navalhado_token_' + activeDetails.tenant_slug, canonicalToken);
+        }
+        localStorage.setItem('navalhado_token', canonicalToken);
+      }
       await loadCatalog(canonicalToken);
     } catch (err) {
       console.error('Erro ao concluir cadastro:', err);
-      addToast('Não foi possível salvar seu nome. Tente novamente.', 'error');
+      addToast('Não foi possível salvar seus dados. Tente novamente.', 'error');
     } finally {
       setSavingRegistration(false);
     }

@@ -7,7 +7,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
-import { localDateTimeToIso } from '../../lib/timezone';
+import { localDateTimeToIso, dateInZone, formatTimeInZone } from '../../lib/timezone';
 import {
   addMinutesToTime,
   generateTimeSlotsForSchedule,
@@ -24,10 +24,19 @@ export interface ProfessionalOption {
   weekly_schedule?: WeeklySchedule | null;
 }
 
+export interface BloqueioAppointmentOption {
+  id: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  professional_id: string;
+}
+
 interface BloqueioModalProps {
   isOpen: boolean;
   tenantId: string;
   professionals: ProfessionalOption[];
+  appointments?: BloqueioAppointmentOption[];
   defaultDateIso?: string; // YYYY-MM-DD
   defaultProfessionalId?: string;
   timezone?: string;
@@ -47,6 +56,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   timezone = 'America/Sao_Paulo',
   businessHours,
   slotIntervalMinutes,
+  appointments = [],
   onClose,
   onBloqueioCriado,
   bloqueioRepo,
@@ -92,7 +102,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
   const stepMinutes = slotIntervalMinutes && slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
 
-  // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro (omitindo o horário de almoço/intervalo)
+  // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro (omitindo o horário de almoço/intervalo e horários já agendados)
   const availableSlots = useMemo(() => {
     if (!date || !selectedProfId) return [];
 
@@ -102,12 +112,14 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     const selectedProf = professionals.find((p) => p.id === selectedProfId);
     const profSched = selectedProf ? getProfessionalDaySchedule(selectedProf as any, date) : null;
 
+    let baseSlots: string[] = [];
+
     if (profSched) {
       if (profSched.active === false) {
         return []; // Barbeiro de folga nesta data
       }
       if (profSched.start && profSched.end) {
-        return generateTimeSlotsForSchedule(
+        baseSlots = generateTimeSlotsForSchedule(
           profSched.start,
           profSched.end,
           stepMinutes,
@@ -115,14 +127,40 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           profSched.break_end
         );
       }
+    } else {
+      baseSlots = generateTimeSlotsForSchedule(
+        dayBh.open || '08:00',
+        dayBh.close || '19:00',
+        stepMinutes
+      );
     }
 
-    return generateTimeSlotsForSchedule(
-      dayBh.open || '08:00',
-      dayBh.close || '19:00',
-      stepMinutes
-    );
-  }, [date, selectedProfId, businessHours, professionals, stepMinutes]);
+    // Filtrar horários em que o profissional já possui agendamento confirmado/em andamento
+    const bookedIntervals = appointments
+      .filter((a) => {
+        if (a.status === 'canceled' || a.professional_id !== selectedProfId) return false;
+        const apptDate = dateInZone(new Date(a.start_time), timezone);
+        return apptDate === date;
+      })
+      .map((a) => ({
+        start: formatTimeInZone(a.start_time, timezone),
+        end: formatTimeInZone(a.end_time, timezone),
+      }));
+
+    if (bookedIntervals.length === 0) {
+      return baseSlots;
+    }
+
+    return baseSlots.filter((slot) => {
+      const slotStart = slot;
+      const slotEnd = addMinutesToTime(slot, stepMinutes);
+      // O slot colide se iniciar antes do término do agendamento E terminar após o início do agendamento
+      const hasConflict = bookedIntervals.some(
+        (b) => slotStart < b.end && slotEnd > b.start
+      );
+      return !hasConflict;
+    });
+  }, [date, selectedProfId, businessHours, professionals, stepMinutes, appointments, timezone]);
 
   const handleToggleSlot = (slot: string) => {
     setSelectedSlots((prev) =>

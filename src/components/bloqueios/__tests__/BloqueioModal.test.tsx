@@ -128,4 +128,37 @@ describe('BloqueioModal', () => {
       );
     });
   });
+
+  it('não exibe horários que já possuem agendamento ativo na lista de slots para bloquear', () => {
+    const existingAppointments = [
+      {
+        id: 'app-1',
+        start_time: '2026-08-17T13:00:00.000Z', // 10:00 no fuso de São Paulo
+        end_time: '2026-08-17T13:30:00.000Z',   // 10:30 no fuso de São Paulo
+        status: 'confirmed',
+        professional_id: 'prof-1',
+      },
+    ];
+
+    render(
+      <BloqueioModal
+        isOpen={true}
+        tenantId="t-1"
+        professionals={professionals}
+        appointments={existingAppointments}
+        defaultDateIso="2026-08-17"
+        defaultProfessionalId="prof-1"
+        slotIntervalMinutes={30}
+        timezone="America/Sao_Paulo"
+        onClose={mockOnClose}
+        onBloqueioCriado={mockOnBloqueioCriado}
+        bloqueioRepo={mockRepo}
+      />
+    );
+
+    // O horário das 10:00 - 10:30 não deve aparecer porque está ocupado
+    expect(screen.queryByText('10:00 - 10:30')).toBeNull();
+    // Outros horários livres devem aparecer
+    expect(screen.getByText('09:00 - 09:30')).toBeInTheDocument();
+  });
 });

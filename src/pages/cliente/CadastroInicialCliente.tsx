@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 interface CadastroInicialClienteProps {
   tenantName: string;
   saving: boolean;
-  onSubmit(name: string): Promise<void>;
+  onSubmit(data: { name: string; phone: string }): Promise<void>;
 }
 
 export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
@@ -12,27 +12,54 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
   saving,
   onSubmit,
 }) => {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [validationError, setValidationError] = useState('');
+
+  const formatPhoneMask = (val: string): string => {
+    const numbers = val.replace(/\D/g, '').slice(0, 11);
+    if (numbers.length <= 2) return numbers.length ? `(${numbers}` : '';
+    if (numbers.length <= 6) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 10) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(formatPhoneMask(e.target.value));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedName = name.trim();
-    if (normalizedName.length < 2 || normalizedName.length > 100) {
-      setValidationError('Informe um nome com 2 a 100 caracteres.');
+    const cleanFirst = firstName.trim();
+    const cleanLast = lastName.trim();
+
+    if (cleanFirst.length < 2) {
+      setValidationError('Por favor, informe seu primeiro nome (mínimo 2 letras).');
       return;
     }
 
-    const words = normalizedName.split(/\s+/).filter((w) => w.length > 0);
-    if (words.length < 2) {
-      setValidationError('Por favor, informe seu nome e sobrenome para agilizar seu atendimento.');
+    if (cleanLast.length < 2) {
+      setValidationError('Por favor, informe seu sobrenome (mínimo 2 letras).');
+      return;
+    }
+
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+      setValidationError('Por favor, informe um número de WhatsApp/celular válido com DDD.');
+      return;
+    }
+
+    const ddd = parseInt(phoneDigits.slice(0, 2), 10);
+    if (ddd < 11 || ddd > 99) {
+      setValidationError('O DDD informado é inválido. Digite um DDD brasileiro válido.');
       return;
     }
 
     setValidationError('');
-    await onSubmit(normalizedName);
+    const fullName = `${cleanFirst} ${cleanLast}`;
+    await onSubmit({ name: fullName, phone: phoneDigits });
   };
-
 
   return (
     <main
@@ -125,13 +152,13 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
               <h1
                 style={{
                   margin: 0,
-                  fontSize: '2rem',
-                  lineHeight: 1.05,
+                  fontSize: '1.875rem',
+                  lineHeight: 1.1,
                   letterSpacing: '-0.04em',
                   fontWeight: 800,
                 }}
               >
-                Como podemos chamar você?
+                Identificação do cliente
               </h1>
               <p
                 style={{
@@ -142,8 +169,7 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
                   maxWidth: '28rem',
                 }}
               >
-                Seu nome fica salvo para os próximos agendamentos. Isso só aparece na
-                sua primeira visita.
+                Informe seus dados para receber as confirmações e lembretes do seu horário via WhatsApp.
               </p>
             </div>
           </div>
@@ -152,62 +178,161 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
             style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '0.75rem',
+              gap: '1rem',
             }}
           >
-            <label
-              htmlFor="customer-first-name"
-              style={{
-                fontSize: '12px',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.12em',
-                color: 'var(--color-text-secondary)',
-              }}
-            >
-              Nome e Sobrenome
-            </label>
+            {/* Grid Nome e Sobrenome */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label
+                  htmlFor="customer-first-name"
+                  style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    color: 'var(--color-text-secondary)',
+                    marginBottom: '0.35rem',
+                  }}
+                >
+                  Nome
+                </label>
+                <div
+                  style={{
+                    backgroundColor: 'rgba(234, 222, 214, 0.22)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '16px',
+                    padding: '4px',
+                  }}
+                >
+                  <input
+                    id="customer-first-name"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    disabled={saving}
+                    autoComplete="given-name"
+                    placeholder="Ex: João"
+                    style={{
+                      width: '100%',
+                      border: '1px solid rgba(255, 255, 255, 0.72)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: '12px',
+                      padding: '0.85rem 0.95rem',
+                      outline: 'none',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 600,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
 
-            <div
-              style={{
-                backgroundColor: 'rgba(234, 222, 214, 0.22)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '20px',
-                padding: '6px',
-              }}
-            >
-              <input
-                id="customer-first-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={saving}
-                autoComplete="name"
-                placeholder="Digite seu nome e sobrenome"
+              <div>
+                <label
+                  htmlFor="customer-last-name"
+                  style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    color: 'var(--color-text-secondary)',
+                    marginBottom: '0.35rem',
+                  }}
+                >
+                  Sobrenome
+                </label>
+                <div
+                  style={{
+                    backgroundColor: 'rgba(234, 222, 214, 0.22)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '16px',
+                    padding: '4px',
+                  }}
+                >
+                  <input
+                    id="customer-last-name"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    disabled={saving}
+                    autoComplete="family-name"
+                    placeholder="Ex: Silva"
+                    style={{
+                      width: '100%',
+                      border: '1px solid rgba(255, 255, 255, 0.72)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      borderRadius: '12px',
+                      padding: '0.85rem 0.95rem',
+                      outline: 'none',
+                      fontSize: 'var(--font-size-sm)',
+                      fontWeight: 600,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
 
+            {/* Campo de Telefone com DDD */}
+            <div>
+              <label
+                htmlFor="customer-phone"
                 style={{
-                  width: '100%',
-                  border: '1px solid rgba(255, 255, 255, 0.72)',
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                  borderRadius: '14px',
-                  padding: '1rem 1.1rem',
-                  outline: 'none',
-                  fontSize: 'var(--font-size-base)',
-                  fontWeight: 600,
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.8)',
+                  display: 'block',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  color: 'var(--color-text-secondary)',
+                  marginBottom: '0.35rem',
                 }}
-              />
+              >
+                WhatsApp / Celular com DDD
+              </label>
+              <div
+                style={{
+                  backgroundColor: 'rgba(234, 222, 214, 0.22)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '16px',
+                  padding: '4px',
+                }}
+              >
+                <input
+                  id="customer-phone"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  disabled={saving}
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="(11) 99999-9999"
+                  style={{
+                    width: '100%',
+                    border: '1px solid rgba(255, 255, 255, 0.72)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    borderRadius: '12px',
+                    padding: '0.85rem 0.95rem',
+                    outline: 'none',
+                    fontSize: 'var(--font-size-sm)',
+                    fontWeight: 600,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
             </div>
 
             <p
               style={{
                 margin: 0,
-                fontSize: 'var(--font-size-sm)',
-                lineHeight: 1.6,
+                fontSize: 'var(--font-size-xs)',
+                lineHeight: 1.5,
                 color: 'var(--color-text-secondary)',
               }}
             >
-              Depois disso, a agenda abre direto sem pedir novamente.
+              Seus dados serão salvos para seus próximos agendamentos nesta barbearia.
             </p>
 
             {validationError && (
