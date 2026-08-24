@@ -347,6 +347,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
         tenant_name: row.tenant_name,
         tenant_phone: row.tenant_phone,
         cadastro_completo: Boolean(row.cadastro_completo),
+        token_acesso: row.token_acesso,
       };
     }
   }

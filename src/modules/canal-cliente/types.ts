@@ -7,6 +7,7 @@ export interface PerfilClienteCanal {
   tenant_phone: string;
   tenant_slug?: string;
   cadastro_completo: boolean;
+  token_acesso?: string;
   min_cancellation_lead_time_minutes?: number;
   min_booking_lead_time_minutes?: number;
   slot_interval_minutes?: number;
