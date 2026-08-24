@@ -10,6 +10,7 @@ import {
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import type { WaitingListEntry } from '../../modules/espera/types';
+import { openWhatsApp } from '../../lib/whatsapp';
 
 interface ProfessionalOption {
   id: string;
@@ -130,12 +131,11 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   };
 
   const handleNotifyWhatsApp = (entry: WaitingListEntry) => {
-    const cleanPhone = entry.customer_phone.replace(/\D/g, '');
-    const phoneWithCountry = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    const text = encodeURIComponent(
+    if (!entry.customer_phone) return;
+    openWhatsApp(
+      entry.customer_phone,
       `Olá ${entry.customer_name}! Temos uma vaga disponível para você na barbearia agora. Deseja confirmar seu encaixe?`
     );
-    window.open(`https://wa.me/${phoneWithCountry}?text=${text}`, '_blank');
   };
 
   const aguardandoEntries = entries.filter((e) => e.status === 'aguardando');

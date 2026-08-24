@@ -110,7 +110,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     if (!dayBh.active) return [];
 
     const selectedProf = professionals.find((p) => p.id === selectedProfId);
-    const profSched = selectedProf ? getProfessionalDaySchedule(selectedProf as any, date) : null;
+    const profSched = selectedProf ? getProfessionalDaySchedule(selectedProf, date) : null;
 
     let baseSlots: string[] = [];
 
