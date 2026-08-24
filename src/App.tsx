@@ -93,6 +93,8 @@ function App() {
           <Route path="/cliente/agendar" element={<FluxoAgendamento />} />
           <Route path="/cliente/:token" element={<MenuCliente />} />
           <Route path="/cliente/:token/agendar" element={<FluxoAgendamento />} />
+          <Route path="/c/:token" element={<MenuCliente />} />
+          <Route path="/c/:token/agendar" element={<FluxoAgendamento />} />
 
           {/* Rotas Curtas do Canal do Cliente (ex: /brooklyn ou /brooklyn/agendar) */}
           <Route path="/:slug" element={<FluxoAgendamento />} />

@@ -142,6 +142,23 @@ export const createUazapiProvider = (
     },
 
     async connectInstance(input) {
+      if (input.webhookUrl) {
+        try {
+          await request("configure webhook", "webhook", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", token: input.instanceToken },
+            body: JSON.stringify({
+              enabled: true,
+              url: input.webhookUrl,
+              events: input.events || ["connection", "messages"],
+              excludeMessages: input.excludeMessages ?? ["wasSentByApi", "fromMeYes", "isGroupYes"],
+            }),
+          });
+        } catch {
+          // non-blocking
+        }
+      }
+
       const response = await request("connect instance", "instance/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json", token: input.instanceToken },

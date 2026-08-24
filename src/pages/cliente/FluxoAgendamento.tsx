@@ -67,7 +67,7 @@ export const FluxoAgendamento: React.FC = () => {
   const [booking, setBooking] = useState(false);
   const [savingRegistration, setSavingRegistration] = useState(false);
   const [canonicalToken, setCanonicalToken] = useState<string | null>(() =>
-    routeToken || searchParams.get('token') || localStorage.getItem('navalhado_customer_token')
+    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_token_' + routeSlug) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
   );
 
   const canalClienteRepository = useCanalCliente();
@@ -117,7 +117,7 @@ export const FluxoAgendamento: React.FC = () => {
           try {
             let storedToken: string | undefined;
             if (typeof window !== 'undefined' && window.localStorage) {
-              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || localStorage.getItem('navalhado_token') || undefined;
+              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || undefined;
             }
             const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!, storedToken);
             token = initRes.token;
@@ -125,17 +125,13 @@ export const FluxoAgendamento: React.FC = () => {
             setCanonicalToken(token);
             if (typeof window !== 'undefined' && window.localStorage) {
               localStorage.setItem('navalhado_token_' + targetSlug, token);
-              localStorage.setItem('navalhado_token', token);
+              localStorage.setItem('navalhado_customer_token', token);
             }
           } catch (slugErr) {
             console.error('Erro ao resolver link por slug:', slugErr);
-            if (token) {
-              activeDetails = await canalClienteRepository.obterPerfil(token);
-            } else {
-              addToast('Estabelecimento não encontrado.', 'error');
-              navigate('/cliente/acesso-expirado');
-              return;
-            }
+            addToast('Estabelecimento não encontrado.', 'error');
+            navigate('/cliente/acesso-expirado');
+            return;
           }
         } else if (token) {
           activeDetails = await canalClienteRepository.obterPerfil(token);
@@ -202,7 +198,7 @@ export const FluxoAgendamento: React.FC = () => {
         if (activeDetails.tenant_slug) {
           localStorage.setItem('navalhado_token_' + activeDetails.tenant_slug, canonicalToken);
         }
-        localStorage.setItem('navalhado_token', canonicalToken);
+        localStorage.setItem('navalhado_customer_token', canonicalToken);
       }
       await loadCatalog(canonicalToken);
     } catch (err) {
