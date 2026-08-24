@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 
-import { CadastroInicialCliente } from './CadastroInicialCliente';
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
 import { HugeiconsIcon } from '@hugeicons/react';
 
