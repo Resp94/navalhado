@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { FormEvent } from 'react';
+import { maskPhone } from '../../lib/whatsapp';
 
 interface CadastroInicialClienteProps {
   tenantName: string;
@@ -17,16 +18,8 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
   const [phone, setPhone] = useState('');
   const [validationError, setValidationError] = useState('');
 
-  const formatPhoneMask = (val: string): string => {
-    const numbers = val.replace(/\D/g, '').slice(0, 11);
-    if (numbers.length <= 2) return numbers.length ? `(${numbers}` : '';
-    if (numbers.length <= 6) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    if (numbers.length <= 10) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-  };
-
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(formatPhoneMask(e.target.value));
+    setPhone(maskPhone(e.target.value));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

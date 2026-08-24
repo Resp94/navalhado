@@ -20,6 +20,7 @@ import {
 import type { PerfilClienteCanal, ServicoCanal, ProfissionalCanal } from '../../modules/canal-cliente/types';
 import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
+import { maskPhone } from '../../lib/whatsapp';
 import { getDayBusinessHours } from '../gerente/Agenda';
 
 export const FluxoAgendamento: React.FC = () => {
@@ -65,10 +66,17 @@ export const FluxoAgendamento: React.FC = () => {
   // Modal de Confirmação
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [savingRegistration, setSavingRegistration] = useState(false);
   const [canonicalToken, setCanonicalToken] = useState<string | null>(() =>
-    routeToken || searchParams.get('token') || localStorage.getItem('navalhado_customer_token')
+    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_token_' + routeSlug) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
   );
+
+  // Dados de identificação do cliente no agendamento (conforme vídeo)
+  const [clientFullName, setClientFullName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+
+  const handlePhoneChange = (val: string) => {
+    setClientPhone(maskPhone(val));
+  };
 
   const canalClienteRepository = useCanalCliente();
 
@@ -117,7 +125,7 @@ export const FluxoAgendamento: React.FC = () => {
           try {
             let storedToken: string | undefined;
             if (typeof window !== 'undefined' && window.localStorage) {
-              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || localStorage.getItem('navalhado_token') || undefined;
+              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || undefined;
             }
             const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!, storedToken);
             token = initRes.token;
@@ -125,17 +133,13 @@ export const FluxoAgendamento: React.FC = () => {
             setCanonicalToken(token);
             if (typeof window !== 'undefined' && window.localStorage) {
               localStorage.setItem('navalhado_token_' + targetSlug, token);
-              localStorage.setItem('navalhado_token', token);
+              localStorage.setItem('navalhado_customer_token', token);
             }
           } catch (slugErr) {
             console.error('Erro ao resolver link por slug:', slugErr);
-            if (token) {
-              activeDetails = await canalClienteRepository.obterPerfil(token);
-            } else {
-              addToast('Estabelecimento não encontrado.', 'error');
-              navigate('/cliente/acesso-expirado');
-              return;
-            }
+            addToast('Estabelecimento não encontrado.', 'error');
+            navigate('/cliente/acesso-expirado');
+            return;
           }
         } else if (token) {
           activeDetails = await canalClienteRepository.obterPerfil(token);
@@ -172,8 +176,6 @@ export const FluxoAgendamento: React.FC = () => {
           setSelectedDate(today);
         }
 
-        if (!activeDetails.cadastro_completo) return;
-
         if (token) {
           await loadCatalog(token);
         }
@@ -188,32 +190,17 @@ export const FluxoAgendamento: React.FC = () => {
     loadInitialData();
   }, [routeSlug, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository]);
 
-  const handleCompleteRegistration = async (dados: { name: string; phone: string }) => {
-    if (!canonicalToken) return;
-    setSavingRegistration(true);
-    try {
-      const updatedPerfil = await canalClienteRepository.promoverCadastroCliente(
-        { name: dados.name, phone: dados.phone },
-        canonicalToken
-      );
-      const activeDetails = updatedPerfil || (await canalClienteRepository.obterPerfil(canonicalToken));
-      setCustomerDetails(activeDetails);
-      if (typeof window !== 'undefined' && window.localStorage) {
-        if (activeDetails.tenant_slug) {
-          localStorage.setItem('navalhado_token_' + activeDetails.tenant_slug, canonicalToken);
-        }
-        localStorage.setItem('navalhado_token', canonicalToken);
+  // Sincronizar dados do cliente se já existirem no perfil
+  useEffect(() => {
+    if (customerDetails) {
+      if (customerDetails.customer_name && customerDetails.customer_name !== 'Cliente') {
+        setClientFullName((prev) => prev || customerDetails.customer_name);
       }
-      await loadCatalog(canonicalToken);
-    } catch (err) {
-      console.error('Erro ao concluir cadastro:', err);
-      addToast('Não foi possível salvar seus dados. Tente novamente.', 'error');
-    } finally {
-      setSavingRegistration(false);
+      if (customerDetails.customer_phone) {
+        setClientPhone((prev) => prev || maskPhone(customerDetails.customer_phone || ''));
+      }
     }
-  };
-
-
+  }, [customerDetails]);
 
   // Carregar slots de horários disponíveis quando mudamos data, profissional ou serviço na Etapa 3
   useEffect(() => {
@@ -288,10 +275,40 @@ export const FluxoAgendamento: React.FC = () => {
 
   // Executa o agendamento no Supabase
   const handleConfirmBooking = async () => {
-    if (!selectedService || !selectedSlot || !customerDetails) return;
+    if (!selectedService || !selectedSlot || !customerDetails || !canonicalToken) return;
+
+    const trimmedName = clientFullName.trim();
+    if (!trimmedName || trimmedName.split(/\s+/).filter(Boolean).length < 2) {
+      addToast('Por favor, informe seu nome e sobrenome completo.', 'warning');
+      return;
+    }
+
+    const cleanPhone = clientPhone.replace(/\D/g, '');
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      addToast('Por favor, informe um WhatsApp válido com DDD.', 'warning');
+      return;
+    }
 
     setBooking(true);
     try {
+      let activeToken = canonicalToken;
+      try {
+        const updateRes = await canalClienteRepository.promoverCadastroCliente(
+          { name: trimmedName, phone: cleanPhone },
+          canonicalToken
+        );
+        if (updateRes && updateRes.token_acesso) {
+          activeToken = updateRes.token_acesso;
+          setCanonicalToken(activeToken);
+        }
+        if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('navalhado_token_' + customerDetails.tenant_slug, activeToken);
+          localStorage.setItem('navalhado_customer_token', activeToken);
+        }
+      } catch (regErr) {
+        console.warn('Erro ao sincronizar cadastro (prosseguindo com agendamento se possível):', regErr);
+      }
+
       if (isRescheduling && rescheduleAppointmentId) {
         await canalClienteRepository.reagendarAgendamento({
           appointmentId: rescheduleAppointmentId,
@@ -301,14 +318,14 @@ export const FluxoAgendamento: React.FC = () => {
           newSlot: selectedSlot,
           newStartTime: `${selectedDate}T${selectedSlot}:00`,
         });
-        addToast('Reagendamento concluído com sucesso', 'success');
+        addToast('Reagendamento concluído com sucesso!', 'success');
       } else {
         await canalClienteRepository.criarAgendamento({
           serviceId: selectedService.id,
           professionalId: selectedProfessional?.id || null,
           startTime: `${selectedDate}T${selectedSlot}:00`,
         });
-        addToast('Agendamento realizado com sucesso', 'success');
+        addToast('Agendamento realizado com sucesso!', 'success');
       }
 
       setIsConfirmModalOpen(false);
@@ -371,16 +388,6 @@ export const FluxoAgendamento: React.FC = () => {
           animation: 'spin 0.8s cubic-bezier(0.32, 0.72, 0, 1) infinite'
         }} />
       </div>
-    );
-  }
-
-  if (customerDetails && !customerDetails.cadastro_completo) {
-    return (
-      <CadastroInicialCliente
-        tenantName={customerDetails.tenant_name}
-        saving={savingRegistration}
-        onSubmit={handleCompleteRegistration}
-      />
     );
   }
 
@@ -1149,6 +1156,67 @@ export const FluxoAgendamento: React.FC = () => {
                 }}>
                   {selectedSlot || 'Horário a definir'}
                 </span>
+              </div>
+            </div>
+
+            <div style={{ height: '1px', backgroundColor: 'var(--color-border)' }} />
+
+            {/* Identificação do Cliente (Nome e WhatsApp) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div>
+                <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Nome e sobrenome <span style={{ color: '#E11D48' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={clientFullName}
+                  onChange={(e) => setClientFullName(e.target.value)}
+                  placeholder="Ex: Matheus Lopes"
+                  disabled={booking}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--color-border)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-brand-primary)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Telefone / WhatsApp com DDD <span style={{ color: '#E11D48' }}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="(92) 99420-4756"
+                  disabled={booking}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--color-border)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-brand-primary)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                />
               </div>
             </div>
           </div>

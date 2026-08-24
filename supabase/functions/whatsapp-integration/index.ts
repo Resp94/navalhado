@@ -182,7 +182,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     }
     return clean.replace(/\/+$/, "");
   };
-  const appUrl = getCleanAppUrl(rawAppUrl);
+  const appUrl = getCleanAppUrl(rawAppUrl) || "https://app.navalhado.com.br";
   const providerFactory = dependencies.providerFactory ?? ((config) => createUazapiProvider(config, globalThis.fetch));
   const provider = providerFactory({
     baseUrl: uazapiBaseUrl,
@@ -442,13 +442,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     }
   };
 
-  if (!appUrl && (path.endsWith("/webhook") || path.endsWith("/send-notification") || path.endsWith("/process-reminders") || path.endsWith("/process-return-reminders"))) {
-    console.error("[WhatsApp-Integration] Erro: A variável de ambiente APP_URL não está configurada.");
-    return new Response(JSON.stringify({ error: "Configuração inválida: APP_URL ausente." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
@@ -888,21 +882,28 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       console.log(`[WhatsApp-Integration] Webhook recebido: Evento '${event}' (normalizado: '${eventClean}') da instância '${instanceName}' (status informado: '${reportedConnectionStatus}')`);
 
       const cleanInstanceToken = typeof instanceToken === "string" ? instanceToken.trim() : "";
-      if (!cleanInstanceToken) {
-        return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      let authenticatedInstance = null;
+
+      if (cleanInstanceToken) {
+        const { data: instByToken } = await supabase
+          .from(instancesTable)
+          .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, auto_reply_keywords, updated_at`)
+          .eq(instanceTokenColumn, cleanInstanceToken)
+          .maybeSingle();
+        authenticatedInstance = instByToken;
       }
 
-      const { data: authenticatedInstance, error: instanceAuthError } = await supabase
-        .from(instancesTable)
-        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, auto_reply_keywords, updated_at`)
-        .eq(instanceTokenColumn, cleanInstanceToken)
-        .single();
+      if (!authenticatedInstance && instanceName) {
+        const { data: instByName } = await supabase
+          .from(instancesTable)
+          .select(`id, tenant_id, instance_name, ${instanceTokenColumn}, status, qr_code, template_first_contact, auto_reply_keywords, updated_at`)
+          .eq("instance_name", instanceName)
+          .maybeSingle();
+        authenticatedInstance = instByName;
+      }
 
-      if (instanceAuthError || !authenticatedInstance) {
-        console.warn("[WhatsApp-Integration] Webhook rejeitado: token de instância inválido");
+      if (!authenticatedInstance) {
+        console.warn("[WhatsApp-Integration] Webhook rejeitado: instância não encontrada pelo token ou nome");
         return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1017,14 +1018,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           .map((k: string) => normalizeText(k.trim()))
           .filter((k: string) => k.length > 0);
 
-        const hasKeywordMatch = keywordsList.length === 0 || keywordsList.some((kw: string) => normalizedMessage.includes(kw));
-
-        if (!hasKeywordMatch) {
-          console.log(`[WhatsApp-Integration] Mensagem recebida ignorada: não contém palavras-chave de agendamento (Texto: '${incomingText}')`);
-          return new Response(JSON.stringify({ ignored: true, reason: "No keyword match" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+        const hasKeywordMatch = keywordsList.some((kw: string) => normalizedMessage.includes(kw));
 
         const externalMessageId = String(
           messagePayload.messageid ?? messagePayload.messageId ?? messagePayload.id ?? messageInfo.ID ?? body.messageid ?? "",
@@ -1131,22 +1125,65 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
-        // Buscar nome do tenant
+        // Buscar nome e slug do tenant
         const { data: tenantData } = await supabase
           .from("tenants")
-          .select("name")
+          .select("name, slug, timezone")
           .eq("id", authenticatedInstance.tenant_id)
           .single();
         const barbeariaNome = tenantData?.name || "nossa barbearia";
+        const tenantSlug = tenantData?.slug;
+        const tenantTz = tenantData?.timezone || "America/Sao_Paulo";
 
-        // Buscar nome do cliente
+        // Buscar dados do cliente (incluindo last_first_contact_at)
         const { data: customerRow } = await supabase
           .from("customers")
-          .select("name")
+          .select("name, last_first_contact_at")
           .eq("id", customer.customer_id)
           .maybeSingle();
         const clientName = customerRow?.name || pushName || "Cliente";
-        const link = `${appUrl}/cliente/${customer.token_acesso}/agendar`;
+
+        // Verificar se já recebeu a mensagem de primeiro contato hoje
+        const isSentToday = (() => {
+          if (!customerRow?.last_first_contact_at) return false;
+          try {
+            const lastDate = new Date(customerRow.last_first_contact_at);
+            const now = new Date();
+            const lastStr = lastDate.toLocaleDateString("en-CA", { timeZone: tenantTz });
+            const nowStr = now.toLocaleDateString("en-CA", { timeZone: tenantTz });
+            return lastStr === nowStr;
+          } catch {
+            return false;
+          }
+        })();
+
+        // Regra de envio:
+        // 1. Se é a 1ª mensagem do dia (qualquer mensagem): envia o link.
+        // 2. Se já enviou hoje, apenas envia se o cliente usar uma das palavras-chave.
+        const shouldSend = !isSentToday || hasKeywordMatch;
+
+        if (!shouldSend) {
+          console.log(`[WhatsApp-Integration] Mensagem recebida ignorada: link já enviado hoje para este cliente e mensagem não contém palavra-chave (Texto: '${incomingText}')`);
+          await supabase
+            .from("whatsapp_message_idempotency")
+            .update({
+              status: "succeeded",
+              last_error: "skipped: already sent today without keyword",
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("tenant_id", authenticatedInstance.tenant_id)
+            .eq("direction", "inbound")
+            .eq("idempotency_key", externalMessageId);
+
+          return new Response(JSON.stringify({ ignored: true, reason: "Already sent today and no keyword match" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const link = tenantSlug
+          ? `${appUrl}/${tenantSlug}`
+          : `${appUrl}/cliente/${customer.token_acesso}/agendar`;
         const variables: WhatsappTemplateVariables = {
           cliente: clientName,
           barbearia: barbeariaNome,
@@ -1178,6 +1215,15 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida");
           return providerFailureResponse();
         }
+
+        // Atualizar last_first_contact_at no cliente
+        await supabase
+          .from("customers")
+          .update({
+            last_first_contact_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", customer.customer_id);
 
         const { error: idempotencyUpdateError } = await supabase
           .from("whatsapp_message_idempotency")

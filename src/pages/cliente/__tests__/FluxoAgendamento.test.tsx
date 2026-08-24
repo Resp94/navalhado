@@ -43,46 +43,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     localStorage.clear();
   });
 
-  it('bloqueia o catálogo quando o token da rota pertence a cadastro incompleto', async () => {
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') {
-        return { data: [incompleteDetails], error: null };
-      }
-
-      throw new Error(`Catálogo carregado antes do cadastro: ${name}`);
-    });
-
-    renderBookingRoute();
-
-    expect(
-      await screen.findByRole('heading', { name: 'Identificação do cliente' }),
-    ).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Ex: João/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Ex: Silva/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/\(11\) 99999-9999/i)).toBeInTheDocument();
-    expect(screen.queryByText('Selecione o Serviço')).not.toBeInTheDocument();
-  });
-
-  it('valida os campos antes de chamar a RPC de conclusão', async () => {
-    mockRpc.mockResolvedValueOnce({ data: [incompleteDetails], error: null });
-
-    renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Identificação do cliente' });
-
-    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'A' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Por favor, informe seu primeiro nome (mínimo 2 letras).',
-    );
-    expect(mockRpc).not.toHaveBeenCalledWith(
-      'complete_customer_registration',
-      expect.anything(),
-    );
-  });
-
-  it('conclui com o token da rota e só então libera o catálogo', async () => {
-    const completedDetails = { ...incompleteDetails, customer_name: 'Maria Silva', cadastro_completo: true };
+  it('carrega o catálogo diretamente mesmo para cliente sem cadastro prévio', async () => {
     const service = {
       id: 'service-1',
       name: 'Corte',
@@ -93,13 +54,9 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       is_active: true,
     };
 
-    mockRpc.mockImplementation(async (name: string, params: Record<string, unknown>) => {
+    mockRpc.mockImplementation(async (name: string) => {
       if (name === 'get_customer_details_by_token') {
         return { data: [incompleteDetails], error: null };
-      }
-      if (name === 'complete_customer_registration') {
-        expect(params).toEqual({ p_token: 'token-abc', p_name: 'Maria Silva', p_phone: '11999998888' });
-        return { data: [completedDetails], error: null };
       }
       if (name === 'get_services_by_customer_token') {
         return { data: [service], error: null };
@@ -111,61 +68,94 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
 
     renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Identificação do cliente' });
-    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'Maria' } });
-    fireEvent.change(screen.getByPlaceholderText(/Ex: Silva/i), { target: { value: 'Silva' } });
-    fireEvent.change(screen.getByPlaceholderText(/\(11\) 99999-9999/i), { target: { value: '11999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
 
     expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'Identificação do cliente' }),
-    ).not.toBeInTheDocument();
-    expect(window.location.pathname).not.toBe('/cliente/agendar');
+    expect(await screen.findByText('Corte')).toBeInTheDocument();
   });
 
-  it('mantém o formulário e mostra toast quando a conclusão falha', async () => {
+  it('valida nome e sobrenome e telefone no modal de confirmação antes de agendar', async () => {
+    const service = {
+      id: 'service-1',
+      name: 'Corte',
+      description: null,
+      price: 50,
+      duration_minutes: 30,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
     mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') {
-        return { data: [incompleteDetails], error: null };
-      }
-      if (name === 'complete_customer_registration') {
-        return { data: null, error: { message: 'falhou' } };
-      }
-      throw new Error(`Catálogo não deveria carregar: ${name}`);
+      if (name === 'get_customer_details_by_token') return { data: [incompleteDetails], error: null };
+      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
+      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      if (name === 'get_available_slots_by_token') return { data: ['14:00'], error: null };
+      return { data: null, error: null };
     });
 
     renderBookingRoute();
-    await screen.findByRole('heading', { name: 'Identificação do cliente' });
-    fireEvent.change(screen.getByPlaceholderText(/Ex: João/i), { target: { value: 'Maria' } });
-    fireEvent.change(screen.getByPlaceholderText(/Ex: Silva/i), { target: { value: 'Silva' } });
-    fireEvent.change(screen.getByPlaceholderText(/\(11\) 99999-9999/i), { target: { value: '11999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar e continuar' }));
+    fireEvent.click(await screen.findByText('Corte'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+    fireEvent.click(await screen.findByRole('button', { name: '14:00' }));
 
-    expect(
-      await screen.findByRole('heading', { name: 'Identificação do cliente' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
+
+    const nameInput = screen.getByPlaceholderText(/Ex: Matheus Lopes/i);
+    const phoneInput = screen.getByPlaceholderText(/\(92\) 99420-4756/i);
+
+    // Sem preencher nome completo
+    fireEvent.change(nameInput, { target: { value: 'João' } });
+    fireEvent.change(phoneInput, { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+
     expect(mockAddToast).toHaveBeenCalledWith(
-      expect.stringContaining('salvar seus dados'),
-      'error',
+      expect.stringContaining('nome e sobrenome completo'),
+      'warning',
     );
   });
 
-  it('cliente completo pula o formulário e carrega o catálogo', async () => {
-    const completedDetails = { ...incompleteDetails, customer_name: 'Maria', cadastro_completo: true };
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
-      if (name === 'get_services_by_customer_token') return { data: [], error: null };
+  it('completa cadastro e agenda com sucesso no modal de confirmação', async () => {
+    const service = {
+      id: 'service-1',
+      name: 'Corte',
+      description: null,
+      price: 50,
+      duration_minutes: 30,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string, params: Record<string, unknown>) => {
+      if (name === 'get_customer_details_by_token') return { data: [incompleteDetails], error: null };
+      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
       if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      if (name === 'get_available_slots_by_token') return { data: ['14:00'], error: null };
+      if (name === 'complete_customer_registration') {
+        expect(params).toEqual({ p_token: 'token-abc', p_name: 'Maria Silva', p_phone: '92999998888' });
+        return { data: [{ ...incompleteDetails, customer_name: 'Maria Silva', phone: '92999998888', token_acesso: 'token-abc', cadastro_completo: true }], error: null };
+      }
+      if (name === 'create_appointment_by_token') {
+        return { data: 'appointment-123', error: null };
+      }
       throw new Error(`RPC inesperada: ${name}`);
     });
 
     renderBookingRoute();
+    fireEvent.click(await screen.findByText('Corte'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+    fireEvent.click(await screen.findByRole('button', { name: '14:00' }));
 
-    expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'Identificação do cliente' }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
+
+    const nameInput = screen.getByPlaceholderText(/Ex: Matheus Lopes/i);
+    const phoneInput = screen.getByPlaceholderText(/\(92\) 99420-4756/i);
+
+    fireEvent.change(nameInput, { target: { value: 'Maria Silva' } });
+    fireEvent.change(phoneInput, { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Agendamento realizado com sucesso!', 'success');
+    });
   });
 
   it('carrega slots pela RPC protegida com o token do cliente', async () => {
