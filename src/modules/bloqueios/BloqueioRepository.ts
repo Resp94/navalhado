@@ -21,6 +21,10 @@ export class BloqueioRepository {
     return await this.adapter.listarPorData(tenantId, startDateIso, endDateIso);
   }
 
+  async listByDate(tenantId: string, startDateIso: string, endDateIso: string): Promise<BlockedSlot[]> {
+    return await this.listByDateRange(tenantId, startDateIso, endDateIso);
+  }
+
   async createBlock(input: CriarBloqueioInput): Promise<BlockedSlot> {
     if (!input.tenant_id || !input.tenant_id.trim()) {
       throw new BloqueioValidationError('ID da barbearia (tenant) é obrigatório.');
