@@ -333,6 +333,7 @@ export const Comandas: React.FC = () => {
         <ComandaCheckoutModal
           isOpen={isCheckoutOpen}
           tenantId={tenantId}
+          comandaId={selectedComanda?.id || null}
           appointmentId={selectedComanda?.appointment_id || null}
           appointmentStartTime={selectedComanda?.appointment_start_time || null}
           appointmentServiceName={selectedComanda?.appointment_service_name || null}

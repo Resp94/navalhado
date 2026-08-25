@@ -490,12 +490,14 @@ export const Agenda: React.FC = () => {
   const currentServiceDuration = currentService?.duration_minutes || slotIntervalMinutes;
 
   // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
+  // Em modo de Encaixe (formIsFitting), o gerente tem flexibilidade total para alocar qualquer profissional ativo
   const availableProfessionalsForFormTime = useMemo(() => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
+      if (formIsFitting) return true;
       return isProfessionalWorkingAt(p, selectedDate, formTime, currentServiceDuration);
     });
-  }, [professionals, selectedDate, formTime, currentServiceDuration]);
+  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();

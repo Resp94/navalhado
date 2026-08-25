@@ -525,25 +525,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setIsCanceling(true);
     setErrorMsg(null);
     try {
-      if (appointmentId) {
+      const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
+      const targetComandaId = comandaId || loadedComanda?.id;
+
+      if (targetAppointmentId) {
         const { error: apptErr } = await supabase
           .from('appointments')
           .update({
             status: 'canceled',
             updated_at: new Date().toISOString(),
           })
-          .eq('id', appointmentId);
+          .eq('id', targetAppointmentId);
         if (apptErr) throw apptErr;
       }
 
-      if (comandaId) {
+      if (targetComandaId) {
         const { error: cmdErr } = await supabase
           .from('comandas')
           .update({
             status: 'cancelada',
+            closed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', comandaId);
+          .eq('id', targetComandaId);
         if (cmdErr) throw cmdErr;
       }
 
