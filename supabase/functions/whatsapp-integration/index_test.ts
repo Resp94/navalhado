@@ -2392,4 +2392,77 @@ Deno.test("POST /send-notification appointment_created sends notification to cli
   }
 });
 
+Deno.test("POST /send-notification appointment_created sends notification to barber even when customer phone matches barber phone", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-self-test-1",
+        start_time: "2026-08-25T14:00:00Z",
+        customers: { name: "Guto Barbeiro", phone: "11977776666", token_acesso: "token-guto" },
+        professionals: { name: "Guto Barbeiro", phone: "11977776666" },
+        services: { name: "Corte Degradê" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_created",
+      appointment_id: "app-self-test-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado ambas as mensagens para o mesmo número com chaves de idempotência diferentes
+    assertEquals(sentMessages.length, 2);
+    assertEquals(sentMessages[0]?.number, "5511977776666");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-self-test-1:appointment_created");
+    assertEquals(sentMessages[1]?.number, "5511977776666");
+    assertEquals(sentMessages[1]?.idempotencyKey, "appointment:app-self-test-1:professional_appointment_created");
+  } finally {
+    restoreFetch();
+  }
+});
+
 

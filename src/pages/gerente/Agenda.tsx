@@ -1235,17 +1235,7 @@ export const Agenda: React.FC = () => {
 
       if (error) throw error;
 
-      // Também cancelar a comanda aberta correspondente se houver
-      await supabase
-        .from('comandas')
-        .update({
-          status: 'cancelada',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('appointment_id', targetAppointment.id)
-        .eq('status', 'aberta');
-
-      // Atualização otimista imediata para liberar o horário na tela sem refresh
+      // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
       setAppointments((prev) => prev.filter((a) => a.id !== targetAppointment.id));
 
       addToast('Agendamento cancelado com sucesso.', 'success');
@@ -2377,6 +2367,9 @@ export const Agenda: React.FC = () => {
           isOpen={isCheckoutModalOpen}
           tenantId={tenant.tenantId}
           appointmentId={checkoutAppointment.id}
+          appointmentStartTime={checkoutAppointment.start_time || null}
+          appointmentServiceName={checkoutAppointment.service?.name || null}
+          appointmentIsFitting={checkoutAppointment.is_fitting || false}
           customerId={checkoutAppointment.customer?.id}
           customerName={checkoutAppointment.customer?.name || 'Cliente'}
           customerPhone={checkoutAppointment.customer?.phone}

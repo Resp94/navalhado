@@ -68,9 +68,20 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       throw new Error(`Erro ao listar comandas: ${error.message}`);
     }
 
-    return (data || []).map((c: any) => {
-      const isAberta = c.status === 'aberta' || c.status === 'open';
-      const isFechada = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+    interface RawComandaListRow extends Comanda {
+      customer?: { id: string; name: string; phone: string | null } | null;
+      appointment?: {
+        id: string;
+        start_time: string;
+        is_fitting: boolean | null;
+        service?: { id: string; name: string } | null;
+        professional?: { id: string; name: string } | null;
+      } | null;
+    }
+
+    return ((data as unknown as RawComandaListRow[]) || []).map((c) => {
+      const isAberta = c.status === 'aberta' || (c.status as string) === 'open';
+      const isFechada = c.status === 'fechada' || (c.status as string) === 'closed' || (c.status as string) === 'paid';
       const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : 'cancelada';
 
       return {

@@ -1518,7 +1518,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       // Notificar o barbeiro no WhatsApp dele em novos agendamentos
       if (event === "appointment_created" && professional?.phone) {
         const profPhone = formatPhoneNumber(professional.phone);
-        if (profPhone && profPhone !== clientPhone) {
+        if (profPhone) {
           const profMessageText = formatMessageTemplate(
             null,
             DEFAULT_TEMPLATES.professional_appointment_created,

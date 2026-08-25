@@ -49,6 +49,9 @@ interface ComandaCheckoutModalProps {
   isOpen: boolean;
   tenantId: string;
   appointmentId?: string | null;
+  appointmentStartTime?: string | null;
+  appointmentServiceName?: string | null;
+  appointmentIsFitting?: boolean | null;
   customerId?: string | null;
   customerName: string;
   customerPhone?: string | null;
@@ -114,6 +117,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   isOpen,
   tenantId,
   appointmentId,
+  appointmentStartTime,
+  appointmentServiceName,
+  appointmentIsFitting,
   customerId,
   customerName,
   customerPhone,
@@ -613,14 +619,20 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span
                           className="comanda-customer-phone-tag"
                           style={{
-                            backgroundColor: 'rgba(217, 108, 0, 0.08)',
+                            backgroundColor: appointmentIsFitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(217, 108, 0, 0.08)',
                             borderColor: 'rgba(217, 108, 0, 0.25)',
                             color: 'var(--color-brand-primary)',
                           }}
                           title="Comanda gerada a partir de agendamento da agenda"
                         >
                           <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
-                          <span>Agendamento vinculado</span>
+                          <span>
+                            {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
+                            {appointmentStartTime
+                              ? `: ${new Date(appointmentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(appointmentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                              : ''}
+                            {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
+                          </span>
                         </span>
                       ) : (
                         <span
@@ -631,7 +643,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           }}
                           title="Comanda aberta diretamente no balcão"
                         >
-                          <span>Atendimento Balcão</span>
+                          <span>Atendimento Balcão / Avulsa</span>
                         </span>
                       )}
                     </div>
