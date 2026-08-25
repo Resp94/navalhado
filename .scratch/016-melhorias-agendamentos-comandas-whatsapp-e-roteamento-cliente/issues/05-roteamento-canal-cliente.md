@@ -8,9 +8,9 @@ Ajustar as regras de acesso e redirecionamento do canal do cliente:
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Ajustar o `MenuCliente.tsx` para redirecionar clientes com `cadastro_completo === false` imediatamente para `/cliente/agendar`.
-- [ ] Ajustar o `FluxoAgendamento.tsx` para redirecionar clientes com `cadastro_completo === true` para `/cliente/menu` caso não tenham vindo de uma ação explícita de novo agendamento (`fromMenu`).
-- [ ] Conectar o botão "Agendar novo horário" do `MenuCliente.tsx` para enviar o estado de intenção de agendamento explícito.
-- [ ] Criar/atualizar testes automatizados em `MenuCliente.test.tsx` e `FluxoAgendamento.test.tsx` validando os fluxos de clientes novos e cadastrados.
+- [x] Ajustar o `MenuCliente.tsx` para redirecionar clientes com `cadastro_completo === false` imediatamente para `/cliente/agendar`.
+- [x] Ajustar o `FluxoAgendamento.tsx` para redirecionar clientes com `cadastro_completo === true` para `/cliente/menu` caso não tenham vindo de uma ação explícita de novo agendamento (`fromMenu`).
+- [x] Conectar o botão "Agendar novo horário" do `MenuCliente.tsx` para enviar o estado de intenção de agendamento explícito.
+- [x] Criar/atualizar testes automatizados em `MenuCliente.test.tsx` e `FluxoAgendamento.test.tsx` validando os fluxos de clientes novos e cadastrados.

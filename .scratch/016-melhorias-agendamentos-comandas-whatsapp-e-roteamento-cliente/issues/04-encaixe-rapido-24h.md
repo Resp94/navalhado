@@ -5,10 +5,10 @@ Permitir que o gerente realize o cadastro de encaixes rápidos na agenda em qual
 
 **Blocked by:** 02 — Cancelamento Automático de Comandas e Atualização em Tempo Real (Sem Refresh).
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Implementar gerador de slots 24 horas (`00:00` até `23:00`) com o intervalo configurado da barbearia (`slotIntervalMinutes`).
-- [ ] Alternar o seletor de horários do modal para a lista de 24 horas quando `formIsFitting` estiver ativo.
-- [ ] Ignorar as validações de trava de fora do expediente e jornada do barbeiro exclusivamente quando for um registro de Encaixe.
-- [ ] Garantir que a visualização da grade da agenda (`timeSlots`) continue restrita ao horário de funcionamento cadastrado da barbearia.
-- [ ] Adicionar testes automatizados cobrindo a seleção e gravação de encaixes em horários especiais.
+- [x] Implementar gerador de slots 24 horas (`00:00` até `23:00`) com o intervalo configurado da barbearia (`slotIntervalMinutes`).
+- [x] Alternar o seletor de horários do modal para a lista de 24 horas quando `formIsFitting` estiver ativo.
+- [x] Ignorar as validações de trava de fora do expediente e jornada do barbeiro exclusivamente quando for um registro de Encaixe.
+- [x] Garantir que a visualização da grade da agenda (`timeSlots`) continue restrita ao horário de funcionamento cadastrado da barbearia.
+- [x] Adicionar testes automatizados cobrindo a seleção e gravação de encaixes em horários especiais.

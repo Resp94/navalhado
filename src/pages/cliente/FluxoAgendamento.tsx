@@ -153,6 +153,13 @@ export const FluxoAgendamento: React.FC = () => {
           return;
         }
 
+        // Se o cliente já possui cadastro completo e não veio de uma ação explícita de agendamento/reagendamento, direciona para o painel de gerenciamento
+        const stateData = location.state as { fromMenu?: boolean; rescheduleAppointmentId?: string } | null;
+        if (activeDetails.cadastro_completo && !stateData?.fromMenu && !stateData?.rescheduleAppointmentId) {
+          navigate('/cliente/menu', { replace: true });
+          return;
+        }
+
         setCustomerDetails(activeDetails);
 
         const tz = activeDetails.tenant_timezone || 'America/Sao_Paulo';

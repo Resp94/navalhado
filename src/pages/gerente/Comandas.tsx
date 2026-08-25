@@ -17,6 +17,8 @@ import {
   CheckmarkCircle02Icon,
   WhatsappIcon,
   UserIcon,
+  Calendar02Icon,
+  Store01Icon,
 } from '@hugeicons/core-free-icons';
 
 export const Comandas: React.FC = () => {
@@ -254,6 +256,50 @@ export const Comandas: React.FC = () => {
                     <HugeiconsIcon icon={UserIcon} size={16} className="comanda-card__client-icon" />
                     <span className="comanda-card__client-name">{cmd.customer_name}</span>
                   </div>
+
+                  {cmd.appointment_id ? (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      backgroundColor: cmd.appointment_is_fitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(45, 35, 30, 0.06)',
+                      color: cmd.appointment_is_fitting ? 'var(--color-brand-primary)' : 'var(--color-text-primary)',
+                      marginTop: '4px',
+                      marginBottom: '4px',
+                      width: 'fit-content',
+                    }}>
+                      <HugeiconsIcon icon={Calendar02Icon} size={13} />
+                      <span>
+                        {cmd.appointment_is_fitting ? 'Encaixe: ' : 'Agendamento: '}
+                        {cmd.appointment_start_time
+                          ? `${new Date(cmd.appointment_start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(cmd.appointment_start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                          : ''}
+                        {cmd.appointment_service_name ? ` • ${cmd.appointment_service_name}` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      backgroundColor: 'rgba(45, 35, 30, 0.04)',
+                      color: 'var(--color-text-secondary)',
+                      marginTop: '4px',
+                      marginBottom: '4px',
+                      width: 'fit-content',
+                    }}>
+                      <HugeiconsIcon icon={Store01Icon} size={13} />
+                      <span>Atendimento Balcão / Avulsa</span>
+                    </div>
+                  )}
 
                   <div className="comanda-card__meta">
                     <span className="comanda-card__prof">{cmd.professional_name}</span>

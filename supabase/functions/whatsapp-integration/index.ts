@@ -100,6 +100,8 @@ const formatDateTime = (dateStr: string, timeZone: string = "America/Sao_Paulo")
 export const DEFAULT_TEMPLATES = {
   appointment_created:
     "Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
+  professional_appointment_created:
+    "Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
   appointment_rescheduled:
     "Olá, {cliente}! Seu reagendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
   appointment_cancelled:
@@ -112,6 +114,7 @@ export const DEFAULT_TEMPLATES = {
 
 export interface WhatsappTemplateVariables {
   cliente?: string;
+  telefone_cliente?: string;
   barbearia?: string;
   servico?: string;
   profissional?: string;
@@ -1377,7 +1380,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           id,
           start_time,
           customers ( name, phone, token_acesso ),
-          professionals ( name ),
+          professionals ( name, phone ),
           services ( name ),
           tenants ( name, timezone )
         `)
@@ -1411,6 +1414,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const variables: WhatsappTemplateVariables = {
         cliente: customer.name || "Cliente",
+        telefone_cliente: customer.phone || "",
         barbearia: tenant.name || "nossa barbearia",
         servico: service.name || "Serviço",
         profissional: professional.name || "Profissional",
@@ -1510,6 +1514,57 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         expectedAttempt: reservation.attempts || 1,
       });
       console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${maskPhoneNumber(clientPhone)}`);
+
+      // Notificar o barbeiro no WhatsApp dele em novos agendamentos
+      if (event === "appointment_created" && professional?.phone) {
+        const profPhone = formatPhoneNumber(professional.phone);
+        if (profPhone && profPhone !== clientPhone) {
+          const profMessageText = formatMessageTemplate(
+            null,
+            DEFAULT_TEMPLATES.professional_appointment_created,
+            variables
+          );
+          const profReservation = await reserveOutboundMessage({
+            tenantId: tenant_id,
+            instanceId: config.id,
+            appointmentId: appointment_id,
+            eventType: "professional_appointment_created",
+          });
+          if (!profReservation.duplicate && !profReservation.error) {
+            let profAttempts = profReservation.attempts || 1;
+            try {
+              profAttempts = await sendTextWithRetry({
+                instanceName: config.instance_name,
+                instanceToken: config[instanceTokenColumn],
+                number: profPhone,
+                text: profMessageText,
+                idempotencyKey: `appointment:${appointment_id}:professional_appointment_created`,
+              }, profReservation.attempts || 1);
+              await finalizeOutboundMessage({
+                tenantId: tenant_id,
+                appointmentId: appointment_id,
+                eventType: "professional_appointment_created",
+                status: "succeeded",
+                attempts: profAttempts,
+                expectedAttempt: profReservation.attempts || 1,
+              });
+              console.log(`[WhatsApp-Integration] Notificação de novo agendamento enviada ao barbeiro ${maskPhoneNumber(profPhone)}`);
+            } catch (profSendErr) {
+              console.error(`[WhatsApp-Integration] Falha ao enviar notificação ao barbeiro:`, profSendErr);
+              await finalizeOutboundMessage({
+                tenantId: tenant_id,
+                appointmentId: appointment_id,
+                eventType: "professional_appointment_created",
+                status: "failed",
+                attempts: profAttempts,
+                expectedAttempt: profReservation.attempts || 1,
+                errorMessage: "provider request failed",
+              });
+            }
+          }
+        }
+      }
+
       return new Response(JSON.stringify({ success: true, attempts, diagnostic_persisted: finalized }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

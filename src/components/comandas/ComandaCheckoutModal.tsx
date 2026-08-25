@@ -16,6 +16,7 @@ import {
   AlertCircleIcon,
   UserIcon,
   WhatsappIcon,
+  Calendar02Icon,
 } from '@hugeicons/core-free-icons';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
 import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
@@ -607,6 +608,31 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
                           <span>{customerPhone}</span>
                         </button>
+                      )}
+                      {appointmentId ? (
+                        <span
+                          className="comanda-customer-phone-tag"
+                          style={{
+                            backgroundColor: 'rgba(217, 108, 0, 0.08)',
+                            borderColor: 'rgba(217, 108, 0, 0.25)',
+                            color: 'var(--color-brand-primary)',
+                          }}
+                          title="Comanda gerada a partir de agendamento da agenda"
+                        >
+                          <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
+                          <span>Agendamento vinculado</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="comanda-customer-phone-tag"
+                          style={{
+                            backgroundColor: 'rgba(45, 35, 30, 0.04)',
+                            color: 'var(--color-text-secondary)',
+                          }}
+                          title="Comanda aberta diretamente no balcão"
+                        >
+                          <span>Atendimento Balcão</span>
+                        </span>
                       )}
                     </div>
                   </div>

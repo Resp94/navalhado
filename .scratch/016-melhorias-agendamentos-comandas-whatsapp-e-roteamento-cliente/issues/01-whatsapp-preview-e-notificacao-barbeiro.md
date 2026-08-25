@@ -5,9 +5,9 @@ Garantir que todas as mensagens automáticas enviadas via WhatsApp pelo Navalhad
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Configurar `"linkPreview": false` no payload enviado para o endpoint `/send/text` da Uazapi no provedor neutro de mensageria.
-- [ ] Criar o template padrão de notificação para o barbeiro com as variáveis `{profissional}`, `{cliente}`, `{telefone_cliente}`, `{barbearia}`, `{servico}`, `{data}` e `{horario}`.
-- [ ] No evento `appointment_created`, disparar a mensagem para o número do profissional com chave de idempotência dedicada (`appointment:<id>:professional_appointment_created`).
-- [ ] Adicionar testes automatizados cobrindo a supressão do linkPreview e o envio duplo com idempotência.
+- [x] Configurar `"linkPreview": false` no payload enviado para o endpoint `/send/text` da Uazapi no provedor neutro de mensageria.
+- [x] Criar o template padrão de notificação para o barbeiro com as variáveis `{profissional}`, `{cliente}`, `{telefone_cliente}`, `{barbearia}`, `{servico}`, `{data}` e `{horario}`.
+- [x] No evento `appointment_created`, disparar a mensagem para o número do profissional com chave de idempotência dedicada (`appointment:<id>:professional_appointment_created`).
+- [x] Adicionar testes automatizados cobrindo a supressão do linkPreview e o envio duplo com idempotência.

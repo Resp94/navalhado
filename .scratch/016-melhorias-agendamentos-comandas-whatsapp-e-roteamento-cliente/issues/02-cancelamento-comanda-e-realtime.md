@@ -5,9 +5,9 @@ Criar a migration 046 que implementa uma trigger no PostgreSQL (`trg_auto_cancel
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Criar a migration `20260825120000_046_auto_cancel_comanda_and_realtime_appointments.sql` contendo a trigger `fn_auto_cancel_comanda_on_appointment_cancel` e a inclusão das tabelas na publicação `supabase_realtime`.
-- [ ] Aplicar e validar a migração exclusivamente no banco Dev (`selvxobcjbkligxighlp`) usando o MCP Supabase.
-- [ ] Implementar atualização de estado otimista em `Agenda.tsx` e `Comandas.tsx` para remoção imediata do card ao confirmar cancelamento.
-- [ ] Validar a sincronização em tempo real via canais do Supabase sem exigir refresh de página.
+- [x] Criar a migration `20260825120000_046_auto_cancel_comanda_and_realtime_appointments.sql` contendo a trigger `fn_auto_cancel_comanda_on_appointment_cancel` e a inclusão das tabelas na publicação `supabase_realtime`.
+- [x] Aplicar e validar a migração exclusivamente no banco Dev (`selvxobcjbkligxighlp`) usando o MCP Supabase.
+- [x] Implementar atualização de estado otimista em `Agenda.tsx` e `Comandas.tsx` para remoção imediata do card ao confirmar cancelamento.
+- [x] Validar a sincronização em tempo real via canais do Supabase sem exigir refresh de página.

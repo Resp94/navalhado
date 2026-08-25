@@ -54,6 +54,9 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
         customer:customers(id, name, phone),
         appointment:appointments(
           id,
+          start_time,
+          is_fitting,
+          service:services(id, name),
           professional:professionals(id, name)
         )
       `)
@@ -76,6 +79,9 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
         customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
         customer_phone: c.customer?.phone || null,
         professional_name: c.appointment?.professional?.name || 'Equipe',
+        appointment_start_time: c.appointment?.start_time || null,
+        appointment_service_name: c.appointment?.service?.name || null,
+        appointment_is_fitting: c.appointment?.is_fitting ?? null,
       };
     });
   }

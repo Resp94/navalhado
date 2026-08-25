@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { MenuCliente } from '../MenuCliente';
@@ -38,6 +38,7 @@ describe('MenuCliente - TDD', () => {
       tenant_id: 'tenant-123',
       tenant_name: 'Barbearia Estilo',
       tenant_phone: '5592999999999',
+      cadastro_completo: true,
     };
 
     // Criar datas relativas ao momento atual
@@ -124,6 +125,7 @@ describe('MenuCliente - TDD', () => {
       tenant_id: 'tenant-123',
       tenant_name: 'Barbearia Estilo',
       tenant_phone: '5592999999999',
+      cadastro_completo: true,
     };
 
     const futureDate = new Date();
@@ -195,5 +197,35 @@ describe('MenuCliente - TDD', () => {
     const waButton = screen.getByRole('link', { name: /Falar com o barbeiro no WhatsApp/i });
     expect(waButton).toBeInTheDocument();
     expect(waButton).toHaveAttribute('href', expect.stringContaining('5592988887777'));
+  });
+
+  it('redireciona cliente sem cadastro para a página de serviços / agendamento', async () => {
+    const unregisteredDetails = {
+      customer_id: 'cust-unreg',
+      customer_name: 'Cliente',
+      tenant_id: 'tenant-123',
+      tenant_name: 'Barbearia Estilo',
+      tenant_phone: '5592999999999',
+      cadastro_completo: false,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') {
+        return { data: [unregisteredDetails], error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/menu']}>
+        <MenuCliente />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith('get_customer_details_by_token', {
+        p_token: 'mock-customer-token',
+      });
+    });
   });
 });

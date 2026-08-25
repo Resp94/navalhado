@@ -218,6 +218,7 @@ export const createUazapiProvider = (
         body: JSON.stringify({
           number: input.number,
           text: input.text,
+          linkPreview: false,
           ...(input.idempotencyKey ? { track_id: input.idempotencyKey } : {}),
         }),
       });

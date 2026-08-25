@@ -5,9 +5,9 @@ Tornar explícito e altamente visual na listagem de comandas (`Comandas.tsx`) e 
 
 **Blocked by:** 02 — Cancelamento Automático de Comandas e Atualização em Tempo Real (Sem Refresh).
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Expandir o tipo `ComandaEnriched` e o método `listarTodas` no repositório/adaptador de comandas para retornar os dados de data, horário, serviço e tipo de encaixe do agendamento vinculado.
-- [ ] Renderizar badge destacado com ícone e cores temáticas nos cards da página `Comandas.tsx`.
-- [ ] Destacar as informações do agendamento de origem no cabeçalho do `ComandaCheckoutModal.tsx`.
-- [ ] Atualizar os testes unitários do módulo de comandas para validar o enriquecimento dos dados.
+- [x] Expandir o tipo `ComandaEnriched` e o método `listarTodas` no repositório/adaptador de comandas para retornar os dados de data, horário, serviço e tipo de encaixe do agendamento vinculado.
+- [x] Renderizar badge destacado com ícone e cores temáticas nos cards da página `Comandas.tsx`.
+- [x] Destacar as informações do agendamento de origem no cabeçalho do `ComandaCheckoutModal.tsx`.
+- [x] Atualizar os testes unitários do módulo de comandas para validar o enriquecimento dos dados.

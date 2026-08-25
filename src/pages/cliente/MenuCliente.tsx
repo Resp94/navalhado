@@ -63,8 +63,18 @@ export const MenuCliente: React.FC = () => {
         }
 
         const customer = await canalClienteRepository.obterPerfil();
-        setCustomerDetails(customer);
+        if (!customer) {
+          navigate('/cliente/acesso-expirado');
+          return;
+        }
 
+        // Se o cliente ainda não possui cadastro completo, direciona para o catálogo de serviços
+        if (!customer.cadastro_completo) {
+          navigate('/cliente/agendar', { replace: true });
+          return;
+        }
+
+        setCustomerDetails(customer);
         await fetchAppointments();
 
       } catch (err) {
@@ -338,7 +348,7 @@ export const MenuCliente: React.FC = () => {
           </p>
 
           <button
-            onClick={() => navigate('/cliente/agendar')}
+            onClick={() => navigate('/cliente/agendar', { state: { fromMenu: true } })}
             style={{
               alignSelf: 'flex-start',
               backgroundColor: '#FFFFFF',
