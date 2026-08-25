@@ -48,6 +48,7 @@ interface ProfessionalOption {
 interface ComandaCheckoutModalProps {
   isOpen: boolean;
   tenantId: string;
+  comandaId?: string | null;
   appointmentId?: string | null;
   appointmentStartTime?: string | null;
   appointmentServiceName?: string | null;
@@ -116,6 +117,7 @@ const methodConfigs: Record<
 export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   isOpen,
   tenantId,
+  comandaId: initialComandaId = null,
   appointmentId,
   appointmentStartTime,
   appointmentServiceName,
@@ -136,7 +138,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const cxaRepo = useMemo(() => caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter()), [caixaRepo]);
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
 
-  const [comandaId, setComandaId] = useState<string | null>(null);
+  const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
   const [loadedComanda, setLoadedComanda] = useState<Comanda | null>(null);
   const [itens, setItens] = useState<ItemLocal[]>([]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
@@ -225,65 +227,65 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     cxaRepo.getActiveSession(tenantId).then(setActiveSession).catch(console.error);
 
     // Inicializar itens da comanda
-    if (appointmentId) {
-      comRepo
-        .getByAppointmentId(appointmentId)
-        .then((existing) => {
-          if (existing) {
-            setComandaId(existing.id);
-            setLoadedComanda(existing);
+    const fetchExistingComanda = initialComandaId
+      ? comRepo.getById(initialComandaId)
+      : appointmentId
+      ? comRepo.getByAppointmentId(appointmentId)
+      : Promise.resolve(null);
 
-            if (existing.itens && existing.itens.length > 0) {
-              setItens(
-                existing.itens.map((it) => ({
-                  tempId: it.id,
-                  id: it.id,
-                  item_type: it.item_type,
-                  service_id: it.service_id,
-                  product_id: it.product_id,
-                  professional_id: it.professional_id,
-                  name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
-                  quantity: it.quantity,
-                  unit_price: it.unit_price,
-                }))
-              );
-            }
+    fetchExistingComanda
+      .then((existing) => {
+        if (existing) {
+          setComandaId(existing.id);
+          setLoadedComanda(existing);
 
-            if (existing.discount_amount) {
-              setDiscountValue(existing.discount_amount);
-              setDiscountType('fixed');
-            }
-            if (existing.tip_amount) {
-              setTipValue(existing.tip_amount);
-            }
-            if (existing.pagamentos && existing.pagamentos.length > 0) {
-              setPagamentos(
-                existing.pagamentos.map((p) => ({
-                  method: p.payment_method,
-                  amount: p.amount,
-                  receivedCash: p.amount + (p.change_amount || 0),
-                }))
-              );
-              if (existing.pagamentos.length > 1) {
-                setIsSplitting(true);
-              }
-            }
-          } else {
-            setItens(mapInitialServices(initialServices));
+          if (existing.itens && existing.itens.length > 0) {
+            setItens(
+              existing.itens.map((it) => ({
+                tempId: it.id,
+                id: it.id,
+                item_type: it.item_type,
+                service_id: it.service_id,
+                product_id: it.product_id,
+                professional_id: it.professional_id,
+                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                quantity: it.quantity,
+                unit_price: it.unit_price,
+              }))
+            );
           }
-        })
-        .catch((err) => {
-          console.error('Erro ao verificar comanda existente:', err);
+
+          if (existing.discount_amount) {
+            setDiscountValue(existing.discount_amount);
+            setDiscountType('fixed');
+          }
+          if (existing.tip_amount) {
+            setTipValue(existing.tip_amount);
+          }
+          if (existing.pagamentos && existing.pagamentos.length > 0) {
+            setPagamentos(
+              existing.pagamentos.map((p) => ({
+                method: p.payment_method,
+                amount: p.amount,
+                receivedCash: p.amount + (p.change_amount || 0),
+              }))
+            );
+            if (existing.pagamentos.length > 1) {
+              setIsSplitting(true);
+            }
+          }
+        } else {
           setItens(mapInitialServices(initialServices));
-        })
-        .finally(() => {
-          setIsLoadingComanda(false);
-        });
-    } else {
-      setItens(mapInitialServices(initialServices));
-      setIsLoadingComanda(false);
-    }
-  }, [isOpen, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao verificar comanda existente:', err);
+        setItens(mapInitialServices(initialServices));
+      })
+      .finally(() => {
+        setIsLoadingComanda(false);
+      });
+  }, [isOpen, initialComandaId, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
 
   const isClosed = loadedComanda?.status === 'fechada';
 
