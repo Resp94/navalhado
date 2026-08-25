@@ -289,7 +289,10 @@ export const FluxoAgendamento: React.FC = () => {
       return;
     }
 
-    const cleanPhone = clientPhone.replace(/\D/g, '');
+    let cleanPhone = clientPhone.replace(/\D/g, '');
+    while (cleanPhone.startsWith('55') && cleanPhone.length > 11) {
+      cleanPhone = cleanPhone.slice(2);
+    }
     if (cleanPhone.length < 10 || cleanPhone.length > 11) {
       addToast('Por favor, informe um WhatsApp válido com DDD.', 'warning');
       return;

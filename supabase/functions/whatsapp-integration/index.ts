@@ -104,8 +104,12 @@ export const DEFAULT_TEMPLATES = {
     "Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
   appointment_rescheduled:
     "Olá, {cliente}! Seu reagendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
+  professional_appointment_rescheduled:
+    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi reagendado!\n\n📅 Novo Horário: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
   appointment_cancelled:
     "Olá, {cliente}! Seu agendamento na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nSe precisar, você pode agendar um novo horário acessando: {link}\n\nAgradecemos a compreensão!",
+  professional_appointment_cancelled:
+    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
   appointment_reminder:
     "Olá, {cliente}! Passando para lembrar do seu agendamento na *{barbearia}* nas próximas horas.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: {link}\n\nEsperamos você!",
   first_contact:
@@ -1325,16 +1329,34 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       if (triggerAuthError) return triggerAuthError;
 
       const body = await req.json();
-      const { event, appointment_id, tenant_id } = body;
+      const event = body.event || body.event_type;
+      const appointment_id = body.appointment_id || body.appointmentId || body.id;
+      let tenant_id = body.tenant_id || body.tenantId;
 
-      if (!event || !appointment_id || !tenant_id) {
+      if (!event || !appointment_id) {
         return new Response(JSON.stringify({ error: "Missing required parameters" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      console.log(`[WhatsApp-Integration] /send-notification: Evento '${event}' para agendamento '${appointment_id}'`);
+      if (!tenant_id) {
+        const { data: appRow } = await supabase
+          .from("appointments")
+          .select("tenant_id")
+          .eq("id", appointment_id)
+          .maybeSingle();
+        tenant_id = appRow?.tenant_id;
+      }
+
+      if (!tenant_id) {
+        return new Response(JSON.stringify({ error: "Tenant not found for appointment" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log(`[WhatsApp-Integration] /send-notification: Evento '${event}' para agendamento '${appointment_id}' (tenant: ${tenant_id})`);
 
       // 1. Obter a configuração de WhatsApp do tenant
       const { data: config, error: configErr } = await supabase
@@ -1354,21 +1376,6 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       if (config.status !== "connected") {
         console.warn(`[WhatsApp-Integration] WhatsApp do tenant ${tenant_id} não está conectado (Status: ${config.status})`);
         return new Response(JSON.stringify({ status: "skipped", reason: "WhatsApp disconnected" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Verificar regras de envio baseadas no evento
-      if (event === "appointment_created" && !config.send_confirmation) {
-        console.log(`[WhatsApp-Integration] Envio de confirmação desativado para o tenant ${tenant_id}`);
-        return new Response(JSON.stringify({ status: "skipped", reason: "Confirmations disabled" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (event === "appointment_cancelled" && !config.send_cancellation) {
-        console.log(`[WhatsApp-Integration] Envio de cancelamento desativado para o tenant ${tenant_id}`);
-        return new Response(JSON.stringify({ status: "skipped", reason: "Cancellations disabled" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1401,26 +1408,25 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       const service = singleRelation(appointment.services);
       const tenant = singleRelation(appointment.tenants);
 
-      if (!customer?.phone || !professional || !service || !tenant) {
+      if (!tenant || !service || !professional) {
         console.warn(`[WhatsApp-Integration] Dados relacionais incompletos no agendamento ${appointment_id}`);
         return new Response(JSON.stringify({ status: "skipped", reason: "Appointment details are incomplete" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const clientPhone = formatPhoneNumber(customer.phone);
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
-      const link = `${appUrl}/cliente/${customer.token_acesso}`;
+      const clientAccessLink = customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : "";
 
       const variables: WhatsappTemplateVariables = {
-        cliente: customer.name || "Cliente",
-        telefone_cliente: customer.phone || "",
+        cliente: customer?.name || "Cliente",
+        telefone_cliente: customer?.phone || "",
         barbearia: tenant.name || "nossa barbearia",
         servico: service.name || "Serviço",
         profissional: professional.name || "Profissional",
         data: date,
         horario: time,
-        link,
+        link: clientAccessLink,
       };
 
       const TEMPLATE_RESOLVERS: Record<string, { custom: string | null | undefined; fallback: string; vars?: WhatsappTemplateVariables }> = {
@@ -1441,7 +1447,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           fallback: DEFAULT_TEMPLATES.appointment_cancelled,
           vars: {
             ...variables,
-            link: `${appUrl}/cliente/${customer.token_acesso}/agendar`,
+            link: customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : "",
           },
         },
       };
@@ -1453,110 +1459,141 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      const messageText = formatMessageTemplate(
-        resolver.custom,
-        resolver.fallback,
-        resolver.vars || variables
-      );
+      let clientAttempts = 1;
+      let clientFinalized = false;
+      let clientSuccess = false;
 
-      const reservation = await reserveOutboundMessage({
-        tenantId: tenant_id,
-        instanceId: config.id,
-        appointmentId: appointment_id,
-        eventType: event,
-      });
-      if (reservation.error) {
-        console.error("[WhatsApp-Integration] Falha ao reservar idempotência da notificação");
-        return new Response(JSON.stringify({ error: "Failed to reserve notification" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      // 1. Notificação para o Cliente
+      const clientSendDisabled =
+        (event === "appointment_created" && !config.send_confirmation) ||
+        (event === "appointment_cancelled" && !config.send_cancellation);
+
+      if (clientSendDisabled) {
+        console.log(`[WhatsApp-Integration] Envio de notificação ao cliente desativado para o evento '${event}' no tenant ${tenant_id}`);
+      } else if (customer?.phone) {
+        const clientPhone = formatPhoneNumber(customer.phone);
+        if (clientPhone) {
+          const messageText = formatMessageTemplate(
+            resolver.custom,
+            resolver.fallback,
+            resolver.vars || variables
+          );
+
+          const reservation = await reserveOutboundMessage({
+            tenantId: tenant_id,
+            instanceId: config.id,
+            appointmentId: appointment_id,
+            eventType: event,
+          });
+          if (reservation.error) {
+            console.error("[WhatsApp-Integration] Falha ao reservar idempotência da notificação do cliente");
+          } else if (!reservation.duplicate) {
+            clientAttempts = reservation.attempts || 1;
+            try {
+              clientAttempts = await sendTextWithRetry({
+                instanceName: config.instance_name,
+                instanceToken: config[instanceTokenColumn],
+                number: clientPhone,
+                text: messageText,
+                idempotencyKey: `appointment:${appointment_id}:${event}`,
+              }, reservation.attempts || 1);
+              clientFinalized = await finalizeOutboundMessage({
+                tenantId: tenant_id,
+                appointmentId: appointment_id,
+                eventType: event,
+                status: "succeeded",
+                attempts: clientAttempts,
+                expectedAttempt: reservation.attempts || 1,
+              });
+              clientSuccess = true;
+              console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para o cliente ${maskPhoneNumber(clientPhone)}`);
+            } catch (sendError) {
+              const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? clientAttempts);
+              const permanentFailure = sendError instanceof WhatsAppProviderError &&
+                sendError.status !== undefined && sendError.status >= 400 && sendError.status < 500 && sendError.status !== 429;
+              await finalizeOutboundMessage({
+                tenantId: tenant_id,
+                appointmentId: appointment_id,
+                eventType: event,
+                status: "failed",
+                attempts: failedAttempts,
+                expectedAttempt: reservation.attempts || 1,
+                errorMessage: permanentFailure ? "permanent provider error" : "provider request failed",
+              });
+              console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação para o cliente:", sendError);
+            }
+          }
+        }
       }
-      if (reservation.duplicate) {
-        return new Response(JSON.stringify({ success: true, duplicate: true, attempts: reservation.attempts }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
 
-      // 3. Enviar mensagem pelo provedor configurado com retry controlado
-      let attempts = reservation.attempts || 1;
-      try {
-        attempts = await sendTextWithRetry({
-          instanceName: config.instance_name,
-          instanceToken: config[instanceTokenColumn],
-          number: clientPhone,
-          text: messageText,
-          idempotencyKey: `appointment:${appointment_id}:${event}`,
-        }, reservation.attempts || 1);
-      } catch (sendError) {
-        const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? attempts);
-        const permanentFailure = sendError instanceof WhatsAppProviderError &&
-          sendError.status !== undefined && sendError.status >= 400 && sendError.status < 500 && sendError.status !== 429;
-        await finalizeOutboundMessage({
-          tenantId: tenant_id,
-          appointmentId: appointment_id,
-          eventType: event,
-          status: "failed",
-          attempts: failedAttempts,
-          expectedAttempt: reservation.attempts || 1,
-          errorMessage: permanentFailure ? "permanent provider error" : "provider request failed",
-        });
-        console.error("[WhatsApp-Integration] Falha do provedor ao disparar notificação");
-        return providerFailureResponse(failedAttempts);
-      }
+      // 2. Notificação para o Barbeiro / Profissional vinculado ao agendamento
+      const PROF_EVENT_MAP: Record<string, { eventType: string; template: string }> = {
+        appointment_created: {
+          eventType: "professional_appointment_created",
+          template: DEFAULT_TEMPLATES.professional_appointment_created,
+        },
+        appointment_rescheduled: {
+          eventType: "professional_appointment_rescheduled",
+          template: DEFAULT_TEMPLATES.professional_appointment_rescheduled,
+        },
+        appointment_updated: {
+          eventType: "professional_appointment_rescheduled",
+          template: DEFAULT_TEMPLATES.professional_appointment_rescheduled,
+        },
+        appointment_cancelled: {
+          eventType: "professional_appointment_cancelled",
+          template: DEFAULT_TEMPLATES.professional_appointment_cancelled,
+        },
+      };
 
-      const finalized = await finalizeOutboundMessage({
-        tenantId: tenant_id,
-        appointmentId: appointment_id,
-        eventType: event,
-        status: "succeeded",
-        attempts,
-        expectedAttempt: reservation.attempts || 1,
-      });
-      console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para ${maskPhoneNumber(clientPhone)}`);
-
-      // Notificar o barbeiro no WhatsApp dele em novos agendamentos
-      if (event === "appointment_created" && professional?.phone) {
+      let profAttempts = 1;
+      let profSuccess = false;
+      const profConfig = PROF_EVENT_MAP[event];
+      if (profConfig && professional?.phone) {
         const profPhone = formatPhoneNumber(professional.phone);
         if (profPhone) {
           const profMessageText = formatMessageTemplate(
             null,
-            DEFAULT_TEMPLATES.professional_appointment_created,
+            profConfig.template,
             variables
           );
           const profReservation = await reserveOutboundMessage({
             tenantId: tenant_id,
             instanceId: config.id,
             appointmentId: appointment_id,
-            eventType: "professional_appointment_created",
+            eventType: profConfig.eventType,
           });
-          if (!profReservation.duplicate && !profReservation.error) {
-            let profAttempts = profReservation.attempts || 1;
+          if (profReservation.error) {
+            console.error("[WhatsApp-Integration] Falha ao reservar idempotência da notificação do barbeiro");
+          } else if (!profReservation.duplicate) {
+            profAttempts = profReservation.attempts || 1;
             try {
               profAttempts = await sendTextWithRetry({
                 instanceName: config.instance_name,
                 instanceToken: config[instanceTokenColumn],
                 number: profPhone,
                 text: profMessageText,
-                idempotencyKey: `appointment:${appointment_id}:professional_appointment_created`,
+                idempotencyKey: `appointment:${appointment_id}:${profConfig.eventType}`,
               }, profReservation.attempts || 1);
               await finalizeOutboundMessage({
                 tenantId: tenant_id,
                 appointmentId: appointment_id,
-                eventType: "professional_appointment_created",
+                eventType: profConfig.eventType,
                 status: "succeeded",
                 attempts: profAttempts,
                 expectedAttempt: profReservation.attempts || 1,
               });
-              console.log(`[WhatsApp-Integration] Notificação de novo agendamento enviada ao barbeiro ${maskPhoneNumber(profPhone)}`);
+              profSuccess = true;
+              console.log(`[WhatsApp-Integration] Notificação de evento '${profConfig.eventType}' enviada ao barbeiro ${maskPhoneNumber(profPhone)}`);
             } catch (profSendErr) {
-              console.error(`[WhatsApp-Integration] Falha ao enviar notificação ao barbeiro:`, profSendErr);
+              const failedAttempts = Number((profSendErr as { attempts?: unknown })?.attempts ?? profAttempts);
+              console.error(`[WhatsApp-Integration] Falha ao enviar notificação '${profConfig.eventType}' ao barbeiro:`, profSendErr);
               await finalizeOutboundMessage({
                 tenantId: tenant_id,
                 appointmentId: appointment_id,
-                eventType: "professional_appointment_created",
+                eventType: profConfig.eventType,
                 status: "failed",
-                attempts: profAttempts,
+                attempts: failedAttempts,
                 expectedAttempt: profReservation.attempts || 1,
                 errorMessage: "provider request failed",
               });
@@ -1565,7 +1602,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
       }
 
-      return new Response(JSON.stringify({ success: true, attempts, diagnostic_persisted: finalized }), {
+      return new Response(JSON.stringify({
+        success: clientSuccess || profSuccess || clientSendDisabled,
+        client: { sent: clientSuccess, attempts: clientAttempts, diagnostic_persisted: clientFinalized },
+        professional: { sent: profSuccess, attempts: profAttempts },
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
