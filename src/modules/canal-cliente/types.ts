@@ -110,4 +110,8 @@ export interface ICanalClienteAdapter {
     token: string,
     input: InputPromoverCadastroCliente
   ): Promise<PerfilClienteCanal | void>;
+  buscarClientePorTelefone(
+    token: string,
+    telefone: string
+  ): Promise<{ found: boolean; customer_id?: string; customer_name?: string; customer_phone?: string; cadastro_completo?: boolean } | null>;
 }

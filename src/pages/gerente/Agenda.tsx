@@ -948,9 +948,11 @@ export const Agenda: React.FC = () => {
           return;
         }
 
-        const newCust = await clienteRepository.saveProvisionalCustomer(tenant.tenantId, {
+        const newCust = await clienteRepository.saveCustomer(tenant.tenantId, {
           name: newCustomerName,
           phone: newCustomerPhone,
+          registration_origin: 'balcao',
+          cadastro_completo: true,
         });
 
         finalCustomerId = newCust.id;

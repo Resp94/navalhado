@@ -1242,7 +1242,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
 
         const link = tenantSlug
-          ? `${appUrl}/${tenantSlug}`
+          ? (customer?.token_acesso ? `${appUrl}/${tenantSlug}?token=${customer.token_acesso}` : `${appUrl}/${tenantSlug}`)
           : `${appUrl}/cliente/${customer.token_acesso}/agendar`;
         const variables: WhatsappTemplateVariables = {
           cliente: clientName,
@@ -1427,7 +1427,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .maybeSingle();
 
       const clientAccessLink = tenant?.slug
-        ? `${appUrl}/${tenant.slug}`
+        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
         : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
 
       const variables: WhatsappTemplateVariables = {
@@ -1659,7 +1659,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const clientAccessLink = tenant.slug
-        ? `${appUrl}/${tenant.slug}`
+        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
         : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
 
       const variables: WhatsappTemplateVariables = {
@@ -1692,7 +1692,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           vars: {
             ...variables,
             link: tenant.slug
-              ? `${appUrl}/${tenant.slug}`
+              ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
               : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : appUrl),
           },
         },

@@ -72,12 +72,51 @@ export const FluxoAgendamento: React.FC = () => {
   // Dados de identificação do cliente no agendamento (conforme vídeo)
   const [clientFullName, setClientFullName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-
-  const handlePhoneChange = (val: string) => {
-    setClientPhone(maskPhone(val));
-  };
+  const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   const canalClienteRepository = useCanalCliente();
+
+  const handlePhoneChange = async (val: string) => {
+    const masked = maskPhone(val);
+    setClientPhone(masked);
+
+    const digits = val.replace(/\D/g, '');
+    if (digits.length >= 10 && canonicalToken) {
+      try {
+        const lookup = await canalClienteRepository.consultarClientePorTelefone(digits, canonicalToken);
+        if (lookup && lookup.found && lookup.customer_name && lookup.customer_name !== 'Cliente') {
+          if (!clientFullName || clientFullName.trim() === '' || clientFullName === 'Cliente') {
+            setClientFullName(lookup.customer_name);
+          }
+          setRecognizedCustomer({ id: lookup.customer_id || '', name: lookup.customer_name });
+        } else {
+          setRecognizedCustomer(null);
+        }
+      } catch (e) {
+        console.warn('Erro ao consultar cliente por telefone:', e);
+      }
+    } else {
+      setRecognizedCustomer(null);
+    }
+  };
+
+  const handlePhoneBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = 'var(--color-border)';
+    const digits = clientPhone.replace(/\D/g, '');
+    if (digits.length >= 10 && canonicalToken) {
+      try {
+        const lookup = await canalClienteRepository.consultarClientePorTelefone(digits, canonicalToken);
+        if (lookup && lookup.found && lookup.customer_name && lookup.customer_name !== 'Cliente') {
+          if (!clientFullName || clientFullName.trim() === '' || clientFullName === 'Cliente') {
+            setClientFullName(lookup.customer_name);
+          }
+          setRecognizedCustomer({ id: lookup.customer_id || '', name: lookup.customer_name });
+        }
+      } catch (e) {
+        console.warn('Erro no blur ao consultar cliente por telefone:', e);
+      }
+    }
+  };
 
   const loadCatalog = useCallback(async (token: string) => {
     const { servicos, categorias } = await canalClienteRepository.obterCatalogoServicos(token);
@@ -122,8 +161,11 @@ export const FluxoAgendamento: React.FC = () => {
         if (routeSlug || tenantParam) {
           const targetSlug = routeSlug || tenantParam;
           try {
+            const explicitToken = searchParams.get('token') || routeToken;
             let storedToken: string | undefined;
-            if (typeof window !== 'undefined' && window.localStorage) {
+            if (explicitToken && explicitToken.trim()) {
+              storedToken = explicitToken.trim();
+            } else if (typeof window !== 'undefined' && window.localStorage) {
               storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || undefined;
             }
             const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!, storedToken);
@@ -1220,8 +1262,22 @@ export const FluxoAgendamento: React.FC = () => {
                     boxSizing: 'border-box',
                   }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--color-brand-primary)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+                  onBlur={handlePhoneBlur}
                 />
+                {recognizedCustomer && (
+                  <div style={{
+                    marginTop: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--color-brand-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}>
+                    <HugeiconsIcon icon={Tick01Icon} size={14} />
+                    <span>Cadastro reconhecido: {recognizedCustomer.name}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

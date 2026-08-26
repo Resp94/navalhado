@@ -352,5 +352,33 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     }
   }
 
+  async buscarClientePorTelefone(
+    token: string,
+    telefone: string
+  ): Promise<{ found: boolean; customer_id?: string; customer_name?: string; customer_phone?: string; cadastro_completo?: boolean } | null> {
+    const { data, error } = await supabase.rpc('lookup_customer_by_phone', {
+      p_token: token,
+      p_phone: telefone,
+    });
 
+    if (error) {
+      if (error.message.includes('token') || error.code === 'P0001') {
+        throw new CanalClienteTokenError();
+      }
+      return null;
+    }
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return null;
+    }
+
+    const row = data[0];
+    return {
+      found: Boolean(row.found),
+      customer_id: row.customer_id || undefined,
+      customer_name: row.customer_name || undefined,
+      customer_phone: row.customer_phone || undefined,
+      cadastro_completo: row.cadastro_completo !== undefined ? Boolean(row.cadastro_completo) : undefined,
+    };
+  }
 }
