@@ -1310,6 +1310,10 @@ export const FluxoAgendamento: React.FC = () => {
 
       {/* Estilos locais */}
       <style>{`
+        .service-card {
+          transition: all 0.2s ease;
+          min-height: 44px;
+        }
         .service-card:hover {
           border-color: var(--color-brand-primary) !important;
         }
@@ -1320,8 +1324,16 @@ export const FluxoAgendamento: React.FC = () => {
         .service-card:hover .arrow-circle svg {
           color: var(--color-brand-primary) !important;
         }
+        .professional-card {
+          min-height: 44px;
+          transition: all 0.2s ease;
+        }
         .professional-card:hover {
           border-color: var(--color-brand-primary) !important;
+        }
+        .slot-btn {
+          min-height: 44px;
+          min-width: 44px;
         }
         .slot-btn:hover {
           border-color: var(--color-brand-primary) !important;
@@ -1330,6 +1342,16 @@ export const FluxoAgendamento: React.FC = () => {
         }
         .categories-scroll::-webkit-scrollbar {
           display: none;
+        }
+        @media (max-width: 480px) {
+          .service-card {
+            border-radius: 18px !important;
+            padding: 4px !important;
+          }
+          .service-card > div {
+            padding: 1rem !important;
+            border-radius: calc(18px - 4px) !important;
+          }
         }
       `}</style>
     </div>
