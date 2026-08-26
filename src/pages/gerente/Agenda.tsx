@@ -581,12 +581,14 @@ export const Agenda: React.FC = () => {
           .select('id, name, is_active, phone, weekly_schedule')
           .eq('tenant_id', tenant.tenantId)
           .eq('is_active', true)
+          .is('deleted_at', null)
           .order('name'),
         supabase
           .from('services')
           .select('id, name, price, duration_minutes')
           .eq('tenant_id', tenant.tenantId)
           .eq('is_active', true)
+          .is('deleted_at', null)
           .order('name'),
         supabase
           .from('customers')

@@ -14,6 +14,7 @@ export class SupabaseProfessionalServicesAdapter implements IProfessionalService
       .from('services')
       .select('id, name, category, duration_minutes, price, is_active')
       .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
       .order('name');
 
     if (sError) throw sError;
@@ -81,7 +82,8 @@ export class SupabaseProfessionalServicesAdapter implements IProfessionalService
     const { data: allServices, error: sError } = await this.supabase
       .from('services')
       .select('id, duration_minutes')
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
 
     if (sError) throw sError;
 

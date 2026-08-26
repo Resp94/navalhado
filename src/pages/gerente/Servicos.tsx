@@ -17,6 +17,7 @@ import {
   ArrowUp01Icon,
   ArrowDown01Icon,
   ScissorIcon,
+  Delete02Icon,
 } from '@hugeicons/core-free-icons';
 import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
 
@@ -47,10 +48,11 @@ interface ServiceItemCardProps {
   onMoveDown?: (id: string) => void;
   onToggleStatus: (id: string, currentStatus: boolean) => void;
   onEdit: (service: Service) => void;
+  onDelete: (service: Service) => void;
 }
 
 const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
-  ({ service, positionNumber, isFirst, isLast, onMoveUp, onMoveDown, onToggleStatus, onEdit }) => {
+  ({ service, positionNumber, isFirst, isLast, onMoveUp, onMoveDown, onToggleStatus, onEdit, onDelete }) => {
     return (
       <div
         className={`service-item-card ${
@@ -150,6 +152,17 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             <HugeiconsIcon icon={Edit01Icon} size={14} />
             Editar
           </button>
+
+          <button
+            type="button"
+            aria-label={`Excluir ${service.name}`}
+            onClick={() => onDelete(service)}
+            className="btn-action-delete"
+            title="Excluir serviço (mantém histórico)"
+          >
+            <HugeiconsIcon icon={Delete02Icon} size={14} />
+            Excluir
+          </button>
         </div>
       </div>
     );
@@ -172,6 +185,7 @@ export const Servicos: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('Todos');
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -194,6 +208,7 @@ export const Servicos: React.FC = () => {
         .from('services')
         .select('*')
         .eq('tenant_id', tenant.tenantId)
+        .is('deleted_at', null)
         .order('display_order', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -214,6 +229,30 @@ export const Servicos: React.FC = () => {
       setLoading(false);
     }
   }, [tenant.tenantId, addToast]);
+
+  const handleDeleteService = async () => {
+    if (!serviceToDelete) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('services')
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_active: false,
+        })
+        .eq('id', serviceToDelete.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (error) throw error;
+      addToast(`Serviço "${serviceToDelete.name}" excluído com sucesso. Histórico preservado.`, 'success');
+      setServiceToDelete(null);
+      fetchServices();
+    } catch (err: any) {
+      addToast(err?.message || 'Erro ao excluir serviço.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetchServices();
@@ -461,12 +500,62 @@ export const Servicos: React.FC = () => {
                   onMoveDown={() => handleMoveService(service.id, 'down')}
                   onToggleStatus={toggleServiceStatus}
                   onEdit={handleEdit}
+                  onDelete={(srv) => setServiceToDelete(srv)}
                 />
               );
             })}
           </div>
         )}
       </section>
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
+      {serviceToDelete && (
+        <div
+          className="service-delete-modal-overlay"
+          onClick={() => !saving && setServiceToDelete(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-delete-service-title"
+        >
+          <div
+            className="service-delete-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="service-delete-icon-badge">
+              <HugeiconsIcon icon={Delete02Icon} size={24} />
+            </div>
+            <h3 id="modal-delete-service-title" className="service-delete-title">
+              Excluir serviço
+            </h3>
+            <p className="service-delete-text">
+              Deseja realmente excluir o serviço <strong>{serviceToDelete.name}</strong>?
+            </p>
+            <div className="service-delete-warning-box">
+              <p>
+                O histórico de agendamentos, atendimentos e comandas passadas será <strong>100% preservado</strong> nos relatórios, mas este serviço não estará mais disponível para novos agendamentos.
+              </p>
+            </div>
+            <div className="service-delete-actions">
+              <button
+                type="button"
+                className="btn btn--outline-secondary"
+                onClick={() => setServiceToDelete(null)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn--danger-delete"
+                onClick={handleDeleteService}
+                disabled={saving}
+              >
+                {saving ? 'Excluindo...' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isDrawerOpen && (
         <div className="service-drawer-overlay" onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}>
@@ -926,6 +1015,123 @@ export const Servicos: React.FC = () => {
         .btn-action-edit:hover {
           border-color: var(--color-brand-primary);
           color: var(--color-brand-primary);
+        }
+
+        .btn-action-delete {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 6px 12px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-action-delete:hover {
+          border-color: #ef4444;
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.08);
+        }
+
+        /* MODAL DE EXCLUSÃO (SOFT DELETE) */
+        .service-delete-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 1100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .service-delete-modal-card {
+          width: 100%;
+          max-width: 460px;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          padding: 1.75rem;
+          box-shadow: var(--shadow-xl);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 1rem;
+        }
+
+        .service-delete-icon-badge {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .service-delete-title {
+          font-size: 1.2rem;
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .service-delete-text {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          margin: 0;
+        }
+
+        .service-delete-warning-box {
+          background: rgba(217, 108, 0, 0.08);
+          border: 1px solid rgba(217, 108, 0, 0.2);
+          border-radius: var(--radius-md);
+          padding: 0.85rem;
+          font-size: 12px;
+          color: var(--color-text-secondary);
+          text-align: left;
+          line-height: 1.45;
+        }
+
+        .service-delete-actions {
+          display: flex;
+          width: 100%;
+          gap: 0.75rem;
+          margin-top: 0.5rem;
+        }
+
+        .service-delete-actions button {
+          flex: 1;
+        }
+
+        .btn--danger-delete {
+          background: #ef4444;
+          color: #ffffff;
+          border: none;
+          font-weight: 700;
+          padding: 10px 16px;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn--danger-delete:hover:not(:disabled) {
+          background: #dc2626;
+        }
+
+        .btn--danger-delete:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         /* DRAWER OVERLAY & PANEL */

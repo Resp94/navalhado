@@ -15,6 +15,7 @@ import {
   CheckmarkCircle02Icon,
   AlertCircleIcon,
   Clock01Icon,
+  Delete02Icon,
 } from '@hugeicons/core-free-icons';
 
 interface ProfessionalScheduleDay {
@@ -63,6 +64,7 @@ export const Profissionais: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profToDelete, setProfToDelete] = useState<Professional | null>(null);
 
   // Estados do Formulário de Profissional
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export const Profissionais: React.FC = () => {
         .from('professionals')
         .select('*')
         .eq('tenant_id', tenant.tenantId)
+        .is('deleted_at', null)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -105,6 +108,30 @@ export const Profissionais: React.FC = () => {
       addToast('Não foi possível carregar a equipe de profissionais.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteProf = async () => {
+    if (!profToDelete) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('professionals')
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_active: false,
+        })
+        .eq('id', profToDelete.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (error) throw error;
+      addToast(`Profissional "${profToDelete.name}" excluído com sucesso. Histórico preservado.`, 'success');
+      setProfToDelete(null);
+      fetchProfessionals();
+    } catch (err: any) {
+      addToast(err?.message || 'Erro ao excluir profissional.', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -691,6 +718,15 @@ export const Profissionais: React.FC = () => {
                       >
                         Editar Escala/Dados
                       </button>
+                      <button
+                        onClick={() => setProfToDelete(prof)}
+                        className="btn-action btn-action--delete"
+                        title="Excluir profissional (mantém histórico)"
+                        aria-label={`Excluir profissional ${prof.name}`}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} size={15} />
+                        Excluir
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -699,6 +735,91 @@ export const Profissionais: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
+      {profToDelete && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !saving && setProfToDelete(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-delete-prof-title"
+        >
+          <div
+            className="modal-content shadow-xl animate-spring"
+            style={{ maxWidth: '480px', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem',
+              }}
+            >
+              <HugeiconsIcon icon={Delete02Icon} size={24} />
+            </div>
+            <h3 id="modal-delete-prof-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.5rem' }}>
+              Excluir profissional
+            </h3>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', margin: '0 0 1rem' }}>
+              Deseja realmente excluir o profissional <strong>{profToDelete.name}</strong>?
+            </p>
+            <div
+              style={{
+                background: 'rgba(217, 108, 0, 0.08)',
+                border: '1px solid rgba(217, 108, 0, 0.2)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.85rem',
+                fontSize: '12px',
+                color: 'var(--color-text-secondary)',
+                textAlign: 'left',
+                lineHeight: 1.45,
+                marginBottom: '1.25rem',
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                O histórico de atendimentos passados, comandas e relatórios de comissão será <strong>100% preservado</strong>, mas este profissional não estará mais disponível para novos agendamentos na agenda ou no canal do cliente.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ flex: 1 }}
+                onClick={() => setProfToDelete(null)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                style={{
+                  flex: 1,
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 700,
+                  padding: '10px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                }}
+                onClick={handleDeleteProf}
+                disabled={saving}
+              >
+                {saving ? 'Excluindo...' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL */}
       {isServicesModalOpen && selectedProfForServices && (
@@ -1508,6 +1629,19 @@ export const Profissionais: React.FC = () => {
           color: #ffffff;
           border-color: var(--color-brand-primary);
           box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
+        }
+
+        .btn-action--delete {
+          background: rgba(239, 68, 68, 0.08);
+          color: #ef4444;
+          border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-action--delete:hover {
+          background: #ef4444;
+          color: #ffffff;
+          border-color: #ef4444;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
         }
 
         @media (max-width: 640px) {
