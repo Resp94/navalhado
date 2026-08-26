@@ -86,6 +86,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     },
   ];
 
+  let mockBlockedSlots: any[] = [];
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -94,6 +96,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-08-16T12:00:00.000Z')); // 09:00 em SP
     vi.clearAllMocks();
+    mockBlockedSlots = [];
     mockOutletContext.businessHours.domingo.active = true;
     mockFrom.mockImplementation((table: string) => {
       if (table === 'professionals') {
@@ -197,14 +200,19 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
             eq: () => ({
               gte: () => ({
                 lt: () => ({
-                  order: vi.fn().mockResolvedValue({ data: [], error: null }),
+                  order: vi.fn().mockResolvedValue({ data: mockBlockedSlots, error: null }),
                 }),
               }),
             }),
           }),
+          delete: () => ({
+            eq: () => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          }),
         };
       }
-      return { select: vi.fn(), insert: vi.fn() };
+      return { select: vi.fn(), insert: vi.fn(), delete: vi.fn() };
     });
   });
 
@@ -348,5 +356,54 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     );
 
     mockOutletContext.businessHours.domingo.active = true;
+  });
+
+  it('abre o modal de bloqueio de horários ao clicar no botão Bloquear no cabeçalho', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Bloquear/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Bloquear/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Bloquear horário/i)).toBeInTheDocument();
+    });
+  });
+
+  it('exibe bloqueio de horário na grade e remove ao confirmar clique no card de bloqueio', async () => {
+    mockBlockedSlots = [
+      {
+        id: 'blk-1',
+        tenant_id: 'tenant-123',
+        professional_id: 'prof-1',
+        start_time: '2026-08-16T15:00:00.000Z', // 12:00 em SP
+        end_time: '2026-08-16T16:00:00.000Z', // 13:00 em SP
+        reason: 'Almoço',
+        is_all_day: false,
+      },
+    ];
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Almoço')).toBeInTheDocument();
+    });
+
+    const blockCard = screen.getByText('Almoço').closest('.timeline-blocked-card');
+    expect(blockCard).toBeInTheDocument();
+
+    fireEvent.click(blockCard!);
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Almoço'));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Bloqueio removido com sucesso!', 'success');
+    });
+
+    confirmSpy.mockRestore();
   });
 });

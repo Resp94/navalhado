@@ -4,12 +4,12 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Criar interface unificada no modal da Agenda (`Agenda.tsx`) para inclusão de bloqueios manuais ao clicar em um horário disponível ou através de botão de ação rápida.
-- [ ] Suportar seleção de: Profissional, Data, e escolha entre *Horário Específico (slot)*, *Intervalo Customizado (início/fim)* ou *Dia Inteiro (`is_all_day: true`)*.
-- [ ] Incluir seleção de motivos pré-definidos (*Almoço*, *Compromisso Pessoal*, *Manutenção*, *Folga*, etc.) ou texto livre.
-- [ ] Persistir o bloqueio na tabela `public.blocked_slots` e recarregar a grade via Realtime / `fetchBlockedSlots`.
-- [ ] Garantir que os slots bloqueados fiquem indisponíveis para agendamentos online de clientes (RPC `get_available_slots`).
-- [ ] Permitir a exclusão do bloqueio diretamente pelo clique no card na Agenda.
-- [ ] Atualizar testes unitários em `Agenda.test.tsx`.
+- [x] Criar interface unificada no modal da Agenda (`Agenda.tsx`) para inclusão de bloqueios manuais ao clicar em um horário disponível ou através de botão de ação rápida.
+- [x] Suportar seleção de: Profissional, Data, e escolha entre *Horário Específico (slot)*, *Intervalo Customizado (início/fim)* ou *Dia Inteiro (`is_all_day: true`)*.
+- [x] Incluir seleção de motivos pré-definidos (*Almoço*, *Compromisso Pessoal*, *Manutenção*, *Folga*, etc.) ou texto livre.
+- [x] Persistir o bloqueio na tabela `public.blocked_slots` e recarregar a grade via Realtime / `fetchBlockedSlots`.
+- [x] Garantir que os slots bloqueados fiquem indisponíveis para agendamentos online de clientes (RPC `get_available_slots`).
+- [x] Permitir a exclusão do bloqueio diretamente pelo clique no card na Agenda.
+- [x] Atualizar testes unitários em `Agenda.test.tsx`.
