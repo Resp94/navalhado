@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { FluxoAgendamento } from '../FluxoAgendamento';
 
@@ -25,12 +25,13 @@ const incompleteDetails = {
   cadastro_completo: false,
 };
 
-function renderBookingRoute(initialEntry = '/cliente/token-abc/agendar') {
+function renderBookingRoute(initialEntry: string | { pathname: string; state?: unknown } = '/cliente/token-abc/agendar') {
   return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
+    <MemoryRouter initialEntries={[initialEntry as any]}>
       <Routes>
         <Route path="/cliente/:token/agendar" element={<FluxoAgendamento />} />
         <Route path="/cliente/agendar" element={<FluxoAgendamento />} />
+        <Route path="/cliente/menu" element={<div>Menu do Cliente</div>} />
         <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
       </Routes>
     </MemoryRouter>,
@@ -41,6 +42,11 @@ describe('FluxoAgendamento - cadastro inicial', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.setSystemTime(new Date('2026-08-25T10:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('carrega o catálogo diretamente mesmo para cliente sem cadastro prévio', async () => {
@@ -71,6 +77,19 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
     expect(await screen.findByText('Corte')).toBeInTheDocument();
+  });
+
+  it('redireciona cliente com cadastro completo para o menu de agendamentos se não veio de ação explícita', async () => {
+    const completedDetails = { ...incompleteDetails, customer_name: 'Maria', cadastro_completo: true };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
+      return { data: null, error: null };
+    });
+
+    renderBookingRoute('/cliente/token-abc/agendar');
+
+    expect(await screen.findByText('Menu do Cliente')).toBeInTheDocument();
   });
 
   it('valida nome e sobrenome e telefone no modal de confirmação antes de agendar', async () => {
@@ -178,7 +197,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       throw new Error(`RPC inesperada: ${name}`);
     });
 
-    renderBookingRoute();
+    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
     fireEvent.click(await screen.findByText('Corte'));
     fireEvent.click(await screen.findByText('Tanto faz'));
 
@@ -226,7 +245,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       throw new Error(`RPC inesperada: ${name}`);
     });
 
-    renderBookingRoute();
+    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
     fireEvent.click(await screen.findByText('Corte'));
     fireEvent.click(await screen.findByText('Tanto faz'));
 
@@ -258,7 +277,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       return { data: null, error: null };
     });
 
-    renderBookingRoute();
+    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
     fireEvent.click(await screen.findByText('Corte'));
     fireEvent.click(await screen.findByText('Tanto faz'));
 

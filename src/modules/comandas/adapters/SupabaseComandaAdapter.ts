@@ -54,6 +54,9 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
         customer:customers(id, name, phone),
         appointment:appointments(
           id,
+          start_time,
+          is_fitting,
+          service:services(id, name),
           professional:professionals(id, name)
         )
       `)
@@ -65,9 +68,20 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       throw new Error(`Erro ao listar comandas: ${error.message}`);
     }
 
-    return (data || []).map((c: any) => {
-      const isAberta = c.status === 'aberta' || c.status === 'open';
-      const isFechada = c.status === 'fechada' || c.status === 'closed' || c.status === 'paid';
+    interface RawComandaListRow extends Comanda {
+      customer?: { id: string; name: string; phone: string | null } | null;
+      appointment?: {
+        id: string;
+        start_time: string;
+        is_fitting: boolean | null;
+        service?: { id: string; name: string } | null;
+        professional?: { id: string; name: string } | null;
+      } | null;
+    }
+
+    return ((data as unknown as RawComandaListRow[]) || []).map((c) => {
+      const isAberta = c.status === 'aberta' || (c.status as string) === 'open';
+      const isFechada = c.status === 'fechada' || (c.status as string) === 'closed' || (c.status as string) === 'paid';
       const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : 'cancelada';
 
       return {
@@ -76,6 +90,9 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
         customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
         customer_phone: c.customer?.phone || null,
         professional_name: c.appointment?.professional?.name || 'Equipe',
+        appointment_start_time: c.appointment?.start_time || null,
+        appointment_service_name: c.appointment?.service?.name || null,
+        appointment_is_fitting: c.appointment?.is_fitting ?? null,
       };
     });
   }

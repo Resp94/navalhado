@@ -17,6 +17,8 @@ import {
   CheckmarkCircle02Icon,
   WhatsappIcon,
   UserIcon,
+  Calendar02Icon,
+  Store01Icon,
 } from '@hugeicons/core-free-icons';
 
 export const Comandas: React.FC = () => {
@@ -255,6 +257,24 @@ export const Comandas: React.FC = () => {
                     <span className="comanda-card__client-name">{cmd.customer_name}</span>
                   </div>
 
+                  {cmd.appointment_id ? (
+                    <div className={`comanda-card__origin-badge ${cmd.appointment_is_fitting ? 'comanda-card__origin-badge--fitting' : 'comanda-card__origin-badge--appointment'}`}>
+                      <HugeiconsIcon icon={Calendar02Icon} size={13} />
+                      <span>
+                        {cmd.appointment_is_fitting ? 'Encaixe: ' : 'Agendamento: '}
+                        {cmd.appointment_start_time
+                          ? `${new Date(cmd.appointment_start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(cmd.appointment_start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                          : ''}
+                        {cmd.appointment_service_name ? ` • ${cmd.appointment_service_name}` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="comanda-card__origin-badge comanda-card__origin-badge--counter">
+                      <HugeiconsIcon icon={Store01Icon} size={13} />
+                      <span>Atendimento Balcão / Avulsa</span>
+                    </div>
+                  )}
+
                   <div className="comanda-card__meta">
                     <span className="comanda-card__prof">{cmd.professional_name}</span>
                     <span className="comanda-card__itens-count">
@@ -313,7 +333,11 @@ export const Comandas: React.FC = () => {
         <ComandaCheckoutModal
           isOpen={isCheckoutOpen}
           tenantId={tenantId}
+          comandaId={selectedComanda?.id || null}
           appointmentId={selectedComanda?.appointment_id || null}
+          appointmentStartTime={selectedComanda?.appointment_start_time || null}
+          appointmentServiceName={selectedComanda?.appointment_service_name || null}
+          appointmentIsFitting={selectedComanda?.appointment_is_fitting || false}
           customerId={selectedComanda?.customer_id || null}
           customerName={selectedComanda?.customer_name || 'Cliente Balcão'}
           customerPhone={selectedComanda?.customer_phone || null}
@@ -519,6 +543,34 @@ export const Comandas: React.FC = () => {
           font-size: 1.0625rem;
           font-weight: 700;
           color: var(--color-text-primary);
+        }
+
+        .comanda-card__origin-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 3px 8px;
+          border-radius: var(--radius-sm, 6px);
+          font-size: 0.6875rem;
+          font-weight: 600;
+          margin-top: 2px;
+          margin-bottom: 2px;
+          width: fit-content;
+        }
+
+        .comanda-card__origin-badge--fitting {
+          background-color: rgba(217, 108, 0, 0.12);
+          color: var(--color-brand-primary);
+        }
+
+        .comanda-card__origin-badge--appointment {
+          background-color: rgba(45, 35, 30, 0.06);
+          color: var(--color-text-primary);
+        }
+
+        .comanda-card__origin-badge--counter {
+          background-color: rgba(45, 35, 30, 0.04);
+          color: var(--color-text-secondary);
         }
 
         .comanda-card__meta {

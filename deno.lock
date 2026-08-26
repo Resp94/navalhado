@@ -54,6 +54,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@emnapi/core@1.11.3",
+        "npm:@emnapi/runtime@1.11.3",
+        "npm:@emnapi/wasi-threads@1.2.3",
         "npm:@gsap/react@^2.1.2",
         "npm:@hugeicons/core-free-icons@^4.2.2",
         "npm:@hugeicons/react@^1.1.9",
@@ -68,7 +71,7 @@
         "npm:jsdom@^29.1.1",
         "npm:oxlint@^1.71.0",
         "npm:react-dom@^19.2.7",
-        "npm:react-router-dom@^7.18.1",
+        "npm:react-router-dom@^7.18.2",
         "npm:react@^19.2.7",
         "npm:typescript@~6.0.2",
         "npm:vite@^8.1.1",

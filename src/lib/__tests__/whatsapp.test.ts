@@ -36,6 +36,9 @@ describe('whatsapp utility', () => {
     expect(maskPhone('929942')).toBe('(92) 9942');
     expect(maskPhone('92994204756')).toBe('(92) 99420-4756');
     expect(maskPhone('1133334444')).toBe('(11) 3333-4444');
+    expect(maskPhone('5592999801492')).toBe('(92) 99980-1492');
+    expect(maskPhone('+55 (92) 99980-1492')).toBe('(92) 99980-1492');
+    expect(maskPhone('555592999801492')).toBe('(92) 99980-1492');
     expect(maskPhone(null)).toBe('');
   });
 

@@ -422,8 +422,24 @@ export const Agenda: React.FC = () => {
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
+  // Geração de horários 24 horas (00:00 às 23:00) para encaixes
+  const all24hTimeSlots = useMemo(() => {
+    const slots: string[] = [];
+    const interval = slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
+    for (let m = 0; m < 24 * 60; m += interval) {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
+    }
+    return slots;
+  }, [slotIntervalMinutes]);
+
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
+    if (formIsFitting) {
+      return all24hTimeSlots;
+    }
+
     const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
     if (!dayBh.active) return [];
 
@@ -465,7 +481,7 @@ export const Agenda: React.FC = () => {
     });
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
-  }, [selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
+  }, [all24hTimeSlots, formIsFitting, selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
 
   const currentService = useMemo(
     () => services.find((s) => s.id === formServiceId),
@@ -474,12 +490,14 @@ export const Agenda: React.FC = () => {
   const currentServiceDuration = currentService?.duration_minutes || slotIntervalMinutes;
 
   // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
+  // Em modo de Encaixe (formIsFitting), o gerente tem flexibilidade total para alocar qualquer profissional ativo
   const availableProfessionalsForFormTime = useMemo(() => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
+      if (formIsFitting) return true;
       return isProfessionalWorkingAt(p, selectedDate, formTime, currentServiceDuration);
     });
-  }, [professionals, selectedDate, formTime, currentServiceDuration]);
+  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
@@ -966,33 +984,35 @@ export const Agenda: React.FC = () => {
         return;
       }
 
-      if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
-        addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
-        setSavingAppointment(false);
-        return;
-      }
+      if (!formIsFitting) {
+        if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
+          addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
+          setSavingAppointment(false);
+          return;
+        }
 
-      if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
-        addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
-        setSavingAppointment(false);
-        return;
-      }
+        if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
+          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
+          setSavingAppointment(false);
+          return;
+        }
 
-      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-      if (!dayBh.active) {
-        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
+        const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
+        if (!dayBh.active) {
+          addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+          setSavingAppointment(false);
+          return;
+        }
 
-      // Bloqueio fora do expediente
-      if (
-        formTime < dayBh.open ||
-        formTime >= dayBh.close
-      ) {
-        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-        setSavingAppointment(false);
-        return;
+        // Bloqueio fora do expediente
+        if (
+          formTime < dayBh.open ||
+          formTime >= dayBh.close
+        ) {
+          addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
+          setSavingAppointment(false);
+          return;
+        }
       }
 
       // Validação de limite de 1 encaixe por horário/profissional
@@ -1217,15 +1237,8 @@ export const Agenda: React.FC = () => {
 
       if (error) throw error;
 
-      // Também cancelar a comanda aberta correspondente se houver
-      await supabase
-        .from('comandas')
-        .update({
-          status: 'cancelada',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('appointment_id', targetAppointment.id)
-        .eq('status', 'aberta');
+      // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
+      setAppointments((prev) => prev.filter((a) => a.id !== targetAppointment.id));
 
       addToast('Agendamento cancelado com sucesso.', 'success');
       setIsCancelModalOpen(false);
@@ -2356,6 +2369,9 @@ export const Agenda: React.FC = () => {
           isOpen={isCheckoutModalOpen}
           tenantId={tenant.tenantId}
           appointmentId={checkoutAppointment.id}
+          appointmentStartTime={checkoutAppointment.start_time || null}
+          appointmentServiceName={checkoutAppointment.service?.name || null}
+          appointmentIsFitting={checkoutAppointment.is_fitting || false}
           customerId={checkoutAppointment.customer?.id}
           customerName={checkoutAppointment.customer?.name || 'Cliente'}
           customerPhone={checkoutAppointment.customer?.phone}

@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { createHandler, handler, singleRelation, formatMessageTemplate, DEFAULT_TEMPLATES } from "./index.ts";
+import { createHandler, handler, singleRelation, formatMessageTemplate, DEFAULT_TEMPLATES, type WhatsappTemplateVariables } from "./index.ts";
 import {
 
   createUazapiProvider,
@@ -128,6 +128,13 @@ const setupMockFetch = (mockResponses: Record<string, { status: number; body: an
           headers: { "Content-Type": "application/json" }
         }));
       }
+    }
+
+    if (urlStr.includes("rest/v1/whatsapp_message_idempotency")) {
+      return Promise.resolve(new Response(JSON.stringify({}), {
+        status: 201,
+        headers: { "Content-Type": "application/json" }
+      }));
     }
 
     // Default fallback
@@ -2282,5 +2289,500 @@ Deno.test("POST /send-notification - respects custom template from database in p
     restoreFetch();
   }
 });
+
+Deno.test("UazapiProvider.sendText sends payload with linkPreview: false", async () => {
+  const requests: Array<{ url: string; headers: Headers; body?: Record<string, unknown> }> = [];
+  const provider = createUazapiProvider(
+    { baseUrl: "https://api.uazapi.com", adminToken: "admin-secret" },
+    async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const headers = new Headers(init?.headers);
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      requests.push({ url, headers, body });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    },
+  );
+
+  await provider.sendText({
+    instanceName: "nav_test",
+    instanceToken: "inst-token-1",
+    number: "5511999998888",
+    text: "Olá, seu agendamento está confirmado: https://navalhado.com.br/cliente/abc",
+    idempotencyKey: "test-track-123",
+  });
+
+  assertEquals(requests.length, 1);
+  assertEquals(requests[0]?.url, "https://api.uazapi.com/send/text");
+  assertEquals(requests[0]?.headers.get("token"), "inst-token-1");
+  assertEquals(requests[0]?.body?.linkPreview, false);
+  assertEquals(requests[0]?.body?.number, "5511999998888");
+  assertEquals(requests[0]?.body?.track_id, "test-track-123");
+});
+
+Deno.test("POST /send-notification appointment_created sends notification to client and barber", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+  const idempotencyRecords: Array<Record<string, unknown>> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-barber-1",
+        start_time: "2026-08-25T14:00:00Z",
+        customers: { name: "Carlos Cliente", phone: "11988887777", token_acesso: "token-carlos" },
+        professionals: { name: "Guto Barbeiro", phone: "11977776666" },
+        services: { name: "Corte Degradê" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_created",
+      appointment_id: "app-barber-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado para o cliente E para o barbeiro
+    assertEquals(sentMessages.length, 2);
+
+    // Mensagem do Cliente
+    assertEquals(sentMessages[0]?.number, "5511988887777");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-barber-1:appointment_created");
+    assertEquals(sentMessages[0]?.text.includes("Carlos Cliente"), true);
+
+    // Mensagem do Barbeiro
+    assertEquals(sentMessages[1]?.number, "5511977776666");
+    assertEquals(sentMessages[1]?.idempotencyKey, "appointment:app-barber-1:professional_appointment_created");
+    assertEquals(sentMessages[1]?.text.includes("Guto Barbeiro"), true);
+    assertEquals(sentMessages[1]?.text.includes("Carlos Cliente"), true);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification appointment_created sends notification to barber even when customer phone matches barber phone", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-self-test-1",
+        start_time: "2026-08-25T14:00:00Z",
+        customers: { name: "Guto Barbeiro", phone: "11977776666", token_acesso: "token-guto" },
+        professionals: { name: "Guto Barbeiro", phone: "11977776666" },
+        services: { name: "Corte Degradê" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_created",
+      appointment_id: "app-self-test-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado ambas as mensagens para o mesmo número com chaves de idempotência diferentes
+    assertEquals(sentMessages.length, 2);
+    assertEquals(sentMessages[0]?.number, "5511977776666");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-self-test-1:appointment_created");
+    assertEquals(sentMessages[1]?.number, "5511977776666");
+    assertEquals(sentMessages[1]?.idempotencyKey, "appointment:app-self-test-1:professional_appointment_created");
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification appointment_rescheduled sends notification to client and barber", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-reschedule-1",
+        start_time: "2026-08-26T15:30:00Z",
+        customers: { name: "Marcos Cliente", phone: "11988881111", token_acesso: "token-marcos" },
+        professionals: { name: "Lucas Barbeiro", phone: "11977772222" },
+        services: { name: "Barba Terapia" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_rescheduled",
+      appointment_id: "app-reschedule-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado para o cliente e para o barbeiro
+    assertEquals(sentMessages.length, 2);
+
+    // Mensagem do Cliente
+    assertEquals(sentMessages[0]?.number, "5511988881111");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-reschedule-1:appointment_rescheduled");
+    assertEquals(sentMessages[0]?.text.includes("Marcos Cliente"), true);
+    assertEquals(sentMessages[0]?.text.includes("reagendamento"), true);
+
+    // Mensagem do Barbeiro
+    assertEquals(sentMessages[1]?.number, "5511977772222");
+    assertEquals(sentMessages[1]?.idempotencyKey, "appointment:app-reschedule-1:professional_appointment_rescheduled");
+    assertEquals(sentMessages[1]?.text.includes("Lucas Barbeiro"), true);
+    assertEquals(sentMessages[1]?.text.includes("Marcos Cliente"), true);
+    assertEquals(sentMessages[1]?.text.includes("reagendado"), true);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification appointment_cancelled sends notification to client and barber", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-cancel-1",
+        start_time: "2026-08-27T10:00:00Z",
+        customers: { name: "Pedro Cliente", phone: "11988883333", token_acesso: "token-pedro" },
+        professionals: { name: "Felipe Barbeiro", phone: "11977774444" },
+        services: { name: "Corte + Barba" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_cancelled",
+      appointment_id: "app-cancel-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado para o cliente e para o barbeiro
+    assertEquals(sentMessages.length, 2);
+
+    // Mensagem do Cliente
+    assertEquals(sentMessages[0]?.number, "5511988883333");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-cancel-1:appointment_cancelled");
+    assertEquals(sentMessages[0]?.text.includes("Pedro Cliente"), true);
+    assertEquals(sentMessages[0]?.text.includes("cancelado"), true);
+
+    // Mensagem do Barbeiro
+    assertEquals(sentMessages[1]?.number, "5511977774444");
+    assertEquals(sentMessages[1]?.idempotencyKey, "appointment:app-cancel-1:professional_appointment_cancelled");
+    assertEquals(sentMessages[1]?.text.includes("Felipe Barbeiro"), true);
+    assertEquals(sentMessages[1]?.text.includes("Pedro Cliente"), true);
+    assertEquals(sentMessages[1]?.text.includes("cancelado"), true);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification sends to barber even if client send_confirmation is disabled", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: false,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-barber-only-1",
+        start_time: "2026-08-25T14:00:00Z",
+        customers: { name: "Cliente Sem Msg", phone: "11988887777", token_acesso: "token-cli" },
+        professionals: { name: "Barbeiro Notificado", phone: "11977776666" },
+        services: { name: "Corte Simples" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_created",
+      appointment_id: "app-barber-only-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado APENAS para o barbeiro
+    assertEquals(sentMessages.length, 1);
+    assertEquals(sentMessages[0]?.number, "5511977776666");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-barber-only-1:professional_appointment_created");
+    assertEquals(sentMessages[0]?.text.includes("Barbeiro Notificado"), true);
+    assertEquals(sentMessages[0]?.text.includes("Cliente Sem Msg"), true);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification sends to barber even if client send_cancellation is disabled", async () => {
+  const sentMessages: Array<{ number: string; text: string; idempotencyKey?: string }> = [];
+
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: false,
+        reminder_hours: 2,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-cancel-barber-only-1",
+        start_time: "2026-08-25T14:00:00Z",
+        customers: { name: "Cliente Cancelado", phone: "11988887777", token_acesso: "token-cli" },
+        professionals: { name: "Barbeiro Cancelamento", phone: "11977776666" },
+        services: { name: "Barba" },
+        tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" },
+      },
+    },
+    "rest/v1/whatsapp_message_idempotency": {
+      status: 201,
+      body: {},
+    },
+  });
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  const testHandler = createHandler({ providerFactory: () => provider });
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "mock-db-secret",
+    },
+    body: JSON.stringify({
+      event: "appointment_cancelled",
+      appointment_id: "app-cancel-barber-only-1",
+      tenant_id: "tenant-1",
+    }),
+  });
+
+  try {
+    const res = await testHandler(req);
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+
+    // Deve ter enviado APENAS para o barbeiro
+    assertEquals(sentMessages.length, 1);
+    assertEquals(sentMessages[0]?.number, "5511977776666");
+    assertEquals(sentMessages[0]?.idempotencyKey, "appointment:app-cancel-barber-only-1:professional_appointment_cancelled");
+    assertEquals(sentMessages[0]?.text.includes("Barbeiro Cancelamento"), true);
+    assertEquals(sentMessages[0]?.text.includes("Cliente Cancelado"), true);
+    assertEquals(sentMessages[0]?.text.includes("cancelado"), true);
+  } finally {
+    restoreFetch();
+  }
+});
+
 
 

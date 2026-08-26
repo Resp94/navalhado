@@ -77,6 +77,9 @@ export interface ComandaEnriched extends Comanda {
   customer_name: string;
   customer_phone?: string | null;
   professional_name: string;
+  appointment_start_time?: string | null;
+  appointment_service_name?: string | null;
+  appointment_is_fitting?: boolean | null;
 }
 
 export interface IComandaAdapter {

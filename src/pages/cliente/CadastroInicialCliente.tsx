@@ -37,7 +37,10 @@ export const CadastroInicialCliente: React.FC<CadastroInicialClienteProps> = ({
       return;
     }
 
-    const phoneDigits = phone.replace(/\D/g, '');
+    let phoneDigits = phone.replace(/\D/g, '');
+    while (phoneDigits.startsWith('55') && phoneDigits.length > 11) {
+      phoneDigits = phoneDigits.slice(2);
+    }
     if (phoneDigits.length < 10 || phoneDigits.length > 11) {
       setValidationError('Por favor, informe um número de WhatsApp/celular válido com DDD.');
       return;

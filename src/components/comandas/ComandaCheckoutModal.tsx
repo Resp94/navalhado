@@ -16,6 +16,7 @@ import {
   AlertCircleIcon,
   UserIcon,
   WhatsappIcon,
+  Calendar02Icon,
 } from '@hugeicons/core-free-icons';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
 import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
@@ -47,7 +48,11 @@ interface ProfessionalOption {
 interface ComandaCheckoutModalProps {
   isOpen: boolean;
   tenantId: string;
+  comandaId?: string | null;
   appointmentId?: string | null;
+  appointmentStartTime?: string | null;
+  appointmentServiceName?: string | null;
+  appointmentIsFitting?: boolean | null;
   customerId?: string | null;
   customerName: string;
   customerPhone?: string | null;
@@ -112,7 +117,11 @@ const methodConfigs: Record<
 export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   isOpen,
   tenantId,
+  comandaId: initialComandaId = null,
   appointmentId,
+  appointmentStartTime,
+  appointmentServiceName,
+  appointmentIsFitting,
   customerId,
   customerName,
   customerPhone,
@@ -129,7 +138,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const cxaRepo = useMemo(() => caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter()), [caixaRepo]);
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
 
-  const [comandaId, setComandaId] = useState<string | null>(null);
+  const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
   const [loadedComanda, setLoadedComanda] = useState<Comanda | null>(null);
   const [itens, setItens] = useState<ItemLocal[]>([]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
@@ -218,65 +227,65 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     cxaRepo.getActiveSession(tenantId).then(setActiveSession).catch(console.error);
 
     // Inicializar itens da comanda
-    if (appointmentId) {
-      comRepo
-        .getByAppointmentId(appointmentId)
-        .then((existing) => {
-          if (existing) {
-            setComandaId(existing.id);
-            setLoadedComanda(existing);
+    const fetchExistingComanda = initialComandaId
+      ? comRepo.getById(initialComandaId)
+      : appointmentId
+      ? comRepo.getByAppointmentId(appointmentId)
+      : Promise.resolve(null);
 
-            if (existing.itens && existing.itens.length > 0) {
-              setItens(
-                existing.itens.map((it) => ({
-                  tempId: it.id,
-                  id: it.id,
-                  item_type: it.item_type,
-                  service_id: it.service_id,
-                  product_id: it.product_id,
-                  professional_id: it.professional_id,
-                  name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
-                  quantity: it.quantity,
-                  unit_price: it.unit_price,
-                }))
-              );
-            }
+    fetchExistingComanda
+      .then((existing) => {
+        if (existing) {
+          setComandaId(existing.id);
+          setLoadedComanda(existing);
 
-            if (existing.discount_amount) {
-              setDiscountValue(existing.discount_amount);
-              setDiscountType('fixed');
-            }
-            if (existing.tip_amount) {
-              setTipValue(existing.tip_amount);
-            }
-            if (existing.pagamentos && existing.pagamentos.length > 0) {
-              setPagamentos(
-                existing.pagamentos.map((p) => ({
-                  method: p.payment_method,
-                  amount: p.amount,
-                  receivedCash: p.amount + (p.change_amount || 0),
-                }))
-              );
-              if (existing.pagamentos.length > 1) {
-                setIsSplitting(true);
-              }
-            }
-          } else {
-            setItens(mapInitialServices(initialServices));
+          if (existing.itens && existing.itens.length > 0) {
+            setItens(
+              existing.itens.map((it) => ({
+                tempId: it.id,
+                id: it.id,
+                item_type: it.item_type,
+                service_id: it.service_id,
+                product_id: it.product_id,
+                professional_id: it.professional_id,
+                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                quantity: it.quantity,
+                unit_price: it.unit_price,
+              }))
+            );
           }
-        })
-        .catch((err) => {
-          console.error('Erro ao verificar comanda existente:', err);
+
+          if (existing.discount_amount) {
+            setDiscountValue(existing.discount_amount);
+            setDiscountType('fixed');
+          }
+          if (existing.tip_amount) {
+            setTipValue(existing.tip_amount);
+          }
+          if (existing.pagamentos && existing.pagamentos.length > 0) {
+            setPagamentos(
+              existing.pagamentos.map((p) => ({
+                method: p.payment_method,
+                amount: p.amount,
+                receivedCash: p.amount + (p.change_amount || 0),
+              }))
+            );
+            if (existing.pagamentos.length > 1) {
+              setIsSplitting(true);
+            }
+          }
+        } else {
           setItens(mapInitialServices(initialServices));
-        })
-        .finally(() => {
-          setIsLoadingComanda(false);
-        });
-    } else {
-      setItens(mapInitialServices(initialServices));
-      setIsLoadingComanda(false);
-    }
-  }, [isOpen, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao verificar comanda existente:', err);
+        setItens(mapInitialServices(initialServices));
+      })
+      .finally(() => {
+        setIsLoadingComanda(false);
+      });
+  }, [isOpen, initialComandaId, appointmentId, tenantId, initialServicesKey, comRepo, cxaRepo, prodRepo]);
 
   const isClosed = loadedComanda?.status === 'fechada';
 
@@ -518,25 +527,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setIsCanceling(true);
     setErrorMsg(null);
     try {
-      if (appointmentId) {
+      const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
+      const targetComandaId = comandaId || loadedComanda?.id;
+
+      if (targetAppointmentId) {
         const { error: apptErr } = await supabase
           .from('appointments')
           .update({
             status: 'canceled',
             updated_at: new Date().toISOString(),
           })
-          .eq('id', appointmentId);
+          .eq('id', targetAppointmentId);
         if (apptErr) throw apptErr;
       }
 
-      if (comandaId) {
+      if (targetComandaId) {
         const { error: cmdErr } = await supabase
           .from('comandas')
           .update({
             status: 'cancelada',
+            closed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', comandaId);
+          .eq('id', targetComandaId);
         if (cmdErr) throw cmdErr;
       }
 
@@ -607,6 +620,37 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
                           <span>{customerPhone}</span>
                         </button>
+                      )}
+                      {appointmentId ? (
+                        <span
+                          className="comanda-customer-phone-tag"
+                          style={{
+                            backgroundColor: appointmentIsFitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(217, 108, 0, 0.08)',
+                            borderColor: 'rgba(217, 108, 0, 0.25)',
+                            color: 'var(--color-brand-primary)',
+                          }}
+                          title="Comanda gerada a partir de agendamento da agenda"
+                        >
+                          <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
+                          <span>
+                            {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
+                            {appointmentStartTime
+                              ? `: ${new Date(appointmentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(appointmentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                              : ''}
+                            {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
+                          </span>
+                        </span>
+                      ) : (
+                        <span
+                          className="comanda-customer-phone-tag"
+                          style={{
+                            backgroundColor: 'rgba(45, 35, 30, 0.04)',
+                            color: 'var(--color-text-secondary)',
+                          }}
+                          title="Comanda aberta diretamente no balcão"
+                        >
+                          <span>Atendimento Balcão / Avulsa</span>
+                        </span>
                       )}
                     </div>
                   </div>

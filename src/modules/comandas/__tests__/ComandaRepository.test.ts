@@ -107,4 +107,35 @@ describe('ComandaRepository', () => {
     expect(res).toEqual(fakeReaberta);
     expect(mockAdapter.reabrirComanda).toHaveBeenCalledWith('c-1', 't-123');
   });
+
+  it('lista todas as comandas enriquecidas com dados de agendamento e encaixe', async () => {
+    const fakeComandasEnriched = [
+      {
+        id: 'c-app',
+        tenant_id: 't-123',
+        appointment_id: 'a-1',
+        customer_id: 'cust-1',
+        customer_name: 'João Silva',
+        customer_phone: '92999998888',
+        professional_name: 'Carlos Barbeiro',
+        status: 'aberta' as const,
+        total_amount: 60,
+        discount_amount: 0,
+        tip_amount: 0,
+        notes: null,
+        appointment_start_time: '2026-08-25T14:00:00Z',
+        appointment_service_name: 'Corte Degradê',
+        appointment_is_fitting: true,
+        itens: [],
+      },
+    ];
+
+    vi.mocked(mockAdapter.listarTodas).mockResolvedValueOnce(fakeComandasEnriched);
+
+    const result = await repository.listAll('t-123');
+    expect(result).toEqual(fakeComandasEnriched);
+    expect(result[0].appointment_is_fitting).toBe(true);
+    expect(result[0].appointment_service_name).toBe('Corte Degradê');
+    expect(mockAdapter.listarTodas).toHaveBeenCalledWith('t-123');
+  });
 });

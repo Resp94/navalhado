@@ -20,8 +20,16 @@ export function formatWhatsAppNumber(phone?: string | null): string {
 
 export function maskPhone(val?: string | null): string {
   if (!val) return '';
-  const raw = val.replace(/\D/g, '').slice(0, 11);
-  if (raw.length <= 2) return raw ? `(${raw}` : '';
+  let raw = val.replace(/\D/g, '');
+  
+  // Se o número contiver o DDI internacional do Brasil (55 na frente com mais de 11 dígitos), remove o 55
+  while (raw.startsWith('55') && raw.length > 11) {
+    raw = raw.slice(2);
+  }
+
+  raw = raw.slice(0, 11);
+  if (raw.length === 0) return '';
+  if (raw.length <= 2) return `(${raw}`;
   if (raw.length <= 6) return `(${raw.slice(0, 2)}) ${raw.slice(2)}`;
   if (raw.length <= 10) return `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
   return `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7, 11)}`;
