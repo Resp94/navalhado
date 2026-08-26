@@ -1028,13 +1028,21 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         const hasKeywordMatch = keywordsList.some((kw: string) => normalizedMessage.includes(kw));
 
         const externalMessageId = String(
-          messagePayload.messageid ?? messagePayload.messageId ?? messagePayload.id ?? messageInfo.ID ?? body.messageid ?? "",
+          messagePayload.messageid ??
+          messagePayload.messageId ??
+          messagePayload.id ??
+          messagePayload.key?.id ??
+          body.data?.key?.id ??
+          body.data?.id ??
+          body.data?.messageId ??
+          body.key?.id ??
+          messageInfo.ID ??
+          messageInfo.Id ??
+          messageInfo.id ??
+          body.messageid ??
+          body.id ??
+          crypto.randomUUID()
         ).trim();
-        if (!externalMessageId) {
-          return new Response(JSON.stringify({ ignored: true, reason: "Message id missing" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
 
         const markInboundFailed = async (reason: string) => {
           await supabase
@@ -1389,7 +1397,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           customers ( name, phone, token_acesso ),
           professionals ( name, phone ),
           services ( name ),
-          tenants ( name, timezone )
+          tenants ( name, slug, timezone )
         `)
         .eq("id", appointment_id)
         .eq("tenant_id", tenant_id)
@@ -1416,7 +1424,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
-      const clientAccessLink = customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : "";
+      const clientAccessLink = tenant.slug
+        ? `${appUrl}/${tenant.slug}`
+        : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
 
       const variables: WhatsappTemplateVariables = {
         cliente: customer?.name || "Cliente",
@@ -1447,7 +1457,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           fallback: DEFAULT_TEMPLATES.appointment_cancelled,
           vars: {
             ...variables,
-            link: customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : "",
+            link: tenant.slug
+              ? `${appUrl}/${tenant.slug}`
+              : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : appUrl),
           },
         },
       };
@@ -1670,7 +1682,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             customers ( name, phone, token_acesso ),
             professionals ( name ),
             services ( name ),
-            tenants ( name, timezone )
+            tenants ( name, slug, timezone )
           `)
           .eq("tenant_id", instance.tenant_id)
           .eq("status", "confirmed")
@@ -1696,7 +1708,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
-            const link = customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl;
+            const link = tenant.slug
+              ? `${appUrl}/${tenant.slug}`
+              : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
             const variables: WhatsappTemplateVariables = {
               cliente: customer.name || "Cliente",
               barbearia: tenant.name || "nossa barbearia",
@@ -1837,6 +1851,13 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       let totalFailed = 0;
 
       for (const instance of instances || []) {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("slug")
+          .eq("id", instance.tenant_id)
+          .maybeSingle();
+        const tenantSlug = tenantData?.slug;
+
         const { data: pendingReminders, error: compErr } = await supabase
           .rpc("get_pending_return_reminders", { p_tenant_id: instance.tenant_id });
 
@@ -1847,7 +1868,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
         for (const item of pendingReminders) {
           const clientPhone = formatPhoneNumber(item.customer_phone);
-          const link = `${appUrl}/cliente/${item.customer_token}`;
+          const link = tenantSlug
+            ? `${appUrl}/${tenantSlug}`
+            : `${appUrl}/cliente/${item.customer_token}`;
           const defaultTemplate = `Olá, ${item.customer_name}! Já faz ${item.diff_days} dias desde sua última visita na *${item.tenant_name}*. Que tal renovar o visual? Agende seu horário: ${link}`;
           const messageTemplate = item.whatsapp_reminder_template && item.whatsapp_reminder_template.trim()
             ? item.whatsapp_reminder_template
