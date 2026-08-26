@@ -54,7 +54,7 @@ interface ComandaCheckoutModalProps {
   appointmentServiceName?: string | null;
   appointmentIsFitting?: boolean | null;
   customerId?: string | null;
-  customerName: string;
+  customerName?: string;
   customerPhone?: string | null;
   initialServices?: Array<{
     service_id: string;
@@ -123,7 +123,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   appointmentServiceName,
   appointmentIsFitting,
   customerId,
-  customerName,
+  customerName = 'Cliente Balcão',
   customerPhone,
   initialServices = [],
   availableServices = [],

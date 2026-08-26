@@ -272,20 +272,53 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cliente rápido de balcão/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Novo cadastro/i })).toBeInTheDocument();
     });
 
     // Ajustar horário para 14:00 para garantir que seja futuro no dia de teste e dentro do expediente
     const timeInput = screen.getByLabelText(/Horário de início/i);
     fireEvent.change(timeInput, { target: { value: '14:00' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /Cliente rápido de balcão/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Novo cadastro/i }));
 
     const nameInput = screen.getByLabelText(/Nome do cliente/i);
     const phoneInput = screen.getByLabelText(/WhatsApp ou celular/i);
 
     fireEvent.change(nameInput, { target: { value: 'Cliente Balcão Teste' } });
     fireEvent.change(phoneInput, { target: { value: '11977776666' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Encaixe agendado com sucesso!',
+        'success'
+      );
+    });
+  });
+
+  it('permite realizar encaixe de balcão sem cadastro ou seleção de cliente (customerMode = none)', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Sem cadastro \(Balcão\)/i })).toBeInTheDocument();
+    });
+
+    // Selecionar modo sem cadastro
+    fireEvent.click(screen.getByRole('button', { name: /Sem cadastro \(Balcão\)/i }));
+
+    // Ajustar horário para 14:00
+    const timeInput = screen.getByLabelText(/Horário de início/i);
+    fireEvent.change(timeInput, { target: { value: '14:00' } });
+
+    expect(screen.getByText(/Atendimento avulso de balcão sem identificação de cliente/i)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
     fireEvent.click(submitBtn);

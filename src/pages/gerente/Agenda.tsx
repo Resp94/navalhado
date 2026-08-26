@@ -205,7 +205,7 @@ export const Agenda: React.FC = () => {
   const [formTime, setFormTime] = useState('09:00');
   const [formIsFitting, setFormIsFitting] = useState(false);
   const [formNotes, setFormNotes] = useState('');
-  const [customerMode, setCustomerMode] = useState<'existing' | 'new'>('existing');
+  const [customerMode, setCustomerMode] = useState<'existing' | 'new' | 'none'>('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
@@ -929,7 +929,7 @@ export const Agenda: React.FC = () => {
     setSavingAppointment(true);
 
     try {
-      let finalCustomerId = selectedCustomerId;
+      let finalCustomerId: string | null = selectedCustomerId;
 
       // Cadastro rápido de cliente se modo 'new'
       if (customerMode === 'new') {
@@ -953,9 +953,11 @@ export const Agenda: React.FC = () => {
 
         finalCustomerId = newCust.id;
         setCustomers((prev) => [...prev, { id: newCust.id, name: newCust.name, phone: newCust.phone }]);
+      } else if (customerMode === 'none') {
+        finalCustomerId = null;
       }
 
-      if (!finalCustomerId) {
+      if (!finalCustomerId && customerMode !== 'none') {
         addToast('Selecione ou cadastre um cliente.', 'warning');
         setSavingAppointment(false);
         return;
@@ -1180,7 +1182,7 @@ export const Agenda: React.FC = () => {
         console.error('Erro ao abrir comanda automática para agendamento:', comandaErr);
       }
 
-      addToast(`Atendimento de ${app.customer.name} iniciado.`, 'success');
+      addToast(`Atendimento de ${app.customer?.name || 'Cliente Balcão'} iniciado.`, 'success');
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao iniciar atendimento:', err);
@@ -2141,7 +2143,14 @@ export const Agenda: React.FC = () => {
               className={`segmented-btn ${customerMode === 'new' ? 'segmented-btn--active' : ''}`}
               onClick={() => setCustomerMode('new')}
             >
-              Cliente rápido de balcão
+              Novo cadastro
+            </button>
+            <button
+              type="button"
+              className={`segmented-btn ${customerMode === 'none' ? 'segmented-btn--active' : ''}`}
+              onClick={() => setCustomerMode('none')}
+            >
+              Sem cadastro (Balcão)
             </button>
           </div>
 
@@ -2168,7 +2177,7 @@ export const Agenda: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : (
+          ) : customerMode === 'new' ? (
             <div className="form-row-2col">
               <div className="form-group">
                 <label htmlFor="new-customer-name">Nome do cliente</label>
@@ -2194,6 +2203,10 @@ export const Agenda: React.FC = () => {
                   required
                 />
               </div>
+            </div>
+          ) : (
+            <div className="anonymous-customer-note" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '0.5rem', border: '1px dashed rgba(255, 255, 255, 0.15)', fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', marginBottom: '1rem' }}>
+              <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
             </div>
           )}
 

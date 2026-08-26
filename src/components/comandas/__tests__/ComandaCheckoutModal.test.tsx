@@ -386,4 +386,69 @@ describe('ComandaCheckoutModal', () => {
       );
     });
   });
+
+  it('permite abrir e liquidar comanda avulsa sem cliente cadastrado (Cliente Balcão)', async () => {
+    vi.mocked(mockCaixaAdapter.obterSessaoAtiva).mockResolvedValue({
+      id: 'sess-1',
+      tenant_id: 't-1',
+      opened_by: null,
+      closed_by: null,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_amount: 50,
+      closing_amount: null,
+      status: 'open',
+      notes: null,
+    });
+
+    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce({
+      id: 'com-balcao-1',
+      tenant_id: 't-1',
+      appointment_id: null,
+      customer_id: null,
+      status: 'fechada',
+      total_amount: 30.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      created_at: new Date().toISOString(),
+      closed_at: new Date().toISOString(),
+      itens: [],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        customerId={null}
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Tradicional', price: 30.0, professional_id: 'prof-1' },
+        ]}
+        availableServices={[
+          { id: 'srv-1', name: 'Corte Tradicional', price: 30.0 },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText(/Cliente Balcão/i)).toBeInTheDocument();
+    expect(await screen.findByText('Corte Tradicional')).toBeInTheDocument();
+
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: 't-1',
+          customer_id: null,
+        })
+      );
+    });
+  });
 });
