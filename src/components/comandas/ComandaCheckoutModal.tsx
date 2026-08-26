@@ -333,13 +333,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     const srv = availableServices.find((s) => s.id === selectedServiceId);
     if (!srv) return;
 
+    const defaultProfId =
+      selectedProfId ||
+      itens.find((i) => i.professional_id)?.professional_id ||
+      availableProfessionals[0]?.id ||
+      null;
+
     setItens((prev) => [
       ...prev,
       {
         tempId: `srv-${Date.now()}`,
         item_type: 'servico',
         service_id: srv.id,
-        professional_id: selectedProfId || availableProfessionals[0]?.id || null,
+        professional_id: defaultProfId,
         name: srv.name,
         quantity: 1,
         unit_price: srv.price,
@@ -355,12 +361,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     const prod = catalogProducts.find((p) => p.id === selectedProductId);
     if (!prod) return;
 
+    const defaultProfId =
+      selectedProfId ||
+      itens.find((i) => i.professional_id)?.professional_id ||
+      availableProfessionals[0]?.id ||
+      null;
+
     setItens((prev) => [
       ...prev,
       {
         tempId: `prod-${Date.now()}`,
         item_type: 'produto',
         product_id: prod.id,
+        professional_id: defaultProfId,
         name: prod.name,
         quantity: 1,
         unit_price: prod.price,
@@ -368,6 +381,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     ]);
 
     setSelectedProductId('');
+    setSelectedProfId('');
     setIsAddingProduct(false);
   };
 
@@ -456,7 +470,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setErrorMsg(null);
 
     if (itens.length === 0) {
-      setErrorMsg('Adicione pelo menos um item à comanda.');
+      setErrorMsg('Adicione pelo menos um serviço ou produto na comanda.');
       return;
     }
 
@@ -507,6 +521,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         discount_amount: discountAmount,
         tip_amount: tipValue,
         cash_session_id: sessao.id,
+        itens: itens.map((it) => ({
+          item_type: it.item_type,
+          service_id: it.service_id,
+          product_id: it.product_id,
+          professional_id: it.professional_id,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+        })),
         pagamentos: effectivePagamentos.map((p) => ({
           payment_method: p.method,
           amount: p.amount,

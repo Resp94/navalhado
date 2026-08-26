@@ -60,12 +60,22 @@ export interface CriarComandaInput {
   }>;
 }
 
+export interface ComandaItemInput {
+  item_type: ItemTipo;
+  service_id?: string | null;
+  product_id?: string | null;
+  professional_id?: string | null;
+  quantity: number;
+  unit_price: number;
+}
+
 export interface LiquidarComandaInput {
   comanda_id: string;
   tenant_id: string;
   discount_amount?: number;
   tip_amount?: number;
   cash_session_id?: string | null;
+  itens?: ComandaItemInput[];
   pagamentos: Array<{
     payment_method: MetodoPagamento;
     amount: number;
