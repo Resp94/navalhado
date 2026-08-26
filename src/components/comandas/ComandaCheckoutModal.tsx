@@ -248,7 +248,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 service_id: it.service_id,
                 product_id: it.product_id,
                 professional_id: it.professional_id,
-                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                name:
+                  it.name ||
+                  (it.item_type === 'servico'
+                    ? availableServices.find((s) => s.id === it.service_id)?.name || 'Serviço'
+                    : 'Produto'),
                 quantity: it.quantity,
                 unit_price: it.unit_price,
               }))
@@ -329,7 +333,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAddServiceConfirm = () => {
+  const handleAddServiceConfirm = async () => {
     const srv = availableServices.find((s) => s.id === selectedServiceId);
     if (!srv) return;
 
@@ -339,25 +343,86 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       availableProfessionals[0]?.id ||
       null;
 
-    setItens((prev) => [
-      ...prev,
-      {
-        tempId: `srv-${Date.now()}`,
-        item_type: 'servico',
-        service_id: srv.id,
-        professional_id: defaultProfId,
-        name: srv.name,
-        quantity: 1,
-        unit_price: srv.price,
-      },
-    ]);
+    const tempId = `srv-${Date.now()}`;
+    const newItemLocal: ItemLocal = {
+      tempId,
+      item_type: 'servico',
+      service_id: srv.id,
+      professional_id: defaultProfId,
+      name: srv.name,
+      quantity: 1,
+      unit_price: srv.price,
+    };
 
+    setItens((prev) => [...prev, newItemLocal]);
     setSelectedServiceId('');
     setSelectedProfId('');
     setIsAddingService(false);
+
+    try {
+      if (comandaId) {
+        const added = await comRepo.addItem(comandaId, tenantId, {
+          item_type: 'servico',
+          service_id: srv.id,
+          product_id: null,
+          professional_id: defaultProfId,
+          quantity: 1,
+          unit_price: srv.price,
+          total_price: srv.price,
+        });
+        setItens((prev) =>
+          prev.map((it) => (it.tempId === tempId ? { ...it, id: added.id, tempId: added.id } : it))
+        );
+      } else {
+        const created = await comRepo.createComanda({
+          tenant_id: tenantId,
+          appointment_id: appointmentId || null,
+          customer_id: customerId || null,
+          itens: [
+            ...itens.map((it) => ({
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            })),
+            {
+              item_type: 'servico',
+              service_id: srv.id,
+              product_id: null,
+              professional_id: defaultProfId,
+              quantity: 1,
+              unit_price: srv.price,
+            },
+          ],
+        });
+        setComandaId(created.id);
+        setLoadedComanda(created);
+        if (created.itens && created.itens.length > 0) {
+          setItens(
+            created.itens.map((it) => ({
+              tempId: it.id,
+              id: it.id,
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              name: it.name || srv.name,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            }))
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao persistir adição de serviço na comanda:', err);
+      setItens((prev) => prev.filter((it) => it.tempId !== tempId));
+      setErrorMsg(err?.message || 'Erro ao salvar serviço na comanda.');
+    }
   };
 
-  const handleAddProductConfirm = () => {
+  const handleAddProductConfirm = async () => {
     const prod = catalogProducts.find((p) => p.id === selectedProductId);
     if (!prod) return;
 
@@ -367,26 +432,100 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       availableProfessionals[0]?.id ||
       null;
 
-    setItens((prev) => [
-      ...prev,
-      {
-        tempId: `prod-${Date.now()}`,
-        item_type: 'produto',
-        product_id: prod.id,
-        professional_id: defaultProfId,
-        name: prod.name,
-        quantity: 1,
-        unit_price: prod.price,
-      },
-    ]);
+    const tempId = `prod-${Date.now()}`;
+    const newItemLocal: ItemLocal = {
+      tempId,
+      item_type: 'produto',
+      product_id: prod.id,
+      professional_id: defaultProfId,
+      name: prod.name,
+      quantity: 1,
+      unit_price: prod.price,
+    };
 
+    setItens((prev) => [...prev, newItemLocal]);
     setSelectedProductId('');
     setSelectedProfId('');
     setIsAddingProduct(false);
+
+    try {
+      if (comandaId) {
+        const added = await comRepo.addItem(comandaId, tenantId, {
+          item_type: 'produto',
+          service_id: null,
+          product_id: prod.id,
+          professional_id: defaultProfId,
+          quantity: 1,
+          unit_price: prod.price,
+          total_price: prod.price,
+        });
+        setItens((prev) =>
+          prev.map((it) => (it.tempId === tempId ? { ...it, id: added.id, tempId: added.id } : it))
+        );
+      } else {
+        const created = await comRepo.createComanda({
+          tenant_id: tenantId,
+          appointment_id: appointmentId || null,
+          customer_id: customerId || null,
+          itens: [
+            ...itens.map((it) => ({
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            })),
+            {
+              item_type: 'produto',
+              service_id: null,
+              product_id: prod.id,
+              professional_id: defaultProfId,
+              quantity: 1,
+              unit_price: prod.price,
+            },
+          ],
+        });
+        setComandaId(created.id);
+        setLoadedComanda(created);
+        if (created.itens && created.itens.length > 0) {
+          setItens(
+            created.itens.map((it) => ({
+              tempId: it.id,
+              id: it.id,
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              name: it.name || prod.name,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            }))
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao persistir adição de produto na comanda:', err);
+      setItens((prev) => prev.filter((it) => it.tempId !== tempId));
+      setErrorMsg(err?.message || 'Erro ao salvar produto na comanda.');
+    }
   };
 
-  const handleRemoveItem = (tempId: string) => {
+  const handleRemoveItem = async (tempId: string) => {
+    const itemToRemove = itens.find((it) => it.tempId === tempId);
     setItens((prev) => prev.filter((it) => it.tempId !== tempId));
+
+    if (comandaId && itemToRemove?.id) {
+      try {
+        await comRepo.removeItem(itemToRemove.id, comandaId);
+      } catch (err: any) {
+        console.error('Erro ao remover item da comanda:', err);
+        if (itemToRemove) {
+          setItens((prev) => [...prev, itemToRemove]);
+        }
+        setErrorMsg(err?.message || 'Erro ao excluir item da comanda.');
+      }
+    }
   };
 
   const handleSelectSingleMethod = (method: MetodoPagamento) => {
