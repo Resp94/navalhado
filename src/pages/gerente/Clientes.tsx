@@ -220,7 +220,9 @@ export const Clientes: React.FC = () => {
 
   const handleOpenDirectWhatsApp = (customer: Cliente) => {
     setSelectedCustomer(customer);
-    const bookingLink = `${window.location.origin}/cliente/${customer.token_acesso}`;
+    const bookingLink = tenant.slug
+      ? `${window.location.origin}/${tenant.slug}`
+      : `${window.location.origin}/cliente/${customer.token_acesso}`;
     const barbeariaName = tenant.tenantName || 'Barbearia';
     const initialText = interpolateTemplate(WHATSAPP_TEMPLATES.retorno, {
       customer_name: customer.name,
@@ -236,7 +238,9 @@ export const Clientes: React.FC = () => {
   const handleSelectTemplate = (template: 'retorno' | 'agradecimento' | 'livre') => {
     setWhatsAppTemplate(template);
     if (!selectedCustomer) return;
-    const bookingLink = `${window.location.origin}/cliente/${selectedCustomer.token_acesso}`;
+    const bookingLink = tenant.slug
+      ? `${window.location.origin}/${tenant.slug}`
+      : `${window.location.origin}/cliente/${selectedCustomer.token_acesso}`;
     const barbeariaName = tenant.tenantName || 'Barbearia';
 
     if (template === 'retorno') {
@@ -296,7 +300,9 @@ export const Clientes: React.FC = () => {
   };
 
   const handleCopyLink = (token: string) => {
-    const link = `${window.location.origin}/cliente/${token}`;
+    const link = tenant.slug
+      ? `${window.location.origin}/${tenant.slug}`
+      : `${window.location.origin}/cliente/${token}`;
     navigator.clipboard.writeText(link);
     addToast('Link de agendamento copiado com sucesso!', 'success');
   };
