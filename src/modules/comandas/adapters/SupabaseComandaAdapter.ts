@@ -190,6 +190,38 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
   }
 
   async liquidarComanda(input: LiquidarComandaInput): Promise<Comanda> {
+    // 1. Sincronizar itens da comanda se fornecidos
+    if (input.itens && input.itens.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('comanda_itens')
+        .delete()
+        .eq('comanda_id', input.comanda_id);
+
+      if (deleteError) {
+        throw new Error(`Erro ao sincronizar itens da comanda: ${deleteError.message}`);
+      }
+
+      const itensPayload = input.itens.map((i) => ({
+        comanda_id: input.comanda_id,
+        tenant_id: input.tenant_id,
+        item_type: i.item_type,
+        service_id: i.service_id || null,
+        product_id: i.product_id || null,
+        professional_id: i.professional_id || null,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        total_price: Number((i.quantity * i.unit_price).toFixed(2)),
+      }));
+
+      const { error: insertItensError } = await supabase
+        .from('comanda_itens')
+        .insert(itensPayload);
+
+      if (insertItensError) {
+        throw new Error(`Erro ao salvar itens atualizados da comanda: ${insertItensError.message}`);
+      }
+    }
+
     const { data: comandaAtual, error: fetchError } = await supabase
       .from('comandas')
       .select('*, itens:comanda_itens(*)')

@@ -291,4 +291,99 @@ describe('ComandaCheckoutModal', () => {
       expect(mockComandaAdapter.reabrirComanda).toHaveBeenCalledWith('com-1', 't-1');
     });
   });
+
+  it('persiste itens adicionados na liquidação de comanda pré-existente de agendamento', async () => {
+    vi.mocked(mockCaixaAdapter.obterSessaoAtiva).mockResolvedValueOnce({
+      id: 'sess-1',
+      tenant_id: 't-1',
+      opened_by: null,
+      closed_by: null,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_amount: 50,
+      closing_amount: null,
+      status: 'open',
+      notes: null,
+    });
+
+    vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValueOnce({
+      id: 'com-existing',
+      tenant_id: 't-1',
+      appointment_id: 'apt-1',
+      customer_id: 'cust-1',
+      status: 'aberta',
+      total_amount: 40.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+      created_at: new Date().toISOString(),
+      closed_at: null,
+      itens: [
+        {
+          id: 'item-1',
+          tenant_id: 't-1',
+          comanda_id: 'com-existing',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          name: 'Corte',
+          quantity: 1,
+          unit_price: 40.0,
+          total_price: 40.0,
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Erick Lohan"
+        availableServices={[
+          { id: 'srv-1', name: 'Corte', price: 40.0 },
+          { id: 'srv-2', name: 'Sobrancelha', price: 15.0 },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Matheus Lopes' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte')).toBeInTheDocument();
+
+    // Adicionar serviço Sobrancelha
+    fireEvent.click(screen.getByRole('button', { name: /Serviço/i }));
+    const selectSrv = screen.getByRole('combobox', { name: /Selecionar serviço/i });
+    fireEvent.change(selectSrv, { target: { value: 'srv-2' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/i }));
+
+    expect(await screen.findByText('Sobrancelha')).toBeInTheDocument();
+
+    // Finalizar comanda
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({
+          comanda_id: 'com-existing',
+          tenant_id: 't-1',
+          itens: expect.arrayContaining([
+            expect.objectContaining({ service_id: 'srv-1', unit_price: 40.0 }),
+            expect.objectContaining({ service_id: 'srv-2', unit_price: 15.0 }),
+          ]),
+          pagamentos: expect.arrayContaining([
+            expect.objectContaining({ amount: 55.0 }),
+          ]),
+        })
+      );
+    });
+  });
 });
