@@ -201,16 +201,20 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const providerFailureResponse = (attempts?: number): Response => new Response(
-    JSON.stringify({
-      error: "WhatsApp provider request failed",
-      ...(attempts ? { attempts } : {}),
-    }),
-    {
-      status: 502,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    },
-  );
+  const providerFailureResponse = (error?: unknown, attempts?: number): Response => {
+    const message = error instanceof Error ? error.message : String(error ?? "WhatsApp provider request failed");
+    console.error(`[WhatsApp-Integration] Erro do provedor: ${message}`);
+    return new Response(
+      JSON.stringify({
+        error: message,
+        ...(attempts ? { attempts } : {}),
+      }),
+      {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  };
 
   const sleep = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
   const outboundProcessingLeaseMs = 5 * 60 * 1000;
@@ -762,7 +766,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         } catch (webhookErr) {
           console.error(`[WhatsApp-Integration] [Webhook-Preflight] Falha ao iniciar pareamento no provedor:`, webhookErr);
           await revertInstanceToDisconnected(instance_id, manageTable);
-          return providerFailureResponse();
+          return providerFailureResponse(webhookErr);
         }
 
       } 
@@ -777,8 +781,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           return new Response(JSON.stringify({ success: true, ...synchronized }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-        } catch {
-          return providerFailureResponse();
+        } catch (statusErr) {
+          return providerFailureResponse(statusErr);
         }
       }
       
@@ -791,7 +795,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         } catch (disconnectError) {
           console.error("[WhatsApp-Integration] Falha ao desconectar a instância no provedor", disconnectError);
-          return providerFailureResponse();
+          return providerFailureResponse(disconnectError);
         }
 
         // Atualizar status no banco de dados para disconnected e limpar QR Code
@@ -917,10 +921,17 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
-      const isConnectionUpdate = ["connection", "connection.update", "connected", "pairsuccess"].includes(eventClean);
-      const isQrCodeUpdate = ["qrcode", "qrcode.updated", "qr.code"].includes(eventClean);
+      const isConnectionUpdate =
+        ["connection", "connection.update", "connected", "pairsuccess"].includes(eventClean) ||
+        eventClean.startsWith("connection");
+      const isQrCodeUpdate =
+        ["qrcode", "qrcode.updated", "qr.code", "qrcode.update"].includes(eventClean) ||
+        eventClean.startsWith("qrcode") ||
+        eventClean.startsWith("qr.");
 
-      const isMessageEvent = ["message", "messages"].includes(eventClean);
+      const isMessageEvent =
+        ["message", "messages", "messages.upsert", "messages.update", "message.create", "messages.set"].includes(eventClean) ||
+        eventClean.startsWith("message");
 
       if (isQrCodeUpdate) {
         const qrCode =
@@ -967,14 +978,34 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         };
         const isFromMe = asBoolean(
           messagePayload.fromMe ?? messagePayload.isFromMe ?? messagePayload.fromMeYes ??
-            messageInfo.IsFromMe ?? messageInfo.isFromMe ?? body.fromMe ?? body.fromMeYes,
+            messageInfo.IsFromMe ?? messageInfo.isFromMe ?? body.data?.key?.fromMe ?? body.key?.fromMe ?? body.fromMe ?? body.fromMeYes,
         );
         const wasSentByApi = asBoolean(messagePayload.wasSentByApi ?? body.wasSentByApi);
         const isGroup = asBoolean(
           messagePayload.isGroup ?? messagePayload.isGroupMessage ?? messagePayload.isGroupYes ?? body.isGroup ?? body.isGroupYes,
         );
-        const senderJid = String(messagePayload.sender ?? messagePayload.sender_pn ?? messageInfo.Sender ?? messageInfo.sender ?? body.sender ?? "");
-        const chatJid = String(messagePayload.chatid ?? messagePayload.chat ?? messageInfo.Chat ?? messageInfo.chat ?? body.chatid ?? "");
+        const senderJid = String(
+          messagePayload.sender ??
+          messagePayload.sender_pn ??
+          messagePayload.from ??
+          messageInfo.Sender ??
+          messageInfo.sender ??
+          body.data?.key?.remoteJid ??
+          body.key?.remoteJid ??
+          body.sender ??
+          ""
+        );
+        const chatJid = String(
+          messagePayload.chatid ??
+          messagePayload.chat ??
+          messagePayload.remoteJid ??
+          messageInfo.Chat ??
+          messageInfo.chat ??
+          body.data?.key?.remoteJid ??
+          body.key?.remoteJid ??
+          body.chatid ??
+          ""
+        );
         const candidateJids = [senderJid, chatJid, String(messagePayload.sender_lid ?? "")].filter(Boolean);
 
         if (
@@ -1007,10 +1038,16 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           messagePayload.conversation ??
           messagePayload.extendedTextMessage?.text ??
           messagePayload.caption ??
+          messagePayload.body ??
+          messagePayload.content ??
           messageInfo.Text ??
           messageInfo.text ??
           messageInfo.Caption ??
+          body.data?.message?.conversation ??
+          body.data?.message?.extendedTextMessage?.text ??
+          body.data?.text ??
           body.text ??
+          body.body ??
           ""
         ).trim();
 
@@ -1210,25 +1247,25 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           variables
         );
         try {
-          await provider.sendText({
+          await sendTextWithRetry({
             instanceName: authenticatedInstance.instance_name || instanceName || "",
             instanceToken: authenticatedInstance[instanceTokenColumn],
             number: senderPhone,
             text: messageText,
           });
-        } catch (sendError) {
+        } catch (sendError: any) {
+          console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida:", sendError);
           await supabase
             .from("whatsapp_message_idempotency")
             .update({
               status: "failed",
-              last_error: "provider request failed",
+              last_error: sendError?.message || "provider request failed",
               updated_at: new Date().toISOString(),
             })
             .eq("tenant_id", authenticatedInstance.tenant_id)
             .eq("direction", "inbound")
             .eq("idempotency_key", externalMessageId);
-          console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida");
-          return providerFailureResponse();
+          return providerFailureResponse(sendError);
         }
 
         // Atualizar last_first_contact_at no cliente

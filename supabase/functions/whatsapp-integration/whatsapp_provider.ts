@@ -61,8 +61,13 @@ export class WhatsAppProviderError extends Error {
     readonly operation: string,
     readonly status?: number,
     readonly retryAfterMs?: number,
+    readonly details?: string,
   ) {
-    super(status ? `WhatsApp provider ${operation} failed with status ${status}` : `WhatsApp provider ${operation} failed`);
+    super(
+      status
+        ? `WhatsApp provider ${operation} failed with status ${status}${details ? `: ${details}` : ""}`
+        : `WhatsApp provider ${operation} failed${details ? `: ${details}` : ""}`,
+    );
     this.name = "WhatsAppProviderError";
   }
 }
@@ -103,8 +108,13 @@ export const createUazapiProvider = (
 
     if (!response.ok) {
       const retryAfterMs = retryAfterMilliseconds(response.headers.get("retry-after"));
-      await response.body?.cancel();
-      throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
+      let details = "";
+      try {
+        details = await response.text();
+      } catch {
+        // ignore
+      }
+      throw new WhatsAppProviderError(operation, response.status, retryAfterMs, details);
     }
     return response;
   };
