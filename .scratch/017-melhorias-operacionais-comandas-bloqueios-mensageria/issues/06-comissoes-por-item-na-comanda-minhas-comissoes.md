@@ -4,11 +4,11 @@
 
 **Blocked by:** 02 — Persistência Imediata de Itens na Comanda.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Refatorar a query de dados em `src/pages/barbeiro/MinhasComissoes.tsx` para consultar `public.comanda_itens` vinculados ao `professional_id` do usuário logado, filtrando por comandas com status `fechada` no período.
-- [ ] Realizar join em `comandas`, `services` e `products` para extrair nome do item, percentual de comissão e total faturado.
-- [ ] Calcular comissão individual de cada item com base na regra do serviço ou percentual do profissional.
-- [ ] Tratar clientes de balcão anônimos na listagem (`comanda.customer?.name || 'Cliente Balcão'`).
-- [ ] Assegurar que a comanda atue apenas como agrupador e que a atribuição financeira obedeça 100% a `comanda_itens.professional_id`.
-- [ ] Atualizar testes unitários em `MinhasComissoes.test.tsx`.
+- [x] Refatorar a query de dados em `src/pages/barbeiro/MinhasComissoes.tsx` para consultar `public.comanda_itens` vinculados ao `professional_id` do usuário logado, filtrando por comandas com status `fechada` no período.
+- [x] Realizar join em `comandas`, `services` e `products` para extrair nome do item, percentual de comissão e total faturado.
+- [x] Calcular comissão individual de cada item com base na regra do serviço ou percentual do profissional.
+- [x] Tratar clientes de balcão anônimos na listagem (`comanda.customer?.name || 'Cliente Balcão'`).
+- [x] Assegurar que a comanda atue apenas como agrupador e que a atribuição financeira obedeça 100% a `comanda_itens.professional_id`.
+- [x] Atualizar testes unitários em `MinhasComissoes.test.tsx`.
