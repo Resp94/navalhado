@@ -123,10 +123,12 @@ describe('ComandaCheckoutModal', () => {
       customer_id: null,
       status: 'fechada',
       total_amount: input.pagamentos.reduce((acc, p) => acc + p.amount, 0),
-      discount_amount: input.discount_amount,
-      tip_amount: input.tip_amount,
+      discount_amount: input.discount_amount ?? 0,
+      tip_amount: input.tip_amount ?? 0,
       notes: null,
-      itens: input.itens?.map((it, idx) => ({
+      created_at: new Date().toISOString(),
+      closed_at: new Date().toISOString(),
+      itens: (input.itens || []).map((it, idx) => ({
         id: `item-liq-${idx}`,
         comanda_id: input.comanda_id,
         tenant_id: input.tenant_id,
@@ -139,13 +141,14 @@ describe('ComandaCheckoutModal', () => {
         total_price: it.quantity * it.unit_price,
       })),
       pagamentos: input.pagamentos.map((p, idx) => ({
-        id: `pag-${idx}`,
+        id: `pag-liq-${idx}`,
         comanda_id: input.comanda_id,
         tenant_id: input.tenant_id,
-        cash_session_id: input.cash_session_id,
+        cash_session_id: input.cash_session_id ?? null,
         payment_method: p.payment_method,
         amount: p.amount,
         change_amount: 0,
+        paid_at: new Date().toISOString(),
       })),
     }));
   });
@@ -501,6 +504,7 @@ describe('ComandaCheckoutModal', () => {
       total_amount: 30.0,
       discount_amount: 0,
       tip_amount: 0,
+      notes: null,
       created_at: new Date().toISOString(),
       closed_at: null,
       itens: [],
@@ -516,6 +520,7 @@ describe('ComandaCheckoutModal', () => {
       total_amount: 30.0,
       discount_amount: 0,
       tip_amount: 0,
+      notes: null,
       created_at: new Date().toISOString(),
       closed_at: new Date().toISOString(),
       itens: [],
@@ -581,6 +586,9 @@ describe('ComandaCheckoutModal', () => {
       total_amount: 40.0,
       discount_amount: 0,
       tip_amount: 0,
+      notes: null,
+      created_at: new Date().toISOString(),
+      closed_at: null,
       itens: [
         {
           id: 'item-corte',

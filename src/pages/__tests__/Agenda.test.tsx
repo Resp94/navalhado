@@ -100,26 +100,24 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockOutletContext.businessHours.domingo.active = true;
     mockFrom.mockImplementation((table: string) => {
       if (table === 'professionals') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: vi.fn().mockResolvedValue({ data: mockProfessionals, error: null }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockProfessionals, error: null }),
         };
+        return builder;
       }
       if (table === 'services') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
         };
+        return builder;
       }
       if (table === 'customers') {
         return {
@@ -144,18 +142,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         };
       }
       if (table === 'appointments') {
-        return {
-          select: () => ({
-            eq: () => ({
-              gte: () => ({
-                lt: () => ({
-                  neq: () => ({
-                    order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
-                  }),
-                }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          lt: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
           insert: (payload: any) => ({
             select: () => ({
               single: vi.fn().mockResolvedValue({
@@ -171,6 +164,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
             eq: vi.fn().mockResolvedValue({ error: null }),
           }),
         };
+        return builder;
       }
       if (table === 'comandas') {
         return {
@@ -195,22 +189,19 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         };
       }
       if (table === 'blocked_slots') {
-        return {
-          select: () => ({
-            eq: () => ({
-              gte: () => ({
-                lt: () => ({
-                  order: vi.fn().mockResolvedValue({ data: mockBlockedSlots, error: null }),
-                }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          lt: () => builder,
+          order: vi.fn().mockImplementation(() => Promise.resolve({ data: mockBlockedSlots, error: null })),
           delete: () => ({
             eq: () => ({
               eq: vi.fn().mockResolvedValue({ error: null }),
             }),
           }),
         };
+        return builder;
       }
       return { select: vi.fn(), insert: vi.fn(), delete: vi.fn() };
     });

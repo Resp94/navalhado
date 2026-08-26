@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — Atendimento e Encaixe de Balcão sem Cliente, 02 — Persistência Imediata de Itens na Comanda, 03 — Bloqueio Manual de Horários na Agenda, 04 — Governança de Cadastros (Soft Delete de Serviços e Profissionais), 05 — Mensageria WhatsApp: Boas-Vindas de Balcão e Templates da Equipe, 06 — Comissões por Item na Comanda (Minhas Comissões), 07 — Canal do Cliente: Cancelamento com Barbearia e Cards Responsivos.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Executar toda a suíte de testes Vitest (`npm test`) e garantir 100% de sucesso sem regressões.
-- [ ] Executar checagem de tipos TypeScript (`npm run build`) e confirmar zero erros de compilação.
-- [ ] Executar linter (`npm run lint`) garantindo conformidade de código.
-- [ ] Realizar validação cruzada dos critérios de aceitação da especificação técnica.
+- [x] Executar toda a suíte de testes Vitest (`npm test`) e garantir 100% de sucesso sem regressões (49 arquivos de teste, 249 testes passando 100%).
+- [x] Executar checagem de tipos TypeScript (`npm run build`) e confirmar zero erros de compilação.
+- [x] Executar linter (`npm run lint`) garantindo conformidade de código.
+- [x] Realizar validação cruzada dos critérios de aceitação da especificação técnica.

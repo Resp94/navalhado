@@ -48,10 +48,20 @@ describe('WhatsApp Templates Module', () => {
     expect(validateTemplateHasLink('')).toBe(false);
   });
 
-  it('should define exactly 5 template configurations with valid columns', () => {
-    expect(TEMPLATE_CONFIGS).toHaveLength(5);
+  it('should define exactly 9 template configurations with valid columns', () => {
+    expect(TEMPLATE_CONFIGS).toHaveLength(9);
     const keys = TEMPLATE_CONFIGS.map((c) => c.key);
-    expect(keys).toEqual(['confirmation', 'reschedule', 'cancellation', 'reminder', 'first_contact']);
+    expect(keys).toEqual([
+      'confirmation',
+      'reschedule',
+      'cancellation',
+      'reminder',
+      'welcome_balcao',
+      'first_contact',
+      'professional_created',
+      'professional_rescheduled',
+      'professional_cancelled',
+    ]);
   });
 
   it('should preserve unknown tags by default for exact parity with Edge Function', () => {

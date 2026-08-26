@@ -13,26 +13,6 @@ interface ProfessionalProfile {
   commission_percentage: number;
 }
 
-interface PaymentRecord {
-  id: string;
-  amount: number;
-  commission_value: number;
-  paid_at: string;
-  appointment: {
-    id: string;
-    status: string;
-    start_time: string;
-    customer: {
-      name: string;
-    } | null;
-    service: {
-      name: string;
-      price: number;
-      commission_percentage: number;
-    } | null;
-  };
-}
-
 interface HistoryItem {
   id: string;
   date: string;
