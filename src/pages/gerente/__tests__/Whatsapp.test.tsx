@@ -129,7 +129,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
     await waitFor(() => {
       expect(mockSelect).toHaveBeenCalledWith(
-        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords'
+        'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, send_welcome_balcao, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_welcome_balcao, template_first_contact, template_professional_created, template_professional_rescheduled, template_professional_cancelled, auto_reply_keywords'
       );
     });
 
@@ -748,7 +748,7 @@ describe('Whatsapp Config Page - TDD', () => {
       template_first_contact: null,
     };
 
-    it('deve renderizar as 5 abas de eventos e o simulador do WhatsApp', async () => {
+    it('deve renderizar as abas de eventos e o simulador do WhatsApp', async () => {
       mockMaybeSingle.mockResolvedValue({
         data: mockConnectedInstance,
         error: null,
@@ -756,11 +756,15 @@ describe('Whatsapp Config Page - TDD', () => {
 
       render(<Whatsapp />);
 
-      expect(await screen.findByRole('tab', { name: /Confirmação/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Reagendamento/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Cancelamento/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Lembrete/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Primeiro Contato/i })).toBeInTheDocument();
+      expect(await screen.findByRole('tab', { name: /^Confirmação$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Reagendamento$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Cancelamento$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Lembrete$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Boas-Vindas Balcão$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Primeiro Contato$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Novo Agendamento$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Reagendamento Equipe$/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Cancelamento Equipe$/i })).toBeInTheDocument();
 
       // Live Preview Simulator
       expect(screen.getByText('Online agora')).toBeInTheDocument();
@@ -775,7 +779,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
       render(<Whatsapp />);
 
-      const rescheduleTab = await screen.findByRole('tab', { name: /Reagendamento/i });
+      const rescheduleTab = await screen.findByRole('tab', { name: /^Reagendamento$/i });
       fireEvent.click(rescheduleTab);
 
       expect(screen.getByText('Confirmação de Reagendamento')).toBeInTheDocument();
@@ -827,7 +831,10 @@ describe('Whatsapp Config Page - TDD', () => {
 
       await waitFor(() => {
         expect(mockUpdate).toHaveBeenCalled();
-        expect(mockAddToast).toHaveBeenCalledWith('Modelo de Confirmação salvo com sucesso!', 'success');
+        expect(mockAddToast).toHaveBeenCalledWith(
+          expect.stringContaining('salvo com sucesso'),
+          'success'
+        );
       });
     });
 
@@ -846,7 +853,35 @@ describe('Whatsapp Config Page - TDD', () => {
       fireEvent.click(resetBtn);
 
       expect(textarea.value).toContain('foi confirmado!');
-      expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining('Texto padrão de Confirmação restaurado'), 'info');
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.stringContaining('restaurado para o padrão'),
+        'info'
+      );
+    });
+
+    it('deve exibir e permitir editar as abas de Boas-Vindas de Balcão e Notificações da Equipe', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      // Aba Boas-Vindas Balcão
+      const welcomeTab = await screen.findByRole('tab', { name: /^Boas-Vindas Balcão$/i });
+      expect(welcomeTab).toBeInTheDocument();
+      fireEvent.click(welcomeTab);
+
+      expect(await screen.findByRole('heading', { name: 'Boas-Vindas de Balcão' })).toBeInTheDocument();
+      expect(screen.getByText(/Enviada exclusivamente quando um novo cliente é cadastrado manualmente/i)).toBeInTheDocument();
+
+      // Aba Equipe: Novo Agendamento
+      const teamTab = screen.getByRole('tab', { name: /^Novo Agendamento$/i });
+      expect(teamTab).toBeInTheDocument();
+      fireEvent.click(teamTab);
+
+      expect(await screen.findByRole('heading', { name: 'Equipe: Novo Agendamento' })).toBeInTheDocument();
+      expect(screen.getByText(/Notificação enviada ao WhatsApp do barbeiro/i)).toBeInTheDocument();
     });
 
     it('deve enviar teste do modelo de template diretamente via send-manual', async () => {
@@ -867,12 +902,15 @@ describe('Whatsapp Config Page - TDD', () => {
       await waitFor(() => {
         expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
           body: {
-            tenant_id: 'tenant-test-id',
-            number: '11988887777',
-            text: expect.stringContaining('Lucas Silva'),
+            instance_id: 'inst-123',
+            phone: '11988887777',
+            message: expect.stringContaining('Lucas Silva'),
           },
         });
-        expect(mockAddToast).toHaveBeenCalledWith('Teste do modelo disparado com sucesso para 11988887777!', 'success');
+        expect(mockAddToast).toHaveBeenCalledWith(
+          expect.stringContaining('enviada com sucesso'),
+          'success'
+        );
       });
     });
 

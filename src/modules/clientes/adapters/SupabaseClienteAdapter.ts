@@ -61,6 +61,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         .from('customers')
         .insert({
           tenant_id: tenantId,
+          registration_origin: input.registration_origin || 'balcao',
           ...payload,
         })
         .select()

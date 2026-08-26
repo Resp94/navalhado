@@ -3,7 +3,11 @@ export type WhatsappTemplateKey =
   | 'reschedule'
   | 'cancellation'
   | 'reminder'
-  | 'first_contact';
+  | 'welcome_balcao'
+  | 'first_contact'
+  | 'professional_created'
+  | 'professional_rescheduled'
+  | 'professional_cancelled';
 
 export interface TemplateTag {
   tag: string;
@@ -18,10 +22,15 @@ export interface TemplateConfig {
     | 'template_reschedule'
     | 'template_cancellation'
     | 'template_reminder'
-    | 'template_first_contact';
+    | 'template_welcome_balcao'
+    | 'template_first_contact'
+    | 'template_professional_created'
+    | 'template_professional_rescheduled'
+    | 'template_professional_cancelled';
   title: string;
   shortTitle: string;
   description: string;
+  audience: 'cliente' | 'equipe';
   availableTags: TemplateTag[];
 }
 
@@ -34,8 +43,16 @@ export const DEFAULT_TEMPLATES: Record<WhatsappTemplateKey, string> = {
     'Olá, {cliente}! Seu agendamento na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nSe precisar, você pode agendar um novo horário acessando: {link}\n\nAgradecemos a compreensão!',
   reminder:
     'Olá, {cliente}! Passando para lembrar do seu agendamento na *{barbearia}* nas próximas horas.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: {link}\n\nEsperamos você!',
+  welcome_balcao:
+    'Olá, {cliente}! Seu cadastro na barbearia *{barbearia}* foi concluído com sucesso. Acesse seu canal de autoatendimento para agendar seus próximos cortes e conferir nosso cardápio de serviços: {link}',
   first_contact:
     'Olá, {cliente}! Para escolher seu serviço e agendar um horário na *{barbearia}*, acesse: {link}',
+  professional_created:
+    'Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*',
+  professional_rescheduled:
+    'Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi reagendado!\n\n📅 Novo Horário: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*',
+  professional_cancelled:
+    'Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*',
 };
 
 export const TEMPLATE_TAGS: Record<string, TemplateTag> = {
@@ -58,10 +75,25 @@ const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.link,
 ];
 
+const WELCOME_BALCAO_TAGS: TemplateTag[] = [
+  TEMPLATE_TAGS.cliente,
+  TEMPLATE_TAGS.barbearia,
+  TEMPLATE_TAGS.link,
+];
+
 const FIRST_CONTACT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.cliente,
   TEMPLATE_TAGS.barbearia,
   TEMPLATE_TAGS.link,
+];
+
+const PROFESSIONAL_TAGS: TemplateTag[] = [
+  TEMPLATE_TAGS.profissional,
+  TEMPLATE_TAGS.cliente,
+  TEMPLATE_TAGS.barbearia,
+  TEMPLATE_TAGS.servico,
+  TEMPLATE_TAGS.data,
+  TEMPLATE_TAGS.horario,
 ];
 
 export const TEMPLATE_CONFIGS: TemplateConfig[] = [
@@ -71,6 +103,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'Confirmação de Agendamento',
     shortTitle: 'Confirmação',
     description: 'Enviada automaticamente assim que o cliente conclui uma nova reserva.',
+    audience: 'cliente',
     availableTags: APPOINTMENT_TAGS,
   },
   {
@@ -79,6 +112,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'Confirmação de Reagendamento',
     shortTitle: 'Reagendamento',
     description: 'Enviada quando o horário ou dia do agendamento é remarcado.',
+    audience: 'cliente',
     availableTags: APPOINTMENT_TAGS,
   },
   {
@@ -87,6 +121,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'Alerta de Cancelamento',
     shortTitle: 'Cancelamento',
     description: 'Enviada caso o agendamento seja desmarcado pela barbearia ou pelo cliente.',
+    audience: 'cliente',
     availableTags: APPOINTMENT_TAGS,
   },
   {
@@ -95,15 +130,53 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'Lembrete Pré-Atendimento',
     shortTitle: 'Lembrete',
     description: 'Disparada X horas antes do atendimento para reduzir faltas (no-show).',
+    audience: 'cliente',
     availableTags: APPOINTMENT_TAGS,
+  },
+  {
+    key: 'welcome_balcao',
+    column: 'template_welcome_balcao',
+    title: 'Boas-Vindas de Balcão',
+    shortTitle: 'Boas-Vindas Balcão',
+    description: 'Enviada exclusivamente quando um novo cliente é cadastrado manualmente pela equipe.',
+    audience: 'cliente',
+    availableTags: WELCOME_BALCAO_TAGS,
   },
   {
     key: 'first_contact',
     column: 'template_first_contact',
-    title: 'Boas-Vindas / Primeiro Contato',
+    title: 'Primeiro Contato / Autoatendimento',
     shortTitle: 'Primeiro Contato',
     description: 'Resposta automática quando um cliente chama a barbearia pelo WhatsApp pela 1ª vez.',
+    audience: 'cliente',
     availableTags: FIRST_CONTACT_TAGS,
+  },
+  {
+    key: 'professional_created',
+    column: 'template_professional_created',
+    title: 'Equipe: Novo Agendamento',
+    shortTitle: 'Novo Agendamento',
+    description: 'Notificação enviada ao WhatsApp do barbeiro quando um horário é marcado em sua agenda.',
+    audience: 'equipe',
+    availableTags: PROFESSIONAL_TAGS,
+  },
+  {
+    key: 'professional_rescheduled',
+    column: 'template_professional_rescheduled',
+    title: 'Equipe: Reagendamento',
+    shortTitle: 'Reagendamento Equipe',
+    description: 'Notificação enviada ao barbeiro quando um cliente remarca a data ou horário do serviço.',
+    audience: 'equipe',
+    availableTags: PROFESSIONAL_TAGS,
+  },
+  {
+    key: 'professional_cancelled',
+    column: 'template_professional_cancelled',
+    title: 'Equipe: Agendamento Cancelado',
+    shortTitle: 'Cancelamento Equipe',
+    description: 'Notificação enviada ao barbeiro quando um agendamento é desmarcado.',
+    audience: 'equipe',
+    availableTags: PROFESSIONAL_TAGS,
   },
 ];
 
@@ -163,7 +236,7 @@ export interface WhatsappTemplateValidationResult {
 }
 
 /**
- * Valida se o template contém a tag `{link}` (obrigatória para todos os fluxos de autoatendimento).
+ * Valida se o template contém a tag `{link}` (obrigatória para fluxos de autoatendimento ao cliente).
  */
 export const validateTemplateHasLink = (template: string): boolean => {
   if (!template) return false;
@@ -173,14 +246,22 @@ export const validateTemplateHasLink = (template: string): boolean => {
 /**
  * Executa a validação completa de domínio do template de notificação.
  */
-export const validateWhatsappTemplate = (template: string): WhatsappTemplateValidationResult => {
+export const validateWhatsappTemplate = (
+  template: string,
+  key?: WhatsappTemplateKey
+): WhatsappTemplateValidationResult => {
   const text = template || '';
   const length = text.length;
-  const hasLink = validateTemplateHasLink(text);
+  const isTeamTemplate =
+    key === 'professional_created' ||
+    key === 'professional_rescheduled' ||
+    key === 'professional_cancelled';
+
+  const hasLink = isTeamTemplate ? true : validateTemplateHasLink(text);
   const isWithinLengthLimit = length <= MAX_TEMPLATE_LENGTH;
 
   let errorMessage: string | null = null;
-  if (!hasLink) {
+  if (!hasLink && !isTeamTemplate) {
     errorMessage = 'A mensagem precisa conter a tag {link} para que o cliente consiga acessar o agendamento.';
   } else if (!isWithinLengthLimit) {
     errorMessage = `O modelo excede o limite máximo permitido de ${MAX_TEMPLATE_LENGTH} caracteres.`;

@@ -18,6 +18,9 @@ import {
   FloppyDiskIcon,
   Alert02Icon,
   SmartPhone01Icon,
+  UserAdd01Icon,
+  ScissorIcon,
+  Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import {
   DEFAULT_TEMPLATES,
@@ -40,11 +43,16 @@ interface WhatsappInstance {
   send_reminders: boolean;
   reminder_hours: number;
   send_cancellation: boolean;
+  send_welcome_balcao: boolean;
   template_confirmation?: string | null;
   template_reschedule?: string | null;
   template_cancellation?: string | null;
   template_reminder?: string | null;
+  template_welcome_balcao?: string | null;
   template_first_contact?: string | null;
+  template_professional_created?: string | null;
+  template_professional_rescheduled?: string | null;
+  template_professional_cancelled?: string | null;
   auto_reply_keywords?: string | null;
 }
 
@@ -64,10 +72,11 @@ type WhatsappSetting =
   | 'send_confirmation'
   | 'send_reminders'
   | 'reminder_hours'
-  | 'send_cancellation';
+  | 'send_cancellation'
+  | 'send_welcome_balcao';
 
 const WHATSAPP_INSTANCE_COLUMNS =
-  'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_first_contact, auto_reply_keywords';
+  'id, tenant_id, instance_name, qr_code, status, send_confirmation, send_reminders, reminder_hours, send_cancellation, send_welcome_balcao, template_confirmation, template_reschedule, template_cancellation, template_reminder, template_welcome_balcao, template_first_contact, template_professional_created, template_professional_rescheduled, template_professional_cancelled, auto_reply_keywords';
 const STATUS_POLL_INTERVAL_MS = 2000;
 const STATUS_POLL_MAX_ATTEMPTS = 90;
 const TERMINAL_STATUSES = ['connected', 'disconnected', 'hibernated'];
@@ -89,11 +98,16 @@ const toWhatsappInstance = (row: Record<string, unknown>): WhatsappInstance => (
   send_reminders: Boolean(row.send_reminders),
   reminder_hours: Number(row.reminder_hours || 2),
   send_cancellation: Boolean(row.send_cancellation),
+  send_welcome_balcao: row.send_welcome_balcao !== undefined ? Boolean(row.send_welcome_balcao) : true,
   template_confirmation: (row.template_confirmation as string | null) ?? null,
   template_reschedule: (row.template_reschedule as string | null) ?? null,
   template_cancellation: (row.template_cancellation as string | null) ?? null,
   template_reminder: (row.template_reminder as string | null) ?? null,
+  template_welcome_balcao: (row.template_welcome_balcao as string | null) ?? null,
   template_first_contact: (row.template_first_contact as string | null) ?? null,
+  template_professional_created: (row.template_professional_created as string | null) ?? null,
+  template_professional_rescheduled: (row.template_professional_rescheduled as string | null) ?? null,
+  template_professional_cancelled: (row.template_professional_cancelled as string | null) ?? null,
   auto_reply_keywords: (row.auto_reply_keywords as string | null) ?? null,
 });
 
@@ -145,7 +159,11 @@ const buildTemplateDrafts = (inst?: WhatsappInstance | null): Record<WhatsappTem
   reschedule: inst?.template_reschedule || DEFAULT_TEMPLATES.reschedule,
   cancellation: inst?.template_cancellation || DEFAULT_TEMPLATES.cancellation,
   reminder: inst?.template_reminder || DEFAULT_TEMPLATES.reminder,
+  welcome_balcao: inst?.template_welcome_balcao || DEFAULT_TEMPLATES.welcome_balcao,
   first_contact: inst?.template_first_contact || DEFAULT_TEMPLATES.first_contact,
+  professional_created: inst?.template_professional_created || DEFAULT_TEMPLATES.professional_created,
+  professional_rescheduled: inst?.template_professional_rescheduled || DEFAULT_TEMPLATES.professional_rescheduled,
+  professional_cancelled: inst?.template_professional_cancelled || DEFAULT_TEMPLATES.professional_cancelled,
 });
 
 export const Whatsapp: React.FC = () => {
@@ -505,7 +523,7 @@ export const Whatsapp: React.FC = () => {
   const currentConfig: TemplateConfig =
     TEMPLATE_CONFIGS.find((c) => c.key === activeTab) || TEMPLATE_CONFIGS[0];
   const activeDraftText = templateDrafts[activeTab] ?? '';
-  const templateValidation = validateWhatsappTemplate(activeDraftText);
+  const templateValidation = validateWhatsappTemplate(activeDraftText, activeTab);
   const isLinkValid = templateValidation.hasLink;
 
   const handleInsertTag = (tag: string) => {
@@ -571,9 +589,9 @@ export const Whatsapp: React.FC = () => {
       if (error) throw error;
       const updated = toWhatsappInstance(data);
       setInstance(updated);
-      addToast(`Modelo de ${currentConfig.shortTitle} salvo com sucesso!`, 'success');
+      addToast('Modelo de mensagem salvo com sucesso!', 'success');
     } catch (error: any) {
-      console.error('Error saving whatsapp template:', error);
+      console.error('Error saving template:', error);
       addToast(error?.message || 'Erro ao salvar modelo de mensagem.', 'error');
     } finally {
       setSavingTemplate(false);
@@ -581,38 +599,43 @@ export const Whatsapp: React.FC = () => {
   };
 
   const handleResetTemplate = () => {
-    const defaultText = DEFAULT_TEMPLATES[activeTab];
+    const defaultTemplate = DEFAULT_TEMPLATES[activeTab];
     setTemplateDrafts((prev) => ({
       ...prev,
-      [activeTab]: defaultText,
+      [activeTab]: defaultTemplate,
     }));
-    addToast(`Texto padrão de ${currentConfig.shortTitle} restaurado no editor.`, 'info');
+    addToast('Modelo restaurado para o padrão original.', 'info');
   };
 
   const handleSendTemplateTest = async () => {
-    const targetPhone = testPhoneForTemplate.trim();
-    if (!targetPhone) {
-      addToast('Informe o número de telefone com DDD para receber o teste.', 'warning');
+    if (!instance) {
+      addToast('WhatsApp não configurado.', 'warning');
       return;
     }
 
-    const previewText = interpolateTemplate(activeDraftText, {
-      ...SAMPLE_MOCK_VARIABLES,
-      barbearia: tenant.tenantName || 'Navalhado Club',
-    });
+    const targetPhone = (testPhoneForTemplate || managerPhone).replace(/\D/g, '');
+    if (!targetPhone || targetPhone.length < 10) {
+      addToast('Informe um número de telefone de teste válido com DDD.', 'warning');
+      return;
+    }
 
     try {
       setSendingTemplateTest(true);
+      const renderedMessage = interpolateTemplate(activeDraftText, {
+        ...SAMPLE_MOCK_VARIABLES,
+        barbearia: tenant.tenantName || 'Navalhado Club',
+      });
+
       const { error } = await supabase.functions.invoke('whatsapp-integration/send-manual', {
         body: {
-          tenant_id: tenant.tenantId,
-          number: targetPhone,
-          text: previewText,
+          instance_id: instance.id,
+          phone: targetPhone,
+          message: renderedMessage,
         },
       });
 
       if (error) throw error;
-      addToast(`Teste do modelo disparado com sucesso para ${targetPhone}!`, 'success');
+      addToast(`Mensagem de teste enviada com sucesso para ${targetPhone}!`, 'success');
     } catch (error: any) {
       console.error('Error sending template test:', error);
       addToast(error?.message || 'Erro ao disparar teste do modelo.', 'error');
@@ -626,7 +649,11 @@ export const Whatsapp: React.FC = () => {
     reschedule: CalendarAdd01Icon,
     cancellation: CalendarRemove01Icon,
     reminder: Clock01Icon,
+    welcome_balcao: UserAdd01Icon,
     first_contact: Message01Icon,
+    professional_created: ScissorIcon,
+    professional_rescheduled: Calendar03Icon,
+    professional_cancelled: Cancel01Icon,
   };
 
   const getEventIcon = (key: WhatsappTemplateKey) => {
@@ -867,6 +894,27 @@ export const Whatsapp: React.FC = () => {
                         type="checkbox"
                         checked={instance.send_cancellation}
                         onChange={(event) => handleUpdateConfig('send_cancellation', event.target.checked)}
+                      />
+                      <span className="slider" />
+                    </label>
+                  </div>
+
+                  <div className="rule-row">
+                    <div className="rule-row__icon">
+                      <HugeiconsIcon icon={UserAdd01Icon} size={16} />
+                    </div>
+                    <div className="rule-row__content">
+                      <label htmlFor="send-welcome-balcao" className="rule-row__title">
+                        Boas-Vindas de Balcão
+                      </label>
+                      <span className="rule-row__desc">Envia link de autoatendimento para clientes cadastrados no balcão.</span>
+                    </div>
+                    <label className="switch">
+                      <input
+                        id="send-welcome-balcao"
+                        type="checkbox"
+                        checked={instance.send_welcome_balcao}
+                        onChange={(event) => handleUpdateConfig('send_welcome_balcao', event.target.checked)}
                       />
                       <span className="slider" />
                     </label>
