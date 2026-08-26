@@ -17,6 +17,7 @@ import {
   Clock01Icon,
   Delete02Icon,
 } from '@hugeicons/core-free-icons';
+import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -737,89 +738,17 @@ export const Profissionais: React.FC = () => {
       </div>
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
-      {profToDelete && (
-        <div
-          className="modal-backdrop"
-          onClick={() => !saving && setProfToDelete(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-delete-prof-title"
-        >
-          <div
-            className="modal-content shadow-xl animate-spring"
-            style={{ maxWidth: '480px', textAlign: 'center' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '50%',
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 1rem',
-              }}
-            >
-              <HugeiconsIcon icon={Delete02Icon} size={24} />
-            </div>
-            <h3 id="modal-delete-prof-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.5rem' }}>
-              Excluir profissional
-            </h3>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', margin: '0 0 1rem' }}>
-              Deseja realmente excluir o profissional <strong>{profToDelete.name}</strong>?
-            </p>
-            <div
-              style={{
-                background: 'rgba(217, 108, 0, 0.08)',
-                border: '1px solid rgba(217, 108, 0, 0.2)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.85rem',
-                fontSize: '12px',
-                color: 'var(--color-text-secondary)',
-                textAlign: 'left',
-                lineHeight: 1.45,
-                marginBottom: '1.25rem',
-              }}
-            >
-              <p style={{ margin: 0 }}>
-                O histórico de atendimentos passados, comandas e relatórios de comissão será <strong>100% preservado</strong>, mas este profissional não estará mais disponível para novos agendamentos na agenda ou no canal do cliente.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ flex: 1 }}
-                onClick={() => setProfToDelete(null)}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn-danger"
-                style={{
-                  flex: 1,
-                  background: '#ef4444',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: 700,
-                  padding: '10px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                }}
-                onClick={handleDeleteProf}
-                disabled={saving}
-              >
-                {saving ? 'Excluindo...' : 'Sim, excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
+      <ConfirmSoftDeleteModal
+        isOpen={Boolean(profToDelete)}
+        title="Excluir profissional"
+        itemName={profToDelete?.name || ''}
+        itemTypeLabel="o profissional"
+        warningText="O histórico de atendimentos passados, comandas e relatórios de comissão será 100% preservado, mas este profissional não estará mais disponível para novos agendamentos na agenda ou no canal do cliente."
+        loading={saving}
+        onConfirm={handleDeleteProf}
+        onClose={() => setProfToDelete(null)}
+      />
 
       {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL */}
       {isServicesModalOpen && selectedProfForServices && (

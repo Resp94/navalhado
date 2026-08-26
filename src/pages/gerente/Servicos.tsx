@@ -20,6 +20,7 @@ import {
   Delete02Icon,
 } from '@hugeicons/core-free-icons';
 import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
+import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 
 export interface Service {
   id: string;
@@ -509,53 +510,16 @@ export const Servicos: React.FC = () => {
       </section>
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
-      {serviceToDelete && (
-        <div
-          className="service-delete-modal-overlay"
-          onClick={() => !saving && setServiceToDelete(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-delete-service-title"
-        >
-          <div
-            className="service-delete-modal-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="service-delete-icon-badge">
-              <HugeiconsIcon icon={Delete02Icon} size={24} />
-            </div>
-            <h3 id="modal-delete-service-title" className="service-delete-title">
-              Excluir serviço
-            </h3>
-            <p className="service-delete-text">
-              Deseja realmente excluir o serviço <strong>{serviceToDelete.name}</strong>?
-            </p>
-            <div className="service-delete-warning-box">
-              <p>
-                O histórico de agendamentos, atendimentos e comandas passadas será <strong>100% preservado</strong> nos relatórios, mas este serviço não estará mais disponível para novos agendamentos.
-              </p>
-            </div>
-            <div className="service-delete-actions">
-              <button
-                type="button"
-                className="btn btn--outline-secondary"
-                onClick={() => setServiceToDelete(null)}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn btn--danger-delete"
-                onClick={handleDeleteService}
-                disabled={saving}
-              >
-                {saving ? 'Excluindo...' : 'Sim, excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmSoftDeleteModal
+        isOpen={Boolean(serviceToDelete)}
+        title="Excluir serviço"
+        itemName={serviceToDelete?.name || ''}
+        itemTypeLabel="o serviço"
+        warningText="O histórico de agendamentos, atendimentos e comandas passadas será 100% preservado nos relatórios, mas este serviço não estará mais disponível para novos agendamentos."
+        loading={saving}
+        onConfirm={handleDeleteService}
+        onClose={() => setServiceToDelete(null)}
+      />
 
       {isDrawerOpen && (
         <div className="service-drawer-overlay" onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}>

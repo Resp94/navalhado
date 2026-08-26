@@ -48,6 +48,16 @@ const TrendingUpIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
   </svg>
 );
 
+const isProductItem = (
+  itemType: string | null | undefined,
+  hasProduct: boolean,
+  hasService: boolean
+): boolean => {
+  if (itemType === 'produto' || itemType === 'product') return true;
+  if (itemType === 'servico' || itemType === 'service') return false;
+  return hasProduct && !hasService;
+};
+
 export const MinhasComissoes: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -168,7 +178,7 @@ export const MinhasComissoes: React.FC = () => {
           const historyItems: HistoryItem[] = [];
 
           items.forEach((item) => {
-            const isProduct = item.item_type === 'product' || item.item_type === 'produto' || Boolean(item.product && !item.service);
+            const isProduct = isProductItem(item.item_type, Boolean(item.product), Boolean(item.service));
             const totalPrice = Number(
               item.total_price ||
               (Number(item.unit_price || 0) * Number(item.quantity || 1)) ||

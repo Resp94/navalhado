@@ -1361,6 +1361,137 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       });
     }
 
+    async function handleCustomerWelcomeBalcao(params: {
+      supabase: any;
+      customerId: string;
+      tenantId: string;
+      appUrl: string;
+      instancesTable: string;
+      instanceTokenColumn: string;
+      corsHeaders: Record<string, string>;
+    }): Promise<Response> {
+      const { supabase, customerId, tenantId, appUrl, instancesTable, instanceTokenColumn, corsHeaders } = params;
+
+      console.log(`[WhatsApp-Integration] /send-notification: Boas-vindas de balcão para cliente '${customerId}' (tenant: ${tenantId})`);
+
+      const { data: config, error: configErr } = await supabase
+        .from(instancesTable)
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (configErr || !config || config.status !== "connected") {
+        return new Response(JSON.stringify({ status: "skipped", reason: "WhatsApp disconnected or not configured" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (config.send_welcome_balcao === false) {
+        console.log(`[WhatsApp-Integration] Envio de boas-vindas de balcão desativado para tenant ${tenantId}`);
+        return new Response(JSON.stringify({ status: "skipped", reason: "Welcome message disabled" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: customer, error: custErr } = await supabase
+        .from("customers")
+        .select("id, name, phone, token_acesso, welcome_sent_at, registration_origin, tenant_id")
+        .eq("id", customerId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (custErr || !customer) {
+        return new Response(JSON.stringify({ error: "Customer not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (customer.welcome_sent_at) {
+        console.log(`[WhatsApp-Integration] Boas-vindas já enviadas para o cliente ${customerId}`);
+        return new Response(JSON.stringify({ status: "skipped", reason: "Welcome already sent" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("name, slug")
+        .eq("id", tenantId)
+        .maybeSingle();
+
+      const clientAccessLink = tenant?.slug
+        ? `${appUrl}/${tenant.slug}`
+        : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
+
+      const variables: WhatsappTemplateVariables = {
+        cliente: customer.name || "Cliente",
+        barbearia: tenant?.name || "nossa barbearia",
+        link: clientAccessLink,
+      };
+
+      const clientPhone = formatPhoneNumber(customer.phone);
+      if (!clientPhone) {
+        return new Response(JSON.stringify({ status: "skipped", reason: "Invalid customer phone" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const messageText = formatMessageTemplate(
+        config.template_welcome_balcao,
+        DEFAULT_TEMPLATES.customer_welcome_balcao,
+        variables
+      );
+
+      const reservation = await reserveOutboundMessage({
+        tenantId: tenantId,
+        instanceId: config.id,
+        appointmentId: customerId,
+        eventType: "customer_welcome_balcao",
+      });
+
+      if (!reservation.duplicate && !reservation.error) {
+        try {
+          await sendTextWithRetry({
+            instanceName: config.instance_name,
+            instanceToken: config[instanceTokenColumn],
+            number: clientPhone,
+            text: messageText,
+            idempotencyKey: `customer_welcome:${customerId}`,
+          }, reservation.attempts || 1);
+
+          await finalizeOutboundMessage({
+            tenantId: tenantId,
+            appointmentId: customerId,
+            eventType: "customer_welcome_balcao",
+            status: "succeeded",
+            attempts: reservation.attempts || 1,
+            expectedAttempt: reservation.attempts || 1,
+          });
+
+          await supabase
+            .from("customers")
+            .update({ welcome_sent_at: new Date().toISOString() })
+            .eq("id", customerId)
+            .eq("tenant_id", tenantId);
+
+          return new Response(JSON.stringify({ success: true, event: "customer_welcome_balcao" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (sendErr) {
+          console.error("[WhatsApp-Integration] Falha ao enviar mensagem de boas-vindas:", sendErr);
+          return new Response(JSON.stringify({ error: "Failed to send welcome message" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({ status: "skipped", reason: "Duplicate welcome notification" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // -------------------------------------------------------------------------
     // ROTA: /send-notification (Postgres Triggers)
     // -------------------------------------------------------------------------
@@ -1413,123 +1544,14 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
-        console.log(`[WhatsApp-Integration] /send-notification: Boas-vindas de balcão para cliente '${customer_id}' (tenant: ${tenant_id})`);
-
-        const { data: config, error: configErr } = await supabase
-          .from(instancesTable)
-          .select("*")
-          .eq("tenant_id", tenant_id)
-          .maybeSingle();
-
-        if (configErr || !config || config.status !== "connected") {
-          return new Response(JSON.stringify({ status: "skipped", reason: "WhatsApp disconnected or not configured" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        if (config.send_welcome_balcao === false) {
-          console.log(`[WhatsApp-Integration] Envio de boas-vindas de balcão desativado para tenant ${tenant_id}`);
-          return new Response(JSON.stringify({ status: "skipped", reason: "Welcome message disabled" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        const { data: customer, error: custErr } = await supabase
-          .from("customers")
-          .select("id, name, phone, token_acesso, welcome_sent_at, registration_origin, tenant_id")
-          .eq("id", customer_id)
-          .eq("tenant_id", tenant_id)
-          .maybeSingle();
-
-        if (custErr || !customer) {
-          return new Response(JSON.stringify({ error: "Customer not found" }), {
-            status: 404,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        if (customer.welcome_sent_at) {
-          console.log(`[WhatsApp-Integration] Boas-vindas já enviadas para o cliente ${customer_id}`);
-          return new Response(JSON.stringify({ status: "skipped", reason: "Welcome already sent" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        const { data: tenant } = await supabase
-          .from("tenants")
-          .select("name, slug")
-          .eq("id", tenant_id)
-          .maybeSingle();
-
-        const clientAccessLink = tenant?.slug
-          ? `${appUrl}/${tenant.slug}`
-          : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
-
-        const variables: WhatsappTemplateVariables = {
-          cliente: customer.name || "Cliente",
-          barbearia: tenant?.name || "nossa barbearia",
-          link: clientAccessLink,
-        };
-
-        const clientPhone = formatPhoneNumber(customer.phone);
-        if (!clientPhone) {
-          return new Response(JSON.stringify({ status: "skipped", reason: "Invalid customer phone" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        const messageText = formatMessageTemplate(
-          config.template_welcome_balcao,
-          DEFAULT_TEMPLATES.customer_welcome_balcao,
-          variables
-        );
-
-        const reservation = await reserveOutboundMessage({
+        return await handleCustomerWelcomeBalcao({
+          supabase,
+          customerId: customer_id,
           tenantId: tenant_id,
-          instanceId: config.id,
-          appointmentId: customer_id,
-          eventType: "customer_welcome_balcao",
-        });
-
-        if (!reservation.duplicate && !reservation.error) {
-          try {
-            await sendTextWithRetry({
-              instanceName: config.instance_name,
-              instanceToken: config[instanceTokenColumn],
-              number: clientPhone,
-              text: messageText,
-              idempotencyKey: `customer_welcome:${customer_id}`,
-            }, reservation.attempts || 1);
-
-            await finalizeOutboundMessage({
-              tenantId: tenant_id,
-              appointmentId: customer_id,
-              eventType: "customer_welcome_balcao",
-              status: "succeeded",
-              attempts: reservation.attempts || 1,
-              expectedAttempt: reservation.attempts || 1,
-            });
-
-            await supabase
-              .from("customers")
-              .update({ welcome_sent_at: new Date().toISOString() })
-              .eq("id", customer_id)
-              .eq("tenant_id", tenant_id);
-
-            return new Response(JSON.stringify({ success: true, event: "customer_welcome_balcao" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          } catch (sendErr) {
-            console.error("[WhatsApp-Integration] Falha ao enviar mensagem de boas-vindas:", sendErr);
-            return new Response(JSON.stringify({ error: "Failed to send welcome message" }), {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-        }
-
-        return new Response(JSON.stringify({ status: "skipped", reason: "Duplicate welcome notification" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          appUrl,
+          instancesTable,
+          instanceTokenColumn,
+          corsHeaders,
         });
       }
 
