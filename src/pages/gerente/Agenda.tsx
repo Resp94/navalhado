@@ -24,6 +24,7 @@ import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
+  Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
   PlusSignIcon,
@@ -105,6 +106,7 @@ export interface Appointment {
     id: string;
     name: string;
     price: number;
+    duration_minutes?: number;
   };
   professional_id: string;
 }
@@ -215,6 +217,14 @@ export const Agenda: React.FC = () => {
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelingAppointment, setCancelingAppointment] = useState(false);
+
+  // Estados de Reagendamento Direto na Agenda
+  const [isAgendaRescheduleModalOpen, setIsAgendaRescheduleModalOpen] = useState(false);
+  const [agendaRescheduleAppointment, setAgendaRescheduleAppointment] = useState<Appointment | null>(null);
+  const [agendaRescheduleDate, setAgendaRescheduleDate] = useState('');
+  const [agendaRescheduleTime, setAgendaRescheduleTime] = useState('');
+  const [agendaRescheduleProfId, setAgendaRescheduleProfId] = useState('');
+  const [isAgendaRescheduling, setIsAgendaRescheduling] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1257,6 +1267,59 @@ export const Agenda: React.FC = () => {
     }
   };
 
+  // Abrir Modal de Reagendamento Direto na Agenda
+  const handleOpenRescheduleModal = (app: Appointment) => {
+    setAgendaRescheduleAppointment(app);
+    if (app.start_time) {
+      const d = new Date(app.start_time);
+      setAgendaRescheduleDate(dateInZone(d, tenant.timezone));
+      setAgendaRescheduleTime(formatTimeInZone(app.start_time, tenant.timezone));
+    } else {
+      setAgendaRescheduleDate(selectedDate);
+      setAgendaRescheduleTime('09:00');
+    }
+    setAgendaRescheduleProfId(app.professional_id || professionals[0]?.id || '');
+    setIsAgendaRescheduleModalOpen(true);
+  };
+
+  // Confirmar Reagendamento Direto na Agenda
+  const handleConfirmAgendaReschedule = async () => {
+    if (!agendaRescheduleAppointment || !agendaRescheduleDate || !agendaRescheduleTime) {
+      addToast('Selecione data e horário válidos para reagendar.', 'warning');
+      return;
+    }
+
+    setIsAgendaRescheduling(true);
+    try {
+      const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
+      const durationMin = agendaRescheduleAppointment.service?.duration_minutes || 30;
+      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMin * 60 * 1000).toISOString();
+
+      const { error: updErr } = await supabase
+        .from('appointments')
+        .update({
+          start_time: startTimeIso,
+          end_time: endTimeIso,
+          professional_id: agendaRescheduleProfId || agendaRescheduleAppointment.professional_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', agendaRescheduleAppointment.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (updErr) throw updErr;
+
+      addToast('Agendamento reagendado com sucesso!', 'success');
+      setIsAgendaRescheduleModalOpen(false);
+      setAgendaRescheduleAppointment(null);
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Erro ao reagendar agendamento na agenda:', err);
+      addToast(err?.message || 'Erro ao reagendar agendamento.', 'error');
+    } finally {
+      setIsAgendaRescheduling(false);
+    }
+  };
+
   // Disparar WhatsApp Direto
   const handleDirectWhatsApp = (phone: string, customerName: string, timeFormatted: string) => {
     openWhatsApp(
@@ -1376,6 +1439,7 @@ export const Agenda: React.FC = () => {
             handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
           onOpenCheckout={handleOpenCheckout}
+          onOpenReschedule={handleOpenRescheduleModal}
           onOpenCancel={handleOpenCancelModal}
           onStartService={handleStartService}
           onDirectWhatsApp={handleDirectWhatsApp}
@@ -1852,13 +1916,43 @@ export const Agenda: React.FC = () => {
                                   <span className="card-client-name" title={app.customer?.name}>
                                     {app.customer?.name || 'Cliente'}
                                   </span>
-                              <span className="card-service-name" title={app.service?.name}>
+                                  <span className="card-service-name" title={app.service?.name}>
                                     {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                   </span>
                                   {app.notes && (
                                     <p className="card-notes-snippet" title={app.notes}>
                                       <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
                                     </p>
+                                  )}
+                                  {app.status !== 'canceled' && (
+                                    <button
+                                      type="button"
+                                      className="card-quick-reagendar-btn"
+                                      title="Reagendar horário deste agendamento"
+                                      aria-label="Reagendar horário"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenRescheduleModal(app);
+                                      }}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        background: 'rgba(255, 255, 255, 0.9)',
+                                        border: '1px solid rgba(2, 132, 199, 0.3)',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 500,
+                                        cursor: 'pointer',
+                                        color: '#0284C7',
+                                        marginTop: '4px',
+                                        width: 'fit-content',
+                                      }}
+                                    >
+                                      <HugeiconsIcon icon={Calendar02Icon} size={11} />
+                                      <span>Reagendar</span>
+                                    </button>
                                   )}
                                 </div>
 
@@ -2406,9 +2500,17 @@ export const Agenda: React.FC = () => {
           }
           availableServices={services}
           availableProfessionals={professionals}
+          timezone={tenant.timezone}
+          appointmentDurationMinutes={
+            services.find((s) => s.id === checkoutAppointment.service?.id)?.duration_minutes || 30
+          }
           onClose={() => {
             setIsCheckoutModalOpen(false);
             setCheckoutAppointment(null);
+          }}
+          onRescheduled={(_newStartTime, _newProfId) => {
+            addToast('Atendimento reagendado com sucesso!', 'success');
+            fetchAppointments();
           }}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
@@ -2483,6 +2585,90 @@ export const Agenda: React.FC = () => {
                 disabled={cancelingAppointment}
               >
                 {cancelingAppointment ? 'Cancelando...' : 'Sim, Cancelar Horário'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 7. MODAL DE REAGENDAMENTO DIRETO NA AGENDA */}
+      <Modal
+        isOpen={isAgendaRescheduleModalOpen}
+        onClose={() => {
+          setIsAgendaRescheduleModalOpen(false);
+          setAgendaRescheduleAppointment(null);
+        }}
+        title="Reagendar Atendimento"
+      >
+        {agendaRescheduleAppointment && (
+          <div className="reschedule-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+              Reagendar horário de <strong>{agendaRescheduleAppointment.customer?.name}</strong> para o serviço{' '}
+              <strong>{agendaRescheduleAppointment.service?.name}</strong>.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label htmlFor="agenda_reschedule_date" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                  Nova Data:
+                </label>
+                <input
+                  id="agenda_reschedule_date"
+                  type="date"
+                  value={agendaRescheduleDate}
+                  onChange={(e) => setAgendaRescheduleDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="agenda_reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                  Novo Horário:
+                </label>
+                <input
+                  id="agenda_reschedule_time"
+                  type="time"
+                  value={agendaRescheduleTime}
+                  onChange={(e) => setAgendaRescheduleTime(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="agenda_reschedule_prof" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                Profissional:
+              </label>
+              <select
+                id="agenda_reschedule_prof"
+                value={agendaRescheduleProfId}
+                onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+              >
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="modal-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setIsAgendaRescheduleModalOpen(false);
+                  setAgendaRescheduleAppointment(null);
+                }}
+                disabled={isAgendaRescheduling}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleConfirmAgendaReschedule}
+                disabled={isAgendaRescheduling}
+              >
+                {isAgendaRescheduling ? 'Salvando...' : 'Confirmar Reagendamento'}
               </button>
             </div>
           </div>

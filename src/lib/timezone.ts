@@ -104,16 +104,22 @@ export function formatLeadTime(minutes?: number): string {
   return `${hours}h ${remainingMinutes}min antes`;
 }
 
+export function parseTimeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(timeStr.trim());
+  if (!match) return 0;
+  const [, hours, minutes] = match;
+  return Number(hours) * 60 + Number(minutes);
+}
+
 export function isSlotViableForToday(
   slot: string,
   currentLocalTime: string,
   leadTimeMinutes: number = 30,
 ): boolean {
-  const [slotH, slotM] = slot.split(':').map(Number);
-  const slotTotal = slotH * 60 + slotM;
+  const slotMinutes = parseTimeToMinutes(slot);
+  const currentMinutes = parseTimeToMinutes(currentLocalTime);
+  const minViableMinutes = currentMinutes + Math.max(0, leadTimeMinutes);
 
-  const [currH, currM] = currentLocalTime.split(':').map(Number);
-  const minViableTotal = currH * 60 + currM + leadTimeMinutes;
-
-  return slotTotal >= minViableTotal;
+  return slotMinutes >= minViableMinutes;
 }

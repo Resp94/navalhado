@@ -397,4 +397,38 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
     confirmSpy.mockRestore();
   });
+
+  it('abre o modal de checkout/comanda ao clicar no agendamento e permite acionar reagendamento sem cancelar', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+    });
+
+    const clientLabels = screen.getAllByText('Pedro Cliente');
+    const appointmentCard = clientLabels.find((el) => el.closest('.timeline-appointment-card'))?.closest('.timeline-appointment-card');
+    expect(appointmentCard).toBeInTheDocument();
+
+    fireEvent.click(appointmentCard!);
+
+    await waitFor(() => {
+      expect(screen.getByText('Comanda de atendimento')).toBeInTheDocument();
+    });
+  });
+
+  it('abre o modal direto de reagendamento ao clicar no botão Reagendar do card na agenda', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /Reagendar horário/i }).length).toBeGreaterThan(0);
+    });
+
+    const rescheduleButtons = screen.getAllByRole('button', { name: /Reagendar horário/i });
+    fireEvent.click(rescheduleButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reagendar horário de/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Confirmar Reagendamento/i })).toBeInTheDocument();
+    });
+  });
 });

@@ -562,7 +562,7 @@ export const Whatsapp: React.FC = () => {
     if (!templateValidation.isValid) {
       addToast(
         templateValidation.errorMessage ||
-          'A tag {link} é obrigatória para que o cliente acesse o Canal do Cliente.',
+          'O modelo excede o limite máximo permitido de 2000 caracteres.',
         'warning'
       );
       return;

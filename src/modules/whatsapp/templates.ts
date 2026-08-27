@@ -9,6 +9,22 @@ export type WhatsappTemplateKey =
   | 'professional_rescheduled'
   | 'professional_cancelled';
 
+/**
+ * Mapeamento canônico bidirecional entre nomes de eventos da Edge Function/Banco e chaves de templates da UI.
+ */
+export const EVENT_TO_TEMPLATE_KEY_MAP: Record<string, WhatsappTemplateKey> = {
+  appointment_created: 'confirmation',
+  appointment_rescheduled: 'reschedule',
+  appointment_updated: 'reschedule',
+  appointment_cancelled: 'cancellation',
+  appointment_reminder: 'reminder',
+  customer_welcome_balcao: 'welcome_balcao',
+  first_contact: 'first_contact',
+  professional_appointment_created: 'professional_created',
+  professional_appointment_rescheduled: 'professional_rescheduled',
+  professional_appointment_cancelled: 'professional_cancelled',
+};
+
 export interface TemplateTag {
   tag: string;
   label: string;

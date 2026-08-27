@@ -32,6 +32,7 @@ interface MobileAgendaViewProps {
   timeSlots: string[];
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
+  onOpenReschedule?: (app: Appointment) => void;
   onOpenCancel?: (app: Appointment) => void;
   onStartService?: (app: Appointment) => void | Promise<void>;
   onDirectWhatsApp?: (phone: string, name: string, time: string) => void;
@@ -58,6 +59,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   timeSlots,
   onOpenNewAppointment,
   onOpenCheckout,
+  onOpenReschedule: _onOpenReschedule,
   onOpenCancel: _onOpenCancel,
   onStartService: _onStartService,
   onDirectWhatsApp: _onDirectWhatsApp,

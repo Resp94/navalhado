@@ -26,6 +26,7 @@ import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
 import { supabase } from '../../lib/supabase';
+import { localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import type {
   Comanda,
@@ -64,8 +65,11 @@ interface ComandaCheckoutModalProps {
   }>;
   availableServices?: ServiceOption[];
   availableProfessionals?: ProfessionalOption[];
+  timezone?: string;
+  appointmentDurationMinutes?: number;
   onClose: () => void;
   onFinalizado: (comanda: Comanda) => void;
+  onRescheduled?: (newStartTime: string, newProfessionalId?: string | null) => void;
   comandaRepo?: ComandaRepository;
   caixaRepo?: CaixaRepository;
   produtoRepo?: ProdutoRepository;
@@ -128,8 +132,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   initialServices = [],
   availableServices = [],
   availableProfessionals = [],
+  timezone = 'America/Sao_Paulo',
+  appointmentDurationMinutes = 30,
   onClose,
   onFinalizado,
+  onRescheduled,
   comandaRepo,
   caixaRepo,
   produtoRepo,
@@ -169,7 +176,63 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Estados de reagendamento direto do agendamento vinculado à comanda
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleProfessionalId, setRescheduleProfessionalId] = useState('');
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [currentStartTime, setCurrentStartTime] = useState<string | null | undefined>(appointmentStartTime);
+
+  useEffect(() => {
+    setCurrentStartTime(appointmentStartTime);
+  }, [appointmentStartTime]);
+
   const inFlightAdditionsRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
+
+  const handleConfirmReschedule = async () => {
+    if (!appointmentId || !rescheduleDate || !rescheduleTime) {
+      setErrorMsg('Selecione uma data e horário válidos para reagendar.');
+      return;
+    }
+
+    setIsRescheduling(true);
+    setErrorMsg(null);
+    try {
+      const startTimeIso = localDateTimeToIso(rescheduleDate, rescheduleTime, timezone);
+      const durationMs = Math.max(15, appointmentDurationMinutes) * 60 * 1000;
+      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMs).toISOString();
+
+      const updatePayload: Record<string, unknown> = {
+        start_time: startTimeIso,
+        end_time: endTimeIso,
+        updated_at: new Date().toISOString(),
+      };
+      if (rescheduleProfessionalId) {
+        updatePayload.professional_id = rescheduleProfessionalId;
+      }
+
+      const { error: updErr } = await supabase
+        .from('appointments')
+        .update(updatePayload)
+        .eq('id', appointmentId)
+        .eq('tenant_id', tenantId);
+
+      if (updErr) throw updErr;
+
+      setCurrentStartTime(startTimeIso);
+      setIsRescheduleModalOpen(false);
+      if (onRescheduled) {
+        onRescheduled(startTimeIso, rescheduleProfessionalId || null);
+      }
+    } catch (err: any) {
+      console.error('Erro ao reagendar atendimento na comanda:', err);
+      setErrorMsg(err?.message || 'Erro ao reagendar atendimento.');
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
 
   const initialServicesKey = useMemo(() => {
     return (initialServices || []).map((s) => `${s.service_id}:${s.price}`).join('|');
@@ -770,24 +833,60 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </button>
                       )}
                       {appointmentId ? (
-                        <span
-                          className="comanda-customer-phone-tag"
-                          style={{
-                            backgroundColor: appointmentIsFitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(217, 108, 0, 0.08)',
-                            borderColor: 'rgba(217, 108, 0, 0.25)',
-                            color: 'var(--color-brand-primary)',
-                          }}
-                          title="Comanda gerada a partir de agendamento da agenda"
-                        >
-                          <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
-                          <span>
-                            {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
-                            {appointmentStartTime
-                              ? `: ${new Date(appointmentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(appointmentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                              : ''}
-                            {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
+                        <>
+                          <span
+                            className="comanda-customer-phone-tag"
+                            style={{
+                              backgroundColor: appointmentIsFitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(217, 108, 0, 0.08)',
+                              borderColor: 'rgba(217, 108, 0, 0.25)',
+                              color: 'var(--color-brand-primary)',
+                            }}
+                            title="Comanda gerada a partir de agendamento da agenda"
+                          >
+                            <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
+                            <span>
+                              {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
+                              {currentStartTime
+                                ? `: ${new Date(currentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(currentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                                : ''}
+                              {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
+                            </span>
                           </span>
-                        </span>
+                          {!isClosed && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (currentStartTime) {
+                                  const d = new Date(currentStartTime);
+                                  setRescheduleDate(d.toISOString().slice(0, 10));
+                                  const hh = String(d.getHours()).padStart(2, '0');
+                                  const mm = String(d.getMinutes()).padStart(2, '0');
+                                  setRescheduleTime(`${hh}:${mm}`);
+                                }
+                                setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
+                                setIsRescheduleModalOpen((prev) => !prev);
+                              }}
+                              className="comanda-customer-phone-tag"
+                              style={{
+                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                                borderColor: 'rgba(14, 165, 233, 0.3)',
+                                color: '#0284C7',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontWeight: 500,
+                              }}
+                              title="Reagendar horário deste atendimento mantendo a comanda aberta"
+                              aria-label="Reagendar atendimento"
+                            >
+                              <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: '#0284C7' }} />
+                              <span>Reagendar</span>
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <span
                           className="comanda-customer-phone-tag"
@@ -813,6 +912,103 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 <HugeiconsIcon icon={Cancel01Icon} size={20} />
               </button>
             </div>
+
+            {/* Painel Interativo de Reagendamento Direto na Comanda */}
+            {isRescheduleModalOpen && (
+              <div
+                className="comanda-reschedule-card"
+                role="region"
+                aria-label="Painel de Reagendamento de Atendimento"
+                style={{
+                  backgroundColor: '#F0F9FF',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  border: '1px solid #BAE6FD',
+                  margin: '12px 0 16px 0',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ color: '#0284C7' }}>
+                    <HugeiconsIcon icon={Calendar02Icon} size={18} />
+                  </div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#0369A1' }}>
+                    Reagendar Atendimento (sem cancelar comanda)
+                  </h4>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <label htmlFor="reschedule_date" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
+                      Nova Data:
+                    </label>
+                    <input
+                      id="reschedule_date"
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
+                      Novo Horário:
+                    </label>
+                    <input
+                      id="reschedule_time"
+                      type="time"
+                      value={rescheduleTime}
+                      onChange={(e) => setRescheduleTime(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  {availableProfessionals.length > 0 && (
+                    <div>
+                      <label htmlFor="reschedule_prof" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
+                        Profissional:
+                      </label>
+                      <select
+                        id="reschedule_prof"
+                        value={rescheduleProfessionalId}
+                        onChange={(e) => setRescheduleProfessionalId(e.target.value)}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                      >
+                        {availableProfessionals.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsRescheduleModalOpen(false)}
+                    disabled={isRescheduling}
+                    style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmReschedule}
+                    disabled={isRescheduling}
+                    style={{
+                      padding: '5px 14px',
+                      borderRadius: '6px',
+                      backgroundColor: '#0284C7',
+                      color: '#FFF',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {isRescheduling ? 'Reagendando...' : 'Confirmar Reagendamento'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Banner de Confirmação de Reabertura */}
             {reopenConfirmOpen && (

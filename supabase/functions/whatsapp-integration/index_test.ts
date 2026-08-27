@@ -1057,6 +1057,13 @@ Deno.test("POST /webhook - should reply with booking link to a registered custom
       });
     }
 
+    if (urlStr.includes("rest/v1/whatsapp_message_idempotency")) {
+      return new Response(JSON.stringify({}), {
+        status: 201,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     if (urlStr.includes("mock-vps.com/send/text")) {
       sentMessage = JSON.parse(String(init?.body));
       return new Response(JSON.stringify({ success: true }), {
@@ -1188,6 +1195,13 @@ const setupMessageWebhookFetch = ({
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
+    if (urlStr.includes("rest/v1/whatsapp_message_idempotency")) {
+      return new Response(JSON.stringify({}), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (urlStr.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
       rpcRequests.push(JSON.parse(String(init?.body)));
       return new Response(JSON.stringify(rpcBody), {
@@ -1236,6 +1250,7 @@ Deno.test("POST /webhook Message - creates customer and replies with new token",
     assertEquals(mock.sentMessages[0], {
       number: "5592999992222",
       text: "Olá, Cliente Perfil! Para escolher seu serviço e agendar um horário na *Barbearia Estilo*, acesse: https://mock-app.com/cliente/token-new/agendar",
+      linkPreview: false,
     });
   } finally {
     mock.restore();
