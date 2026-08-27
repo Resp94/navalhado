@@ -107,7 +107,7 @@ export function formatLeadTime(minutes?: number): string {
 export function isSlotViableForToday(
   slot: string,
   currentLocalTime: string,
-  leadTimeMinutes: number = 15,
+  leadTimeMinutes: number = 30,
 ): boolean {
   const [slotH, slotM] = slot.split(':').map(Number);
   const slotTotal = slotH * 60 + slotM;

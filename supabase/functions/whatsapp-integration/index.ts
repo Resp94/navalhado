@@ -147,6 +147,52 @@ export const formatMessageTemplate = (
   });
 };
 
+export function isFirstMessageOfDayForCustomer(
+  lastFirstContactAt: string | null | undefined,
+  tenantTimezone: string = "America/Sao_Paulo"
+): boolean {
+  if (!lastFirstContactAt) return true;
+  try {
+    const lastDate = new Date(lastFirstContactAt);
+    if (isNaN(lastDate.getTime())) return true;
+    const now = new Date();
+    const lastStr = lastDate.toLocaleDateString("en-CA", { timeZone: tenantTimezone });
+    const nowStr = now.toLocaleDateString("en-CA", { timeZone: tenantTimezone });
+    return lastStr !== nowStr;
+  } catch {
+    return true;
+  }
+}
+
+export interface FormatCustomerMessageParams {
+  template: string | null | undefined;
+  fallbackTemplate: string;
+  variables: WhatsappTemplateVariables;
+  isFirstMessageOfDay: boolean;
+  clientAccessLink: string;
+}
+
+export function resolveCustomerMessageWithDailyLink(params: FormatCustomerMessageParams): {
+  text: string;
+  linkIncluded: boolean;
+} {
+  const { template, fallbackTemplate, variables, isFirstMessageOfDay, clientAccessLink } = params;
+  const rawTemplate = template && template.trim().length > 0 ? template : fallbackTemplate;
+  const hasLinkTag = /\{link\}/i.test(rawTemplate);
+
+  let rendered = formatMessageTemplate(rawTemplate, fallbackTemplate, {
+    ...variables,
+    link: clientAccessLink,
+  });
+
+  if (isFirstMessageOfDay && !hasLinkTag && clientAccessLink) {
+    rendered = `${rendered.trim()}\n\nPara gerenciar seu agendamento e autoatendimento, acesse: ${clientAccessLink}`;
+    return { text: rendered, linkIncluded: true };
+  }
+
+  return { text: rendered, linkIncluded: hasLinkTag };
+}
+
 export const singleRelation = <T>(relation: T | T[] | null | undefined): T | null => {
   if (Array.isArray(relation)) return relation[0] ?? null;
   return relation ?? null;
@@ -172,7 +218,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
   }
 
   const url = new URL(req.url);
-  const path = url.pathname;
+  const path = (url.pathname || "").replace(/\/+$/, "") || "/";
 
   // Carregar variáveis de ambiente
   const uazapiBaseUrl = Deno.env.get("UAZAPI_BASE_URL") || "";
@@ -1628,7 +1674,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .select(`
           id,
           start_time,
-          customers ( name, phone, token_acesso ),
+          customers ( id, name, phone, token_acesso, last_first_contact_at ),
           professionals ( name, phone ),
           services ( name ),
           tenants ( name, slug, timezone )
@@ -1719,11 +1765,18 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       } else if (customer?.phone) {
         const clientPhone = formatPhoneNumber(customer.phone);
         if (clientPhone) {
-          const messageText = formatMessageTemplate(
-            resolver.custom,
-            resolver.fallback,
-            resolver.vars || variables
+          const isFirstDay = isFirstMessageOfDayForCustomer(
+            customer.last_first_contact_at,
+            tenant.timezone || "America/Sao_Paulo"
           );
+
+          const { text: messageText } = resolveCustomerMessageWithDailyLink({
+            template: resolver.custom,
+            fallbackTemplate: resolver.fallback,
+            variables: resolver.vars || variables,
+            isFirstMessageOfDay: isFirstDay,
+            clientAccessLink,
+          });
 
           const reservation = await reserveOutboundMessage({
             tenantId: tenant_id,
@@ -1752,6 +1805,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
                 expectedAttempt: reservation.attempts || 1,
               });
               clientSuccess = true;
+              if (customer.id && isFirstDay) {
+                await supabase
+                  .from("customers")
+                  .update({ last_first_contact_at: new Date().toISOString() })
+                  .eq("id", customer.id);
+              }
               console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para o cliente ${maskPhoneNumber(clientPhone)}`);
             } catch (sendError) {
               const failedAttempts = Number((sendError as { attempts?: unknown })?.attempts ?? clientAttempts);
@@ -1929,7 +1988,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           .select(`
             id,
             start_time,
-            customers ( name, phone, token_acesso ),
+            customers ( id, name, phone, token_acesso, last_first_contact_at ),
             professionals ( name ),
             services ( name ),
             tenants ( name, slug, timezone )
@@ -1959,7 +2018,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
             const link = tenant.slug
-              ? `${appUrl}/${tenant.slug}`
+              ? (customer.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
               : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
             const variables: WhatsappTemplateVariables = {
               cliente: customer.name || "Cliente",
@@ -1971,11 +2030,18 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               link,
             };
 
-            const messageText = formatMessageTemplate(
-              instance.template_reminder,
-              DEFAULT_TEMPLATES.appointment_reminder,
-              variables
+            const isFirstDay = isFirstMessageOfDayForCustomer(
+              customer.last_first_contact_at,
+              tenant.timezone || "America/Sao_Paulo"
             );
+
+            const { text: messageText } = resolveCustomerMessageWithDailyLink({
+              template: instance.template_reminder,
+              fallbackTemplate: DEFAULT_TEMPLATES.appointment_reminder,
+              variables,
+              isFirstMessageOfDay: isFirstDay,
+              clientAccessLink: link,
+            });
 
             const reminderWindow = `${hours}h`;
             const reservation = await reserveOutboundMessage({
@@ -2031,6 +2097,13 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               }
 
               console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${maskPhoneNumber(clientPhone)}`);
+              if (customer.id && isFirstDay) {
+                await supabase
+                  .from("customers")
+                  .update({ last_first_contact_at: new Date().toISOString() })
+                  .eq("id", customer.id);
+              }
+
               const { error: markErr } = await supabase
                 .from("appointments")
                 .update({ reminder_sent: true })

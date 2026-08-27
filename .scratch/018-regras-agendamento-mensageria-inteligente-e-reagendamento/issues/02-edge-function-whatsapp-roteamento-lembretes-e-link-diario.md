@@ -5,10 +5,10 @@ O mecanismo centralizado de formatação de mensagens na Edge Function `whatsapp
 
 **Blocked by:** 01 — Migration 055: Slots Canônicos, Origem de Cadastro, Trava de Antecedência e Reagendamento
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Implementar helper `resolveCustomerMessageWithDailyLink` para interpolar `{link}` ou anexar o link de autoatendimento na 1ª mensagem do dia.
-- [ ] Implementar `isFirstMessageOfDayForCustomer` com base no timezone do tenant e timestamp `customers.last_first_contact_at`.
-- [ ] Integrar helper nas rotas `/send-notification` (eventos `appointment_created`, `appointment_rescheduled`, `appointment_cancelled`).
-- [ ] Atualizar `customers.last_first_contact_at = now()` após envio bem-sucedido de mensagem na 1ª comunicação do dia.
-- [ ] Garantir que o evento `customer_welcome_balcao` seja processado exclusivamente para cadastros manuais do balcão.
+- [x] Implementar helper `resolveCustomerMessageWithDailyLink` para interpolar `{link}` ou anexar o link de autoatendimento na 1ª mensagem do dia.
+- [x] Implementar `isFirstMessageOfDayForCustomer` com base no timezone do tenant e timestamp `customers.last_first_contact_at`.
+- [x] Integrar helper nas rotas `/send-notification` (eventos `appointment_created`, `appointment_rescheduled`, `appointment_cancelled`).
+- [x] Atualizar `customers.last_first_contact_at = now()` após envio bem-sucedido de mensagem na 1ª comunicação do dia.
+- [x] Garantir que o evento `customer_welcome_balcao` seja processado exclusivamente para cadastros manuais do balcão.

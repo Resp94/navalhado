@@ -1,14 +1,13 @@
 # 04 — Templates de WhatsApp com Link Opcional e Editor Visual Flexível
 
 **What to build:**
-A flexibilização dos modelos de mensagens de WhatsApp, permitindo que o gerente salve templates (como a Confirmação de Agendamento) com ou sem a tag `{link}`. Desacoplar a validação de domínio em `src/modules/whatsapp/templates.ts`, habilitar o salvamento e envio de testes no editor visual de `src/pages/gerente/Whatsapp.tsx` e exibir dica explicativa amigável sobre o funcionamento do primeiro contato diário.
+A flexibilização dos modelos customizados de WhatsApp no módulo `src/modules/whatsapp/templates.ts` e no editor visual do painel do gerente `src/pages/gerente/Whatsapp.tsx`: remover a obrigatoriedade estrita da tag `{link}` no salvamento dos modelos, adicionar aviso contextual ao usuário explicando o anexo automático na 1ª mensagem do dia caso a tag seja omitida, e manter a pré-visualização fidedigna no simulador.
 
 **Blocked by:** 02 — Mensageria Inteligente e Link de Primeiro Contato na Edge Function
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Modificar `validateWhatsappTemplate` em `templates.ts` para que `isValid` dependa exclusivamente de `isWithinLengthLimit` (máximo 2000 caracteres), mantendo `hasLink` como flag descritiva.
-- [ ] Atualizar `Whatsapp.tsx` para não desabilitar o botão "Salvar Modelo" na ausência de `{link}`.
-- [ ] Substituir o banner vermelho de bloqueio por card informativo sutil com dica sobre o envio automático do link na 1ª mensagem do dia.
-- [ ] Permitir envio de teste de mensagem sem a tag `{link}` para o WhatsApp do gerente.
-- [ ] Atualizar testes em `templates.test.ts` e `Whatsapp.test.tsx` garantindo cobertura do novo comportamento.
+- [x] Atualizar `validateWhatsappTemplate` em `src/modules/whatsapp/templates.ts` tornando a tag `{link}` opcional (`isValid = isWithinLengthLimit`).
+- [x] Atualizar o editor visual em `src/pages/gerente/Whatsapp.tsx` removendo o bloqueio do botão "Salvar Modelo" quando `{link}` não for fornecido.
+- [x] Exibir card informativo no editor visual alertando que a tag `{link}` ausente será anexada automaticamente apenas na 1ª mensagem do dia ao cliente.
+- [x] Atualizar testes de unidade em `templates.test.ts` e `Whatsapp.test.tsx`.

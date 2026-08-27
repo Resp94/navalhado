@@ -73,19 +73,19 @@ describe('WhatsApp Templates Module', () => {
     expect(result).toBe('Olá Marcos! Serviço: {servico_personalizado}, link: https://exemplo.com');
   });
 
-  it('should validate domain template validation rules (link and character limit)', () => {
-    const valid = validateWhatsappTemplate('Seu link é {link}');
-    expect(valid.isValid).toBe(true);
-    expect(valid.hasLink).toBe(true);
-    expect(valid.isWithinLengthLimit).toBe(true);
-    expect(valid.errorMessage).toBeNull();
+  it('should validate domain template validation rules (optional link and character limit)', () => {
+    const validWithLink = validateWhatsappTemplate('Seu link é {link}');
+    expect(validWithLink.isValid).toBe(true);
+    expect(validWithLink.hasLink).toBe(true);
+    expect(validWithLink.isWithinLengthLimit).toBe(true);
+    expect(validWithLink.errorMessage).toBeNull();
 
-    const missingLink = validateWhatsappTemplate('Sem o link de agendamento');
-    expect(missingLink.isValid).toBe(false);
-    expect(missingLink.hasLink).toBe(false);
-    expect(missingLink.errorMessage).toContain('{link}');
+    const validWithoutLink = validateWhatsappTemplate('Sem o link de agendamento');
+    expect(validWithoutLink.isValid).toBe(true);
+    expect(validWithoutLink.hasLink).toBe(false);
+    expect(validWithoutLink.errorMessage).toBeNull();
 
-    const tooLong = validateWhatsappTemplate('a'.repeat(2001) + '{link}');
+    const tooLong = validateWhatsappTemplate('a'.repeat(2001));
     expect(tooLong.isValid).toBe(false);
     expect(tooLong.isWithinLengthLimit).toBe(false);
     expect(tooLong.errorMessage).toContain('2000');

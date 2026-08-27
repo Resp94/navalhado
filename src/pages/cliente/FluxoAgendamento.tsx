@@ -316,7 +316,7 @@ export const FluxoAgendamento: React.FC = () => {
 
     // Se ainda está dentro do horário de funcionamento de hoje:
     // Ocultar horários que já passaram ou que não atendem à antecedência mínima de agendamento
-    const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 15;
+    const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 30;
 
     return availableSlots.filter((slot) => isSlotViableForToday(slot, currentLocalTime, leadTime));
   }, [availableSlots, selectedDate, customerDetails]);
@@ -381,7 +381,9 @@ export const FluxoAgendamento: React.FC = () => {
       console.error('Erro ao agendar horário:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       if (err instanceof AgendamentoRegraCancelamentoError || errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED')) {
-        addToast('O prazo para alteração online deste agendamento expirou. Fale com o profissional pelo WhatsApp.', 'warning');
+        addToast('O prazo para alteração online deste agendamento expirou. Fale com o estabelecimento pelo WhatsApp.', 'warning');
+      } else if (errorMessage.includes('antecedência mínima') || errorMessage.includes('22023') || errorMessage.includes('não está mais disponível')) {
+        addToast(errorMessage || 'Este horário não está mais disponível com a antecedência mínima necessária configurada pela barbearia.', 'warning');
       } else {
         addToast(errorMessage || 'Erro ao realizar o agendamento.', 'error');
       }

@@ -524,7 +524,7 @@ export const Whatsapp: React.FC = () => {
     TEMPLATE_CONFIGS.find((c) => c.key === activeTab) || TEMPLATE_CONFIGS[0];
   const activeDraftText = templateDrafts[activeTab] ?? '';
   const templateValidation = validateWhatsappTemplate(activeDraftText, activeTab);
-  const isLinkValid = templateValidation.hasLink;
+  const isLinkPresent = templateValidation.hasLink;
 
   const handleInsertTag = (tag: string) => {
     const textarea = textareaRef.current;
@@ -1030,7 +1030,7 @@ export const Whatsapp: React.FC = () => {
                       }));
                     }}
                     placeholder="Digite a mensagem do modelo..."
-                    className={`template-textarea ${!isLinkValid ? 'template-textarea--invalid' : ''}`}
+                    className={`template-textarea ${!templateValidation.isValid ? 'template-textarea--invalid' : ''}`}
                   />
                   <div className="textarea-footer">
                     <span className={`char-count ${activeDraftText.length > 1800 ? 'char-count--warning' : ''}`}>
@@ -1039,16 +1039,31 @@ export const Whatsapp: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Banner de Validação do Link */}
-                {!isLinkValid && (
-                  <div className="link-validation-alert" role="alert">
-                    <div className="alert-icon">
+                {/* Dica informativa sobre link opcional no primeiro contato */}
+                {!isLinkPresent && currentConfig.audience === 'cliente' && (
+                  <div
+                    className="link-info-box"
+                    role="status"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      background: 'rgba(2, 132, 199, 0.08)',
+                      border: '1px solid rgba(2, 132, 199, 0.2)',
+                      borderRadius: '8px',
+                      marginTop: '10px',
+                      fontSize: '0.85rem',
+                      color: '#0369A1',
+                    }}
+                  >
+                    <div className="alert-icon" style={{ color: '#0284C7', marginTop: '2px' }}>
                       <HugeiconsIcon icon={Alert02Icon} size={18} />
                     </div>
                     <div className="alert-content">
-                      <strong>Tag obrigatória ausente</strong>
-                      <p>
-                        A tag <code>{'{link}'}</code> é obrigatória para que o cliente consiga acessar o autoatendimento. Insira a tag para poder salvar.
+                      <strong>Tag {'{link}'} opcional:</strong>
+                      <p style={{ margin: '2px 0 0', lineHeight: 1.4 }}>
+                        Como este modelo não inclui a tag <code>{'{link}'}</code>, o sistema anexará o link de autoatendimento automaticamente <strong>apenas na 1ª mensagem do dia</strong> enviada ao cliente.
                       </p>
                     </div>
                   </div>
@@ -1069,7 +1084,7 @@ export const Whatsapp: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveTemplate}
-                    disabled={savingTemplate || !isLinkValid}
+                    disabled={savingTemplate || !templateValidation.isValid}
                     className="btn btn--primary"
                   >
                     {savingTemplate ? (
@@ -1149,7 +1164,7 @@ export const Whatsapp: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleSendTemplateTest}
-                        disabled={sendingTemplateTest || !isLinkValid}
+                        disabled={sendingTemplateTest || !templateValidation.isValid || !testPhoneForTemplate.trim()}
                         className="btn btn--test-send"
                         title="Enviar mensagem real para o número digitado"
                       >

@@ -11,7 +11,7 @@ export interface Cliente {
   tags: string[];
   acquisition_channel: string | null;
   cpf: string | null;
-  registration_origin?: 'balcao' | 'online' | 'importacao' | 'canal_cliente' | 'whatsapp_bot';
+  registration_origin?: 'balcao' | 'online' | 'importacao' | 'canal_cliente' | 'whatsapp_bot' | 'agenda';
   welcome_sent_at?: string | null;
   created_at: string;
 }
@@ -27,7 +27,7 @@ export interface ClienteInputData {
   tags?: string[];
   acquisition_channel?: string | null;
   cpf?: string | null;
-  registration_origin?: 'balcao' | 'online' | 'importacao' | 'canal_cliente' | 'whatsapp_bot';
+  registration_origin?: 'balcao' | 'online' | 'importacao' | 'canal_cliente' | 'whatsapp_bot' | 'agenda';
   welcome_sent_at?: string | null;
 }
 

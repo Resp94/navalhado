@@ -261,14 +261,12 @@ export const validateWhatsappTemplate = (
   const isWithinLengthLimit = length <= MAX_TEMPLATE_LENGTH;
 
   let errorMessage: string | null = null;
-  if (!hasLink && !isTeamTemplate) {
-    errorMessage = 'A mensagem precisa conter a tag {link} para que o cliente consiga acessar o agendamento.';
-  } else if (!isWithinLengthLimit) {
+  if (!isWithinLengthLimit) {
     errorMessage = `O modelo excede o limite máximo permitido de ${MAX_TEMPLATE_LENGTH} caracteres.`;
   }
 
   return {
-    isValid: hasLink && isWithinLengthLimit,
+    isValid: isWithinLengthLimit,
     hasLink,
     isWithinLengthLimit,
     length,

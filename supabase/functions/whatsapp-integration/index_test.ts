@@ -1,5 +1,14 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { createHandler, handler, singleRelation, formatMessageTemplate, DEFAULT_TEMPLATES, type WhatsappTemplateVariables } from "./index.ts";
+import { 
+  createHandler, 
+  handler, 
+  singleRelation, 
+  formatMessageTemplate, 
+  DEFAULT_TEMPLATES, 
+  isFirstMessageOfDayForCustomer,
+  resolveCustomerMessageWithDailyLink,
+  type WhatsappTemplateVariables 
+} from "./index.ts";
 import {
 
   createUazapiProvider,
@@ -2783,6 +2792,83 @@ Deno.test("POST /send-notification sends to barber even if client send_cancellat
     restoreFetch();
   }
 });
+
+Deno.test("isFirstMessageOfDayForCustomer accurately determines first contact of day", () => {
+  // 1. Sem contato anterior -> true
+  assertEquals(isFirstMessageOfDayForCustomer(null, "America/Sao_Paulo"), true);
+  assertEquals(isFirstMessageOfDayForCustomer(undefined, "America/Sao_Paulo"), true);
+
+  // 2. Contato hoje -> false
+  const nowIso = new Date().toISOString();
+  assertEquals(isFirstMessageOfDayForCustomer(nowIso, "America/Sao_Paulo"), false);
+
+  // 3. Contato ontem -> true
+  const yesterday = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  assertEquals(isFirstMessageOfDayForCustomer(yesterday, "America/Sao_Paulo"), true);
+});
+
+Deno.test("resolveCustomerMessageWithDailyLink handles optional link and daily link inclusion", () => {
+  const variables: WhatsappTemplateVariables = {
+    cliente: "João",
+    barbearia: "Navalhado",
+    servico: "Corte",
+    profissional: "Carlos",
+    data: "28/08/2026",
+    horario: "14:00",
+  };
+  const link = "https://app.navalhado.com.br/barbearia-teste";
+
+  // Caso 1: 1ª Mensagem do dia + Template SEM {link} -> DEVE anexar link ao final
+  const templateSemLink = "Olá, {cliente}! Seu agendamento foi confirmado para {data} às {horario}.";
+  const res1 = resolveCustomerMessageWithDailyLink({
+    template: templateSemLink,
+    fallbackTemplate: templateSemLink,
+    variables,
+    isFirstMessageOfDay: true,
+    clientAccessLink: link,
+  });
+  assertEquals(res1.linkIncluded, true);
+  assertEquals(res1.text.includes("Acesse: https://app.navalhado.com.br/barbearia-teste") || res1.text.includes("acesse: https://app.navalhado.com.br/barbearia-teste"), true);
+
+  // Caso 2: 2ª Mensagem do dia + Template SEM {link} -> NÃO anexa link (mensagem limpa)
+  const res2 = resolveCustomerMessageWithDailyLink({
+    template: templateSemLink,
+    fallbackTemplate: templateSemLink,
+    variables,
+    isFirstMessageOfDay: false,
+    clientAccessLink: link,
+  });
+  assertEquals(res2.linkIncluded, false);
+  assertEquals(res2.text.includes("https://app.navalhado.com.br"), false);
+
+  // Caso 3: Template COM {link} -> Interpola em qualquer mensagem
+  const templateComLink = "Olá, {cliente}! Acesse {link} para detalhes.";
+  const res3 = resolveCustomerMessageWithDailyLink({
+    template: templateComLink,
+    fallbackTemplate: templateComLink,
+    variables,
+    isFirstMessageOfDay: false,
+    clientAccessLink: link,
+  });
+  assertEquals(res3.linkIncluded, true);
+  assertEquals(res3.text.includes("Acesse https://app.navalhado.com.br/barbearia-teste"), true);
+});
+
+Deno.test("createHandler normalizes trailing slashes in route paths", async () => {
+  const testHandler = createHandler();
+  // Requisição com trailing slash deve responder com status de autenticação (401) e não 404
+  const req = new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/process-reminders/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-db-trigger-secret": "wrong-secret",
+    },
+  });
+
+  const res = await testHandler(req);
+  assertEquals(res.status, 401);
+});
+
 
 
 

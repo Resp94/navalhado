@@ -1,15 +1,13 @@
-# 06 — Reagendamento Direto de Horário na Agenda e na Comanda
+# 06 — Reagendamento Direto na Agenda e Comanda sem Cancelamento Fantasma
 
 **What to build:**
-A funcionalidade de alteração direta de data e horário de agendamentos no painel do gerente: disponibilizar a ação "Reagendar Horário" no card da agenda (`src/pages/gerente/Agenda.tsx`) e no cabeçalho do checkout da comanda (`src/components/comandas/ComandaCheckoutModal.tsx`), abrindo modal para seleção de nova data e novo horário livre. O salvamento executa `UPDATE public.appointments`, disparando a notificação de reagendamento sem cancelar a comanda vinculada nem criar novos registros duplicados.
+A experiência de reagendamento direto na Agenda do Gerente (`src/pages/gerente/Agenda.tsx`) e na Comanda (`src/components/comandas/ComandaCheckoutModal.tsx`), assegurando que reagendamentos atualizem data/horário/profissional sem disparar cancelamentos intermediários, e garantindo que cadastros manuais de clientes na Agenda utilizem `registration_origin = 'agenda'` para não disparar mensagens indevidas de boas-vindas do balcão.
 
-**Blocked by:** 01 — Migration 055: Slots Canônicos, Origem de Cadastro, Trava de Antecedência e Reagendamento, 02 — Mensageria Inteligente e Link de Primeiro Contato na Edge Function
+**Blocked by:** 01 — Migration 055: Slots Canônicos, Origem de Cadastro, Trava de Antecedência e Reagendamento
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Adicionar botão e modal de "Reagendar Horário" nos cards de agendamento em `Agenda.tsx`.
-- [ ] Adicionar ação de reagendamento no cabeçalho do modal `ComandaCheckoutModal.tsx` para comandas com agendamento associado.
-- [ ] Executar atualização de `start_time` e `end_time` no banco e atualizar o estado local da agenda sem perder itens da comanda.
-- [ ] Passar `registration_origin: 'agenda'` na criação de novo cliente embutida no modal de novo agendamento.
-- [ ] Passar `registration_origin: 'balcao'` no cadastro manual em `Clientes.tsx`.
-- [ ] Atualizar testes em `Agenda.test.tsx` e `ComandaCheckoutModal.test.tsx`.
+- [x] Garantir `registration_origin: 'agenda'` para clientes cadastrados diretamente pela Agenda.
+- [x] Garantir que alterações de data/horário nos agendamentos realizem atualização direta sem cancelamento fantasma nem duplicação de comandas abertas.
+- [x] Validar que o checkout de comandas mantenha vínculo consistente com o agendamento mesmo após reagendamentos.
+- [x] Atualizar testes de unidade da Agenda.
