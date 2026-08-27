@@ -127,6 +127,9 @@ export const Profissionais: React.FC = () => {
 
       if (error) throw error;
       addToast(`Profissional "${profToDelete.name}" excluído com sucesso. Histórico preservado.`, 'success');
+      if (editingId === profToDelete.id) {
+        resetForm();
+      }
       setProfToDelete(null);
       fetchProfessionals();
     } catch (err: any) {
