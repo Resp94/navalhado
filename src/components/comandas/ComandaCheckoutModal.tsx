@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
@@ -54,7 +54,7 @@ interface ComandaCheckoutModalProps {
   appointmentServiceName?: string | null;
   appointmentIsFitting?: boolean | null;
   customerId?: string | null;
-  customerName: string;
+  customerName?: string;
   customerPhone?: string | null;
   initialServices?: Array<{
     service_id: string;
@@ -123,7 +123,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   appointmentServiceName,
   appointmentIsFitting,
   customerId,
-  customerName,
+  customerName = 'Cliente Balcão',
   customerPhone,
   initialServices = [],
   availableServices = [],
@@ -169,6 +169,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const inFlightAdditionsRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
 
   const initialServicesKey = useMemo(() => {
     return (initialServices || []).map((s) => `${s.service_id}:${s.price}`).join('|');
@@ -248,7 +249,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                 service_id: it.service_id,
                 product_id: it.product_id,
                 professional_id: it.professional_id,
-                name: it.name || (it.item_type === 'servico' ? 'Serviço' : 'Produto'),
+                name:
+                  it.name ||
+                  (it.item_type === 'servico'
+                    ? availableServices.find((s) => s.id === it.service_id)?.name || 'Serviço'
+                    : 'Produto'),
                 quantity: it.quantity,
                 unit_price: it.unit_price,
               }))
@@ -329,7 +334,107 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAddServiceConfirm = () => {
+  const persistNewItem = async (params: {
+    tempId: string;
+    item_type: 'servico' | 'produto';
+    service_id: string | null;
+    product_id: string | null;
+    professional_id: string | null;
+    name: string;
+    quantity: number;
+    unit_price: number;
+  }) => {
+    const newItemLocal: ItemLocal = {
+      tempId: params.tempId,
+      item_type: params.item_type,
+      service_id: params.service_id,
+      product_id: params.product_id,
+      professional_id: params.professional_id,
+      name: params.name,
+      quantity: params.quantity,
+      unit_price: params.unit_price,
+    };
+
+    setItens((prev) => [...prev, newItemLocal]);
+
+    const addPromise = (async () => {
+      if (comandaId) {
+        const added = await comRepo.addItem(comandaId, tenantId, {
+          item_type: params.item_type,
+          service_id: params.service_id,
+          product_id: params.product_id,
+          professional_id: params.professional_id,
+          quantity: params.quantity,
+          unit_price: params.unit_price,
+          total_price: params.quantity * params.unit_price,
+        });
+        setItens((prev) =>
+          prev.map((it) => (it.tempId === params.tempId ? { ...it, id: added.id, tempId: added.id } : it))
+        );
+        return added.id;
+      } else {
+        const created = await comRepo.createComanda({
+          tenant_id: tenantId,
+          appointment_id: appointmentId || null,
+          customer_id: customerId || null,
+          itens: [
+            ...itens.map((it) => ({
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            })),
+            {
+              item_type: params.item_type,
+              service_id: params.service_id,
+              product_id: params.product_id,
+              professional_id: params.professional_id,
+              quantity: params.quantity,
+              unit_price: params.unit_price,
+            },
+          ],
+        });
+        setComandaId(created.id);
+        setLoadedComanda(created);
+        if (created.itens && created.itens.length > 0) {
+          setItens(
+            created.itens.map((it) => ({
+              tempId: it.id,
+              id: it.id,
+              item_type: it.item_type,
+              service_id: it.service_id,
+              product_id: it.product_id,
+              professional_id: it.professional_id,
+              name: it.name || params.name,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            }))
+          );
+          const foundCreated = created.itens.find(
+            (it) => it.service_id === params.service_id && it.product_id === params.product_id
+          );
+          return foundCreated?.id;
+        }
+        return undefined;
+      }
+    })();
+
+    inFlightAdditionsRef.current.set(params.tempId, addPromise);
+
+    try {
+      await addPromise;
+    } catch (err: any) {
+      console.error(`Erro ao persistir adição de ${params.item_type} na comanda:`, err);
+      setItens((prev) => prev.filter((it) => it.tempId !== params.tempId));
+      setErrorMsg(err?.message || `Erro ao salvar ${params.item_type} na comanda.`);
+    } finally {
+      inFlightAdditionsRef.current.delete(params.tempId);
+    }
+  };
+
+  const handleAddServiceConfirm = async () => {
     const srv = availableServices.find((s) => s.id === selectedServiceId);
     if (!srv) return;
 
@@ -339,25 +444,24 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       availableProfessionals[0]?.id ||
       null;
 
-    setItens((prev) => [
-      ...prev,
-      {
-        tempId: `srv-${Date.now()}`,
-        item_type: 'servico',
-        service_id: srv.id,
-        professional_id: defaultProfId,
-        name: srv.name,
-        quantity: 1,
-        unit_price: srv.price,
-      },
-    ]);
-
+    const tempId = `srv-${Date.now()}`;
     setSelectedServiceId('');
     setSelectedProfId('');
     setIsAddingService(false);
+
+    await persistNewItem({
+      tempId,
+      item_type: 'servico',
+      service_id: srv.id,
+      product_id: null,
+      professional_id: defaultProfId,
+      name: srv.name,
+      quantity: 1,
+      unit_price: srv.price,
+    });
   };
 
-  const handleAddProductConfirm = () => {
+  const handleAddProductConfirm = async () => {
     const prod = catalogProducts.find((p) => p.id === selectedProductId);
     if (!prod) return;
 
@@ -367,26 +471,48 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       availableProfessionals[0]?.id ||
       null;
 
-    setItens((prev) => [
-      ...prev,
-      {
-        tempId: `prod-${Date.now()}`,
-        item_type: 'produto',
-        product_id: prod.id,
-        professional_id: defaultProfId,
-        name: prod.name,
-        quantity: 1,
-        unit_price: prod.price,
-      },
-    ]);
-
+    const tempId = `prod-${Date.now()}`;
     setSelectedProductId('');
     setSelectedProfId('');
     setIsAddingProduct(false);
+
+    await persistNewItem({
+      tempId,
+      item_type: 'produto',
+      service_id: null,
+      product_id: prod.id,
+      professional_id: defaultProfId,
+      name: prod.name,
+      quantity: 1,
+      unit_price: prod.price,
+    });
   };
 
-  const handleRemoveItem = (tempId: string) => {
+  const handleRemoveItem = async (tempId: string) => {
+    const itemToRemove = itens.find((it) => it.tempId === tempId);
     setItens((prev) => prev.filter((it) => it.tempId !== tempId));
+
+    let itemId = itemToRemove?.id;
+    if (!itemId && inFlightAdditionsRef.current.has(tempId)) {
+      try {
+        itemId = await inFlightAdditionsRef.current.get(tempId);
+      } catch {
+        // Se a adição falhou, o item não foi para o banco
+      }
+    }
+
+    if (comandaId && itemId) {
+      try {
+        await comRepo.removeItem(itemId, comandaId);
+      } catch (err: any) {
+        console.error('Erro ao remover item da comanda:', err);
+        if (itemToRemove) {
+          setItens((prev) => [...prev, itemToRemove]);
+        }
+        setErrorMsg(err?.message || 'Erro ao excluir item da comanda.');
+      }
+    }
+    inFlightAdditionsRef.current.delete(tempId);
   };
 
   const handleSelectSingleMethod = (method: MetodoPagamento) => {

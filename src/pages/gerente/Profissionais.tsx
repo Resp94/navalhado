@@ -15,7 +15,9 @@ import {
   CheckmarkCircle02Icon,
   AlertCircleIcon,
   Clock01Icon,
+  Delete02Icon,
 } from '@hugeicons/core-free-icons';
+import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -63,6 +65,7 @@ export const Profissionais: React.FC = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profToDelete, setProfToDelete] = useState<Professional | null>(null);
 
   // Estados do Formulário de Profissional
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export const Profissionais: React.FC = () => {
         .from('professionals')
         .select('*')
         .eq('tenant_id', tenant.tenantId)
+        .is('deleted_at', null)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -105,6 +109,30 @@ export const Profissionais: React.FC = () => {
       addToast('Não foi possível carregar a equipe de profissionais.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteProf = async () => {
+    if (!profToDelete) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('professionals')
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_active: false,
+        })
+        .eq('id', profToDelete.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (error) throw error;
+      addToast(`Profissional "${profToDelete.name}" excluído com sucesso. Histórico preservado.`, 'success');
+      setProfToDelete(null);
+      fetchProfessionals();
+    } catch (err: any) {
+      addToast(err?.message || 'Erro ao excluir profissional.', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -691,6 +719,15 @@ export const Profissionais: React.FC = () => {
                       >
                         Editar Escala/Dados
                       </button>
+                      <button
+                        onClick={() => setProfToDelete(prof)}
+                        className="btn-action btn-action--delete"
+                        title="Excluir profissional (mantém histórico)"
+                        aria-label={`Excluir profissional ${prof.name}`}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} size={15} />
+                        Excluir
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -699,6 +736,19 @@ export const Profissionais: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
+      <ConfirmSoftDeleteModal
+        isOpen={Boolean(profToDelete)}
+        title="Excluir profissional"
+        itemName={profToDelete?.name || ''}
+        itemTypeLabel="o profissional"
+        warningText="O histórico de atendimentos passados, comandas e relatórios de comissão será 100% preservado, mas este profissional não estará mais disponível para novos agendamentos na agenda ou no canal do cliente."
+        loading={saving}
+        onConfirm={handleDeleteProf}
+        onClose={() => setProfToDelete(null)}
+      />
 
       {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL */}
       {isServicesModalOpen && selectedProfForServices && (
@@ -1508,6 +1558,19 @@ export const Profissionais: React.FC = () => {
           color: #ffffff;
           border-color: var(--color-brand-primary);
           box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
+        }
+
+        .btn-action--delete {
+          background: rgba(239, 68, 68, 0.08);
+          color: #ef4444;
+          border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-action--delete:hover {
+          background: #ef4444;
+          color: #ffffff;
+          border-color: #ef4444;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
         }
 
         @media (max-width: 640px) {

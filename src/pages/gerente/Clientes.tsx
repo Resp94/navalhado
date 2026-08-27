@@ -174,6 +174,7 @@ export const Clientes: React.FC = () => {
         cpf: formData.cpf || null,
         notes: formData.notes,
         tags: formData.tags,
+        registration_origin: editingCustomer ? editingCustomer.registration_origin : 'balcao',
       });
 
       if (success) {

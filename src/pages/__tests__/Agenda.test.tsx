@@ -86,6 +86,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     },
   ];
 
+  let mockBlockedSlots: any[] = [];
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -94,29 +96,28 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-08-16T12:00:00.000Z')); // 09:00 em SP
     vi.clearAllMocks();
+    mockBlockedSlots = [];
     mockOutletContext.businessHours.domingo.active = true;
     mockFrom.mockImplementation((table: string) => {
       if (table === 'professionals') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: vi.fn().mockResolvedValue({ data: mockProfessionals, error: null }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockProfessionals, error: null }),
         };
+        return builder;
       }
       if (table === 'services') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
         };
+        return builder;
       }
       if (table === 'customers') {
         return {
@@ -141,18 +142,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         };
       }
       if (table === 'appointments') {
-        return {
-          select: () => ({
-            eq: () => ({
-              gte: () => ({
-                lt: () => ({
-                  neq: () => ({
-                    order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
-                  }),
-                }),
-              }),
-            }),
-          }),
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          lt: () => builder,
+          neq: () => builder,
+          order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
           insert: (payload: any) => ({
             select: () => ({
               single: vi.fn().mockResolvedValue({
@@ -168,6 +164,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
             eq: vi.fn().mockResolvedValue({ error: null }),
           }),
         };
+        return builder;
       }
       if (table === 'comandas') {
         return {
@@ -192,19 +189,21 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         };
       }
       if (table === 'blocked_slots') {
-        return {
-          select: () => ({
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          lt: () => builder,
+          order: vi.fn().mockImplementation(() => Promise.resolve({ data: mockBlockedSlots, error: null })),
+          delete: () => ({
             eq: () => ({
-              gte: () => ({
-                lt: () => ({
-                  order: vi.fn().mockResolvedValue({ data: [], error: null }),
-                }),
-              }),
+              eq: vi.fn().mockResolvedValue({ error: null }),
             }),
           }),
         };
+        return builder;
       }
-      return { select: vi.fn(), insert: vi.fn() };
+      return { select: vi.fn(), insert: vi.fn(), delete: vi.fn() };
     });
   });
 
@@ -272,20 +271,53 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Cliente rápido de balcão/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Novo cadastro/i })).toBeInTheDocument();
     });
 
     // Ajustar horário para 14:00 para garantir que seja futuro no dia de teste e dentro do expediente
     const timeInput = screen.getByLabelText(/Horário de início/i);
     fireEvent.change(timeInput, { target: { value: '14:00' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /Cliente rápido de balcão/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Novo cadastro/i }));
 
     const nameInput = screen.getByLabelText(/Nome do cliente/i);
     const phoneInput = screen.getByLabelText(/WhatsApp ou celular/i);
 
     fireEvent.change(nameInput, { target: { value: 'Cliente Balcão Teste' } });
     fireEvent.change(phoneInput, { target: { value: '11977776666' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Encaixe agendado com sucesso!',
+        'success'
+      );
+    });
+  });
+
+  it('permite realizar encaixe de balcão sem cadastro ou seleção de cliente (customerMode = none)', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Sem cadastro \(Balcão\)/i })).toBeInTheDocument();
+    });
+
+    // Selecionar modo sem cadastro
+    fireEvent.click(screen.getByRole('button', { name: /Sem cadastro \(Balcão\)/i }));
+
+    // Ajustar horário para 14:00
+    const timeInput = screen.getByLabelText(/Horário de início/i);
+    fireEvent.change(timeInput, { target: { value: '14:00' } });
+
+    expect(screen.getByText(/Atendimento avulso de balcão sem identificação de cliente/i)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: /Confirmar/i });
     fireEvent.click(submitBtn);
@@ -315,5 +347,54 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     );
 
     mockOutletContext.businessHours.domingo.active = true;
+  });
+
+  it('abre o modal de bloqueio de horários ao clicar no botão Bloquear no cabeçalho', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Bloquear/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Bloquear/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Bloquear horário/i)).toBeInTheDocument();
+    });
+  });
+
+  it('exibe bloqueio de horário na grade e remove ao confirmar clique no card de bloqueio', async () => {
+    mockBlockedSlots = [
+      {
+        id: 'blk-1',
+        tenant_id: 'tenant-123',
+        professional_id: 'prof-1',
+        start_time: '2026-08-16T15:00:00.000Z', // 12:00 em SP
+        end_time: '2026-08-16T16:00:00.000Z', // 13:00 em SP
+        reason: 'Almoço',
+        is_all_day: false,
+      },
+    ];
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Almoço')).toBeInTheDocument();
+    });
+
+    const blockCard = screen.getByText('Almoço').closest('.timeline-blocked-card');
+    expect(blockCard).toBeInTheDocument();
+
+    fireEvent.click(blockCard!);
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Almoço'));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Bloqueio removido com sucesso!', 'success');
+    });
+
+    confirmSpy.mockRestore();
   });
 });

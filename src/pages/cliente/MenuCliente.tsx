@@ -646,16 +646,17 @@ export const MenuCliente: React.FC = () => {
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '11px',
-                          color: 'var(--color-text-secondary)',
-                          backgroundColor: 'rgba(234, 222, 214, 0.25)',
-                          padding: '6px 12px',
-                          borderRadius: '8px'
+                          gap: '8px',
+                          backgroundColor: 'var(--color-bg-secondary)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          padding: '0.625rem 0.875rem',
+                          fontSize: '12px',
+                          color: 'var(--color-text-secondary)'
                         }}>
-                          <HugeiconsIcon icon={InformationCircleIcon} size={14} color="var(--color-brand-primary)" style={{ flexShrink: 0 }} />
+                          <HugeiconsIcon icon={Time01Icon} size={16} color="var(--color-brand-primary)" style={{ flexShrink: 0 }} />
                           <span>
-                            Cancelamento online permitido <strong>{formatLeadTime(app.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong>. Em caso de imprevisto próximo ao horário, fale no WhatsApp do barbeiro.
+                            Cancelamento online permitido <strong>{formatLeadTime(app.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}</strong>. Em caso de imprevisto próximo ao horário, fale no WhatsApp da barbearia.
                           </span>
                         </div>
                       )}
@@ -872,7 +873,7 @@ export const MenuCliente: React.FC = () => {
           }}>
             <HugeiconsIcon icon={AlertCircleIcon} size={24} style={{ flexShrink: 0 }} />
             <span style={{ fontSize: '13px', lineHeight: 1.4 }}>
-              O prazo para cancelamento automático pelo aplicativo ({formatLeadTime(expiredAppointment?.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}) expirou. Para não deixar a cadeira do profissional vazia, por favor, avise-o diretamente pelo WhatsApp!
+              O prazo para cancelamento automático pelo aplicativo ({formatLeadTime(expiredAppointment?.min_cancellation_lead_time_minutes ?? customerDetails?.min_cancellation_lead_time_minutes ?? 120)}) expirou. Para não deixar o horário ocioso, por favor, entre em contato diretamente com a barbearia pelo WhatsApp!
             </span>
           </div>
 
@@ -913,9 +914,9 @@ export const MenuCliente: React.FC = () => {
             {expiredAppointment && (
               <a
                 href={`https://wa.me/${(() => {
-                  const raw = (expiredAppointment.professional_phone || expiredAppointment.tenant_phone || '').replace(/\D/g, '');
+                  const raw = (expiredAppointment.tenant_phone || customerDetails?.tenant_phone || expiredAppointment.professional_phone || '').replace(/\D/g, '');
                   return raw.startsWith('55') ? raw : `55${raw}`;
-                })()}?text=${encodeURIComponent(`Olá, ${expiredAppointment.professional_name}! Sou o(a) ${customerDetails?.customer_name || 'cliente'} e tive um imprevisto com o meu agendamento de ${formatDateTime(expiredAppointment.start_time).fullString}. Poderia me ajudar a remarcar/cancelar?`)}`}
+                })()}?text=${encodeURIComponent(`Olá! Sou o(a) ${customerDetails?.customer_name || 'cliente'} e tive um imprevisto com o meu agendamento de ${expiredAppointment.service_name} com ${expiredAppointment.professional_name} em ${formatDateTime(expiredAppointment.start_time).fullString}. Poderiam me ajudar a remarcar/cancelar?`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -935,7 +936,7 @@ export const MenuCliente: React.FC = () => {
                 }}
               >
                 <HugeiconsIcon icon={WhatsappIcon} size={18} strokeWidth={2} />
-                Falar com o barbeiro no WhatsApp
+                Falar com a barbearia no WhatsApp
               </a>
             )}
           </div>

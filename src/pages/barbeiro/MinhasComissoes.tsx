@@ -13,26 +13,6 @@ interface ProfessionalProfile {
   commission_percentage: number;
 }
 
-interface PaymentRecord {
-  id: string;
-  amount: number;
-  commission_value: number;
-  paid_at: string;
-  appointment: {
-    id: string;
-    status: string;
-    start_time: string;
-    customer: {
-      name: string;
-    } | null;
-    service: {
-      name: string;
-      price: number;
-      commission_percentage: number;
-    } | null;
-  };
-}
-
 interface HistoryItem {
   id: string;
   date: string;
@@ -67,6 +47,16 @@ const TrendingUpIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
     <polyline points="16 7 22 7 22 13" />
   </svg>
 );
+
+const isProductItem = (
+  itemType: string | null | undefined,
+  hasProduct: boolean,
+  hasService: boolean
+): boolean => {
+  if (itemType === 'produto' || itemType === 'product') return true;
+  if (itemType === 'servico' || itemType === 'service') return false;
+  return hasProduct && !hasService;
+};
 
 export const MinhasComissoes: React.FC = () => {
   const navigate = useNavigate();
@@ -151,61 +141,80 @@ export const MinhasComissoes: React.FC = () => {
           startDate.setHours(0, 0, 0, 0);
         }
 
-        // Query Supabase Real
-        // Buscamos na tabela payments os registros associados a completed appointments do profissional
+        // Query Supabase: Consulta itens de comandas fechadas atribuídos ao profissional
         const { data, error } = await supabase
-          .from('payments')
+          .from('comanda_itens')
           .select(`
             id,
-            amount,
-            commission_value,
-            paid_at,
-            appointment:appointments!inner(
+            quantity,
+            unit_price,
+            total_price,
+            item_type,
+            created_at,
+            professional_id,
+            comanda:comandas!inner(
               id,
               status,
-              professional_id,
-              start_time,
-              customer:customers(name),
-              service:services(name, price, commission_percentage)
-            )
+              closed_at,
+              created_at,
+              customer:customers(name)
+            ),
+            service:services(name, price, commission_percentage),
+            product:products(name, price, commission_percentage)
           `)
-          .eq('appointment.professional_id', professional.id)
-          .eq('appointment.status', 'completed')
-          .gte('paid_at', startDate.toISOString())
-          .lte('paid_at', now.toISOString())
-          .order('paid_at', { ascending: false });
+          .eq('professional_id', professional.id)
+          .in('comanda.status', ['fechada', 'closed'])
+          .gte('comanda.closed_at', startDate.toISOString())
+          .lte('comanda.closed_at', now.toISOString())
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
 
         if (isMounted) {
-          const payments = (data as unknown as PaymentRecord[]) || [];
+          const items = (data as any[]) || [];
           
           let commissionSum = 0;
           let revenueSum = 0;
           const historyItems: HistoryItem[] = [];
 
-          payments.forEach((payment) => {
-            commissionSum += Number(payment.commission_value);
-            revenueSum += Number(payment.amount);
+          items.forEach((item) => {
+            const isProduct = isProductItem(item.item_type, Boolean(item.product), Boolean(item.service));
+            const totalPrice = Number(
+              item.total_price ||
+              (Number(item.unit_price || 0) * Number(item.quantity || 1)) ||
+              0
+            );
 
-            // Calcular porcentagem real da comissão cobrada
-            const amount = Number(payment.amount);
-            const commVal = Number(payment.commission_value);
-            const calculatedPercentage = amount > 0 ? (commVal / amount) * 100 : 0;
+            let commPercentage = 0;
+            if (isProduct) {
+              commPercentage = Number(item.product?.commission_percentage ?? 0);
+            } else {
+              commPercentage = Number(
+                item.service?.commission_percentage ?? professional.commission_percentage ?? 0
+              );
+            }
+
+            const commVal = Number(((totalPrice * commPercentage) / 100).toFixed(2));
+            commissionSum += commVal;
+            revenueSum += totalPrice;
+
+            const name = isProduct
+              ? (item.product?.name || 'Produto')
+              : (item.service?.name || 'Serviço');
 
             historyItems.push({
-              id: payment.id,
-              date: payment.paid_at,
-              customerName: payment.appointment.customer?.name || 'Cliente Simulado',
-              serviceName: payment.appointment.service?.name || 'Serviço',
-              servicePrice: amount,
-              commissionPercentage: Math.round(calculatedPercentage),
+              id: item.id,
+              date: item.comanda?.closed_at || item.created_at,
+              customerName: item.comanda?.customer?.name || 'Cliente Balcão',
+              serviceName: name,
+              servicePrice: totalPrice,
+              commissionPercentage: Math.round(commPercentage),
               commissionEarned: commVal,
             });
           });
 
-          setTotalCommission(commissionSum);
-          setTotalRevenue(revenueSum);
+          setTotalCommission(Number(commissionSum.toFixed(2)));
+          setTotalRevenue(Number(revenueSum.toFixed(2)));
           setHistory(historyItems);
           setLoading(false);
         }

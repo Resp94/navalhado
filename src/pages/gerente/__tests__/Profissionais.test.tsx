@@ -88,6 +88,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
   const createDefaultBuilder = (data: any, error: any = null) => {
     const builder: any = {
       eq: vi.fn().mockImplementation(() => builder),
+      is: vi.fn().mockImplementation(() => builder),
       order: vi.fn().mockImplementation(() => builder),
       select: vi.fn().mockImplementation(() => builder),
       then: vi.fn().mockImplementation((onfulfilled) => {
@@ -201,5 +202,36 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
 
     expect(breakStartInputs[0]).toHaveValue('12:00');
     expect(breakEndInputs[0]).toHaveValue('13:00');
+  });
+
+  it('permite realizar soft delete de profissional com modal de confirmação preservando histórico', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    const btnExcluir = screen.getByRole('button', { name: /Excluir profissional Carlos Silva/i });
+    fireEvent.click(btnExcluir);
+
+    // Modal de confirmação deve aparecer
+    expect(screen.getByRole('heading', { name: 'Excluir profissional' })).toBeInTheDocument();
+    expect(screen.getByText(/O histórico de atendimentos passados/i)).toBeInTheDocument();
+
+    const btnConfirmar = screen.getByRole('button', { name: /Sim, excluir/i });
+    fireEvent.click(btnConfirmar);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_active: false,
+          deleted_at: expect.any(String),
+        })
+      );
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.stringContaining('excluído com sucesso'),
+        'success'
+      );
+    });
   });
 });

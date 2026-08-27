@@ -178,4 +178,25 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       perfil.cadastro_completo = true;
     }
   }
+
+  async buscarClientePorTelefone(
+    token: string,
+    telefone: string
+  ): Promise<{ found: boolean; customer_id?: string; customer_name?: string; customer_phone?: string; cadastro_completo?: boolean } | null> {
+    if (!token || token === 'invalid') throw new CanalClienteTokenError();
+    const cleanPhone = telefone.replace(/\D/g, '');
+    for (const perfil of this.perfis.values()) {
+      const pPhone = perfil.customer_phone ? perfil.customer_phone.replace(/\D/g, '') : '';
+      if (pPhone && (pPhone.includes(cleanPhone) || cleanPhone.includes(pPhone))) {
+        return {
+          found: true,
+          customer_id: perfil.customer_id,
+          customer_name: perfil.customer_name,
+          customer_phone: perfil.customer_phone,
+          cadastro_completo: perfil.cadastro_completo,
+        };
+      }
+    }
+    return { found: false };
+  }
 }

@@ -37,6 +37,7 @@ describe('SupabaseProfessionalServicesAdapter', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          is: vi.fn().mockReturnThis(),
           order: vi.fn().mockResolvedValue({ data: mockServices, error: null }),
         };
       }

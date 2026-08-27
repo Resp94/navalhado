@@ -174,6 +174,15 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       throw new Error(`Erro ao adicionar item na comanda: ${error?.message}`);
     }
 
+    // Recalcular e persistir total_amount atualizado da comanda
+    const { data: todosItens } = await supabase
+      .from('comanda_itens')
+      .select('total_price')
+      .eq('comanda_id', comandaId);
+
+    const novoTotal = (todosItens || []).reduce((acc, it) => acc + Number(it.total_price || 0), 0);
+    await supabase.from('comandas').update({ total_amount: novoTotal }).eq('id', comandaId);
+
     return data as ComandaItem;
   }
 
@@ -187,6 +196,15 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
     if (error) {
       throw new Error(`Erro ao remover item da comanda: ${error.message}`);
     }
+
+    // Recalcular e persistir total_amount atualizado da comanda
+    const { data: todosItens } = await supabase
+      .from('comanda_itens')
+      .select('total_price')
+      .eq('comanda_id', comandaId);
+
+    const novoTotal = (todosItens || []).reduce((acc, it) => acc + Number(it.total_price || 0), 0);
+    await supabase.from('comandas').update({ total_amount: novoTotal }).eq('id', comandaId);
   }
 
   async liquidarComanda(input: LiquidarComandaInput): Promise<Comanda> {

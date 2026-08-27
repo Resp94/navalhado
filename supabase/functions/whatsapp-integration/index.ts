@@ -101,17 +101,19 @@ export const DEFAULT_TEMPLATES = {
   appointment_created:
     "Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
   professional_appointment_created:
-    "Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
+    "Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*",
   appointment_rescheduled:
     "Olá, {cliente}! Seu reagendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
   professional_appointment_rescheduled:
-    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi reagendado!\n\n📅 Novo Horário: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
+    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi reagendado!\n\n📅 Novo Horário: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*",
   appointment_cancelled:
     "Olá, {cliente}! Seu agendamento na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nSe precisar, você pode agendar um novo horário acessando: {link}\n\nAgradecemos a compreensão!",
   professional_appointment_cancelled:
-    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*\n📱 WhatsApp: *{telefone_cliente}*",
+    "Olá, {profissional}! O agendamento de *{cliente}* na *{barbearia}* foi cancelado.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*",
   appointment_reminder:
     "Olá, {cliente}! Passando para lembrar do seu agendamento na *{barbearia}* nas próximas horas.\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara confirmar, cancelar ou ver detalhes do agendamento, acesse: {link}\n\nEsperamos você!",
+  customer_welcome_balcao:
+    "Olá, {cliente}! Seu cadastro na barbearia *{barbearia}* foi concluído com sucesso. Acesse seu canal de autoatendimento para agendar seus próximos cortes e conferir nosso cardápio de serviços: {link}",
   first_contact:
     "Olá, {cliente}! Para escolher seu serviço e agendar um horário na *{barbearia}*, acesse: {link}",
 };
@@ -258,16 +260,20 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     appointmentId,
     eventType,
     reminderWindow,
+    idempotencyKey: customIdempotencyKey,
   }: {
     tenantId: string;
     instanceId?: string;
-    appointmentId: string;
+    appointmentId?: string | null;
     eventType: string;
     reminderWindow?: string;
+    idempotencyKey?: string;
   }): Promise<OutboundReservation> => {
-    const idempotencyKey = reminderWindow
-      ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
-      : `appointment:${appointmentId}:${eventType}`;
+    const idempotencyKey = customIdempotencyKey || (
+      reminderWindow
+        ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
+        : `appointment:${appointmentId}:${eventType}`
+    );
     const { error: insertError } = await supabase
       .from("whatsapp_message_idempotency")
       .insert({
@@ -276,7 +282,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         direction: "outbound",
         event_type: eventType,
         idempotency_key: idempotencyKey,
-        appointment_id: appointmentId,
+        appointment_id: appointmentId ?? null,
         reminder_window: reminderWindow ?? null,
         status: "processing",
         attempt_count: 1,
@@ -335,20 +341,27 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     appointmentId,
     eventType,
     reminderWindow,
+    idempotencyKey: customIdempotencyKey,
     status,
     attempts,
     expectedAttempt,
     errorMessage,
   }: {
     tenantId: string;
-    appointmentId: string;
+    appointmentId?: string | null;
     eventType: string;
     reminderWindow?: string;
+    idempotencyKey?: string;
     status: "succeeded" | "failed";
     attempts: number;
     expectedAttempt?: number;
     errorMessage?: string;
   }): Promise<boolean> => {
+    const idempotencyKey = customIdempotencyKey || (
+      reminderWindow
+        ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
+        : `appointment:${appointmentId}:${eventType}`
+    );
     for (let attempt = 1; attempt <= 2; attempt++) {
       const { data: finalized, error } = await supabase
         .from("whatsapp_message_idempotency")
@@ -363,12 +376,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .eq("direction", "outbound")
         .eq("status", "processing")
         .eq("attempt_count", expectedAttempt ?? attempts)
-        .eq(
-          "idempotency_key",
-          reminderWindow
-            ? `appointment:${appointmentId}:${eventType}:${reminderWindow}`
-            : `appointment:${appointmentId}:${eventType}`,
-        )
+        .eq("idempotency_key", idempotencyKey)
         .select("status, attempt_count")
         .maybeSingle();
       if (!error && finalized) return true;
@@ -1234,7 +1242,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
 
         const link = tenantSlug
-          ? `${appUrl}/${tenantSlug}`
+          ? (customer?.token_acesso ? `${appUrl}/${tenantSlug}?token=${customer.token_acesso}` : `${appUrl}/${tenantSlug}`)
           : `${appUrl}/cliente/${customer.token_acesso}/agendar`;
         const variables: WhatsappTemplateVariables = {
           cliente: clientName,
@@ -1359,6 +1367,151 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       });
     }
 
+    async function handleCustomerWelcomeBalcao(params: {
+      supabase: any;
+      customerId: string;
+      tenantId: string;
+      appUrl: string;
+      instancesTable: string;
+      instanceTokenColumn: string;
+      corsHeaders: Record<string, string>;
+    }): Promise<Response> {
+      const { supabase, customerId, tenantId, appUrl, instancesTable, instanceTokenColumn, corsHeaders } = params;
+
+      console.log(`[WhatsApp-Integration] /send-notification: Boas-vindas de balcão para cliente '${customerId}' (tenant: ${tenantId})`);
+
+      const { data: config, error: configErr } = await supabase
+        .from(instancesTable)
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (configErr || !config || config.status !== "connected") {
+        return new Response(JSON.stringify({ status: "skipped", reason: "WhatsApp disconnected or not configured" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (config.send_welcome_balcao === false) {
+        console.log(`[WhatsApp-Integration] Envio de boas-vindas de balcão desativado para tenant ${tenantId}`);
+        return new Response(JSON.stringify({ status: "skipped", reason: "Welcome message disabled" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: customer, error: custErr } = await supabase
+        .from("customers")
+        .select("id, name, phone, token_acesso, welcome_sent_at, registration_origin, tenant_id")
+        .eq("id", customerId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+      if (custErr || !customer) {
+        return new Response(JSON.stringify({ error: "Customer not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (customer.welcome_sent_at) {
+        console.log(`[WhatsApp-Integration] Boas-vindas já enviadas para o cliente ${customerId}`);
+        return new Response(JSON.stringify({ status: "skipped", reason: "Welcome already sent" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("name, slug")
+        .eq("id", tenantId)
+        .maybeSingle();
+
+      const clientAccessLink = tenant?.slug
+        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
+        : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
+
+      const variables: WhatsappTemplateVariables = {
+        cliente: customer.name || "Cliente",
+        barbearia: tenant?.name || "nossa barbearia",
+        link: clientAccessLink,
+      };
+
+      const clientPhone = formatPhoneNumber(customer.phone);
+      if (!clientPhone) {
+        return new Response(JSON.stringify({ status: "skipped", reason: "Invalid customer phone" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const messageText = formatMessageTemplate(
+        config.template_welcome_balcao,
+        DEFAULT_TEMPLATES.customer_welcome_balcao,
+        variables
+      );
+
+      const welcomeIdempotencyKey = `customer:${customerId}:customer_welcome_balcao`;
+
+      const reservation = await reserveOutboundMessage({
+        tenantId: tenantId,
+        instanceId: config.id,
+        appointmentId: null,
+        idempotencyKey: welcomeIdempotencyKey,
+        eventType: "customer_welcome_balcao",
+      });
+
+      if (!reservation.duplicate && !reservation.error) {
+        try {
+          await sendTextWithRetry({
+            instanceName: config.instance_name,
+            instanceToken: config[instanceTokenColumn],
+            number: clientPhone,
+            text: messageText,
+            idempotencyKey: welcomeIdempotencyKey,
+          }, reservation.attempts || 1);
+
+          await finalizeOutboundMessage({
+            tenantId: tenantId,
+            appointmentId: null,
+            idempotencyKey: welcomeIdempotencyKey,
+            eventType: "customer_welcome_balcao",
+            status: "succeeded",
+            attempts: reservation.attempts || 1,
+            expectedAttempt: reservation.attempts || 1,
+          });
+
+          await supabase
+            .from("customers")
+            .update({ welcome_sent_at: new Date().toISOString() })
+            .eq("id", customerId)
+            .eq("tenant_id", tenantId);
+
+          return new Response(JSON.stringify({ success: true, event: "customer_welcome_balcao" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (sendErr: any) {
+          console.error("[WhatsApp-Integration] Falha ao enviar mensagem de boas-vindas:", sendErr);
+          await finalizeOutboundMessage({
+            tenantId: tenantId,
+            appointmentId: null,
+            idempotencyKey: welcomeIdempotencyKey,
+            eventType: "customer_welcome_balcao",
+            status: "failed",
+            attempts: reservation.attempts || 1,
+            expectedAttempt: reservation.attempts || 1,
+            errorMessage: sendErr?.message || "provider request failed",
+          });
+          return new Response(JSON.stringify({ error: "Failed to send welcome message" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({ status: "skipped", reason: "Duplicate welcome notification" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // -------------------------------------------------------------------------
     // ROTA: /send-notification (Postgres Triggers)
     // -------------------------------------------------------------------------
@@ -1375,10 +1528,54 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const body = await req.json();
       const event = body.event || body.event_type;
+      const customer_id = body.customer_id || body.customerId;
       const appointment_id = body.appointment_id || body.appointmentId || body.id;
       let tenant_id = body.tenant_id || body.tenantId;
 
-      if (!event || !appointment_id) {
+      if (!event) {
+        return new Response(JSON.stringify({ error: "Missing required parameters" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Tratar evento exclusivo de Boas-Vindas no cadastro de Balcão
+      if (event === "customer_welcome_balcao") {
+        if (!customer_id) {
+          return new Response(JSON.stringify({ error: "Missing customer_id for welcome event" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (!tenant_id) {
+          const { data: custRow } = await supabase
+            .from("customers")
+            .select("tenant_id")
+            .eq("id", customer_id)
+            .maybeSingle();
+          tenant_id = custRow?.tenant_id;
+        }
+
+        if (!tenant_id) {
+          return new Response(JSON.stringify({ error: "Tenant not found for customer" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return await handleCustomerWelcomeBalcao({
+          supabase,
+          customerId: customer_id,
+          tenantId: tenant_id,
+          appUrl,
+          instancesTable,
+          instanceTokenColumn,
+          corsHeaders,
+        });
+      }
+
+      if (!appointment_id) {
         return new Response(JSON.stringify({ error: "Missing required parameters" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1462,7 +1659,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const clientAccessLink = tenant.slug
-        ? `${appUrl}/${tenant.slug}`
+        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
         : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
 
       const variables: WhatsappTemplateVariables = {
@@ -1495,7 +1692,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           vars: {
             ...variables,
             link: tenant.slug
-              ? `${appUrl}/${tenant.slug}`
+              ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
               : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : appUrl),
           },
         },
@@ -1576,21 +1773,25 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       // 2. Notificação para o Barbeiro / Profissional vinculado ao agendamento
-      const PROF_EVENT_MAP: Record<string, { eventType: string; template: string }> = {
+      const PROF_EVENT_MAP: Record<string, { eventType: string; custom: string | null | undefined; template: string }> = {
         appointment_created: {
           eventType: "professional_appointment_created",
+          custom: config.template_professional_created,
           template: DEFAULT_TEMPLATES.professional_appointment_created,
         },
         appointment_rescheduled: {
           eventType: "professional_appointment_rescheduled",
+          custom: config.template_professional_rescheduled,
           template: DEFAULT_TEMPLATES.professional_appointment_rescheduled,
         },
         appointment_updated: {
           eventType: "professional_appointment_rescheduled",
+          custom: config.template_professional_rescheduled,
           template: DEFAULT_TEMPLATES.professional_appointment_rescheduled,
         },
         appointment_cancelled: {
           eventType: "professional_appointment_cancelled",
+          custom: config.template_professional_cancelled,
           template: DEFAULT_TEMPLATES.professional_appointment_cancelled,
         },
       };
@@ -1601,10 +1802,22 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       if (profConfig && professional?.phone) {
         const profPhone = formatPhoneNumber(professional.phone);
         if (profPhone) {
+          const profVariables: WhatsappTemplateVariables = {
+            profissional: professional.name || "Profissional",
+            cliente: customer?.name || "Cliente",
+            barbearia: tenant.name || "nossa barbearia",
+            servico: service.name || "Serviço",
+            data: date,
+            horario: time,
+          };
+          const sanitizedCustomTemplate = profConfig.custom
+            ? profConfig.custom.replace(/(\n|\r\n)?.*\{telefone_cliente\}.*/gi, "").trim()
+            : null;
+
           const profMessageText = formatMessageTemplate(
-            null,
+            sanitizedCustomTemplate,
             profConfig.template,
-            variables
+            profVariables
           );
           const profReservation = await reserveOutboundMessage({
             tenantId: tenant_id,

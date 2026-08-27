@@ -194,9 +194,9 @@ describe('MenuCliente - TDD', () => {
     const expiredHeading = await screen.findByText(/Prazo de cancelamento expirado/i);
     expect(expiredHeading).toBeInTheDocument();
 
-    const waButton = screen.getByRole('link', { name: /Falar com o barbeiro no WhatsApp/i });
+    const waButton = screen.getByRole('link', { name: /Falar com a barbearia no WhatsApp/i });
     expect(waButton).toBeInTheDocument();
-    expect(waButton).toHaveAttribute('href', expect.stringContaining('5592988887777'));
+    expect(waButton).toHaveAttribute('href', expect.stringContaining('5592999999999'));
   });
 
   it('redireciona cliente sem cadastro para a página de serviços / agendamento', async () => {

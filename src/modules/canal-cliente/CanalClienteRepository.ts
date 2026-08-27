@@ -208,4 +208,12 @@ export class CanalClienteRepository {
     return await this.adapter.promoverCadastroPorToken(token, input);
   }
 
+  async consultarClientePorTelefone(
+    telefone: string,
+    tokenParam?: string | null
+  ): Promise<{ found: boolean; customer_id?: string; customer_name?: string; customer_phone?: string; cadastro_completo?: boolean } | null> {
+    if (!telefone || !telefone.trim()) return null;
+    const token = this.resolverToken(tokenParam);
+    return await this.adapter.buscarClientePorTelefone(token, telefone.trim());
+  }
 }
