@@ -4,10 +4,10 @@
 
 **Blocked by:** 03 — Grade de horários baseada no estabelecimento.
 
-**Status:** ready-for-agent
+**Status:** concluído
 
-- [ ] A disponibilidade considera a agenda do profissional selecionado quando houver um profissional específico.
-- [ ] Pausas, bloqueios, agendamentos conflitantes e status que ocupam horário tornam o slot indisponível.
-- [ ] O modo de escolha livre respeita apenas profissionais qualificados e disponíveis para o serviço.
-- [ ] A grade continua exibindo slots indisponíveis de forma consistente, sem deslocar ou remover a malha temporal esperada.
-- [ ] Existem testes de banco e interface para conflito, bloqueio, pausa, profissional sem agenda e escolha livre.
+- [x] A disponibilidade considera a agenda do profissional selecionado quando houver um profissional específico.
+- [x] Pausas, bloqueios, agendamentos conflitantes e status que ocupam horário tornam o slot indisponível.
+- [x] O modo de escolha livre respeita apenas profissionais qualificados e disponíveis para o serviço.
+- [x] A grade continua exibindo slots indisponíveis de forma consistente, sem deslocar ou remover a malha temporal esperada.
+- [x] Existem testes de banco e interface para conflito, bloqueio, pausa, profissional sem agenda e escolha livre.
