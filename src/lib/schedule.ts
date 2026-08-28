@@ -45,6 +45,38 @@ const PT_DAY_KEYS = [
   'sabado',
 ];
 
+const DEFAULT_BUSINESS_HOURS: Record<string, { active: boolean; open: string; close: string }> = {
+  segunda: { active: true, open: '09:00', close: '18:00' },
+  terca: { active: true, open: '09:00', close: '18:00' },
+  quarta: { active: true, open: '09:00', close: '18:00' },
+  quinta: { active: true, open: '09:00', close: '18:00' },
+  sexta: { active: true, open: '09:00', close: '18:00' },
+  sabado: { active: true, open: '09:00', close: '15:00' },
+  domingo: { active: false, open: '09:00', close: '12:00' },
+};
+
+/** Normaliza configurações legadas em inglês ou português para as chaves do domínio. */
+export const normalizeBusinessHours = (
+  value: unknown
+): Record<string, { active: boolean; open: string; close: string }> => {
+  const source = value && typeof value === 'object'
+    ? value as Record<string, BusinessHoursDay>
+    : {};
+
+  return PT_DAY_KEYS.reduce<Record<string, { active: boolean; open: string; close: string }>>((normalized, ptKey, index) => {
+    const ptDay = source[ptKey] || {};
+    const enDay = source[ENGLISH_DAY_KEYS[index]] || {};
+    const fallback = DEFAULT_BUSINESS_HOURS[ptKey];
+
+    normalized[ptKey] = {
+      active: ptDay.active ?? enDay.active ?? fallback.active,
+      open: ptDay.open || ptDay.start || enDay.open || enDay.start || fallback.open,
+      close: ptDay.close || ptDay.end || enDay.close || enDay.end || fallback.close,
+    };
+    return normalized;
+  }, {});
+};
+
 /**
  * Converte horário "HH:MM" em minutos totais desde as 00:00
  */
@@ -262,6 +294,27 @@ export const generateTimeSlotsForSchedule = (
   return slots;
 };
 
+/** Gera opções de escala incluindo o fechamento, sempre dentro do expediente. */
+export const generateScheduleTimeOptions = (
+  start: string,
+  end: string,
+  stepMinutes: number
+): string[] => {
+  const startMin = timeToMinutes(start);
+  const endMin = timeToMinutes(end);
+  const step = Math.max(5, Number(stepMinutes) || 30);
+  if (startMin > endMin) return [];
+
+  const options: string[] = [];
+  for (let minute = startMin; minute <= endMin; minute += step) {
+    options.push(minutesToTime(minute));
+  }
+  if (options.at(-1) !== minutesToTime(endMin)) {
+    options.push(minutesToTime(endMin));
+  }
+  return options;
+};
+
 /**
  * Obtém o horário de funcionamento da barbearia para determinada data
  */
@@ -275,19 +328,9 @@ export const getBusinessHoursForDayKey = (
   const ptKey = PT_DAY_KEYS[dayIndex];
   const enKey = ENGLISH_DAY_KEYS[dayIndex];
 
-  const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
-    segunda: { active: true, open: '09:00', close: '18:00' },
-    terca: { active: true, open: '09:00', close: '18:00' },
-    quarta: { active: true, open: '09:00', close: '18:00' },
-    quinta: { active: true, open: '09:00', close: '18:00' },
-    sexta: { active: true, open: '09:00', close: '18:00' },
-    sabado: { active: true, open: '09:00', close: '15:00' },
-    domingo: { active: false, open: '09:00', close: '12:00' },
-  };
-
   const ptDay = businessHours?.[ptKey];
   const enDay = businessHours?.[enKey];
-  const fallback = defaultBh[ptKey] || { active: true, open: '09:00', close: '18:00' };
+  const fallback = DEFAULT_BUSINESS_HOURS[ptKey] || { active: true, open: '09:00', close: '18:00' };
 
   return {
     active: ptDay?.active ?? enDay?.active ?? fallback.active,

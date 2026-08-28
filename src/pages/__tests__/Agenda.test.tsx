@@ -55,7 +55,7 @@ vi.mock('../../lib/supabase', () => ({
 }));
 
 describe('Página de Agenda do Gerente (Grade Temporal)', () => {
-  const mockProfessionals = [
+  const mockProfessionals: any[] = [
     { id: 'prof-1', name: 'Carlos Barbeiro', is_active: true, phone: '11999990001' },
     { id: 'prof-2', name: 'Marcos Navalha', is_active: true, phone: '11999990002' },
   ];
@@ -358,13 +358,29 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockOutletContext.businessHours.domingo.active = true;
   });
 
+  it('mantém os slots da sexta-feira até 19:30 quando o fechamento está configurado para 20:00', async () => {
+    const previousFriday = mockOutletContext.businessHours.sexta;
+    mockOutletContext.businessHours.sexta = { active: true, open: '09:00', close: '20:00' };
+
+    render(<Agenda />);
+    await waitFor(() => expect(screen.getAllByDisplayValue('2026-08-16').length).toBeGreaterThan(0));
+
+    fireEvent.change(screen.getAllByDisplayValue('2026-08-16')[0], {
+      target: { value: '2026-08-21' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('19:30')).toBeInTheDocument();
+    });
+
+    mockOutletContext.businessHours.sexta = previousFriday;
+  });
+
   it('permite marcar atendimento passado como não compareceu e mantém o card visível', async () => {
     const originalStart = mockAppointments[0].start_time;
     const originalEnd = mockAppointments[0].end_time;
     mockAppointments[0].start_time = '2026-08-16T10:00:00.000Z';
     mockAppointments[0].end_time = '2026-08-16T10:30:00.000Z';
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     render(<Agenda />);
 
     await waitFor(() => {
@@ -372,6 +388,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     fireEvent.click(screen.getAllByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Confirmar não comparecimento/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Sim, não compareceu/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Sim, não compareceu/i }));
 
     await waitFor(() => {
       expect(mockFrom).toHaveBeenCalledWith('appointments');

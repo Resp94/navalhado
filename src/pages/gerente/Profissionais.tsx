@@ -24,6 +24,7 @@ import {
   clampProfessionalScheduleToBusinessHours,
   clampTimeToRange,
   getBusinessHoursForDayKey,
+  generateScheduleTimeOptions,
   timeToMinutes,
 } from '../../lib/schedule';
 
@@ -806,6 +807,16 @@ export const Profissionais: React.FC = () => {
                     {DAYS_OF_WEEK.map((day) => {
                       const daySched = schedule[day.key];
                       const dayBusinessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
+                      const scheduleTimeOptions = generateScheduleTimeOptions(
+                        dayBusinessHours.open,
+                        dayBusinessHours.close,
+                        tenant.slotIntervalMinutes ?? 30
+                      );
+                      const breakTimeOptions = generateScheduleTimeOptions(
+                        daySched.start,
+                        daySched.end,
+                        tenant.slotIntervalMinutes ?? 30
+                      );
                       return (
                         <div
                           key={day.key}
@@ -827,25 +838,27 @@ export const Profissionais: React.FC = () => {
                               <div className="schedule-row">
                                 <span className="schedule-row-label">Expediente:</span>
                                 <div className="schedule-row-inputs">
-                                  <input
-                                    type="time"
+                                  <select
                                     className="day-times-input"
                                     value={daySched.start}
-                                    min={tenant.businessHours ? dayBusinessHours.open : undefined}
-                                    max={tenant.businessHours ? dayBusinessHours.close : undefined}
                                     aria-label={`Início do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
-                                  />
+                                  >
+                                    {scheduleTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
                                   <span className="schedule-row-sep">às</span>
-                                  <input
-                                    type="time"
+                                  <select
                                     className="day-times-input"
                                     value={daySched.end}
-                                    min={tenant.businessHours ? dayBusinessHours.open : undefined}
-                                    max={tenant.businessHours ? dayBusinessHours.close : undefined}
                                     aria-label={`Fim do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
-                                  />
+                                  >
+                                    {scheduleTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
 
@@ -853,29 +866,31 @@ export const Profissionais: React.FC = () => {
                               <div className="schedule-row">
                                 <span className="schedule-row-label">Almoço:</span>
                                 <div className="schedule-row-inputs">
-                                  <input
-                                    type="time"
+                                  <select
                                     className="day-times-input"
                                     value={daySched.break_start || '12:00'}
-                                    min={daySched.start}
-                                    max={daySched.end}
                                     aria-label="Início do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_start', e.target.value)
                                     }
-                                  />
+                                  >
+                                    {breakTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
                                   <span className="schedule-row-sep">às</span>
-                                  <input
-                                    type="time"
+                                  <select
                                     className="day-times-input"
                                     value={daySched.break_end || '13:00'}
-                                    min={daySched.start}
-                                    max={daySched.end}
                                     aria-label="Fim do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_end', e.target.value)
                                     }
-                                  />
+                                  >
+                                    {breakTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
                             </div>

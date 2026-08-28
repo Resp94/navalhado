@@ -14,6 +14,7 @@ import {
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
+import { normalizeBusinessHours } from '../../lib/schedule';
 
 interface DaySchedule {
   active: boolean;
@@ -33,27 +34,6 @@ const defaultBusinessHours: BusinessHours = {
   sexta: { active: true, open: '09:00', close: '18:00' },
   sabado: { active: true, open: '09:00', close: '15:00' },
   domingo: { active: false, open: '09:00', close: '12:00' },
-};
-
-const normalizeBusinessHours = (value: unknown): BusinessHours => {
-  const source = value && typeof value === 'object'
-    ? value as Record<string, Partial<DaySchedule> & { start?: string; end?: string }>
-    : {};
-  const englishKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const portugueseKeys = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-
-  return portugueseKeys.reduce<BusinessHours>((normalized, portugueseKey, index) => {
-    const portugueseDay = source[portugueseKey] || {};
-    const englishDay = source[englishKeys[index]] || {};
-    const fallback = defaultBusinessHours[portugueseKey];
-
-    normalized[portugueseKey] = {
-      active: portugueseDay.active ?? englishDay.active ?? fallback.active,
-      open: portugueseDay.open || portugueseDay.start || englishDay.open || englishDay.start || fallback.open,
-      close: portugueseDay.close || portugueseDay.end || englishDay.close || englishDay.end || fallback.close,
-    };
-    return normalized;
-  }, {});
 };
 
 const daysOfWeek = [

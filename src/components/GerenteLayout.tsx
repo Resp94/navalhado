@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { normalizeBusinessHours } from '../lib/schedule';
 import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
 import { NotificationBell } from './NotificationBell';
 import { useToast } from './Toast';
@@ -111,7 +112,7 @@ export const GerenteLayout: React.FC = () => {
           logoUrl: tenant.logo_url,
           timezone: tenant.timezone || 'America/Sao_Paulo',
           onboardingCompleted: isOnboardingCompleted,
-          businessHours: tenant.business_hours || undefined,
+          businessHours: normalizeBusinessHours(tenant.business_hours),
           slotIntervalMinutes: tenant.slot_interval_minutes ?? 30,
           minBookingLeadTimeMinutes: tenant.min_booking_lead_time_minutes ?? 15,
           minCancellationLeadTimeMinutes: tenant.min_cancellation_lead_time_minutes ?? 120,

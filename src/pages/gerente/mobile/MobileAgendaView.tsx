@@ -450,7 +450,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : isFitting ? 'mobile-agenda__card--fitting' : ''}`}
+                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -981,7 +981,12 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         }
 
         .mobile-agenda__card--fitting {
-          border-left: 4px solid var(--color-brand-primary);
+          border-left: 4px solid #b45309;
+          background: #ffedd5;
+        }
+
+        .mobile-agenda__card--normal {
+          border-left-width: 1px;
         }
 
         .mobile-agenda__card--no-show {

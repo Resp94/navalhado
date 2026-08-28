@@ -169,8 +169,10 @@ export const Agenda: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
+  const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formDate, setFormDate] = useState(selectedDate);
@@ -1277,15 +1279,18 @@ export const Agenda: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(`Marcar o atendimento de ${app.customer?.name || 'Cliente'} como não compareceu?`)) {
-      return;
-    }
+    setNoShowAppointment(app);
+    setIsNoShowModalOpen(true);
+  };
+
+  const handleConfirmNoShow = async () => {
+    if (!noShowAppointment) return;
 
     try {
       const { data, error } = await supabase
         .from('appointments')
         .update({ status: 'no_show', updated_at: new Date().toISOString() })
-        .eq('id', app.id)
+        .eq('id', noShowAppointment.id)
         .eq('tenant_id', tenant.tenantId)
         .in('status', ['pending', 'confirmed'])
         .select('id')
@@ -1293,6 +1298,8 @@ export const Agenda: React.FC = () => {
 
       if (error) throw error;
       if (!data) {
+        setIsNoShowModalOpen(false);
+        setNoShowAppointment(null);
         addToast('O status deste atendimento mudou antes da atualização. Recarregue a agenda.', 'warning');
         fetchAppointments();
         return;
@@ -1300,9 +1307,11 @@ export const Agenda: React.FC = () => {
 
       setAppointments((previous) =>
         previous.map((appointment) =>
-          appointment.id === app.id ? { ...appointment, status: 'no_show' } : appointment
+          appointment.id === noShowAppointment.id ? { ...appointment, status: 'no_show' } : appointment
         )
       );
+      setIsNoShowModalOpen(false);
+      setNoShowAppointment(null);
       addToast('Atendimento marcado como não compareceu.', 'success');
       fetchAppointments();
     } catch (err: any) {
@@ -2015,7 +2024,7 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass}`}
+                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -2329,7 +2338,7 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass}`}
+                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -2707,6 +2716,45 @@ export const Agenda: React.FC = () => {
           fetchBlockedSlots();
         }}
       />
+
+      {/* 5b. CONFIRMAÇÃO DE NÃO COMPARECIMENTO */}
+      <Modal
+        isOpen={isNoShowModalOpen}
+        onClose={() => {
+          setIsNoShowModalOpen(false);
+          setNoShowAppointment(null);
+        }}
+        title="Confirmar não comparecimento"
+      >
+        {noShowAppointment && (
+          <div className="cancel-modal-body">
+            <p className="cancel-alert-text">
+              Deseja marcar o atendimento de{' '}
+              <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
+              A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
+            </p>
+            <div className="modal-actions-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setIsNoShowModalOpen(false);
+                  setNoShowAppointment(null);
+                }}
+              >
+                Não marcar
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => void handleConfirmNoShow()}
+              >
+                Sim, não compareceu
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* 6. MODAL DE CANCELAMENTO */}
       <Modal
@@ -3492,6 +3540,14 @@ export const Agenda: React.FC = () => {
         .card-status--fitting {
           border-color: rgba(106, 46, 0, 0.35);
           background-color: rgba(242, 178, 119, 0.2);
+        }
+
+        .timeline-appointment-card--fitting {
+          border-left: 4px solid #b45309;
+        }
+
+        .timeline-appointment-card--normal {
+          border-left-width: 1px;
         }
 
         .card-status--in-progress {

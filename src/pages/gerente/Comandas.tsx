@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
+import { dateInZone, formatTimeInZone } from '../../lib/timezone';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { openWhatsApp } from '../../lib/whatsapp';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
@@ -22,7 +23,7 @@ import {
 } from '@hugeicons/core-free-icons';
 
 export const Comandas: React.FC = () => {
-  const { tenantId, tenantName } = useOutletContext<TenantContextType>();
+  const { tenantId, tenantName, timezone } = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
   const comandaRepo = useMemo(() => new ComandaRepository(new SupabaseComandaAdapter()), []);
 
@@ -38,6 +39,9 @@ export const Comandas: React.FC = () => {
   // Dados auxiliares para o modal
   const [services, setServices] = useState<Array<{ id: string; name: string; price: number }>>([]);
   const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
+
+  const getAppointmentOrigin = (comanda: ComandaEnriched) =>
+    comanda.appointment_is_fitting === true ? 'Encaixe' : 'Agendamento';
 
   const carregarDados = useCallback(async () => {
     if (!tenantId) return;
@@ -258,12 +262,15 @@ export const Comandas: React.FC = () => {
                   </div>
 
                   {cmd.appointment_id ? (
-                    <div className={`comanda-card__origin-badge ${cmd.appointment_is_fitting ? 'comanda-card__origin-badge--fitting' : 'comanda-card__origin-badge--appointment'}`}>
+                    <div
+                      className={`comanda-card__origin-badge ${cmd.appointment_is_fitting === true ? 'comanda-card__origin-badge--fitting' : 'comanda-card__origin-badge--appointment'}`}
+                      data-testid={`comanda-origin-${cmd.id}`}
+                    >
                       <HugeiconsIcon icon={Calendar02Icon} size={13} />
                       <span>
-                        {cmd.appointment_is_fitting ? 'Encaixe: ' : 'Agendamento: '}
+                        <strong>{getAppointmentOrigin(cmd)}</strong>{': '}
                         {cmd.appointment_start_time
-                          ? `${new Date(cmd.appointment_start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(cmd.appointment_start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                          ? `${dateInZone(new Date(cmd.appointment_start_time), timezone).split('-').reverse().join('/')} às ${formatTimeInZone(cmd.appointment_start_time, timezone)}`
                           : ''}
                         {cmd.appointment_service_name ? ` • ${cmd.appointment_service_name}` : ''}
                       </span>

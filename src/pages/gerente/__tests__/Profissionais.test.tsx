@@ -144,6 +144,23 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     expect(screen.getByLabelText('Fim do expediente de Terça-feira')).toHaveValue('16:00');
   });
 
+  it('deve oferecer apenas opções entre a abertura e o fechamento do tenant', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    const tuesdayStart = screen.getByLabelText('Início do expediente de Terça-feira');
+    expect(tuesdayStart.tagName).toBe('SELECT');
+    const options = Array.from(tuesdayStart.querySelectorAll('option')).map((option) => option.value);
+    expect(options).toContain('10:00');
+    expect(options).not.toContain('09:00');
+    expect(options).not.toContain('16:30');
+  });
+
   it('deve ter inputs de Início do Almoço e Fim do Almoço para cada dia ativo da escala semanal', async () => {
     render(<Profissionais />);
 
@@ -174,10 +191,12 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
 
-    const startInputs = screen.getAllByLabelText(/Início do expediente/i);
-    fireEvent.change(startInputs[0], { target: { value: '20:00' } });
+    const startSelect = screen.getAllByLabelText(/Início do expediente/i)[0];
+    const options = Array.from(startSelect.querySelectorAll('option')).map((option) => option.value);
 
-    expect(startInputs[0]).toHaveValue('18:00');
+    expect(startSelect.tagName).toBe('SELECT');
+    expect(options).toContain('18:00');
+    expect(options).not.toContain('20:00');
   });
 
   it('deve conter as chaves break_start e break_end no weekly_schedule JSONB ao cadastrar um novo profissional', async () => {

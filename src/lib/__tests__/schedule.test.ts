@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   generateFittingTimeSlots,
+  generateScheduleTimeOptions,
   isTimeAlignedToSlotInterval,
+  normalizeBusinessHours,
 } from '../schedule';
 
 describe('schedule fitting slots', () => {
@@ -20,5 +22,19 @@ describe('schedule fitting slots', () => {
     expect(slots).toHaveLength(36);
     expect(slots).toContain('07:20');
     expect(slots).not.toContain('07:17');
+  });
+
+  it('normalizes Friday to 20:00 and restricts schedule options to business hours', () => {
+    const hours = normalizeBusinessHours({
+      sexta: { active: true, open: '09:00', close: '20:00' },
+    });
+
+    expect(hours.sexta).toEqual({ active: true, open: '09:00', close: '20:00' });
+    const options = generateScheduleTimeOptions(hours.sexta.open!, hours.sexta.close!, 30);
+    expect(options[0]).toBe('09:00');
+    expect(options).toContain('19:30');
+    expect(options).toContain('20:00');
+    expect(options).not.toContain('08:30');
+    expect(options).not.toContain('20:30');
   });
 });

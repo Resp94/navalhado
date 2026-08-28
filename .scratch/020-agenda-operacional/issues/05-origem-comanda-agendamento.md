@@ -4,14 +4,12 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Comanda vinculada a atendimento com `is_fitting = true` exibe `Encaixe`.
-- [ ] Comanda vinculada a atendimento com `is_fitting = false` exibe `Agendamento`.
-- [ ] Comanda sem atendimento vinculado permanece identificada como balcão/avulsa.
-- [ ] A origem nunca é inferida pelo horário, cliente, itens ou status da comanda.
-- [ ] O enriquecimento preserva corretamente `true`, `false` e ausência/nulo.
-- [ ] O comportamento é consistente nos cards e fluxos desktop/mobile existentes.
-- [ ] Existem testes para os três tipos de origem e para o formato objeto/array da relação retornada pelo Supabase.
-
-
+- [x] Comanda vinculada a atendimento com `is_fitting = true` exibe `Encaixe`.
+- [x] Comanda vinculada a atendimento com `is_fitting = false` exibe `Agendamento`.
+- [x] Comanda sem atendimento vinculado permanece identificada como balcão/avulsa.
+- [x] A origem nunca é inferida pelo horário, cliente, itens ou status da comanda.
+- [x] O enriquecimento preserva corretamente `true`, `false` e ausência/nulo.
+- [x] O comportamento é consistente nos cards e fluxos desktop/mobile existentes.
+- [x] Existem testes para os três tipos de origem e para o formato objeto/array da relação retornada pelo Supabase.

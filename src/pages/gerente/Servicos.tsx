@@ -1513,15 +1513,15 @@ export const Servicos: React.FC = () => {
           .service-item-card {
             flex-direction: column;
             align-items: flex-start;
-            padding: 0.75rem 0.875rem;
-            gap: 0.45rem;
+            padding: 0.5rem 0.625rem;
+            gap: 0.3rem;
           }
 
           .service-card-main-content {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr) auto;
             align-items: flex-start;
-            gap: 0.6rem;
+            gap: 0.4rem;
             width: 100%;
             min-width: 0;
           }
@@ -1529,11 +1529,42 @@ export const Servicos: React.FC = () => {
           .service-card-info {
             flex: 1;
             min-width: 0;
+            gap: 0.15rem;
+          }
+
+          .service-card-order-controls {
+            flex-direction: row;
+            gap: 2px;
+          }
+
+          .btn-order-arrow {
+            width: 24px;
+            height: 24px;
           }
 
           .service-name {
-            font-size: 0.95rem;
+            font-size: 0.875rem;
+            line-height: 1.15;
             overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .service-description {
+            display: none;
+          }
+
+          .service-meta-badges {
+            gap: 0.2rem;
+            margin-top: 0.05rem;
+          }
+
+          .meta-badge {
+            gap: 0.15rem;
+            padding: 1px 4px;
+            font-size: 10px;
           }
 
           .service-card-price {
@@ -1551,7 +1582,7 @@ export const Servicos: React.FC = () => {
             width: 100%;
             justify-content: space-between;
             align-items: center;
-            padding-top: 0.4rem;
+            padding-top: 0.25rem;
             border-top: 1px solid var(--color-border);
             min-width: 0;
           }
@@ -1564,7 +1595,7 @@ export const Servicos: React.FC = () => {
 
           .btn-action-edit,
           .btn-action-delete {
-            padding: 4px 10px;
+            padding: 3px 7px;
             font-size: 11px;
             height: 28px;
           }
