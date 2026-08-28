@@ -388,9 +388,10 @@ export const FluxoAgendamento: React.FC = () => {
 
     setBooking(true);
     try {
-      if (publicSlug && !isRescheduling) {
+      const confirmationSlug = publicSlug || customerDetails?.tenant_slug;
+      if (confirmationSlug && !isRescheduling) {
         const confirmation = await canalClienteRepository.confirmarAgendamentoPublico({
-          slug: publicSlug,
+          slug: confirmationSlug,
           token: canonicalToken,
           serviceId: selectedService.id,
           professionalId: selectedProfessional?.id || null,

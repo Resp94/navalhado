@@ -2,15 +2,15 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(16);
 
-select has_function('public','confirm_public_booking',array['text','uuid','uuid','date','text','text','text'],'public booking confirmation exists');
-select ok(has_function_privilege('anon','public.confirm_public_booking(text,uuid,uuid,date,text,text,text)','EXECUTE'),'anonymous visitors can confirm a booking');
-select ok((select p.prosecdef from pg_proc p where p.oid='public.confirm_public_booking(text,uuid,uuid,date,text,text,text)'::regprocedure),'booking confirmation uses a security definer boundary');
+select has_function('public','confirm_public_booking',array['text','uuid','uuid','date','text','text','text','uuid'],'public booking confirmation exists');
+select ok(has_function_privilege('anon','public.confirm_public_booking(text,uuid,uuid,date,text,text,text,uuid)','EXECUTE'),'anonymous visitors can confirm a booking');
+select ok((select p.prosecdef from pg_proc p where p.oid='public.confirm_public_booking(text,uuid,uuid,date,text,text,text,uuid)'::regprocedure),'booking confirmation uses a security definer boundary');
 select ok((select exists(
   select 1 from pg_proc p
-  where p.oid='public.confirm_public_booking(text,uuid,uuid,date,text,text,text)'::regprocedure
+  where p.oid='public.confirm_public_booking(text,uuid,uuid,date,text,text,text,uuid)'::regprocedure
     and array_to_string(p.proconfig, ',') like '%search_path=%'
 )),'booking confirmation pins its search path');
-select ok((select pg_get_functiondef('public.confirm_public_booking(text,uuid,uuid,date,text,text,text)'::regprocedure) like '%pg_advisory_xact_lock%'),'same tenant and phone are serialized');
+select ok((select pg_get_functiondef('public.confirm_public_booking(text,uuid,uuid,date,text,text,text,uuid)'::regprocedure) like '%pg_advisory_xact_lock%'),'same tenant and phone are serialized');
 select ok((select exists(
   select 1 from pg_indexes
   where schemaname='public'
@@ -40,23 +40,23 @@ values
   ('68000000-0000-0000-0000-000000000002','68000000-0000-0000-0000-000000000022','68000000-0000-0000-0000-000000000012',true,60);
 
 select is((select customer_name from public.confirm_public_booking(
-  'confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','09:00','Maria Silva','92999990027')),
+  'confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','09:00','Maria Silva','92999990027',null)),
   'Maria Silva'::text,'confirmation returns the submitted identity');
 select is((select count(*)::integer from public.customers where tenant_id='68000000-0000-0000-0000-000000000001'),1,'a new phone creates one customer');
 select is((select phone from public.customers where tenant_id='68000000-0000-0000-0000-000000000001'),private.normalize_br_phone('92999990027'),'phone is persisted in canonical format');
 
 select is((select customer_name from public.confirm_public_booking(
-  'confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','11:00','Nome Alterado','92999990027')),
+  'confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','11:00','Nome Alterado','92999990027',null)),
   'Maria Silva'::text,'same phone reuses the existing canonical customer');
 select is((select count(*)::integer from public.customers where tenant_id='68000000-0000-0000-0000-000000000001'),1,'repeated phone does not duplicate the customer');
 select is((select count(*)::integer from public.appointments where tenant_id='68000000-0000-0000-0000-000000000001'),2,'each successful confirmation creates its appointment');
 
 select is((select customer_name from public.confirm_public_booking(
-  'other-tenant','68000000-0000-0000-0000-000000000012','68000000-0000-0000-0000-000000000022','2040-01-02','09:00','Outra Pessoa','92999990027')),
+  'other-tenant','68000000-0000-0000-0000-000000000012','68000000-0000-0000-0000-000000000022','2040-01-02','09:00','Outra Pessoa','92999990027',null)),
   'Outra Pessoa'::text,'the same phone can identify a separate tenant customer');
 select is((select count(*)::integer from public.customers where tenant_id='68000000-0000-0000-0000-000000000002'),1,'customer identity is isolated by tenant');
 
-select throws_ok($$select * from public.confirm_public_booking('confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','09:00','Pessoa Falha','92999990032')$$,
+select throws_ok($$select * from public.confirm_public_booking('confirmation-test','68000000-0000-0000-0000-000000000011','68000000-0000-0000-0000-000000000021','2040-01-02','09:00','Pessoa Falha','92999990032',null)$$,
   '23P01','O horário selecionado acabou de ser reservado ou não está disponível.','availability failure aborts confirmation');
 select is((select count(*)::integer from public.customers where tenant_id='68000000-0000-0000-0000-000000000001' and telefone_normalizado=private.normalize_br_phone('92999990032')),0,'failed confirmation does not leave a partial customer');
 
