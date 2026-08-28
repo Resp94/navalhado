@@ -10,6 +10,8 @@ import type {
   ContextoPublicoCanal,
   HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -144,6 +146,40 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
 
     if (error) throw error;
     return (rows || []) as HorarioGradeCanal[];
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    const { data, error } = await supabase.rpc('confirm_public_booking', {
+      p_slug: input.slug,
+      p_service_id: input.serviceId,
+      p_professional_id: input.professionalId || null,
+      p_date: input.date,
+      p_slot: input.slot,
+      p_name: input.name,
+      p_phone: input.phone,
+    });
+
+    if (error) {
+      if (error.code === '23505' || error.message.includes('conflito') || error.message.includes('indisponível')) {
+        throw new AgendamentoConflitoError();
+      }
+      throw new CanalClienteValidationError(error.message);
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.appointment_id || !row?.customer_id || !row?.token_acesso) {
+      throw new CanalClienteValidationError('Não foi possível confirmar o agendamento.');
+    }
+
+    return {
+      appointmentId: row.appointment_id,
+      customerId: row.customer_id,
+      token: row.token_acesso,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
+    };
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

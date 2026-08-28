@@ -33,6 +33,8 @@ function renderBookingRoute(initialEntry: string | { pathname: string; state?: u
         <Route path="/cliente/agendar" element={<FluxoAgendamento />} />
         <Route path="/cliente/menu" element={<div>Menu do Cliente</div>} />
         <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        <Route path="/:slug" element={<FluxoAgendamento />} />
+        <Route path="/:slug/agendar" element={<FluxoAgendamento />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -47,6 +49,93 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('carrega rota pública por slug sem criar cliente provisório e preserva slot indisponível', async () => {
+    const service = {
+      id: 'service-public-1',
+      name: 'Corte Público',
+      description: null,
+      price: 50,
+      duration_minutes: 40,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_tenant_by_slug') {
+        return {
+          data: [{
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+            timezone: 'America/Manaus',
+            slot_interval_minutes: 30,
+            min_booking_lead_time_minutes: 0,
+            min_cancellation_lead_time_minutes: 120,
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
+      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
+      if (name === 'get_public_schedule_by_slug') {
+        return {
+          data: [
+            { slot_time: '10:00', available: true },
+            { slot_time: '10:30', available: false },
+          ],
+          error: null,
+        };
+      }
+      if (name === 'confirm_public_booking') {
+        return {
+          data: [{
+            appointment_id: 'appointment-public',
+            customer_id: 'customer-public',
+            token_acesso: 'token-public',
+            customer_name: 'Maria Silva',
+            customer_phone: '5592999998888',
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_or_create_provisional_customer_by_slug') {
+        throw new Error('rota pública não deve criar cliente provisório');
+      }
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute('/brooklyn');
+
+    expect(await screen.findByText('Corte Público')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Corte Público'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+
+    expect(await screen.findByRole('button', { name: '10:00' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '10:30' })).toBeDisabled();
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'get_or_create_provisional_customer_by_slug',
+      expect.anything(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '10:00' }));
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Matheus Lopes/i), { target: { value: 'Maria Silva' } });
+    fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith('confirm_public_booking', {
+        p_slug: 'brooklyn',
+        p_service_id: 'service-public-1',
+        p_professional_id: null,
+        p_date: expect.any(String),
+        p_slot: '10:00',
+        p_name: 'Maria Silva',
+        p_phone: '92999998888',
+      });
+    });
   });
 
   it('carrega o catálogo diretamente mesmo para cliente sem cadastro prévio', async () => {

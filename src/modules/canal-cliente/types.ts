@@ -80,6 +80,24 @@ export interface InputCriarAgendamento {
   startTime: string;
 }
 
+export interface InputConfirmarAgendamentoPublico {
+  slug: string;
+  serviceId: string;
+  professionalId: string | null;
+  date: string;
+  slot: string;
+  name: string;
+  phone: string;
+}
+
+export interface ConfirmacaoAgendamentoPublico {
+  appointmentId: string;
+  customerId: string;
+  token: string;
+  customerName: string;
+  customerPhone: string;
+}
+
 export interface InputReagendarAgendamento {
   appointmentId: string;
   newStartTime?: string;
@@ -110,6 +128,9 @@ export interface ICanalClienteAdapter {
     serviceId: string,
     professionalId?: string | null
   ): Promise<HorarioGradeCanal[]>;
+  confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico>;
   inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;

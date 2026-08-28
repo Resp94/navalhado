@@ -7,6 +7,8 @@ import type {
   ContextoPublicoCanal,
   HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -130,6 +132,36 @@ export class CanalClienteRepository {
       serviceId.trim(),
       professionalId
     );
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    if (!input.slug?.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!input.serviceId?.trim()) {
+      throw new CanalClienteValidationError('Selecione um serviço para agendar.');
+    }
+    if (!input.date?.trim() || !input.slot?.trim()) {
+      throw new CanalClienteValidationError('Selecione a data e o horário do agendamento.');
+    }
+    if (!input.name?.trim()) {
+      throw new CanalClienteValidationError('O nome é obrigatório para agendar.');
+    }
+    if (!input.phone?.trim()) {
+      throw new CanalClienteValidationError('O telefone é obrigatório para agendar.');
+    }
+
+    return await this.adapter.confirmarAgendamentoPublico({
+      ...input,
+      slug: input.slug.trim(),
+      serviceId: input.serviceId.trim(),
+      date: input.date.trim(),
+      slot: input.slot.trim(),
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+    });
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

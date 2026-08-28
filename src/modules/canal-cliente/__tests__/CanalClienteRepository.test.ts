@@ -138,6 +138,23 @@ describe('CanalClienteRepository', () => {
     ]);
   });
 
+  it('deve confirmar agendamento público sem exigir token prévio', async () => {
+    const result = await repository.confirmarAgendamentoPublico({
+      slug: 'brooklyn',
+      serviceId: 's1',
+      professionalId: 'p1',
+      date: '2026-07-25',
+      slot: '09:00',
+      name: 'Maria Silva',
+      phone: '92999998888',
+    });
+
+    expect(result.customerName).toBe('Maria Silva');
+    expect(result.customerPhone).toBe('92999998888');
+    expect(result.token).toContain('token_public_');
+    expect(repository.obterTokenAcesso()).toBe(result.token);
+  });
+
   it('deve consultar horários disponíveis com parâmetros válidos', async () => {
     repository.definirTokenAcesso(validToken);
     const slots = await repository.consultarHorariosDisponiveis('2026-07-25', 's1', 'p1');

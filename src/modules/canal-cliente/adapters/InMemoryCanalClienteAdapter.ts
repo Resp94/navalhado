@@ -8,6 +8,8 @@ import type {
   ContextoPublicoCanal,
   HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -70,6 +72,45 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   ): Promise<HorarioGradeCanal[]> {
     if (!this.contextosPublicos.has(slug)) return [];
     return this.gradesPublicas.get(`${data}_${serviceId}_${professionalId || 'any'}`) || [];
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    const contexto = this.contextosPublicos.get(input.slug);
+    if (!contexto) throw new CanalClienteTokenError('Estabelecimento não encontrado.');
+
+    const normalizedPhone = input.phone.replace(/\D/g, '');
+    let entry = Array.from(this.perfis.entries()).find(([, perfil]) =>
+      perfil.tenant_id === contexto.tenant_id && perfil.customer_phone?.replace(/\D/g, '') === normalizedPhone
+    );
+    let token = entry?.[0];
+    let perfil = entry?.[1];
+
+    if (!perfil || !token) {
+      token = `token_public_${Date.now()}`;
+      perfil = {
+        customer_id: `cust_public_${Date.now()}`,
+        customer_name: input.name,
+        customer_phone: input.phone,
+        tenant_id: contexto.tenant_id,
+        tenant_name: contexto.tenant_name,
+        tenant_phone: contexto.tenant_phone,
+        tenant_slug: contexto.tenant_slug,
+        cadastro_completo: true,
+        token_acesso: token,
+      };
+      this.perfis.set(token, perfil);
+    }
+
+    this.definirToken(token);
+    return {
+      appointmentId: `app_public_${Date.now()}`,
+      customerId: perfil.customer_id,
+      token,
+      customerName: perfil.customer_name,
+      customerPhone: perfil.customer_phone || input.phone,
+    };
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
