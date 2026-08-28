@@ -156,6 +156,7 @@ export class CanalClienteRepository {
     return await this.adapter.confirmarAgendamentoPublico({
       ...input,
       slug: input.slug.trim(),
+      token: input.token?.trim() || null,
       serviceId: input.serviceId.trim(),
       date: input.date.trim(),
       slot: input.slot.trim(),

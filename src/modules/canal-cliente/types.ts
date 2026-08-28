@@ -82,6 +82,7 @@ export interface InputCriarAgendamento {
 
 export interface InputConfirmarAgendamentoPublico {
   slug: string;
+  token?: string | null;
   serviceId: string;
   professionalId: string | null;
   date: string;

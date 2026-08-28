@@ -22,6 +22,10 @@ import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shi
 import { maskPhone } from '../../lib/whatsapp';
 import { getDayBusinessHours } from '../gerente/Agenda';
 
+const PUBLIC_TOKEN_STORAGE_PREFIX = 'navalhado_canal_cliente_v1_token_';
+const publicTokenStorageKey = (slug: string): string =>
+  `${PUBLIC_TOKEN_STORAGE_PREFIX}${encodeURIComponent(slug.trim().toLowerCase())}`;
+
 export const FluxoAgendamento: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -69,7 +73,7 @@ export const FluxoAgendamento: React.FC = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
   const [canonicalToken, setCanonicalToken] = useState<string | null>(() =>
-    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_token_' + routeSlug) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
+    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem(publicTokenStorageKey(routeSlug)) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
   );
 
   // Dados de identificação do cliente no agendamento (conforme vídeo)
@@ -178,14 +182,14 @@ export const FluxoAgendamento: React.FC = () => {
           const explicitToken = searchParams.get('token') || routeToken;
           const storedToken = explicitToken?.trim() || (
             typeof window !== 'undefined' && window.localStorage
-              ? localStorage.getItem('navalhado_token_' + publicSlug) || undefined
+              ? localStorage.getItem(publicTokenStorageKey(publicSlug)) || undefined
               : undefined
           );
 
           if (storedToken) {
             try {
               const candidateProfile = await canalClienteRepository.obterPerfil(storedToken);
-              if (candidateProfile.tenant_id === activePublicContext.tenant_id) {
+              if (candidateProfile.tenant_id === activePublicContext.tenant_id && candidateProfile.cadastro_completo) {
                 token = storedToken;
                 activeDetails = candidateProfile;
               }
@@ -198,7 +202,7 @@ export const FluxoAgendamento: React.FC = () => {
 
           setCanonicalToken(token);
           setPublicContext(activePublicContext);
-          await loadCatalog(token, publicSlug);
+          await loadCatalog(null, publicSlug);
         } else if (token) {
           activeDetails = await canalClienteRepository.obterPerfil(token);
           await loadCatalog(token);
@@ -275,7 +279,7 @@ export const FluxoAgendamento: React.FC = () => {
       setPublicSchedule([]);
       
       try {
-        if (publicSlug && !canonicalToken) {
+        if (publicSlug) {
           const schedule = await canalClienteRepository.consultarGradeHorariosPublica(
             publicSlug,
             selectedDate,
@@ -308,7 +312,7 @@ export const FluxoAgendamento: React.FC = () => {
   // Seleções do usuário
   const handleSelectService = (service: ServicoCanal) => {
     setSelectedService(service);
-    if (publicSlug && !canonicalToken) {
+    if (publicSlug) {
       void canalClienteRepository.obterProfissionaisPublicos(publicSlug, service.id)
         .then(setProfessionals)
         .catch(() => {
@@ -384,9 +388,10 @@ export const FluxoAgendamento: React.FC = () => {
 
     setBooking(true);
     try {
-      if (publicSlug && !canonicalToken && !isRescheduling) {
+      if (publicSlug && !isRescheduling) {
         const confirmation = await canalClienteRepository.confirmarAgendamentoPublico({
           slug: publicSlug,
+          token: canonicalToken,
           serviceId: selectedService.id,
           professionalId: selectedProfessional?.id || null,
           date: selectedDate,
@@ -395,9 +400,8 @@ export const FluxoAgendamento: React.FC = () => {
           phone: cleanPhone,
         });
 
-        setCanonicalToken(confirmation.token);
         if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem('navalhado_token_' + publicSlug, confirmation.token);
+          localStorage.setItem(publicTokenStorageKey(publicSlug), confirmation.token);
           localStorage.setItem('navalhado_customer_token', confirmation.token);
         }
         addToast('Agendamento realizado com sucesso!', 'success');
@@ -421,7 +425,7 @@ export const FluxoAgendamento: React.FC = () => {
         setCanonicalToken(activeToken);
       }
       if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('navalhado_token_' + customerDetails.tenant_slug, activeToken);
+        localStorage.setItem(publicTokenStorageKey(customerDetails.tenant_slug), activeToken);
         localStorage.setItem('navalhado_customer_token', activeToken);
       }
 

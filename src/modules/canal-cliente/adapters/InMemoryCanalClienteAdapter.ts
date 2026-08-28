@@ -80,6 +80,13 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     const contexto = this.contextosPublicos.get(input.slug);
     if (!contexto) throw new CanalClienteTokenError('Estabelecimento não encontrado.');
 
+    if (input.token) {
+      const tokenProfile = this.perfis.get(input.token);
+      if (!tokenProfile || tokenProfile.tenant_id !== contexto.tenant_id || !tokenProfile.cadastro_completo) {
+        throw new CanalClienteTokenError('Token inválido para este estabelecimento.');
+      }
+    }
+
     const normalizedPhone = input.phone.replace(/\D/g, '');
     let entry = Array.from(this.perfis.entries()).find(([, perfil]) =>
       perfil.tenant_id === contexto.tenant_id && perfil.customer_phone?.replace(/\D/g, '') === normalizedPhone

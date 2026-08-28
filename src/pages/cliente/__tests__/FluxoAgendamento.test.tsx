@@ -134,8 +134,96 @@ describe('FluxoAgendamento - cadastro inicial', () => {
         p_slot: '10:00',
         p_name: 'Maria Silva',
         p_phone: '92999998888',
+        p_token: null,
       });
     });
+  });
+
+  it('preenche cliente reconhecido, permite agendar para terceiro e envia o token validado', async () => {
+    const service = {
+      id: 'service-public-1',
+      name: 'Corte Público',
+      description: null,
+      price: 50,
+      duration_minutes: 40,
+      category: 'Cabelo',
+      is_active: true,
+    };
+    const recognizedDetails = {
+      ...incompleteDetails,
+      customer_id: 'customer-original',
+      customer_name: 'João Original',
+      customer_phone: '92999990000',
+      tenant_id: 'tenant-public',
+      tenant_name: 'Barbearia Pública',
+      tenant_phone: '5592999999999',
+      tenant_slug: 'brooklyn',
+      cadastro_completo: true,
+      token_acesso: 'token-recognized',
+    };
+
+    localStorage.setItem('navalhado_canal_cliente_v1_token_brooklyn', 'token-recognized');
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_tenant_by_slug') {
+        return {
+          data: [{
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+            timezone: 'America/Manaus',
+            slot_interval_minutes: 30,
+            min_booking_lead_time_minutes: 0,
+            min_cancellation_lead_time_minutes: 120,
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_customer_details_by_token') return { data: [recognizedDetails], error: null };
+      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
+      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
+      if (name === 'get_public_schedule_by_slug') {
+        return { data: [{ slot_time: '10:00', available: true }], error: null };
+      }
+      if (name === 'confirm_public_booking') {
+        return {
+          data: [{
+            appointment_id: 'appointment-third-party',
+            customer_id: 'customer-third-party',
+            token_acesso: 'token-third-party',
+            customer_name: 'Maria Terceira',
+            customer_phone: '92999998888',
+          }],
+          error: null,
+        };
+      }
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute({ pathname: '/brooklyn', state: { fromMenu: true } });
+    fireEvent.click(await screen.findByText('Corte Público'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
+
+    expect(await screen.findByPlaceholderText(/Ex: Matheus Lopes/i)).toHaveValue('João Original');
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Matheus Lopes/i), { target: { value: 'Maria Terceira' } });
+    fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith('confirm_public_booking', {
+        p_slug: 'brooklyn',
+        p_service_id: 'service-public-1',
+        p_professional_id: null,
+        p_date: expect.any(String),
+        p_slot: '10:00',
+        p_name: 'Maria Terceira',
+        p_phone: '92999998888',
+        p_token: 'token-recognized',
+      });
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith('complete_customer_registration', expect.anything());
+    expect(mockRpc).not.toHaveBeenCalledWith('create_appointment_by_token', expect.anything());
   });
 
   it('carrega o catálogo diretamente mesmo para cliente sem cadastro prévio', async () => {

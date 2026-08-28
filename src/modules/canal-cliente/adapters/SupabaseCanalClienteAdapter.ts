@@ -159,6 +159,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       p_slot: input.slot,
       p_name: input.name,
       p_phone: input.phone,
+      p_token: input.token || null,
     });
 
     if (error) {
