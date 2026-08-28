@@ -24,6 +24,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   public contextosPublicos: Map<string, ContextoPublicoCanal> = new Map();
   public servicos: ServicoCanal[] = [];
   public profissionais: ProfissionalCanal[] = [];
+  public profissionaisPorServico: Map<string, string[]> = new Map();
   public agendamentos: AgendamentoCanal[] = [];
   public slotsDisponiveis: Map<string, string[]> = new Map();
   public gradesPublicas: Map<string, HorarioGradeCanal[]> = new Map();
@@ -59,9 +60,12 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     return this.servicos.filter((service) => service.is_active);
   }
 
-  async listarProfissionaisPorSlug(slug: string, _serviceId: string): Promise<ProfissionalCanal[]> {
+  async listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
     if (!this.contextosPublicos.has(slug)) return [];
-    return this.profissionais.filter((professional) => professional.is_active);
+    const professionalIds = this.profissionaisPorServico.get(serviceId);
+    return this.profissionais.filter((professional) =>
+      professional.is_active && (!professionalIds || professionalIds.includes(professional.id))
+    );
   }
 
   async buscarGradeHorariosPorSlug(
@@ -87,6 +91,14 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       }
     }
 
+    const service = this.servicos.find((item) => item.id === input.serviceId && item.is_active);
+    const professional = input.professionalId
+      ? this.profissionais.find((item) => item.id === input.professionalId && item.is_active)
+      : undefined;
+    if (!service || (input.professionalId && !professional)) {
+      throw new Error('ServiÃ§o ou profissional indisponÃ­vel.');
+    }
+
     const normalizedPhone = input.phone.replace(/\D/g, '');
     let entry = Array.from(this.perfis.entries()).find(([, perfil]) =>
       perfil.tenant_id === contexto.tenant_id && perfil.customer_phone?.replace(/\D/g, '') === normalizedPhone
@@ -110,9 +122,33 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       this.perfis.set(token, perfil);
     }
 
+    const appointmentId = `app_public_${Date.now()}`;
+    this.agendamentos.push({
+      appointment_id: appointmentId,
+      start_time: `${input.date}T${input.slot}:00`,
+      end_time: `${input.date}T${input.slot}:00`,
+      status: 'confirmed',
+      payment_status: 'pending',
+      cancellation_reason: null,
+      professional_id: input.professionalId || 'p1',
+      professional_name: professional?.name || 'Barbeiro Teste',
+      professional_phone: professional?.phone,
+      service_id: service.id,
+      service_name: service.name,
+      service_price: service.price,
+      service_duration: service.duration_minutes,
+      tenant_id: contexto.tenant_id,
+      tenant_name: contexto.tenant_name,
+      tenant_phone: contexto.tenant_phone,
+      customer_name: perfil.customer_name,
+      min_cancellation_lead_time_minutes: contexto.min_cancellation_lead_time_minutes,
+      min_booking_lead_time_minutes: contexto.min_booking_lead_time_minutes,
+      slot_interval_minutes: contexto.slot_interval_minutes,
+    });
+
     this.definirToken(token);
     return {
-      appointmentId: `app_public_${Date.now()}`,
+      appointmentId,
       customerId: perfil.customer_id,
       token,
       customerName: perfil.customer_name,

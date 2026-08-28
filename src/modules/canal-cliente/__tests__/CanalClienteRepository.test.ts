@@ -124,6 +124,19 @@ describe('CanalClienteRepository', () => {
     expect(repository.obterTokenAcesso()).toBeNull();
   });
 
+  it('deve listar somente profissionais habilitados para o serviço público selecionado', async () => {
+    adapter.profissionais = [
+      { id: 'p1', name: 'Mestre Barbeiro', is_active: true },
+      { id: 'p2', name: 'Outra Barbeira', is_active: true },
+    ];
+    adapter.profissionaisPorServico.set('s1', ['p1']);
+    adapter.profissionaisPorServico.set('s2', ['p2']);
+
+    await expect(repository.obterProfissionaisPublicos('brooklyn', 's1')).resolves.toEqual([
+      { id: 'p1', name: 'Mestre Barbeiro', is_active: true },
+    ]);
+  });
+
   it('deve consultar a grade pública preservando horários indisponíveis', async () => {
     adapter.gradesPublicas.set('2026-07-25_s1_p1', [
       { slot_time: '09:00', available: true },
@@ -153,6 +166,9 @@ describe('CanalClienteRepository', () => {
     expect(result.customerPhone).toBe('92999998888');
     expect(result.token).toContain('token_public_');
     expect(repository.obterTokenAcesso()).toBe(result.token);
+    expect(adapter.agendamentos).toHaveLength(1);
+    expect(adapter.agendamentos[0].service_id).toBe('s1');
+    expect(adapter.agendamentos[0].professional_id).toBe('p1');
   });
 
   it('deve consultar horários disponíveis com parâmetros válidos', async () => {

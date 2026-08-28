@@ -27,7 +27,7 @@ const publicTokenStorageKey = (slug: string): string =>
   `${PUBLIC_TOKEN_STORAGE_PREFIX}${encodeURIComponent(slug.trim().toLowerCase())}`;
 
 export const FluxoAgendamento: React.FC = () => {
-  const location = useLocation();
+  const { state: locationState } = useLocation();
   const navigate = useNavigate();
   const { token: routeToken, slug: routeSlug } = useParams();
   const [searchParams] = useSearchParams();
@@ -140,7 +140,7 @@ export const FluxoAgendamento: React.FC = () => {
       setProfessionals([]);
     }
 
-    const stateData = location.state as {
+    const stateData = locationState as {
       serviceId?: string;
       professionalId?: string;
       professionalName?: string;
@@ -161,7 +161,7 @@ export const FluxoAgendamento: React.FC = () => {
       }
       setEtapa(3);
     }
-  }, [location.state, canalClienteRepository]);
+  }, [locationState, canalClienteRepository]);
 
   // Carregar dados iniciais e tratar reagendamento ou acesso por slug
   useEffect(() => {
@@ -218,7 +218,7 @@ export const FluxoAgendamento: React.FC = () => {
         }
 
         // Se o cliente já possui cadastro completo e não veio de uma ação explícita de agendamento/reagendamento, direciona para o painel de gerenciamento
-        const stateData = location.state as { fromMenu?: boolean; rescheduleAppointmentId?: string } | null;
+        const stateData = locationState as { fromMenu?: boolean; rescheduleAppointmentId?: string } | null;
         if (activeDetails?.cadastro_completo && !stateData?.fromMenu && !stateData?.rescheduleAppointmentId) {
           navigate('/cliente/menu', { replace: true });
           return;
@@ -255,7 +255,7 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     loadInitialData();
-  }, [publicSlug, routeToken, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository]);
+  }, [publicSlug, routeToken, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository, locationState]);
 
   // Sincronizar dados do cliente se já existirem no perfil
   useEffect(() => {
@@ -307,7 +307,7 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     fetchSlots();
-  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken, publicSlug, canalClienteRepository]);
+  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken, publicSlug, canalClienteRepository, addToast]);
 
   // Seleções do usuário
   const handleSelectService = (service: ServicoCanal) => {

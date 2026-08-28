@@ -6,7 +6,7 @@ select has_function('public','get_public_schedule_by_slug',array['text','date','
 select ok(has_function_privilege('anon','public.get_public_schedule_by_slug(text,date,uuid,uuid)','EXECUTE'),'anonymous visitors can query the public schedule');
 select ok((select p.prosecdef from pg_proc p where p.oid='public.get_public_schedule_by_slug(text,date,uuid,uuid)'::regprocedure),'public schedule uses a security definer boundary');
 
-insert into public.tenants(id,name,email,phone,slug,business_hours,timezone,slot_interval_minutes,min_booking_lead_time_minutes)
+insert into public.tenants(id,name,email,phone,slug,business_hours,timezone,slot_interval_minutes,min_booking_lead_time_minutes,onboarding_completed)
 values(
   '59000000-0000-0000-0000-000000000001',
   'Schedule Test',
@@ -16,7 +16,8 @@ values(
   '{"monday":{"active":true,"start":"09:00","end":"12:00"}}'::jsonb,
   'America/Manaus',
   30,
-  0
+  0,
+  true
 );
 
 insert into public.services(id,tenant_id,name,price,duration_minutes,category,is_active,display_order)

@@ -37,13 +37,14 @@ select ok(
   'public tenant context pins its search path'
 );
 
-insert into public.tenants(id, name, email, phone, slug)
+insert into public.tenants(id, name, email, phone, slug, onboarding_completed)
 values (
   '57000000-0000-0000-0000-000000000001',
   'Tenant Context Test',
   'tenant-context-test@test.local',
   '92999990001',
-  'tenant-context-test'
+  'tenant-context-test',
+  true
 );
 
 select is(
