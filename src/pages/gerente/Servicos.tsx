@@ -1514,14 +1514,16 @@ export const Servicos: React.FC = () => {
             flex-direction: column;
             align-items: flex-start;
             padding: 0.75rem 0.875rem;
-            gap: 0.5rem;
+            gap: 0.45rem;
           }
 
           .service-card-main-content {
-            display: flex;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
             align-items: flex-start;
             gap: 0.6rem;
             width: 100%;
+            min-width: 0;
           }
 
           .service-card-info {
@@ -1531,6 +1533,7 @@ export const Servicos: React.FC = () => {
 
           .service-name {
             font-size: 0.95rem;
+            overflow-wrap: anywhere;
           }
 
           .service-card-price {
@@ -1550,6 +1553,7 @@ export const Servicos: React.FC = () => {
             align-items: center;
             padding-top: 0.4rem;
             border-top: 1px solid var(--color-border);
+            min-width: 0;
           }
 
           .service-card-action-btns {

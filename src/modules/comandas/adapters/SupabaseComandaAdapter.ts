@@ -76,23 +76,30 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
         is_fitting: boolean | null;
         service?: { id: string; name: string } | null;
         professional?: { id: string; name: string } | null;
-      } | null;
+      } | {
+        id: string;
+        start_time: string;
+        is_fitting: boolean | null;
+        service?: { id: string; name: string } | null;
+        professional?: { id: string; name: string } | null;
+      }[] | null;
     }
 
     return ((data as unknown as RawComandaListRow[]) || []).map((c) => {
       const isAberta = c.status === 'aberta' || (c.status as string) === 'open';
       const isFechada = c.status === 'fechada' || (c.status as string) === 'closed' || (c.status as string) === 'paid';
       const normalizedStatus = isAberta ? 'aberta' : isFechada ? 'fechada' : 'cancelada';
+      const appointment = Array.isArray(c.appointment) ? c.appointment[0] || null : c.appointment;
 
       return {
         ...c,
         status: normalizedStatus,
         customer_name: c.customer?.name || (c.appointment_id ? 'Cliente Agendado' : 'Cliente Balcão'),
         customer_phone: c.customer?.phone || null,
-        professional_name: c.appointment?.professional?.name || 'Equipe',
-        appointment_start_time: c.appointment?.start_time || null,
-        appointment_service_name: c.appointment?.service?.name || null,
-        appointment_is_fitting: c.appointment?.is_fitting ?? null,
+        professional_name: appointment?.professional?.name || 'Equipe',
+        appointment_start_time: appointment?.start_time || null,
+        appointment_service_name: appointment?.service?.name || null,
+        appointment_is_fitting: appointment?.is_fitting ?? null,
       };
     });
   }
@@ -208,6 +215,23 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
   }
 
   async liquidarComanda(input: LiquidarComandaInput): Promise<Comanda> {
+    const { data: linkedAppointment, error: linkedAppointmentError } = await supabase
+      .from('comandas')
+      .select('appointment:appointments(status)')
+      .eq('id', input.comanda_id)
+      .maybeSingle();
+
+    if (linkedAppointmentError) {
+      throw new Error(`Erro ao validar atendimento da comanda: ${linkedAppointmentError.message}`);
+    }
+
+    const appointmentRelation = Array.isArray(linkedAppointment?.appointment)
+      ? linkedAppointment.appointment[0]
+      : linkedAppointment?.appointment;
+    if (appointmentRelation?.status === 'no_show' || appointmentRelation?.status === 'canceled') {
+      throw new Error('Não é possível liquidar uma comanda vinculada a um atendimento cancelado ou não comparecido.');
+    }
+
     // 1. Sincronizar itens da comanda se fornecidos
     if (input.itens && input.itens.length > 0) {
       const { error: deleteError } = await supabase

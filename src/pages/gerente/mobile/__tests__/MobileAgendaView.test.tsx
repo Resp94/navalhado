@@ -70,6 +70,25 @@ describe('MobileAgendaView Component', () => {
     expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
   });
 
+  it('mantém no-show visível com rótulo próprio e sem ação de finalização', () => {
+    const noShowAppointment: Appointment = {
+      ...mockAppointments[0],
+      id: 'app-no-show',
+      status: 'no_show',
+    };
+
+    render(
+      <MobileAgendaView
+        {...defaultProps}
+        appointments={[noShowAppointment]}
+        onMarkNoShow={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Não compareceu')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Marcar .* não compareceu/i })).not.toBeInTheDocument();
+  });
+
   it('aciona o toque em slot vazio para novo agendamento com o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 

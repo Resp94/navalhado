@@ -44,6 +44,8 @@ import {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateFittingTimeSlots,
+  isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
 } from '../../lib/schedule';
@@ -55,6 +57,8 @@ export {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateFittingTimeSlots,
+  isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
 };
@@ -406,13 +410,17 @@ export const Agenda: React.FC = () => {
   // Geração de horários 24 horas (00:00 às 23:00) para encaixes
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
-    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+    if (formIsFitting) {
+      return generateFittingTimeSlots(slotIntervalMinutes);
+    }
+
+    const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
     if (!dayBh.active) return [];
 
     if (formProfessionalId) {
       const prof = professionals.find((p) => p.id === formProfessionalId);
       const profSched = prof
-        ? getEffectiveProfessionalDaySchedule(prof, selectedDate, tenant.businessHours)
+        ? getEffectiveProfessionalDaySchedule(prof, formDate, tenant.businessHours)
         : null;
       if (profSched && profSched.active !== false && profSched.start && profSched.end) {
         return generateTimeSlotsForSchedule(
@@ -435,7 +443,7 @@ export const Agenda: React.FC = () => {
 
     professionals.forEach((p) => {
       if (!p.is_active) return;
-      const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
+      const sched = getEffectiveProfessionalDaySchedule(p, formDate, tenant.businessHours);
       if (sched && sched.active !== false && sched.start && sched.end) {
         const pSlots = generateTimeSlotsForSchedule(
           sched.start,
@@ -449,7 +457,7 @@ export const Agenda: React.FC = () => {
     });
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
-  }, [selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
+  }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting]);
 
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
   const agendaRescheduleAvailableSlots = useMemo(() => {
@@ -529,23 +537,23 @@ export const Agenda: React.FC = () => {
       if (formIsFitting) return true;
       return isProfessionalWorkingAt(
         p,
-        selectedDate,
+        formDate,
         formTime,
         currentServiceDuration,
         tenant.businessHours
       );
     });
-  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration, tenant.businessHours]);
+  }, [professionals, formIsFitting, formDate, formTime, currentServiceDuration, tenant.businessHours]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
     const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
     return (
-      selectedDate < currentLocalDate ||
-      (selectedDate === currentLocalDate && formTime < currentLocalTime)
+      formDate < currentLocalDate ||
+      (formDate === currentLocalDate && formTime < currentLocalTime)
     );
-  }, [selectedDate, formTime, tenant.timezone]);
+  }, [formDate, formTime, tenant.timezone]);
 
   // Sincronizar barbeiro selecionado caso o atual não esteja disponível no horário
   useEffect(() => {
@@ -834,13 +842,6 @@ export const Agenda: React.FC = () => {
     const nowInstant = new Date();
     const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-
-    const dayBh = getDayBusinessHours(dateToCheck, tenant.businessHours);
-    if (!dayBh.active) {
-      addToast('A barbearia não abre neste dia conforme as configurações de funcionamento.', 'warning');
-      return;
-    }
-
     let finalIsFitting = isFitting;
 
     if (timeSlot) {
@@ -850,8 +851,21 @@ export const Agenda: React.FC = () => {
       if (isPast) {
         finalIsFitting = true;
       }
+    }
 
-      if (profId) {
+    const dayBh = getDayBusinessHours(dateToCheck, tenant.businessHours);
+    if (!finalIsFitting && !dayBh.active) {
+      addToast('A barbearia não abre neste dia conforme as configurações de funcionamento.', 'warning');
+      return;
+    }
+
+    if (timeSlot) {
+      if (finalIsFitting && !isTimeAlignedToSlotInterval(timeSlot, slotIntervalMinutes)) {
+        addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
+        return;
+      }
+
+      if (profId && !finalIsFitting) {
         const prof = professionals.find((p) => p.id === profId);
         if (prof && isProfessionalOnBreak(prof, dateToCheck, timeSlot)) {
           addToast(getProfessionalBreakMessage(prof, dateToCheck), 'warning');
@@ -862,7 +876,7 @@ export const Agenda: React.FC = () => {
       const isOutsideHours =
         timeSlot < dayBh.open ||
         timeSlot >= dayBh.close;
-      if (isOutsideHours) {
+      if (!finalIsFitting && isOutsideHours) {
         addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
         return;
       }
@@ -870,7 +884,9 @@ export const Agenda: React.FC = () => {
 
     const targetTime =
       timeSlot ||
-      (dateToCheck === currentLocalDate && currentLocalTime > dayBh.open
+      (finalIsFitting
+        ? generateFittingTimeSlots(slotIntervalMinutes).find((slot) => slot >= currentLocalTime) || '00:00'
+        : dateToCheck === currentLocalDate && currentLocalTime > dayBh.open
         ? timeSlots.find((s) => s >= currentLocalTime && s >= dayBh.open && s < dayBh.close) || dayBh.open
         : dayBh.open);
 
@@ -881,6 +897,7 @@ export const Agenda: React.FC = () => {
     } else {
       const available = professionals.filter((p) => {
         if (!p.is_active) return false;
+        if (finalIsFitting) return true;
         return isProfessionalWorkingAt(p, dateToCheck, targetTime, 0, tenant.businessHours);
       });
 
@@ -1029,12 +1046,17 @@ export const Agenda: React.FC = () => {
       }
 
       const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-      if (!dayBh.active) {
+      if (!formIsFitting && !dayBh.active) {
         addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
         setSavingAppointment(false);
         return;
       }
-      if (formTime < dayBh.open || formTime >= dayBh.close) {
+      if (formIsFitting && !isTimeAlignedToSlotInterval(formTime, slotIntervalMinutes)) {
+        addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+      if (!formIsFitting && (formTime < dayBh.open || formTime >= dayBh.close)) {
         addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
         setSavingAppointment(false);
         return;
@@ -1236,8 +1258,57 @@ export const Agenda: React.FC = () => {
 
   // Abrir Modal de Checkout de Comanda
   const handleOpenCheckout = (app: Appointment) => {
+    if (app.status === 'no_show') {
+      addToast('Este atendimento foi marcado como não compareceu e não pode gerar movimento financeiro.', 'warning');
+      return;
+    }
     setCheckoutAppointment(app);
     setIsCheckoutModalOpen(true);
+  };
+
+  const handleMarkNoShow = async (app: Appointment) => {
+    if (!['pending', 'confirmed'].includes(app.status)) {
+      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
+      return;
+    }
+
+    if (new Date(app.start_time).getTime() > Date.now()) {
+      addToast('O atendimento ainda não começou.', 'warning');
+      return;
+    }
+
+    if (!window.confirm(`Marcar o atendimento de ${app.customer?.name || 'Cliente'} como não compareceu?`)) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'no_show', updated_at: new Date().toISOString() })
+        .eq('id', app.id)
+        .eq('tenant_id', tenant.tenantId)
+        .in('status', ['pending', 'confirmed'])
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        addToast('O status deste atendimento mudou antes da atualização. Recarregue a agenda.', 'warning');
+        fetchAppointments();
+        return;
+      }
+
+      setAppointments((previous) =>
+        previous.map((appointment) =>
+          appointment.id === app.id ? { ...appointment, status: 'no_show' } : appointment
+        )
+      );
+      addToast('Atendimento marcado como não compareceu.', 'success');
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Erro ao marcar atendimento como não compareceu:', err);
+      addToast(err?.message || 'Erro ao marcar atendimento como não compareceu.', 'error');
+    }
   };
 
   // Remover Bloqueio de Horário
@@ -1495,6 +1566,7 @@ export const Agenda: React.FC = () => {
             handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
           onOpenCheckout={handleOpenCheckout}
+          onMarkNoShow={handleMarkNoShow}
           onOpenReschedule={handleOpenRescheduleModal}
           onOpenCancel={handleOpenCancelModal}
           onStartService={handleStartService}
@@ -1928,7 +2000,9 @@ export const Agenda: React.FC = () => {
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
                             let statusClass = 'card-status--pending';
-                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                            if (app.status === 'no_show') {
+                              statusClass = 'card-status--no-show';
+                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
                               statusClass = 'card-status--completed';
                             } else if (app.status === 'in_progress') {
                               statusClass = 'card-status--in-progress';
@@ -1961,6 +2035,11 @@ export const Agenda: React.FC = () => {
                                         Encaixe
                                       </span>
                                     )}
+                                    {app.status === 'no_show' && (
+                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                        Não compareceu
+                                      </span>
+                                    )}
                                     {app.status === 'in_progress' && (
                                       <span className="badge-chip badge-chip--progress" title="Em Atendimento">
                                         Atendendo
@@ -1986,6 +2065,21 @@ export const Agenda: React.FC = () => {
                                       <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
                                     </p>
                                   )}
+                                  {(app.status === 'pending' || app.status === 'confirmed') &&
+                                    new Date(app.start_time).getTime() <= Date.now() && (
+                                      <button
+                                        type="button"
+                                        className="card-quick-no-show-btn"
+                                        title="Marcar atendimento como não compareceu"
+                                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void handleMarkNoShow(app);
+                                        }}
+                                      >
+                                        Não compareceu
+                                      </button>
+                                    )}
                                   {app.status !== 'canceled' && (
                                     <button
                                       type="button"
@@ -2220,7 +2314,9 @@ export const Agenda: React.FC = () => {
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
                             let statusClass = 'card-status--pending';
-                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                            if (app.status === 'no_show') {
+                              statusClass = 'card-status--no-show';
+                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
                               statusClass = 'card-status--completed';
                             } else if (app.status === 'in_progress') {
                               statusClass = 'card-status--in-progress';
@@ -2251,6 +2347,11 @@ export const Agenda: React.FC = () => {
                                     {app.is_fitting && (
                                       <span className="badge-chip badge-chip--fitting" title="Encaixe">
                                         Encaixe
+                                      </span>
+                                    )}
+                                    {app.status === 'no_show' && (
+                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                        Não compareceu
                                       </span>
                                     )}
                                     {app.payment_status === 'paid' && (
@@ -3401,6 +3502,30 @@ export const Agenda: React.FC = () => {
         .card-status--completed {
           border-color: rgba(14, 159, 110, 0.4);
           background-color: var(--color-success-bg);
+        }
+
+        .card-status--no-show {
+          border-color: rgba(185, 28, 28, 0.45);
+          background-color: rgba(254, 226, 226, 0.9);
+        }
+
+        .badge-chip--no-show {
+          background: #b91c1c;
+          color: #fff;
+        }
+
+        .card-quick-no-show-btn {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid rgba(185, 28, 28, 0.35);
+          border-radius: 4px;
+          padding: 2px 6px;
+          margin-top: 4px;
+          background: rgba(255, 255, 255, 0.9);
+          color: #b91c1c;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
         }
 
         .card-top-row {

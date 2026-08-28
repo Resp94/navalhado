@@ -71,7 +71,7 @@ interface Appointment {
   id: string;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'canceled';
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show';
   payment_status: 'pending' | 'paid';
   professional_id: string;
   tenant_id: string;
@@ -664,6 +664,7 @@ export const MinhaAgenda: React.FC = () => {
                         {app.status === 'in_progress' && 'Em Atendimento'}
                         {app.status === 'completed' && 'Concluído'}
                         {app.status === 'canceled' && 'Cancelado'}
+                        {app.status === 'no_show' && 'Não compareceu'}
                       </span>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>

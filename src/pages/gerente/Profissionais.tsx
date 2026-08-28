@@ -20,7 +20,12 @@ import {
   Edit01Icon,
 } from '@hugeicons/core-free-icons';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
-import { clampTimeToRange, getBusinessHoursForDayKey, timeToMinutes } from '../../lib/schedule';
+import {
+  clampProfessionalScheduleToBusinessHours,
+  clampTimeToRange,
+  getBusinessHoursForDayKey,
+  timeToMinutes,
+} from '../../lib/schedule';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -48,6 +53,31 @@ const DAYS_OF_WEEK = [
   { key: 'saturday', label: 'Sábado' },
   { key: 'sunday', label: 'Domingo' },
 ];
+
+type ScheduleFormDay = ProfessionalScheduleDay & { active: boolean };
+type ScheduleForm = Record<string, ScheduleFormDay>;
+
+const getSafeBreak = (start: string, end: string) => {
+  if (timeToMinutes(start) <= timeToMinutes('12:00') && timeToMinutes(end) >= timeToMinutes('13:00')) {
+    return { break_start: '12:00', break_end: '13:00' };
+  }
+
+  return { break_start: undefined, break_end: undefined };
+};
+
+const createTenantScheduleDefaults = (
+  businessHours?: TenantContextType['businessHours']
+): ScheduleForm => Object.fromEntries(
+  DAYS_OF_WEEK.map((day) => {
+    const dayHours = getBusinessHoursForDayKey(day.key, businessHours);
+    return [day.key, {
+      active: dayHours.active,
+      start: dayHours.open,
+      end: dayHours.close,
+      ...getSafeBreak(dayHours.open, dayHours.close),
+    }];
+  })
+);
 
 const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
 const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={15} />;
@@ -87,15 +117,9 @@ export const Profissionais: React.FC = () => {
   const [savingProfServices, setSavingProfServices] = useState(false);
 
   // Escala de horários semanal padrão
-  const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string; break_start?: string; break_end?: string }>>({
-    monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
-  });
+  const [schedule, setSchedule] = useState<ScheduleForm>(() =>
+    createTenantScheduleDefaults(tenant.businessHours)
+  );
 
   const fetchProfessionals = async () => {
     try {
@@ -195,15 +219,7 @@ export const Profissionais: React.FC = () => {
     setCommission('40');
     setIsActive(true);
     setSelectedUserId(null);
-    setSchedule({
-      monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
-    });
+    setSchedule(createTenantScheduleDefaults(tenant.businessHours));
   };
 
   const handleEdit = (prof: Professional) => {
@@ -214,26 +230,26 @@ export const Profissionais: React.FC = () => {
     setIsActive(prof.is_active);
     setSelectedUserId(prof.user_id);
 
-    const newSchedule = {
-      monday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      tuesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      wednesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      thursday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      friday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      saturday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      sunday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    };
+    const newSchedule = createTenantScheduleDefaults(tenant.businessHours);
+    DAYS_OF_WEEK.forEach((day) => {
+      newSchedule[day.key].active = false;
+    });
 
     if (prof.weekly_schedule) {
       Object.keys(prof.weekly_schedule).forEach((day) => {
         const dayData = prof.weekly_schedule?.[day];
         if (dayData) {
-          newSchedule[day as keyof typeof newSchedule] = {
-            active: true,
-            start: dayData.start,
-            end: dayData.end,
-            break_start: dayData.break_start || '12:00',
-            break_end: dayData.break_end || '13:00',
+          const dayKey = day as keyof typeof newSchedule;
+          const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+            dayData,
+            getBusinessHoursForDayKey(day, tenant.businessHours)
+          );
+          newSchedule[dayKey] = {
+            ...newSchedule[dayKey],
+            ...effectiveSchedule,
+            active: getBusinessHoursForDayKey(day, tenant.businessHours).active
+              ? effectiveSchedule?.active !== false
+              : false,
           };
         }
       });
@@ -275,12 +291,31 @@ export const Profissionais: React.FC = () => {
         }
       }
 
+      const nextDay = {
+        ...currentDay,
+        [type]: boundedValue,
+      };
+
+      if (type === 'start' || type === 'end') {
+        const nextStart = nextDay.start;
+        const nextEnd = nextDay.end;
+        const breakStart = nextDay.break_start;
+        const breakEnd = nextDay.break_end;
+        if (
+          breakStart &&
+          breakEnd &&
+          (timeToMinutes(breakStart) < timeToMinutes(nextStart) ||
+            timeToMinutes(breakEnd) > timeToMinutes(nextEnd) ||
+            timeToMinutes(breakStart) >= timeToMinutes(breakEnd))
+        ) {
+          nextDay.break_start = undefined;
+          nextDay.break_end = undefined;
+        }
+      }
+
       return {
         ...prev,
-        [day]: {
-          ...currentDay,
-          [type]: boundedValue,
-        },
+        [day]: nextDay,
       };
     });
   };
@@ -357,8 +392,12 @@ export const Profissionais: React.FC = () => {
           weeklyScheduleJSON[day] = {
             start: schedule[day].start,
             end: schedule[day].end,
-            break_start: schedule[day].break_start || '12:00',
-            break_end: schedule[day].break_end || '13:00',
+            ...(schedule[day].break_start && schedule[day].break_end
+              ? {
+                  break_start: schedule[day].break_start,
+                  break_end: schedule[day].break_end,
+                }
+              : {}),
           };
         }
       });

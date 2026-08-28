@@ -80,6 +80,10 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
   // Estados com dados do dia buscados dinamicamente para a data e profissional selecionados
   const [dynamicAppointments, setDynamicAppointments] = useState<BloqueioAppointmentOption[]>([]);
   const [dynamicBlockedSlots, setDynamicBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [dynamicDataLoaded, setDynamicDataLoaded] = useState({
+    appointments: false,
+    blockedSlots: false,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -101,6 +105,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     if (!isOpen || !tenantId || !date) return;
 
     let isMounted = true;
+    setDynamicDataLoaded({ appointments: false, blockedSlots: false });
     const loadDayData = async () => {
       try {
         const { start, endExclusive } = localDayUtcRange(date, timezone);
@@ -110,6 +115,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           const blkRes = await repo.listByDateRange(tenantId, start, endExclusive);
           if (isMounted && Array.isArray(blkRes)) {
             setDynamicBlockedSlots(blkRes);
+            setDynamicDataLoaded((previous) => ({ ...previous, blockedSlots: true }));
           }
         } catch {
           // Fallback silencioso usando prop inicial
@@ -127,6 +133,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
           if (!apptErr && apptData && isMounted) {
             setDynamicAppointments(apptData as BloqueioAppointmentOption[]);
+            setDynamicDataLoaded((previous) => ({ ...previous, appointments: true }));
           }
         } catch {
           // Fallback silencioso usando prop inicial
@@ -192,7 +199,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     }
 
     // 1. Filtrar horários em que o profissional já possui agendamento confirmado/em andamento
-    const activeAppts = dynamicAppointments.length > 0 ? dynamicAppointments : appointments;
+    const activeAppts = dynamicDataLoaded.appointments ? dynamicAppointments : appointments;
     const bookedIntervals = activeAppts
       .filter((a) => {
         if (a.status === 'canceled') return false;
@@ -206,7 +213,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
       }));
 
     // 2. Filtrar horários em que o profissional já possui bloqueios existentes
-    const activeBlocks = dynamicBlockedSlots.length > 0 ? dynamicBlockedSlots : blockedSlots;
+    const activeBlocks = dynamicDataLoaded.blockedSlots ? dynamicBlockedSlots : blockedSlots;
     const dayBlocks = activeBlocks.filter((b) => {
       if (b.professional_id && b.professional_id !== selectedProfId && selectedProfId !== 'all') return false;
       const blockDate = dateInZone(new Date(b.start_time), timezone);
@@ -241,7 +248,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
       return true;
     });
-  }, [date, selectedProfId, businessHours, professionals, stepMinutes, appointments, blockedSlots, dynamicAppointments, dynamicBlockedSlots, timezone]);
+  }, [date, selectedProfId, businessHours, professionals, stepMinutes, appointments, blockedSlots, dynamicAppointments, dynamicBlockedSlots, dynamicDataLoaded, timezone]);
 
   const handleToggleSlot = (slot: string) => {
     setSelectedSlots((prev) =>

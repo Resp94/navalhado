@@ -32,6 +32,7 @@ interface MobileAgendaViewProps {
   timeSlots: string[];
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
+  onMarkNoShow?: (app: Appointment) => void | Promise<void>;
   onOpenReschedule?: (app: Appointment) => void;
   onOpenCancel?: (app: Appointment) => void;
   onStartService?: (app: Appointment) => void | Promise<void>;
@@ -59,6 +60,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   timeSlots,
   onOpenNewAppointment,
   onOpenCheckout,
+  onMarkNoShow,
   onOpenReschedule: _onOpenReschedule,
   onOpenCancel: _onOpenCancel,
   onStartService: _onStartService,
@@ -440,11 +442,15 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 const isPaid = app.payment_status === 'paid' || app.status === 'completed';
                 const isProgress = app.status === 'in_progress';
                 const isFitting = app.is_fitting;
+                const isNoShow = app.status === 'no_show';
+                const canMarkNoShow =
+                  (app.status === 'pending' || app.status === 'confirmed') &&
+                  new Date(app.start_time).getTime() <= currentNow.getTime();
 
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : isFitting ? 'mobile-agenda__card--fitting' : ''}`}
+                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : isFitting ? 'mobile-agenda__card--fitting' : ''}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -480,8 +486,24 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         {isPaid && (
                           <span className="mobile-agenda__paid-pill">Pago</span>
                         )}
+                        {isNoShow && (
+                          <span className="mobile-agenda__no-show-pill">Não compareceu</span>
+                        )}
                       </div>
                     </div>
+                    {canMarkNoShow && onMarkNoShow && (
+                      <button
+                        type="button"
+                        className="mobile-agenda__no-show-action"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void onMarkNoShow(app);
+                        }}
+                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                      >
+                        Marcar não compareceu
+                      </button>
+                    )}
                   </div>
                 );
               }
@@ -960,6 +982,35 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
         .mobile-agenda__card--fitting {
           border-left: 4px solid var(--color-brand-primary);
+        }
+
+        .mobile-agenda__card--no-show {
+          background: #fee2e2;
+          border-color: #fca5a5;
+        }
+
+        .mobile-agenda__no-show-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 2px 6px;
+          background: #b91c1c;
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+        }
+
+        .mobile-agenda__no-show-action {
+          align-self: flex-end;
+          margin-top: 0.45rem;
+          border: 1px solid #fca5a5;
+          border-radius: 6px;
+          padding: 0.3rem 0.55rem;
+          background: rgba(255, 255, 255, 0.8);
+          color: #b91c1c;
+          font-size: 0.7rem;
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .mobile-agenda__card-compact {

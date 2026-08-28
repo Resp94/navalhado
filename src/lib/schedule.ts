@@ -77,6 +77,38 @@ export const addMinutesToTime = (timeStr: string, minutes: number): string => {
 };
 
 /**
+ * Verifica se o horário está alinhado à grade do tenant desde 00:00.
+ * Fittings usam esta grade mesmo quando ficam fora do expediente oficial.
+ */
+export const isTimeAlignedToSlotInterval = (
+  timeStr: string,
+  slotIntervalMinutes: number
+): boolean => {
+  const interval = Number(slotIntervalMinutes);
+  const minutes = timeToMinutes(timeStr);
+
+  if (!Number.isFinite(interval) || interval <= 0) return false;
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeStr)) return false;
+
+  return minutes % interval === 0;
+};
+
+/**
+ * Gera todos os slots possíveis de um dia local para encaixes.
+ * O intervalo é ancorado em 00:00 e o horário 24:00 não é um slot.
+ */
+export const generateFittingTimeSlots = (slotIntervalMinutes: number): string[] => {
+  const step = Math.max(5, Number(slotIntervalMinutes) || 30);
+  const slots: string[] = [];
+
+  for (let minutes = 0; minutes < 24 * 60; minutes += step) {
+    slots.push(minutesToTime(minutes));
+  }
+
+  return slots;
+};
+
+/**
  * Obtém o índice do dia da semana (0=Dom, 6=Sáb) a partir de uma data YYYY-MM-DD
  */
 export const getDayOfWeekIndex = (dateStr: string): number => {

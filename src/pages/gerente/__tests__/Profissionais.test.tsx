@@ -61,7 +61,7 @@ vi.mock('react-router-dom', () => ({
     tenantName: 'Barbearia Estilo',
     businessHours: {
       monday: { active: true, open: '09:00', close: '18:00' },
-      tuesday: { active: true, open: '09:00', close: '18:00' },
+      tuesday: { active: true, open: '10:00', close: '16:00' },
       wednesday: { active: true, open: '09:00', close: '18:00' },
       thursday: { active: true, open: '09:00', close: '18:00' },
       friday: { active: true, open: '09:00', close: '18:00' },
@@ -129,6 +129,19 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     fireEvent.click(btnNovo);
 
     expect(screen.getByRole('heading', { name: 'Novo Profissional' })).toBeInTheDocument();
+  });
+
+  it('deve iniciar cada dia ativo com o expediente configurado no tenant', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    expect(screen.getByLabelText('Início do expediente de Terça-feira')).toHaveValue('10:00');
+    expect(screen.getByLabelText('Fim do expediente de Terça-feira')).toHaveValue('16:00');
   });
 
   it('deve ter inputs de Início do Almoço e Fim do Almoço para cada dia ativo da escala semanal', async () => {
