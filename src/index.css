@@ -341,3 +341,17 @@ button, input, select, textarea {
   border: 0;
 }
 
+/* ==========================================================================
+   Prevenção de Auto-Zoom no iOS Safari / Mobile (WCAG 2.2 Compliant)
+   Força tamanho mínimo de 16px para inputs/selects/textareas no mobile,
+   evitando o zoom indesejado de tela ao focar nos campos no iPhone / Safari.
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+

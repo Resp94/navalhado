@@ -924,8 +924,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         : typeof body.instanceName === "string"
         ? body.instanceName
         : "";
-      const instanceToken = body.instanceToken || body.token || body.data?.token ||
-        req.headers.get("x-instance-token") || req.headers.get("x-uazapi-token") || req.headers.get("token");
+      const instanceToken = body.instanceToken || body.token || body.data?.token || body.apiKey || body.apikey || body.key ||
+        req.headers.get("x-instance-token") || req.headers.get("x-uazapi-token") || req.headers.get("token") || req.headers.get("apikey") || req.headers.get("x-api-key");
       const statusCandidates = [
         body.data?.status,
         body.data?.state,
@@ -984,8 +984,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         eventClean.startsWith("qr.");
 
       const isMessageEvent =
-        ["message", "messages", "messages.upsert", "messages.update", "message.create", "messages.set"].includes(eventClean) ||
-        eventClean.startsWith("message");
+        ["message", "messages", "messages.upsert", "messages.update", "message.create", "messages.set", "onmessage", "text", "conversation"].includes(eventClean) ||
+        eventClean.startsWith("message") ||
+        eventClean.includes("upsert");
 
       if (isQrCodeUpdate) {
         const qrCode =
@@ -1080,8 +1081,9 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
-        if (authenticatedInstance.status !== "connected") {
-          console.warn(`[WhatsApp-Integration] Mensagem ignorada: instância não encontrada ou desconectada`);
+        const validStatuses = ["connected", "open", "ready", "authenticated"];
+        if (!validStatuses.includes(authenticatedInstance.status)) {
+          console.warn(`[WhatsApp-Integration] Mensagem ignorada: instância não encontrada ou desconectada (status: ${authenticatedInstance.status})`);
           return new Response(JSON.stringify({ ignored: true, reason: "Instance unavailable" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -1355,7 +1357,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         let localStatus: "connected" | "disconnected" | "connecting" | "hibernated" = "disconnected";
         const statusClean = String(reportedConnectionStatus || "").toLowerCase();
 
-        if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected") {
+        if (eventClean === "connected" || eventClean === "pairsuccess" || statusClean === "open" || statusClean === "connected" || statusClean === "ready" || statusClean === "authenticated") {
           localStatus = "connected";
         } else if (statusClean === "connecting") {
           localStatus = "connecting";
@@ -1392,7 +1394,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             updated_at: new Date().toISOString(),
           });
 
-        const { error: updateErr } = await updateQuery.eq(instanceTokenColumn, cleanInstanceToken);
+        const { error: updateErr } = await updateQuery.eq("id", authenticatedInstance.id);
 
         if (updateErr) {
           console.error(`[WhatsApp-Integration] Erro ao atualizar status via webhook: ${updateErr.message}`);
@@ -1432,7 +1434,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .eq("tenant_id", tenantId)
         .maybeSingle();
 
-      if (configErr || !config || config.status !== "connected") {
+      const validStatuses = ["connected", "open", "ready", "authenticated"];
+      if (configErr || !config || !validStatuses.includes(config.status)) {
         return new Response(JSON.stringify({ status: "skipped", reason: "WhatsApp disconnected or not configured" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

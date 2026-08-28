@@ -105,7 +105,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     mockUpdate.mockImplementation(() => createDefaultBuilder(mockProfessionals[0]));
   });
 
-  it('deve renderizar a listagem de profissionais e o formulário de cadastro', async () => {
+  it('deve renderizar a listagem de profissionais e abrir o formulário de cadastro no drawer', async () => {
     render(<Profissionais />);
 
     expect(screen.getByText('Carregando equipe...')).toBeInTheDocument();
@@ -114,6 +114,10 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
       expect(screen.getByText('(11) 99999-9999')).toBeInTheDocument();
     });
+
+    // Clica no botão de Novo Barbeiro para abrir o Drawer
+    const btnNovo = screen.getByRole('button', { name: /Novo Barbeiro/i });
+    fireEvent.click(btnNovo);
 
     expect(screen.getByRole('heading', { name: 'Novo Profissional' })).toBeInTheDocument();
   });
@@ -124,6 +128,9 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
+
+    // Abre o drawer para novo profissional
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
 
     // Pelo estado inicial do formulário, a Segunda-feira (monday) está ativa por padrão.
     // Verificamos a presença dos inputs de horário de trabalho e de almoço.
@@ -142,6 +149,9 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
+
+    // Abre o drawer para cadastrar novo profissional
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
 
     // Preencher formulário de cadastro
     fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Lucas Barbeiro' } });

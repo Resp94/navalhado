@@ -392,42 +392,43 @@ export const Agenda: React.FC = () => {
       return [];
     }
 
+    const slotsSet = new Set<string>();
+    const baseSlots = generateTimeSlotsForSchedule(
+      dayBh.open || '08:00',
+      dayBh.close || '20:00',
+      slotIntervalMinutes
+    );
+    baseSlots.forEach((s) => slotsSet.add(s));
+
     if (selectedProfessionalIds.length === 1) {
       const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
       const profSchedule = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
       if (profSchedule && profSchedule.active !== false && profSchedule.start && profSchedule.end) {
-        return generateTimeSlotsForSchedule(
+        const pSlots = generateTimeSlotsForSchedule(
           profSchedule.start,
           profSchedule.end,
           slotIntervalMinutes,
           profSchedule.break_start,
           profSchedule.break_end
         );
-      }
-    }
-
-    const slotsSet = new Set<string>();
-    const baseSlots = generateTimeSlotsForSchedule(
-      dayBh.open || '08:00',
-      dayBh.close || '19:00',
-      slotIntervalMinutes
-    );
-    baseSlots.forEach((s) => slotsSet.add(s));
-
-    professionals.forEach((p) => {
-      if (!p.is_active) return;
-      const sched = getProfessionalDaySchedule(p, selectedDate);
-      if (sched && sched.active !== false && sched.start && sched.end) {
-        const pSlots = generateTimeSlotsForSchedule(
-          sched.start,
-          sched.end,
-          slotIntervalMinutes,
-          sched.break_start,
-          sched.break_end
-        );
         pSlots.forEach((s) => slotsSet.add(s));
       }
-    });
+    } else {
+      professionals.forEach((p) => {
+        if (!p.is_active) return;
+        const sched = getProfessionalDaySchedule(p, selectedDate);
+        if (sched && sched.active !== false && sched.start && sched.end) {
+          const pSlots = generateTimeSlotsForSchedule(
+            sched.start,
+            sched.end,
+            slotIntervalMinutes,
+            sched.break_start,
+            sched.break_end
+          );
+          pSlots.forEach((s) => slotsSet.add(s));
+        }
+      });
+    }
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
@@ -492,6 +493,68 @@ export const Agenda: React.FC = () => {
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
   }, [all24hTimeSlots, formIsFitting, selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
+
+  // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
+  const agendaRescheduleAvailableSlots = useMemo(() => {
+    if (!agendaRescheduleDate || !agendaRescheduleProfId) return [];
+
+    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
+    if (!dayBh.active) return [];
+
+    const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
+    const profSched = prof ? getProfessionalDaySchedule(prof, agendaRescheduleDate) : null;
+
+    let baseSlots: string[] = [];
+    if (profSched && profSched.active !== false && profSched.start && profSched.end) {
+      baseSlots = generateTimeSlotsForSchedule(
+        profSched.start,
+        profSched.end,
+        slotIntervalMinutes,
+        profSched.break_start,
+        profSched.break_end
+      );
+    } else {
+      baseSlots = generateTimeSlotsForSchedule(
+        dayBh.open || '08:00',
+        dayBh.close || '20:00',
+        slotIntervalMinutes
+      );
+    }
+
+    const durationMin = agendaRescheduleAppointment?.service?.duration_minutes || 30;
+
+    return baseSlots.filter((slotTime) => {
+      const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
+      const slotEndIso = new Date(new Date(slotStartIso).getTime() + durationMin * 60 * 1000).toISOString();
+
+      // Permitir o próprio horário já ocupado pelo agendamento
+      const hasAppConflict = appointments.some((a) => {
+        if (a.id === agendaRescheduleAppointment?.id) return false;
+        if (a.status === 'canceled') return false;
+        if (a.professional_id !== agendaRescheduleProfId) return false;
+        return a.start_time < slotEndIso && a.end_time > slotStartIso;
+      });
+      if (hasAppConflict) return false;
+
+      const hasBlockConflict = blockedSlots.some((b) => {
+        if (b.professional_id && b.professional_id !== agendaRescheduleProfId) return false;
+        return b.start_time < slotEndIso && b.end_time > slotStartIso;
+      });
+      if (hasBlockConflict) return false;
+
+      return true;
+    });
+  }, [
+    agendaRescheduleDate,
+    agendaRescheduleProfId,
+    agendaRescheduleAppointment,
+    tenant.businessHours,
+    tenant.timezone,
+    professionals,
+    slotIntervalMinutes,
+    appointments,
+    blockedSlots,
+  ]);
 
   const currentService = useMemo(
     () => services.find((s) => s.id === formServiceId),
@@ -2624,13 +2687,24 @@ export const Agenda: React.FC = () => {
                 <label htmlFor="agenda_reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
                   Novo Horário:
                 </label>
-                <input
+                <select
                   id="agenda_reschedule_time"
-                  type="time"
                   value={agendaRescheduleTime}
                   onChange={(e) => setAgendaRescheduleTime(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
-                />
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.9rem' }}
+                >
+                  <option value="">Selecione um horário livre...</option>
+                  {agendaRescheduleAvailableSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                  {agendaRescheduleAvailableSlots.length === 0 && (
+                    <option value="" disabled>
+                      Nenhum horário livre nesta data
+                    </option>
+                  )}
+                </select>
               </div>
             </div>
 

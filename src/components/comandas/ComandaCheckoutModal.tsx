@@ -184,10 +184,66 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [rescheduleProfessionalId, setRescheduleProfessionalId] = useState('');
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [currentStartTime, setCurrentStartTime] = useState<string | null | undefined>(appointmentStartTime);
+  const [comandaRescheduleSlots, setComandaRescheduleSlots] = useState<string[]>([]);
+  const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
 
   useEffect(() => {
     setCurrentStartTime(appointmentStartTime);
   }, [appointmentStartTime]);
+
+  const firstServiceId = itens[0]?.service_id || initialServices?.[0]?.service_id || null;
+
+  useEffect(() => {
+    if (!isRescheduleModalOpen || !rescheduleDate || !rescheduleProfessionalId || !tenantId) return;
+
+    let isMounted = true;
+    const fetchSlots = async () => {
+      setLoadingRescheduleSlots(true);
+      try {
+        if (firstServiceId && typeof (supabase as any)?.rpc === 'function') {
+          const { data, error } = await supabase.rpc('get_available_slots', {
+            p_tenant_id: tenantId,
+            p_professional_id: rescheduleProfessionalId,
+            p_service_id: firstServiceId,
+            p_date: rescheduleDate,
+            p_exclude_appointment_id: appointmentId || null,
+          });
+          if (!error && Array.isArray(data) && data.length > 0) {
+            const slots = data.map((d) => (typeof d === 'object' && d !== null ? d.slot_time || d.slot : String(d)));
+            if (isMounted) setComandaRescheduleSlots(slots);
+            return;
+          }
+        }
+        if (isMounted) {
+          setComandaRescheduleSlots([
+            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
+            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+            '18:00', '18:30', '19:00', '19:30'
+          ]);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setComandaRescheduleSlots([
+            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
+            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+            '18:00', '18:30', '19:00', '19:30'
+          ]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingRescheduleSlots(false);
+        }
+      }
+    };
+
+    fetchSlots();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isRescheduleModalOpen, rescheduleDate, rescheduleProfessionalId, tenantId, appointmentId, firstServiceId]);
 
   const inFlightAdditionsRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
 
@@ -953,13 +1009,25 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     <label htmlFor="reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
                       Novo Horário:
                     </label>
-                    <input
+                    <select
                       id="reschedule_time"
-                      type="time"
                       value={rescheduleTime}
                       onChange={(e) => setRescheduleTime(e.target.value)}
                       style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
-                    />
+                    >
+                      <option value="">{loadingRescheduleSlots ? 'Carregando horários...' : 'Selecione um horário...'}</option>
+                      {rescheduleTime && !comandaRescheduleSlots.includes(rescheduleTime) && (
+                        <option value={rescheduleTime}>{rescheduleTime}</option>
+                      )}
+                      {comandaRescheduleSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
+                        </option>
+                      ))}
+                      {!loadingRescheduleSlots && comandaRescheduleSlots.length === 0 && !rescheduleTime && (
+                        <option value="" disabled>Nenhum horário livre nesta data</option>
+                      )}
+                    </select>
                   </div>
                   {availableProfessionals.length > 0 && (
                     <div>

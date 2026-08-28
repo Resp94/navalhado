@@ -90,7 +90,8 @@ export interface ICanalClienteAdapter {
     token: string,
     data: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]>;
   criarAgendamentoPorToken(
     token: string,

@@ -77,7 +77,8 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     token: string,
     dataStr: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    _excludeAppointmentId?: string | null
   ): Promise<string[]> {
     if (!token || token === 'invalid') throw new CanalClienteTokenError();
     const key = `${dataStr}_${serviceId}_${professionalId || 'any'}`;

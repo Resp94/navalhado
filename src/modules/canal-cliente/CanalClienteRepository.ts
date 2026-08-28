@@ -112,7 +112,8 @@ export class CanalClienteRepository {
     dataStr: string,
     serviceId: string,
     professionalId?: string | null,
-    tokenParam?: string | null
+    tokenParam?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]> {
     const token = this.resolverToken(tokenParam);
 
@@ -127,7 +128,8 @@ export class CanalClienteRepository {
       token,
       dataStr,
       serviceId,
-      professionalId
+      professionalId,
+      excludeAppointmentId
     );
   }
 

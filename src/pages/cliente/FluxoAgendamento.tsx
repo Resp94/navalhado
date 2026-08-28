@@ -263,7 +263,8 @@ export const FluxoAgendamento: React.FC = () => {
           selectedDate,
           selectedService.id,
           selectedProfessional?.id || null,
-          canonicalToken
+          canonicalToken,
+          rescheduleAppointmentId || null
         );
           
         setAvailableSlots(slotsArray);

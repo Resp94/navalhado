@@ -161,14 +161,15 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     token: string,
     dataStr: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]> {
     let res = await supabase.rpc('get_available_slots_by_token', {
       p_token: token,
       p_service_id: serviceId,
       p_professional_id: professionalId || null,
       p_date: dataStr,
-      p_exclude_appointment_id: null,
+      p_exclude_appointment_id: excludeAppointmentId || null,
     });
 
     if (res.error) {
