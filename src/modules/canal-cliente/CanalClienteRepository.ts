@@ -5,6 +5,7 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -105,6 +106,30 @@ export class CanalClienteRepository {
     return profissionais
       .filter((professional) => professional.is_active !== false)
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  async consultarGradeHorariosPublica(
+    slug: string,
+    dataStr: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!dataStr || !dataStr.trim()) {
+      throw new CanalClienteValidationError('A data da consulta é obrigatória.');
+    }
+    if (!serviceId || !serviceId.trim()) {
+      throw new CanalClienteValidationError('O serviço é obrigatório para consultar horários.');
+    }
+
+    return await this.adapter.buscarGradeHorariosPorSlug(
+      slug.trim(),
+      dataStr.trim(),
+      serviceId.trim(),
+      professionalId
+    );
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

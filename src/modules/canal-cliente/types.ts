@@ -28,6 +28,11 @@ export interface ContextoPublicoCanal {
   min_cancellation_lead_time_minutes: number;
 }
 
+export interface HorarioGradeCanal {
+  slot_time: string;
+  available: boolean;
+}
+
 export interface ServicoCanal {
   id: string;
   name: string;
@@ -99,6 +104,12 @@ export interface ICanalClienteAdapter {
   buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
   listarServicosPorSlug(slug: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]>;
+  buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]>;
   inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;

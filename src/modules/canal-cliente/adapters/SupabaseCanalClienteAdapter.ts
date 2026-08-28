@@ -8,6 +8,7 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -126,6 +127,23 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
 
     if (error) throw error;
     return (data || []) as ProfissionalCanal[];
+  }
+
+  async buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    const { data: rows, error } = await supabase.rpc('get_public_schedule_by_slug', {
+      p_slug: slug,
+      p_date: data,
+      p_service_id: serviceId,
+      p_professional_id: professionalId || null,
+    });
+
+    if (error) throw error;
+    return (rows || []) as HorarioGradeCanal[];
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

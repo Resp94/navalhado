@@ -6,6 +6,7 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -23,6 +24,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   public profissionais: ProfissionalCanal[] = [];
   public agendamentos: AgendamentoCanal[] = [];
   public slotsDisponiveis: Map<string, string[]> = new Map();
+  public gradesPublicas: Map<string, HorarioGradeCanal[]> = new Map();
 
   obterTokenAtual(): string | null {
     return this.activeToken;
@@ -58,6 +60,16 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   async listarProfissionaisPorSlug(slug: string, _serviceId: string): Promise<ProfissionalCanal[]> {
     if (!this.contextosPublicos.has(slug)) return [];
     return this.profissionais.filter((professional) => professional.is_active);
+  }
+
+  async buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    return this.gradesPublicas.get(`${data}_${serviceId}_${professionalId || 'any'}`) || [];
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

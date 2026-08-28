@@ -124,6 +124,20 @@ describe('CanalClienteRepository', () => {
     expect(repository.obterTokenAcesso()).toBeNull();
   });
 
+  it('deve consultar a grade pública preservando horários indisponíveis', async () => {
+    adapter.gradesPublicas.set('2026-07-25_s1_p1', [
+      { slot_time: '09:00', available: true },
+      { slot_time: '09:30', available: false },
+    ]);
+
+    await expect(
+      repository.consultarGradeHorariosPublica('brooklyn', '2026-07-25', 's1', 'p1')
+    ).resolves.toEqual([
+      { slot_time: '09:00', available: true },
+      { slot_time: '09:30', available: false },
+    ]);
+  });
+
   it('deve consultar horários disponíveis com parâmetros válidos', async () => {
     repository.definirTokenAcesso(validToken);
     const slots = await repository.consultarHorariosDisponiveis('2026-07-25', 's1', 'p1');
