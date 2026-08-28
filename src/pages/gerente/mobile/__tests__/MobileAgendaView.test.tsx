@@ -89,6 +89,21 @@ describe('MobileAgendaView Component', () => {
     expect(screen.queryByRole('button', { name: /Marcar .* não compareceu/i })).not.toBeInTheDocument();
   });
 
+  it('identifica visualmente os encaixes no card mobile', () => {
+    const fittingAppointment: Appointment = {
+      ...mockAppointments[0],
+      id: 'app-fitting',
+      is_fitting: true,
+    };
+
+    render(<MobileAgendaView {...defaultProps} appointments={[fittingAppointment]} />);
+
+    expect(screen.getByText('Encaixe')).toBeInTheDocument();
+    expect(screen.getByTitle('Toque para abrir a comanda')).toHaveClass(
+      'mobile-agenda__card--fitting'
+    );
+  });
+
   it('aciona o toque em slot vazio para novo agendamento com o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 

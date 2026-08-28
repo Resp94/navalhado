@@ -483,6 +483,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         <span className="mobile-agenda__service-price">
                           {(app.service?.name || 'Serviço').toUpperCase()} - R$ {Number(app.service?.price || 0).toFixed(2)}
                         </span>
+                        {isFitting && (
+                          <span className="mobile-agenda__fitting-pill">Encaixe</span>
+                        )}
                         {isPaid && (
                           <span className="mobile-agenda__paid-pill">Pago</span>
                         )}
@@ -987,6 +990,17 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
         .mobile-agenda__card--normal {
           border-left-width: 1px;
+        }
+
+        .mobile-agenda__fitting-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 2px 6px;
+          background: #b45309;
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
         }
 
         .mobile-agenda__card--no-show {
