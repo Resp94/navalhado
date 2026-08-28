@@ -29,13 +29,13 @@ values('59000000-0000-0000-0000-000000000021','59000000-0000-0000-0000-000000000
 insert into public.professional_services(tenant_id,professional_id,service_id,is_enabled)
 values('59000000-0000-0000-0000-000000000001','59000000-0000-0000-0000-000000000021','59000000-0000-0000-0000-000000000011',true);
 
-select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null)),5,'grade uses tenant interval and service duration');
-select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where available),5,'qualified professional makes base slots available');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null)),6,'grade uses tenant interval and closing as an exclusive start boundary');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where available),6,'qualified professional makes base slots available');
 
 insert into public.blocked_slots(tenant_id,professional_id,start_time,end_time,reason)
 values('59000000-0000-0000-0000-000000000001','59000000-0000-0000-0000-000000000021','2040-01-02 10:00:00-04','2040-01-02 11:00:00-04','Teste');
 
-select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where available),2,'blocked interval changes availability without removing grid slots');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where available),3,'blocked interval changes availability without removing grid slots');
 select ok(not (select available from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where slot_time='10:00'),'blocked slot remains visible as unavailable');
 
 select * from finish();

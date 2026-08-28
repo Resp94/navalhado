@@ -44,6 +44,7 @@ import {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  getDayBusinessHours,
 } from '../../lib/schedule';
 import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
 
@@ -53,6 +54,7 @@ export {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  getDayBusinessHours,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
 
@@ -119,42 +121,6 @@ interface CardLayout {
 }
 
 // Mapeamento e auxílio de horários de funcionamento por dia da semana
-const DAY_KEYS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-
-export const getDayBusinessHours = (
-  dateStr: string,
-  businessHours?: Record<string, { active: boolean; open: string; close: string }>
-) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const dayIndex = dateObj.getDay();
-  const key = DAY_KEYS[dayIndex];
-
-  const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
-    segunda: { active: true, open: '09:00', close: '18:00' },
-    terca: { active: true, open: '09:00', close: '18:00' },
-    quarta: { active: true, open: '09:00', close: '18:00' },
-    quinta: { active: true, open: '09:00', close: '18:00' },
-    sexta: { active: true, open: '09:00', close: '18:00' },
-    sabado: { active: true, open: '09:00', close: '15:00' },
-    domingo: { active: false, open: '09:00', close: '12:00' },
-  };
-
-  if (businessHours && businessHours[key]) {
-    return {
-      active: businessHours[key].active !== false,
-      open: businessHours[key].open || '09:00',
-      close: businessHours[key].close || '18:00',
-      dayLabel: key,
-    };
-  }
-
-  return {
-    ...defaultBh[key],
-    dayLabel: key,
-  };
-};
-
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 104;
@@ -1071,7 +1037,7 @@ export const Agenda: React.FC = () => {
         }
 
         if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
-          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
+          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
           setSavingAppointment(false);
           return;
         }

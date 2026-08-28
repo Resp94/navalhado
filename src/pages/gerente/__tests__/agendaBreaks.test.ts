@@ -89,9 +89,9 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:00', 60)).toBe(true); // Termina às 15:00
     });
 
-    it('retorna false se o serviço ultrapassa o horário de término do expediente', () => {
-      // Sábado fecha às 15:00. Serviço de 40 min às 14:30 termina às 15:10
-      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(false);
+    it('retorna true quando o início está antes do fechamento mesmo que o serviço termine depois', () => {
+      // Sábado fecha às 15:00. O horário 14:30 ainda começa antes do fechamento.
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(true);
     });
 
     it('retorna false se o serviço invade o intervalo', () => {
@@ -146,8 +146,9 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(slots).toContain('15:40');
       expect(slots).toContain('16:20');
       expect(slots).toContain('17:00');
-      // 17:40 não cabe dentro de 18:00 com duração de 40min (terminaria às 18:20)
-      expect(slots).not.toContain('17:40');
+      // O último início antes do fechamento é permitido, mesmo que o atendimento ultrapasse 18:00
+      expect(slots).toContain('17:40');
+      expect(slots).not.toContain('18:20');
       expect(slots).not.toContain('13:20');
     });
 

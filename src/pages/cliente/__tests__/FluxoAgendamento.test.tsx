@@ -113,6 +113,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     fireEvent.click(screen.getByText('Corte Público'));
     fireEvent.click(await screen.findByText('Tanto faz'));
 
+    expect(screen.getByDisplayValue('25/08/2026')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '10:00' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '10:30' })).toBeDisabled();
     expect(mockRpc).not.toHaveBeenCalledWith(

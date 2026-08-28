@@ -21,12 +21,14 @@ const {
   mockUpdate, 
   mockEqUpdate,
   mockSingle,
+  mockRefreshTenant,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockUpdate = vi.fn();
   const mockSingle = vi.fn();
   const mockEqSelect = vi.fn().mockReturnValue({ single: mockSingle });
   const mockEqUpdate = vi.fn().mockResolvedValue({ error: null });
+  const mockRefreshTenant = vi.fn().mockResolvedValue(undefined);
 
   const mockSupabaseClient = {
     from: vi.fn().mockImplementation((_table: string) => {
@@ -37,13 +39,14 @@ const {
     }),
   };
 
-  return { 
+  return {
     mockAddToast, 
     mockSupabaseClient, 
     mockUpdate, 
     mockEqSelect,
     mockEqUpdate,
     mockSingle,
+    mockRefreshTenant,
   };
 });
 
@@ -59,6 +62,7 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'tenant-test-id',
     tenantName: 'Barbearia Estilo',
+    refreshTenant: mockRefreshTenant,
   }),
 }));
 
@@ -131,7 +135,61 @@ describe('Configuracoes Page - TDD', () => {
         timezone: 'America/Sao_Paulo',
       }));
       expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
+      expect(mockRefreshTenant).toHaveBeenCalled();
     });
+  });
+
+  it('exibe a mensagem do Supabase quando a configuração é rejeitada pela regra de escala', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+      address: 'Avenida Djalma Batista, 123',
+      timezone: 'America/Manaus',
+    };
+
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+    mockEqUpdate.mockResolvedValue({
+      error: {
+        code: '22023',
+        message: 'A escala de segunda deve ficar entre 09:00 e 20:00',
+      },
+    });
+
+    render(<Configuracoes />);
+    await screen.findByLabelText(/Nome da Barbearia/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'A escala de segunda deve ficar entre 09:00 e 20:00',
+        'error',
+      );
+    });
+    expect(mockAddToast).not.toHaveBeenCalledWith('[object Object]', 'error');
+  });
+
+  it('normaliza chaves inglesas e dias parciais antes de editar o expediente', async () => {
+    mockSingle.mockResolvedValue({
+      data: {
+        id: 'tenant-test-id',
+        name: 'Barbearia Estilo',
+        business_hours: {
+          monday: { active: true, start: '08:00', end: '20:00' },
+          tuesday: { close: '20:00' },
+        },
+      },
+      error: null,
+    });
+
+    render(<Configuracoes />);
+
+    await screen.findByLabelText('Terça-feira');
+    expect(screen.getByLabelText('Abertura Terça-feira')).toHaveValue('09:00');
+    expect(screen.getByLabelText('Fechamento Terça-feira')).toHaveValue('20:00');
+    expect(screen.getByLabelText('Abertura Segunda-feira')).toHaveValue('08:00');
   });
 
   it('deve renderizar a seção de horário de funcionamento geral com todos os dias, checkboxes e inputs de horário', async () => {

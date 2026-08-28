@@ -6,6 +6,16 @@ export interface ProfessionalDaySchedule {
   break_end?: string;
 }
 
+export interface BusinessHoursDay {
+  active?: boolean;
+  open?: string;
+  close?: string;
+  start?: string;
+  end?: string;
+}
+
+export type BusinessHoursConfig = Record<string, BusinessHoursDay>;
+
 export type WeeklySchedule = Record<string, ProfessionalDaySchedule>;
 
 export interface ScheduleProfessional {
@@ -123,11 +133,10 @@ export const isProfessionalWorkingAt = (
   if (schedule.active === false) return false;
 
   const slotStartMin = timeToMinutes(timeSlot);
-  const effectiveDuration = durationMinutes > 0 ? durationMinutes : 1;
-  const slotEndMin = slotStartMin + effectiveDuration;
 
   if (schedule.start && slotStartMin < timeToMinutes(schedule.start)) return false;
-  if (schedule.end && slotEndMin > timeToMinutes(schedule.end)) return false;
+  // O fechamento limita o início do slot; a duração pode ultrapassar alguns minutos.
+  if (schedule.end && slotStartMin >= timeToMinutes(schedule.end)) return false;
 
   if (isProfessionalOnBreak(prof, dateStr, timeSlot, durationMinutes)) return false;
 
@@ -184,14 +193,14 @@ export const generateTimeSlotsForSchedule = (
 
   // 1. Manhã / Antes do intervalo (do start até o breakStart)
   // Cada slot deve terminar estritamente antes ou no início do intervalo: m + step <= bStartMin
-  for (let m = startMin; m + step <= bStartMin && m + step <= endMin; m += step) {
+  for (let m = startMin; hasBreak ? m + step <= bStartMin : m < endMin; m += step) {
     slots.push(minutesToTime(m));
   }
 
   // 2. Tarde / Pós-intervalo: reinicia a grade estritamente no horário de retorno do intervalo (breakEnd)
-  // Cada slot deve terminar estritamente antes ou no final do expediente: m + step <= endMin
+  // O fechamento limita o início do slot; a duração do serviço é validada separadamente.
   if (hasBreak && bEndMin < endMin) {
-    for (let m = bEndMin; m + step <= endMin; m += step) {
+    for (let m = bEndMin; m < endMin; m += step) {
       slots.push(minutesToTime(m));
     }
   }
@@ -202,14 +211,15 @@ export const generateTimeSlotsForSchedule = (
 /**
  * Obtém o horário de funcionamento da barbearia para determinada data
  */
-export const getDayBusinessHours = (
-  dateStr: string,
-  businessHours?: Record<string, { active: boolean; open: string; close: string }>
+export const getBusinessHoursForDayKey = (
+  dayKey: string,
+  businessHours?: BusinessHoursConfig
 ) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const dayIndex = dateObj.getDay();
-  const key = PT_DAY_KEYS[dayIndex];
+  const englishIndex = ENGLISH_DAY_KEYS.indexOf(dayKey);
+  const portugueseIndex = PT_DAY_KEYS.indexOf(dayKey);
+  const dayIndex = englishIndex >= 0 ? englishIndex : portugueseIndex >= 0 ? portugueseIndex : 1;
+  const ptKey = PT_DAY_KEYS[dayIndex];
+  const enKey = ENGLISH_DAY_KEYS[dayIndex];
 
   const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
     segunda: { active: true, open: '09:00', close: '18:00' },
@@ -221,7 +231,25 @@ export const getDayBusinessHours = (
     domingo: { active: false, open: '09:00', close: '12:00' },
   };
 
-  return businessHours?.[key] || defaultBh[key] || { active: true, open: '09:00', close: '18:00' };
+  const ptDay = businessHours?.[ptKey];
+  const enDay = businessHours?.[enKey];
+  const fallback = defaultBh[ptKey] || { active: true, open: '09:00', close: '18:00' };
+
+  return {
+    active: ptDay?.active ?? enDay?.active ?? fallback.active,
+    open: ptDay?.open ?? ptDay?.start ?? enDay?.open ?? enDay?.start ?? fallback.open,
+    close: ptDay?.close ?? ptDay?.end ?? enDay?.close ?? enDay?.end ?? fallback.close,
+    dayLabel: ptKey,
+  };
+};
+
+export const getDayBusinessHours = (
+  dateStr: string,
+  businessHours?: BusinessHoursConfig
+) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  return getBusinessHoursForDayKey(PT_DAY_KEYS[dateObj.getDay()], businessHours);
 };
 
 /**

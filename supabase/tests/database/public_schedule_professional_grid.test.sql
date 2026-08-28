@@ -14,13 +14,13 @@ values('59000000-0000-0000-0000-000000000121','59000000-0000-0000-0000-000000000
 insert into public.professional_services(tenant_id,professional_id,service_id,is_enabled)
 values('59000000-0000-0000-0000-000000000101','59000000-0000-0000-0000-000000000121','59000000-0000-0000-0000-000000000111',true);
 
-select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null)),19,'grade usa expediente e intervalo do tenant');
-select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null) where available),10,'jornada profissional filtra a grade do tenant');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null)),20,'grade usa expediente e intervalo do tenant');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null) where available),12,'jornada profissional filtra a grade do tenant');
 select ok((select available from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null) where slot_time='09:30'),'grade usa somente horarios na cadencia do tenant');
 select ok(not (select available from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null) where slot_time='08:00'),'horario fora da jornada profissional aparece indisponivel');
-select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121')),19,'grade explicita mantem o expediente do tenant');
-select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121') where available),10,'grade explicita filtra a jornada profissional');
-select ok(not exists (select 1 from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111',null) where slot_time='09:10'),'inicio deslocado nao cria novo slot visual');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121')),12,'profissional selecionado usa o proprio expediente');
+select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121') where available),12,'grade explicita disponibiliza somente a jornada profissional');
+select ok((select available from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121') where slot_time='09:10'),'inicio do profissional reinicia a grade visual');
 
 select * from finish();
 rollback;

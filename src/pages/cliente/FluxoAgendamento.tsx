@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
@@ -26,6 +26,12 @@ const PUBLIC_TOKEN_STORAGE_PREFIX = 'navalhado_canal_cliente_v1_token_';
 const publicTokenStorageKey = (slug: string): string =>
   `${PUBLIC_TOKEN_STORAGE_PREFIX}${encodeURIComponent(slug.trim().toLowerCase())}`;
 
+const formatDatePtBr = (isoDate: string) => {
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}/${year}`;
+};
+
 export const FluxoAgendamento: React.FC = () => {
   const { state: locationState } = useLocation();
   const navigate = useNavigate();
@@ -48,6 +54,7 @@ export const FluxoAgendamento: React.FC = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+  const datePickerRef = useRef<HTMLInputElement>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [publicSchedule, setPublicSchedule] = useState<HorarioGradeCanal[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -82,6 +89,17 @@ export const FluxoAgendamento: React.FC = () => {
   const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   const canalClienteRepository = useCanalCliente();
+
+  const openDatePicker = () => {
+    const picker = datePickerRef.current;
+    if (!picker) return;
+
+    try {
+      picker.showPicker();
+    } catch {
+      picker.click();
+    }
+  };
 
   const handlePhoneChange = async (val: string) => {
     const masked = maskPhone(val);
@@ -1037,10 +1055,11 @@ export const FluxoAgendamento: React.FC = () => {
               
               <div style={{ position: 'relative', width: '100%' }}>
                 <input
-                  type="date"
-                  value={selectedDate}
-                  min={dateInZone(new Date(), customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo')}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  type="text"
+                  value={formatDatePtBr(selectedDate)}
+                  readOnly
+                  aria-hidden="true"
+                  onClick={openDatePicker}
                   style={{
                     padding: '0.85rem 1rem 0.85rem 2.75rem',
                     borderRadius: '12px',
@@ -1054,6 +1073,22 @@ export const FluxoAgendamento: React.FC = () => {
                     width: '100%',
                     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)',
                     fontFamily: 'inherit'
+                  }}
+                />
+                <input
+                  type="date"
+                  ref={datePickerRef}
+                  lang="pt-BR"
+                  value={selectedDate}
+                  min={dateInZone(new Date(), customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo')}
+                  aria-label="Selecione o dia"
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    opacity: 0,
+                    pointerEvents: 'none',
                   }}
                 />
                 <div style={{

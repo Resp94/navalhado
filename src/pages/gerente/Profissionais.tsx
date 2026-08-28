@@ -20,6 +20,7 @@ import {
   Edit01Icon,
 } from '@hugeicons/core-free-icons';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
+import { getBusinessHoursForDayKey, timeToMinutes } from '../../lib/schedule';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -266,6 +267,37 @@ export const Profissionais: React.FC = () => {
     }));
   };
 
+  const validateScheduleAgainstTenantHours = () => {
+    // O contexto pode estar sem o expediente durante fixtures legados ou antes
+    // do carregamento completo. Nesse caso, a validação definitiva permanece
+    // protegida pelo trigger do banco.
+    if (!tenant.businessHours) return null;
+
+    for (const day of DAYS_OF_WEEK) {
+      const daySchedule = schedule[day.key];
+      if (!daySchedule?.active) continue;
+
+      const businessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
+      if (!businessHours.active) {
+        return `${day.label}: a barbearia está fechada neste dia.`;
+      }
+
+      const start = timeToMinutes(daySchedule.start);
+      const end = timeToMinutes(daySchedule.end);
+      const opening = timeToMinutes(businessHours.open);
+      const closing = timeToMinutes(businessHours.close);
+
+      if (start >= end) {
+        return `${day.label}: o horário de entrada deve ser anterior ao horário de saída.`;
+      }
+      if (start < opening || end > closing) {
+        return `${day.label}: a escala deve ficar entre ${businessHours.open} e ${businessHours.close}.`;
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -278,6 +310,12 @@ export const Profissionais: React.FC = () => {
     }
     if (!commission || parseFloat(commission) < 0 || parseFloat(commission) > 100) {
       addToast('Informe uma comissão válida de 0% a 100%.', 'warning');
+      return;
+    }
+
+    const scheduleError = validateScheduleAgainstTenantHours();
+    if (scheduleError) {
+      addToast(scheduleError, 'warning');
       return;
     }
 
@@ -699,6 +737,7 @@ export const Profissionais: React.FC = () => {
                   <div className="schedule-list">
                     {DAYS_OF_WEEK.map((day) => {
                       const daySched = schedule[day.key];
+                      const dayBusinessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
                       return (
                         <div
                           key={day.key}
@@ -724,6 +763,8 @@ export const Profissionais: React.FC = () => {
                                     type="time"
                                     className="day-times-input"
                                     value={daySched.start}
+                                    min={tenant.businessHours ? dayBusinessHours.open : undefined}
+                                    max={tenant.businessHours ? dayBusinessHours.close : undefined}
                                     aria-label={`Início do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
                                   />
@@ -732,6 +773,8 @@ export const Profissionais: React.FC = () => {
                                     type="time"
                                     className="day-times-input"
                                     value={daySched.end}
+                                    min={tenant.businessHours ? dayBusinessHours.open : undefined}
+                                    max={tenant.businessHours ? dayBusinessHours.close : undefined}
                                     aria-label={`Fim do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
                                   />
@@ -746,6 +789,8 @@ export const Profissionais: React.FC = () => {
                                     type="time"
                                     className="day-times-input"
                                     value={daySched.break_start || '12:00'}
+                                    min={daySched.start}
+                                    max={daySched.end}
                                     aria-label="Início do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_start', e.target.value)
@@ -756,6 +801,8 @@ export const Profissionais: React.FC = () => {
                                     type="time"
                                     className="day-times-input"
                                     value={daySched.break_end || '13:00'}
+                                    min={daySched.start}
+                                    max={daySched.end}
                                     aria-label="Fim do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_end', e.target.value)
