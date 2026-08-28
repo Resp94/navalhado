@@ -2,6 +2,12 @@
 
 Glossario de dominio do Navalhado, usado para manter uma linguagem comum nas decisoes de produto, dados e operacao.
 
+## Snapshot operacional — leitura obrigatória antes de alterar código
+
+Antes de modificar qualquer funcionalidade, leia `snapshot/README.md` e o snapshot datado mais recente. Esses arquivos registram o que foi validado como funcional, em qual data, em qual commit e quais regras não podem ser quebradas sem uma regressão explícita.
+
+Snapshots antigos são históricos e não devem ser sobrescritos. Depois de uma alteração funcional, crie um novo snapshot datado somente após executar as validações correspondentes. Se uma mudança entrar em conflito com um item marcado como funcional, pare, registre a regressão e corrija os testes ou peça orientação antes de prosseguir.
+
 ## Language
 
 **Ambiente Dev Completo e Isolado**:

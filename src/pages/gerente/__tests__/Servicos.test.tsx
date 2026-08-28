@@ -135,6 +135,21 @@ describe('Aba de Serviços (Servicos.tsx)', () => {
     });
   });
 
+  it('marca posição e categoria como informações secundárias para compactação mobile', async () => {
+    const { container } = render(<Servicos />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Corte Tradicional')).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('.service-position-badge')).toHaveClass(
+      'service-position-badge--mobile-secondary'
+    );
+    expect(container.querySelector('.service-category-badge')).toHaveClass(
+      'service-category-badge--mobile-secondary'
+    );
+  });
+
   it('permite alternar status de ativo/inativo pelo switch', async () => {
     render(<Servicos />);
 

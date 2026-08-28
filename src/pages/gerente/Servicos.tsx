@@ -87,13 +87,18 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
           <div className="service-card-info">
             <div className="service-name-row">
               {positionNumber !== undefined && (
-                <span className="service-position-badge font-mono" title="Posição de exibição para o cliente">
+                <span
+                  className="service-position-badge service-position-badge--mobile-secondary font-mono"
+                  title="Posição de exibição para o cliente"
+                >
                   #{positionNumber}
                 </span>
               )}
               <h5 className="service-name">{service.name}</h5>
               {service.category && (
-                <span className="service-category-badge">{service.category}</span>
+                <span className="service-category-badge service-category-badge--mobile-secondary">
+                  {service.category}
+                </span>
               )}
             </div>
 
@@ -1493,6 +1498,10 @@ export const Servicos: React.FC = () => {
 
         /* RESPONSIVIDADE MOBILE */
         @media (max-width: 768px) {
+          .services-list-wrapper.card {
+            padding: 0.75rem;
+          }
+
           .service-drawer-overlay {
             align-items: flex-end;
           }
@@ -1530,6 +1539,24 @@ export const Servicos: React.FC = () => {
             flex: 1;
             min-width: 0;
             gap: 0.15rem;
+          }
+
+          .service-name-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            gap: 0.25rem;
+            flex-wrap: nowrap;
+          }
+
+          .service-position-badge--mobile-secondary,
+          .service-category-badge--mobile-secondary {
+            display: none;
+          }
+
+          .service-name {
+            grid-column: 1;
+            min-width: 0;
           }
 
           .service-card-order-controls {
