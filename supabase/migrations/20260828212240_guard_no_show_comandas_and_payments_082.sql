@@ -1,4 +1,4 @@
--- Protege o histórico operacional de no-show sem permitir movimentos financeiros
+-- Migration 082: Protege o histórico operacional de no-show sem permitir movimentos financeiros
 -- novos em comandas vinculadas a atendimentos cancelados ou não comparecidos.
 
 CREATE OR REPLACE FUNCTION public.fn_auto_cancel_comanda_on_appointment_cancel()
