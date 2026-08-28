@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 — Contexto público sem criação automática de cliente.
 
-**Status:** ready-for-agent
+**Status:** concluído
 
-- [ ] O catálogo público lista somente serviços ativos e elegíveis para agendamento no tenant resolvido.
-- [ ] A seleção de um serviço retorna somente profissionais ativos vinculados àquele serviço e tenant.
-- [ ] A tela mantém estados de carregamento, vazio e erro sem quebrar o fluxo existente.
-- [ ] O contrato público não depende de token de cliente provisório ou reconhecido.
-- [ ] Existem testes de banco, adapter e interface para isolamento por tenant e filtragem por serviço.
+- [x] O catálogo público lista somente serviços ativos e elegíveis para agendamento no tenant resolvido.
+- [x] A seleção de um serviço retorna somente profissionais ativos vinculados àquele serviço e tenant.
+- [x] A tela mantém estados de carregamento, vazio e erro sem quebrar o fluxo existente.
+- [x] O contrato público não depende de token de cliente provisório ou reconhecido.
+- [x] Existem testes de banco, adapter e interface para isolamento por tenant e filtragem por serviço.
