@@ -45,6 +45,7 @@ import {
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
   getDayBusinessHours,
+  getEffectiveProfessionalDaySchedule,
 } from '../../lib/schedule';
 import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
 
@@ -55,6 +56,7 @@ export {
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
   getDayBusinessHours,
+  getEffectiveProfessionalDaySchedule,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
 
@@ -368,7 +370,9 @@ export const Agenda: React.FC = () => {
 
     if (selectedProfessionalIds.length === 1) {
       const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
-      const profSchedule = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
+      const profSchedule = selectedProf
+        ? getEffectiveProfessionalDaySchedule(selectedProf, selectedDate, tenant.businessHours)
+        : null;
       if (profSchedule && profSchedule.active !== false && profSchedule.start && profSchedule.end) {
         const pSlots = generateTimeSlotsForSchedule(
           profSchedule.start,
@@ -382,7 +386,7 @@ export const Agenda: React.FC = () => {
     } else {
       professionals.forEach((p) => {
         if (!p.is_active) return;
-        const sched = getProfessionalDaySchedule(p, selectedDate);
+        const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
         if (sched && sched.active !== false && sched.start && sched.end) {
           const pSlots = generateTimeSlotsForSchedule(
             sched.start,
@@ -400,29 +404,16 @@ export const Agenda: React.FC = () => {
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
   // Geração de horários 24 horas (00:00 às 23:00) para encaixes
-  const all24hTimeSlots = useMemo(() => {
-    const slots: string[] = [];
-    const interval = slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
-    for (let m = 0; m < 24 * 60; m += interval) {
-      const h = Math.floor(m / 60);
-      const min = m % 60;
-      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
-    }
-    return slots;
-  }, [slotIntervalMinutes]);
-
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
-    if (formIsFitting) {
-      return all24hTimeSlots;
-    }
-
     const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
     if (!dayBh.active) return [];
 
     if (formProfessionalId) {
       const prof = professionals.find((p) => p.id === formProfessionalId);
-      const profSched = prof ? getProfessionalDaySchedule(prof, selectedDate) : null;
+      const profSched = prof
+        ? getEffectiveProfessionalDaySchedule(prof, selectedDate, tenant.businessHours)
+        : null;
       if (profSched && profSched.active !== false && profSched.start && profSched.end) {
         return generateTimeSlotsForSchedule(
           profSched.start,
@@ -444,7 +435,7 @@ export const Agenda: React.FC = () => {
 
     professionals.forEach((p) => {
       if (!p.is_active) return;
-      const sched = getProfessionalDaySchedule(p, selectedDate);
+      const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
       if (sched && sched.active !== false && sched.start && sched.end) {
         const pSlots = generateTimeSlotsForSchedule(
           sched.start,
@@ -458,7 +449,7 @@ export const Agenda: React.FC = () => {
     });
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
-  }, [all24hTimeSlots, formIsFitting, selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
+  }, [selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
 
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
   const agendaRescheduleAvailableSlots = useMemo(() => {
@@ -468,7 +459,9 @@ export const Agenda: React.FC = () => {
     if (!dayBh.active) return [];
 
     const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
-    const profSched = prof ? getProfessionalDaySchedule(prof, agendaRescheduleDate) : null;
+    const profSched = prof
+      ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
+      : null;
 
     let baseSlots: string[] = [];
     if (profSched && profSched.active !== false && profSched.start && profSched.end) {
@@ -534,9 +527,15 @@ export const Agenda: React.FC = () => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
       if (formIsFitting) return true;
-      return isProfessionalWorkingAt(p, selectedDate, formTime, currentServiceDuration);
+      return isProfessionalWorkingAt(
+        p,
+        selectedDate,
+        formTime,
+        currentServiceDuration,
+        tenant.businessHours
+      );
     });
-  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration]);
+  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration, tenant.businessHours]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
@@ -882,7 +881,7 @@ export const Agenda: React.FC = () => {
     } else {
       const available = professionals.filter((p) => {
         if (!p.is_active) return false;
-        return isProfessionalWorkingAt(p, dateToCheck, targetTime);
+        return isProfessionalWorkingAt(p, dateToCheck, targetTime, 0, tenant.businessHours);
       });
 
       if (available.length > 0) {
@@ -1029,6 +1028,18 @@ export const Agenda: React.FC = () => {
         return;
       }
 
+      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
+      if (!dayBh.active) {
+        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+      if (formTime < dayBh.open || formTime >= dayBh.close) {
+        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
       if (!formIsFitting) {
         if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
           addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
@@ -1036,28 +1047,18 @@ export const Agenda: React.FC = () => {
           return;
         }
 
-        if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
+        if (!isProfessionalWorkingAt(
+          selectedProf,
+          formDate,
+          formTime,
+          selectedService.duration_minutes,
+          tenant.businessHours
+        )) {
           addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
           setSavingAppointment(false);
           return;
         }
 
-        const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-        if (!dayBh.active) {
-          addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        // Bloqueio fora do expediente
-        if (
-          formTime < dayBh.open ||
-          formTime >= dayBh.close
-        ) {
-          addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-          setSavingAppointment(false);
-          return;
-        }
       }
 
       // Validação de limite de 1 encaixe por horário/profissional
@@ -1318,10 +1319,36 @@ export const Agenda: React.FC = () => {
       return;
     }
 
+    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
+    if (!dayBh.active) {
+      addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+      return;
+    }
+    if (agendaRescheduleTime < dayBh.open || agendaRescheduleTime >= dayBh.close) {
+      addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
+      return;
+    }
+
+    const rescheduleProfessional = professionals.find((p) => p.id === agendaRescheduleProfId);
+    const rescheduleDuration = agendaRescheduleAppointment.service?.duration_minutes || 30;
+    if (
+      rescheduleProfessional &&
+      !isProfessionalWorkingAt(
+        rescheduleProfessional,
+        agendaRescheduleDate,
+        agendaRescheduleTime,
+        rescheduleDuration,
+        tenant.businessHours
+      )
+    ) {
+      addToast(`O profissional ${rescheduleProfessional.name} não atende neste horário.`, 'warning');
+      return;
+    }
+
     setIsAgendaRescheduling(true);
     try {
       const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
-      const durationMin = agendaRescheduleAppointment.service?.duration_minutes || 30;
+      const durationMin = rescheduleDuration;
       const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMin * 60 * 1000).toISOString();
 
       const { error: updErr } = await supabase
@@ -1765,7 +1792,13 @@ export const Agenda: React.FC = () => {
                             const isSlotFull = standardCount >= 1 && isFittingFull;
 
                             const isProfBreak = isProfessionalOnBreak(prof, selectedDate, slot);
-                            const isProfWorking = isProfessionalWorkingAt(prof, selectedDate, slot);
+                            const isProfWorking = isProfessionalWorkingAt(
+                              prof,
+                              selectedDate,
+                              slot,
+                              0,
+                              tenant.businessHours
+                            );
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';
@@ -2061,7 +2094,9 @@ export const Agenda: React.FC = () => {
 
                             const weekProf = professionals.find((p) => p.id === selectedWeekProfId);
                             const isProfBreak = weekProf ? isProfessionalOnBreak(weekProf, day.dateStr, slot) : false;
-                            const isProfWorking = weekProf ? isProfessionalWorkingAt(weekProf, day.dateStr, slot) : true;
+                            const isProfWorking = weekProf
+                              ? isProfessionalWorkingAt(weekProf, day.dateStr, slot, 0, tenant.businessHours)
+                              : true;
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';

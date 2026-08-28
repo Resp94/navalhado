@@ -59,6 +59,15 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'tenant-test-id',
     tenantName: 'Barbearia Estilo',
+    businessHours: {
+      monday: { active: true, open: '09:00', close: '18:00' },
+      tuesday: { active: true, open: '09:00', close: '18:00' },
+      wednesday: { active: true, open: '09:00', close: '18:00' },
+      thursday: { active: true, open: '09:00', close: '18:00' },
+      friday: { active: true, open: '09:00', close: '18:00' },
+      saturday: { active: true, open: '09:00', close: '18:00' },
+      sunday: { active: false, open: '09:00', close: '18:00' },
+    },
   }),
   useNavigate: () => vi.fn(),
 }));
@@ -141,6 +150,21 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     // Esperamos 6 inputs para início e fim de almoço.
     expect(breakStartInputs.length).toBe(6);
     expect(breakEndInputs.length).toBe(6);
+  });
+
+  it('deve limitar o expediente do profissional ao funcionamento da barbearia', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    const startInputs = screen.getAllByLabelText(/Início do expediente/i);
+    fireEvent.change(startInputs[0], { target: { value: '20:00' } });
+
+    expect(startInputs[0]).toHaveValue('18:00');
   });
 
   it('deve conter as chaves break_start e break_end no weekly_schedule JSONB ao cadastrar um novo profissional', async () => {

@@ -20,7 +20,7 @@ import {
   Edit01Icon,
 } from '@hugeicons/core-free-icons';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
-import { getBusinessHoursForDayKey, timeToMinutes } from '../../lib/schedule';
+import { clampTimeToRange, getBusinessHoursForDayKey, timeToMinutes } from '../../lib/schedule';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -258,13 +258,31 @@ export const Profissionais: React.FC = () => {
     type: 'start' | 'end' | 'break_start' | 'break_end',
     value: string
   ) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [type]: value,
-      },
-    }));
+    setSchedule((prev) => {
+      const currentDay = prev[day];
+      let boundedValue = value;
+
+      if (tenant.businessHours) {
+        const dayBusinessHours = getBusinessHoursForDayKey(day, tenant.businessHours);
+        if (type === 'start' || type === 'end') {
+          boundedValue = clampTimeToRange(value, dayBusinessHours.open, dayBusinessHours.close);
+        } else {
+          boundedValue = clampTimeToRange(
+            value,
+            currentDay.start,
+            currentDay.end
+          );
+        }
+      }
+
+      return {
+        ...prev,
+        [day]: {
+          ...currentDay,
+          [type]: boundedValue,
+        },
+      };
+    });
   };
 
   const validateScheduleAgainstTenantHours = () => {
@@ -292,6 +310,17 @@ export const Profissionais: React.FC = () => {
       }
       if (start < opening || end > closing) {
         return `${day.label}: a escala deve ficar entre ${businessHours.open} e ${businessHours.close}.`;
+      }
+
+      const breakStart = daySchedule.break_start ? timeToMinutes(daySchedule.break_start) : null;
+      const breakEnd = daySchedule.break_end ? timeToMinutes(daySchedule.break_end) : null;
+      if (
+        (breakStart !== null && breakEnd === null) ||
+        (breakStart === null && breakEnd !== null) ||
+        (breakStart !== null && breakEnd !== null &&
+          (breakStart < start || breakEnd > end || breakStart >= breakEnd))
+      ) {
+        return `${day.label}: o intervalo deve ficar dentro do expediente e ter início anterior ao fim.`;
       }
     }
 

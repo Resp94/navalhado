@@ -62,6 +62,13 @@ export const minutesToTime = (totalMinutes: number): string => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
+export const clampTimeToRange = (value: string, min: string, max: string): string => {
+  const valueMinutes = timeToMinutes(value);
+  const minMinutes = timeToMinutes(min);
+  const maxMinutes = timeToMinutes(max);
+  return minutesToTime(Math.min(maxMinutes, Math.max(minMinutes, valueMinutes)));
+};
+
 /**
  * Adiciona minutos a um horário no formato "HH:MM"
  */
@@ -125,14 +132,29 @@ export const isProfessionalWorkingAt = (
   prof: ScheduleProfessional,
   dateStr: string,
   timeSlot: string,
-  durationMinutes: number = 0
+  durationMinutes: number = 0,
+  businessHours?: BusinessHoursConfig
 ): boolean => {
   if (!prof.is_active) return false;
-  const schedule = getProfessionalDaySchedule(prof, dateStr);
+  const dayBusinessHours = businessHours
+    ? getDayBusinessHours(dateStr, businessHours)
+    : null;
+  const slotStartMin = timeToMinutes(timeSlot);
+
+  if (
+    dayBusinessHours &&
+    (!dayBusinessHours.active ||
+      slotStartMin < timeToMinutes(dayBusinessHours.open) ||
+      slotStartMin >= timeToMinutes(dayBusinessHours.close))
+  ) {
+    return false;
+  }
+
+  const schedule = businessHours
+    ? getEffectiveProfessionalDaySchedule(prof, dateStr, businessHours)
+    : getProfessionalDaySchedule(prof, dateStr);
   if (!schedule) return true; // Sem escala explícita, considera disponível dentro do funcionamento geral
   if (schedule.active === false) return false;
-
-  const slotStartMin = timeToMinutes(timeSlot);
 
   if (schedule.start && slotStartMin < timeToMinutes(schedule.start)) return false;
   // O fechamento limita o início do slot; a duração pode ultrapassar alguns minutos.
@@ -250,6 +272,76 @@ export const getDayBusinessHours = (
   const [y, m, d] = dateStr.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
   return getBusinessHoursForDayKey(PT_DAY_KEYS[dateObj.getDay()], businessHours);
+};
+
+/**
+ * Retorna a escala efetiva do profissional dentro dos limites da barbearia.
+ * O banco aplica a mesma regra ao persistir alterações do estabelecimento;
+ * este seam mantém as telas consistentes enquanto os dados estão em memória.
+ */
+export const clampProfessionalScheduleToBusinessHours = (
+  schedule: ProfessionalDaySchedule | null | undefined,
+  businessHours: BusinessHoursDay | null | undefined
+): ProfessionalDaySchedule | null => {
+  if (!schedule) return null;
+  if (!businessHours) return { ...schedule };
+  if (businessHours.active === false) return { ...schedule, active: false };
+
+  const businessStart = timeToMinutes(businessHours.open || businessHours.start || '00:00');
+  const businessEnd = timeToMinutes(businessHours.close || businessHours.end || '24:00');
+  const effectiveStart = Math.max(
+    timeToMinutes(schedule.start || businessHours.open || businessHours.start || '00:00'),
+    businessStart
+  );
+  const effectiveEnd = Math.min(
+    timeToMinutes(schedule.end || businessHours.close || businessHours.end || '24:00'),
+    businessEnd
+  );
+
+  if (schedule.active === false || effectiveStart >= effectiveEnd) {
+    return {
+      ...schedule,
+      active: false,
+      start: minutesToTime(businessStart),
+      end: minutesToTime(businessEnd),
+      break_start: undefined,
+      break_end: undefined,
+    };
+  }
+
+  const effectiveSchedule: ProfessionalDaySchedule = {
+    ...schedule,
+    active: true,
+    start: minutesToTime(effectiveStart),
+    end: minutesToTime(effectiveEnd),
+  };
+
+  if (schedule.break_start && schedule.break_end) {
+    const breakStart = Math.max(timeToMinutes(schedule.break_start), effectiveStart);
+    const breakEnd = Math.min(timeToMinutes(schedule.break_end), effectiveEnd);
+    if (breakStart < breakEnd) {
+      effectiveSchedule.break_start = minutesToTime(breakStart);
+      effectiveSchedule.break_end = minutesToTime(breakEnd);
+    } else {
+      delete effectiveSchedule.break_start;
+      delete effectiveSchedule.break_end;
+    }
+  }
+
+  return effectiveSchedule;
+};
+
+export const getEffectiveProfessionalDaySchedule = (
+  prof: { weekly_schedule?: WeeklySchedule | null },
+  dateStr: string,
+  businessHours?: BusinessHoursConfig
+): ProfessionalDaySchedule | null => {
+  const schedule = getProfessionalDaySchedule(prof, dateStr);
+  if (!businessHours) return schedule;
+  return clampProfessionalScheduleToBusinessHours(
+    schedule,
+    getDayBusinessHours(dateStr, businessHours)
+  );
 };
 
 /**

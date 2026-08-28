@@ -7,6 +7,8 @@ import {
   addMinutesToTime,
   timeToMinutes,
   generateTimeSlotsForSchedule,
+  clampProfessionalScheduleToBusinessHours,
+  clampTimeToRange,
 } from '../../../lib/schedule';
 import type { ScheduleProfessional } from '../../../lib/schedule';
 
@@ -155,6 +157,52 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
     it('funciona perfeitamente quando não há intervalo configurado', () => {
       const slots = generateTimeSlotsForSchedule('08:00', '10:00', 30);
       expect(slots).toEqual(['08:00', '08:30', '09:00', '09:30']);
+    });
+  });
+
+  describe('limites do expediente da barbearia', () => {
+    it('considera o expediente da barbearia ao validar um slot do profissional', () => {
+      const businessHours = {
+        monday: { active: true, open: '10:00', close: '18:00' },
+      };
+
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '10:00', 30, businessHours)).toBe(true);
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '18:00', 30, businessHours)).toBe(false);
+    });
+
+    it('não permite valores de horário fora do intervalo informado', () => {
+      expect(clampTimeToRange('20:00', '09:00', '18:00')).toBe('18:00');
+      expect(clampTimeToRange('07:00', '09:00', '18:00')).toBe('09:00');
+    });
+
+    it('limita a escala do profissional ao expediente da barbearia', () => {
+      const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+        {
+          active: true,
+          start: '08:00',
+          end: '20:00',
+          break_start: '13:00',
+          break_end: '14:00',
+        },
+        { active: true, open: '10:00', close: '18:00' }
+      );
+
+      expect(effectiveSchedule).toMatchObject({
+        active: true,
+        start: '10:00',
+        end: '18:00',
+        break_start: '13:00',
+        break_end: '14:00',
+      });
+    });
+
+    it('desativa a escala quando o dia está fechado na barbearia', () => {
+      const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+        { active: true, start: '08:00', end: '20:00' },
+        { active: false, open: '10:00', close: '18:00' }
+      );
+
+      expect(effectiveSchedule?.active).toBe(false);
     });
   });
 });

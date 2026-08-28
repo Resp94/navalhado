@@ -184,7 +184,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           if (prof && isProfessionalOnBreak(prof, selectedDate, slot)) {
             return;
           }
-          if (prof && !isProfessionalWorkingAt(prof, selectedDate, slot)) {
+          if (prof && !isProfessionalWorkingAt(prof, selectedDate, slot, 0, businessHours)) {
             return;
           }
 
@@ -194,7 +194,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     }
 
     return items.sort((a, b) => a.time.localeCompare(b.time));
-  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, selectedProfId, professionals, selectedDate]);
+  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, businessHours, selectedProfId, professionals, selectedDate]);
 
   return (
     <div className="mobile-agenda">

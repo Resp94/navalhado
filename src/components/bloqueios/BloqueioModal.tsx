@@ -13,7 +13,7 @@ import {
   addMinutesToTime,
   generateTimeSlotsForSchedule,
   getDayBusinessHours,
-  getProfessionalDaySchedule,
+  getEffectiveProfessionalDaySchedule,
   type WeeklySchedule,
 } from '../../lib/schedule';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
@@ -164,7 +164,9 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     if (!dayBh.active) return [];
 
     const selectedProf = professionals.find((p) => p.id === selectedProfId);
-    const profSched = selectedProf ? getProfessionalDaySchedule(selectedProf, date) : null;
+    const profSched = selectedProf
+      ? getEffectiveProfessionalDaySchedule(selectedProf, date, businessHours)
+      : null;
 
     let baseSlots: string[] = [];
 
