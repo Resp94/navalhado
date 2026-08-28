@@ -4,6 +4,7 @@ import {
 } from './errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -56,6 +57,54 @@ export class CanalClienteRepository {
       throw new CanalClienteTokenError();
     }
     return perfil;
+  }
+
+  async obterContextoPublico(slug: string): Promise<ContextoPublicoCanal | null> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+
+    return await this.adapter.buscarContextoPublicoPorSlug(slug.trim());
+  }
+
+  async obterCatalogoServicosPublico(slug: string): Promise<{
+    servicos: ServicoCanal[];
+    categorias: string[];
+  }> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+
+    const servicos = await this.adapter.listarServicosPorSlug(slug.trim());
+    const ativos = servicos.filter((s) => s.is_active !== false);
+    const seen = new Set<string>();
+    const categorias: string[] = [];
+    const servicosNormalizados = ativos.map((service) => {
+      const category = service.category?.trim()
+        ? service.category.trim().charAt(0).toUpperCase() + service.category.trim().slice(1).toLowerCase()
+        : 'Outro';
+      if (!seen.has(category)) {
+        seen.add(category);
+        categorias.push(category);
+      }
+      return { ...service, category };
+    });
+
+    return { servicos: servicosNormalizados, categorias };
+  }
+
+  async obterProfissionaisPublicos(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!serviceId || !serviceId.trim()) {
+      throw new CanalClienteValidationError('O serviço é obrigatório para listar profissionais.');
+    }
+
+    const profissionais = await this.adapter.listarProfissionaisPorSlug(slug.trim(), serviceId.trim());
+    return profissionais
+      .filter((professional) => professional.is_active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

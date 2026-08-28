@@ -7,6 +7,7 @@ import {
 } from '../errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -78,6 +79,53 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
       business_hours: row.business_hours || undefined,
     };
+  }
+
+  async buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null> {
+    const { data, error } = await supabase.rpc('get_public_tenant_by_slug', {
+      p_slug: slug,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return null;
+    }
+
+    const row = data[0];
+    return {
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
+      logo_url: row.logo_url || null,
+      timezone: row.timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
+      slot_interval_minutes: Number(row.slot_interval_minutes ?? 30),
+      min_booking_lead_time_minutes: Number(row.min_booking_lead_time_minutes ?? 15),
+      min_cancellation_lead_time_minutes: Number(row.min_cancellation_lead_time_minutes ?? 120),
+    };
+  }
+
+  async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {
+    const { data, error } = await supabase.rpc('get_services_by_public_slug', {
+      p_slug: slug,
+    });
+
+    if (error) throw error;
+    return (data || []) as ServicoCanal[];
+  }
+
+  async listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
+    const { data, error } = await supabase.rpc('get_professionals_by_public_slug', {
+      p_slug: slug,
+      p_service_id: serviceId,
+    });
+
+    if (error) throw error;
+    return (data || []) as ProfissionalCanal[];
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

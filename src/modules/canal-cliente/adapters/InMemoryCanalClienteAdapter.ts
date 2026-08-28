@@ -5,6 +5,7 @@ import {
 } from '../errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
   ICanalClienteAdapter,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
@@ -17,6 +18,7 @@ import type {
 export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   private activeToken: string | null = null;
   public perfis: Map<string, PerfilClienteCanal> = new Map();
+  public contextosPublicos: Map<string, ContextoPublicoCanal> = new Map();
   public servicos: ServicoCanal[] = [];
   public profissionais: ProfissionalCanal[] = [];
   public agendamentos: AgendamentoCanal[] = [];
@@ -39,6 +41,23 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       throw new CanalClienteTokenError();
     }
     return this.perfis.get(token) || null;
+  }
+
+  async buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null> {
+    if (!slug || slug === 'invalid') {
+      return null;
+    }
+    return this.contextosPublicos.get(slug) || null;
+  }
+
+  async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    return this.servicos.filter((service) => service.is_active);
+  }
+
+  async listarProfissionaisPorSlug(slug: string, _serviceId: string): Promise<ProfissionalCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    return this.profissionais.filter((professional) => professional.is_active);
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {

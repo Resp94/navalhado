@@ -50,6 +50,17 @@ describe('CanalClienteRepository', () => {
     adapter.profissionais = [
       { id: 'p1', name: 'Mestre Barbeiro', is_active: true },
     ];
+
+    adapter.contextosPublicos.set('brooklyn', {
+      tenant_id: 'tenant_brooklyn',
+      tenant_name: 'Barbearia brooklyn',
+      tenant_phone: '11999999999',
+      tenant_slug: 'brooklyn',
+      timezone: 'America/Sao_Paulo',
+      slot_interval_minutes: 30,
+      min_booking_lead_time_minutes: 15,
+      min_cancellation_lead_time_minutes: 120,
+    });
   });
 
   it('deve lançar CanalClienteTokenError quando nenhum token estiver disponível', async () => {
@@ -75,6 +86,42 @@ describe('CanalClienteRepository', () => {
     expect(res.token).toBe('token_brooklyn');
     expect(res.perfil.tenant_slug).toBe('brooklyn');
     expect(repository.obterTokenAcesso()).toBe('token_brooklyn');
+  });
+
+  it('deve resolver o contexto público sem criar cliente ou token', async () => {
+    const contexto = await repository.obterContextoPublico('brooklyn');
+
+    expect(contexto).toEqual({
+      tenant_id: 'tenant_brooklyn',
+      tenant_name: 'Barbearia brooklyn',
+      tenant_phone: '11999999999',
+      tenant_slug: 'brooklyn',
+      timezone: 'America/Sao_Paulo',
+      business_hours: undefined,
+      slot_interval_minutes: 30,
+      min_booking_lead_time_minutes: 15,
+      min_cancellation_lead_time_minutes: 120,
+    });
+    expect(repository.obterTokenAcesso()).toBeNull();
+    expect(adapter.perfis.size).toBe(1);
+  });
+
+  it('deve retornar nulo para slug público inexistente sem tocar no token', async () => {
+    repository.definirTokenAcesso(validToken);
+
+    await expect(repository.obterContextoPublico('inexistente')).resolves.toBeNull();
+    expect(repository.obterTokenAcesso()).toBe(validToken);
+    expect(adapter.perfis.size).toBe(1);
+  });
+
+  it('deve obter serviços e profissionais públicos sem exigir token', async () => {
+    const catalogo = await repository.obterCatalogoServicosPublico('brooklyn');
+    const profissionais = await repository.obterProfissionaisPublicos('brooklyn', 's1');
+
+    expect(catalogo.servicos).toHaveLength(2);
+    expect(catalogo.categorias).toEqual(['Cabelo', 'Barba']);
+    expect(profissionais.map((professional) => professional.id)).toEqual(['p1']);
+    expect(repository.obterTokenAcesso()).toBeNull();
   });
 
   it('deve consultar horários disponíveis com parâmetros válidos', async () => {

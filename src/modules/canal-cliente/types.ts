@@ -15,6 +15,19 @@ export interface PerfilClienteCanal {
   business_hours?: Record<string, { active: boolean; open: string; close: string }>;
 }
 
+export interface ContextoPublicoCanal {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_phone: string;
+  tenant_slug: string;
+  logo_url?: string | null;
+  timezone: string;
+  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
+  slot_interval_minutes: number;
+  min_booking_lead_time_minutes: number;
+  min_cancellation_lead_time_minutes: number;
+}
+
 export interface ServicoCanal {
   id: string;
   name: string;
@@ -83,6 +96,9 @@ export interface ICanalClienteAdapter {
   definirToken(token: string): void;
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
+  buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
+  listarServicosPorSlug(slug: string): Promise<ServicoCanal[]>;
+  listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]>;
   inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;
