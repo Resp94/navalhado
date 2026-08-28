@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(12);
 
 select has_function('public','confirm_public_booking',array['text','uuid','uuid','date','text','text','text','uuid'],'public confirmation accepts an optional identity token');
 select ok(has_function_privilege('anon','public.confirm_public_booking(text,uuid,uuid,date,text,text,text,uuid)','EXECUTE'),'anonymous visitors can confirm with an identity token');
@@ -33,6 +33,15 @@ select is((select customer_name from public.confirm_public_booking(
   (select token_acesso from public.customers where id='67000000-0000-0000-0000-000000000031'))),'Cliente Original'::text,'same phone reuses the canonical name');
 
 select throws_ok($$select * from public.confirm_public_booking('identity-test','67000000-0000-0000-0000-000000000011','67000000-0000-0000-0000-000000000021','2040-01-02','13:00','Pessoa Inválida','92999990026','00000000-0000-0000-0000-000000000099')$$,'P0002','Token inválido para este estabelecimento.','token from another tenant is rejected');
+
+insert into public.customers(id,tenant_id,name,phone,cadastro_completo,registration_origin)
+values('67000000-0000-0000-0000-000000000032','67000000-0000-0000-0000-000000000001','Primeiro contato','92999990027',false,'whatsapp_bot');
+
+select is((select customer_name from public.confirm_public_booking(
+  'identity-test','67000000-0000-0000-0000-000000000011','67000000-0000-0000-0000-000000000021','2040-01-02','13:00','Primeiro Contato','92999990027',
+  (select token_acesso from public.customers where id='67000000-0000-0000-0000-000000000032'))),'Primeiro Contato'::text,'valid provisional token can complete its customer');
+select ok((select cadastro_completo from public.customers where id='67000000-0000-0000-0000-000000000032'),'provisional customer is promoted atomically');
+select is((select count(*)::integer from public.appointments where customer_id='67000000-0000-0000-0000-000000000032'),1,'completed provisional customer receives the appointment');
 
 select * from finish();
 rollback;

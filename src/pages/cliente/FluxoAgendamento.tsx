@@ -402,7 +402,7 @@ export const FluxoAgendamento: React.FC = () => {
         });
 
         if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem(publicTokenStorageKey(publicSlug), confirmation.token);
+          localStorage.setItem(publicTokenStorageKey(confirmationSlug), confirmation.token);
           localStorage.setItem('navalhado_customer_token', confirmation.token);
         }
         addToast('Agendamento realizado com sucesso!', 'success');
