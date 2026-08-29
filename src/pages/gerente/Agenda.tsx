@@ -15,6 +15,7 @@ import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
 import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
+import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
@@ -190,6 +191,8 @@ export const Agenda: React.FC = () => {
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
+  const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
+  const [isRemovingBlock, setIsRemovingBlock] = useState(false);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formDate, setFormDate] = useState(selectedDate);
@@ -1317,21 +1320,29 @@ export const Agenda: React.FC = () => {
   };
 
   // Remover Bloqueio de Horário
-  const handleRemoveBlock = async (blk: BlockedSlot) => {
-    if (window.confirm(`Deseja remover o bloqueio "${blk.reason}"?`)) {
-      try {
-        const { error } = await supabase
-          .from('blocked_slots')
-          .delete()
-          .eq('id', blk.id)
-          .eq('tenant_id', tenant.tenantId);
+  const handleRemoveBlock = (blk: BlockedSlot) => {
+    setBlockPendingRemoval(blk);
+  };
 
-        if (error) throw error;
-        addToast('Bloqueio removido com sucesso!', 'success');
-        fetchBlockedSlots();
-      } catch (err: any) {
-        addToast('Erro ao remover bloqueio.', 'error');
-      }
+  const handleConfirmRemoveBlock = async () => {
+    if (!blockPendingRemoval || isRemovingBlock) return;
+
+    setIsRemovingBlock(true);
+    try {
+      const { error } = await supabase
+        .from('blocked_slots')
+        .delete()
+        .eq('id', blockPendingRemoval.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (error) throw error;
+      addToast('Bloqueio removido com sucesso!', 'success');
+      setBlockPendingRemoval(null);
+      await fetchBlockedSlots();
+    } catch {
+      addToast('Erro ao remover bloqueio.', 'error');
+    } finally {
+      setIsRemovingBlock(false);
     }
   };
 
@@ -2710,6 +2721,19 @@ export const Agenda: React.FC = () => {
           clearActionUrl();
           addToast('Bloqueio criado com sucesso!', 'success');
           fetchBlockedSlots();
+        }}
+      />
+
+      <ConfirmSoftDeleteModal
+        isOpen={Boolean(blockPendingRemoval)}
+        title="Remover bloqueio"
+        itemName={blockPendingRemoval?.reason || 'de horário'}
+        itemTypeLabel="o bloqueio"
+        warningText="O horário voltará a ficar disponível para novos agendamentos após a remoção."
+        loading={isRemovingBlock}
+        onConfirm={handleConfirmRemoveBlock}
+        onClose={() => {
+          if (!isRemovingBlock) setBlockPendingRemoval(null);
         }}
       />
 
