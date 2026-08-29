@@ -1,14 +1,14 @@
 # Snapshot operacional — hardening da mensageria WhatsApp
 
 **Data:** 28/08/2026 22:20 (America/Manaus)
-**Commit de referência:** `ce4fc97d790ca63e30ad229658dcd9694033ae10`, com alterações locais validadas para o próximo commit.
+**Commit de referência:** `55029a8`.
 **Working tree:** alterações locais da correção dos achados do code review; nenhum push remoto realizado.
 
 ## Ambiente da validação
 
 - Repositório local `C:\Projetos\navalhado`.
 - Banco Supabase remoto do Navalhado consultado e atualizado por migrations versionadas.
-- Edge Function `whatsapp-integration` publicada na versão 45, mantendo `verify_jwt: false` e autenticação própria das rotas.
+- Edge Function `whatsapp-integration` publicada na versão 46, mantendo `verify_jwt: false` e autenticação própria das rotas.
 
 ## ✅ Funcional
 
