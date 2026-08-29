@@ -1,0 +1,65 @@
+# Spec 024 — Portal público e sessão do cliente
+
+## Problem Statement
+
+O portal público atualmente pode exibir toda a régua de horários, diferenciando disponibilidade por botões ativos e inativos. Isso faz o cliente interpretar horários bloqueados como opções de reserva. Além disso, os links enviados ao cliente precisam iniciar o fluxo pelo tenant correto sem expor token na URL e sem criar clientes fantasmas.
+
+## Solution
+
+Usar o domínio público mais o slug do tenant como porta de entrada. Depois que o cliente informa nome e telefone, o sistema inicia ou recupera a sessão no tenant correto. A disponibilidade pública mostrará somente horários acionáveis para o serviço, profissional, data e regras de agenda selecionados, tanto no novo agendamento quanto no reagendamento.
+
+Links antigos tokenizados continuarão sendo aceitos durante a transição, mas novos links não conterão token. A confirmação final continuará sendo revalidada no Supabase para tratar concorrência.
+
+## User Stories
+
+1. Como cliente, quero ver somente horários válidos para o serviço escolhido, para não reservar um horário que conflite com outro atendimento. (orig. 5)
+2. Como gerente, quero que o portal público e a agenda interna mostrem a mesma disponibilidade, para evitar informações divergentes. (orig. 9)
+3. Como cliente, quero que a grade pública mantenha a janela e o intervalo do tenant, para ter o mesmo padrão de horários em qualquer profissional. (orig. 14)
+4. Como cliente no portal público, quero ver somente horários disponíveis no agendamento e no reagendamento, para não interpretar horários bloqueados como opções de reserva. (orig. 15)
+5. Como cliente, quero que horários ocupados ou indisponíveis não sejam renderizados como botões inativos, para encontrar rapidamente as opções acionáveis. (orig. 16)
+6. Como cliente, quero receber uma indicação clara quando não houver horários disponíveis, para poder escolher outra data ou profissional. (orig. 17)
+7. Como cliente em primeiro contato, quero acessar o link público da barbearia pelo slug, para iniciar o agendamento sem depender de token. (orig. 36)
+8. Como gerente, quero que o primeiro contato não exponha token de cliente na URL, para simplificar o acesso e reduzir dependência de links personalizados. (orig. 37)
+9. Como sistema, quero identificar o cliente por tenant e telefone normalizado após o acesso público, para evitar clientes fantasmas. (orig. 38)
+10. Como cliente, quero que confirmação, cancelamento, reagendamento, lembretes e primeiro contato abram pelo slug e iniciem minha sessão, para não receber tokens expostos na URL. (orig. 39)
+
+## Implementation Decisions
+
+- O link público novo terá o domínio da aplicação e o slug do tenant, sem `token` ou segredo na URL.
+- A sessão resolverá o tenant e o cliente fora da URL, usando o fluxo de nome e telefone normalizado já existente.
+- Não será criada uma segunda identidade de cliente baseada em URL.
+- Links legados tokenizados serão aceitos durante a transição e convertidos para a sessão pública sem quebrar mensagens já entregues.
+- As entradas públicas de primeiro contato, confirmação, cancelamento, reagendamento e lembrete usarão o slug; uma ação não secreta poderá ser usada quando necessário.
+- A disponibilidade pública não retornará opções indisponíveis para renderização. Linhas com `available = false` não serão transformadas em botões desabilitados.
+- A mesma decisão de disponibilidade do Supabase será usada no agendamento e no reagendamento público.
+- Quando não houver horários, o portal apresentará estado vazio com orientação para escolher outra data ou profissional.
+- A Agenda administrativa manterá sua visualização operacional, podendo continuar exibindo horários ocupados ou indisponíveis.
+- A confirmação do horário será revalidada no servidor para impedir reservas concorrentes.
+- Toda implementação, teste, consulta de validação e migration desta spec será executada exclusivamente no banco/ambiente DEV. As credenciais de teste devem ser obtidas somente de `docs/credenciais_teste.md`, sem copiar valores para código, fixtures, logs ou documentação.
+- Toda migration necessária deverá ser versionada e numerada sequencialmente conforme o padrão existente (`timestamp_descricao_082.sql`, próxima disponível `083`), criada pelo fluxo oficial e aplicada somente em DEV nesta etapa, via MCP.
+
+## Testing Decisions
+
+- Os testes Playwright devem usar uma fixture de tenant com slug, cliente existente, cliente novo, serviço, profissional e datas controladas.
+- Devem confirmar que nenhum novo link contém `?token=` ou `/cliente/<token>`.
+- Devem cobrir primeiro contato, confirmação, cancelamento, reagendamento e lembrete usando slug e sessão.
+- Devem cobrir identificação de cliente existente, cadastro de cliente novo somente na confirmação e isolamento entre tenants.
+- Devem confirmar que apenas horários disponíveis aparecem no novo agendamento e no reagendamento.
+- Devem confirmar que horários indisponíveis não aparecem como botões inativos e que o estado vazio é exibido quando a lista fica vazia.
+- Devem simular concorrência ou revalidação de horário e confirmar uma resposta controlada sem duplicar agendamento.
+- O checklist executável está em [Playwright 024](../../verificacao-playwright/024-portal-publico-sessao.md).
+- O checklist executável está em [Playwright 024](../../verificacao-playwright/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
+
+## Out of Scope
+
+- Alterar a semântica interna da grade, duração, pausa ou fechamento; esses contratos pertencem à Spec 023.
+- Ocultar horários na Agenda administrativa.
+- Criar clientes provisórios antes da confirmação.
+- Trocar provider ou reescrever a mensageria.
+- Executar testes, migrations ou validações em produção.
+
+## Further Notes
+
+- O portal público não precisa desenhar a régua completa. Ele deve receber somente opções acionáveis.
+- A ocultação melhora a experiência, mas não substitui a revalidação autoritativa no Supabase.
+- O texto `Meus agendamentos` ou `Gerenciar agendamentos` deve substituir o termo isolado `Histórico` na entrada do cliente.
