@@ -52,6 +52,7 @@ export interface WhatsAppProvider {
 export interface WhatsAppProviderConfig {
   baseUrl: string;
   adminToken: string;
+  timeoutMs?: number;
 }
 
 export type WhatsAppProviderFactory = (config: WhatsAppProviderConfig) => WhatsAppProvider;
@@ -62,11 +63,14 @@ export class WhatsAppProviderError extends Error {
     readonly status?: number,
     readonly retryAfterMs?: number,
     readonly details?: string,
+    readonly timedOut = false,
   ) {
     super(
-      status
-        ? `WhatsApp provider ${operation} failed with status ${status}${details ? `: ${details}` : ""}`
-        : `WhatsApp provider ${operation} failed${details ? `: ${details}` : ""}`,
+      timedOut
+        ? `WhatsApp provider ${operation} timed out`
+        : status
+        ? `WhatsApp provider ${operation} failed with status ${status}`
+        : `WhatsApp provider ${operation} failed`,
     );
     this.name = "WhatsAppProviderError";
   }
@@ -97,24 +101,26 @@ export const createUazapiProvider = (
   fetcher: Fetcher = globalThis.fetch,
 ): WhatsAppProvider => {
   const endpointUrl = (endpoint: string): string => `${config.baseUrl.replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`;
+  const timeoutMs = Math.max(1, Math.min(config.timeoutMs ?? 10_000, 60_000));
 
   const request = async (operation: string, endpoint: string, init: RequestInit): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-      response = await fetcher(endpointUrl(endpoint), init);
-    } catch {
+      response = await fetcher(endpointUrl(endpoint), { ...init, signal: init.signal ?? controller.signal });
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+        throw new WhatsAppProviderError(operation, undefined, undefined, undefined, true);
+      }
       throw new WhatsAppProviderError(operation);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!response.ok) {
       const retryAfterMs = retryAfterMilliseconds(response.headers.get("retry-after"));
-      let details = "";
-      try {
-        details = await response.text();
-      } catch {
-        // ignore
-      }
-      throw new WhatsAppProviderError(operation, response.status, retryAfterMs, details);
+      throw new WhatsAppProviderError(operation, response.status, retryAfterMs);
     }
     return response;
   };

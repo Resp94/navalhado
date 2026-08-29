@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import { assertEquals, assertRejects, assertThrows } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { 
   createHandler, 
   handler, 
@@ -7,6 +7,8 @@ import {
   DEFAULT_TEMPLATES, 
   isFirstMessageOfDayForCustomer,
   resolveCustomerMessageWithDailyLink,
+  getUnresolvedTemplateTokens,
+  renderMessageTemplate,
   type WhatsappTemplateVariables 
 } from "./index.ts";
 import {
@@ -23,6 +25,11 @@ Deno.env.set("DB_TRIGGER_SECRET", "mock-db-secret");
 Deno.env.set("SUPABASE_URL", "https://mock-supabase.co");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "mock-service-role-key");
 Deno.env.set("APP_URL", "https://mock-app.com");
+
+Deno.test("message dispatcher exposes a normalized delivery seam", async () => {
+  const integration = await import("./index.ts");
+  assertEquals(typeof integration.createMessageDispatcher, "function");
+});
 
 const UAZAPI_CONNECTED_WEBHOOK_FIXTURE = {
   EventType: "connection",
@@ -251,7 +258,7 @@ Deno.test("POST /activate-instance creates, configures and persists a neutral Ua
   }
 });
 
-Deno.test("POST /activate-instance rejects an existing tenant integration and compensates partial activation", async () => {
+Deno.test("POST /activate-instance reuses an existing tenant integration and compensates partial activation", async () => {
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
@@ -295,7 +302,7 @@ Deno.test("POST /activate-instance rejects an existing tenant integration and co
 
   try {
     const conflict = await run(true);
-    assertEquals(conflict.status, 409);
+    assertEquals(conflict.status, 200);
     assertEquals(providerCalls, []);
 
     const compensated = await run(false);
@@ -1245,12 +1252,13 @@ Deno.test("POST /webhook Message - creates customer and replies with new token",
     assertEquals(mock.rpcRequests[0], {
       p_tenant_id: "tenant-456",
       p_phone: "5592999992222",
-      p_push_name: "Cliente Perfil",
+      p_name: "Cliente Perfil",
     });
     assertEquals(mock.sentMessages[0], {
       number: "5592999992222",
       text: "Olá, Cliente Perfil! Para escolher seu serviço e agendar um horário na *Barbearia Estilo*, acesse: https://mock-app.com/cliente/token-new/agendar",
       linkPreview: false,
+      track_id: "first_contact:tenant-456:message-123",
     });
   } finally {
     mock.restore();
@@ -1292,7 +1300,7 @@ Deno.test("POST /webhook Message - returns 502 when send text fails", async () =
   try {
     const res = await handler(createMessageRequest());
     assertEquals(res.status, 502);
-    assertEquals(mock.sentMessages.length, 1);
+    assertEquals(mock.sentMessages.length, 3);
   } finally {
     mock.restore();
   }
@@ -1528,11 +1536,13 @@ Deno.test("POST /webhook Uazapi - retries a failed first-contact attempt within 
   try {
     const failed = await testHandler(request());
     const retried = await testHandler(request());
-    assertEquals(failed.status, 502);
+    assertEquals(failed.status, 200);
     assertEquals(retried.status, 200);
+    assertEquals((await failed.json()).success, true);
+    assertEquals((await retried.json()).duplicate, true);
     assertEquals(sendCount, 2);
     assertEquals(idempotencyStatus, "succeeded");
-    assertEquals(attemptCount, 2);
+    assertEquals(attemptCount, 1);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
@@ -1652,7 +1662,7 @@ Deno.test("POST /send-notification Uazapi - retries temporary failures and recor
       },
     ));
     assertEquals(response.status, 200);
-    assertEquals((await response.json()).attempts, 2);
+    assertEquals((await response.json()).client.attempts, 2);
     assertEquals(sendAttempts, 2);
     assertEquals(idempotencyBodies[0]?.direction, "outbound");
     assertEquals(idempotencyBodies[0]?.idempotency_key, "appointment:appointment-1:appointment_created");
@@ -1674,7 +1684,7 @@ Deno.test("POST /send-notification Uazapi - retries temporary failures and recor
       },
     ));
     assertEquals(permanentFailureResponse.status, 502);
-    assertEquals((await permanentFailureResponse.json()).attempts, 1);
+    assertEquals((await permanentFailureResponse.json()).client.attempts, 1);
     assertEquals(permanentFailureCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
@@ -2128,8 +2138,8 @@ Deno.test("POST /send-manual does not expose upstream response bodies", async ()
   try {
     const res = await handler(createSendTestRequest());
     assertEquals(res.status, 502);
-    assertEquals(await res.json(), { error: "WhatsApp provider request failed" });
-    assertEquals(mock.sendCalls, 1);
+    assertEquals(await res.json(), { error: "WhatsApp provider request failed", attempts: 3 });
+    assertEquals(mock.sendCalls, 3);
   } finally {
     mock.restore();
   }
@@ -2162,6 +2172,23 @@ Deno.test("POST /process-return-reminders - should scan completed appointments a
         tenants: { name: "Navalhado Matriz", timezone: "America/Sao_Paulo" }
       }]
     },
+    "rest/v1/rpc/get_pending_return_reminders": {
+      status: 200,
+      body: [{
+        appointment_id: "app-ret-1",
+        tenant_id: "tenant-return-1",
+        customer_id: "cust-ret-1",
+        customer_name: "Carlos Cliente",
+        customer_phone: "11988887777",
+        customer_token: "token-ret-123",
+        service_name: "Corte Degradê",
+        return_period_days: 20,
+        last_appointment_at: pastDate,
+        diff_days: 25,
+        tenant_name: "Navalhado Matriz",
+        whatsapp_reminder_template: "Olá, {nome_cliente}! Hora de voltar na {barbearia} para {nome_servico}: {link_agendamento}"
+      }]
+    },
     "rest/v1/whatsapp_message_idempotency": {
       status: 200,
       body: []
@@ -2188,6 +2215,77 @@ Deno.test("POST /process-return-reminders - should scan completed appointments a
   assertEquals(data.processed, 1);
 
   restoreFetch();
+});
+
+Deno.test("POST /process-welcome-outbox processes eligible balcão events", async () => {
+  const restoreFetch = setupMockFetch({
+    "rest/v1/rpc/claim_whatsapp_message_outbox": {
+      status: 200,
+      body: [{
+        id: "outbox-welcome-1",
+        tenant_id: "tenant-welcome-1",
+        customer_id: "customer-welcome-1",
+        event_type: "customer_welcome_balcao",
+        idempotency_key: "customer:customer-welcome-1:customer_welcome_balcao",
+        payload: {
+          event: "customer_welcome_balcao",
+          customer_id: "customer-welcome-1",
+          tenant_id: "tenant-welcome-1",
+        },
+        attempt_count: 1,
+      }],
+    },
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "instance-welcome-1",
+        tenant_id: "tenant-welcome-1",
+        instance_name: "nav_welcome",
+        instance_token: "welcome-token",
+        status: "connected",
+        send_welcome_balcao: true,
+      },
+    },
+    "rest/v1/customers": {
+      status: 200,
+      body: {
+        id: "customer-welcome-1",
+        tenant_id: "tenant-welcome-1",
+        name: "Cliente Balcão",
+        phone: "11988887777",
+        token_acesso: "welcome-access-token",
+        registration_origin: "balcao",
+        welcome_sent_at: null,
+      },
+    },
+    "rest/v1/tenants": {
+      status: 200,
+      body: { name: "Navalhado Centro", slug: "navalhado-centro" },
+    },
+    "rest/v1/rpc/complete_whatsapp_message_outbox": {
+      status: 200,
+      body: true,
+    },
+    "mock-vps.com/send/text": {
+      status: 200,
+      body: { success: true },
+    },
+  });
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/process-welcome-outbox",
+      {
+        method: "POST",
+        headers: { "x-db-trigger-secret": "mock-db-secret" },
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), { success: true, processed: 1, retried: 0 });
+  } finally {
+    restoreFetch();
+  }
 });
 
 Deno.test("formatMessageTemplate: replaces dynamic tokens correctly when custom template is provided", () => {
@@ -2248,6 +2346,23 @@ Deno.test("formatMessageTemplate: formats cancellation, reminder and first_conta
   };
   const firstContactResult = formatMessageTemplate("Bem-vindo {cliente} à {barbearia}! Agende em: {link}", DEFAULT_TEMPLATES.first_contact, firstContactVariables);
   assertEquals(firstContactResult, "Bem-vindo Novo Cliente à Navalhado Elite! Agende em: https://dev.navalhado.com.br/cliente/novo/agendar");
+});
+
+Deno.test("formatMessageTemplate: accepts legacy aliases and reports unresolved variables", () => {
+  const rendered = formatMessageTemplate(
+    "Olá, {nome_cliente}! Seu {nome_servico} está em {data_agendamento}. Acesse {link_agendamento}.",
+    DEFAULT_TEMPLATES.appointment_created,
+    {
+      cliente: "Lucas",
+      servico: "Corte",
+      data: "18/08/2026",
+      link: "https://mock-app.com/cliente/lucas",
+    },
+  );
+
+  assertEquals(rendered, "Olá, Lucas! Seu Corte está em 18/08/2026. Acesse https://mock-app.com/cliente/lucas.");
+  assertEquals(getUnresolvedTemplateTokens("Olá Lucas, {tag_desconhecida}"), ["tag_desconhecida"]);
+  assertThrows(() => renderMessageTemplate("Olá {cliente}, {faltante}", DEFAULT_TEMPLATES.first_contact, { cliente: "Lucas" }), Error, "unresolved");
 });
 
 Deno.test("POST /send-notification - respects custom template from database in payload", async () => {
@@ -2341,6 +2456,21 @@ Deno.test("UazapiProvider.sendText sends payload with linkPreview: false", async
   assertEquals(requests[0]?.body?.linkPreview, false);
   assertEquals(requests[0]?.body?.number, "5511999998888");
   assertEquals(requests[0]?.body?.track_id, "test-track-123");
+});
+
+Deno.test("UazapiProvider aborts a request after the configured timeout", async () => {
+  const provider = createUazapiProvider(
+    { baseUrl: "https://api.uazapi.com", adminToken: "admin-secret", timeoutMs: 5 },
+    (_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    }),
+  );
+
+  await assertRejects(
+    () => provider.sendText({ instanceName: "nav_test", instanceToken: "inst-token-1", number: "5511999998888", text: "teste" }),
+    WhatsAppProviderError,
+    "timed out",
+  );
 });
 
 Deno.test("POST /send-notification appointment_created sends notification to client and barber", async () => {

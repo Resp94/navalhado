@@ -81,6 +81,18 @@ export const TEMPLATE_TAGS: Record<string, TemplateTag> = {
   link: { tag: '{link}', label: 'Link do Canal', description: 'Link de autoatendimento do cliente' },
 };
 
+export const TEMPLATE_TAG_ALIASES: Record<string, keyof WhatsappTemplateVariables> = {
+  nome_cliente: 'cliente',
+  nome_servico: 'servico',
+  nome_profissional: 'profissional',
+  nome_barbeiro: 'profissional',
+  nome_barbearia: 'barbearia',
+  data_agendamento: 'data',
+  hora_agendamento: 'horario',
+  horario_agendamento: 'horario',
+  link_agendamento: 'link',
+};
+
 const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.cliente,
   TEMPLATE_TAGS.barbearia,
@@ -230,8 +242,9 @@ export const interpolateTemplate = (
   if (!template) return '';
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
     const lowerKey = key.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(variables, lowerKey) && variables[lowerKey] !== undefined) {
-      return variables[lowerKey] as string;
+    const canonicalKey = TEMPLATE_TAG_ALIASES[lowerKey] || lowerKey;
+    if (Object.prototype.hasOwnProperty.call(variables, canonicalKey) && variables[canonicalKey] !== undefined) {
+      return variables[canonicalKey] as string;
     }
     return preserveUnknown ? match : '';
   });

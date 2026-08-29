@@ -31,6 +31,20 @@ describe('WhatsApp Templates Module', () => {
     expect(result).toBe('Olá, João! Seu horário na Navalhado é dia 20/08/2026 às 10:00. Link: https://exemplo.com/cliente/123');
   });
 
+  it('should render legacy aliases with the canonical variables', () => {
+    const rendered = interpolateTemplate(
+      'Olá, {nome_cliente}! Seu {nome_servico} está em {data_agendamento}. Acesse {link_agendamento}.',
+      {
+        cliente: 'Lucas',
+        servico: 'Corte',
+        data: '18/08/2026',
+        link: 'https://exemplo.com/cliente/lucas',
+      },
+    );
+
+    expect(rendered).toBe('Olá, Lucas! Seu Corte está em 18/08/2026. Acesse https://exemplo.com/cliente/lucas.');
+  });
+
   it('should interpolate using sample mock variables properly', () => {
     const rendered = interpolateTemplate(DEFAULT_TEMPLATES.confirmation, SAMPLE_MOCK_VARIABLES);
     expect(rendered).toContain('Lucas Silva');

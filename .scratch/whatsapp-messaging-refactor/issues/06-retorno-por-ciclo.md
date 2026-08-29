@@ -4,13 +4,13 @@
 
 **Blocked by:** 01 — Seam de despacho e baseline de regressão; 03 — Contrato canônico de templates; 05 — Welcome de balcão durável
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
-- [ ] Fixtures com atendimento concluído permitem validar o retorno sem depender de dados produtivos.
-- [ ] O período configurado no serviço determina a elegibilidade conforme a regra de negócio aprovada.
-- [ ] O cálculo respeita o timezone do tenant e não depende do timezone do navegador ou do worker.
+- [x] Fixtures com atendimento concluído permitem validar o retorno sem depender de dados produtivos.
+- [x] O período configurado no serviço determina a elegibilidade conforme a regra de negócio aprovada.
+- [x] O cálculo respeita o timezone do tenant e não depende do timezone do navegador ou do worker.
 - [ ] Cliente com atendimento futuro confirmado ou pendente é tratado conforme a regra atual e tem motivo de supressão observável.
-- [ ] Template padrão e customizado são renderizados sem `{cliente}`, `{servico}`, `{dias}`, `{link}` ou aliases residuais.
-- [ ] O mesmo ciclo não é enviado duas vezes em execuções concorrentes ou em dias consecutivos.
-- [ ] Um novo atendimento concluído cria uma nova oportunidade de retorno.
-- [ ] Falhas temporárias ficam reprocessáveis e falhas permanentes permanecem auditáveis sem marcar envio como sucesso.
+- [x] Template padrão e customizado são renderizados sem `{cliente}`, `{servico}`, `{dias}`, `{link}` ou aliases residuais.
+- [x] O mesmo ciclo não é enviado duas vezes em execuções concorrentes ou em dias consecutivos.
+- [x] Um novo atendimento concluído cria uma nova oportunidade de retorno.
+- [x] Falhas temporárias ficam reprocessáveis e falhas permanentes permanecem auditáveis sem marcar envio como sucesso.

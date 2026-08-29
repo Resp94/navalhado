@@ -902,9 +902,9 @@ describe('Whatsapp Config Page - TDD', () => {
       await waitFor(() => {
         expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
           body: {
-            instance_id: 'inst-123',
-            phone: '11988887777',
-            message: expect.stringContaining('Lucas Silva'),
+            tenant_id: 'tenant-test-id',
+            number: '11988887777',
+            text: expect.stringContaining('Lucas Silva'),
           },
         });
         expect(mockAddToast).toHaveBeenCalledWith(

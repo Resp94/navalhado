@@ -4,12 +4,12 @@
 
 **Blocked by:** 01 — Seam de despacho e baseline de regressão
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O vocabulário canônico inclui `{cliente}`, `{servico}`, `{dias}`, `{barbearia}`, `{profissional}`, `{data}`, `{horario}` e `{link}`.
-- [ ] Templates legados de retorno continuam sendo aceitos por meio de aliases normalizados.
-- [ ] Um template salvo na interface de serviços usa os mesmos tokens reconhecidos pelo dispatcher.
-- [ ] Variáveis disponíveis são interpoladas corretamente em mensagens de cliente e profissional.
-- [ ] Tokens desconhecidos ou variáveis obrigatórias ausentes impedem o envio e registram erro sanitizado.
-- [ ] A regra atual de link automático na primeira mensagem diária permanece preservada.
-- [ ] Testes cobrem template padrão, customizado, legado, incompleto e com token desconhecido.
+- [x] O vocabulário canônico inclui `{cliente}`, `{servico}`, `{dias}`, `{barbearia}`, `{profissional}`, `{data}`, `{horario}` e `{link}`.
+- [x] Templates legados de retorno continuam sendo aceitos por meio de aliases normalizados.
+- [x] Um template salvo na interface de serviços usa os mesmos tokens reconhecidos pelo dispatcher.
+- [x] Variáveis disponíveis são interpoladas corretamente em mensagens de cliente e profissional.
+- [x] Tokens desconhecidos ou variáveis obrigatórias ausentes impedem o envio e registram erro sanitizado.
+- [x] A regra atual de link automático na primeira mensagem diária permanece preservada.
+- [x] Testes cobrem template padrão, customizado, legado, incompleto e com token desconhecido.

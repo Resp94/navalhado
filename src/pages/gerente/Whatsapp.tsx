@@ -628,9 +628,9 @@ export const Whatsapp: React.FC = () => {
 
       const { error } = await supabase.functions.invoke('whatsapp-integration/send-manual', {
         body: {
-          instance_id: instance.id,
-          phone: targetPhone,
-          message: renderedMessage,
+          tenant_id: instance.tenant_id,
+          number: targetPhone,
+          text: renderedMessage,
         },
       });
 
