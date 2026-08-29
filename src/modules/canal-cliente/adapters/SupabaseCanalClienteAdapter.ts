@@ -338,7 +338,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
   ): Promise<void> {
     let res = await supabase.rpc('reschedule_appointment_by_token', {
       p_token: token,
-      p_old_appointment_id: input.appointmentId,
+      p_appointment_id: input.appointmentId,
       p_new_service_id: input.newServiceId || null,
       p_new_professional_id: input.newProfessionalId || null,
       p_new_date: input.newDate || null,
