@@ -40,6 +40,48 @@ Este documento registra as credenciais dos usuários e barbearias de teste utili
 
 ---
 
+## 💈 Barbearia Criada no Fluxo Onboarding: Barbearia Alpha Dev
+
+* **Estabelecimento (Tenant):** `Barbearia Alpha Dev`
+* **Tenant ID:** `4ccdee97-2918-4815-8a2a-b52811dcd9c7`
+* **Plano:** `Prata` (até 6 profissionais)
+* **Fuso Horário:** `America/Sao_Paulo` (UTC-3)
+* **Status do Onboarding:** Concluído (`onboarding_completed: true`)
+* **Endereço:** Av. Paulista, 1500, Andar 12, Sala 1204 - Bela Vista, São Paulo - SP (CEP: 01310-100)
+* **Canal de Origem:** `Instagram`
+* **Preço Base de Corte:** `R$ 50,00`
+
+### 👤 Usuário Gestor (Role: `gerente`)
+
+| Campo | Valor |
+| :--- | :--- |
+| **Nome** | Carlos Alpha Gestor |
+| **E-mail de Login** | `gestor.alpha@navalhado.com.br` |
+| **Senha** | `Senha@123456` |
+| **User ID (Supabase Auth & users)** | `d6fc99a3-c3f0-4299-ac38-8120829e1320` |
+| **Perfil/Role** | `gerente` |
+| **Destino pós-login** | `/agenda` |
+
+### ✂️ Profissionais Cadastrados na Escala
+
+1. **Carlos Alpha Gestor (Gestor & Barbeiro Titular)**:
+   - ID: `101e1a6f-003b-4105-bde4-3c277d522a05`
+   - Comissão: 50%
+   - Telefone: `(11) 98765-4321`
+2. **Diego Barbeiro (Barbeiro Parceiro)**:
+   - ID: `a6363b17-7325-45d7-9d70-8a57cd15100d`
+   - Comissão: 50%
+   - Telefone: `(11) 99887-7665`
+
+### 📋 Serviços Configurados
+
+* **Corte Tradicional**: R$ 50,00 (30 minutos, categoria `Cabelo`)
+* **Barba**: R$ 38,00 (30 minutos, categoria `Barba`)
+* **Corte e Barba**: R$ 80,00 (45 minutos, categoria `Combo`)
+* **Hidratação e Selagem**: R$ 60,00 (45 minutos, categoria `Química ou Coloração`)
+
+---
+
 ## 👑 Administrador Geral SaaS (Role: `proprietario`)
 
 | Campo | Valor |
