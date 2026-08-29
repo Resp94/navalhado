@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(8);
 
-select ok(not has_function_privilege('anon', 'public.fn_appointment_whatsapp_trigger()', 'EXECUTE'), 'appointment trigger is not callable');
+select ok(not has_function_privilege('anon', 'private.fn_appointment_whatsapp_trigger()', 'EXECUTE'), 'appointment trigger is not callable');
 select ok(not has_function_privilege('anon', 'public.handle_appointment_notification()', 'EXECUTE'), 'notification trigger is not callable');
 select ok(not has_function_privilege('anon', 'public.get_admin_dashboard_metrics()', 'EXECUTE'), 'admin metrics deny anonymous users');
 select ok(has_function_privilege('authenticated', 'public.get_admin_dashboard_metrics()', 'EXECUTE'), 'admin metrics remain available to authenticated admin');

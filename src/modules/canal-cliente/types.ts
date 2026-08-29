@@ -15,6 +15,24 @@ export interface PerfilClienteCanal {
   business_hours?: Record<string, { active: boolean; open: string; close: string }>;
 }
 
+export interface ContextoPublicoCanal {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_phone: string;
+  tenant_slug: string;
+  logo_url?: string | null;
+  timezone: string;
+  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
+  slot_interval_minutes: number;
+  min_booking_lead_time_minutes: number;
+  min_cancellation_lead_time_minutes: number;
+}
+
+export interface HorarioGradeCanal {
+  slot_time: string;
+  available: boolean;
+}
+
 export interface ServicoCanal {
   id: string;
   name: string;
@@ -62,6 +80,25 @@ export interface InputCriarAgendamento {
   startTime: string;
 }
 
+export interface InputConfirmarAgendamentoPublico {
+  slug: string;
+  token?: string | null;
+  serviceId: string;
+  professionalId: string | null;
+  date: string;
+  slot: string;
+  name: string;
+  phone: string;
+}
+
+export interface ConfirmacaoAgendamentoPublico {
+  appointmentId: string;
+  customerId: string;
+  token: string;
+  customerName: string;
+  customerPhone: string;
+}
+
 export interface InputReagendarAgendamento {
   appointmentId: string;
   newStartTime?: string;
@@ -83,6 +120,18 @@ export interface ICanalClienteAdapter {
   definirToken(token: string): void;
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
+  buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
+  listarServicosPorSlug(slug: string): Promise<ServicoCanal[]>;
+  listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]>;
+  buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]>;
+  confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico>;
   inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }>;
   listarServicosPorToken(token: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorToken(token: string): Promise<ProfissionalCanal[]>;
@@ -90,7 +139,8 @@ export interface ICanalClienteAdapter {
     token: string,
     data: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]>;
   criarAgendamentoPorToken(
     token: string,

@@ -31,6 +31,20 @@ describe('WhatsApp Templates Module', () => {
     expect(result).toBe('Olá, João! Seu horário na Navalhado é dia 20/08/2026 às 10:00. Link: https://exemplo.com/cliente/123');
   });
 
+  it('should render legacy aliases with the canonical variables', () => {
+    const rendered = interpolateTemplate(
+      'Olá, {nome_cliente}! Seu {nome_servico} está em {data_agendamento}. Acesse {link_agendamento}.',
+      {
+        cliente: 'Lucas',
+        servico: 'Corte',
+        data: '18/08/2026',
+        link: 'https://exemplo.com/cliente/lucas',
+      },
+    );
+
+    expect(rendered).toBe('Olá, Lucas! Seu Corte está em 18/08/2026. Acesse https://exemplo.com/cliente/lucas.');
+  });
+
   it('should interpolate using sample mock variables properly', () => {
     const rendered = interpolateTemplate(DEFAULT_TEMPLATES.confirmation, SAMPLE_MOCK_VARIABLES);
     expect(rendered).toContain('Lucas Silva');
@@ -73,19 +87,19 @@ describe('WhatsApp Templates Module', () => {
     expect(result).toBe('Olá Marcos! Serviço: {servico_personalizado}, link: https://exemplo.com');
   });
 
-  it('should validate domain template validation rules (link and character limit)', () => {
-    const valid = validateWhatsappTemplate('Seu link é {link}');
-    expect(valid.isValid).toBe(true);
-    expect(valid.hasLink).toBe(true);
-    expect(valid.isWithinLengthLimit).toBe(true);
-    expect(valid.errorMessage).toBeNull();
+  it('should validate domain template validation rules (optional link and character limit)', () => {
+    const validWithLink = validateWhatsappTemplate('Seu link é {link}');
+    expect(validWithLink.isValid).toBe(true);
+    expect(validWithLink.hasLink).toBe(true);
+    expect(validWithLink.isWithinLengthLimit).toBe(true);
+    expect(validWithLink.errorMessage).toBeNull();
 
-    const missingLink = validateWhatsappTemplate('Sem o link de agendamento');
-    expect(missingLink.isValid).toBe(false);
-    expect(missingLink.hasLink).toBe(false);
-    expect(missingLink.errorMessage).toContain('{link}');
+    const validWithoutLink = validateWhatsappTemplate('Sem o link de agendamento');
+    expect(validWithoutLink.isValid).toBe(true);
+    expect(validWithoutLink.hasLink).toBe(false);
+    expect(validWithoutLink.errorMessage).toBeNull();
 
-    const tooLong = validateWhatsappTemplate('a'.repeat(2001) + '{link}');
+    const tooLong = validateWhatsappTemplate('a'.repeat(2001));
     expect(tooLong.isValid).toBe(false);
     expect(tooLong.isWithinLengthLimit).toBe(false);
     expect(tooLong.errorMessage).toContain('2000');

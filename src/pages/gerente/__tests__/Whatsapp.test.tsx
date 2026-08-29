@@ -787,7 +787,7 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(textarea).toBeInTheDocument();
     });
 
-    it('deve exibir alerta visual e desabilitar salvar quando {link} for removido', async () => {
+    it('deve exibir dica informativa e permitir salvar quando {link} for omitido', async () => {
       mockMaybeSingle.mockResolvedValue({
         data: mockConnectedInstance,
         error: null,
@@ -798,9 +798,9 @@ describe('Whatsapp Config Page - TDD', () => {
       const textarea = await screen.findByRole('textbox', { name: /Editor de mensagem para Confirmação de Agendamento/i });
       fireEvent.change(textarea, { target: { value: 'Olá, seu horário está marcado sem link' } });
 
-      expect(await screen.findByText('Tag obrigatória ausente')).toBeInTheDocument();
+      expect(await screen.findByText(/Tag \{link\} opcional/i)).toBeInTheDocument();
       const saveBtn = screen.getByRole('button', { name: /Salvar Modelo/i });
-      expect(saveBtn).toBeDisabled();
+      expect(saveBtn).not.toBeDisabled();
     });
 
     it('deve inserir tag clicada no chip e permitir salvar', async () => {
@@ -902,9 +902,9 @@ describe('Whatsapp Config Page - TDD', () => {
       await waitFor(() => {
         expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/send-manual', {
           body: {
-            instance_id: 'inst-123',
-            phone: '11988887777',
-            message: expect.stringContaining('Lucas Silva'),
+            tenant_id: 'tenant-test-id',
+            number: '11988887777',
+            text: expect.stringContaining('Lucas Silva'),
           },
         });
         expect(mockAddToast).toHaveBeenCalledWith(

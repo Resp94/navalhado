@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
@@ -16,21 +16,33 @@ import {
   SparklesIcon,
   InformationCircleIcon,
 } from '@hugeicons/core-free-icons';
-import type { PerfilClienteCanal, ServicoCanal, ProfissionalCanal } from '../../modules/canal-cliente/types';
+import type { ContextoPublicoCanal, HorarioGradeCanal, PerfilClienteCanal, ServicoCanal, ProfissionalCanal } from '../../modules/canal-cliente/types';
 import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { dateInZone, formatLeadTime, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
 import { maskPhone } from '../../lib/whatsapp';
 import { getDayBusinessHours } from '../gerente/Agenda';
 
+const PUBLIC_TOKEN_STORAGE_PREFIX = 'navalhado_canal_cliente_v1_token_';
+const publicTokenStorageKey = (slug: string): string =>
+  `${PUBLIC_TOKEN_STORAGE_PREFIX}${encodeURIComponent(slug.trim().toLowerCase())}`;
+
+const formatDatePtBr = (isoDate: string) => {
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}/${year}`;
+};
+
 export const FluxoAgendamento: React.FC = () => {
-  const location = useLocation();
+  const { state: locationState } = useLocation();
   const navigate = useNavigate();
   const { token: routeToken, slug: routeSlug } = useParams();
   const [searchParams] = useSearchParams();
+  const publicSlug = routeSlug || searchParams.get('tenant');
   const { addToast } = useToast();
 
   // Estados de Dados do Estabelecimento
   const [customerDetails, setCustomerDetails] = useState<PerfilClienteCanal | null>(null);
+  const [publicContext, setPublicContext] = useState<ContextoPublicoCanal | null>(null);
   const [services, setServices] = useState<ServicoCanal[]>([]);
   const [professionals, setProfessionals] = useState<ProfissionalCanal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +54,9 @@ export const FluxoAgendamento: React.FC = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+  const datePickerRef = useRef<HTMLInputElement>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [publicSchedule, setPublicSchedule] = useState<HorarioGradeCanal[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
@@ -66,7 +80,7 @@ export const FluxoAgendamento: React.FC = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
   const [canonicalToken, setCanonicalToken] = useState<string | null>(() =>
-    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_token_' + routeSlug) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
+    routeToken || searchParams.get('token') || (routeSlug ? (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem(publicTokenStorageKey(routeSlug)) : null) : (typeof window !== 'undefined' && window.localStorage ? localStorage.getItem('navalhado_customer_token') : null))
   );
 
   // Dados de identificação do cliente no agendamento (conforme vídeo)
@@ -75,6 +89,17 @@ export const FluxoAgendamento: React.FC = () => {
   const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   const canalClienteRepository = useCanalCliente();
+
+  const openDatePicker = () => {
+    const picker = datePickerRef.current;
+    if (!picker) return;
+
+    try {
+      picker.showPicker();
+    } catch {
+      picker.click();
+    }
+  };
 
   const handlePhoneChange = async (val: string) => {
     const masked = maskPhone(val);
@@ -118,16 +143,22 @@ export const FluxoAgendamento: React.FC = () => {
     }
   };
 
-  const loadCatalog = useCallback(async (token: string) => {
-    const { servicos, categorias } = await canalClienteRepository.obterCatalogoServicos(token);
+  const loadCatalog = useCallback(async (token: string | null, slug?: string) => {
+    const { servicos, categorias } = token
+      ? await canalClienteRepository.obterCatalogoServicos(token)
+      : await canalClienteRepository.obterCatalogoServicosPublico(slug || '');
     setServices(servicos);
     setCategories(categorias);
     setActiveCategory('Todos'); // 'Todos' é o padrão inicial
 
-    const profs = await canalClienteRepository.obterProfissionais(token);
-    setProfessionals(profs);
+    if (token) {
+      const profs = await canalClienteRepository.obterProfissionais(token);
+      setProfessionals(profs);
+    } else {
+      setProfessionals([]);
+    }
 
-    const stateData = location.state as {
+    const stateData = locationState as {
       serviceId?: string;
       professionalId?: string;
       professionalName?: string;
@@ -148,7 +179,7 @@ export const FluxoAgendamento: React.FC = () => {
       }
       setEtapa(3);
     }
-  }, [location.state, canalClienteRepository]);
+  }, [locationState, canalClienteRepository]);
 
   // Carregar dados iniciais e tratar reagendamento ou acesso por slug
   useEffect(() => {
@@ -156,64 +187,73 @@ export const FluxoAgendamento: React.FC = () => {
       try {
         let token = canonicalToken;
         let activeDetails: PerfilClienteCanal | null = null;
-        const tenantParam = searchParams.get('tenant');
+        let activePublicContext: ContextoPublicoCanal | null = null;
 
-        if (routeSlug || tenantParam) {
-          const targetSlug = routeSlug || tenantParam;
-          try {
-            const explicitToken = searchParams.get('token') || routeToken;
-            let storedToken: string | undefined;
-            if (explicitToken && explicitToken.trim()) {
-              storedToken = explicitToken.trim();
-            } else if (typeof window !== 'undefined' && window.localStorage) {
-              storedToken = localStorage.getItem('navalhado_token_' + targetSlug) || undefined;
-            }
-            const initRes = await canalClienteRepository.inicializarPorSlug(targetSlug!, storedToken);
-            token = initRes.token;
-            activeDetails = initRes.perfil;
-            setCanonicalToken(token);
-            if (typeof window !== 'undefined' && window.localStorage) {
-              localStorage.setItem('navalhado_token_' + targetSlug, token);
-              localStorage.setItem('navalhado_customer_token', token);
-            }
-          } catch (slugErr) {
-            console.error('Erro ao resolver link por slug:', slugErr);
+        if (publicSlug) {
+          activePublicContext = await canalClienteRepository.obterContextoPublico(publicSlug);
+          if (!activePublicContext) {
             addToast('Estabelecimento não encontrado.', 'error');
             navigate('/cliente/acesso-expirado');
             return;
           }
+
+          const explicitToken = searchParams.get('token') || routeToken;
+          const storedToken = explicitToken?.trim() || (
+            typeof window !== 'undefined' && window.localStorage
+              ? localStorage.getItem(publicTokenStorageKey(publicSlug)) || undefined
+              : undefined
+          );
+
+          if (storedToken) {
+            try {
+              const candidateProfile = await canalClienteRepository.obterPerfil(storedToken);
+              if (candidateProfile.tenant_id === activePublicContext.tenant_id && candidateProfile.cadastro_completo) {
+                token = storedToken;
+                activeDetails = candidateProfile;
+              }
+            } catch {
+              token = null;
+            }
+          } else {
+            token = null;
+          }
+
+          setCanonicalToken(token);
+          setPublicContext(activePublicContext);
+          await loadCatalog(null, publicSlug);
         } else if (token) {
           activeDetails = await canalClienteRepository.obterPerfil(token);
+          await loadCatalog(token);
         } else {
           addToast('Acesso não autorizado. Redirecionando...', 'error');
           navigate('/cliente/acesso-expirado');
           return;
         }
 
-        if (!activeDetails) {
+        if (!activeDetails && !activePublicContext) {
           navigate('/cliente/acesso-expirado');
           return;
         }
 
         // Se o cliente já possui cadastro completo e não veio de uma ação explícita de agendamento/reagendamento, direciona para o painel de gerenciamento
-        const stateData = location.state as { fromMenu?: boolean; rescheduleAppointmentId?: string } | null;
-        if (activeDetails.cadastro_completo && !stateData?.fromMenu && !stateData?.rescheduleAppointmentId) {
+        const stateData = locationState as { fromMenu?: boolean; rescheduleAppointmentId?: string } | null;
+        if (activeDetails?.cadastro_completo && !stateData?.fromMenu && !stateData?.rescheduleAppointmentId) {
           navigate('/cliente/menu', { replace: true });
           return;
         }
 
         setCustomerDetails(activeDetails);
 
-        const tz = activeDetails.tenant_timezone || 'America/Sao_Paulo';
+        const tz = activeDetails?.tenant_timezone || activePublicContext?.timezone || 'America/Sao_Paulo';
         const today = dateInZone(new Date(), tz);
         const timeNow = formatTimeInZone(new Date().toISOString(), tz);
-        const dayBh = getDayBusinessHours(today, activeDetails.business_hours);
+        const dayBh = getDayBusinessHours(today, activeDetails?.business_hours || activePublicContext?.business_hours);
 
         // Se o expediente de hoje já encerrou ou o dia está fechado, avança para o próximo dia útil aberto
         if (!dayBh.active || timeNow >= dayBh.close) {
           let nextDate = shiftCalendarDate(today, 1);
           for (let i = 0; i < 7; i++) {
-            const nextBh = getDayBusinessHours(nextDate, activeDetails.business_hours);
+            const nextBh = getDayBusinessHours(nextDate, activeDetails?.business_hours || activePublicContext?.business_hours);
             if (nextBh.active) {
               setSelectedDate(nextDate);
               break;
@@ -224,9 +264,6 @@ export const FluxoAgendamento: React.FC = () => {
           setSelectedDate(today);
         }
 
-        if (token) {
-          await loadCatalog(token);
-        }
       } catch (err) {
         console.error('Erro ao carregar dados do fluxo:', err);
         navigate('/cliente/acesso-expirado');
@@ -236,7 +273,7 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     loadInitialData();
-  }, [routeSlug, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository]);
+  }, [publicSlug, routeToken, canonicalToken, searchParams, navigate, addToast, loadCatalog, canalClienteRepository, locationState]);
 
   // Sincronizar dados do cliente se já existirem no perfil
   useEffect(() => {
@@ -253,20 +290,32 @@ export const FluxoAgendamento: React.FC = () => {
   // Carregar slots de horários disponíveis quando mudamos data, profissional ou serviço na Etapa 3
   useEffect(() => {
     const fetchSlots = async () => {
-      if (etapa !== 3 || !selectedService || !selectedDate || !canonicalToken) return;
+      if (etapa !== 3 || !selectedService || !selectedDate) return;
 
       setLoadingSlots(true);
       setSelectedSlot(null); // Reseta slot selecionado ao mudar critérios
+      setPublicSchedule([]);
       
       try {
-        const slotsArray = await canalClienteRepository.consultarHorariosDisponiveis(
-          selectedDate,
-          selectedService.id,
-          selectedProfessional?.id || null,
-          canonicalToken
-        );
-          
-        setAvailableSlots(slotsArray);
+        if (publicSlug) {
+          const schedule = await canalClienteRepository.consultarGradeHorariosPublica(
+            publicSlug,
+            selectedDate,
+            selectedService.id,
+            selectedProfessional?.id || null
+          );
+          setPublicSchedule(schedule);
+          setAvailableSlots(schedule.filter((slot) => slot.available).map((slot) => slot.slot_time));
+        } else if (canonicalToken) {
+          const slotsArray = await canalClienteRepository.consultarHorariosDisponiveis(
+            selectedDate,
+            selectedService.id,
+            selectedProfessional?.id || null,
+            canonicalToken,
+            rescheduleAppointmentId || null
+          );
+          setAvailableSlots(slotsArray);
+        }
       } catch (err) {
         console.error('Erro ao carregar slots:', err);
         addToast('Erro ao carregar horários disponíveis.', 'error');
@@ -276,11 +325,19 @@ export const FluxoAgendamento: React.FC = () => {
     };
 
     fetchSlots();
-  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken, canalClienteRepository]);
+  }, [etapa, selectedService, selectedProfessional, selectedDate, rescheduleAppointmentId, canonicalToken, publicSlug, canalClienteRepository, addToast]);
 
   // Seleções do usuário
   const handleSelectService = (service: ServicoCanal) => {
     setSelectedService(service);
+    if (publicSlug) {
+      void canalClienteRepository.obterProfissionaisPublicos(publicSlug, service.id)
+        .then(setProfessionals)
+        .catch(() => {
+          addToast('Erro ao carregar profissionais disponíveis.', 'error');
+          setProfessionals([]);
+        });
+    }
     setEtapa(2);
   };
 
@@ -296,10 +353,10 @@ export const FluxoAgendamento: React.FC = () => {
 
   // Filtragem defensiva de slots válidos (respeitando fuso horário, dia da semana, fim de expediente e antecedência mínima)
   const filteredAvailableSlots = useMemo(() => {
-    const tz = customerDetails?.tenant_timezone || 'America/Sao_Paulo';
+    const tz = customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo';
     const todayStr = dateInZone(new Date(), tz);
     const currentLocalTime = formatTimeInZone(new Date().toISOString(), tz);
-    const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours);
+    const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours || publicContext?.business_hours);
 
     // Se o dia não está ativo no funcionamento da barbearia, não há slots
     if (!dayBh.active) return [];
@@ -316,14 +373,21 @@ export const FluxoAgendamento: React.FC = () => {
 
     // Se ainda está dentro do horário de funcionamento de hoje:
     // Ocultar horários que já passaram ou que não atendem à antecedência mínima de agendamento
-    const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 15;
+    const leadTime = customerDetails?.min_booking_lead_time_minutes ?? 30;
 
     return availableSlots.filter((slot) => isSlotViableForToday(slot, currentLocalTime, leadTime));
-  }, [availableSlots, selectedDate, customerDetails]);
+  }, [availableSlots, selectedDate, customerDetails, publicContext]);
+
+  const visibleSchedule = useMemo<HorarioGradeCanal[]>(() => {
+    if (publicSlug && !canonicalToken) {
+      return publicSchedule;
+    }
+    return filteredAvailableSlots.map((slot) => ({ slot_time: slot, available: true }));
+  }, [publicSchedule, publicSlug, canonicalToken, filteredAvailableSlots]);
 
   // Executa o agendamento no Supabase
   const handleConfirmBooking = async () => {
-    if (!selectedService || !selectedSlot || !customerDetails || !canonicalToken) return;
+    if (!selectedService || !selectedSlot) return;
 
     const trimmedName = clientFullName.trim();
     if (!trimmedName || trimmedName.split(/\s+/).filter(Boolean).length < 2) {
@@ -342,6 +406,34 @@ export const FluxoAgendamento: React.FC = () => {
 
     setBooking(true);
     try {
+      const confirmationSlug = publicSlug || customerDetails?.tenant_slug;
+      if (confirmationSlug && !isRescheduling) {
+        const confirmation = await canalClienteRepository.confirmarAgendamentoPublico({
+          slug: confirmationSlug,
+          token: canonicalToken,
+          serviceId: selectedService.id,
+          professionalId: selectedProfessional?.id || null,
+          date: selectedDate,
+          slot: selectedSlot,
+          name: trimmedName,
+          phone: cleanPhone,
+        });
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(publicTokenStorageKey(confirmationSlug), confirmation.token);
+          localStorage.setItem('navalhado_customer_token', confirmation.token);
+        }
+        addToast('Agendamento realizado com sucesso!', 'success');
+        setIsConfirmModalOpen(false);
+        navigate('/cliente/menu');
+        return;
+      }
+
+      if (!customerDetails || !canonicalToken) {
+        addToast('Não foi possível validar o acesso ao agendamento.', 'error');
+        return;
+      }
+
       let activeToken = canonicalToken;
       const updateRes = await canalClienteRepository.promoverCadastroCliente(
         { name: trimmedName, phone: cleanPhone },
@@ -352,7 +444,7 @@ export const FluxoAgendamento: React.FC = () => {
         setCanonicalToken(activeToken);
       }
       if (customerDetails?.tenant_slug && typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('navalhado_token_' + customerDetails.tenant_slug, activeToken);
+        localStorage.setItem(publicTokenStorageKey(customerDetails.tenant_slug), activeToken);
         localStorage.setItem('navalhado_customer_token', activeToken);
       }
 
@@ -381,7 +473,9 @@ export const FluxoAgendamento: React.FC = () => {
       console.error('Erro ao agendar horário:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       if (err instanceof AgendamentoRegraCancelamentoError || errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED')) {
-        addToast('O prazo para alteração online deste agendamento expirou. Fale com o profissional pelo WhatsApp.', 'warning');
+        addToast('O prazo para alteração online deste agendamento expirou. Fale com o estabelecimento pelo WhatsApp.', 'warning');
+      } else if (errorMessage.includes('antecedência mínima') || errorMessage.includes('22023') || errorMessage.includes('não está mais disponível')) {
+        addToast(errorMessage || 'Este horário não está mais disponível com a antecedência mínima necessária configurada pela barbearia.', 'warning');
       } else {
         addToast(errorMessage || 'Erro ao realizar o agendamento.', 'error');
       }
@@ -512,7 +606,7 @@ export const FluxoAgendamento: React.FC = () => {
               {isRescheduling ? 'Reagendar horário' : 'Novo agendamento'}
             </h1>
             <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', margin: '2px 0 0 0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {customerDetails?.tenant_name}
+              {customerDetails?.tenant_name || publicContext?.tenant_name}
             </p>
           </div>
         </div>
@@ -961,10 +1055,11 @@ export const FluxoAgendamento: React.FC = () => {
               
               <div style={{ position: 'relative', width: '100%' }}>
                 <input
-                  type="date"
-                  value={selectedDate}
-                  min={dateInZone(new Date(), customerDetails?.tenant_timezone || 'America/Sao_Paulo')}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  type="text"
+                  value={formatDatePtBr(selectedDate)}
+                  readOnly
+                  aria-hidden="true"
+                  onClick={openDatePicker}
                   style={{
                     padding: '0.85rem 1rem 0.85rem 2.75rem',
                     borderRadius: '12px',
@@ -978,6 +1073,22 @@ export const FluxoAgendamento: React.FC = () => {
                     width: '100%',
                     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)',
                     fontFamily: 'inherit'
+                  }}
+                />
+                <input
+                  type="date"
+                  ref={datePickerRef}
+                  lang="pt-BR"
+                  value={selectedDate}
+                  min={dateInZone(new Date(), customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo')}
+                  aria-label="Selecione o dia"
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    opacity: 0,
+                    pointerEvents: 'none',
                   }}
                 />
                 <div style={{
@@ -1017,7 +1128,7 @@ export const FluxoAgendamento: React.FC = () => {
                     animation: 'spin 0.8s cubic-bezier(0.32, 0.72, 0, 1) infinite'
                   }} />
                 </div>
-              ) : filteredAvailableSlots.length === 0 ? (
+              ) : visibleSchedule.length === 0 ? (
                 /* Empty state: Double-Bezel */
                 <div style={{
                   backgroundColor: 'rgba(234, 222, 214, 0.15)',
@@ -1038,13 +1149,13 @@ export const FluxoAgendamento: React.FC = () => {
                   }}>
                     <HugeiconsIcon icon={AlertCircleIcon} size={28} color="var(--color-brand-primary)" />
                     {(() => {
-                      const tz = customerDetails?.tenant_timezone || 'America/Sao_Paulo';
+                      const tz = customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo';
                       const todayStr = dateInZone(new Date(), tz);
                       const currentLocalTime = formatTimeInZone(new Date().toISOString(), tz);
-                      const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours);
+                      const dayBh = getDayBusinessHours(selectedDate, customerDetails?.business_hours || publicContext?.business_hours);
                       const isToday = selectedDate === todayStr;
                       const isClosedDay = !dayBh.active;
-                      const isTodayPast = isToday && (isClosedDay || currentLocalTime >= dayBh.close || availableSlots.length === 0);
+                      const isTodayPast = isToday && (isClosedDay || currentLocalTime >= dayBh.close || visibleSchedule.length === 0);
 
                       if (isClosedDay) {
                         return (
@@ -1095,24 +1206,26 @@ export const FluxoAgendamento: React.FC = () => {
                   gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))',
                   gap: '0.625rem'
                 }}>
-                  {filteredAvailableSlots.map((slot) => (
+                  {visibleSchedule.map((slot) => (
                     <button
-                      key={slot}
-                      onClick={() => handleSlotClick(slot)}
+                      key={slot.slot_time}
+                      disabled={!slot.available}
+                      onClick={() => slot.available && handleSlotClick(slot.slot_time)}
                       style={{
                         padding: '12px 0',
                         borderRadius: '12px',
                         border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        color: 'var(--color-text-primary)',
+                        backgroundColor: slot.available ? 'var(--color-bg-secondary)' : 'rgba(234, 222, 214, 0.45)',
+                        color: slot.available ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                         fontWeight: 700,
                         fontSize: '13px',
-                        cursor: 'pointer',
+                        cursor: slot.available ? 'pointer' : 'not-allowed',
+                        opacity: slot.available ? 1 : 0.65,
                         boxShadow: '0 2px 4px rgba(45,35,30,0.02)'
                       }}
                       className="slot-btn"
                     >
-                      {slot}
+                      {slot.slot_time}
                     </button>
                   ))}
                 </div>

@@ -59,6 +59,15 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'tenant-test-id',
     tenantName: 'Barbearia Estilo',
+    businessHours: {
+      monday: { active: true, open: '09:00', close: '18:00' },
+      tuesday: { active: true, open: '10:00', close: '16:00' },
+      wednesday: { active: true, open: '09:00', close: '18:00' },
+      thursday: { active: true, open: '09:00', close: '18:00' },
+      friday: { active: true, open: '09:00', close: '18:00' },
+      saturday: { active: true, open: '09:00', close: '18:00' },
+      sunday: { active: false, open: '09:00', close: '18:00' },
+    },
   }),
   useNavigate: () => vi.fn(),
 }));
@@ -105,7 +114,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     mockUpdate.mockImplementation(() => createDefaultBuilder(mockProfessionals[0]));
   });
 
-  it('deve renderizar a listagem de profissionais e o formulário de cadastro', async () => {
+  it('deve renderizar a listagem de profissionais e abrir o formulário de cadastro no drawer', async () => {
     render(<Profissionais />);
 
     expect(screen.getByText('Carregando equipe...')).toBeInTheDocument();
@@ -115,7 +124,41 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('(11) 99999-9999')).toBeInTheDocument();
     });
 
+    // Clica no botão de Novo Barbeiro para abrir o Drawer
+    const btnNovo = screen.getByRole('button', { name: /Novo Barbeiro/i });
+    fireEvent.click(btnNovo);
+
     expect(screen.getByRole('heading', { name: 'Novo Profissional' })).toBeInTheDocument();
+  });
+
+  it('deve iniciar cada dia ativo com o expediente configurado no tenant', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    expect(screen.getByLabelText('Início do expediente de Terça-feira')).toHaveValue('10:00');
+    expect(screen.getByLabelText('Fim do expediente de Terça-feira')).toHaveValue('16:00');
+  });
+
+  it('deve oferecer apenas opções entre a abertura e o fechamento do tenant', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    const tuesdayStart = screen.getByLabelText('Início do expediente de Terça-feira');
+    expect(tuesdayStart.tagName).toBe('SELECT');
+    const options = Array.from(tuesdayStart.querySelectorAll('option')).map((option) => option.value);
+    expect(options).toContain('10:00');
+    expect(options).not.toContain('09:00');
+    expect(options).not.toContain('16:30');
   });
 
   it('deve ter inputs de Início do Almoço e Fim do Almoço para cada dia ativo da escala semanal', async () => {
@@ -124,6 +167,9 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
+
+    // Abre o drawer para novo profissional
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
 
     // Pelo estado inicial do formulário, a Segunda-feira (monday) está ativa por padrão.
     // Verificamos a presença dos inputs de horário de trabalho e de almoço.
@@ -136,12 +182,32 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     expect(breakEndInputs.length).toBe(6);
   });
 
+  it('deve limitar o expediente do profissional ao funcionamento da barbearia', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    const startSelect = screen.getAllByLabelText(/Início do expediente/i)[0];
+    const options = Array.from(startSelect.querySelectorAll('option')).map((option) => option.value);
+
+    expect(startSelect.tagName).toBe('SELECT');
+    expect(options).toContain('18:00');
+    expect(options).not.toContain('20:00');
+  });
+
   it('deve conter as chaves break_start e break_end no weekly_schedule JSONB ao cadastrar um novo profissional', async () => {
     render(<Profissionais />);
 
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
+
+    // Abre o drawer para cadastrar novo profissional
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
 
     // Preencher formulário de cadastro
     fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Lucas Barbeiro' } });

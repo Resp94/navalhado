@@ -24,6 +24,7 @@ import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
+  Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
   PlusSignIcon,
@@ -43,6 +44,10 @@ import {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateFittingTimeSlots,
+  isTimeAlignedToSlotInterval,
+  getDayBusinessHours,
+  getEffectiveProfessionalDaySchedule,
 } from '../../lib/schedule';
 import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
 
@@ -52,6 +57,10 @@ export {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateFittingTimeSlots,
+  isTimeAlignedToSlotInterval,
+  getDayBusinessHours,
+  getEffectiveProfessionalDaySchedule,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
 
@@ -105,6 +114,7 @@ export interface Appointment {
     id: string;
     name: string;
     price: number;
+    duration_minutes?: number;
   };
   professional_id: string;
 }
@@ -117,42 +127,6 @@ interface CardLayout {
 }
 
 // Mapeamento e auxílio de horários de funcionamento por dia da semana
-const DAY_KEYS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-
-export const getDayBusinessHours = (
-  dateStr: string,
-  businessHours?: Record<string, { active: boolean; open: string; close: string }>
-) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  const dayIndex = dateObj.getDay();
-  const key = DAY_KEYS[dayIndex];
-
-  const defaultBh: Record<string, { active: boolean; open: string; close: string }> = {
-    segunda: { active: true, open: '09:00', close: '18:00' },
-    terca: { active: true, open: '09:00', close: '18:00' },
-    quarta: { active: true, open: '09:00', close: '18:00' },
-    quinta: { active: true, open: '09:00', close: '18:00' },
-    sexta: { active: true, open: '09:00', close: '18:00' },
-    sabado: { active: true, open: '09:00', close: '15:00' },
-    domingo: { active: false, open: '09:00', close: '12:00' },
-  };
-
-  if (businessHours && businessHours[key]) {
-    return {
-      active: businessHours[key].active !== false,
-      open: businessHours[key].open || '09:00',
-      close: businessHours[key].close || '18:00',
-      dayLabel: key,
-    };
-  }
-
-  return {
-    ...defaultBh[key],
-    dayLabel: key,
-  };
-};
-
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 104;
@@ -195,8 +169,10 @@ export const Agenda: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
+  const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formDate, setFormDate] = useState(selectedDate);
@@ -215,6 +191,14 @@ export const Agenda: React.FC = () => {
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancelingAppointment, setCancelingAppointment] = useState(false);
+
+  // Estados de Reagendamento Direto na Agenda
+  const [isAgendaRescheduleModalOpen, setIsAgendaRescheduleModalOpen] = useState(false);
+  const [agendaRescheduleAppointment, setAgendaRescheduleAppointment] = useState<Appointment | null>(null);
+  const [agendaRescheduleDate, setAgendaRescheduleDate] = useState('');
+  const [agendaRescheduleTime, setAgendaRescheduleTime] = useState('');
+  const [agendaRescheduleProfId, setAgendaRescheduleProfId] = useState('');
+  const [isAgendaRescheduling, setIsAgendaRescheduling] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -382,70 +366,64 @@ export const Agenda: React.FC = () => {
       return [];
     }
 
+    const slotsSet = new Set<string>();
+    const baseSlots = generateTimeSlotsForSchedule(
+      dayBh.open || '08:00',
+      dayBh.close || '20:00',
+      slotIntervalMinutes
+    );
+    baseSlots.forEach((s) => slotsSet.add(s));
+
     if (selectedProfessionalIds.length === 1) {
       const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
-      const profSchedule = selectedProf ? getProfessionalDaySchedule(selectedProf, selectedDate) : null;
+      const profSchedule = selectedProf
+        ? getEffectiveProfessionalDaySchedule(selectedProf, selectedDate, tenant.businessHours)
+        : null;
       if (profSchedule && profSchedule.active !== false && profSchedule.start && profSchedule.end) {
-        return generateTimeSlotsForSchedule(
+        const pSlots = generateTimeSlotsForSchedule(
           profSchedule.start,
           profSchedule.end,
           slotIntervalMinutes,
           profSchedule.break_start,
           profSchedule.break_end
         );
-      }
-    }
-
-    const slotsSet = new Set<string>();
-    const baseSlots = generateTimeSlotsForSchedule(
-      dayBh.open || '08:00',
-      dayBh.close || '19:00',
-      slotIntervalMinutes
-    );
-    baseSlots.forEach((s) => slotsSet.add(s));
-
-    professionals.forEach((p) => {
-      if (!p.is_active) return;
-      const sched = getProfessionalDaySchedule(p, selectedDate);
-      if (sched && sched.active !== false && sched.start && sched.end) {
-        const pSlots = generateTimeSlotsForSchedule(
-          sched.start,
-          sched.end,
-          slotIntervalMinutes,
-          sched.break_start,
-          sched.break_end
-        );
         pSlots.forEach((s) => slotsSet.add(s));
       }
-    });
+    } else {
+      professionals.forEach((p) => {
+        if (!p.is_active) return;
+        const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
+        if (sched && sched.active !== false && sched.start && sched.end) {
+          const pSlots = generateTimeSlotsForSchedule(
+            sched.start,
+            sched.end,
+            slotIntervalMinutes,
+            sched.break_start,
+            sched.break_end
+          );
+          pSlots.forEach((s) => slotsSet.add(s));
+        }
+      });
+    }
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
   // Geração de horários 24 horas (00:00 às 23:00) para encaixes
-  const all24hTimeSlots = useMemo(() => {
-    const slots: string[] = [];
-    const interval = slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
-    for (let m = 0; m < 24 * 60; m += interval) {
-      const h = Math.floor(m / 60);
-      const min = m % 60;
-      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
-    }
-    return slots;
-  }, [slotIntervalMinutes]);
-
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
     if (formIsFitting) {
-      return all24hTimeSlots;
+      return generateFittingTimeSlots(slotIntervalMinutes);
     }
 
-    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+    const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
     if (!dayBh.active) return [];
 
     if (formProfessionalId) {
       const prof = professionals.find((p) => p.id === formProfessionalId);
-      const profSched = prof ? getProfessionalDaySchedule(prof, selectedDate) : null;
+      const profSched = prof
+        ? getEffectiveProfessionalDaySchedule(prof, formDate, tenant.businessHours)
+        : null;
       if (profSched && profSched.active !== false && profSched.start && profSched.end) {
         return generateTimeSlotsForSchedule(
           profSched.start,
@@ -467,7 +445,7 @@ export const Agenda: React.FC = () => {
 
     professionals.forEach((p) => {
       if (!p.is_active) return;
-      const sched = getProfessionalDaySchedule(p, selectedDate);
+      const sched = getEffectiveProfessionalDaySchedule(p, formDate, tenant.businessHours);
       if (sched && sched.active !== false && sched.start && sched.end) {
         const pSlots = generateTimeSlotsForSchedule(
           sched.start,
@@ -481,7 +459,71 @@ export const Agenda: React.FC = () => {
     });
 
     return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
-  }, [all24hTimeSlots, formIsFitting, selectedDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes]);
+  }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting]);
+
+  // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
+  const agendaRescheduleAvailableSlots = useMemo(() => {
+    if (!agendaRescheduleDate || !agendaRescheduleProfId) return [];
+
+    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
+    if (!dayBh.active) return [];
+
+    const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
+    const profSched = prof
+      ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
+      : null;
+
+    let baseSlots: string[] = [];
+    if (profSched && profSched.active !== false && profSched.start && profSched.end) {
+      baseSlots = generateTimeSlotsForSchedule(
+        profSched.start,
+        profSched.end,
+        slotIntervalMinutes,
+        profSched.break_start,
+        profSched.break_end
+      );
+    } else {
+      baseSlots = generateTimeSlotsForSchedule(
+        dayBh.open || '08:00',
+        dayBh.close || '20:00',
+        slotIntervalMinutes
+      );
+    }
+
+    const durationMin = agendaRescheduleAppointment?.service?.duration_minutes || 30;
+
+    return baseSlots.filter((slotTime) => {
+      const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
+      const slotEndIso = new Date(new Date(slotStartIso).getTime() + durationMin * 60 * 1000).toISOString();
+
+      // Permitir o próprio horário já ocupado pelo agendamento
+      const hasAppConflict = appointments.some((a) => {
+        if (a.id === agendaRescheduleAppointment?.id) return false;
+        if (a.status === 'canceled') return false;
+        if (a.professional_id !== agendaRescheduleProfId) return false;
+        return a.start_time < slotEndIso && a.end_time > slotStartIso;
+      });
+      if (hasAppConflict) return false;
+
+      const hasBlockConflict = blockedSlots.some((b) => {
+        if (b.professional_id && b.professional_id !== agendaRescheduleProfId) return false;
+        return b.start_time < slotEndIso && b.end_time > slotStartIso;
+      });
+      if (hasBlockConflict) return false;
+
+      return true;
+    });
+  }, [
+    agendaRescheduleDate,
+    agendaRescheduleProfId,
+    agendaRescheduleAppointment,
+    tenant.businessHours,
+    tenant.timezone,
+    professionals,
+    slotIntervalMinutes,
+    appointments,
+    blockedSlots,
+  ]);
 
   const currentService = useMemo(
     () => services.find((s) => s.id === formServiceId),
@@ -495,19 +537,25 @@ export const Agenda: React.FC = () => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
       if (formIsFitting) return true;
-      return isProfessionalWorkingAt(p, selectedDate, formTime, currentServiceDuration);
+      return isProfessionalWorkingAt(
+        p,
+        formDate,
+        formTime,
+        currentServiceDuration,
+        tenant.businessHours
+      );
     });
-  }, [professionals, formIsFitting, selectedDate, formTime, currentServiceDuration]);
+  }, [professionals, formIsFitting, formDate, formTime, currentServiceDuration, tenant.businessHours]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
     const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
     return (
-      selectedDate < currentLocalDate ||
-      (selectedDate === currentLocalDate && formTime < currentLocalTime)
+      formDate < currentLocalDate ||
+      (formDate === currentLocalDate && formTime < currentLocalTime)
     );
-  }, [selectedDate, formTime, tenant.timezone]);
+  }, [formDate, formTime, tenant.timezone]);
 
   // Sincronizar barbeiro selecionado caso o atual não esteja disponível no horário
   useEffect(() => {
@@ -796,13 +844,6 @@ export const Agenda: React.FC = () => {
     const nowInstant = new Date();
     const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-
-    const dayBh = getDayBusinessHours(dateToCheck, tenant.businessHours);
-    if (!dayBh.active) {
-      addToast('A barbearia não abre neste dia conforme as configurações de funcionamento.', 'warning');
-      return;
-    }
-
     let finalIsFitting = isFitting;
 
     if (timeSlot) {
@@ -812,8 +853,21 @@ export const Agenda: React.FC = () => {
       if (isPast) {
         finalIsFitting = true;
       }
+    }
 
-      if (profId) {
+    const dayBh = getDayBusinessHours(dateToCheck, tenant.businessHours);
+    if (!finalIsFitting && !dayBh.active) {
+      addToast('A barbearia não abre neste dia conforme as configurações de funcionamento.', 'warning');
+      return;
+    }
+
+    if (timeSlot) {
+      if (finalIsFitting && !isTimeAlignedToSlotInterval(timeSlot, slotIntervalMinutes)) {
+        addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
+        return;
+      }
+
+      if (profId && !finalIsFitting) {
         const prof = professionals.find((p) => p.id === profId);
         if (prof && isProfessionalOnBreak(prof, dateToCheck, timeSlot)) {
           addToast(getProfessionalBreakMessage(prof, dateToCheck), 'warning');
@@ -824,7 +878,7 @@ export const Agenda: React.FC = () => {
       const isOutsideHours =
         timeSlot < dayBh.open ||
         timeSlot >= dayBh.close;
-      if (isOutsideHours) {
+      if (!finalIsFitting && isOutsideHours) {
         addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
         return;
       }
@@ -832,7 +886,9 @@ export const Agenda: React.FC = () => {
 
     const targetTime =
       timeSlot ||
-      (dateToCheck === currentLocalDate && currentLocalTime > dayBh.open
+      (finalIsFitting
+        ? generateFittingTimeSlots(slotIntervalMinutes).find((slot) => slot >= currentLocalTime) || '00:00'
+        : dateToCheck === currentLocalDate && currentLocalTime > dayBh.open
         ? timeSlots.find((s) => s >= currentLocalTime && s >= dayBh.open && s < dayBh.close) || dayBh.open
         : dayBh.open);
 
@@ -843,7 +899,8 @@ export const Agenda: React.FC = () => {
     } else {
       const available = professionals.filter((p) => {
         if (!p.is_active) return false;
-        return isProfessionalWorkingAt(p, dateToCheck, targetTime);
+        if (finalIsFitting) return true;
+        return isProfessionalWorkingAt(p, dateToCheck, targetTime, 0, tenant.businessHours);
       });
 
       if (available.length > 0) {
@@ -951,7 +1008,7 @@ export const Agenda: React.FC = () => {
         const newCust = await clienteRepository.saveCustomer(tenant.tenantId, {
           name: newCustomerName,
           phone: newCustomerPhone,
-          registration_origin: 'balcao',
+          registration_origin: 'agenda',
           cadastro_completo: true,
         });
 
@@ -990,6 +1047,23 @@ export const Agenda: React.FC = () => {
         return;
       }
 
+      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
+      if (!formIsFitting && !dayBh.active) {
+        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+      if (formIsFitting && !isTimeAlignedToSlotInterval(formTime, slotIntervalMinutes)) {
+        addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+      if (!formIsFitting && (formTime < dayBh.open || formTime >= dayBh.close)) {
+        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
+        setSavingAppointment(false);
+        return;
+      }
+
       if (!formIsFitting) {
         if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
           addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
@@ -997,28 +1071,18 @@ export const Agenda: React.FC = () => {
           return;
         }
 
-        if (!isProfessionalWorkingAt(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
-          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário ou o serviço ultrapassa seu expediente.`, 'warning');
+        if (!isProfessionalWorkingAt(
+          selectedProf,
+          formDate,
+          formTime,
+          selectedService.duration_minutes,
+          tenant.businessHours
+        )) {
+          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
           setSavingAppointment(false);
           return;
         }
 
-        const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-        if (!dayBh.active) {
-          addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        // Bloqueio fora do expediente
-        if (
-          formTime < dayBh.open ||
-          formTime >= dayBh.close
-        ) {
-          addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-          setSavingAppointment(false);
-          return;
-        }
       }
 
       // Validação de limite de 1 encaixe por horário/profissional
@@ -1196,8 +1260,64 @@ export const Agenda: React.FC = () => {
 
   // Abrir Modal de Checkout de Comanda
   const handleOpenCheckout = (app: Appointment) => {
+    if (app.status === 'no_show') {
+      addToast('Este atendimento foi marcado como não compareceu e não pode gerar movimento financeiro.', 'warning');
+      return;
+    }
     setCheckoutAppointment(app);
     setIsCheckoutModalOpen(true);
+  };
+
+  const handleMarkNoShow = async (app: Appointment) => {
+    if (!['pending', 'confirmed'].includes(app.status)) {
+      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
+      return;
+    }
+
+    if (new Date(app.start_time).getTime() > Date.now()) {
+      addToast('O atendimento ainda não começou.', 'warning');
+      return;
+    }
+
+    setNoShowAppointment(app);
+    setIsNoShowModalOpen(true);
+  };
+
+  const handleConfirmNoShow = async () => {
+    if (!noShowAppointment) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ status: 'no_show', updated_at: new Date().toISOString() })
+        .eq('id', noShowAppointment.id)
+        .eq('tenant_id', tenant.tenantId)
+        .in('status', ['pending', 'confirmed'])
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        setIsNoShowModalOpen(false);
+        setNoShowAppointment(null);
+        addToast('O status deste atendimento mudou antes da atualização. Recarregue a agenda.', 'warning');
+        fetchAppointments();
+        return;
+      }
+
+      setAppointments((previous) =>
+        previous.map((appointment) =>
+          appointment.id === noShowAppointment.id ? { ...appointment, status: 'no_show' } : appointment
+        )
+      );
+      setIsNoShowModalOpen(false);
+      setNoShowAppointment(null);
+      addToast('Atendimento marcado como não compareceu.', 'success');
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Erro ao marcar atendimento como não compareceu:', err);
+      addToast(err?.message || 'Erro ao marcar atendimento como não compareceu.', 'error');
+    }
   };
 
   // Remover Bloqueio de Horário
@@ -1254,6 +1374,85 @@ export const Agenda: React.FC = () => {
       addToast('Erro ao cancelar agendamento.', 'error');
     } finally {
       setCancelingAppointment(false);
+    }
+  };
+
+  // Abrir Modal de Reagendamento Direto na Agenda
+  const handleOpenRescheduleModal = (app: Appointment) => {
+    setAgendaRescheduleAppointment(app);
+    if (app.start_time) {
+      const d = new Date(app.start_time);
+      setAgendaRescheduleDate(dateInZone(d, tenant.timezone));
+      setAgendaRescheduleTime(formatTimeInZone(app.start_time, tenant.timezone));
+    } else {
+      setAgendaRescheduleDate(selectedDate);
+      setAgendaRescheduleTime('09:00');
+    }
+    setAgendaRescheduleProfId(app.professional_id || professionals[0]?.id || '');
+    setIsAgendaRescheduleModalOpen(true);
+  };
+
+  // Confirmar Reagendamento Direto na Agenda
+  const handleConfirmAgendaReschedule = async () => {
+    if (!agendaRescheduleAppointment || !agendaRescheduleDate || !agendaRescheduleTime) {
+      addToast('Selecione data e horário válidos para reagendar.', 'warning');
+      return;
+    }
+
+    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
+    if (!dayBh.active) {
+      addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
+      return;
+    }
+    if (agendaRescheduleTime < dayBh.open || agendaRescheduleTime >= dayBh.close) {
+      addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
+      return;
+    }
+
+    const rescheduleProfessional = professionals.find((p) => p.id === agendaRescheduleProfId);
+    const rescheduleDuration = agendaRescheduleAppointment.service?.duration_minutes || 30;
+    if (
+      rescheduleProfessional &&
+      !isProfessionalWorkingAt(
+        rescheduleProfessional,
+        agendaRescheduleDate,
+        agendaRescheduleTime,
+        rescheduleDuration,
+        tenant.businessHours
+      )
+    ) {
+      addToast(`O profissional ${rescheduleProfessional.name} não atende neste horário.`, 'warning');
+      return;
+    }
+
+    setIsAgendaRescheduling(true);
+    try {
+      const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
+      const durationMin = rescheduleDuration;
+      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMin * 60 * 1000).toISOString();
+
+      const { error: updErr } = await supabase
+        .from('appointments')
+        .update({
+          start_time: startTimeIso,
+          end_time: endTimeIso,
+          professional_id: agendaRescheduleProfId || agendaRescheduleAppointment.professional_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', agendaRescheduleAppointment.id)
+        .eq('tenant_id', tenant.tenantId);
+
+      if (updErr) throw updErr;
+
+      addToast('Agendamento reagendado com sucesso!', 'success');
+      setIsAgendaRescheduleModalOpen(false);
+      setAgendaRescheduleAppointment(null);
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Erro ao reagendar agendamento na agenda:', err);
+      addToast(err?.message || 'Erro ao reagendar agendamento.', 'error');
+    } finally {
+      setIsAgendaRescheduling(false);
     }
   };
 
@@ -1376,6 +1575,8 @@ export const Agenda: React.FC = () => {
             handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
           onOpenCheckout={handleOpenCheckout}
+          onMarkNoShow={handleMarkNoShow}
+          onOpenReschedule={handleOpenRescheduleModal}
           onOpenCancel={handleOpenCancelModal}
           onStartService={handleStartService}
           onDirectWhatsApp={handleDirectWhatsApp}
@@ -1672,7 +1873,13 @@ export const Agenda: React.FC = () => {
                             const isSlotFull = standardCount >= 1 && isFittingFull;
 
                             const isProfBreak = isProfessionalOnBreak(prof, selectedDate, slot);
-                            const isProfWorking = isProfessionalWorkingAt(prof, selectedDate, slot);
+                            const isProfWorking = isProfessionalWorkingAt(
+                              prof,
+                              selectedDate,
+                              slot,
+                              0,
+                              tenant.businessHours
+                            );
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';
@@ -1802,7 +2009,9 @@ export const Agenda: React.FC = () => {
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
                             let statusClass = 'card-status--pending';
-                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                            if (app.status === 'no_show') {
+                              statusClass = 'card-status--no-show';
+                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
                               statusClass = 'card-status--completed';
                             } else if (app.status === 'in_progress') {
                               statusClass = 'card-status--in-progress';
@@ -1815,7 +2024,7 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass}`}
+                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -1835,6 +2044,11 @@ export const Agenda: React.FC = () => {
                                         Encaixe
                                       </span>
                                     )}
+                                    {app.status === 'no_show' && (
+                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                        Não compareceu
+                                      </span>
+                                    )}
                                     {app.status === 'in_progress' && (
                                       <span className="badge-chip badge-chip--progress" title="Em Atendimento">
                                         Atendendo
@@ -1852,13 +2066,58 @@ export const Agenda: React.FC = () => {
                                   <span className="card-client-name" title={app.customer?.name}>
                                     {app.customer?.name || 'Cliente'}
                                   </span>
-                              <span className="card-service-name" title={app.service?.name}>
+                                  <span className="card-service-name" title={app.service?.name}>
                                     {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                   </span>
                                   {app.notes && (
                                     <p className="card-notes-snippet" title={app.notes}>
                                       <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
                                     </p>
+                                  )}
+                                  {(app.status === 'pending' || app.status === 'confirmed') &&
+                                    new Date(app.start_time).getTime() <= Date.now() && (
+                                      <button
+                                        type="button"
+                                        className="card-quick-no-show-btn"
+                                        title="Marcar atendimento como não compareceu"
+                                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void handleMarkNoShow(app);
+                                        }}
+                                      >
+                                        Não compareceu
+                                      </button>
+                                    )}
+                                  {app.status !== 'canceled' && (
+                                    <button
+                                      type="button"
+                                      className="card-quick-reagendar-btn"
+                                      title="Reagendar horário deste agendamento"
+                                      aria-label="Reagendar horário"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenRescheduleModal(app);
+                                      }}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        background: 'rgba(255, 255, 255, 0.9)',
+                                        border: '1px solid rgba(2, 132, 199, 0.3)',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 500,
+                                        cursor: 'pointer',
+                                        color: '#0284C7',
+                                        marginTop: '4px',
+                                        width: 'fit-content',
+                                      }}
+                                    >
+                                      <HugeiconsIcon icon={Calendar02Icon} size={11} />
+                                      <span>Reagendar</span>
+                                    </button>
                                   )}
                                 </div>
 
@@ -1938,7 +2197,9 @@ export const Agenda: React.FC = () => {
 
                             const weekProf = professionals.find((p) => p.id === selectedWeekProfId);
                             const isProfBreak = weekProf ? isProfessionalOnBreak(weekProf, day.dateStr, slot) : false;
-                            const isProfWorking = weekProf ? isProfessionalWorkingAt(weekProf, day.dateStr, slot) : true;
+                            const isProfWorking = weekProf
+                              ? isProfessionalWorkingAt(weekProf, day.dateStr, slot, 0, tenant.businessHours)
+                              : true;
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';
@@ -2062,7 +2323,9 @@ export const Agenda: React.FC = () => {
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
                             let statusClass = 'card-status--pending';
-                            if (app.payment_status === 'paid' || app.status === 'completed') {
+                            if (app.status === 'no_show') {
+                              statusClass = 'card-status--no-show';
+                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
                               statusClass = 'card-status--completed';
                             } else if (app.status === 'in_progress') {
                               statusClass = 'card-status--in-progress';
@@ -2075,7 +2338,7 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass}`}
+                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -2093,6 +2356,11 @@ export const Agenda: React.FC = () => {
                                     {app.is_fitting && (
                                       <span className="badge-chip badge-chip--fitting" title="Encaixe">
                                         Encaixe
+                                      </span>
+                                    )}
+                                    {app.status === 'no_show' && (
+                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                        Não compareceu
                                       </span>
                                     )}
                                     {app.payment_status === 'paid' && (
@@ -2406,9 +2674,17 @@ export const Agenda: React.FC = () => {
           }
           availableServices={services}
           availableProfessionals={professionals}
+          timezone={tenant.timezone}
+          appointmentDurationMinutes={
+            services.find((s) => s.id === checkoutAppointment.service?.id)?.duration_minutes || 30
+          }
           onClose={() => {
             setIsCheckoutModalOpen(false);
             setCheckoutAppointment(null);
+          }}
+          onRescheduled={(_newStartTime, _newProfId) => {
+            addToast('Atendimento reagendado com sucesso!', 'success');
+            fetchAppointments();
           }}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
@@ -2440,6 +2716,45 @@ export const Agenda: React.FC = () => {
           fetchBlockedSlots();
         }}
       />
+
+      {/* 5b. CONFIRMAÇÃO DE NÃO COMPARECIMENTO */}
+      <Modal
+        isOpen={isNoShowModalOpen}
+        onClose={() => {
+          setIsNoShowModalOpen(false);
+          setNoShowAppointment(null);
+        }}
+        title="Confirmar não comparecimento"
+      >
+        {noShowAppointment && (
+          <div className="cancel-modal-body">
+            <p className="cancel-alert-text">
+              Deseja marcar o atendimento de{' '}
+              <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
+              A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
+            </p>
+            <div className="modal-actions-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setIsNoShowModalOpen(false);
+                  setNoShowAppointment(null);
+                }}
+              >
+                Não marcar
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => void handleConfirmNoShow()}
+              >
+                Sim, não compareceu
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* 6. MODAL DE CANCELAMENTO */}
       <Modal
@@ -2483,6 +2798,101 @@ export const Agenda: React.FC = () => {
                 disabled={cancelingAppointment}
               >
                 {cancelingAppointment ? 'Cancelando...' : 'Sim, Cancelar Horário'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 7. MODAL DE REAGENDAMENTO DIRETO NA AGENDA */}
+      <Modal
+        isOpen={isAgendaRescheduleModalOpen}
+        onClose={() => {
+          setIsAgendaRescheduleModalOpen(false);
+          setAgendaRescheduleAppointment(null);
+        }}
+        title="Reagendar Atendimento"
+      >
+        {agendaRescheduleAppointment && (
+          <div className="reschedule-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+              Reagendar horário de <strong>{agendaRescheduleAppointment.customer?.name}</strong> para o serviço{' '}
+              <strong>{agendaRescheduleAppointment.service?.name}</strong>.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label htmlFor="agenda_reschedule_date" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                  Nova Data:
+                </label>
+                <input
+                  id="agenda_reschedule_date"
+                  type="date"
+                  value={agendaRescheduleDate}
+                  onChange={(e) => setAgendaRescheduleDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                />
+              </div>
+              <div>
+                <label htmlFor="agenda_reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                  Novo Horário:
+                </label>
+                <select
+                  id="agenda_reschedule_time"
+                  value={agendaRescheduleTime}
+                  onChange={(e) => setAgendaRescheduleTime(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.9rem' }}
+                >
+                  <option value="">Selecione um horário livre...</option>
+                  {agendaRescheduleAvailableSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                  {agendaRescheduleAvailableSlots.length === 0 && (
+                    <option value="" disabled>
+                      Nenhum horário livre nesta data
+                    </option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="agenda_reschedule_prof" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
+                Profissional:
+              </label>
+              <select
+                id="agenda_reschedule_prof"
+                value={agendaRescheduleProfId}
+                onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+              >
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="modal-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setIsAgendaRescheduleModalOpen(false);
+                  setAgendaRescheduleAppointment(null);
+                }}
+                disabled={isAgendaRescheduling}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleConfirmAgendaReschedule}
+                disabled={isAgendaRescheduling}
+              >
+                {isAgendaRescheduling ? 'Salvando...' : 'Confirmar Reagendamento'}
               </button>
             </div>
           </div>
@@ -3132,6 +3542,14 @@ export const Agenda: React.FC = () => {
           background-color: rgba(242, 178, 119, 0.2);
         }
 
+        .timeline-appointment-card--fitting {
+          border-left: 4px solid #b45309;
+        }
+
+        .timeline-appointment-card--normal {
+          border-left-width: 1px;
+        }
+
         .card-status--in-progress {
           border-color: rgba(63, 131, 248, 0.4);
           background-color: var(--color-info-bg);
@@ -3140,6 +3558,30 @@ export const Agenda: React.FC = () => {
         .card-status--completed {
           border-color: rgba(14, 159, 110, 0.4);
           background-color: var(--color-success-bg);
+        }
+
+        .card-status--no-show {
+          border-color: rgba(185, 28, 28, 0.45);
+          background-color: rgba(254, 226, 226, 0.9);
+        }
+
+        .badge-chip--no-show {
+          background: #b91c1c;
+          color: #fff;
+        }
+
+        .card-quick-no-show-btn {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid rgba(185, 28, 28, 0.35);
+          border-radius: 4px;
+          padding: 2px 6px;
+          margin-top: 4px;
+          background: rgba(255, 255, 255, 0.9);
+          color: #b91c1c;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
         }
 
         .card-top-row {

@@ -5,7 +5,11 @@ import {
 } from '../errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -17,10 +21,13 @@ import type {
 export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   private activeToken: string | null = null;
   public perfis: Map<string, PerfilClienteCanal> = new Map();
+  public contextosPublicos: Map<string, ContextoPublicoCanal> = new Map();
   public servicos: ServicoCanal[] = [];
   public profissionais: ProfissionalCanal[] = [];
+  public profissionaisPorServico: Map<string, string[]> = new Map();
   public agendamentos: AgendamentoCanal[] = [];
   public slotsDisponiveis: Map<string, string[]> = new Map();
+  public gradesPublicas: Map<string, HorarioGradeCanal[]> = new Map();
 
   obterTokenAtual(): string | null {
     return this.activeToken;
@@ -39,6 +46,114 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       throw new CanalClienteTokenError();
     }
     return this.perfis.get(token) || null;
+  }
+
+  async buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null> {
+    if (!slug || slug === 'invalid') {
+      return null;
+    }
+    return this.contextosPublicos.get(slug) || null;
+  }
+
+  async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    return this.servicos.filter((service) => service.is_active);
+  }
+
+  async listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    const professionalIds = this.profissionaisPorServico.get(serviceId);
+    return this.profissionais.filter((professional) =>
+      professional.is_active && (!professionalIds || professionalIds.includes(professional.id))
+    );
+  }
+
+  async buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    if (!this.contextosPublicos.has(slug)) return [];
+    return this.gradesPublicas.get(`${data}_${serviceId}_${professionalId || 'any'}`) || [];
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    const contexto = this.contextosPublicos.get(input.slug);
+    if (!contexto) throw new CanalClienteTokenError('Estabelecimento não encontrado.');
+
+    if (input.token) {
+      const tokenProfile = this.perfis.get(input.token);
+      if (!tokenProfile || tokenProfile.tenant_id !== contexto.tenant_id || !tokenProfile.cadastro_completo) {
+        throw new CanalClienteTokenError('Token inválido para este estabelecimento.');
+      }
+    }
+
+    const service = this.servicos.find((item) => item.id === input.serviceId && item.is_active);
+    const professional = input.professionalId
+      ? this.profissionais.find((item) => item.id === input.professionalId && item.is_active)
+      : undefined;
+    if (!service || (input.professionalId && !professional)) {
+      throw new Error('ServiÃ§o ou profissional indisponÃ­vel.');
+    }
+
+    const normalizedPhone = input.phone.replace(/\D/g, '');
+    let entry = Array.from(this.perfis.entries()).find(([, perfil]) =>
+      perfil.tenant_id === contexto.tenant_id && perfil.customer_phone?.replace(/\D/g, '') === normalizedPhone
+    );
+    let token = entry?.[0];
+    let perfil = entry?.[1];
+
+    if (!perfil || !token) {
+      token = `token_public_${Date.now()}`;
+      perfil = {
+        customer_id: `cust_public_${Date.now()}`,
+        customer_name: input.name,
+        customer_phone: input.phone,
+        tenant_id: contexto.tenant_id,
+        tenant_name: contexto.tenant_name,
+        tenant_phone: contexto.tenant_phone,
+        tenant_slug: contexto.tenant_slug,
+        cadastro_completo: true,
+        token_acesso: token,
+      };
+      this.perfis.set(token, perfil);
+    }
+
+    const appointmentId = `app_public_${Date.now()}`;
+    this.agendamentos.push({
+      appointment_id: appointmentId,
+      start_time: `${input.date}T${input.slot}:00`,
+      end_time: `${input.date}T${input.slot}:00`,
+      status: 'confirmed',
+      payment_status: 'pending',
+      cancellation_reason: null,
+      professional_id: input.professionalId || 'p1',
+      professional_name: professional?.name || 'Barbeiro Teste',
+      professional_phone: professional?.phone,
+      service_id: service.id,
+      service_name: service.name,
+      service_price: service.price,
+      service_duration: service.duration_minutes,
+      tenant_id: contexto.tenant_id,
+      tenant_name: contexto.tenant_name,
+      tenant_phone: contexto.tenant_phone,
+      customer_name: perfil.customer_name,
+      min_cancellation_lead_time_minutes: contexto.min_cancellation_lead_time_minutes,
+      min_booking_lead_time_minutes: contexto.min_booking_lead_time_minutes,
+      slot_interval_minutes: contexto.slot_interval_minutes,
+    });
+
+    this.definirToken(token);
+    return {
+      appointmentId,
+      customerId: perfil.customer_id,
+      token,
+      customerName: perfil.customer_name,
+      customerPhone: perfil.customer_phone || input.phone,
+    };
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
@@ -77,7 +192,8 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     token: string,
     dataStr: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    _excludeAppointmentId?: string | null
   ): Promise<string[]> {
     if (!token || token === 'invalid') throw new CanalClienteTokenError();
     const key = `${dataStr}_${serviceId}_${professionalId || 'any'}`;

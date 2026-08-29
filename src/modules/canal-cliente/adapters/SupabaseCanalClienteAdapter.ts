@@ -7,7 +7,11 @@ import {
 } from '../errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -77,6 +81,105 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       slot_interval_minutes: row.slot_interval_minutes ? Number(row.slot_interval_minutes) : undefined,
       tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
       business_hours: row.business_hours || undefined,
+    };
+  }
+
+  async buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null> {
+    const { data, error } = await supabase.rpc('get_public_tenant_by_slug', {
+      p_slug: slug,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return null;
+    }
+
+    const row = data[0];
+    return {
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
+      logo_url: row.logo_url || null,
+      timezone: row.timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
+      slot_interval_minutes: Number(row.slot_interval_minutes ?? 30),
+      min_booking_lead_time_minutes: Number(row.min_booking_lead_time_minutes ?? 15),
+      min_cancellation_lead_time_minutes: Number(row.min_cancellation_lead_time_minutes ?? 120),
+    };
+  }
+
+  async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {
+    const { data, error } = await supabase.rpc('get_services_by_public_slug', {
+      p_slug: slug,
+    });
+
+    if (error) throw error;
+    return (data || []) as ServicoCanal[];
+  }
+
+  async listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
+    const { data, error } = await supabase.rpc('get_professionals_by_public_slug', {
+      p_slug: slug,
+      p_service_id: serviceId,
+    });
+
+    if (error) throw error;
+    return (data || []) as ProfissionalCanal[];
+  }
+
+  async buscarGradeHorariosPorSlug(
+    slug: string,
+    data: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    const { data: rows, error } = await supabase.rpc('get_public_schedule_by_slug', {
+      p_slug: slug,
+      p_date: data,
+      p_service_id: serviceId,
+      p_professional_id: professionalId || null,
+    });
+
+    if (error) throw error;
+    return (rows || []) as HorarioGradeCanal[];
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    const { data, error } = await supabase.rpc('confirm_public_booking', {
+      p_slug: input.slug,
+      p_service_id: input.serviceId,
+      p_professional_id: input.professionalId || null,
+      p_date: input.date,
+      p_slot: input.slot,
+      p_name: input.name,
+      p_phone: input.phone,
+      p_token: input.token || null,
+    });
+
+    if (error) {
+      if (error.code === '23505' || error.message.includes('conflito') || error.message.includes('indisponível')) {
+        throw new AgendamentoConflitoError();
+      }
+      throw new CanalClienteValidationError(error.message);
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.appointment_id || !row?.customer_id || !row?.token_acesso) {
+      throw new CanalClienteValidationError('Não foi possível confirmar o agendamento.');
+    }
+
+    return {
+      appointmentId: row.appointment_id,
+      customerId: row.customer_id,
+      token: row.token_acesso,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
     };
   }
 
@@ -161,14 +264,15 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     token: string,
     dataStr: string,
     serviceId: string,
-    professionalId?: string | null
+    professionalId?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]> {
     let res = await supabase.rpc('get_available_slots_by_token', {
       p_token: token,
       p_service_id: serviceId,
       p_professional_id: professionalId || null,
       p_date: dataStr,
-      p_exclude_appointment_id: null,
+      p_exclude_appointment_id: excludeAppointmentId || null,
     });
 
     if (res.error) {
@@ -234,7 +338,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
   ): Promise<void> {
     let res = await supabase.rpc('reschedule_appointment_by_token', {
       p_token: token,
-      p_old_appointment_id: input.appointmentId,
+      p_appointment_id: input.appointmentId,
       p_new_service_id: input.newServiceId || null,
       p_new_professional_id: input.newProfessionalId || null,
       p_new_date: input.newDate || null,

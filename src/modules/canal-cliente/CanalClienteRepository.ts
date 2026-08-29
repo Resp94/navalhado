@@ -4,7 +4,11 @@ import {
 } from './errors';
 import type {
   AgendamentoCanal,
+  ContextoPublicoCanal,
+  HorarioGradeCanal,
   ICanalClienteAdapter,
+  ConfirmacaoAgendamentoPublico,
+  InputConfirmarAgendamentoPublico,
   InputCriarAgendamento,
   InputPromoverCadastroCliente,
   InputReagendarAgendamento,
@@ -56,6 +60,109 @@ export class CanalClienteRepository {
       throw new CanalClienteTokenError();
     }
     return perfil;
+  }
+
+  async obterContextoPublico(slug: string): Promise<ContextoPublicoCanal | null> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+
+    return await this.adapter.buscarContextoPublicoPorSlug(slug.trim());
+  }
+
+  async obterCatalogoServicosPublico(slug: string): Promise<{
+    servicos: ServicoCanal[];
+    categorias: string[];
+  }> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+
+    const servicos = await this.adapter.listarServicosPorSlug(slug.trim());
+    const ativos = servicos.filter((s) => s.is_active !== false);
+    const seen = new Set<string>();
+    const categorias: string[] = [];
+    const servicosNormalizados = ativos.map((service) => {
+      const category = service.category?.trim()
+        ? service.category.trim().charAt(0).toUpperCase() + service.category.trim().slice(1).toLowerCase()
+        : 'Outro';
+      if (!seen.has(category)) {
+        seen.add(category);
+        categorias.push(category);
+      }
+      return { ...service, category };
+    });
+
+    return { servicos: servicosNormalizados, categorias };
+  }
+
+  async obterProfissionaisPublicos(slug: string, serviceId: string): Promise<ProfissionalCanal[]> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!serviceId || !serviceId.trim()) {
+      throw new CanalClienteValidationError('O serviço é obrigatório para listar profissionais.');
+    }
+
+    const profissionais = await this.adapter.listarProfissionaisPorSlug(slug.trim(), serviceId.trim());
+    return profissionais
+      .filter((professional) => professional.is_active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  async consultarGradeHorariosPublica(
+    slug: string,
+    dataStr: string,
+    serviceId: string,
+    professionalId?: string | null
+  ): Promise<HorarioGradeCanal[]> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!dataStr || !dataStr.trim()) {
+      throw new CanalClienteValidationError('A data da consulta é obrigatória.');
+    }
+    if (!serviceId || !serviceId.trim()) {
+      throw new CanalClienteValidationError('O serviço é obrigatório para consultar horários.');
+    }
+
+    return await this.adapter.buscarGradeHorariosPorSlug(
+      slug.trim(),
+      dataStr.trim(),
+      serviceId.trim(),
+      professionalId
+    );
+  }
+
+  async confirmarAgendamentoPublico(
+    input: InputConfirmarAgendamentoPublico
+  ): Promise<ConfirmacaoAgendamentoPublico> {
+    if (!input.slug?.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!input.serviceId?.trim()) {
+      throw new CanalClienteValidationError('Selecione um serviço para agendar.');
+    }
+    if (!input.date?.trim() || !input.slot?.trim()) {
+      throw new CanalClienteValidationError('Selecione a data e o horário do agendamento.');
+    }
+    if (!input.name?.trim()) {
+      throw new CanalClienteValidationError('O nome é obrigatório para agendar.');
+    }
+    if (!input.phone?.trim()) {
+      throw new CanalClienteValidationError('O telefone é obrigatório para agendar.');
+    }
+
+    return await this.adapter.confirmarAgendamentoPublico({
+      ...input,
+      slug: input.slug.trim(),
+      token: input.token?.trim() || null,
+      serviceId: input.serviceId.trim(),
+      date: input.date.trim(),
+      slot: input.slot.trim(),
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+    });
   }
 
   async inicializarPorSlug(slug: string, existingToken?: string | null): Promise<{ token: string; perfil: PerfilClienteCanal }> {
@@ -112,7 +219,8 @@ export class CanalClienteRepository {
     dataStr: string,
     serviceId: string,
     professionalId?: string | null,
-    tokenParam?: string | null
+    tokenParam?: string | null,
+    excludeAppointmentId?: string | null
   ): Promise<string[]> {
     const token = this.resolverToken(tokenParam);
 
@@ -127,7 +235,8 @@ export class CanalClienteRepository {
       token,
       dataStr,
       serviceId,
-      professionalId
+      professionalId,
+      excludeAppointmentId
     );
   }
 

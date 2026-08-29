@@ -14,6 +14,7 @@ import {
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
+import { normalizeBusinessHours } from '../../lib/schedule';
 
 interface DaySchedule {
   active: boolean;
@@ -81,6 +82,21 @@ const CANCELLATION_LEAD_TIME_PRESETS = [
   { label: '24 horas', value: 1440 },
 ];
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
+
 export const Configuracoes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -111,6 +127,7 @@ export const Configuracoes: React.FC = () => {
 
   // States do Card 3: Horário de Funcionamento
   const [businessHours, setBusinessHours] = useState<BusinessHours>(defaultBusinessHours);
+  const initialBusinessHoursRef = useRef<BusinessHours>(defaultBusinessHours);
 
   const fetchTenantData = async () => {
     try {
@@ -138,7 +155,9 @@ export const Configuracoes: React.FC = () => {
         setSlotIntervalMinutes(data.slot_interval_minutes ?? 30);
         setMinBookingLeadTimeMinutes(data.min_booking_lead_time_minutes ?? 15);
         setMinCancellationLeadTimeMinutes(data.min_cancellation_lead_time_minutes ?? 120);
-        setBusinessHours(data.business_hours || defaultBusinessHours);
+        const loadedBusinessHours = normalizeBusinessHours(data.business_hours);
+        setBusinessHours(loadedBusinessHours);
+        initialBusinessHoursRef.current = loadedBusinessHours;
       }
     } catch (error: unknown) {
       console.error('Erro ao carregar dados da barbearia:', error);
@@ -245,25 +264,30 @@ export const Configuracoes: React.FC = () => {
 
     try {
       setSaving(true);
+      const updatePayload: Record<string, unknown> = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        address: fullAddress,
+        cep: cep.trim(),
+        address_street: addressStreet.trim(),
+        address_number: addressNumber.trim(),
+        address_neighborhood: addressNeighborhood.trim(),
+        address_city: addressCity.trim(),
+        address_state: addressState.trim(),
+        timezone,
+        slot_interval_minutes: Number(slotIntervalMinutes) || 30,
+        min_booking_lead_time_minutes: Number(minBookingLeadTimeMinutes) || 0,
+        min_cancellation_lead_time_minutes: Number(minCancellationLeadTimeMinutes) || 0,
+      };
+
+      if (JSON.stringify(initialBusinessHoursRef.current) !== JSON.stringify(businessHours)) {
+        updatePayload.business_hours = businessHours;
+      }
+
       const { error } = await supabase
         .from('tenants')
-        .update({
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          address: fullAddress,
-          cep: cep.trim(),
-          address_street: addressStreet.trim(),
-          address_number: addressNumber.trim(),
-          address_neighborhood: addressNeighborhood.trim(),
-          address_city: addressCity.trim(),
-          address_state: addressState.trim(),
-          timezone: timezone,
-          slot_interval_minutes: Number(slotIntervalMinutes) || 30,
-          min_booking_lead_time_minutes: Number(minBookingLeadTimeMinutes) || 0,
-          min_cancellation_lead_time_minutes: Number(minCancellationLeadTimeMinutes) || 0,
-          business_hours: businessHours
-        })
+        .update(updatePayload)
         .eq('id', tenant.tenantId);
 
       if (error) throw error;
@@ -271,7 +295,7 @@ export const Configuracoes: React.FC = () => {
       addToast('Configurações atualizadas com sucesso.', 'success');
     } catch (error: unknown) {
       console.error('Erro ao atualizar configurações:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error, 'Erro ao salvar as configurações.');
       addToast(errorMessage || 'Erro ao salvar alterações.', 'error');
     } finally {
       setSaving(false);
@@ -309,7 +333,7 @@ export const Configuracoes: React.FC = () => {
     setBusinessHours(prev => ({
       ...prev,
       [dayKey]: {
-        ...prev[dayKey],
+        ...(prev[dayKey] || defaultBusinessHours[dayKey]),
         [field]: value
       }
     }));

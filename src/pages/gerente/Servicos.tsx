@@ -60,73 +60,80 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
           !service.is_active ? 'service-item-card--inactive' : ''
         }`}
       >
-        <div className="service-card-order-controls">
-          <button
-            type="button"
-            onClick={() => onMoveUp && onMoveUp(service.id)}
-            disabled={isFirst}
-            className="btn-order-arrow"
-            title="Subir posição no cardápio"
-            aria-label={`Subir serviço ${service.name}`}
-          >
-            <HugeiconsIcon icon={ArrowUp01Icon} size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMoveDown && onMoveDown(service.id)}
-            disabled={isLast}
-            className="btn-order-arrow"
-            title="Descer posição no cardápio"
-            aria-label={`Descer serviço ${service.name}`}
-          >
-            <HugeiconsIcon icon={ArrowDown01Icon} size={14} />
-          </button>
-        </div>
-
-        <div className="service-card-info">
-          <div className="service-name-row">
-            {positionNumber !== undefined && (
-              <span className="service-position-badge font-mono" title="Posição de exibição para o cliente">
-                #{positionNumber}
-              </span>
-            )}
-            <h5 className="service-name">{service.name}</h5>
-            {service.category && (
-              <span className="service-category-badge">{service.category}</span>
-            )}
+        <div className="service-card-main-content">
+          <div className="service-card-order-controls">
+            <button
+              type="button"
+              onClick={() => onMoveUp && onMoveUp(service.id)}
+              disabled={isFirst}
+              className="btn-order-arrow"
+              title="Subir posição no cardápio"
+              aria-label={`Subir serviço ${service.name}`}
+            >
+              <HugeiconsIcon icon={ArrowUp01Icon} size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMoveDown && onMoveDown(service.id)}
+              disabled={isLast}
+              className="btn-order-arrow"
+              title="Descer posição no cardápio"
+              aria-label={`Descer serviço ${service.name}`}
+            >
+              <HugeiconsIcon icon={ArrowDown01Icon} size={14} />
+            </button>
           </div>
 
-          {service.description && (
-            <p className="service-description">{service.description}</p>
-          )}
+          <div className="service-card-info">
+            <div className="service-name-row">
+              {positionNumber !== undefined && (
+                <span
+                  className="service-position-badge service-position-badge--mobile-secondary font-mono"
+                  title="Posição de exibição para o cliente"
+                >
+                  #{positionNumber}
+                </span>
+              )}
+              <h5 className="service-name">{service.name}</h5>
+              {service.category && (
+                <span className="service-category-badge service-category-badge--mobile-secondary">
+                  {service.category}
+                </span>
+              )}
+            </div>
 
-          <div className="service-meta-badges">
-            <span className="meta-badge">
-              <HugeiconsIcon icon={Clock01Icon} size={13} />
-              {service.duration_minutes || 40} min
+            {service.description && (
+              <p className="service-description">{service.description}</p>
+            )}
+
+            <div className="service-meta-badges">
+              <span className="meta-badge">
+                <HugeiconsIcon icon={Clock01Icon} size={12} />
+                {service.duration_minutes || 40} min
+              </span>
+              {service.return_period_days && (
+                <span className="meta-badge meta-badge--retorno">
+                  <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={12} />
+                  Retorno: ~{service.return_period_days}d
+                </span>
+              )}
+              {service.commission_percentage !== null && (
+                <span className="meta-badge meta-badge--comm">
+                  <HugeiconsIcon icon={BadgePercentIcon} size={12} />
+                  Comissão: {service.commission_percentage}%
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="service-card-price">
+            {service.price_type === 'starting_at' && (
+              <span className="price-type-tag">A partir de</span>
+            )}
+            <span className="service-price-value font-mono">
+              R$ {service.price.toFixed(2).replace('.', ',')}
             </span>
-            {service.return_period_days && (
-              <span className="meta-badge meta-badge--retorno">
-                <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={13} />
-                Retorno: ~{service.return_period_days} dias
-              </span>
-            )}
-            {service.commission_percentage !== null && (
-              <span className="meta-badge meta-badge--comm">
-                <HugeiconsIcon icon={BadgePercentIcon} size={13} />
-                Comissão: {service.commission_percentage}%
-              </span>
-            )}
           </div>
-        </div>
-
-        <div className="service-card-price">
-          {service.price_type === 'starting_at' && (
-            <span className="price-type-tag">A partir de</span>
-          )}
-          <span className="service-price-value font-mono">
-            R$ {service.price.toFixed(2).replace('.', ',')}
-          </span>
         </div>
 
         <div className="service-card-actions">
@@ -144,26 +151,28 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             </label>
           </div>
 
-          <button
-            type="button"
-            aria-label={`Editar ${service.name}`}
-            onClick={() => onEdit(service)}
-            className="btn-action-edit"
-          >
-            <HugeiconsIcon icon={Edit01Icon} size={14} />
-            Editar
-          </button>
+          <div className="service-card-action-btns">
+            <button
+              type="button"
+              aria-label={`Editar ${service.name}`}
+              onClick={() => onEdit(service)}
+              className="btn-action-edit"
+            >
+              <HugeiconsIcon icon={Edit01Icon} size={13} />
+              Editar
+            </button>
 
-          <button
-            type="button"
-            aria-label={`Excluir ${service.name}`}
-            onClick={() => onDelete(service)}
-            className="btn-action-delete"
-            title="Excluir serviço (mantém histórico)"
-          >
-            <HugeiconsIcon icon={Delete02Icon} size={14} />
-            Excluir
-          </button>
+            <button
+              type="button"
+              aria-label={`Excluir ${service.name}`}
+              onClick={() => onDelete(service)}
+              className="btn-action-delete"
+              title="Excluir serviço (mantém histórico)"
+            >
+              <HugeiconsIcon icon={Delete02Icon} size={13} />
+              Excluir
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -795,6 +804,20 @@ export const Servicos: React.FC = () => {
           justify-content: space-between;
           align-items: center;
           gap: 1rem;
+        }
+
+        .service-card-main-content {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .service-card-action-btns {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .service-card-order-controls {
@@ -1475,6 +1498,10 @@ export const Servicos: React.FC = () => {
 
         /* RESPONSIVIDADE MOBILE */
         @media (max-width: 768px) {
+          .services-list-wrapper.card {
+            padding: 0.75rem;
+          }
+
           .service-drawer-overlay {
             align-items: flex-end;
           }
@@ -1488,22 +1515,120 @@ export const Servicos: React.FC = () => {
             animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           }
 
+          .services-items-grid {
+            gap: 0.5rem;
+          }
+
           .service-item-card {
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.75rem;
+            padding: 0.5rem 0.625rem;
+            gap: 0.3rem;
+          }
+
+          .service-card-main-content {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: flex-start;
+            gap: 0.4rem;
+            width: 100%;
+            min-width: 0;
+          }
+
+          .service-card-info {
+            flex: 1;
+            min-width: 0;
+            gap: 0.15rem;
+          }
+
+          .service-name-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            gap: 0.25rem;
+            flex-wrap: nowrap;
+          }
+
+          .service-position-badge--mobile-secondary,
+          .service-category-badge--mobile-secondary {
+            display: none;
+          }
+
+          .service-name {
+            grid-column: 1;
+            min-width: 0;
+          }
+
+          .service-card-order-controls {
+            flex-direction: row;
+            gap: 2px;
+          }
+
+          .btn-order-arrow {
+            width: 24px;
+            height: 24px;
+          }
+
+          .service-name {
+            font-size: 0.875rem;
+            line-height: 1.15;
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .service-description {
+            display: none;
+          }
+
+          .service-meta-badges {
+            gap: 0.2rem;
+            margin-top: 0.05rem;
+          }
+
+          .meta-badge {
+            gap: 0.15rem;
+            padding: 1px 4px;
+            font-size: 10px;
           }
 
           .service-card-price {
-            align-items: flex-start;
-            text-align: left;
+            align-items: flex-end;
+            text-align: right;
+            min-width: auto;
+            flex-shrink: 0;
+          }
+
+          .service-price-value {
+            font-size: 1rem;
           }
 
           .service-card-actions {
             width: 100%;
             justify-content: space-between;
-            padding-top: 0.5rem;
+            align-items: center;
+            padding-top: 0.25rem;
             border-top: 1px solid var(--color-border);
+            min-width: 0;
+          }
+
+          .service-card-action-btns {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+          }
+
+          .btn-action-edit,
+          .btn-action-delete {
+            padding: 3px 7px;
+            font-size: 11px;
+            height: 28px;
+          }
+
+          .status-switch-label {
+            font-size: 11px;
           }
 
           .form-group input,

@@ -32,6 +32,8 @@ interface MobileAgendaViewProps {
   timeSlots: string[];
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
+  onMarkNoShow?: (app: Appointment) => void | Promise<void>;
+  onOpenReschedule?: (app: Appointment) => void;
   onOpenCancel?: (app: Appointment) => void;
   onStartService?: (app: Appointment) => void | Promise<void>;
   onDirectWhatsApp?: (phone: string, name: string, time: string) => void;
@@ -58,6 +60,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   timeSlots,
   onOpenNewAppointment,
   onOpenCheckout,
+  onMarkNoShow,
+  onOpenReschedule: _onOpenReschedule,
   onOpenCancel: _onOpenCancel,
   onStartService: _onStartService,
   onDirectWhatsApp: _onDirectWhatsApp,
@@ -182,7 +186,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           if (prof && isProfessionalOnBreak(prof, selectedDate, slot)) {
             return;
           }
-          if (prof && !isProfessionalWorkingAt(prof, selectedDate, slot)) {
+          if (prof && !isProfessionalWorkingAt(prof, selectedDate, slot, 0, businessHours)) {
             return;
           }
 
@@ -192,7 +196,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     }
 
     return items.sort((a, b) => a.time.localeCompare(b.time));
-  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, selectedProfId, professionals, selectedDate]);
+  }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, businessHours, selectedProfId, professionals, selectedDate]);
 
   return (
     <div className="mobile-agenda">
@@ -438,11 +442,15 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 const isPaid = app.payment_status === 'paid' || app.status === 'completed';
                 const isProgress = app.status === 'in_progress';
                 const isFitting = app.is_fitting;
+                const isNoShow = app.status === 'no_show';
+                const canMarkNoShow =
+                  (app.status === 'pending' || app.status === 'confirmed') &&
+                  new Date(app.start_time).getTime() <= currentNow.getTime();
 
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : isFitting ? 'mobile-agenda__card--fitting' : ''}`}
+                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -475,11 +483,30 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         <span className="mobile-agenda__service-price">
                           {(app.service?.name || 'Serviço').toUpperCase()} - R$ {Number(app.service?.price || 0).toFixed(2)}
                         </span>
+                        {isFitting && (
+                          <span className="mobile-agenda__fitting-pill">Encaixe</span>
+                        )}
                         {isPaid && (
                           <span className="mobile-agenda__paid-pill">Pago</span>
                         )}
+                        {isNoShow && (
+                          <span className="mobile-agenda__no-show-pill">Não compareceu</span>
+                        )}
                       </div>
                     </div>
+                    {canMarkNoShow && onMarkNoShow && (
+                      <button
+                        type="button"
+                        className="mobile-agenda__no-show-action"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void onMarkNoShow(app);
+                        }}
+                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                      >
+                        Marcar não compareceu
+                      </button>
+                    )}
                   </div>
                 );
               }
@@ -957,7 +984,52 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         }
 
         .mobile-agenda__card--fitting {
-          border-left: 4px solid var(--color-brand-primary);
+          border-left: 4px solid #b45309;
+          background: #ffedd5;
+        }
+
+        .mobile-agenda__card--normal {
+          border-left-width: 1px;
+        }
+
+        .mobile-agenda__fitting-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 2px 6px;
+          background: #b45309;
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+        }
+
+        .mobile-agenda__card--no-show {
+          background: #fee2e2;
+          border-color: #fca5a5;
+        }
+
+        .mobile-agenda__no-show-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 2px 6px;
+          background: #b91c1c;
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+        }
+
+        .mobile-agenda__no-show-action {
+          align-self: flex-end;
+          margin-top: 0.45rem;
+          border: 1px solid #fca5a5;
+          border-radius: 6px;
+          padding: 0.3rem 0.55rem;
+          background: rgba(255, 255, 255, 0.8);
+          color: #b91c1c;
+          font-size: 0.7rem;
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .mobile-agenda__card-compact {

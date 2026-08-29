@@ -100,6 +100,24 @@ describe('Comandas Page', () => {
         appointment_is_fitting: null,
         itens: [],
       },
+      {
+        id: 'cmd-3',
+        tenant_id: 'tenant-123',
+        appointment_id: 'app-2',
+        customer_id: 'cust-2',
+        customer_name: 'Cliente Encaixe',
+        customer_phone: '92999997777',
+        professional_name: 'Marcos Barbeiro',
+        status: 'aberta' as const,
+        total_amount: 35.0,
+        discount_amount: 0,
+        tip_amount: 0,
+        notes: null,
+        appointment_start_time: '2026-08-25T16:00:00.000Z',
+        appointment_service_name: 'Barba',
+        appointment_is_fitting: true,
+        itens: [],
+      },
     ];
 
     vi.spyOn(ComandaRepository.prototype, 'listAll').mockResolvedValue(mockComandas);
@@ -113,10 +131,12 @@ describe('Comandas Page', () => {
     );
 
     expect(await screen.findByText('Marcos Vinicius')).toBeInTheDocument();
-    expect(screen.getByText(/Agendamento:/i)).toBeInTheDocument();
+    expect(screen.getByText('Agendamento')).toBeInTheDocument();
     expect(screen.getByText(/Corte Degradê/i)).toBeInTheDocument();
 
     expect(screen.getByText('Cliente Balcão')).toBeInTheDocument();
     expect(screen.getByText(/Atendimento Balcão \/ Avulsa/i)).toBeInTheDocument();
+    expect(screen.getByText('Cliente Encaixe')).toBeInTheDocument();
+    expect(screen.getByText('Encaixe')).toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import { TEMPLATE_TAG_ALIASES } from '../../../supabase/functions/whatsapp-integration/whatsapp_template_contract.ts';
+
 export type WhatsappTemplateKey =
   | 'confirmation'
   | 'reschedule'
@@ -8,6 +10,22 @@ export type WhatsappTemplateKey =
   | 'professional_created'
   | 'professional_rescheduled'
   | 'professional_cancelled';
+
+/**
+ * Mapeamento canônico bidirecional entre nomes de eventos da Edge Function/Banco e chaves de templates da UI.
+ */
+export const EVENT_TO_TEMPLATE_KEY_MAP: Record<string, WhatsappTemplateKey> = {
+  appointment_created: 'confirmation',
+  appointment_rescheduled: 'reschedule',
+  appointment_updated: 'reschedule',
+  appointment_cancelled: 'cancellation',
+  appointment_reminder: 'reminder',
+  customer_welcome_balcao: 'welcome_balcao',
+  first_contact: 'first_contact',
+  professional_appointment_created: 'professional_created',
+  professional_appointment_rescheduled: 'professional_rescheduled',
+  professional_appointment_cancelled: 'professional_cancelled',
+};
 
 export interface TemplateTag {
   tag: string;
@@ -64,6 +82,8 @@ export const TEMPLATE_TAGS: Record<string, TemplateTag> = {
   horario: { tag: '{horario}', label: 'Horário', description: 'Horário do atendimento (ex: 14:30)' },
   link: { tag: '{link}', label: 'Link do Canal', description: 'Link de autoatendimento do cliente' },
 };
+
+export { TEMPLATE_TAG_ALIASES };
 
 const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.cliente,
@@ -214,8 +234,9 @@ export const interpolateTemplate = (
   if (!template) return '';
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
     const lowerKey = key.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(variables, lowerKey) && variables[lowerKey] !== undefined) {
-      return variables[lowerKey] as string;
+    const canonicalKey = TEMPLATE_TAG_ALIASES[lowerKey] || lowerKey;
+    if (Object.prototype.hasOwnProperty.call(variables, canonicalKey) && variables[canonicalKey] !== undefined) {
+      return variables[canonicalKey] as string;
     }
     return preserveUnknown ? match : '';
   });
@@ -261,14 +282,12 @@ export const validateWhatsappTemplate = (
   const isWithinLengthLimit = length <= MAX_TEMPLATE_LENGTH;
 
   let errorMessage: string | null = null;
-  if (!hasLink && !isTeamTemplate) {
-    errorMessage = 'A mensagem precisa conter a tag {link} para que o cliente consiga acessar o agendamento.';
-  } else if (!isWithinLengthLimit) {
+  if (!isWithinLengthLimit) {
     errorMessage = `O modelo excede o limite máximo permitido de ${MAX_TEMPLATE_LENGTH} caracteres.`;
   }
 
   return {
-    isValid: hasLink && isWithinLengthLimit,
+    isValid: isWithinLengthLimit,
     hasLink,
     isWithinLengthLimit,
     length,

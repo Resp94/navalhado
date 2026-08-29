@@ -8,6 +8,28 @@ import type { IComandaAdapter } from '../../../modules/comandas/types';
 import type { ICaixaAdapter } from '../../../modules/caixa/types';
 import type { IProdutoAdapter } from '../../../modules/produtos/types';
 
+const mockSupabaseUpdate = vi.fn().mockReturnValue({
+  eq: vi.fn().mockReturnValue({
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  }),
+});
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === 'appointments') {
+        return {
+          update: mockSupabaseUpdate,
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+        delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+      };
+    }),
+  },
+}));
+
 describe('ComandaCheckoutModal', () => {
   const mockComandaAdapter: IComandaAdapter = {
     obterPorId: vi.fn(),
@@ -671,6 +693,85 @@ describe('ComandaCheckoutModal', () => {
 
     await waitFor(() => {
       expect(mockComandaAdapter.removerItem).toHaveBeenCalledWith('item-corte', 'com-123');
+    });
+  });
+
+  it('deve permitir abrir painel de reagendamento direto e salvar novo horário mantendo a comanda aberta', async () => {
+    const mockOnRescheduled = vi.fn();
+    mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
+      id: 'com-123',
+      tenant_id: 't-1',
+      appointment_id: 'app-999',
+      customer_id: 'cust-1',
+      status: 'aberta',
+      total_amount: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      itens: [
+        {
+          id: 'item-corte',
+          comanda_id: 'com-123',
+          tenant_id: 't-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          name: 'Corte Tradicional',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+          professional_id: 'prof-1',
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="app-999"
+        appointmentStartTime="2026-08-28T14:00:00.000Z"
+        appointmentServiceName="Corte Tradicional"
+        customerName="Carlos Silva"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }, { id: 'prof-2', name: 'Marcos Navalha' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        onRescheduled={mockOnRescheduled}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Reagendar atendimento/i })).toBeInTheDocument();
+    });
+
+    // 1. Clicar no botão "Reagendar"
+    fireEvent.click(screen.getByRole('button', { name: /Reagendar atendimento/i }));
+
+    // 2. Painel de reagendamento abre
+    expect(screen.getByRole('region', { name: /Painel de Reagendamento de Atendimento/i })).toBeInTheDocument();
+
+    const dateInput = screen.getByLabelText(/Nova Data:/i);
+    const timeInput = screen.getByLabelText(/Novo Horário:/i);
+
+    fireEvent.change(dateInput, { target: { value: '2026-08-29' } });
+    fireEvent.change(timeInput, { target: { value: '16:30' } });
+
+    // 3. Confirmar Reagendamento
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar Reagendamento/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(mockSupabaseUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          start_time: expect.any(String),
+          end_time: expect.any(String),
+          updated_at: expect.any(String),
+        })
+      );
+      expect(mockOnRescheduled).toHaveBeenCalled();
     });
   });
 });

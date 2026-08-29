@@ -7,6 +7,8 @@ import {
   addMinutesToTime,
   timeToMinutes,
   generateTimeSlotsForSchedule,
+  clampProfessionalScheduleToBusinessHours,
+  clampTimeToRange,
 } from '../../../lib/schedule';
 import type { ScheduleProfessional } from '../../../lib/schedule';
 
@@ -89,9 +91,9 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:00', 60)).toBe(true); // Termina às 15:00
     });
 
-    it('retorna false se o serviço ultrapassa o horário de término do expediente', () => {
-      // Sábado fecha às 15:00. Serviço de 40 min às 14:30 termina às 15:10
-      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(false);
+    it('retorna true quando o início está antes do fechamento mesmo que o serviço termine depois', () => {
+      // Sábado fecha às 15:00. O horário 14:30 ainda começa antes do fechamento.
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(true);
     });
 
     it('retorna false se o serviço invade o intervalo', () => {
@@ -146,14 +148,61 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(slots).toContain('15:40');
       expect(slots).toContain('16:20');
       expect(slots).toContain('17:00');
-      // 17:40 não cabe dentro de 18:00 com duração de 40min (terminaria às 18:20)
-      expect(slots).not.toContain('17:40');
+      // O último início antes do fechamento é permitido, mesmo que o atendimento ultrapasse 18:00
+      expect(slots).toContain('17:40');
+      expect(slots).not.toContain('18:20');
       expect(slots).not.toContain('13:20');
     });
 
     it('funciona perfeitamente quando não há intervalo configurado', () => {
       const slots = generateTimeSlotsForSchedule('08:00', '10:00', 30);
       expect(slots).toEqual(['08:00', '08:30', '09:00', '09:30']);
+    });
+  });
+
+  describe('limites do expediente da barbearia', () => {
+    it('considera o expediente da barbearia ao validar um slot do profissional', () => {
+      const businessHours = {
+        monday: { active: true, open: '10:00', close: '18:00' },
+      };
+
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '10:00', 30, businessHours)).toBe(true);
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '18:00', 30, businessHours)).toBe(false);
+    });
+
+    it('não permite valores de horário fora do intervalo informado', () => {
+      expect(clampTimeToRange('20:00', '09:00', '18:00')).toBe('18:00');
+      expect(clampTimeToRange('07:00', '09:00', '18:00')).toBe('09:00');
+    });
+
+    it('limita a escala do profissional ao expediente da barbearia', () => {
+      const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+        {
+          active: true,
+          start: '08:00',
+          end: '20:00',
+          break_start: '13:00',
+          break_end: '14:00',
+        },
+        { active: true, open: '10:00', close: '18:00' }
+      );
+
+      expect(effectiveSchedule).toMatchObject({
+        active: true,
+        start: '10:00',
+        end: '18:00',
+        break_start: '13:00',
+        break_end: '14:00',
+      });
+    });
+
+    it('desativa a escala quando o dia está fechado na barbearia', () => {
+      const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+        { active: true, start: '08:00', end: '20:00' },
+        { active: false, open: '10:00', close: '18:00' }
+      );
+
+      expect(effectiveSchedule?.active).toBe(false);
     });
   });
 });

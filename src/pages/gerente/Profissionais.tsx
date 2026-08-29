@@ -16,8 +16,17 @@ import {
   AlertCircleIcon,
   Clock01Icon,
   Delete02Icon,
+  PlusSignIcon,
+  Edit01Icon,
 } from '@hugeicons/core-free-icons';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
+import {
+  clampProfessionalScheduleToBusinessHours,
+  clampTimeToRange,
+  getBusinessHoursForDayKey,
+  generateScheduleTimeOptions,
+  timeToMinutes,
+} from '../../lib/schedule';
 
 interface ProfessionalScheduleDay {
   start: string;
@@ -45,6 +54,31 @@ const DAYS_OF_WEEK = [
   { key: 'saturday', label: 'Sábado' },
   { key: 'sunday', label: 'Domingo' },
 ];
+
+type ScheduleFormDay = ProfessionalScheduleDay & { active: boolean };
+type ScheduleForm = Record<string, ScheduleFormDay>;
+
+const getSafeBreak = (start: string, end: string) => {
+  if (timeToMinutes(start) <= timeToMinutes('12:00') && timeToMinutes(end) >= timeToMinutes('13:00')) {
+    return { break_start: '12:00', break_end: '13:00' };
+  }
+
+  return { break_start: undefined, break_end: undefined };
+};
+
+const createTenantScheduleDefaults = (
+  businessHours?: TenantContextType['businessHours']
+): ScheduleForm => Object.fromEntries(
+  DAYS_OF_WEEK.map((day) => {
+    const dayHours = getBusinessHoursForDayKey(day.key, businessHours);
+    return [day.key, {
+      active: dayHours.active,
+      start: dayHours.open,
+      end: dayHours.close,
+      ...getSafeBreak(dayHours.open, dayHours.close),
+    }];
+  })
+);
 
 const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
 const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={15} />;
@@ -74,6 +108,7 @@ export const Profissionais: React.FC = () => {
   const [commission, setCommission] = useState('40');
   const [isActive, setIsActive] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Estados do Modal de Associação de Serviços (N:N)
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
@@ -83,15 +118,9 @@ export const Profissionais: React.FC = () => {
   const [savingProfServices, setSavingProfServices] = useState(false);
 
   // Escala de horários semanal padrão
-  const [schedule, setSchedule] = useState<Record<string, { active: boolean; start: string; end: string; break_start?: string; break_end?: string }>>({
-    monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
-  });
+  const [schedule, setSchedule] = useState<ScheduleForm>(() =>
+    createTenantScheduleDefaults(tenant.businessHours)
+  );
 
   const fetchProfessionals = async () => {
     try {
@@ -112,6 +141,16 @@ export const Profissionais: React.FC = () => {
     }
   };
 
+  const handleOpenCreateDrawer = () => {
+    resetForm();
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+    resetForm();
+  };
+
   const handleDeleteProf = async () => {
     if (!profToDelete) return;
     try {
@@ -128,7 +167,7 @@ export const Profissionais: React.FC = () => {
       if (error) throw error;
       addToast(`Profissional "${profToDelete.name}" excluído com sucesso. Histórico preservado.`, 'success');
       if (editingId === profToDelete.id) {
-        resetForm();
+        handleCloseDrawer();
       }
       setProfToDelete(null);
       fetchProfessionals();
@@ -143,16 +182,17 @@ export const Profissionais: React.FC = () => {
     fetchProfessionals();
   }, [tenant.tenantId]);
 
-  // Listener para fechar modal com tecla Escape
+  // Listener para fechar modais e drawer com tecla Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isServicesModalOpen) {
-        setIsServicesModalOpen(false);
+      if (e.key === 'Escape') {
+        if (isServicesModalOpen) setIsServicesModalOpen(false);
+        if (isDrawerOpen) handleCloseDrawer();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isServicesModalOpen]);
+  }, [isServicesModalOpen, isDrawerOpen]);
 
   // Animação GSAP com respeito a prefers-reduced-motion e compatibilidade de testes
   useGSAP(() => {
@@ -180,15 +220,7 @@ export const Profissionais: React.FC = () => {
     setCommission('40');
     setIsActive(true);
     setSelectedUserId(null);
-    setSchedule({
-      monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      wednesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      thursday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      friday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      saturday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
-    });
+    setSchedule(createTenantScheduleDefaults(tenant.businessHours));
   };
 
   const handleEdit = (prof: Professional) => {
@@ -199,32 +231,33 @@ export const Profissionais: React.FC = () => {
     setIsActive(prof.is_active);
     setSelectedUserId(prof.user_id);
 
-    const newSchedule = {
-      monday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      tuesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      wednesday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      thursday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      friday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      saturday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-      sunday: { active: false, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
-    };
+    const newSchedule = createTenantScheduleDefaults(tenant.businessHours);
+    DAYS_OF_WEEK.forEach((day) => {
+      newSchedule[day.key].active = false;
+    });
 
     if (prof.weekly_schedule) {
       Object.keys(prof.weekly_schedule).forEach((day) => {
         const dayData = prof.weekly_schedule?.[day];
         if (dayData) {
-          newSchedule[day as keyof typeof newSchedule] = {
-            active: true,
-            start: dayData.start,
-            end: dayData.end,
-            break_start: dayData.break_start || '12:00',
-            break_end: dayData.break_end || '13:00',
+          const dayKey = day as keyof typeof newSchedule;
+          const effectiveSchedule = clampProfessionalScheduleToBusinessHours(
+            dayData,
+            getBusinessHoursForDayKey(day, tenant.businessHours)
+          );
+          newSchedule[dayKey] = {
+            ...newSchedule[dayKey],
+            ...effectiveSchedule,
+            active: getBusinessHoursForDayKey(day, tenant.businessHours).active
+              ? effectiveSchedule?.active !== false
+              : false,
           };
         }
       });
     }
 
     setSchedule(newSchedule);
+    setIsDrawerOpen(true);
   };
 
   const handleScheduleDayToggle = (day: string) => {
@@ -242,13 +275,92 @@ export const Profissionais: React.FC = () => {
     type: 'start' | 'end' | 'break_start' | 'break_end',
     value: string
   ) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [type]: value,
-      },
-    }));
+    setSchedule((prev) => {
+      const currentDay = prev[day];
+      let boundedValue = value;
+
+      if (tenant.businessHours) {
+        const dayBusinessHours = getBusinessHoursForDayKey(day, tenant.businessHours);
+        if (type === 'start' || type === 'end') {
+          boundedValue = clampTimeToRange(value, dayBusinessHours.open, dayBusinessHours.close);
+        } else {
+          boundedValue = clampTimeToRange(
+            value,
+            currentDay.start,
+            currentDay.end
+          );
+        }
+      }
+
+      const nextDay = {
+        ...currentDay,
+        [type]: boundedValue,
+      };
+
+      if (type === 'start' || type === 'end') {
+        const nextStart = nextDay.start;
+        const nextEnd = nextDay.end;
+        const breakStart = nextDay.break_start;
+        const breakEnd = nextDay.break_end;
+        if (
+          breakStart &&
+          breakEnd &&
+          (timeToMinutes(breakStart) < timeToMinutes(nextStart) ||
+            timeToMinutes(breakEnd) > timeToMinutes(nextEnd) ||
+            timeToMinutes(breakStart) >= timeToMinutes(breakEnd))
+        ) {
+          nextDay.break_start = undefined;
+          nextDay.break_end = undefined;
+        }
+      }
+
+      return {
+        ...prev,
+        [day]: nextDay,
+      };
+    });
+  };
+
+  const validateScheduleAgainstTenantHours = () => {
+    // O contexto pode estar sem o expediente durante fixtures legados ou antes
+    // do carregamento completo. Nesse caso, a validação definitiva permanece
+    // protegida pelo trigger do banco.
+    if (!tenant.businessHours) return null;
+
+    for (const day of DAYS_OF_WEEK) {
+      const daySchedule = schedule[day.key];
+      if (!daySchedule?.active) continue;
+
+      const businessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
+      if (!businessHours.active) {
+        return `${day.label}: a barbearia está fechada neste dia.`;
+      }
+
+      const start = timeToMinutes(daySchedule.start);
+      const end = timeToMinutes(daySchedule.end);
+      const opening = timeToMinutes(businessHours.open);
+      const closing = timeToMinutes(businessHours.close);
+
+      if (start >= end) {
+        return `${day.label}: o horário de entrada deve ser anterior ao horário de saída.`;
+      }
+      if (start < opening || end > closing) {
+        return `${day.label}: a escala deve ficar entre ${businessHours.open} e ${businessHours.close}.`;
+      }
+
+      const breakStart = daySchedule.break_start ? timeToMinutes(daySchedule.break_start) : null;
+      const breakEnd = daySchedule.break_end ? timeToMinutes(daySchedule.break_end) : null;
+      if (
+        (breakStart !== null && breakEnd === null) ||
+        (breakStart === null && breakEnd !== null) ||
+        (breakStart !== null && breakEnd !== null &&
+          (breakStart < start || breakEnd > end || breakStart >= breakEnd))
+      ) {
+        return `${day.label}: o intervalo deve ficar dentro do expediente e ter início anterior ao fim.`;
+      }
+    }
+
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -266,6 +378,12 @@ export const Profissionais: React.FC = () => {
       return;
     }
 
+    const scheduleError = validateScheduleAgainstTenantHours();
+    if (scheduleError) {
+      addToast(scheduleError, 'warning');
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -275,8 +393,12 @@ export const Profissionais: React.FC = () => {
           weeklyScheduleJSON[day] = {
             start: schedule[day].start,
             end: schedule[day].end,
-            break_start: schedule[day].break_start || '12:00',
-            break_end: schedule[day].break_end || '13:00',
+            ...(schedule[day].break_start && schedule[day].break_end
+              ? {
+                  break_start: schedule[day].break_start,
+                  break_end: schedule[day].break_end,
+                }
+              : {}),
           };
         }
       });
@@ -322,7 +444,7 @@ export const Profissionais: React.FC = () => {
         addToast('Profissional cadastrado com sucesso!', 'success');
       }
 
-      resetForm();
+      handleCloseDrawer();
       fetchProfessionals();
     } catch (error: any) {
       console.error('Error saving professional:', error);
@@ -410,335 +532,414 @@ export const Profissionais: React.FC = () => {
   return (
     <div className="prof-page">
       <header className="prof-header-intro">
-        <h2>Equipe e escala da barbearia</h2>
-        <p>
-          Cadastre seus barbeiros, configure a comissão de cada profissional, personalize o tempo de atendimento por corte e organize os horários de atendimento na semana.
-        </p>
-      </header>
-
-      <div className="prof-grid">
-        {/* Painel do Formulário */}
-        <section className="form-section card" aria-labelledby="prof-form-heading">
-          <div className="section-title-wrap">
-            <h3 id="prof-form-heading">{editingId ? 'Editar Profissional' : 'Novo Profissional'}</h3>
-            <span className="section-subtitle">
-              {editingId ? 'Atualize os dados e os dias de atendimento do barbeiro' : 'Preencha os dados cadastrais do novo barbeiro da equipe'}
-            </span>
+        <div className="prof-header-content">
+          <div>
+            <h2>Equipe e escala da barbearia</h2>
+            <p>
+              Cadastre seus barbeiros, configure a comissão de cada profissional, personalize o tempo de atendimento por corte e organize os horários de atendimento na semana.
+            </p>
           </div>
-
-          <form onSubmit={handleSubmit} className="prof-form">
-            <div className="form-group">
-              <label htmlFor="prof-name">Nome do Barbeiro</label>
-              <input
-                id="prof-name"
-                type="text"
-                placeholder="Ex: Carlos Silva"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="prof-phone">WhatsApp / Celular</label>
-                <input
-                  id="prof-phone"
-                  type="text"
-                  placeholder="Ex: (11) 99999-9999"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="prof-commission">Comissão Padrão (%)</label>
-                <input
-                  id="prof-commission"
-                  type="number"
-                  min="0"
-                  max="100"
-                  placeholder="Ex: 40"
-                  value={commission}
-                  onChange={(e) => setCommission(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* SEÇÃO DA ESCALA DE TRABALHO */}
-            <div className="schedule-section">
-              <div className="schedule-section-header">
-                <ClockIcon />
-                <span className="schedule-title">Escala semanal de atendimento</span>
-              </div>
-              <div className="schedule-list">
-                {DAYS_OF_WEEK.map((day) => {
-                  const daySched = schedule[day.key];
-                  return (
-                    <div
-                      key={day.key}
-                      className={`schedule-day-item ${daySched.active ? 'schedule-day-item--active' : ''}`}
-                    >
-                      <div className="day-checkbox">
-                        <input
-                          type="checkbox"
-                          id={`check-${day.key}`}
-                          checked={daySched.active}
-                          onChange={() => handleScheduleDayToggle(day.key)}
-                        />
-                        <label htmlFor={`check-${day.key}`}>{day.label}</label>
-                      </div>
-
-                      {daySched.active && (
-                        <div className="day-schedule-details">
-                          {/* Horário de Trabalho */}
-                          <div className="schedule-row">
-                            <span className="schedule-row-label">Expediente:</span>
-                            <div className="schedule-row-inputs">
-                              <input
-                                type="time"
-                                className="day-times-input"
-                                value={daySched.start}
-                                aria-label={`Início do expediente de ${day.label}`}
-                                onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
-                              />
-                              <span className="schedule-row-sep">às</span>
-                              <input
-                                type="time"
-                                className="day-times-input"
-                                value={daySched.end}
-                                aria-label={`Fim do expediente de ${day.label}`}
-                                onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Intervalo de Almoço */}
-                          <div className="schedule-row">
-                            <span className="schedule-row-label">Almoço:</span>
-                            <div className="schedule-row-inputs">
-                              <input
-                                type="time"
-                                className="day-times-input"
-                                value={daySched.break_start || '12:00'}
-                                aria-label="Início do Almoço"
-                                onChange={(e) =>
-                                  handleScheduleTimeChange(day.key, 'break_start', e.target.value)
-                                }
-                              />
-                              <span className="schedule-row-sep">às</span>
-                              <input
-                                type="time"
-                                className="day-times-input"
-                                value={daySched.break_end || '13:00'}
-                                aria-label="Fim do Almoço"
-                                onChange={(e) =>
-                                  handleScheduleTimeChange(day.key, 'break_end', e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {editingId && (
-              <div className="form-group checkbox-group">
-                <input
-                  type="checkbox"
-                  id="prof-active"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                />
-                <label htmlFor="prof-active">Barbeiro ativo na agenda de clientes</label>
-              </div>
-            )}
-
-            <div className="form-actions">
-              {editingId && (
-                <button type="button" onClick={resetForm} className="btn btn--outline-secondary">
-                  Cancelar
-                </button>
-              )}
-              <button type="submit" disabled={saving} className="btn btn--primary">
-                {saving ? (
-                  <div className="spinner spinner--sm" />
-                ) : editingId ? (
-                  'Salvar Alterações'
-                ) : (
-                  'Cadastrar Profissional'
-                )}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        {/* Painel da Listagem */}
-        <section className="list-section card" aria-labelledby="prof-list-heading">
-          <div className="list-header">
-            <div className="list-header-left">
-              <h3 id="prof-list-heading">Membros da equipe</h3>
-              {!loading && (
-                <span className="team-count-chip">
-                  {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
-                </span>
-              )}
-            </div>
+          <div className="prof-header-actions">
             <button
+              type="button"
+              onClick={handleOpenCreateDrawer}
+              className="btn btn--primary"
+            >
+              <HugeiconsIcon icon={PlusSignIcon} size={18} />
+              Novo Barbeiro
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/profissionais/cadastro-acesso')}
-              className="btn btn--primary btn--sm"
-              style={{ borderRadius: 'var(--radius-md)', padding: '0.45rem 0.9rem' }}
+              className="btn btn--outline"
             >
               Criar acesso do barbeiro
             </button>
           </div>
+        </div>
+      </header>
 
-          {loading ? (
-            <div className="loading-state">
-              <div
-                className="spinner"
-                style={{
-                  borderColor: 'var(--color-brand-primary)',
-                  borderTopColor: 'transparent',
-                }}
-              />
-              <p>Carregando equipe...</p>
-            </div>
-          ) : professionals.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <HugeiconsIcon icon={UserGroupIcon} size={32} />
-              </div>
-              <p>Nenhum barbeiro cadastrado na barbearia.</p>
-              <span className="empty-desc">
-                Cadastre o primeiro profissional no formulário ao lado para liberar a agenda e permitir novos agendamentos.
+      {/* Painel da Listagem */}
+      <section className="list-section card" aria-labelledby="prof-list-heading">
+        <div className="list-header">
+          <div className="list-header-left">
+            <h3 id="prof-list-heading">Membros da equipe</h3>
+            {!loading && (
+              <span className="team-count-chip">
+                {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
               </span>
+            )}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="loading-state">
+            <div
+              className="spinner"
+              style={{
+                borderColor: 'var(--color-brand-primary)',
+                borderTopColor: 'transparent',
+              }}
+            />
+            <p>Carregando equipe...</p>
+          </div>
+        ) : professionals.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <HugeiconsIcon icon={UserGroupIcon} size={32} />
             </div>
-          ) : (
-            <div className="prof-list-container">
-              {professionals.map((prof) => (
-                <div
-                  key={prof.id}
-                  className={`prof-card ${!prof.is_active ? 'prof-card--inactive' : ''}`}
-                >
-                  <div className="prof-card-header">
-                    <div className="prof-card-title-group">
-                      <div className="prof-avatar" aria-hidden="true">
-                        {prof.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="prof-meta-wrap">
-                        <div className="prof-name-row">
-                          <h4>{prof.name}</h4>
-                          {!prof.is_active && (
-                            <span className="prof-inactive-tag">Inativo</span>
-                          )}
-                        </div>
-                        <span className="prof-phone">{prof.phone}</span>
-                      </div>
+            <p>Nenhum barbeiro cadastrado na barbearia.</p>
+            <span className="empty-desc">
+              Cadastre o primeiro profissional para liberar a agenda e permitir novos agendamentos.
+            </span>
+            <button
+              type="button"
+              onClick={handleOpenCreateDrawer}
+              className="btn btn--primary"
+              style={{ marginTop: '1rem' }}
+            >
+              <HugeiconsIcon icon={PlusSignIcon} size={16} />
+              Cadastrar Primeiro Barbeiro
+            </button>
+          </div>
+        ) : (
+          <div className="prof-list-container">
+            {professionals.map((prof) => (
+              <div
+                key={prof.id}
+                className={`prof-card ${!prof.is_active ? 'prof-card--inactive' : ''}`}
+              >
+                <div className="prof-card-header">
+                  <div className="prof-card-title-group">
+                    <div className="prof-avatar" aria-hidden="true">
+                      {prof.name.charAt(0).toUpperCase()}
                     </div>
-
-                    <div className="prof-commission-badge">
-                      <span>
-                        Comissão: <strong>{prof.commission_percentage}%</strong>
-                      </span>
+                    <div className="prof-meta-wrap">
+                      <div className="prof-name-row">
+                        <h4>{prof.name}</h4>
+                        {!prof.is_active && (
+                          <span className="prof-inactive-tag">Inativo</span>
+                        )}
+                      </div>
+                      <span className="prof-phone">{prof.phone}</span>
                     </div>
                   </div>
 
-                  <div className="prof-card-schedule">
-                    <h5>Escala de atendimento</h5>
-                    <div className="schedule-badges">
-                      {DAYS_OF_WEEK.map((day) => {
-                        const dayData = prof.weekly_schedule?.[day.key] as any;
-                        const labelCurto = day.label.substring(0, 3);
-                        const isDayActive = !!dayData;
-
-                        if (isDayActive) {
-                          const breakInfo = dayData.break_start
-                            ? ` (Almoço: ${dayData.break_start} às ${dayData.break_end})`
-                            : '';
-                          return (
-                            <div
-                              key={day.key}
-                              className="badge-schedule-active"
-                              title={`${day.label}: ${dayData.start} às ${dayData.end}${breakInfo}`}
-                            >
-                              <span className="badge-day-name">{labelCurto}</span>
-                              <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div
-                              key={day.key}
-                              className="badge-schedule-inactive"
-                              title={`${day.label}: Folga`}
-                            >
-                              <span className="badge-day-name">{labelCurto}</span>
-                              <span className="badge-schedule-hours">Folga</span>
-                            </div>
-                          );
-                        }
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="prof-card-actions">
-                    <div className="login-status">
-                      {prof.user_id ? (
-                        <span
-                          className="status-badge status-badge--linked"
-                          title="Este barbeiro já possui login de acesso"
-                        >
-                          <CheckIcon /> Login vinculado
-                        </span>
-                      ) : (
-                        <span
-                          className="status-badge status-badge--unlinked"
-                          title="Este barbeiro ainda não possui acesso ao painel"
-                        >
-                          <AlertIcon /> Sem login
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="action-buttons">
-                      <button
-                        onClick={() => handleOpenServicesModal(prof)}
-                        className="btn-action btn-action--services"
-                        title="Configurar serviços atendidos e tempo de corte deste barbeiro"
-                      >
-                        <ScissorIcon /> Serviços e tempos
-                      </button>
-                      <button
-                        onClick={() => handleEdit(prof)}
-                        className="btn-action btn-action--edit"
-                        title="Editar dados e escala deste barbeiro"
-                      >
-                        Editar Escala/Dados
-                      </button>
-                      <button
-                        onClick={() => setProfToDelete(prof)}
-                        className="btn-action btn-action--delete"
-                        title="Excluir profissional (mantém histórico)"
-                        aria-label={`Excluir profissional ${prof.name}`}
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={15} />
-                        Excluir
-                      </button>
-                    </div>
+                  <div className="prof-commission-badge">
+                    <span>
+                      Comissão: <strong>{prof.commission_percentage}%</strong>
+                    </span>
                   </div>
                 </div>
-              ))}
+
+                <div className="prof-card-schedule">
+                  <h5>Escala de atendimento</h5>
+                  <div className="schedule-badges">
+                    {DAYS_OF_WEEK.map((day) => {
+                      const dayData = prof.weekly_schedule?.[day.key] as any;
+                      const labelCurto = day.label.substring(0, 3);
+                      const isDayActive = !!dayData;
+
+                      if (isDayActive) {
+                        const breakInfo = dayData.break_start
+                          ? ` (Almoço: ${dayData.break_start} às ${dayData.break_end})`
+                          : '';
+                        return (
+                          <div
+                            key={day.key}
+                            className="badge-schedule-active"
+                            title={`${day.label}: ${dayData.start} às ${dayData.end}${breakInfo}`}
+                          >
+                            <span className="badge-day-name">{labelCurto}</span>
+                            <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div
+                            key={day.key}
+                            className="badge-schedule-inactive"
+                            title={`${day.label}: Folga`}
+                          >
+                            <span className="badge-day-name">{labelCurto}</span>
+                            <span className="badge-schedule-hours">Folga</span>
+                          </div>
+                        );
+                      }
+                    })}
+                  </div>
+                </div>
+
+                <div className="prof-card-actions">
+                  <div className="login-status">
+                    {prof.user_id ? (
+                      <span
+                        className="status-badge status-badge--linked"
+                        title="Este barbeiro já possui login de acesso"
+                      >
+                        <CheckIcon /> Login vinculado
+                      </span>
+                    ) : (
+                      <span
+                        className="status-badge status-badge--unlinked"
+                        title="Este barbeiro ainda não possui acesso ao painel"
+                      >
+                        <AlertIcon /> Sem login
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="action-buttons">
+                    <button
+                      onClick={() => handleOpenServicesModal(prof)}
+                      className="btn-action btn-action--services"
+                      title="Configurar serviços atendidos e tempo de corte deste barbeiro"
+                    >
+                      <ScissorIcon /> Serviços e tempos
+                    </button>
+                    <button
+                      onClick={() => handleEdit(prof)}
+                      className="btn-action btn-action--edit"
+                      title="Editar dados e escala deste barbeiro"
+                    >
+                      <HugeiconsIcon icon={Edit01Icon} size={15} />
+                      Editar Escala/Dados
+                    </button>
+                    <button
+                      onClick={() => setProfToDelete(prof)}
+                      className="btn-action btn-action--delete"
+                      title="Excluir profissional (mantém histórico)"
+                      aria-label={`Excluir profissional ${prof.name}`}
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} size={15} />
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* DRAWER DE CADASTRO / EDIÇÃO DE PROFISSIONAL */}
+      {isDrawerOpen && (
+        <div
+          className="prof-drawer-overlay"
+          onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}
+        >
+          <div className="prof-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="prof-drawer-heading">
+            <div className="prof-drawer-header">
+              <div className="prof-drawer-header-info">
+                <div className="prof-drawer-icon-badge">
+                  <HugeiconsIcon icon={UserGroupIcon} size={20} />
+                </div>
+                <div>
+                  <h3 id="prof-drawer-heading" className="prof-drawer-title">
+                    {editingId ? 'Editar Profissional' : 'Novo Profissional'}
+                  </h3>
+                  <span className="prof-drawer-subtitle">
+                    {editingId
+                      ? 'Atualize os dados e os dias de atendimento do barbeiro'
+                      : 'Preencha os dados cadastrais do novo barbeiro da equipe'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseDrawer}
+                className="prof-drawer-close-btn"
+                aria-label="Fechar painel"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} size={20} />
+              </button>
             </div>
-          )}
-        </section>
-      </div>
+
+            <form onSubmit={handleSubmit} className="prof-drawer-form">
+              <div className="prof-drawer-body">
+                <div className="form-group">
+                  <label htmlFor="prof-name">Nome do Barbeiro *</label>
+                  <input
+                    id="prof-name"
+                    type="text"
+                    placeholder="Ex: Carlos Silva"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="prof-phone">WhatsApp / Celular *</label>
+                    <input
+                      id="prof-phone"
+                      type="text"
+                      placeholder="Ex: (11) 99999-9999"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="prof-commission">Comissão Padrão (%) *</label>
+                    <input
+                      id="prof-commission"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="Ex: 40"
+                      value={commission}
+                      onChange={(e) => setCommission(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* SEÇÃO DA ESCALA DE TRABALHO */}
+                <div className="schedule-section">
+                  <div className="schedule-section-header">
+                    <ClockIcon />
+                    <span className="schedule-title">Escala semanal de atendimento</span>
+                  </div>
+                  <div className="schedule-list">
+                    {DAYS_OF_WEEK.map((day) => {
+                      const daySched = schedule[day.key];
+                      const dayBusinessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
+                      const scheduleTimeOptions = generateScheduleTimeOptions(
+                        dayBusinessHours.open,
+                        dayBusinessHours.close,
+                        tenant.slotIntervalMinutes ?? 30
+                      );
+                      const breakTimeOptions = generateScheduleTimeOptions(
+                        daySched.start,
+                        daySched.end,
+                        tenant.slotIntervalMinutes ?? 30
+                      );
+                      return (
+                        <div
+                          key={day.key}
+                          className={`schedule-day-item ${daySched.active ? 'schedule-day-item--active' : ''}`}
+                        >
+                          <div className="day-checkbox">
+                            <input
+                              type="checkbox"
+                              id={`check-${day.key}`}
+                              checked={daySched.active}
+                              onChange={() => handleScheduleDayToggle(day.key)}
+                            />
+                            <label htmlFor={`check-${day.key}`}>{day.label}</label>
+                          </div>
+
+                          {daySched.active && (
+                            <div className="day-schedule-details">
+                              {/* Horário de Trabalho */}
+                              <div className="schedule-row">
+                                <span className="schedule-row-label">Expediente:</span>
+                                <div className="schedule-row-inputs">
+                                  <select
+                                    className="day-times-input"
+                                    value={daySched.start}
+                                    aria-label={`Início do expediente de ${day.label}`}
+                                    onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
+                                  >
+                                    {scheduleTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
+                                  <span className="schedule-row-sep">às</span>
+                                  <select
+                                    className="day-times-input"
+                                    value={daySched.end}
+                                    aria-label={`Fim do expediente de ${day.label}`}
+                                    onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
+                                  >
+                                    {scheduleTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Intervalo de Almoço */}
+                              <div className="schedule-row">
+                                <span className="schedule-row-label">Almoço:</span>
+                                <div className="schedule-row-inputs">
+                                  <select
+                                    className="day-times-input"
+                                    value={daySched.break_start || '12:00'}
+                                    aria-label="Início do Almoço"
+                                    onChange={(e) =>
+                                      handleScheduleTimeChange(day.key, 'break_start', e.target.value)
+                                    }
+                                  >
+                                    {breakTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
+                                  <span className="schedule-row-sep">às</span>
+                                  <select
+                                    className="day-times-input"
+                                    value={daySched.break_end || '13:00'}
+                                    aria-label="Fim do Almoço"
+                                    onChange={(e) =>
+                                      handleScheduleTimeChange(day.key, 'break_end', e.target.value)
+                                    }
+                                  >
+                                    {breakTimeOptions.map((option) => (
+                                      <option key={option} value={option}>{option}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {editingId && (
+                  <div className="form-group checkbox-group" style={{ marginTop: '0.5rem' }}>
+                    <input
+                      type="checkbox"
+                      id="prof-active"
+                      checked={isActive}
+                      onChange={(e) => setIsActive(e.target.checked)}
+                    />
+                    <label htmlFor="prof-active">Barbeiro ativo na agenda de clientes</label>
+                  </div>
+                )}
+              </div>
+
+              <div className="prof-drawer-footer">
+                <button
+                  type="button"
+                  onClick={handleCloseDrawer}
+                  className="btn btn--outline-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn--primary"
+                >
+                  {saving ? (
+                    <div className="spinner spinner--sm" />
+                  ) : editingId ? (
+                    'Salvar Alterações'
+                  ) : (
+                    'Cadastrar Profissional'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (SOFT DELETE) */}
@@ -942,8 +1143,24 @@ export const Profissionais: React.FC = () => {
         .prof-header-intro {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
-          gap: 0.25rem;
+          gap: 0.5rem;
+          width: 100%;
+        }
+
+        .prof-header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 1.5rem;
+          width: 100%;
+          flex-wrap: wrap;
+        }
+
+        .prof-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
         }
 
         .prof-header-intro h2 {
@@ -963,25 +1180,128 @@ export const Profissionais: React.FC = () => {
           line-height: 1.5;
         }
 
-        .prof-grid {
-          display: grid;
-          grid-template-columns: 420px 1fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
-
-        @media (max-width: 1024px) {
-          .prof-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
         .card {
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           padding: 1.5rem;
           box-shadow: var(--shadow-sm);
+        }
+
+        /* DRAWER DE CADASTRO / EDIÇÃO */
+        .prof-drawer-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          z-index: 9999;
+          display: flex;
+          justify-content: flex-end;
+          align-items: stretch;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .prof-drawer-panel {
+          background: var(--color-bg-primary);
+          width: 100%;
+          max-width: 520px;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          box-shadow: var(--shadow-xl);
+          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          border-left: 1px solid var(--color-border);
+          overflow: hidden;
+        }
+
+        .prof-drawer-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          flex-shrink: 0;
+        }
+
+        .prof-drawer-header-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .prof-drawer-icon-badge {
+          width: 36px;
+          height: 36px;
+          border-radius: var(--radius-md);
+          background: rgba(217, 108, 0, 0.1);
+          color: var(--color-brand-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .prof-drawer-title {
+          font-size: var(--font-size-base);
+          font-weight: 800;
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .prof-drawer-subtitle {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          display: block;
+        }
+
+        .prof-drawer-close-btn {
+          background: transparent;
+          border: none;
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          padding: 6px;
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+
+        .prof-drawer-close-btn:hover {
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+        }
+
+        .prof-drawer-form {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          height: calc(100% - 73px);
+          overflow: hidden;
+        }
+
+        .prof-drawer-body {
+          padding: 1.5rem;
+          overflow-y: auto;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .prof-drawer-footer {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          padding: 1rem 1.5rem;
+          border-top: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          flex-shrink: 0;
         }
 
         .section-title-wrap {
@@ -1891,6 +2211,62 @@ export const Profissionais: React.FC = () => {
           gap: 0.75rem;
           color: var(--color-text-secondary);
           font-size: var(--font-size-sm);
+        }
+
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUpProf {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .prof-header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+          }
+
+          .prof-header-actions {
+            width: 100%;
+          }
+
+          .prof-header-actions button {
+            flex: 1;
+          }
+
+          .prof-drawer-overlay {
+            align-items: flex-end;
+          }
+
+          .prof-drawer-panel {
+            max-width: 100%;
+            height: 90vh;
+            border-radius: 20px 20px 0 0;
+            border-left: none;
+            border-top: 1px solid var(--color-border);
+            animation: slideUpProf 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          }
         }
       `}</style>
     </div>

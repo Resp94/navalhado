@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MenuCliente } from '../MenuCliente';
 
 const { mockAddToast, mockRpc } = vi.hoisted(() => ({
@@ -227,5 +227,82 @@ describe('MenuCliente - TDD', () => {
         p_token: 'mock-customer-token',
       });
     });
+  });
+
+  it('resolve token válido, lista agendamentos e preserva o contexto ao iniciar novo horário', async () => {
+    const mockDetails = {
+      customer_id: 'cust-valid',
+      customer_name: 'Cliente Validado',
+      tenant_id: 'tenant-valid',
+      tenant_name: 'Barbearia Validada',
+      tenant_phone: '5592999999999',
+      cadastro_completo: true,
+    };
+    const mockAppointments = [{
+      appointment_id: 'app-valid',
+      start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      end_time: new Date(Date.now() + 150 * 60 * 1000).toISOString(),
+      status: 'confirmed',
+      payment_status: 'pending',
+      cancellation_reason: null,
+      professional_name: 'Profissional Validado',
+      professional_id: 'prof-valid',
+      service_name: 'Corte Validado',
+      service_id: 'service-valid',
+      service_price: 45,
+      service_duration: 30,
+      tenant_name: 'Barbearia Validada',
+      tenant_id: 'tenant-valid',
+      tenant_phone: '5592999999999',
+      customer_name: 'Cliente Validado',
+    }];
+
+    localStorage.clear();
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [mockDetails], error: null };
+      if (name === 'get_customer_appointments_by_token') return { data: mockAppointments, error: null };
+      return { data: null, error: null };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/token-validado']}>
+        <Routes>
+          <Route path="/cliente/:token" element={<MenuCliente />} />
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/cliente/agendar" element={<div>Fluxo de novo agendamento</div>} />
+          <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Corte Validado')).toBeInTheDocument();
+    expect(screen.getByText(/Olá, Cliente/)).toBeInTheDocument();
+    expect(mockRpc).toHaveBeenCalledWith('get_customer_details_by_token', { p_token: 'token-validado' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Agendar novo horário/i }));
+    expect(await screen.findByText('Fluxo de novo agendamento')).toBeInTheDocument();
+    expect(localStorage.getItem('navalhado_customer_token')).toBe('token-validado');
+  });
+
+  it('não concede área privada para token inválido', async () => {
+    localStorage.clear();
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') {
+        return { data: null, error: { message: 'Token inválido', code: 'P0001' } };
+      }
+      return { data: null, error: null };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/token-invalido']}>
+        <Routes>
+          <Route path="/cliente/:token" element={<MenuCliente />} />
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Acesso expirado')).toBeInTheDocument();
   });
 });

@@ -70,6 +70,40 @@ describe('MobileAgendaView Component', () => {
     expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
   });
 
+  it('mantém no-show visível com rótulo próprio e sem ação de finalização', () => {
+    const noShowAppointment: Appointment = {
+      ...mockAppointments[0],
+      id: 'app-no-show',
+      status: 'no_show',
+    };
+
+    render(
+      <MobileAgendaView
+        {...defaultProps}
+        appointments={[noShowAppointment]}
+        onMarkNoShow={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Não compareceu')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Marcar .* não compareceu/i })).not.toBeInTheDocument();
+  });
+
+  it('identifica visualmente os encaixes no card mobile', () => {
+    const fittingAppointment: Appointment = {
+      ...mockAppointments[0],
+      id: 'app-fitting',
+      is_fitting: true,
+    };
+
+    render(<MobileAgendaView {...defaultProps} appointments={[fittingAppointment]} />);
+
+    expect(screen.getByText('Encaixe')).toBeInTheDocument();
+    expect(screen.getByTitle('Toque para abrir a comanda')).toHaveClass(
+      'mobile-agenda__card--fitting'
+    );
+  });
+
   it('aciona o toque em slot vazio para novo agendamento com o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
