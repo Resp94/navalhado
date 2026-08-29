@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
@@ -54,7 +54,6 @@ export const FluxoAgendamento: React.FC = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
-  const datePickerRef = useRef<HTMLInputElement>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [publicSchedule, setPublicSchedule] = useState<HorarioGradeCanal[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -89,17 +88,6 @@ export const FluxoAgendamento: React.FC = () => {
   const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   const canalClienteRepository = useCanalCliente();
-
-  const openDatePicker = () => {
-    const picker = datePickerRef.current;
-    if (!picker) return;
-
-    try {
-      picker.showPicker();
-    } catch {
-      picker.click();
-    }
-  };
 
   const handlePhoneChange = async (val: string) => {
     const masked = maskPhone(val);
@@ -1059,7 +1047,6 @@ export const FluxoAgendamento: React.FC = () => {
                   value={formatDatePtBr(selectedDate)}
                   readOnly
                   aria-hidden="true"
-                  onClick={openDatePicker}
                   style={{
                     padding: '0.85rem 1rem 0.85rem 2.75rem',
                     borderRadius: '12px',
@@ -1071,13 +1058,13 @@ export const FluxoAgendamento: React.FC = () => {
                     outline: 'none',
                     cursor: 'pointer',
                     width: '100%',
+                    pointerEvents: 'none',
                     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)',
                     fontFamily: 'inherit'
                   }}
                 />
                 <input
                   type="date"
-                  ref={datePickerRef}
                   lang="pt-BR"
                   value={selectedDate}
                   min={dateInZone(new Date(), customerDetails?.tenant_timezone || publicContext?.timezone || 'America/Sao_Paulo')}
@@ -1085,10 +1072,13 @@ export const FluxoAgendamento: React.FC = () => {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   style={{
                     position: 'absolute',
-                    width: '1px',
-                    height: '1px',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
                     opacity: 0,
-                    pointerEvents: 'none',
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 2,
                   }}
                 />
                 <div style={{

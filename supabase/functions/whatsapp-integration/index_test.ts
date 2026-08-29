@@ -6,7 +6,9 @@ import {
   formatMessageTemplate, 
   DEFAULT_TEMPLATES, 
   isFirstMessageOfDayForCustomer,
-  resolveCustomerMessageWithDailyLink,
+  resolveCustomerMessage,
+  normalizeAutoReplyKeywords,
+  hasAutoReplyKeywordMatch,
   getUnresolvedTemplateTokens,
   renderMessageTemplate,
   type WhatsappTemplateVariables 
@@ -1374,7 +1376,9 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
   const sentMessages: Record<string, unknown>[] = [];
   const idempotencyRows: Record<string, unknown>[] = [];
-  const reservedDirections = new Set<string>();
+  const reservedIdempotencyKeys = new Set<string>();
+  let configuredKeywords = "link";
+  let customerLastFirstContactAt: string | null = null;
 
   Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
   Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
@@ -1389,16 +1393,19 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
         tenant_id: "tenant-uaz-1",
         instance_token: "uaz-instance-token",
         status: "connected",
+        auto_reply_keywords: configuredKeywords,
       }), { status: 200 });
     }
     if (url.includes("rest/v1/whatsapp_message_idempotency")) {
       if (method === "POST") {
         const body = JSON.parse(String(init?.body));
         const direction = String(body.direction || "outbound");
-        if (reservedDirections.has(direction)) {
+        const idempotencyKey = String(body.idempotency_key || "");
+        const reservationKey = `${direction}:${idempotencyKey}`;
+        if (reservedIdempotencyKeys.has(reservationKey)) {
           return new Response(JSON.stringify({ code: "23505", message: "duplicate" }), { status: 409 });
         }
-        reservedDirections.add(direction);
+        reservedIdempotencyKeys.add(reservationKey);
         idempotencyRows.push(body);
         return new Response(JSON.stringify({}), { status: 201 });
       }
@@ -1415,7 +1422,10 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
       return new Response(JSON.stringify({ name: "Barbearia Uazapi" }), { status: 200 });
     }
     if (url.includes("rest/v1/customers")) {
-      return new Response(JSON.stringify({ name: "Cliente Uazapi" }), { status: 200 });
+      return new Response(JSON.stringify({
+        name: "Cliente Uazapi",
+        last_first_contact_at: customerLastFirstContactAt,
+      }), { status: 200 });
     }
     return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
   };
@@ -1467,6 +1477,19 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
     );
     assertEquals(sentMessages[0]?.instanceName, "nav_tenant_uaz");
     assertEquals(sentMessages[0]?.instanceToken, "uaz-instance-token");
+
+    customerLastFirstContactAt = new Date().toISOString();
+    configuredKeywords = "";
+    const ignoredWithoutConfiguredKeyword = await testHandler(requestFor({
+      messageid: "uaz-message-no-configured-keyword",
+      text: "mensagem sem palavra configurada",
+    }));
+    assertEquals(ignoredWithoutConfiguredKeyword.status, 200);
+    assertEquals(await ignoredWithoutConfiguredKeyword.json(), {
+      ignored: true,
+      reason: "Already sent today and no keyword match",
+    });
+    assertEquals(sentMessages.length, 1);
 
     const ignoredFromMe = await testHandler(requestFor({ messageid: "uaz-message-from-me", fromMe: true }));
     const ignoredApi = await testHandler(requestFor({ messageid: "uaz-message-api", wasSentByApi: true }));
@@ -3091,7 +3114,7 @@ Deno.test("isFirstMessageOfDayForCustomer accurately determines first contact of
   assertEquals(isFirstMessageOfDayForCustomer(yesterday, "America/Sao_Paulo"), true);
 });
 
-Deno.test("resolveCustomerMessageWithDailyLink handles optional link and daily link inclusion", () => {
+Deno.test("resolveCustomerMessage respects custom templates and tokenized links", () => {
   const variables: WhatsappTemplateVariables = {
     cliente: "João",
     barbearia: "Navalhado",
@@ -3102,24 +3125,22 @@ Deno.test("resolveCustomerMessageWithDailyLink handles optional link and daily l
   };
   const link = "https://app.navalhado.com.br/barbearia-teste";
 
-  // Caso 1: 1ª Mensagem do dia + Template SEM {link} -> DEVE anexar link ao final
+  // Caso 1: 1ª Mensagem do dia + Template customizado SEM {link} -> não anexa link
   const templateSemLink = "Olá, {cliente}! Seu agendamento foi confirmado para {data} às {horario}.";
-  const res1 = resolveCustomerMessageWithDailyLink({
+  const res1 = resolveCustomerMessage({
     template: templateSemLink,
     fallbackTemplate: templateSemLink,
     variables,
-    isFirstMessageOfDay: true,
     clientAccessLink: link,
   });
-  assertEquals(res1.linkIncluded, true);
-  assertEquals(res1.text.includes("Acesse: https://app.navalhado.com.br/barbearia-teste") || res1.text.includes("acesse: https://app.navalhado.com.br/barbearia-teste"), true);
+  assertEquals(res1.linkIncluded, false);
+  assertEquals(res1.text.includes("https://app.navalhado.com.br"), false);
 
   // Caso 2: 2ª Mensagem do dia + Template SEM {link} -> NÃO anexa link (mensagem limpa)
-  const res2 = resolveCustomerMessageWithDailyLink({
+  const res2 = resolveCustomerMessage({
     template: templateSemLink,
     fallbackTemplate: templateSemLink,
     variables,
-    isFirstMessageOfDay: false,
     clientAccessLink: link,
   });
   assertEquals(res2.linkIncluded, false);
@@ -3127,15 +3148,22 @@ Deno.test("resolveCustomerMessageWithDailyLink handles optional link and daily l
 
   // Caso 3: Template COM {link} -> Interpola em qualquer mensagem
   const templateComLink = "Olá, {cliente}! Acesse {link} para detalhes.";
-  const res3 = resolveCustomerMessageWithDailyLink({
+  const res3 = resolveCustomerMessage({
     template: templateComLink,
     fallbackTemplate: templateComLink,
     variables,
-    isFirstMessageOfDay: false,
     clientAccessLink: link,
   });
   assertEquals(res3.linkIncluded, true);
   assertEquals(res3.text.includes("Acesse https://app.navalhado.com.br/barbearia-teste"), true);
+});
+
+Deno.test("auto reply uses only the tenant keywords and never restores defaults", () => {
+  assertEquals(normalizeAutoReplyKeywords(null), []);
+  assertEquals(normalizeAutoReplyKeywords("  Horário, LINK,  "), ["horario", "link"]);
+  assertEquals(hasAutoReplyKeywordMatch("Quero marcar um horário", "horario, link"), true);
+  assertEquals(hasAutoReplyKeywordMatch("Quero o link", "horario"), false);
+  assertEquals(hasAutoReplyKeywordMatch("Quero o link", null), false);
 });
 
 Deno.test("createHandler normalizes trailing slashes in route paths", async () => {

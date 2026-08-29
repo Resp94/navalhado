@@ -11,9 +11,10 @@ import { supabase } from '../../lib/supabase';
 import { localDateTimeToIso, localDayUtcRange, dateInZone, formatTimeInZone } from '../../lib/timezone';
 import {
   addMinutesToTime,
-  generateTimeSlotsForSchedule,
+  generateScheduleGridSlots,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
+  normalizeSlotIntervalMinutes,
   type WeeklySchedule,
 } from '../../lib/schedule';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
@@ -160,7 +161,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const stepMinutes = slotIntervalMinutes && slotIntervalMinutes > 0 ? slotIntervalMinutes : 30;
+  const stepMinutes = normalizeSlotIntervalMinutes(slotIntervalMinutes);
 
   // Gerar horários de expediente considerando a barbearia e a jornada do barbeiro
   // (omitindo o horário de almoço/intervalo, horários com agendamento ativo e horários já bloqueados)
@@ -182,20 +183,18 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         return []; // Barbeiro de folga nesta data
       }
       if (profSched.start && profSched.end) {
-        baseSlots = generateTimeSlotsForSchedule(
-          profSched.start,
-          profSched.end,
-          stepMinutes,
-          profSched.break_start,
-          profSched.break_end
-        );
+        baseSlots = generateScheduleGridSlots([{
+          start: profSched.start,
+          end: profSched.end,
+          breakStart: profSched.break_start,
+          breakEnd: profSched.break_end,
+        }], stepMinutes);
       }
     } else {
-      baseSlots = generateTimeSlotsForSchedule(
-        dayBh.open || '08:00',
-        dayBh.close || '19:00',
-        stepMinutes
-      );
+      baseSlots = generateScheduleGridSlots([{
+        start: dayBh.open || '08:00',
+        end: dayBh.close || '19:00',
+      }], stepMinutes);
     }
 
     // 1. Filtrar horários em que o profissional já possui agendamento confirmado/em andamento

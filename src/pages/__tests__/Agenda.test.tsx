@@ -474,7 +474,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
-  it('exibe bloqueio de horário na grade e remove ao confirmar clique no card de bloqueio', async () => {
+  it('exige confirmação no modal antes de remover bloqueio da grade', async () => {
     mockBlockedSlots = [
       {
         id: 'blk-1',
@@ -487,8 +487,6 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       },
     ];
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     render(<Agenda />);
 
     await waitFor(() => {
@@ -500,13 +498,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
     fireEvent.click(blockCard!);
 
-    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Almoço'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Remover bloqueio/i })).toBeInTheDocument();
+    expect(screen.getByText('Almoço', { selector: 'strong' })).toBeInTheDocument();
+    expect(mockAddToast).not.toHaveBeenCalledWith('Bloqueio removido com sucesso!', 'success');
+
+    fireEvent.click(screen.getByRole('button', { name: /Sim, excluir/i }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Bloqueio removido com sucesso!', 'success');
     });
-
-    confirmSpy.mockRestore();
   });
 
   it('abre o modal de checkout/comanda ao clicar no agendamento e permite acionar reagendamento sem cancelar', async () => {

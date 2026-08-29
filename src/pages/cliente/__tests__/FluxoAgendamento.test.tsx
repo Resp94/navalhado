@@ -140,6 +140,51 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
   });
 
+  it('mantém o input nativo de data como alvo de toque no mobile', async () => {
+    const service = {
+      id: 'service-public-1',
+      name: 'Corte Público',
+      description: null,
+      price: 50,
+      duration_minutes: 40,
+      category: 'Cabelo',
+      is_active: true,
+    };
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_tenant_by_slug') {
+        return {
+          data: [{
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+            timezone: 'America/Manaus',
+            slot_interval_minutes: 30,
+            min_booking_lead_time_minutes: 0,
+            min_cancellation_lead_time_minutes: 120,
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
+      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
+      if (name === 'get_public_schedule_by_slug') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute('/brooklyn');
+    fireEvent.click(await screen.findByText('Corte Público'));
+    fireEvent.click(await screen.findByText('Tanto faz'));
+
+    const dateInput = await screen.findByLabelText('Selecione o dia');
+    expect(dateInput).toHaveStyle({
+      pointerEvents: 'auto',
+      width: '100%',
+      height: '100%',
+    });
+  });
+
   it('preenche cliente reconhecido, permite agendar para terceiro e envia o token validado', async () => {
     const service = {
       id: 'service-public-1',

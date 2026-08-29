@@ -7,6 +7,8 @@ import {
   addMinutesToTime,
   timeToMinutes,
   generateTimeSlotsForSchedule,
+  generateScheduleGridSlots,
+  normalizeSlotIntervalMinutes,
   clampProfessionalScheduleToBusinessHours,
   clampTimeToRange,
 } from '../../../lib/schedule';
@@ -157,6 +159,29 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
     it('funciona perfeitamente quando não há intervalo configurado', () => {
       const slots = generateTimeSlotsForSchedule('08:00', '10:00', 30);
       expect(slots).toEqual(['08:00', '08:30', '09:00', '09:30']);
+    });
+
+    it('mantém o mesmo intervalo em todos os segmentos da grade do tenant', () => {
+      const slots = generateScheduleGridSlots(
+        [
+          { start: '09:00', end: '19:00', breakStart: '12:00', breakEnd: '14:00' },
+          { start: '09:00', end: '19:00', breakStart: '12:00', breakEnd: '14:00' },
+        ],
+        40,
+      );
+
+      expect(slots).toEqual([
+        '09:00', '09:40', '10:20', '11:00',
+        '14:00', '14:40', '15:20', '16:00', '16:40', '17:20', '18:00', '18:40',
+      ]);
+      expect(slots).not.toEqual(expect.arrayContaining(['14:20', '15:00', '15:40']));
+    });
+
+    it('normaliza o intervalo do tenant sem aceitar valor inválido como uma nova régua', () => {
+      expect(normalizeSlotIntervalMinutes(40)).toBe(40);
+      expect(normalizeSlotIntervalMinutes('40')).toBe(40);
+      expect(normalizeSlotIntervalMinutes(0)).toBe(30);
+      expect(normalizeSlotIntervalMinutes('invalid')).toBe(30);
     });
   });
 

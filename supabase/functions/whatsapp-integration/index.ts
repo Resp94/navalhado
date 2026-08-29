@@ -164,6 +164,25 @@ export const getUnresolvedTemplateTokens = (template: string): string[] => {
   return [...new Set(tokens)];
 };
 
+export const normalizeWhatsAppText = (value: string): string =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export const normalizeAutoReplyKeywords = (rawKeywords: string | null | undefined): string[] => {
+  if (typeof rawKeywords !== "string" || rawKeywords.trim().length === 0) return [];
+  return rawKeywords
+    .split(",")
+    .map((keyword) => normalizeWhatsAppText(keyword.trim()))
+    .filter((keyword) => keyword.length > 0);
+};
+
+export const hasAutoReplyKeywordMatch = (
+  message: string,
+  rawKeywords: string | null | undefined,
+): boolean => {
+  const normalizedMessage = normalizeWhatsAppText(message);
+  return normalizeAutoReplyKeywords(rawKeywords).some((keyword) => normalizedMessage.includes(keyword));
+};
+
 export const renderMessageTemplate = (
   customTemplate: string | null | undefined,
   fallbackTemplate: string,
@@ -198,15 +217,14 @@ export interface FormatCustomerMessageParams {
   template: string | null | undefined;
   fallbackTemplate: string;
   variables: WhatsappTemplateVariables;
-  isFirstMessageOfDay: boolean;
   clientAccessLink: string;
 }
 
-export function resolveCustomerMessageWithDailyLink(params: FormatCustomerMessageParams): {
+export function resolveCustomerMessage(params: FormatCustomerMessageParams): {
   text: string;
   linkIncluded: boolean;
 } {
-  const { template, fallbackTemplate, variables, isFirstMessageOfDay, clientAccessLink } = params;
+  const { template, fallbackTemplate, variables, clientAccessLink } = params;
   const rawTemplate = template && template.trim().length > 0 ? template : fallbackTemplate;
   const hasLinkTag = /\{link\}/i.test(rawTemplate);
 
@@ -214,11 +232,6 @@ export function resolveCustomerMessageWithDailyLink(params: FormatCustomerMessag
     ...variables,
     link: clientAccessLink,
   });
-
-  if (isFirstMessageOfDay && !hasLinkTag && clientAccessLink) {
-    rendered = `${rendered.trim()}\n\nPara gerenciar seu agendamento e autoatendimento, acesse: ${clientAccessLink}`;
-    return { text: rendered, linkIncluded: true };
-  }
 
   return { text: rendered, linkIncluded: hasLinkTag };
 }
@@ -446,11 +459,10 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     sleep,
     maxAttempts: 3,
     renderTemplate: (event) => event.clientAccessLink
-      ? resolveCustomerMessageWithDailyLink({
+      ? resolveCustomerMessage({
           template: event.template,
           fallbackTemplate: event.fallbackTemplate ?? event.template,
           variables: event.variables,
-          isFirstMessageOfDay: event.isFirstMessageOfDay ?? false,
           clientAccessLink: event.clientAccessLink,
         }).text
       : renderMessageTemplate(
@@ -1174,18 +1186,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           ""
         ).trim();
 
-        // Normalizar texto da mensagem e palavras-chave (remover acentos, minúsculas)
-        const normalizeText = (str: string): string =>
-          str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-        const normalizedMessage = normalizeText(incomingText);
-        const rawKeywords = authenticatedInstance.auto_reply_keywords || "agendar, marcar, horario, link, corte, barba, agenda, atendimento";
-        const keywordsList = rawKeywords
-          .split(",")
-          .map((k: string) => normalizeText(k.trim()))
-          .filter((k: string) => k.length > 0);
-
-        const hasKeywordMatch = keywordsList.some((kw: string) => normalizedMessage.includes(kw));
+        // A lista pertence ao tenant: NULL/vazio significa nenhuma palavra-chave configurada.
+        const hasKeywordMatch = hasAutoReplyKeywordMatch(
+          incomingText,
+          authenticatedInstance.auto_reply_keywords,
+        );
 
         const externalMessageId = String(
           messagePayload.messageid ??
@@ -1334,12 +1339,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         })();
 
         // Regra de envio:
-        // 1. Se é a 1ª mensagem do dia (qualquer mensagem): envia o link.
-        // 2. Se já enviou hoje, apenas envia se o cliente usar uma das palavras-chave.
+        // 1. A primeira mensagem do dia é respondida, com ou sem a tag {link} no modelo.
+        // 2. Se já respondeu hoje, só responde quando houver uma palavra-chave configurada.
         const shouldSend = !isSentToday || hasKeywordMatch;
 
         if (!shouldSend) {
-          console.log(`[WhatsApp-Integration] Mensagem recebida ignorada: link já enviado hoje para este cliente e mensagem não contém palavra-chave (Texto: '${incomingText}')`);
+          console.log("[WhatsApp-Integration] Mensagem recebida ignorada: resposta diária já enviada e nenhuma palavra-chave configurada foi encontrada");
           await supabase
             .from("whatsapp_message_idempotency")
             .update({
