@@ -1,3 +1,5 @@
+import { TEMPLATE_TAG_ALIASES } from '../../../supabase/functions/whatsapp-integration/whatsapp_template_contract.ts';
+
 export type WhatsappTemplateKey =
   | 'confirmation'
   | 'reschedule'
@@ -81,17 +83,7 @@ export const TEMPLATE_TAGS: Record<string, TemplateTag> = {
   link: { tag: '{link}', label: 'Link do Canal', description: 'Link de autoatendimento do cliente' },
 };
 
-export const TEMPLATE_TAG_ALIASES: Record<string, keyof WhatsappTemplateVariables> = {
-  nome_cliente: 'cliente',
-  nome_servico: 'servico',
-  nome_profissional: 'profissional',
-  nome_barbeiro: 'profissional',
-  nome_barbearia: 'barbearia',
-  data_agendamento: 'data',
-  hora_agendamento: 'horario',
-  horario_agendamento: 'horario',
-  link_agendamento: 'link',
-};
+export { TEMPLATE_TAG_ALIASES };
 
 const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.cliente,

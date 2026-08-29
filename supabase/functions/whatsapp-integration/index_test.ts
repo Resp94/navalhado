@@ -740,7 +740,7 @@ Deno.test("POST /webhook - should reject legacy name-only connection updates", a
   const restoreFetch = setupMockFetch({
     "rest/v1/whatsapp_instances": {
       status: 200,
-      body: { success: true }
+      body: []
     }
   });
 
@@ -1170,10 +1170,12 @@ const setupMessageWebhookFetch = ({
   rpcStatus = 200,
   rpcBody = [customerRow()],
   sendStatus = 200,
+  templateFirstContact,
 }: {
   rpcStatus?: number;
   rpcBody?: unknown;
   sendStatus?: number;
+  templateFirstContact?: string;
 } = {}) => {
   const originalFetch = globalThis.fetch;
   const rpcRequests: Record<string, unknown>[] = [];
@@ -1187,6 +1189,7 @@ const setupMessageWebhookFetch = ({
         tenant_id: "tenant-456",
         instance_token: "mock-instance-key",
         status: "connected",
+        ...(templateFirstContact ? { template_first_contact: templateFirstContact } : {}),
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
@@ -1371,7 +1374,7 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
   const sentMessages: Record<string, unknown>[] = [];
   const idempotencyRows: Record<string, unknown>[] = [];
-  let duplicate = false;
+  const reservedDirections = new Set<string>();
 
   Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
   Deno.env.set("UAZAPI_ADMIN_TOKEN", "test-admin-token");
@@ -1390,11 +1393,13 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
     }
     if (url.includes("rest/v1/whatsapp_message_idempotency")) {
       if (method === "POST") {
-        if (duplicate) {
+        const body = JSON.parse(String(init?.body));
+        const direction = String(body.direction || "outbound");
+        if (reservedDirections.has(direction)) {
           return new Response(JSON.stringify({ code: "23505", message: "duplicate" }), { status: 409 });
         }
-        duplicate = true;
-        idempotencyRows.push(JSON.parse(String(init?.body)));
+        reservedDirections.add(direction);
+        idempotencyRows.push(body);
         return new Response(JSON.stringify({}), { status: 201 });
       }
       return new Response(JSON.stringify({}), { status: 200 });
@@ -1452,7 +1457,7 @@ Deno.test("POST /webhook Uazapi - authenticates token, normalizes sender and ded
     assertEquals(await first.json(), { success: true, created: true });
     assertEquals(second.status, 200);
     assertEquals(await second.json(), { success: true, duplicate: true });
-    assertEquals(idempotencyRows[0]?.idempotency_key, "uaz-message-1");
+    assertEquals(idempotencyRows[0]?.idempotency_key, "first_contact:tenant-uaz-1:uaz-message-1");
     assertEquals(idempotencyRows[0]?.external_message_id, "uaz-message-1");
     assertEquals(sentMessages.length, 1);
     assertEquals(sentMessages[0]?.number, "5511999992222");
@@ -1483,9 +1488,11 @@ Deno.test("POST /webhook Uazapi - retries a failed first-contact attempt within 
   const originalFetch = globalThis.fetch;
   const originalBaseUrl = Deno.env.get("UAZAPI_BASE_URL");
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
-  let idempotencyStatus = "failed";
-  let attemptCount = 1;
-  let insertCount = 0;
+  const idempotencyStates = {
+    inbound: { status: "failed", attemptCount: 1 },
+    outbound: { status: "failed", attemptCount: 1 },
+  };
+  const insertedDirections = new Set<string>();
   let sendCount = 0;
 
   Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
@@ -1498,14 +1505,17 @@ Deno.test("POST /webhook Uazapi - retries a failed first-contact attempt within 
     }
     if (url.includes("rest/v1/whatsapp_message_idempotency")) {
       if (method === "POST") {
-        insertCount++;
-        if (insertCount > 1) return new Response(JSON.stringify({ code: "23505" }), { status: 409 });
+        const body = JSON.parse(String(init?.body));
+        const direction = String(body.direction || "outbound") as "inbound" | "outbound";
+        if (insertedDirections.has(direction)) return new Response(JSON.stringify({ code: "23505" }), { status: 409 });
+        insertedDirections.add(direction);
         return new Response(JSON.stringify({}), { status: 201 });
       }
-      if (method === "GET") return new Response(JSON.stringify({ status: idempotencyStatus, attempt_count: attemptCount }), { status: 200 });
+      const direction = url.includes("direction=eq.inbound") ? "inbound" : "outbound";
+      if (method === "GET") return new Response(JSON.stringify({ status: idempotencyStates[direction].status, attempt_count: idempotencyStates[direction].attemptCount }), { status: 200 });
       const patchBody = JSON.parse(String(init?.body));
-      if (patchBody.status) idempotencyStatus = patchBody.status;
-      if (patchBody.attempt_count) attemptCount = patchBody.attempt_count;
+      if (patchBody.status) idempotencyStates[direction].status = patchBody.status;
+      if (patchBody.attempt_count) idempotencyStates[direction].attemptCount = patchBody.attempt_count;
       return new Response(JSON.stringify({}), { status: 200 });
     }
     if (url.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
@@ -1541,8 +1551,9 @@ Deno.test("POST /webhook Uazapi - retries a failed first-contact attempt within 
     assertEquals((await failed.json()).success, true);
     assertEquals((await retried.json()).duplicate, true);
     assertEquals(sendCount, 2);
-    assertEquals(idempotencyStatus, "succeeded");
-    assertEquals(attemptCount, 1);
+    assertEquals(idempotencyStates.inbound.status, "succeeded");
+    assertEquals(idempotencyStates.outbound.status, "succeeded");
+    assertEquals(idempotencyStates.outbound.attemptCount, 2);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
@@ -1910,13 +1921,13 @@ Deno.test("POST /send-manual delegates message delivery through the provider gat
     const res = await testHandler(req);
 
     assertEquals(res.status, 200);
-    assertEquals(providerCalls, [{
-      operation: "send-text",
-      instanceName: "nav_test",
-      instanceToken: "mock-instance-key",
-      number: "5511999991111",
-      text: "Mensagem de teste",
-    }]);
+    assertEquals(providerCalls.length, 1);
+    assertEquals(providerCalls[0]?.operation, "send-text");
+    assertEquals(providerCalls[0]?.instanceName, "nav_test");
+    assertEquals(providerCalls[0]?.instanceToken, "mock-instance-key");
+    assertEquals(providerCalls[0]?.number, "5511999991111");
+    assertEquals(providerCalls[0]?.text, "Mensagem de teste");
+    assertEquals(typeof providerCalls[0]?.idempotencyKey, "string");
   } finally {
     restoreFetch();
   }
@@ -2024,8 +2035,9 @@ const setupSendTestFetch = ({
   const originalFetch = globalThis.fetch;
   let sendCalls = 0;
 
-  globalThis.fetch = (input: string | URL | Request): Promise<Response> => {
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || (input instanceof Request ? input.method : "GET");
     let status = 200;
     let body: unknown;
 
@@ -2035,6 +2047,9 @@ const setupSendTestFetch = ({
       body = { tenant_id: "tenant-456", role };
     } else if (urlStr.includes("rest/v1/whatsapp_instances")) {
       body = { instance_name: "nav_test", instance_token: "mock-instance-key", status: "connected" };
+    } else if (urlStr.includes("rest/v1/whatsapp_message_idempotency")) {
+      status = method === "POST" ? 201 : 200;
+      body = {};
     } else if (urlStr.includes("mock-vps.com/send/text")) {
       sendCalls++;
       status = sendStatus;
@@ -2217,6 +2232,69 @@ Deno.test("POST /process-return-reminders - should scan completed appointments a
   restoreFetch();
 });
 
+Deno.test("POST /webhook Message - records render failures and keeps provider untouched", async () => {
+  const mock = setupMessageWebhookFetch({ templateFirstContact: "Olá {cliente}, {token_inexistente}" });
+
+  try {
+    const response = await handler(createMessageRequest());
+    assertEquals(response.status, 502);
+    assertEquals(await response.json(), { error: "WhatsApp provider request failed" });
+    assertEquals(mock.sentMessages.length, 0);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /webhook Message - accepts legacy name-only instance payloads", async () => {
+  const originalFetch = globalThis.fetch;
+  const sentMessages: Record<string, unknown>[] = [];
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if (url.includes("instance_name=eq.nav_test")) {
+        return new Response(JSON.stringify({
+          id: "instance-123",
+          tenant_id: "tenant-456",
+          instance_name: "nav_test",
+          instance_token: "mock-instance-key",
+          status: "connected",
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify(null), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      return new Response(JSON.stringify({}), { status: method === "POST" ? 201 : 200 });
+    }
+    if (url.includes("rest/v1/rpc/find_or_create_whatsapp_customer")) {
+      return new Response(JSON.stringify([customerRow()]), { status: 200 });
+    }
+    if (url.includes("rest/v1/tenants")) return new Response(JSON.stringify({ name: "Barbearia Estilo", slug: "estilo" }), { status: 200 });
+    if (url.includes("rest/v1/customers")) return new Response(JSON.stringify({ name: "Cliente Perfil" }), { status: 200 });
+    if (url.includes("mock-vps.com/send/text")) {
+      sentMessages.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const request = createMessageRequest();
+    const body = await request.json();
+    delete body.instanceToken;
+    const response = await handler(new Request(request.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+
+    assertEquals(response.status, 200);
+    assertEquals(sentMessages.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 Deno.test("POST /process-welcome-outbox processes eligible balcão events", async () => {
   const restoreFetch = setupMockFetch({
     "rest/v1/rpc/claim_whatsapp_message_outbox": {
@@ -2285,6 +2363,67 @@ Deno.test("POST /process-welcome-outbox processes eligible balcão events", asyn
     assertEquals(await response.json(), { success: true, processed: 1, retried: 0 });
   } finally {
     restoreFetch();
+  }
+});
+
+Deno.test("POST /process-welcome-outbox processes appointment events from the durable outbox", async () => {
+  const originalFetch = globalThis.fetch;
+  const providerCalls: Record<string, unknown>[] = [];
+  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/rpc/claim_whatsapp_message_outbox")) {
+      return new Response(JSON.stringify([{
+        id: "outbox-appointment-1",
+        tenant_id: "tenant-appointment-1",
+        customer_id: "customer-appointment-1",
+        event_type: "appointment_created",
+        idempotency_key: "appointment:appointment-1:appointment_created",
+        attempt_count: 1,
+        payload: { event: "appointment_created", event_type: "appointment_created", appointment_id: "appointment-1", tenant_id: "tenant-appointment-1" },
+      }]), { status: 200 });
+    }
+    if (url.includes("rest/v1/rpc/complete_whatsapp_message_outbox")) {
+      return new Response(JSON.stringify(true), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({ id: "instance-appointment-1", tenant_id: "tenant-appointment-1", instance_name: "nav_appointment", instance_token: "token-appointment", status: "connected", send_confirmation: true, send_cancellation: true }), { status: 200 });
+    }
+    if (url.includes("rest/v1/appointments")) {
+      return new Response(JSON.stringify({
+        id: "appointment-1",
+        start_time: "2026-08-30T19:00:00.000Z",
+        customers: { id: "customer-appointment-1", name: "Cliente Outbox", phone: "11999991111", token_acesso: "token-appointment-customer" },
+        professionals: { name: "Profissional Outbox", phone: null },
+        services: { name: "Corte" },
+        tenants: { name: "Barbearia Outbox", slug: "outbox", timezone: "America/Manaus" },
+      }), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      return new Response(JSON.stringify({}), { status: method === "POST" ? 201 : 200 });
+    }
+    return new Response(JSON.stringify({ error: `unexpected request: ${url}` }), { status: 404 });
+  };
+
+  const provider = createProviderStub({
+    sendText: (input) => {
+      providerCalls.push({ ...input });
+      return Promise.resolve();
+    },
+  });
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/process-welcome-outbox",
+      { method: "POST", headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" } },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), { success: true, processed: 1, retried: 0 });
+    assertEquals(providerCalls.length, 1);
+    assertEquals(providerCalls[0]?.number, "5511999991111");
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 

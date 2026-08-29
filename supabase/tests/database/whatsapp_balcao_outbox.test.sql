@@ -48,11 +48,11 @@ select ok(
   'anonymous callers cannot claim outbox items'
 );
 select ok(
-  position('whatsapp_message_outbox' in pg_get_functiondef('public.fn_customer_welcome_balcao_trigger()'::regprocedure)) > 0,
+  position('whatsapp_message_outbox' in pg_get_functiondef('private.fn_customer_welcome_balcao_trigger()'::regprocedure)) > 0,
   'welcome trigger persists an outbox event'
 );
 select ok(
-  position('net.http_post' in pg_get_functiondef('public.fn_customer_welcome_balcao_trigger()'::regprocedure)) = 0,
+  position('net.http_post' in pg_get_functiondef('private.fn_customer_welcome_balcao_trigger()'::regprocedure)) = 0,
   'welcome trigger does not fire HTTP directly'
 );
 select ok(

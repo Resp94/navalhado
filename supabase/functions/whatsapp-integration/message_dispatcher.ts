@@ -7,11 +7,18 @@ export interface NormalizedMessageEvent {
   instanceToken: string;
   recipientNumber: string;
   template: string;
-  variables: Record<string, string>;
+  fallbackTemplate?: string;
+  variables: Record<string, string | undefined>;
   text?: string;
   idempotencyKey: string;
   correlationId?: string;
   aggregateId?: string;
+  instanceId?: string;
+  appointmentId?: string | null;
+  reminderWindow?: string;
+  direction?: "inbound" | "outbound";
+  isFirstMessageOfDay?: boolean;
+  clientAccessLink?: string;
 }
 
 export interface MessageReservation {
@@ -25,6 +32,10 @@ export interface MessageLedger {
     tenantId: string;
     eventType: string;
     idempotencyKey: string;
+    instanceId?: string;
+    appointmentId?: string | null;
+    reminderWindow?: string;
+    direction?: "inbound" | "outbound";
   }): Promise<MessageReservation>;
   finalize(input: {
     tenantId: string;
@@ -33,6 +44,9 @@ export interface MessageLedger {
     status: "succeeded" | "failed";
     attempts: number;
     errorMessage?: string;
+    appointmentId?: string | null;
+    reminderWindow?: string;
+    direction?: "inbound" | "outbound";
   }): Promise<void>;
 }
 
@@ -41,6 +55,7 @@ export interface MessageDispatcherDependencies {
   ledger: MessageLedger;
   sleep?: (milliseconds: number) => Promise<void>;
   maxAttempts?: number;
+  renderTemplate?: (event: NormalizedMessageEvent) => string;
   onEvent?: (record: MessageDispatchObservation) => void;
 }
 
@@ -58,6 +73,7 @@ export interface MessageDispatchObservation {
 export interface MessageDispatchResult {
   status: "sent" | "duplicate";
   attempts: number;
+  existingStatus?: MessageReservation["status"];
 }
 
 export class MessageDispatchError extends Error {
@@ -123,6 +139,7 @@ export const createMessageDispatcher = ({
   ledger,
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   maxAttempts = 3,
+  renderTemplate,
   onEvent,
 }: MessageDispatcherDependencies) => async (
   event: NormalizedMessageEvent,
@@ -131,6 +148,10 @@ export const createMessageDispatcher = ({
     tenantId: event.tenantId,
     eventType: event.eventType,
     idempotencyKey: event.idempotencyKey,
+    instanceId: event.instanceId,
+    appointmentId: event.appointmentId,
+    reminderWindow: event.reminderWindow,
+    direction: event.direction,
   });
 
   const startedAt = Date.now();
@@ -147,27 +168,31 @@ export const createMessageDispatcher = ({
 
   if (!reservation.reserved) {
     observe({ aggregateId: event.aggregateId, attempt: reservation.attempts, status: "duplicate" });
-    return { status: "duplicate", attempts: reservation.attempts };
+    return { status: "duplicate", attempts: reservation.attempts, existingStatus: reservation.status };
   }
 
   const attempts = Math.max(1, reservation.attempts);
   try {
-    const text = event.text ?? event.template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
+    const template = event.template.trim().length > 0 ? event.template : (event.fallbackTemplate ?? event.template);
+    const text = event.text ?? renderTemplate?.({ ...event, template }) ?? template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => {
       const value = event.variables[key.toLowerCase()];
       if (value === undefined) throw new Error(`Template rendering failed: unresolved token ${key}`);
       return value;
     });
     const completedAttempts = await sendWithRetry(provider, {
-        instanceName: event.instanceName,
-        instanceToken: event.instanceToken,
-        number: event.recipientNumber,
-        text,
-        idempotencyKey: event.idempotencyKey,
-      }, attempts, { sleep, maxAttempts });
+      instanceName: event.instanceName,
+      instanceToken: event.instanceToken,
+      number: event.recipientNumber,
+      text,
+      idempotencyKey: event.idempotencyKey,
+    }, attempts, { sleep, maxAttempts });
     await ledger.finalize({
       tenantId: event.tenantId,
       eventType: event.eventType,
       idempotencyKey: event.idempotencyKey,
+      appointmentId: event.appointmentId,
+      reminderWindow: event.reminderWindow,
+      direction: event.direction,
       status: "succeeded",
       attempts: completedAttempts,
     });
@@ -175,19 +200,29 @@ export const createMessageDispatcher = ({
     return { status: "sent", attempts: completedAttempts };
   } catch (error) {
     const failedAttempts = Number((error as { attempts?: unknown })?.attempts ?? attempts);
+    const providerStatus = errorStatus(error);
+    const providerMessage = error instanceof Error ? error.message : "provider request failed";
+    const isPermanentProviderFailure = providerStatus !== undefined &&
+      providerStatus >= 400 && providerStatus < 500 && providerStatus !== 429;
+    const errorMessage = isPermanentProviderFailure
+      ? `permanent provider error: ${providerMessage}`
+      : providerMessage;
     await ledger.finalize({
       tenantId: event.tenantId,
       eventType: event.eventType,
       idempotencyKey: event.idempotencyKey,
+      appointmentId: event.appointmentId,
+      reminderWindow: event.reminderWindow,
+      direction: event.direction,
       status: "failed",
       attempts: failedAttempts,
-      errorMessage: "provider request failed",
+      errorMessage,
     });
     observe({
       aggregateId: event.aggregateId,
       attempt: failedAttempts,
       status: "failed",
-      providerStatus: errorStatus(error),
+      providerStatus,
     });
     throw new MessageDispatchError("Message delivery failed", failedAttempts, error);
   }

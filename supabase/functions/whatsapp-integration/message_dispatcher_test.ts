@@ -21,16 +21,18 @@ const event: NormalizedMessageEvent = {
 };
 
 const createMemoryLedger = () => {
-  const rows = new Map<string, { status: "processing" | "succeeded" | "failed"; attempts: number }>();
+  const rows = new Map<string, { status: "processing" | "succeeded" | "failed"; attempts: number; errorMessage?: string }>();
   const ledger: MessageLedger = {
     reserve: async ({ idempotencyKey }) => {
       const existing = rows.get(idempotencyKey);
-      if (existing) return { reserved: false, ...existing };
+      if (existing) return { reserved: false, status: existing.status, attempts: existing.attempts };
       rows.set(idempotencyKey, { status: "processing", attempts: 1 });
       return { reserved: true, status: "processing", attempts: 1 };
     },
-    finalize: async ({ idempotencyKey, status, attempts }) => {
-      rows.set(idempotencyKey, { status, attempts });
+    finalize: async ({ idempotencyKey, status, attempts, errorMessage }) => {
+      rows.set(idempotencyKey, errorMessage === undefined
+        ? { status, attempts }
+        : { status, attempts, errorMessage });
     },
   };
   return { ledger, rows };
@@ -60,6 +62,27 @@ Deno.test("dispatcher retries a transient provider error and finalizes success",
   assertEquals(rows.get(event.idempotencyKey), { status: "succeeded", attempts: 2 });
 });
 
+Deno.test("dispatcher retries a rate-limited provider error and finalizes success", async () => {
+  const { ledger, rows } = createMemoryLedger();
+  let providerAttempts = 0;
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    sleep: async () => {},
+    provider: {
+      sendText: async () => {
+        providerAttempts += 1;
+        if (providerAttempts === 1) throw new WhatsAppProviderError("send text", 429);
+      },
+    },
+  });
+
+  const result = await dispatcher({ ...event, idempotencyKey: "rate-limit-event" });
+
+  assertEquals(result, { status: "sent", attempts: 2 });
+  assertEquals(providerAttempts, 2);
+  assertEquals(rows.get("rate-limit-event"), { status: "succeeded", attempts: 2 });
+});
+
 Deno.test("dispatcher skips a duplicate event without calling the provider", async () => {
   const { ledger } = createMemoryLedger();
   let providerCalls = 0;
@@ -75,7 +98,7 @@ Deno.test("dispatcher skips a duplicate event without calling the provider", asy
   await dispatcher(event);
   const duplicate = await dispatcher(event);
 
-  assertEquals(duplicate, { status: "duplicate", attempts: 1 });
+  assertEquals(duplicate, { status: "duplicate", attempts: 1, existingStatus: "succeeded" });
   assertEquals(providerCalls, 1);
 });
 
@@ -93,7 +116,31 @@ Deno.test("dispatcher finalizes a permanent provider error as failed", async () 
 
   await assertRejects(() => dispatcher(event), Error, "Message delivery failed");
 
-  assertEquals(rows.get(event.idempotencyKey), { status: "failed", attempts: 1 });
+  assertEquals(rows.get(event.idempotencyKey), {
+    status: "failed",
+    attempts: 1,
+    errorMessage: "permanent provider error: WhatsApp provider send text failed with status 400",
+  });
+});
+
+Deno.test("dispatcher records template rendering failures with the actionable cause", async () => {
+  const { ledger, rows } = createMemoryLedger();
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    provider: { sendText: async () => {} },
+  });
+
+  await assertRejects(
+    () => dispatcher({ ...event, text: undefined, template: "Olá {faltante}" }),
+    Error,
+    "Message delivery failed",
+  );
+
+  assertEquals(rows.get(event.idempotencyKey), {
+    status: "failed",
+    attempts: 1,
+    errorMessage: "Template rendering failed: unresolved token faltante",
+  });
 });
 
 Deno.test("dispatcher emits sanitized operational observations", async () => {
