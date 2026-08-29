@@ -177,8 +177,9 @@ export const Whatsapp: React.FC = () => {
   // Estados de Personalização de Templates
   const [activeTab, setActiveTab] = useState<WhatsappTemplateKey>('confirmation');
   const [templateDrafts, setTemplateDrafts] = useState<Record<WhatsappTemplateKey, string>>(buildTemplateDrafts(null));
-  const [keywordsDraft, setKeywordsDraft] = useState<string>('agendar, marcar, horario, link, corte, barba, agenda, atendimento');
+  const [keywordsDraft, setKeywordsDraft] = useState<string>('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const savingTemplateRef = useRef(false);
   const [managerPhone, setManagerPhone] = useState<string>('');
   const [testPhoneForTemplate, setTestPhoneForTemplate] = useState('');
   const [sendingTemplateTest, setSendingTemplateTest] = useState(false);
@@ -221,9 +222,7 @@ export const Whatsapp: React.FC = () => {
           const parsed = toWhatsappInstance(data);
           setInstance(parsed);
           setTemplateDrafts(buildTemplateDrafts(parsed));
-          if (parsed.auto_reply_keywords) {
-            setKeywordsDraft(parsed.auto_reply_keywords);
-          }
+          setKeywordsDraft(parsed.auto_reply_keywords ?? '');
         } else {
           setInstance(null);
         }
@@ -554,6 +553,8 @@ export const Whatsapp: React.FC = () => {
   };
 
   const handleSaveTemplate = async () => {
+    if (savingTemplateRef.current) return;
+
     if (!instance) {
       addToast('Conecte ou ative o WhatsApp antes de salvar modelos.', 'warning');
       return;
@@ -569,6 +570,7 @@ export const Whatsapp: React.FC = () => {
     }
 
     try {
+      savingTemplateRef.current = true;
       setSavingTemplate(true);
       const updatePayload: Record<string, unknown> = {
         [currentConfig.column]: activeDraftText.trim(),
@@ -583,17 +585,21 @@ export const Whatsapp: React.FC = () => {
         .from('whatsapp_instances')
         .update(updatePayload)
         .eq('id', instance.id)
+        .eq('tenant_id', tenant.tenantId)
         .select(WHATSAPP_INSTANCE_COLUMNS)
         .single();
 
       if (error) throw error;
       const updated = toWhatsappInstance(data);
       setInstance(updated);
+      setTemplateDrafts(buildTemplateDrafts(updated));
+      setKeywordsDraft(updated.auto_reply_keywords ?? '');
       addToast('Modelo de mensagem salvo com sucesso!', 'success');
     } catch (error: any) {
       console.error('Error saving template:', error);
       addToast(error?.message || 'Erro ao salvar modelo de mensagem.', 'error');
     } finally {
+      savingTemplateRef.current = false;
       setSavingTemplate(false);
     }
   };
@@ -1009,7 +1015,7 @@ export const Whatsapp: React.FC = () => {
                       }}
                     />
                     <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.35rem' }}>
-                      O robô só enviará a mensagem com o link se o cliente enviar uma mensagem contendo ao menos uma dessas palavras-chave.
+                      Na primeira mensagem do dia, o robô responde uma vez mesmo sem palavra-chave. Depois disso, responde somente quando a mensagem contiver uma palavra configurada.
                     </span>
                   </div>
                 )}
@@ -1063,7 +1069,7 @@ export const Whatsapp: React.FC = () => {
                     <div className="alert-content">
                       <strong>Tag {'{link}'} opcional:</strong>
                       <p style={{ margin: '2px 0 0', lineHeight: 1.4 }}>
-                        Como este modelo não inclui a tag <code>{'{link}'}</code>, o sistema anexará o link de autoatendimento automaticamente <strong>apenas na 1ª mensagem do dia</strong> enviada ao cliente.
+                        Como este modelo não inclui a tag <code>{'{link}'}</code>, o link de autoatendimento não será enviado neste evento. Para incluí-lo, adicione a tag ao modelo.
                       </p>
                     </div>
                   </div>

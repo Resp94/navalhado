@@ -25,6 +25,13 @@ export interface ScheduleProfessional {
   weekly_schedule?: WeeklySchedule | null;
 }
 
+export interface ScheduleGridSegment {
+  start: string;
+  end: string;
+  breakStart?: string;
+  breakEnd?: string;
+}
+
 const ENGLISH_DAY_KEYS = [
   'sunday',
   'monday',
@@ -106,6 +113,19 @@ export const clampTimeToRange = (value: string, min: string, max: string): strin
  */
 export const addMinutesToTime = (timeStr: string, minutes: number): string => {
   return minutesToTime(timeToMinutes(timeStr) + minutes);
+};
+
+/**
+ * Normaliza o intervalo configurado pelo tenant antes de gerar qualquer grade.
+ * Valores ausentes ou inválidos usam o intervalo padrão da aplicação.
+ */
+export const normalizeSlotIntervalMinutes = (
+  value: unknown,
+  fallback = 30
+): number => {
+  const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
 };
 
 /**
@@ -292,6 +312,30 @@ export const generateTimeSlotsForSchedule = (
   }
 
   return slots;
+};
+
+/**
+ * Gera a régua da agenda a partir dos segmentos do expediente usando um único
+ * intervalo do tenant. A união evita que escalas sobrepostas dupliquem slots.
+ */
+export const generateScheduleGridSlots = (
+  schedules: ScheduleGridSegment[],
+  slotIntervalMinutes: unknown
+): string[] => {
+  const interval = normalizeSlotIntervalMinutes(slotIntervalMinutes);
+  const slots = new Set<string>();
+
+  schedules.forEach((schedule) => {
+    generateTimeSlotsForSchedule(
+      schedule.start,
+      schedule.end,
+      interval,
+      schedule.breakStart,
+      schedule.breakEnd
+    ).forEach((slot) => slots.add(slot));
+  });
+
+  return Array.from(slots).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 };
 
 /** Gera opções de escala incluindo o fechamento, sempre dentro do expediente. */

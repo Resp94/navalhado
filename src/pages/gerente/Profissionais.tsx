@@ -25,6 +25,7 @@ import {
   clampTimeToRange,
   getBusinessHoursForDayKey,
   generateScheduleTimeOptions,
+  normalizeSlotIntervalMinutes,
   timeToMinutes,
 } from '../../lib/schedule';
 
@@ -44,6 +45,8 @@ interface Professional {
   is_active: boolean;
   user_id: string | null;
 }
+
+const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
 
 const DAYS_OF_WEEK = [
   { key: 'monday', label: 'Segunda-feira' },
@@ -88,6 +91,10 @@ const ClockIcon = () => <HugeiconsIcon icon={Clock01Icon} size={13} />;
 
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
+  const slotIntervalMinutes = normalizeSlotIntervalMinutes(
+    tenant.slotIntervalMinutes,
+    DEFAULT_SLOT_INTERVAL_MINUTES
+  );
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -810,12 +817,12 @@ export const Profissionais: React.FC = () => {
                       const scheduleTimeOptions = generateScheduleTimeOptions(
                         dayBusinessHours.open,
                         dayBusinessHours.close,
-                        tenant.slotIntervalMinutes ?? 30
+                        slotIntervalMinutes
                       );
                       const breakTimeOptions = generateScheduleTimeOptions(
                         daySched.start,
                         daySched.end,
-                        tenant.slotIntervalMinutes ?? 30
+                        slotIntervalMinutes
                       );
                       return (
                         <div

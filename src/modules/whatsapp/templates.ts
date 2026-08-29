@@ -257,7 +257,8 @@ export interface WhatsappTemplateValidationResult {
 }
 
 /**
- * Valida se o template contém a tag `{link}` (obrigatória para fluxos de autoatendimento ao cliente).
+ * Informa se o template contém a tag opcional `{link}`.
+ * A ausência é válida e significa que o link não será incluído no texto personalizado.
  */
 export const validateTemplateHasLink = (template: string): boolean => {
   if (!template) return false;

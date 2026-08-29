@@ -2,7 +2,7 @@
 
 ## Status
 
-Aceita em 2026-08-17. Complementa a ADR 010.
+Aceita em 2026-08-17. Complementa a ADR 010 e é complementada pela especificação 022 para a política de `{link}` e primeiro contato.
 
 ## Contexto
 
@@ -31,9 +31,11 @@ As barbearias do Navalhado necessitam de flexibilidade para personalizar o tom d
      - `{link}`: URL tokenizada de acesso direto ao Canal do Cliente.
    - **Garantia de Não-Regressão**: Se qualquer coluna no banco for `null`, vazia ou não personalizada, o sistema recorre imediatamente à constante `DEFAULT_TEMPLATES`, mantendo 100% de paridade com o comportamento de fábrica original.
 
-3. **Obrigatoriedade e Validação do Link de Autoatendimento**:
-   - Para assegurar que os clientes sempre tenham acesso ao Canal do Cliente (para criar, reagendar ou cancelar seus próprios horários), a tag `{link}` é de presença obrigatória para a gravação dos modelos.
-   - Na interface, a remoção da tag `{link}` exibe um alerta explicativo e desabilita o botão de salvar até que a tag seja reinserida.
+3. **Link de Autoatendimento Opcional e Política de Primeiro Contato**:
+   - A tag `{link}` é opcional em modelos personalizados. Quando presente, recebe a URL tokenizada do Canal do Cliente; quando ausente, nenhum link é anexado automaticamente ao texto personalizado.
+   - O modelo padrão continua contendo `{link}` quando essa é a experiência padrão do evento. Um modelo personalizado vazio continua usando o fallback padrão.
+   - A primeira mensagem do dia para o cliente pode ser respondida mesmo sem palavra-chave. Depois dela, a resposta automática depende exclusivamente das palavras-chave configuradas pelo tenant; lista vazia não restaura palavras-chave padrão.
+   - A interface informa essa política e mantém o botão de salvar disponível quando o modelo personalizado não contém `{link}`.
 
 4. **Experiência do Usuário (Frontend - Split View & Teste Real)**:
    - A página `/whatsapp` recebe uma seção dedicada com abas para cada um dos 5 tipos de evento.

@@ -44,12 +44,14 @@ import {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateScheduleGridSlots,
   generateFittingTimeSlots,
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
+  normalizeSlotIntervalMinutes,
 } from '../../lib/schedule';
-import type { ProfessionalDaySchedule, WeeklySchedule } from '../../lib/schedule';
+import type { ProfessionalDaySchedule, WeeklySchedule, ScheduleGridSegment } from '../../lib/schedule';
 
 export {
   getProfessionalDaySchedule,
@@ -57,10 +59,12 @@ export {
   isProfessionalWorkingAt,
   getProfessionalBreakMessage,
   generateTimeSlotsForSchedule,
+  generateScheduleGridSlots,
   generateFittingTimeSlots,
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
+  normalizeSlotIntervalMinutes,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
 
@@ -130,6 +134,19 @@ interface CardLayout {
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 104;
+
+const toScheduleGridSegment = (
+  schedule: ProfessionalDaySchedule | null | undefined
+): ScheduleGridSegment | null => {
+  if (!schedule || schedule.active === false || !schedule.start || !schedule.end) return null;
+
+  return {
+    start: schedule.start,
+    end: schedule.end,
+    breakStart: schedule.break_start,
+    breakEnd: schedule.break_end,
+  };
+};
 
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
@@ -281,10 +298,10 @@ export const Agenda: React.FC = () => {
   }, [selectedDate]);
 
   // Intervalo e Altura Dinâmicos da Grade Conforme Configurações da Barbearia
-  const slotIntervalMinutes =
-    tenant.slotIntervalMinutes && tenant.slotIntervalMinutes > 0
-      ? tenant.slotIntervalMinutes
-      : DEFAULT_SLOT_DURATION_MINUTES;
+  const slotIntervalMinutes = normalizeSlotIntervalMinutes(
+    tenant.slotIntervalMinutes,
+    DEFAULT_SLOT_DURATION_MINUTES
+  );
   const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
   const pxPerMinute = slotHeightPx / slotIntervalMinutes;
 
@@ -366,47 +383,51 @@ export const Agenda: React.FC = () => {
       return [];
     }
 
-    const slotsSet = new Set<string>();
-    const baseSlots = generateTimeSlotsForSchedule(
-      dayBh.open || '08:00',
-      dayBh.close || '20:00',
-      slotIntervalMinutes
-    );
-    baseSlots.forEach((s) => slotsSet.add(s));
+    const schedules: ScheduleGridSegment[] = [];
 
     if (selectedProfessionalIds.length === 1) {
       const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
       const profSchedule = selectedProf
         ? getEffectiveProfessionalDaySchedule(selectedProf, selectedDate, tenant.businessHours)
         : null;
-      if (profSchedule && profSchedule.active !== false && profSchedule.start && profSchedule.end) {
-        const pSlots = generateTimeSlotsForSchedule(
-          profSchedule.start,
-          profSchedule.end,
-          slotIntervalMinutes,
-          profSchedule.break_start,
-          profSchedule.break_end
-        );
-        pSlots.forEach((s) => slotsSet.add(s));
+      if (profSchedule) {
+        const segment = toScheduleGridSegment(profSchedule);
+        if (segment) schedules.push(segment);
+      } else {
+        schedules.push({
+          start: dayBh.open || '08:00',
+          end: dayBh.close || '20:00',
+        });
       }
-    } else {
-      professionals.forEach((p) => {
+    } else if (selectedProfessionalIds.length > 1) {
+      let hasProfessionalWithoutExplicitSchedule = false;
+      professionals.filter((p) => selectedProfessionalIds.includes(p.id)).forEach((p) => {
         if (!p.is_active) return;
         const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
-        if (sched && sched.active !== false && sched.start && sched.end) {
-          const pSlots = generateTimeSlotsForSchedule(
-            sched.start,
-            sched.end,
-            slotIntervalMinutes,
-            sched.break_start,
-            sched.break_end
-          );
-          pSlots.forEach((s) => slotsSet.add(s));
+        if (!sched) {
+          hasProfessionalWithoutExplicitSchedule = true;
+          return;
         }
+        const segment = toScheduleGridSegment(sched);
+        if (segment) schedules.push(segment);
+      });
+
+      if (hasProfessionalWithoutExplicitSchedule) {
+        schedules.push({
+          start: dayBh.open || '08:00',
+          end: dayBh.close || '20:00',
+        });
+      }
+    }
+
+    if (schedules.length === 0 && selectedProfessionalIds.length > 0) {
+      schedules.push({
+        start: dayBh.open || '08:00',
+        end: dayBh.close || '20:00',
       });
     }
 
-    return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
+    return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
   // Geração de horários 24 horas (00:00 às 23:00) para encaixes
@@ -424,41 +445,26 @@ export const Agenda: React.FC = () => {
       const profSched = prof
         ? getEffectiveProfessionalDaySchedule(prof, formDate, tenant.businessHours)
         : null;
-      if (profSched && profSched.active !== false && profSched.start && profSched.end) {
-        return generateTimeSlotsForSchedule(
-          profSched.start,
-          profSched.end,
-          slotIntervalMinutes,
-          profSched.break_start,
-          profSched.break_end
-        );
+      if (profSched?.active === false) return [];
+      const segment = profSched ? toScheduleGridSegment(profSched) : null;
+      if (segment) {
+        return generateScheduleGridSlots([segment], slotIntervalMinutes);
       }
     }
 
-    const slotsSet = new Set<string>();
-    const baseSlots = generateTimeSlotsForSchedule(
-      dayBh.open,
-      dayBh.close,
-      slotIntervalMinutes
-    );
-    baseSlots.forEach((s) => slotsSet.add(s));
-
+    const schedules: ScheduleGridSegment[] = [];
     professionals.forEach((p) => {
       if (!p.is_active) return;
       const sched = getEffectiveProfessionalDaySchedule(p, formDate, tenant.businessHours);
-      if (sched && sched.active !== false && sched.start && sched.end) {
-        const pSlots = generateTimeSlotsForSchedule(
-          sched.start,
-          sched.end,
-          slotIntervalMinutes,
-          sched.break_start,
-          sched.break_end
-        );
-        pSlots.forEach((s) => slotsSet.add(s));
-      }
+      const segment = toScheduleGridSegment(sched);
+      if (segment) schedules.push(segment);
     });
 
-    return Array.from(slotsSet).sort((a, b) => a.localeCompare(b));
+    if (schedules.length === 0) {
+      schedules.push({ start: dayBh.open, end: dayBh.close });
+    }
+
+    return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting]);
 
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
@@ -472,23 +478,13 @@ export const Agenda: React.FC = () => {
     const profSched = prof
       ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
       : null;
+    if (profSched?.active === false) return [];
 
-    let baseSlots: string[] = [];
-    if (profSched && profSched.active !== false && profSched.start && profSched.end) {
-      baseSlots = generateTimeSlotsForSchedule(
-        profSched.start,
-        profSched.end,
-        slotIntervalMinutes,
-        profSched.break_start,
-        profSched.break_end
-      );
-    } else {
-      baseSlots = generateTimeSlotsForSchedule(
-        dayBh.open || '08:00',
-        dayBh.close || '20:00',
-        slotIntervalMinutes
-      );
-    }
+    const segment = profSched ? toScheduleGridSegment(profSched) : null;
+    const baseSlots = generateScheduleGridSlots(
+      [segment || { start: dayBh.open || '08:00', end: dayBh.close || '20:00' }],
+      slotIntervalMinutes
+    );
 
     const durationMin = agendaRescheduleAppointment?.service?.duration_minutes || 30;
 

@@ -65,6 +65,7 @@ const {
       })),
       update: mockUpdate.mockImplementation(() => ({
         eq: mockEq.mockImplementation(() => ({
+          eq: mockEq,
           select: vi.fn().mockImplementation(() => ({
             single: mockSingle,
           })),
@@ -803,6 +804,41 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(saveBtn).not.toBeDisabled();
     });
 
+    it('deve manter palavras-chave vazias quando o banco retorna NULL', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: { ...mockConnectedInstance, auto_reply_keywords: null },
+        error: null,
+      });
+
+      render(<Whatsapp />);
+
+      const firstContactTab = await screen.findByRole('tab', { name: /^Primeiro Contato$/i });
+      fireEvent.click(firstContactTab);
+
+      const keywordsInput = await screen.findByRole('textbox', { name: /Palavras-chave de ativação/i }) as HTMLInputElement;
+      expect(keywordsInput.value).toBe('');
+    });
+
+    it('deve ignorar cliques repetidos enquanto o salvamento ainda está pendente', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: mockConnectedInstance,
+        error: null,
+      });
+      mockSingle.mockReturnValue(new Promise(() => {}));
+
+      render(<Whatsapp />);
+
+      const textarea = await screen.findByRole('textbox', { name: /Editor de mensagem para Confirmação de Agendamento/i });
+      fireEvent.change(textarea, { target: { value: 'Mensagem persistida' } });
+      const saveBtn = screen.getByRole('button', { name: /Salvar Modelo/i });
+
+      fireEvent.click(saveBtn);
+      fireEvent.click(saveBtn);
+
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+      mockSingle.mockResolvedValue({ data: mockConnectedInstance, error: null });
+    });
+
     it('deve inserir tag clicada no chip e permitir salvar', async () => {
       mockMaybeSingle.mockResolvedValue({
         data: mockConnectedInstance,
@@ -831,6 +867,7 @@ describe('Whatsapp Config Page - TDD', () => {
 
       await waitFor(() => {
         expect(mockUpdate).toHaveBeenCalled();
+        expect(mockEq).toHaveBeenCalledWith('tenant_id', 'tenant-test-id');
         expect(mockAddToast).toHaveBeenCalledWith(
           expect.stringContaining('salvo com sucesso'),
           'success'
