@@ -23,8 +23,73 @@ import type {
 } from '../types';
 
 const TOKEN_STORAGE_KEY = 'navalhado_customer_token';
+const PUBLIC_SESSION_OPERATION_TIMEOUT_MS = 1500;
+
+const isInvalidRefreshTokenError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  const code = typeof candidate.code === 'string' ? candidate.code : '';
+  const message = typeof candidate.message === 'string' ? candidate.message : '';
+
+  return code === 'refresh_token_not_found'
+    || /invalid refresh token|refresh token.*(?:not found|invalid|expired)/i.test(message);
+};
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('PUBLIC_SESSION_OPERATION_TIMEOUT')), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+};
 
 export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
+  private async limparSessaoPublicaLocal(): Promise<void> {
+    try {
+      const result = await withTimeout(
+        publicSupabase.auth.signOut({ scope: 'local' }),
+        PUBLIC_SESSION_OPERATION_TIMEOUT_MS,
+      );
+      if (result.error) {
+        console.warn('Não foi possível limpar a sessão pública local:', result.error);
+      }
+    } catch (error) {
+      console.warn('Não foi possível limpar a sessão pública local:', error);
+    }
+  }
+
+  private async obterSessaoPublicaAtual() {
+    try {
+      const currentSession = await withTimeout(
+        publicSupabase.auth.getSession(),
+        PUBLIC_SESSION_OPERATION_TIMEOUT_MS,
+      );
+
+      if (currentSession.error) {
+        if (isInvalidRefreshTokenError(currentSession.error)) {
+          await this.limparSessaoPublicaLocal();
+          return null;
+        }
+        throw currentSession.error;
+      }
+
+      return currentSession.data.session;
+    } catch (error) {
+      if (isInvalidRefreshTokenError(error) || (error instanceof Error && error.message === 'PUBLIC_SESSION_OPERATION_TIMEOUT')) {
+        await this.limparSessaoPublicaLocal();
+        return null;
+      }
+      throw error;
+    }
+  }
+
   obterTokenAtual(): string | null {
     try {
       return localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -148,10 +213,9 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     phone: string,
     captchaToken?: string,
   ): Promise<DadosSessaoPublica | null> {
-    const currentSession = await publicSupabase.auth.getSession();
-    if (currentSession.error) throw currentSession.error;
+    const currentSession = await this.obterSessaoPublicaAtual();
 
-    if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
+    if (!currentSession || currentSession.user.is_anonymous !== true) {
       const { data: sessionData, error: sessionError } = await publicSupabase.functions.invoke(
         'public-customer-session',
         {
@@ -226,9 +290,8 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
   }
 
   async obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null> {
-    const currentSession = await publicSupabase.auth.getSession();
-    if (currentSession.error) throw currentSession.error;
-    if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
+    const currentSession = await this.obterSessaoPublicaAtual();
+    if (!currentSession || currentSession.user.is_anonymous !== true) {
       return null;
     }
 
@@ -255,7 +318,10 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
   }
 
   async encerrarSessaoPublica(): Promise<void> {
-    const { error } = await publicSupabase.auth.signOut();
+    const { error } = await withTimeout(
+      publicSupabase.auth.signOut({ scope: 'local' }),
+      PUBLIC_SESSION_OPERATION_TIMEOUT_MS,
+    );
     if (error) throw error;
   }
 
