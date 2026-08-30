@@ -40,15 +40,16 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 
 ## Testing Decisions
 
-- Os testes Playwright devem usar uma fixture de tenant com slug, cliente existente, cliente novo, serviço, profissional e datas controladas.
+- A validação será feita com testes automatizados existentes do domínio/componentes e com validação manual no navegador integrado, exclusivamente no ambiente DEV.
+- A validação manual deve usar uma fixture/tenant de teste com slug, cliente existente, cliente novo, serviço, profissional e datas controladas, sem copiar credenciais para código, logs ou evidências.
 - Devem confirmar que nenhum novo link contém `?token=` ou `/cliente/<token>`.
 - Devem cobrir primeiro contato, confirmação, cancelamento, reagendamento e lembrete usando slug e sessão.
 - Devem cobrir identificação de cliente existente, cadastro de cliente novo somente na confirmação e isolamento entre tenants.
 - Devem confirmar que apenas horários disponíveis aparecem no novo agendamento e no reagendamento.
 - Devem confirmar que horários indisponíveis não aparecem como botões inativos e que o estado vazio é exibido quando a lista fica vazia.
-- Devem simular concorrência ou revalidação de horário e confirmar uma resposta controlada sem duplicar agendamento.
-- O checklist executável está em [Playwright 024](../../verificacao-playwright/024-portal-publico-sessao.md).
-- O checklist executável está em [Playwright 024](../../verificacao-playwright/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
+- Devem simular, quando possível sem mutar dados persistidos, a concorrência ou a revalidação de horário e registrar a resposta controlada sem duplicar agendamento.
+- A validação deve ser repetida em desktop e mobile, com prints dos estados relevantes e sem enviar mensagens reais.
+- O checklist de validação manual está em [Validação manual 024](../../verificacao-manual/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope
 
@@ -63,3 +64,4 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - O portal público não precisa desenhar a régua completa. Ele deve receber somente opções acionáveis.
 - A ocultação melhora a experiência, mas não substitui a revalidação autoritativa no Supabase.
 - O texto `Meus agendamentos` ou `Gerenciar agendamentos` deve substituir o termo isolado `Histórico` na entrada do cliente.
+- O checklist manual deve ser executado em DEV com dados isolados e sem modificar dados reais de produção.

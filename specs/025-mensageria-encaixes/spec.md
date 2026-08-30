@@ -53,15 +53,16 @@ O card somente ficará totalmente verde quando atendimento e comanda estiverem f
 
 ## Testing Decisions
 
-- O Playwright deve validar cliente e barbeiro com o provider substituído por um coletor de teste/outbox, sem envio real para números externos.
-- Deve cobrir encaixe passado, encaixe futuro, chamada direta do handler, ausência de duplicidade/retry indevido e motivo de supressão.
+- A validação será feita com testes automatizados existentes do domínio/integração e com validação manual no navegador integrado, exclusivamente no ambiente DEV.
+- A validação manual deve observar o outbox/coletor de teste já disponível, sem enviar mensagens reais para números externos.
+- Deve cobrir encaixe passado, encaixe futuro, chamada direta do handler quando disponível no ambiente de teste, ausência de duplicidade/retry indevido e motivo de supressão.
 - Deve cobrir os estados pendente, confirmado, em atendimento, pago sem conclusão e concluído com comanda finalizada.
 - Deve confirmar que a cor muda após a finalização e que a Agenda se atualiza sem novo fluxo paralelo.
 - Deve cobrir preço padrão, preço alterado, preço zero quando permitido, `{valor}`, formatação BRL e compatibilidade de templates antigos.
 - Deve preservar testes de confirmação, cancelamento, reagendamento, lembretes, boas-vindas, retorno e mensagens para profissionais.
-- Deve verificar isolamento entre tenants e ausência de telefone completo, token ou secret nos logs de teste.
-- O checklist executável está em [Playwright 025](../../verificacao-playwright/025-mensageria-encaixes.md).
-- O checklist executável está em [Playwright 025](../../verificacao-playwright/025-mensageria-encaixes.md) e deve usar exclusivamente o ambiente DEV.
+- Deve verificar isolamento entre tenants e ausência de telefone completo, token ou secret nas evidências e logs de teste.
+- A validação deve ser repetida em desktop e mobile, com prints dos estados relevantes e sem mutar produção.
+- O checklist de validação manual está em [Validação manual 025](../../verificacao-manual/025-mensageria-encaixes.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope
 
@@ -76,5 +77,5 @@ O card somente ficará totalmente verde quando atendimento e comanda estiverem f
 ## Further Notes
 
 - O caso de encaixe passado deve ser validado por timestamp do tenant, não pelo relógio local do navegador.
-- Os checklists Playwright devem ser executados em DEV com fixtures isoladas e sem modificar dados reais de produção.
+- O checklist manual deve ser executado em DEV com fixtures isoladas e sem modificar dados reais de produção.
 - Requisitos de migrations, advisors e segurança são gates de implementação, não autorização para executar alterações diretamente em PROD.
