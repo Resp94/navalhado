@@ -165,6 +165,37 @@ describe('SupabaseCanalClienteAdapter - reagendamento', () => {
     const adapter = new SupabaseCanalClienteAdapter();
 
     await expect(adapter.encerrarSessaoPublica()).resolves.toBeUndefined();
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('descarta a sessão pública quando o refresh token armazenado ficou inválido', async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: null },
+      error: {
+        code: 'refresh_token_not_found',
+        message: 'Invalid Refresh Token: Refresh Token Not Found',
+      },
+    });
+    mockSignOut.mockResolvedValue({ error: null });
+
+    const adapter = new SupabaseCanalClienteAdapter();
+
+    await expect(adapter.obterPerfilPublicoSessao()).resolves.toBeNull();
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('não mantém o logout bloqueado quando o Supabase não responde', async () => {
+    vi.useFakeTimers();
+    mockSignOut.mockReturnValue(new Promise(() => {}));
+
+    try {
+      const logoutPromise = new SupabaseCanalClienteAdapter().encerrarSessaoPublica();
+      const result = expect(logoutPromise).rejects.toThrow('PUBLIC_SESSION_OPERATION_TIMEOUT');
+
+      await vi.advanceTimersByTimeAsync(1500);
+      await result;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

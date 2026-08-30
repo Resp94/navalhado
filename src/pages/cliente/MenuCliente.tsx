@@ -197,21 +197,22 @@ export const MenuCliente: React.FC = () => {
     try {
       if (usingPublicSession) {
         await canalClienteRepository.encerrarSessaoPublica();
-        canalClienteRepository.limparTokenAcesso();
-        if (tenantSlug && typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(publicTokenStorageKey(tenantSlug));
-        }
       } else {
         canalClienteRepository.limparTokenAcesso();
       }
+    } catch (error) {
+      console.warn('Não foi possível encerrar a sessão remota do cliente:', error);
+    } finally {
+      canalClienteRepository.limparTokenAcesso();
+      if (tenantSlug && typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(publicTokenStorageKey(tenantSlug));
+      }
+
       if (tenantSlug) {
         navigate(`/${tenantSlug}`, { replace: true });
       } else {
         navigate('/cliente/acesso-expirado', { replace: true });
       }
-    } catch (error) {
-      console.error('Erro ao encerrar sessão do cliente:', error);
-      addToast('Não foi possível encerrar a sessão.', 'error');
     }
   };
 

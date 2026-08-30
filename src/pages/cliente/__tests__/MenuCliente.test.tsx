@@ -421,4 +421,47 @@ describe('MenuCliente - TDD', () => {
     await waitFor(() => expect(mockPublicSignOut).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('Catálogo público')).toBeInTheDocument();
   });
+
+  it('retorna ao catálogo mesmo quando o encerramento remoto da sessão falha', async () => {
+    localStorage.clear();
+    mockPublicGetSession.mockResolvedValue({
+      data: { session: { user: { is_anonymous: true } } },
+      error: null,
+    });
+    mockPublicRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_customer_session') {
+        return {
+          data: [{
+            customer_id: 'cust-public',
+            customer_name: 'Cliente Público',
+            customer_phone: '92999999999',
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+            cadastro_completo: true,
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_public_customer_appointments') return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    mockPublicSignOut.mockRejectedValue(new Error('refresh_token_not_found'));
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/menu']}>
+        <Routes>
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/brooklyn" element={<div>Catálogo público</div>} />
+          <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Sair' });
+    fireEvent.click(screen.getByRole('button', { name: 'Sair' }));
+
+    expect(await screen.findByText('Catálogo público')).toBeInTheDocument();
+  });
 });
