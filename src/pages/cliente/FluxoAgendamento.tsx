@@ -690,7 +690,7 @@ export const FluxoAgendamento: React.FC = () => {
           )}
 
           {/* Botão Voltar para o Menu */}
-          {((etapa === 1) || isRescheduling) && (
+          {((etapa === 1 && !publicSlug) || isRescheduling) && (
             <button
               onClick={() => navigate('/cliente/menu')}
               style={{
