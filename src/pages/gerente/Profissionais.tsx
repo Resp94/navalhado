@@ -24,8 +24,7 @@ import {
   clampProfessionalScheduleToBusinessHours,
   clampTimeToRange,
   getBusinessHoursForDayKey,
-  generateScheduleTimeOptions,
-  normalizeSlotIntervalMinutes,
+  generateProfessionalTimeOptions,
   timeToMinutes,
 } from '../../lib/schedule';
 
@@ -46,8 +45,6 @@ interface Professional {
   user_id: string | null;
 }
 
-const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
-
 const DAYS_OF_WEEK = [
   { key: 'monday', label: 'Segunda-feira' },
   { key: 'tuesday', label: 'Terça-feira' },
@@ -61,14 +58,6 @@ const DAYS_OF_WEEK = [
 type ScheduleFormDay = ProfessionalScheduleDay & { active: boolean };
 type ScheduleForm = Record<string, ScheduleFormDay>;
 
-const getSafeBreak = (start: string, end: string) => {
-  if (timeToMinutes(start) <= timeToMinutes('12:00') && timeToMinutes(end) >= timeToMinutes('13:00')) {
-    return { break_start: '12:00', break_end: '13:00' };
-  }
-
-  return { break_start: undefined, break_end: undefined };
-};
-
 const createTenantScheduleDefaults = (
   businessHours?: TenantContextType['businessHours']
 ): ScheduleForm => Object.fromEntries(
@@ -78,7 +67,6 @@ const createTenantScheduleDefaults = (
       active: dayHours.active,
       start: dayHours.open,
       end: dayHours.close,
-      ...getSafeBreak(dayHours.open, dayHours.close),
     }];
   })
 );
@@ -91,10 +79,6 @@ const ClockIcon = () => <HugeiconsIcon icon={Clock01Icon} size={13} />;
 
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
-  const slotIntervalMinutes = normalizeSlotIntervalMinutes(
-    tenant.slotIntervalMinutes,
-    DEFAULT_SLOT_INTERVAL_MINUTES
-  );
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -284,13 +268,13 @@ export const Profissionais: React.FC = () => {
   ) => {
     setSchedule((prev) => {
       const currentDay = prev[day];
-      let boundedValue = value;
+      let boundedValue: string | undefined = value || undefined;
 
       if (tenant.businessHours) {
         const dayBusinessHours = getBusinessHoursForDayKey(day, tenant.businessHours);
         if (type === 'start' || type === 'end') {
           boundedValue = clampTimeToRange(value, dayBusinessHours.open, dayBusinessHours.close);
-        } else {
+        } else if (boundedValue) {
           boundedValue = clampTimeToRange(
             value,
             currentDay.start,
@@ -814,15 +798,13 @@ export const Profissionais: React.FC = () => {
                     {DAYS_OF_WEEK.map((day) => {
                       const daySched = schedule[day.key];
                       const dayBusinessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
-                      const scheduleTimeOptions = generateScheduleTimeOptions(
+                      const scheduleTimeOptions = generateProfessionalTimeOptions(
                         dayBusinessHours.open,
                         dayBusinessHours.close,
-                        slotIntervalMinutes
                       );
-                      const breakTimeOptions = generateScheduleTimeOptions(
+                      const breakTimeOptions = generateProfessionalTimeOptions(
                         daySched.start,
                         daySched.end,
-                        slotIntervalMinutes
                       );
                       return (
                         <div
@@ -875,12 +857,13 @@ export const Profissionais: React.FC = () => {
                                 <div className="schedule-row-inputs">
                                   <select
                                     className="day-times-input"
-                                    value={daySched.break_start || '12:00'}
+                                    value={daySched.break_start || ''}
                                     aria-label="Início do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_start', e.target.value)
                                     }
                                   >
+                                    <option value="">Sem intervalo</option>
                                     {breakTimeOptions.map((option) => (
                                       <option key={option} value={option}>{option}</option>
                                     ))}
@@ -888,12 +871,13 @@ export const Profissionais: React.FC = () => {
                                   <span className="schedule-row-sep">às</span>
                                   <select
                                     className="day-times-input"
-                                    value={daySched.break_end || '13:00'}
+                                    value={daySched.break_end || ''}
                                     aria-label="Fim do Almoço"
                                     onChange={(e) =>
                                       handleScheduleTimeChange(day.key, 'break_end', e.target.value)
                                     }
                                   >
+                                    <option value="">Sem intervalo</option>
                                     {breakTimeOptions.map((option) => (
                                       <option key={option} value={option}>{option}</option>
                                     ))}
