@@ -20,6 +20,7 @@ import {
   isProfessionalWorkingAt,
 } from '../../../lib/schedule';
 import type { BlockedSlot } from '../../../modules/bloqueios/types';
+import { getAppointmentCardState } from '../../../lib/appointment-card-state';
 
 interface MobileAgendaViewProps {
   timezone: string;
@@ -439,7 +440,12 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
               if (item.type === 'appointment' && item.appointment) {
                 const app = item.appointment;
                 const timeStart = formatTimeInZone(app.start_time, timezone);
-                const isPaid = app.payment_status === 'paid' || app.status === 'completed';
+                const cardState = getAppointmentCardState({
+                  isFitting: app.is_fitting,
+                  appointmentStatus: app.status,
+                  paymentStatus: app.payment_status,
+                });
+                const isPaid = cardState === 'completed';
                 const isProgress = app.status === 'in_progress';
                 const isFitting = app.is_fitting;
                 const isNoShow = app.status === 'no_show';

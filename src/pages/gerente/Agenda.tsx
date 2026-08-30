@@ -20,6 +20,7 @@ import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
+import { getAppointmentCardState } from '../../lib/appointment-card-state';
 import type { WaitingListEntry } from '../../modules/espera/types';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
@@ -2068,18 +2069,12 @@ export const Agenda: React.FC = () => {
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
-                            let statusClass = 'card-status--pending';
-                            if (app.status === 'no_show') {
-                              statusClass = 'card-status--no-show';
-                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
-                              statusClass = 'card-status--completed';
-                            } else if (app.status === 'in_progress') {
-                              statusClass = 'card-status--in-progress';
-                            } else if (app.is_fitting) {
-                              statusClass = 'card-status--fitting';
-                            } else if (app.status === 'confirmed') {
-                              statusClass = 'card-status--confirmed';
-                            }
+                            const cardState = getAppointmentCardState({
+                              isFitting: app.is_fitting,
+                              appointmentStatus: app.status,
+                              paymentStatus: app.payment_status,
+                            });
+                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
 
                             return (
                               <div
@@ -2382,18 +2377,12 @@ export const Agenda: React.FC = () => {
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
-                            let statusClass = 'card-status--pending';
-                            if (app.status === 'no_show') {
-                              statusClass = 'card-status--no-show';
-                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
-                              statusClass = 'card-status--completed';
-                            } else if (app.status === 'in_progress') {
-                              statusClass = 'card-status--in-progress';
-                            } else if (app.is_fitting) {
-                              statusClass = 'card-status--fitting';
-                            } else if (app.status === 'confirmed') {
-                              statusClass = 'card-status--confirmed';
-                            }
+                            const cardState = getAppointmentCardState({
+                              isFitting: app.is_fitting,
+                              appointmentStatus: app.status,
+                              paymentStatus: app.payment_status,
+                            });
+                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
 
                             return (
                               <div

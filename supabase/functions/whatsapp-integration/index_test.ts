@@ -11,6 +11,8 @@ import {
   hasAutoReplyKeywordMatch,
   getUnresolvedTemplateTokens,
   renderMessageTemplate,
+  isPastFittingAppointment,
+  formatServicePrice,
   type WhatsappTemplateVariables 
 } from "./index.ts";
 import {
@@ -1638,7 +1640,7 @@ Deno.test("POST /send-notification - should format message and send it to VPS", 
         start_time: "2026-07-15T10:00:00Z",
         customers: { name: "Jonathas", phone: "11999998888", token_acesso: "token-abc" },
         professionals: { name: "Guto" },
-        services: { name: "Corte e Barba" },
+        services: { name: "Corte e Barba", price: 80 },
         tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" }
       }
     },
@@ -2557,6 +2559,149 @@ Deno.test("formatMessageTemplate: accepts legacy aliases and reports unresolved 
   assertThrows(() => renderMessageTemplate("Olá {cliente}, {faltante}", DEFAULT_TEMPLATES.first_contact, { cliente: "Lucas" }), Error, "unresolved");
 });
 
+Deno.test("formatMessageTemplate: renders the service price in Brazilian currency", () => {
+  const rendered = formatMessageTemplate(
+    "Serviço: {servico}. Valor: {valor}.",
+    DEFAULT_TEMPLATES.appointment_created,
+    { servico: "Corte + Barba", valor: "R$ 80,00" },
+  );
+
+  assertEquals(rendered, "Serviço: Corte + Barba. Valor: R$ 80,00.");
+});
+
+Deno.test("isPastFittingAppointment: only fitting appointments before the reference instant are suppressed", () => {
+  const reference = new Date("2026-08-30T15:00:00.000Z");
+
+  assertEquals(isPastFittingAppointment({
+    is_fitting: true,
+    start_time: "2026-08-30T14:59:59.000Z",
+  }, reference), true);
+  assertEquals(isPastFittingAppointment({
+    is_fitting: true,
+    start_time: "2026-08-30T15:00:00.000Z",
+  }, reference), false);
+  assertEquals(isPastFittingAppointment({
+    is_fitting: false,
+    start_time: "2026-08-30T14:59:59.000Z",
+  }, reference), false);
+});
+
+Deno.test("POST /send-notification suppresses direct confirmation for a past fitting", async () => {
+  const sentMessages: unknown[] = [];
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-past-fitting",
+        tenant_id: "tenant-past-fitting",
+        instance_name: "nav_past_fitting",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-past-fitting",
+        is_fitting: true,
+        start_time: "2026-08-29T14:00:00.000Z",
+        customers: { id: "customer-past-fitting", name: "Cliente Encaixe", phone: "11988887777" },
+        professionals: { name: "Barbeiro Encaixe", phone: "11977776666" },
+        services: { name: "Corte", price: 80 },
+        tenants: { name: "Barbearia DEV", slug: "barbearia-dev", timezone: "America/Manaus" },
+      },
+    },
+  });
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push(input);
+      return Promise.resolve();
+    },
+  });
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({
+          event: "appointment_created",
+          appointment_id: "app-past-fitting",
+          tenant_id: "tenant-past-fitting",
+        }),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      success: true,
+      status: "skipped",
+      reason: "past_fitting_confirmation",
+    });
+    assertEquals(sentMessages.length, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
+Deno.test("POST /send-notification preserves confirmation for a future fitting", async () => {
+  const sentMessages: unknown[] = [];
+  const restoreFetch = setupMockFetch({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "inst-future-fitting",
+        tenant_id: "tenant-future-fitting",
+        instance_name: "nav_future_fitting",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+      },
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "app-future-fitting",
+        is_fitting: true,
+        start_time: "2099-08-29T14:00:00.000Z",
+        customers: { id: "customer-future-fitting", name: "Cliente Futuro", phone: "11988887777" },
+        professionals: { name: "Barbeiro Futuro", phone: "11977776666" },
+        services: { name: "Corte", price: 80 },
+        tenants: { name: "Barbearia DEV", slug: "barbearia-dev", timezone: "America/Manaus" },
+      },
+    },
+  });
+  const provider = createProviderStub({
+    sendText: (input) => {
+      sentMessages.push(input);
+      return Promise.resolve();
+    },
+  });
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({
+          event: "appointment_created",
+          appointment_id: "app-future-fitting",
+          tenant_id: "tenant-future-fitting",
+        }),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).success, true);
+    assertEquals(sentMessages.length, 2);
+  } finally {
+    restoreFetch();
+  }
+});
+
 Deno.test("POST /send-notification - respects custom template from database in payload", async () => {
   let sentBodyText = "";
   const restoreFetch = setupMockFetch({
@@ -2566,7 +2711,7 @@ Deno.test("POST /send-notification - respects custom template from database in p
         instance_token: "mock-instance-key",
         status: "connected",
         send_confirmation: true,
-        template_confirmation: "E aí {cliente}! Seu corte na {barbearia} tá confirmado! Link: {link}",
+        template_confirmation: "E aí {cliente}! Seu corte na {barbearia} tá confirmado! Valor: {valor}. Link: {link}",
       },
     },
     "rest/v1/appointments": {
@@ -2576,7 +2721,7 @@ Deno.test("POST /send-notification - respects custom template from database in p
         start_time: "2026-07-15T10:00:00Z",
         customers: { name: "Jonathas", phone: "11999998888", token_acesso: "token-abc" },
         professionals: { name: "Guto" },
-        services: { name: "Corte e Barba" },
+        services: { name: "Corte e Barba", price: 80 },
         tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" },
       },
     },
@@ -2614,7 +2759,7 @@ Deno.test("POST /send-notification - respects custom template from database in p
     assertEquals(res.status, 200);
     const data = await res.json();
     assertEquals(data.success, true);
-    assertEquals(sentBodyText.includes("E aí Jonathas! Seu corte na Navalhado Ouro tá confirmado!"), true);
+    assertEquals(sentBodyText.includes(`E aí Jonathas! Seu corte na Navalhado Ouro tá confirmado! Valor: ${formatServicePrice(80)}.`), true);
   } finally {
     globalThis.fetch = originalFetch;
     restoreFetch();

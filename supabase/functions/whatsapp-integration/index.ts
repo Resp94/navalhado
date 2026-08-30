@@ -107,9 +107,31 @@ const formatDateTime = (dateStr: string, timeZone: string = "America/Sao_Paulo")
   return { date: formattedDate, time: formattedTime };
 };
 
+export const PAST_FITTING_CONFIRMATION_REASON = "past_fitting_confirmation";
+
+export const isPastFittingAppointment = (
+  appointment: { is_fitting?: boolean | null; start_time: string },
+  now: Date = new Date(),
+): boolean => {
+  const startTime = Date.parse(appointment.start_time);
+  return Boolean(
+    appointment.is_fitting &&
+    Number.isFinite(startTime) &&
+    startTime < now.getTime()
+  );
+};
+
+export const formatServicePrice = (value: unknown): string => {
+  const amount = Number(value);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number.isFinite(amount) && amount >= 0 ? amount : 0);
+};
+
 export const DEFAULT_TEMPLATES = {
   appointment_created:
-    "Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
+    "Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n💰 Valor: *{valor}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!",
   professional_appointment_created:
     "Olá, {profissional}! Você tem um novo agendamento na *{barbearia}*!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Cliente: *{cliente}*",
   appointment_rescheduled:
@@ -139,6 +161,7 @@ export interface WhatsappTemplateVariables {
   data?: string;
   horario?: string;
   link?: string;
+  valor?: string;
   [key: string]: string | undefined;
 }
 
@@ -1821,9 +1844,10 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .select(`
           id,
           start_time,
+          is_fitting,
           customers ( id, name, phone, token_acesso, last_first_contact_at ),
           professionals ( name, phone ),
-          services ( name ),
+          services ( name, price ),
           tenants ( name, slug, timezone )
         `)
         .eq("id", appointment_id)
@@ -1850,6 +1874,28 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         });
       }
 
+      if (event === "appointment_created" && isPastFittingAppointment(appointment)) {
+        console.info(`[WhatsApp-Integration] Confirmação suprimida: motivo '${PAST_FITTING_CONFIRMATION_REASON}', agendamento '${appointment_id}', tenant '${tenant_id}'`);
+        await supabase.from("audit_logs").insert({
+          tenant_id,
+          action: "whatsapp_confirmation_suppressed",
+          resource: "appointment",
+          details: {
+            appointment_id,
+            event_type: event,
+            reason: PAST_FITTING_CONFIRMATION_REASON,
+          },
+        });
+        return new Response(JSON.stringify({
+          success: true,
+          status: "skipped",
+          reason: PAST_FITTING_CONFIRMATION_REASON,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
       const clientAccessLink = buildPublicClientLink({
         appUrl,
@@ -1865,6 +1911,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         profissional: professional.name || "Profissional",
         data: date,
         horario: time,
+        valor: formatServicePrice(service.price),
         link: clientAccessLink,
       };
 

@@ -54,7 +54,7 @@ export interface TemplateConfig {
 
 export const DEFAULT_TEMPLATES: Record<WhatsappTemplateKey, string> = {
   confirmation:
-    'Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!',
+    'Olá, {cliente}! Seu agendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n💰 Valor: *{valor}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!',
   reschedule:
     'Olá, {cliente}! Seu reagendamento na *{barbearia}* foi confirmado!\n\n📅 Data: *{data} às {horario}*\n✂️ Serviço: *{servico}*\n👤 Profissional: *{profissional}*\n\nPara gerenciar seu agendamento (reagendar/cancelar), acesse: {link}\n\nObrigado!',
   cancellation:
@@ -80,6 +80,7 @@ export const TEMPLATE_TAGS: Record<string, TemplateTag> = {
   profissional: { tag: '{profissional}', label: 'Profissional', description: 'Nome do profissional' },
   data: { tag: '{data}', label: 'Data', description: 'Data formatada (ex: 18/08/2026)' },
   horario: { tag: '{horario}', label: 'Horário', description: 'Horário do atendimento (ex: 14:30)' },
+  valor: { tag: '{valor}', label: 'Valor', description: 'Valor do serviço em reais (ex: R$ 80,00)' },
   link: { tag: '{link}', label: 'Link do Canal', description: 'Link de autoatendimento do cliente' },
 };
 
@@ -92,6 +93,7 @@ const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.profissional,
   TEMPLATE_TAGS.data,
   TEMPLATE_TAGS.horario,
+  TEMPLATE_TAGS.valor,
   TEMPLATE_TAGS.link,
 ];
 
@@ -207,6 +209,7 @@ export interface WhatsappTemplateVariables {
   profissional?: string;
   data?: string;
   horario?: string;
+  valor?: string;
   link?: string;
   [key: string]: string | undefined;
 }
@@ -218,6 +221,7 @@ export const SAMPLE_MOCK_VARIABLES: WhatsappTemplateVariables = {
   profissional: 'Carlos Barbeiro',
   data: '18/08/2026',
   horario: '14:30',
+  valor: 'R$ 80,00',
   link: 'https://dev.navalhado.com.br/cliente/demo-acesso',
 };
 
