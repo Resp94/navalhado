@@ -994,6 +994,11 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           background: #ffedd5;
         }
 
+        .mobile-agenda__card--fitting.mobile-agenda__card--paid {
+          border-color: #4ade80;
+          background: #86efac;
+        }
+
         .mobile-agenda__card--normal {
           border-left-width: 1px;
         }

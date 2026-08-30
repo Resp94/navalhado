@@ -104,6 +104,23 @@ describe('MobileAgendaView Component', () => {
     );
   });
 
+  it('mantém o fundo verde quando um encaixe pago está concluído', () => {
+    const paidFittingAppointment: Appointment = {
+      ...mockAppointments[0],
+      id: 'app-fitting-paid',
+      status: 'completed',
+      payment_status: 'paid',
+      is_fitting: true,
+    };
+
+    render(<MobileAgendaView {...defaultProps} appointments={[paidFittingAppointment]} />);
+
+    const card = screen.getByTitle('Toque para abrir a comanda');
+
+    expect(card).toHaveClass('mobile-agenda__card--fitting', 'mobile-agenda__card--paid');
+    expect(window.getComputedStyle(card).backgroundColor).toBe('rgb(134, 239, 172)');
+  });
+
   it('aciona o toque em slot vazio para novo agendamento com o profissional selecionado', () => {
     render(<MobileAgendaView {...defaultProps} />);
 
