@@ -89,6 +89,32 @@ export const FluxoAgendamento: React.FC = () => {
 
   const canalClienteRepository = useCanalCliente();
 
+  const resolvePublicIdentity = useCallback(async (name: string, phone: string) => {
+    if (!publicSlug || canonicalToken) return;
+
+    const trimmedName = name.trim();
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (trimmedName.split(/\s+/).filter(Boolean).length < 2 || normalizedPhone.length < 10) {
+      return;
+    }
+
+    try {
+      const lookup = await canalClienteRepository.resolverIdentidadePublica(
+        publicSlug,
+        trimmedName,
+        normalizedPhone,
+      );
+      if (lookup?.found && lookup.customer_id && lookup.customer_name) {
+        setRecognizedCustomer({ id: lookup.customer_id, name: lookup.customer_name });
+        setClientFullName(lookup.customer_name);
+      } else {
+        setRecognizedCustomer(null);
+      }
+    } catch (error) {
+      console.warn('Erro ao resolver identidade pública:', error);
+    }
+  }, [canalClienteRepository, canonicalToken, publicSlug]);
+
   const handlePhoneChange = async (val: string) => {
     const masked = maskPhone(val);
     setClientPhone(masked);
@@ -108,6 +134,8 @@ export const FluxoAgendamento: React.FC = () => {
       } catch (e) {
         console.warn('Erro ao consultar cliente por telefone:', e);
       }
+    } else if (publicSlug && !canonicalToken && digits.length >= 10) {
+      void resolvePublicIdentity(clientFullName, val);
     } else {
       setRecognizedCustomer(null);
     }
@@ -128,6 +156,8 @@ export const FluxoAgendamento: React.FC = () => {
       } catch (e) {
         console.warn('Erro no blur ao consultar cliente por telefone:', e);
       }
+    } else if (publicSlug && !canonicalToken) {
+      await resolvePublicIdentity(clientFullName, clientPhone);
     }
   };
 
@@ -368,7 +398,8 @@ export const FluxoAgendamento: React.FC = () => {
 
   const visibleSchedule = useMemo<HorarioGradeCanal[]>(() => {
     if (publicSlug && !canonicalToken) {
-      return publicSchedule;
+      const defensivelyAvailableSlots = new Set(filteredAvailableSlots);
+      return publicSchedule.filter((slot) => slot.available && defensivelyAvailableSlots.has(slot.slot_time));
     }
     return filteredAvailableSlots.map((slot) => ({ slot_time: slot, available: true }));
   }, [publicSchedule, publicSlug, canonicalToken, filteredAvailableSlots]);
@@ -396,6 +427,10 @@ export const FluxoAgendamento: React.FC = () => {
     try {
       const confirmationSlug = publicSlug || customerDetails?.tenant_slug;
       if (confirmationSlug && !isRescheduling) {
+        if (publicSlug && !canonicalToken) {
+          await resolvePublicIdentity(trimmedName, cleanPhone);
+        }
+
         const confirmation = await canalClienteRepository.confirmarAgendamentoPublico({
           slug: confirmationSlug,
           token: canonicalToken,

@@ -51,7 +51,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     vi.useRealTimers();
   });
 
-  it('carrega rota pública por slug sem criar cliente provisório e preserva slot indisponível', async () => {
+  it('carrega rota pública por slug sem criar cliente provisório e oculta slot indisponível', async () => {
     const service = {
       id: 'service-public-1',
       name: 'Corte Público',
@@ -89,6 +89,22 @@ describe('FluxoAgendamento - cadastro inicial', () => {
           error: null,
         };
       }
+      if (name === 'resolve_public_customer_identity') {
+        return {
+          data: [{
+            found: true,
+            customer_id: 'customer-public-existing',
+            customer_name: 'Maria Silva',
+            customer_phone: '5592999998888',
+            cadastro_completo: true,
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+          }],
+          error: null,
+        };
+      }
       if (name === 'confirm_public_booking') {
         return {
           data: [{
@@ -115,7 +131,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     expect(screen.getByDisplayValue('25/08/2026')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '10:00' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: '10:30' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '10:30' })).not.toBeInTheDocument();
     expect(mockRpc).not.toHaveBeenCalledWith(
       'get_or_create_provisional_customer_by_slug',
       expect.anything(),
@@ -124,6 +140,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     fireEvent.click(screen.getByRole('button', { name: '10:00' }));
     fireEvent.change(screen.getByPlaceholderText(/Ex: Matheus Lopes/i), { target: { value: 'Maria Silva' } });
     fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
+    expect(await screen.findByText(/Cadastro reconhecido: Maria Silva/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
 
     await waitFor(() => {

@@ -33,6 +33,18 @@ export interface HorarioGradeCanal {
   available: boolean;
 }
 
+export interface IdentidadeClientePublica {
+  found: boolean;
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  cadastro_completo?: boolean;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_phone: string;
+  tenant_slug: string;
+}
+
 export interface ServicoCanal {
   id: string;
   name: string;
@@ -121,6 +133,11 @@ export interface ICanalClienteAdapter {
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
   buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
+  buscarIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string
+  ): Promise<IdentidadeClientePublica | null>;
   listarServicosPorSlug(slug: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]>;
   buscarGradeHorariosPorSlug(

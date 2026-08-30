@@ -9,6 +9,7 @@ import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
   HorarioGradeCanal,
+  IdentidadeClientePublica,
   ICanalClienteAdapter,
   ConfirmacaoAgendamentoPublico,
   InputConfirmarAgendamentoPublico,
@@ -109,6 +110,34 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       slot_interval_minutes: Number(row.slot_interval_minutes ?? 30),
       min_booking_lead_time_minutes: Number(row.min_booking_lead_time_minutes ?? 15),
       min_cancellation_lead_time_minutes: Number(row.min_cancellation_lead_time_minutes ?? 120),
+    };
+  }
+
+  async buscarIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string,
+  ): Promise<IdentidadeClientePublica | null> {
+    const { data, error } = await supabase.rpc('resolve_public_customer_identity', {
+      p_slug: slug,
+      p_name: name,
+      p_phone: phone,
+    });
+
+    if (error) throw error;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+    const row = data[0];
+    return {
+      found: Boolean(row.found),
+      customer_id: row.customer_id || undefined,
+      customer_name: row.customer_name || undefined,
+      customer_phone: row.customer_phone || undefined,
+      cadastro_completo: row.cadastro_completo === undefined ? undefined : Boolean(row.cadastro_completo),
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
     };
   }
 

@@ -19,6 +19,7 @@ import {
   WhatsAppProviderError,
   type WhatsAppProvider,
 } from "./whatsapp_provider.ts";
+import { buildPublicClientLink } from "./public_client_link.ts";
 
 // Set environment variables for tests
 Deno.env.set("UAZAPI_BASE_URL", "https://mock-vps.com");
@@ -61,6 +62,35 @@ Deno.test("singleRelation normalizes embedded Supabase relations", () => {
   assertEquals(singleRelation([relation]), relation);
   assertEquals(singleRelation([]), null);
   assertEquals(singleRelation(null), null);
+});
+
+Deno.test("buildPublicClientLink uses the tenant slug without exposing the customer token", () => {
+  assertEquals(
+    buildPublicClientLink({
+      appUrl: "https://app.navalhado.com.br/",
+      tenantSlug: "brooklyn",
+      legacyToken: "customer-token",
+      legacyPath: "agendar",
+    }),
+    "https://app.navalhado.com.br/brooklyn",
+  );
+  assertEquals(
+    buildPublicClientLink({
+      appUrl: "https://app.navalhado.com.br",
+      tenantSlug: null,
+      legacyToken: "customer-token",
+      legacyPath: "agendar",
+    }),
+    "https://app.navalhado.com.br/cliente/customer-token/agendar",
+  );
+  assertEquals(
+    buildPublicClientLink({
+      appUrl: "https://app.navalhado.com.br",
+      tenantSlug: "barbearia teste",
+      legacyToken: "customer-token",
+    }),
+    "https://app.navalhado.com.br/barbearia%20teste",
+  );
 });
 
 Deno.test("Uazapi adapter creates instances and configures filtered webhooks", async () => {

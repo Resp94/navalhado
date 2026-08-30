@@ -277,6 +277,8 @@ describe('MenuCliente - TDD', () => {
 
     expect(await screen.findByText('Corte Validado')).toBeInTheDocument();
     expect(screen.getByText(/Olá, Cliente/)).toBeInTheDocument();
+    expect(screen.getByText('Finalizados')).toBeInTheDocument();
+    expect(screen.queryByText('Histórico')).not.toBeInTheDocument();
     expect(mockRpc).toHaveBeenCalledWith('get_customer_details_by_token', { p_token: 'token-validado' });
 
     fireEvent.click(screen.getByRole('button', { name: /Agendar novo horário/i }));

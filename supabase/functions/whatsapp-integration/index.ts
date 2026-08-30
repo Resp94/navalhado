@@ -7,6 +7,7 @@ import {
 } from "./whatsapp_provider.ts";
 import { createMessageDispatcher } from "./message_dispatcher.ts";
 import { TEMPLATE_TAG_ALIASES } from "./whatsapp_template_contract.ts";
+import { buildPublicClientLink } from "./public_client_link.ts";
 export { createMessageDispatcher, sendWithRetry } from "./message_dispatcher.ts";
 export type {
   MessageDispatchResult,
@@ -1362,9 +1363,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
-        const link = tenantSlug
-          ? (customer?.token_acesso ? `${appUrl}/${tenantSlug}?token=${customer.token_acesso}` : `${appUrl}/${tenantSlug}`)
-          : `${appUrl}/cliente/${customer.token_acesso}/agendar`;
+        const link = buildPublicClientLink({
+          appUrl,
+          tenantSlug,
+          legacyToken: customer.token_acesso,
+          legacyPath: "agendar",
+        });
         const variables: WhatsappTemplateVariables = {
           cliente: clientName,
           barbearia: barbeariaNome,
@@ -1567,9 +1571,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         .eq("id", tenantId)
         .maybeSingle();
 
-      const clientAccessLink = tenant?.slug
-        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
-        : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
+      const clientAccessLink = buildPublicClientLink({
+        appUrl,
+        tenantSlug: tenant?.slug,
+        legacyToken: customer.token_acesso,
+      });
 
       const variables: WhatsappTemplateVariables = {
         cliente: customer.name || "Cliente",
@@ -1845,9 +1851,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const { date, time } = formatDateTime(appointment.start_time, tenant.timezone || "America/Sao_Paulo");
-      const clientAccessLink = tenant.slug
-        ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
-        : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
+      const clientAccessLink = buildPublicClientLink({
+        appUrl,
+        tenantSlug: tenant.slug,
+        legacyToken: customer?.token_acesso,
+      });
 
       const variables: WhatsappTemplateVariables = {
         cliente: customer?.name || "Cliente",
@@ -1878,9 +1886,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           fallback: DEFAULT_TEMPLATES.appointment_cancelled,
           vars: {
             ...variables,
-            link: tenant.slug
-              ? (customer?.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
-              : (customer?.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}/agendar` : appUrl),
+            link: buildPublicClientLink({
+              appUrl,
+              tenantSlug: tenant.slug,
+              legacyToken: customer?.token_acesso,
+              legacyPath: "agendar",
+            }),
           },
         },
       };
@@ -2109,9 +2120,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
             const clientPhone = formatPhoneNumber(customer.phone);
             const { date, time } = formatDateTime(app.start_time, tenant.timezone || "America/Sao_Paulo");
-            const link = tenant.slug
-              ? (customer.token_acesso ? `${appUrl}/${tenant.slug}?token=${customer.token_acesso}` : `${appUrl}/${tenant.slug}`)
-              : (customer.token_acesso ? `${appUrl}/cliente/${customer.token_acesso}` : appUrl);
+            const link = buildPublicClientLink({
+              appUrl,
+              tenantSlug: tenant.slug,
+              legacyToken: customer.token_acesso,
+            });
             const variables: WhatsappTemplateVariables = {
               cliente: customer.name || "Cliente",
               barbearia: tenant.name || "nossa barbearia",
@@ -2240,9 +2253,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
         for (const item of pendingReminders) {
           const clientPhone = formatPhoneNumber(item.customer_phone);
-          const link = tenantSlug
-            ? `${appUrl}/${tenantSlug}`
-            : `${appUrl}/cliente/${item.customer_token}`;
+          const link = buildPublicClientLink({
+            appUrl,
+            tenantSlug,
+            legacyToken: item.customer_token,
+          });
           const reminderWindow = `${item.return_period_days}d`;
           try {
             const result = await dispatchMessage({

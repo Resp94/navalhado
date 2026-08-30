@@ -43,7 +43,7 @@ export const MenuCliente: React.FC = () => {
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
   const [expiredAppointment, setExpiredAppointment] = useState<AgendamentoCanal | null>(null);
 
-  // Controle de Abas (Ativos vs Histórico/Cancelados)
+// Controle de abas do gerenciamento (agendamentos ativos vs finalizados)
   const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
 
   const filteredAppointments = appointments.filter(app => 
@@ -471,7 +471,7 @@ export const MenuCliente: React.FC = () => {
                 gap: '6px'
               }}
             >
-              <span>Histórico</span>
+              <span>Finalizados</span>
               <span style={{
                 fontSize: '10px',
                 backgroundColor: activeTab === 'historico' ? 'var(--color-brand-lightest)' : 'rgba(234, 222, 214, 0.4)',
@@ -519,7 +519,7 @@ export const MenuCliente: React.FC = () => {
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-base)', margin: 0, fontWeight: 500 }}>
                   {activeTab === 'ativos' 
                     ? 'Você não possui nenhum agendamento ativo no momento.' 
-                    : 'Nenhum histórico de agendamento disponível.'}
+                    : 'Nenhum agendamento finalizado disponível.'}
                 </p>
               </div>
             </div>

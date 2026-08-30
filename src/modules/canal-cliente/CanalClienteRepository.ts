@@ -6,6 +6,7 @@ import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
   HorarioGradeCanal,
+  IdentidadeClientePublica,
   ICanalClienteAdapter,
   ConfirmacaoAgendamentoPublico,
   InputConfirmarAgendamentoPublico,
@@ -68,6 +69,29 @@ export class CanalClienteRepository {
     }
 
     return await this.adapter.buscarContextoPublicoPorSlug(slug.trim());
+  }
+
+  async resolverIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string
+  ): Promise<IdentidadeClientePublica | null> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!name || name.trim().split(/\s+/).filter(Boolean).length < 2) {
+      throw new CanalClienteValidationError('Informe nome e sobrenome completos.');
+    }
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
+      throw new CanalClienteValidationError('Informe um WhatsApp válido com DDD.');
+    }
+
+    return await this.adapter.buscarIdentidadePublica(
+      slug.trim(),
+      name.trim(),
+      normalizedPhone,
+    );
   }
 
   async obterCatalogoServicosPublico(slug: string): Promise<{

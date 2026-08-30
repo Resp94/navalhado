@@ -7,6 +7,7 @@ import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
   HorarioGradeCanal,
+  IdentidadeClientePublica,
   ICanalClienteAdapter,
   ConfirmacaoAgendamentoPublico,
   InputConfirmarAgendamentoPublico,
@@ -53,6 +54,35 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       return null;
     }
     return this.contextosPublicos.get(slug) || null;
+  }
+
+  async buscarIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string,
+  ): Promise<IdentidadeClientePublica | null> {
+    const contexto = this.contextosPublicos.get(slug);
+    if (!contexto) return null;
+
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const entry = Array.from(this.perfis.values()).find((perfil) =>
+      perfil.tenant_id === contexto.tenant_id &&
+      perfil.cadastro_completo &&
+      perfil.customer_name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase() &&
+      perfil.customer_phone?.replace(/\D/g, '') === normalizedPhone
+    );
+
+    return {
+      found: Boolean(entry),
+      customer_id: entry?.customer_id,
+      customer_name: entry?.customer_name,
+      customer_phone: entry?.customer_phone,
+      cadastro_completo: entry?.cadastro_completo,
+      tenant_id: contexto.tenant_id,
+      tenant_name: contexto.tenant_name,
+      tenant_phone: contexto.tenant_phone,
+      tenant_slug: contexto.tenant_slug,
+    };
   }
 
   async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {
