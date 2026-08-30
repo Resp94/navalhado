@@ -19,10 +19,14 @@ export const getAppointmentCardState = ({
   paymentStatus,
 }: AppointmentCardStateInput): AppointmentCardState => {
   if (appointmentStatus === 'no_show') return 'no_show';
-  if (appointmentStatus === 'completed' && paymentStatus === 'paid') return 'completed';
+  if (
+    (isFitting && appointmentStatus === 'completed' && paymentStatus === 'paid') ||
+    (!isFitting && (paymentStatus === 'paid' || appointmentStatus === 'completed'))
+  ) {
+    return 'completed';
+  }
   if (appointmentStatus === 'in_progress') return 'in_progress';
   if (isFitting) return 'fitting';
   if (appointmentStatus === 'confirmed') return 'confirmed';
   return 'pending';
 };
-

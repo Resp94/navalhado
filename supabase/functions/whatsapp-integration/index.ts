@@ -1911,9 +1911,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         profissional: professional.name || "Profissional",
         data: date,
         horario: time,
-        valor: formatServicePrice(service.price),
         link: clientAccessLink,
       };
+      if (event === "appointment_created") {
+        variables.valor = formatServicePrice(service.price);
+      }
 
       const TEMPLATE_RESOLVERS: Record<string, { custom: string | null | undefined; fallback: string; vars?: WhatsappTemplateVariables }> = {
         appointment_created: {

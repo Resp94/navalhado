@@ -93,6 +93,16 @@ const APPOINTMENT_TAGS: TemplateTag[] = [
   TEMPLATE_TAGS.profissional,
   TEMPLATE_TAGS.data,
   TEMPLATE_TAGS.horario,
+  TEMPLATE_TAGS.link,
+];
+
+const CONFIRMATION_TAGS: TemplateTag[] = [
+  TEMPLATE_TAGS.cliente,
+  TEMPLATE_TAGS.barbearia,
+  TEMPLATE_TAGS.servico,
+  TEMPLATE_TAGS.profissional,
+  TEMPLATE_TAGS.data,
+  TEMPLATE_TAGS.horario,
   TEMPLATE_TAGS.valor,
   TEMPLATE_TAGS.link,
 ];
@@ -126,7 +136,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     shortTitle: 'Confirmação',
     description: 'Enviada automaticamente assim que o cliente conclui uma nova reserva.',
     audience: 'cliente',
-    availableTags: APPOINTMENT_TAGS,
+    availableTags: CONFIRMATION_TAGS,
   },
   {
     key: 'reschedule',

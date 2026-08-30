@@ -25,5 +25,17 @@ describe('estado visual do card de encaixe', () => {
       paymentStatus: 'pending',
     })).toBe('fitting');
   });
-});
 
+  it('preserva a regra anterior para agendamentos normais pagos ou concluídos', () => {
+    expect(getAppointmentCardState({
+      isFitting: false,
+      appointmentStatus: 'confirmed',
+      paymentStatus: 'paid',
+    })).toBe('completed');
+    expect(getAppointmentCardState({
+      isFitting: false,
+      appointmentStatus: 'completed',
+      paymentStatus: 'pending',
+    })).toBe('completed');
+  });
+});

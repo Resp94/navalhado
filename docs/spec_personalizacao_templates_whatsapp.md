@@ -6,7 +6,7 @@ Atualmente, o gestor da barbearia no Navalhado não possui autonomia para person
 
 ## Solution
 
-Criar uma infraestrutura completa e flexível de gerenciamento de **Templates de Notificação WhatsApp** no painel do Gerente (`/whatsapp`), permitindo a customização do texto para os 5 eventos canônicos do sistema com suporte a interpolação de tags dinâmicas (`{cliente}`, `{barbearia}`, `{servico}`, `{profissional}`, `{data}`, `{horario}`, `{link}`). 
+ Criar uma infraestrutura completa e flexível de gerenciamento de **Templates de Notificação WhatsApp** no painel do Gerente (`/whatsapp`), permitindo a customização do texto para os 5 eventos canônicos do sistema com suporte a interpolação de tags dinâmicas (`{cliente}`, `{barbearia}`, `{servico}`, `{profissional}`, `{data}`, `{horario}`, `{valor}` somente na confirmação de criação, `{link}`). 
 
 A solução garante retrocompatibilidade e resiliência total através de **fallback automático** para textos padrão em caso de campos não preenchidos, **validação visual da tag `{link}`** para deixar explícito quando o modelo personalizado não incluirá o link, um **editor em Split View com Live Preview no formato de balão nativo do WhatsApp**, e um mecanismo de **disparo de teste instantâneo no número real do gerente**.
 
@@ -50,6 +50,7 @@ A solução garante retrocompatibilidade e resiliência total através de **fall
   - `{profissional}`: Nome do barbeiro executor.
   - `{data}`: Data formatada de acordo com o timezone do tenant (ex: `18/08/2026`).
   - `{horario}`: Horário formatado no fuso horário do tenant (ex: `14:30`).
+  - `{valor}`: Valor do serviço da confirmação de criação, formatado em reais (ex: `R$ 80,00`).
   - `{link}`: URL tokenizada de autoatendimento no Canal do Cliente.
 - **Mecanismo de Não-Regressão (*Non-Breaking Fallback*):**
   - Existência de um dicionário estático imutável de textos canônicos (`DEFAULT_TEMPLATES`).

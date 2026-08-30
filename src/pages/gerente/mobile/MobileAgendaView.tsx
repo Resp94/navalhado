@@ -445,7 +445,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   appointmentStatus: app.status,
                   paymentStatus: app.payment_status,
                 });
-                const isPaid = cardState === 'completed';
+                const isCompletedAndPaid = cardState === 'completed';
                 const isProgress = app.status === 'in_progress';
                 const isFitting = app.is_fitting;
                 const isNoShow = app.status === 'no_show';
@@ -456,7 +456,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
+                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isCompletedAndPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -492,7 +492,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         {isFitting && (
                           <span className="mobile-agenda__fitting-pill">Encaixe</span>
                         )}
-                        {isPaid && (
+                        {isCompletedAndPaid && (
                           <span className="mobile-agenda__paid-pill">Pago</span>
                         )}
                         {isNoShow && (
