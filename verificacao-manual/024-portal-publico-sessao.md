@@ -65,6 +65,26 @@
 - [ ] Confirmar o link de lembrete.
 - [ ] Confirmar que todos os novos links usam slug e sessão, sem token exposto.
 
+## Correção 087 — persistência da sessão anônima
+
+- [x] Confirmar que a entrada de gerenciamento usa Supabase Auth anônimo.
+- [x] Confirmar no banco DEV que a sessão foi vinculada ao tenant correto e ao cliente correto.
+- [x] Confirmar no banco DEV que a identidade anônima não foi projetada em `public.users`.
+- [x] Confirmar que gestores e barbeiros continuam cobertos pelo caminho original do trigger.
+- [x] Confirmar o acesso ao painel em desktop.
+- [x] Confirmar o acesso ao painel e o novo agendamento em mobile.
+- [x] Confirmar a confirmação mobile com nome, telefone e valor preenchidos.
+- [x] Confirmar no dia 31/08/2026 que o atendimento ocupado das 10:00 não aparece e o primeiro horário livre é 10:40.
+- [x] Confirmar a cadência dinâmica `10:40, 11:20, 12:00, 15:00, 15:40...18:20`, respeitando o intervalo configurado de 13:00–15:00.
+
+Evidências salvas em `verificacao-manual/evidencias/`:
+
+- `024-sessao-anonima-desktop.png`
+- `024-sessao-anonima-mobile-menu.png`
+- `024-confirmacao-sessao-mobile.png`
+- `024-slots-dia-31-desktop.png`
+- `024-slots-dia-31-mobile.png`
+
 ## Critério de conclusão
 
 - [ ] Novo agendamento e reagendamento exibem somente opções disponíveis.

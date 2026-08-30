@@ -32,6 +32,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - Um cliente com sessão ativa poderá iniciar um novo agendamento pela área de gerenciamento; a confirmação reutilizará nome e telefone preenchidos pela sessão.
 - A sessão resolverá o tenant e o cliente fora da URL, usando o fluxo de nome e telefone normalizado já existente.
 - A sessão pública usará Supabase Auth anônimo e autorização baseada em `auth.uid()`; nenhum RPC de operação sensível aceitará apenas um identificador público de sessão.
+- Usuários criados pelo Supabase Auth com `is_anonymous = true` serão mantidos somente em `auth.users` durante a sessão; o trigger `handle_new_user()` não os projetará em `public.users`, cuja identidade administrativa/profissional exige e-mail.
 - Não será criada uma segunda identidade de cliente baseada em URL.
 - Links legados tokenizados serão aceitos durante a transição e convertidos para a sessão pública sem quebrar mensagens já entregues.
 - As entradas públicas de primeiro contato, confirmação, cancelamento, reagendamento e lembrete usarão o slug; uma ação não secreta poderá ser usada quando necessário.
@@ -42,12 +43,13 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - A Agenda administrativa manterá sua visualização operacional, podendo continuar exibindo horários ocupados ou indisponíveis.
 - A confirmação do horário será revalidada no servidor para impedir reservas concorrentes.
 - Toda implementação, teste, consulta de validação e migration desta spec será executada exclusivamente no banco/ambiente DEV. As credenciais de teste devem ser obtidas somente de `docs/credenciais_teste.md`, sem copiar valores para código, fixtures, logs ou documentação.
-- Toda migration necessária deverá ser versionada e numerada sequencialmente conforme o padrão existente (`timestamp_descricao_082.sql`, próxima disponível `083`), criada pelo fluxo oficial e aplicada somente em DEV nesta etapa, via MCP.
+- Toda migration necessária deverá ser versionada e numerada sequencialmente conforme o padrão existente; a correção desta etapa é a `087`, aplicada somente em DEV via MCP.
 
 ## Testing Decisions
 
 - A validação será feita com testes automatizados existentes do domínio/componentes e com validação manual no navegador integrado, exclusivamente no ambiente DEV.
 - A validação manual deve usar uma fixture/tenant de teste com slug, cliente existente, cliente novo, serviço, profissional e datas controladas, sem copiar credenciais para código, logs ou evidências.
+- A persistência da sessão deve confirmar no banco DEV que a identidade é anônima, está vinculada ao tenant e ao cliente, e não possui projeção correspondente em `public.users`.
 - Devem confirmar que nenhum novo link contém `?token=` ou `/cliente/<token>`.
 - Devem cobrir primeiro contato, confirmação, cancelamento, reagendamento e lembrete usando slug e sessão.
 - Devem cobrir identificação de cliente existente, cadastro de cliente novo somente na confirmação e isolamento entre tenants.
@@ -70,5 +72,6 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 
 - O portal público não precisa desenhar a régua completa. Ele deve receber somente opções acionáveis.
 - A ocultação melhora a experiência, mas não substitui a revalidação autoritativa no Supabase.
+- A migration `20260830150000_087_skip_public_users_for_anonymous_auth.sql` corrige a compatibilidade entre o Auth anônimo e o trigger legado de criação de usuários; ela não altera o fluxo de gestores/barbeiros nem a semântica da agenda.
 - O texto `Meus agendamentos` ou `Gerenciar agendamentos` deve substituir o termo isolado `Histórico` na entrada do cliente.
 - O checklist manual deve ser executado em DEV com dados isolados e sem modificar dados reais de produção.
