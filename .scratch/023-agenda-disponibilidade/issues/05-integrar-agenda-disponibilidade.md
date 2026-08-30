@@ -7,8 +7,8 @@
 **Status:** completed
 
 - [x] A Agenda interna usa a mesma decisão de disponibilidade do contrato de domínio.
-- [x] A grade do profissional não é recriada a partir do início da escala individual.
-- [x] A opção `Tanto faz` usa a grade do tenant.
+- [x] A grade do profissional começa no início efetivo da escala individual e respeita os limites máximos do tenant.
+- [x] A opção `Tanto faz` compõe a união das grades dos profissionais compatíveis, respeitando o início efetivo de cada um.
 - [x] `Tanto faz` fica disponível quando pelo menos um profissional compatível atende às regras.
 - [x] Um dia fechado no tenant continua fechado mesmo com escala profissional cadastrada.
 - [x] A Agenda não permite início fora do fechamento do tenant ou do profissional.

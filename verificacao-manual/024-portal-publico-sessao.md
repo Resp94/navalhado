@@ -37,6 +37,7 @@
 
 - [ ] Abrir o fluxo de novo agendamento.
 - [ ] Confirmar que somente horários disponíveis são renderizados.
+- [ ] No modo `Tanto faz`, confirmar que o primeiro horário e a cadência respeitam o início efetivo do profissional, sem horários intermediários herdados da abertura do tenant.
 - [ ] Confirmar que horários ocupados não aparecem como botões inativos.
 - [ ] Confirmar que bloqueios e pausas não aparecem como opções acionáveis.
 - [ ] Alterar serviço, profissional e data e confirmar que a lista é recalculada.

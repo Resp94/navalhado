@@ -9,6 +9,7 @@
 - [ ] O novo agendamento renderiza somente horários disponíveis.
 - [ ] Horários ocupados, bloqueados ou dentro de pausas não são renderizados como botões inativos.
 - [ ] A disponibilidade considera serviço, duração efetiva, profissional, data, expediente, escala, pausa, conflitos e antecedência.
+- [x] No modo `Tanto faz`, o primeiro horário e a cadência respeitam o início efetivo dos profissionais compatíveis, sem criar horários intermediários da abertura do tenant. Validado no Supabase DEV e visualmente em desktop/mobile em 31/08/2026.
 - [ ] A mesma decisão de disponibilidade é usada no novo agendamento e no reagendamento.
 - [ ] Alterar serviço, profissional ou data recalcula a lista de opções.
 - [ ] O fluxo iniciado pelo gerenciamento mantém a mesma sequência serviço → profissional → horários.

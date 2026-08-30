@@ -8,7 +8,7 @@
 
 - [x] Horários anteriores ao início da escala do profissional não ficam disponíveis.
 - [x] Horários posteriores ao fim da escala do profissional não ficam disponíveis.
-- [x] O início do profissional não recria nem desloca a cadência do tenant.
+- [x] O início do profissional define a origem da cadência efetiva, sem ultrapassar os limites máximos do tenant.
 - [x] O intervalo profissional aceita horários exatos, como `12:00–14:00`, mesmo quando não coincidem com a cadência da grade.
 - [x] O retorno da pausa é o primeiro horário do segmento seguinte.
 - [x] Após o retorno, os horários avançam pelo intervalo dinâmico do tenant.

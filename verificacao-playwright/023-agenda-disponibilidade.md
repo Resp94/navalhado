@@ -31,10 +31,10 @@
 - [ ] Configurar dinamicamente um tenant com retorno de pausa às `15:00` e verificar que o primeiro slot após a pausa é o retorno.
 - [ ] Verificar que os slots seguintes avançam pelo intervalo configurado.
 - [ ] Repetir com retorno às `14:00` e confirmar que a sequência muda sem regra fixa.
-- [ ] Confirmar que o início do profissional filtra slots anteriores sem recriar a cadência.
+- [ ] Confirmar que o início do profissional define a origem da cadência efetiva, sem ultrapassar os limites do tenant.
 - [ ] Confirmar que o fim do profissional filtra slots posteriores.
 - [ ] Confirmar que um dia fechado no tenant não fica disponível por causa da escala profissional.
-- [ ] Confirmar que `Tanto faz` usa a grade do tenant e fica disponível quando ao menos um profissional atende.
+- [ ] Confirmar que `Tanto faz` compõe a união das grades dos profissionais compatíveis, respeitando o início efetivo de cada um.
 
 ## Duração, conflitos e fechamento
 

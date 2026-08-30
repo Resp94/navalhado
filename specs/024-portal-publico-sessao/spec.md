@@ -14,7 +14,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 
 1. Como cliente, quero ver somente horários válidos para o serviço escolhido, para não reservar um horário que conflite com outro atendimento. (orig. 5)
 2. Como gerente, quero que o portal público e a agenda interna mostrem a mesma disponibilidade, para evitar informações divergentes. (orig. 9)
-3. Como cliente, quero que a grade pública mantenha a janela e o intervalo do tenant, para ter o mesmo padrão de horários em qualquer profissional. (orig. 14)
+3. Como cliente, quero que a grade pública respeite os limites do tenant e o expediente efetivo dos profissionais, para ver apenas horários coerentes com a operação real. (orig. 14)
 4. Como cliente no portal público, quero ver somente horários disponíveis no agendamento e no reagendamento, para não interpretar horários bloqueados como opções de reserva. (orig. 15)
 5. Como cliente, quero que horários ocupados ou indisponíveis não sejam renderizados como botões inativos, para encontrar rapidamente as opções acionáveis. (orig. 16)
 6. Como cliente, quero receber uma indicação clara quando não houver horários disponíveis, para poder escolher outra data ou profissional. (orig. 17)
@@ -37,6 +37,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - As entradas públicas de primeiro contato, confirmação, cancelamento, reagendamento e lembrete usarão o slug; uma ação não secreta poderá ser usada quando necessário.
 - A disponibilidade pública não retornará opções indisponíveis para renderização. Linhas com `available = false` não serão transformadas em botões desabilitados.
 - A mesma decisão de disponibilidade do Supabase será usada no agendamento e no reagendamento público.
+- No modo `Tanto faz`, a grade pública consumirá a grade efetiva dos profissionais compatíveis, sem reancorar os horários na abertura da barbearia; o intervalo e o retorno da pausa continuam dinâmicos.
 - Quando não houver horários, o portal apresentará estado vazio com orientação para escolher outra data ou profissional.
 - A Agenda administrativa manterá sua visualização operacional, podendo continuar exibindo horários ocupados ou indisponíveis.
 - A confirmação do horário será revalidada no servidor para impedir reservas concorrentes.

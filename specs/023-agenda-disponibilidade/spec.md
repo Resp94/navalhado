@@ -22,7 +22,7 @@ A duração efetiva será a duração do serviço ou a duração personalizada p
 8. Como gerente, quero que o último slot seja calculado dinamicamente, para que ele mude quando abertura, pausa, fechamento, intervalo ou antecedência forem alterados. (orig. 10)
 9. Como gerente, quero que um intervalo terminando às 15:00 com grade de 40 minutos produza 18:20 como último início antes das 19:00, para representar a cadência configurada. (orig. 11)
 10. Como gerente, quero que uma configuração diferente, como intervalo terminando às 14:00, possa produzir 18:40, para que o sistema não esconda horários por hardcode. (orig. 12)
-11. Como gerente, quero que o horário do barbeiro filtre a grade do tenant, para respeitar a escala individual sem deslocar a cadência exibida. (orig. 13)
+11. Como gerente, quero que o horário do barbeiro defina a grade efetivamente atendida, respeitando os limites máximos do tenant e a cadência configurada. (orig. 13)
 12. Como gerente, quero que a disponibilidade do barbeiro retome após sua pausa no horário configurado e avance pelo intervalo do tenant, para preservar o formato atual. (orig. 18)
 13. Como gerente, quero configurar o início e o fim do intervalo do barbeiro em horários exatos dentro do expediente do tenant, independentemente do intervalo da grade, para representar corretamente a operação. (orig. 19)
 14. Como gerente, quero que horários de escala e intervalo fora do funcionamento da barbearia sejam rejeitados, para manter o barbeiro dentro dos limites oficiais. (orig. 20)
@@ -31,8 +31,8 @@ A duração efetiva será a duração do serviço ou a duração personalizada p
 ## Implementation Decisions
 
 - A disponibilidade terá uma única interface de domínio consumida pela Agenda interna e pelo portal público, com adaptadores separados para cada tela.
-- `tenants.business_hours` define a janela máxima; `tenants.slot_interval_minutes` define a cadência; a escala semanal do profissional apenas restringe a interseção.
-- O início do profissional não recria a origem da grade. Horários anteriores à escala serão filtrados, mas os horários restantes conservarão a cadência do tenant.
+- `tenants.business_hours` define a janela máxima; `tenants.slot_interval_minutes` define o intervalo da cadência; a escala semanal do profissional define a janela efetiva e a origem de cada segmento.
+- O tenant define os limites máximos. A escala do profissional define a janela efetivamente atendida e a origem da cadência no segmento correspondente. No modo `Tanto faz`, a grade é a união das grades dos profissionais compatíveis; cada profissional conserva seu próprio início, fim e retorno de pausa.
 - O retorno da pausa profissional será uma origem exata do segmento da tarde. O intervalo da grade não será usado para arredondar os campos de configuração do profissional.
 - O serviço escolhido determina a duração base. `professional_services.custom_duration_minutes`, quando definido e habilitado, substitui a duração base para aquele profissional.
 - O fechamento limita `slot_start`, não `slot_start + duration`; serviços podem terminar depois do fechamento quando o início for elegível.
@@ -64,4 +64,4 @@ A duração efetiva será a duração do serviço ou a duração personalizada p
 
 - Os valores `14:00`, `15:00`, `18:20`, `18:40` e `19:00` são cenários de teste, não constantes de implementação.
 - O tenant define os limites máximos; o profissional define o horário efetivamente atendido.
-- O seletor de escala/intervalo e o gerador de slots são conceitos diferentes: uma pausa `12:00–14:00` pode ser salva mesmo que esses horários não estejam na sequência da grade anterior.
+- O seletor de escala/intervalo e o gerador de slots são conceitos diferentes: uma pausa `12:00–14:00` pode ser salva mesmo que esses horários não estejam na sequência da grade anterior. Um agendamento antigo apenas ocupa seu intervalo real e não desloca a origem da grade.
