@@ -157,6 +157,54 @@ describe('CanalClienteRepository', () => {
     expect(adapter.perfis.size).toBe(sizeBefore);
   });
 
+  it('deve iniciar sessão pública para cliente existente sem expor token', async () => {
+    adapter.perfis.set('session-token', {
+      customer_id: 'session-customer',
+      customer_name: 'Jonathas Teste',
+      customer_phone: '11999999999',
+      tenant_id: 'tenant_brooklyn',
+      tenant_name: 'Barbearia brooklyn',
+      tenant_phone: '11999999999',
+      tenant_slug: 'brooklyn',
+      cadastro_completo: true,
+    });
+
+    const result = await repository.iniciarSessaoPublica(
+      'brooklyn',
+      'Jonathas Teste',
+      '(11) 99999-9999',
+    );
+
+    expect(result).toMatchObject({
+      found: true,
+      customer_id: 'session-customer',
+      tenant_slug: 'brooklyn',
+    });
+    expect(result).not.toHaveProperty('token_acesso');
+    expect(repository.obterTokenAcesso()).toBeNull();
+  });
+
+  it('deve encerrar a sessão pública e voltar ao fluxo sem sessão', async () => {
+    adapter.perfis.set('session-token', {
+      customer_id: 'session-customer',
+      customer_name: 'Jonathas Teste',
+      customer_phone: '11999999999',
+      tenant_id: 'tenant_brooklyn',
+      tenant_name: 'Barbearia brooklyn',
+      tenant_phone: '11999999999',
+      tenant_slug: 'brooklyn',
+      cadastro_completo: true,
+    });
+
+    await repository.iniciarSessaoPublica('brooklyn', 'Jonathas Teste', '11999999999');
+    await expect(repository.obterPerfilPublicoSessao()).resolves.toMatchObject({
+      customer_id: 'session-customer',
+    });
+
+    await repository.encerrarSessaoPublica();
+    await expect(repository.obterPerfilPublicoSessao()).resolves.toBeNull();
+  });
+
   it('deve obter serviços e profissionais públicos sem exigir token', async () => {
     const catalogo = await repository.obterCatalogoServicosPublico('brooklyn');
     const profissionais = await repository.obterProfissionaisPublicos('brooklyn', 's1');

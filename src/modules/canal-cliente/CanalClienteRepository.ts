@@ -5,6 +5,7 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  DadosSessaoPublica,
   HorarioGradeCanal,
   IdentidadeClientePublica,
   ICanalClienteAdapter,
@@ -92,6 +93,54 @@ export class CanalClienteRepository {
       name.trim(),
       normalizedPhone,
     );
+  }
+
+  async iniciarSessaoPublica(
+    slug: string,
+    name: string,
+    phone: string,
+  ): Promise<DadosSessaoPublica | null> {
+    if (!slug || !slug.trim()) {
+      throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
+    }
+    if (!name || name.trim().split(/\s+/).filter(Boolean).length < 2) {
+      throw new CanalClienteValidationError('Informe nome e sobrenome completos.');
+    }
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.length < 10 || normalizedPhone.length > 13) {
+      throw new CanalClienteValidationError('Informe um WhatsApp válido com DDD.');
+    }
+
+    return await this.adapter.iniciarSessaoPublica(slug.trim(), name.trim(), normalizedPhone);
+  }
+
+  async obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null> {
+    return await this.adapter.obterPerfilPublicoSessao();
+  }
+
+  async encerrarSessaoPublica(): Promise<void> {
+    await this.adapter.encerrarSessaoPublica();
+  }
+
+  async obterAgendamentosPublicoSessao(): Promise<AgendamentoCanal[]> {
+    return await this.adapter.listarAgendamentosPublicoSessao();
+  }
+
+  async cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void> {
+    if (!appointmentId?.trim()) {
+      throw new CanalClienteValidationError('ID do agendamento é obrigatório para cancelamento.');
+    }
+    await this.adapter.cancelarAgendamentoPublicoSessao(appointmentId.trim(), motivo);
+  }
+
+  async reagendarAgendamentoPublicoSessao(input: InputReagendarAgendamento): Promise<void> {
+    if (!input.appointmentId?.trim()) {
+      throw new CanalClienteValidationError('ID do agendamento é obrigatório para reagendamento.');
+    }
+    if (!input.newStartTime && (!input.newDate || !input.newSlot)) {
+      throw new CanalClienteValidationError('Selecione o novo horário do agendamento.');
+    }
+    await this.adapter.reagendarAgendamentoPublicoSessao(input);
   }
 
   async obterCatalogoServicosPublico(slug: string): Promise<{

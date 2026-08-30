@@ -24,6 +24,15 @@
 - [ ] Abrir um link legado tokenizado e confirmar compatibilidade durante a transição.
 - [ ] Registrar print do link por slug e da área de gerenciamento da sessão.
 
+## Fluxos de agendamento
+
+- [ ] Confirmar que `Agendar` mantém a ordem serviços → profissionais → horários disponíveis → confirmação.
+- [ ] Confirmar que nome e telefone continuam sendo solicitados na confirmação do fluxo normal.
+- [ ] Dentro de `Gerenciar meus agendamentos`, clicar em `Novo agendamento`.
+- [ ] Confirmar que o fluxo de novo agendamento mantém a mesma ordem do fluxo normal.
+- [ ] Confirmar que nome e telefone da sessão aparecem preenchidos na confirmação.
+- [ ] Clicar em `Sair` e confirmar o retorno ao catálogo público sem excluir agendamentos.
+
 ## Somente horários disponíveis
 
 - [ ] Abrir o fluxo de novo agendamento.

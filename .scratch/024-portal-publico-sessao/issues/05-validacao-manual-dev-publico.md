@@ -10,6 +10,9 @@
 - [ ] As credenciais são obtidas somente de `docs/credenciais_teste.md` e não aparecem em prints, logs ou relatórios.
 - [ ] O primeiro contato é validado pelo domínio e slug, sem token exposto.
 - [ ] A sessão identifica cliente existente e permite o fluxo de cliente novo sem cliente fantasma.
+- [ ] O fluxo `Agendar` mantém a ordem serviços → profissionais → horários → confirmação.
+- [ ] O fluxo `Gerenciar meus agendamentos` inicia a sessão, permite `Novo agendamento` e mantém nome/telefone preenchidos na confirmação.
+- [ ] `Sair` encerra a sessão e devolve o cliente ao catálogo público normal.
 - [ ] Confirmação, cancelamento, reagendamento e lembrete são validados com slug/sessão.
 - [ ] Novo agendamento e reagendamento exibem somente horários disponíveis.
 - [ ] Horários indisponíveis não aparecem como botões inativos.

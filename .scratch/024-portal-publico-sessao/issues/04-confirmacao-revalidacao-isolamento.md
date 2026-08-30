@@ -7,6 +7,8 @@
 **Status:** ready-for-agent
 
 - [ ] A confirmação revalida a disponibilidade no Supabase imediatamente antes da persistência.
+- [ ] No agendamento sem sessão, a confirmação continua exigindo nome e telefone.
+- [ ] No agendamento iniciado pelo gerenciamento, nome e telefone da sessão são preenchidos e validados novamente no servidor.
 - [ ] Uma concorrência que ocupa o horário antes da confirmação recebe resposta controlada.
 - [ ] A falha de revalidação não cria agendamento duplicado.
 - [ ] Cliente novo é persistido somente no momento permitido pela confirmação.
@@ -14,5 +16,6 @@
 - [ ] Um tenant não consegue confirmar ou consultar dados de outro tenant.
 - [ ] A resposta de erro não expõe token, segredo ou dados sensíveis.
 - [ ] Permissões, isolamento e `search_path` das funções de banco permanecem protegidos.
+- [ ] Operações de gerenciamento autorizam pelo `auth.uid()` do Supabase Auth anônimo, nunca por UUID público isolado.
 - [ ] Qualquer alteração de banco é criada como migration numerada e aplicada somente em DEV via MCP.
 - [ ] Testes automatizados cobrem concorrência, duplicidade, cliente novo e isolamento.

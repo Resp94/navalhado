@@ -6,6 +6,7 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  DadosSessaoPublica,
   HorarioGradeCanal,
   IdentidadeClientePublica,
   ICanalClienteAdapter,
@@ -21,6 +22,7 @@ import type {
 
 export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   private activeToken: string | null = null;
+  private publicSessionProfile: PerfilClienteCanal | null = null;
   public perfis: Map<string, PerfilClienteCanal> = new Map();
   public contextosPublicos: Map<string, ContextoPublicoCanal> = new Map();
   public servicos: ServicoCanal[] = [];
@@ -83,6 +85,67 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
       tenant_phone: contexto.tenant_phone,
       tenant_slug: contexto.tenant_slug,
     };
+  }
+
+  async iniciarSessaoPublica(
+    slug: string,
+    name: string,
+    phone: string,
+  ): Promise<DadosSessaoPublica | null> {
+    const identity = await this.buscarIdentidadePublica(slug, name, phone);
+    if (!identity) return null;
+
+    if (identity.found && identity.customer_id && identity.customer_name) {
+      this.publicSessionProfile = {
+        customer_id: identity.customer_id,
+        customer_name: identity.customer_name,
+        customer_phone: identity.customer_phone,
+        tenant_id: identity.tenant_id,
+        tenant_name: identity.tenant_name,
+        tenant_phone: identity.tenant_phone,
+        tenant_slug: identity.tenant_slug,
+        cadastro_completo: true,
+      };
+    }
+
+    return {
+      ...identity,
+      tenant_timezone: this.contextosPublicos.get(slug)?.timezone,
+      min_cancellation_lead_time_minutes: this.contextosPublicos.get(slug)?.min_cancellation_lead_time_minutes,
+      min_booking_lead_time_minutes: this.contextosPublicos.get(slug)?.min_booking_lead_time_minutes,
+      slot_interval_minutes: this.contextosPublicos.get(slug)?.slot_interval_minutes,
+    };
+  }
+
+  async obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null> {
+    return this.publicSessionProfile;
+  }
+
+  async encerrarSessaoPublica(): Promise<void> {
+    this.publicSessionProfile = null;
+  }
+
+  async listarAgendamentosPublicoSessao(): Promise<AgendamentoCanal[]> {
+    if (!this.publicSessionProfile) throw new CanalClienteTokenError('Sessão pública inexistente.');
+    return this.agendamentos.filter((appointment) =>
+      appointment.customer_name === this.publicSessionProfile?.customer_name &&
+      appointment.tenant_id === this.publicSessionProfile?.tenant_id
+    );
+  }
+
+  private tokenDaSessaoPublica(): string {
+    const profile = this.publicSessionProfile;
+    const entry = profile && Array.from(this.perfis.entries()).find(([, item]) => item.customer_id === profile.customer_id);
+    if (!entry) throw new CanalClienteTokenError('Sessão pública inexistente.');
+    return entry[0];
+  }
+
+  async cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void> {
+    await this.cancelarAgendamentoPorToken(this.tokenDaSessaoPublica(), appointmentId, motivo);
+  }
+
+  async reagendarAgendamentoPublicoSessao(input: InputReagendarAgendamento): Promise<void> {
+    await this.reagendarAgendamentoPorToken(this.tokenDaSessaoPublica(), input);
   }
 
   async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {

@@ -6,7 +6,7 @@ O portal público atualmente pode exibir toda a régua de horários, diferencian
 
 ## Solution
 
-Usar o domínio público mais o slug do tenant como porta de entrada. Depois que o cliente informa nome e telefone, o sistema inicia ou recupera a sessão no tenant correto. A disponibilidade pública mostrará somente horários acionáveis para o serviço, profissional, data e regras de agenda selecionados, tanto no novo agendamento quanto no reagendamento.
+Usar o domínio público mais o slug do tenant como porta de entrada. O fluxo de agendamento permanece na sequência atual: serviço, profissional, horário e confirmação com nome e telefone. O botão de gerenciamento inicia ou recupera uma sessão segura no tenant correto; dentro dela, o cliente também pode iniciar um novo agendamento com seus dados já preenchidos. A disponibilidade pública mostrará somente horários acionáveis para o serviço, profissional, data e regras de agenda selecionados, tanto no novo agendamento quanto no reagendamento.
 
 Links antigos tokenizados continuarão sendo aceitos durante a transição, mas novos links não conterão token. A confirmação final continuará sendo revalidada no Supabase para tratar concorrência.
 
@@ -22,11 +22,16 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 8. Como gerente, quero que o primeiro contato não exponha token de cliente na URL, para simplificar o acesso e reduzir dependência de links personalizados. (orig. 37)
 9. Como sistema, quero identificar o cliente por tenant e telefone normalizado após o acesso público, para evitar clientes fantasmas. (orig. 38)
 10. Como cliente, quero que confirmação, cancelamento, reagendamento, lembretes e primeiro contato abram pelo slug e iniciem minha sessão, para não receber tokens expostos na URL. (orig. 39)
+11. Como cliente com sessão ativa, quero iniciar um novo agendamento pelo gerenciamento e confirmar com nome e telefone preenchidos, sem repetir meus dados.
 
 ## Implementation Decisions
 
 - O link público novo terá o domínio da aplicação e o slug do tenant, sem `token` ou segredo na URL.
+- O caminho `Agendar` manterá a sequência atual: serviços, profissionais, horários disponíveis e confirmação com nome e telefone.
+- O botão `Gerenciar meus agendamentos` será uma entrada separada: solicitará nome e telefone, iniciará/recuperará a sessão segura e abrirá a área de gerenciamento.
+- Um cliente com sessão ativa poderá iniciar um novo agendamento pela área de gerenciamento; a confirmação reutilizará nome e telefone preenchidos pela sessão.
 - A sessão resolverá o tenant e o cliente fora da URL, usando o fluxo de nome e telefone normalizado já existente.
+- A sessão pública usará Supabase Auth anônimo e autorização baseada em `auth.uid()`; nenhum RPC de operação sensível aceitará apenas um identificador público de sessão.
 - Não será criada uma segunda identidade de cliente baseada em URL.
 - Links legados tokenizados serão aceitos durante a transição e convertidos para a sessão pública sem quebrar mensagens já entregues.
 - As entradas públicas de primeiro contato, confirmação, cancelamento, reagendamento e lembrete usarão o slug; uma ação não secreta poderá ser usada quando necessário.
@@ -45,6 +50,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - Devem confirmar que nenhum novo link contém `?token=` ou `/cliente/<token>`.
 - Devem cobrir primeiro contato, confirmação, cancelamento, reagendamento e lembrete usando slug e sessão.
 - Devem cobrir identificação de cliente existente, cadastro de cliente novo somente na confirmação e isolamento entre tenants.
+- Devem cobrir o gerenciamento, o novo agendamento iniciado dentro da sessão, o preenchimento automático de nome/telefone e o retorno ao fluxo normal após `Sair`.
 - Devem confirmar que apenas horários disponíveis aparecem no novo agendamento e no reagendamento.
 - Devem confirmar que horários indisponíveis não aparecem como botões inativos e que o estado vazio é exibido quando a lista fica vazia.
 - Devem simular, quando possível sem mutar dados persistidos, a concorrência ou a revalidação de horário e registrar a resposta controlada sem duplicar agendamento.

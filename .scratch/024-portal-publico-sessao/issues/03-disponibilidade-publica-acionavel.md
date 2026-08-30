@@ -11,6 +11,7 @@
 - [ ] A disponibilidade considera serviço, duração efetiva, profissional, data, expediente, escala, pausa, conflitos e antecedência.
 - [ ] A mesma decisão de disponibilidade é usada no novo agendamento e no reagendamento.
 - [ ] Alterar serviço, profissional ou data recalcula a lista de opções.
+- [ ] O fluxo iniciado pelo gerenciamento mantém a mesma sequência serviço → profissional → horários.
 - [ ] O agendamento atual é tratado corretamente durante o reagendamento.
 - [ ] Quando não há opções, o portal exibe estado vazio com orientação para escolher outra data ou profissional.
 - [ ] A Agenda administrativa mantém sua visualização operacional, sem herdar a ocultação pública.

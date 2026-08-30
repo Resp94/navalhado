@@ -9,6 +9,9 @@
 - [ ] Primeiro contato, confirmação, cancelamento, reagendamento e lembrete usam domínio e slug nos novos links.
 - [ ] Novos links não expõem token em query string ou caminho.
 - [ ] A sessão do cliente é iniciada ou recuperada após a identificação no tenant correto.
+- [ ] O botão `Gerenciar meus agendamentos` permanece na tela inicial, separado do botão `Agendar`.
+- [ ] Dentro do gerenciamento, `Novo agendamento` reutiliza a sessão e preenche nome e telefone na confirmação.
+- [ ] `Sair` encerra a sessão e retorna ao catálogo público sem apagar dados persistidos.
 - [ ] Links legados tokenizados continuam funcionando durante a transição.
 - [ ] O link legado converte o contexto para a sessão pública sem criar uma segunda identidade.
 - [ ] A entrada usa “Gerenciar agendamentos” ou “Meus agendamentos”, sem depender do termo isolado “Histórico”.

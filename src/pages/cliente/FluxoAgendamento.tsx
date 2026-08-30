@@ -86,6 +86,11 @@ export const FluxoAgendamento: React.FC = () => {
   const [clientFullName, setClientFullName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [publicSessionAuthenticated, setPublicSessionAuthenticated] = useState(false);
+  const [isManagementModalOpen, setIsManagementModalOpen] = useState(false);
+  const [managementName, setManagementName] = useState('');
+  const [managementPhone, setManagementPhone] = useState('');
+  const [startingManagementSession, setStartingManagementSession] = useState(false);
 
   const canalClienteRepository = useCanalCliente();
 
@@ -161,6 +166,56 @@ export const FluxoAgendamento: React.FC = () => {
     }
   };
 
+  const handleManageAppointments = async () => {
+    if (!publicSlug) return;
+
+    try {
+      const sessionProfile = await canalClienteRepository.obterPerfilPublicoSessao();
+      if (sessionProfile?.tenant_id === publicContext?.tenant_id) {
+        navigate('/cliente/menu', { replace: true });
+        return;
+      }
+    } catch (error) {
+      console.warn('Não foi possível recuperar a sessão pública:', error);
+    }
+
+    setManagementName('');
+    setManagementPhone('');
+    setIsManagementModalOpen(true);
+  };
+
+  const handleStartManagementSession = async () => {
+    if (!publicSlug) return;
+
+    const name = managementName.trim();
+    const phone = managementPhone.replace(/\D/g, '');
+    if (name.split(/\s+/).filter(Boolean).length < 2) {
+      addToast('Informe seu nome e sobrenome completos.', 'warning');
+      return;
+    }
+    if (phone.length < 10 || phone.length > 13) {
+      addToast('Informe um WhatsApp válido com DDD.', 'warning');
+      return;
+    }
+
+    setStartingManagementSession(true);
+    try {
+      const session = await canalClienteRepository.iniciarSessaoPublica(publicSlug, name, phone);
+      if (!session?.found) {
+        addToast('Não encontramos agendamentos para esses dados nesta barbearia.', 'warning');
+        return;
+      }
+
+      setIsManagementModalOpen(false);
+      navigate('/cliente/menu', { replace: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível iniciar sua sessão.';
+      addToast(message, 'error');
+    } finally {
+      setStartingManagementSession(false);
+    }
+  };
+
   const loadCatalog = useCallback(async (token: string | null, slug?: string) => {
     const { servicos, categorias } = token
       ? await canalClienteRepository.obterCatalogoServicos(token)
@@ -216,11 +271,24 @@ export const FluxoAgendamento: React.FC = () => {
           }
 
           const explicitToken = searchParams.get('token') || routeToken;
-          const storedToken = explicitToken?.trim() || (
+          let sessionProfile: PerfilClienteCanal | null = null;
+
+          if (!explicitToken) {
+            try {
+              const candidateSession = await canalClienteRepository.obterPerfilPublicoSessao();
+              if (candidateSession?.tenant_id === activePublicContext.tenant_id) {
+                sessionProfile = candidateSession;
+                setPublicSessionAuthenticated(true);
+              }
+            } catch (error) {
+              console.warn('Não foi possível recuperar a sessão pública:', error);
+            }
+          }
+
+          const storedToken = explicitToken?.trim() || (!sessionProfile &&
             typeof window !== 'undefined' && window.localStorage
               ? localStorage.getItem(publicTokenStorageKey(publicSlug)) || undefined
-              : undefined
-          );
+              : undefined);
 
           if (storedToken) {
             try {
@@ -232,6 +300,9 @@ export const FluxoAgendamento: React.FC = () => {
             } catch {
               token = null;
             }
+          } else if (sessionProfile) {
+            token = null;
+            activeDetails = sessionProfile;
           } else {
             token = null;
           }
@@ -442,11 +513,26 @@ export const FluxoAgendamento: React.FC = () => {
           phone: cleanPhone,
         });
 
-        if (typeof window !== 'undefined' && window.localStorage) {
+        if (!publicSessionAuthenticated && typeof window !== 'undefined' && window.localStorage) {
           localStorage.setItem(publicTokenStorageKey(confirmationSlug), confirmation.token);
           localStorage.setItem('navalhado_customer_token', confirmation.token);
         }
         addToast('Agendamento realizado com sucesso!', 'success');
+        setIsConfirmModalOpen(false);
+        navigate('/cliente/menu');
+        return;
+      }
+
+      if (isRescheduling && rescheduleAppointmentId && publicSessionAuthenticated) {
+        await canalClienteRepository.reagendarAgendamentoPublicoSessao({
+          appointmentId: rescheduleAppointmentId,
+          newServiceId: selectedService.id,
+          newProfessionalId: selectedProfessional?.id || null,
+          newDate: selectedDate,
+          newSlot: selectedSlot,
+          newStartTime: `${selectedDate}T${selectedSlot}:00`,
+        });
+        addToast('Reagendamento concluído com sucesso!', 'success');
         setIsConfirmModalOpen(false);
         navigate('/cliente/menu');
         return;
@@ -922,6 +1008,24 @@ export const FluxoAgendamento: React.FC = () => {
                 ))
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => void handleManageAppointments()}
+              style={{
+                alignSelf: 'center',
+                backgroundColor: 'transparent',
+                color: 'var(--color-brand-primary)',
+                border: '1px solid var(--color-brand-primary)',
+                padding: '10px 18px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Gerenciar meus agendamentos
+            </button>
           </div>
         )}
 
@@ -1259,6 +1363,52 @@ export const FluxoAgendamento: React.FC = () => {
           </div>
         )}
       </main>
+
+      <Modal
+        isOpen={isManagementModalOpen}
+        onClose={() => !startingManagementSession && setIsManagementModalOpen(false)}
+        title="Gerenciar meus agendamentos"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--color-text-primary)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-base)', lineHeight: 1.5 }}>
+            Informe seus dados para acessar seus agendamentos nesta barbearia.
+          </p>
+          <div>
+            <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+              Nome e sobrenome <span style={{ color: '#E11D48' }}>*</span>
+            </label>
+            <input
+              value={managementName}
+              onChange={(event) => setManagementName(event.target.value)}
+              placeholder="Ex.: Jonathas Lopes"
+              disabled={startingManagementSession}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+              Telefone / WhatsApp com DDD <span style={{ color: '#E11D48' }}>*</span>
+            </label>
+            <input
+              type="tel"
+              value={managementPhone}
+              onChange={(event) => setManagementPhone(maskPhone(event.target.value))}
+              placeholder="(92) 99420-4756"
+              inputMode="tel"
+              disabled={startingManagementSession}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <button type="button" onClick={() => setIsManagementModalOpen(false)} disabled={startingManagementSession} style={{ backgroundColor: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', padding: '10px 20px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              Voltar
+            </button>
+            <button type="button" onClick={() => void handleStartManagementSession()} disabled={startingManagementSession} style={{ backgroundColor: 'var(--color-brand-primary)', color: '#FFFFFF', border: 'none', padding: '10px 24px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              {startingManagementSession ? 'Entrando...' : 'Continuar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de Confirmação Final */}
       <Modal
