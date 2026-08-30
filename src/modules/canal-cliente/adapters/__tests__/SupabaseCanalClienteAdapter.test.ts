@@ -109,6 +109,41 @@ describe('SupabaseCanalClienteAdapter - reagendamento', () => {
     expect(result).not.toHaveProperty('token_acesso');
   });
 
+  it('envia o token do Turnstile ao iniciar a sessão anônima', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockSignInAnonymously.mockResolvedValue({
+      data: { session: { user: { id: 'auth-user-1', is_anonymous: true } } },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [{
+        found: true,
+        customer_id: 'customer-1',
+        customer_name: 'Jonathas Teste',
+        customer_phone: '92999999999',
+        cadastro_completo: true,
+        tenant_id: 'tenant-1',
+        tenant_name: 'Barbearia Teste',
+        tenant_phone: '92999999998',
+        tenant_slug: 'barbearia-teste',
+      }],
+      error: null,
+    });
+
+    const adapter = new SupabaseCanalClienteAdapter();
+
+    await adapter.iniciarSessaoPublica(
+      'barbearia-teste',
+      'Jonathas Teste',
+      '92999999999',
+      'turnstile-token-1',
+    );
+
+    expect(mockSignInAnonymously).toHaveBeenCalledWith({
+      options: { captchaToken: 'turnstile-token-1' },
+    });
+  });
+
   it('encerra a sessão pública pelo Supabase Auth', async () => {
     mockSignOut.mockResolvedValue({ error: null });
     const adapter = new SupabaseCanalClienteAdapter();

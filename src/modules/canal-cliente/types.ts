@@ -159,6 +159,7 @@ export interface ICanalClienteAdapter {
     slug: string,
     name: string,
     phone: string,
+    captchaToken?: string,
   ): Promise<DadosSessaoPublica | null>;
   obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null>;
   encerrarSessaoPublica(): Promise<void>;

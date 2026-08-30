@@ -146,12 +146,15 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     slug: string,
     name: string,
     phone: string,
+    captchaToken?: string,
   ): Promise<DadosSessaoPublica | null> {
     const currentSession = await publicSupabase.auth.getSession();
     if (currentSession.error) throw currentSession.error;
 
     if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
-      const anonymousSession = await publicSupabase.auth.signInAnonymously();
+      const anonymousSession = await publicSupabase.auth.signInAnonymously(
+        captchaToken ? { options: { captchaToken } } : undefined,
+      );
       if (anonymousSession.error) throw anonymousSession.error;
     }
 

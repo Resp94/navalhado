@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import { TurnstileCaptcha } from '../../components/TurnstileCaptcha';
 
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -38,6 +39,7 @@ export const FluxoAgendamento: React.FC = () => {
   const { token: routeToken, slug: routeSlug } = useParams();
   const [searchParams] = useSearchParams();
   const publicSlug = routeSlug || searchParams.get('tenant');
+  const turnstileSiteKey = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
   const { addToast } = useToast();
 
   // Estados de Dados do Estabelecimento
@@ -90,6 +92,7 @@ export const FluxoAgendamento: React.FC = () => {
   const [isManagementModalOpen, setIsManagementModalOpen] = useState(false);
   const [managementName, setManagementName] = useState('');
   const [managementPhone, setManagementPhone] = useState('');
+  const [managementCaptchaToken, setManagementCaptchaToken] = useState<string | null>(null);
   const [startingManagementSession, setStartingManagementSession] = useState(false);
 
   const canalClienteRepository = useCanalCliente();
@@ -181,6 +184,7 @@ export const FluxoAgendamento: React.FC = () => {
 
     setManagementName('');
     setManagementPhone('');
+    setManagementCaptchaToken(null);
     setIsManagementModalOpen(true);
   };
 
@@ -197,10 +201,19 @@ export const FluxoAgendamento: React.FC = () => {
       addToast('Informe um WhatsApp válido com DDD.', 'warning');
       return;
     }
+    if (turnstileSiteKey && !managementCaptchaToken) {
+      addToast('Conclua a verificação de segurança para continuar.', 'warning');
+      return;
+    }
 
     setStartingManagementSession(true);
     try {
-      const session = await canalClienteRepository.iniciarSessaoPublica(publicSlug, name, phone);
+      const session = await canalClienteRepository.iniciarSessaoPublica(
+        publicSlug,
+        name,
+        phone,
+        managementCaptchaToken || undefined,
+      );
       if (!session?.found) {
         addToast('Não encontramos agendamentos para esses dados nesta barbearia.', 'warning');
         return;
@@ -1366,7 +1379,12 @@ export const FluxoAgendamento: React.FC = () => {
 
       <Modal
         isOpen={isManagementModalOpen}
-        onClose={() => !startingManagementSession && setIsManagementModalOpen(false)}
+        onClose={() => {
+          if (!startingManagementSession) {
+            setManagementCaptchaToken(null);
+            setIsManagementModalOpen(false);
+          }
+        }}
         title="Gerenciar meus agendamentos"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--color-text-primary)' }}>
@@ -1399,11 +1417,22 @@ export const FluxoAgendamento: React.FC = () => {
               style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
+          {turnstileSiteKey && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
+                Verificação de segurança
+              </span>
+              <TurnstileCaptcha
+                siteKey={turnstileSiteKey}
+                onTokenChange={setManagementCaptchaToken}
+              />
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
             <button type="button" onClick={() => setIsManagementModalOpen(false)} disabled={startingManagementSession} style={{ backgroundColor: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', padding: '10px 20px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
               Voltar
             </button>
-            <button type="button" onClick={() => void handleStartManagementSession()} disabled={startingManagementSession} style={{ backgroundColor: 'var(--color-brand-primary)', color: '#FFFFFF', border: 'none', padding: '10px 24px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+            <button type="button" onClick={() => void handleStartManagementSession()} disabled={startingManagementSession || Boolean(turnstileSiteKey && !managementCaptchaToken)} style={{ backgroundColor: 'var(--color-brand-primary)', color: '#FFFFFF', border: 'none', padding: '10px 24px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
               {startingManagementSession ? 'Entrando...' : 'Continuar'}
             </button>
           </div>

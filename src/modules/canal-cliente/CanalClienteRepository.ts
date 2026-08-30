@@ -99,6 +99,7 @@ export class CanalClienteRepository {
     slug: string,
     name: string,
     phone: string,
+    captchaToken?: string,
   ): Promise<DadosSessaoPublica | null> {
     if (!slug || !slug.trim()) {
       throw new CanalClienteValidationError('Slug do estabelecimento não informado.');
@@ -111,7 +112,7 @@ export class CanalClienteRepository {
       throw new CanalClienteValidationError('Informe um WhatsApp válido com DDD.');
     }
 
-    return await this.adapter.iniciarSessaoPublica(slug.trim(), name.trim(), normalizedPhone);
+    return await this.adapter.iniciarSessaoPublica(slug.trim(), name.trim(), normalizedPhone, captchaToken);
   }
 
   async obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null> {

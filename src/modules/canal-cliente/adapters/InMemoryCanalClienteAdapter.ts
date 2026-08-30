@@ -91,6 +91,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     slug: string,
     name: string,
     phone: string,
+    _captchaToken?: string,
   ): Promise<DadosSessaoPublica | null> {
     const identity = await this.buscarIdentidadePublica(slug, name, phone);
     if (!identity) return null;
