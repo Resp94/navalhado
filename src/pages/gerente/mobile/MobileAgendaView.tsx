@@ -20,6 +20,7 @@ import {
   isProfessionalWorkingAt,
 } from '../../../lib/schedule';
 import type { BlockedSlot } from '../../../modules/bloqueios/types';
+import { getAppointmentCardState } from '../../../lib/appointment-card-state';
 
 interface MobileAgendaViewProps {
   timezone: string;
@@ -439,7 +440,12 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
               if (item.type === 'appointment' && item.appointment) {
                 const app = item.appointment;
                 const timeStart = formatTimeInZone(app.start_time, timezone);
-                const isPaid = app.payment_status === 'paid' || app.status === 'completed';
+                const cardState = getAppointmentCardState({
+                  isFitting: app.is_fitting,
+                  appointmentStatus: app.status,
+                  paymentStatus: app.payment_status,
+                });
+                const isCompletedAndPaid = cardState === 'completed';
                 const isProgress = app.status === 'in_progress';
                 const isFitting = app.is_fitting;
                 const isNoShow = app.status === 'no_show';
@@ -450,7 +456,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
+                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isCompletedAndPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -486,7 +492,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         {isFitting && (
                           <span className="mobile-agenda__fitting-pill">Encaixe</span>
                         )}
-                        {isPaid && (
+                        {isCompletedAndPaid && (
                           <span className="mobile-agenda__paid-pill">Pago</span>
                         )}
                         {isNoShow && (
@@ -986,6 +992,11 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         .mobile-agenda__card--fitting {
           border-left: 4px solid #b45309;
           background: #ffedd5;
+        }
+
+        .mobile-agenda__card--fitting.mobile-agenda__card--paid {
+          border-color: #4ade80;
+          background: #86efac;
         }
 
         .mobile-agenda__card--normal {

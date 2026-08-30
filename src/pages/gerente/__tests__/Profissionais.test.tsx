@@ -59,6 +59,7 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'tenant-test-id',
     tenantName: 'Barbearia Estilo',
+    slotIntervalMinutes: 40,
     businessHours: {
       monday: { active: true, open: '09:00', close: '18:00' },
       tuesday: { active: true, open: '10:00', close: '16:00' },
@@ -159,6 +160,24 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     expect(options).toContain('10:00');
     expect(options).not.toContain('09:00');
     expect(options).not.toContain('16:30');
+  });
+
+  it('deve permitir configurar o intervalo em horários exatos sem seguir a cadência da grade', async () => {
+    render(<Profissionais />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+
+    const breakStart = screen.getAllByLabelText('Início do Almoço')[0];
+    const breakEnd = screen.getAllByLabelText('Fim do Almoço')[0];
+    const startOptions = Array.from(breakStart.querySelectorAll('option')).map((option) => option.value);
+    const endOptions = Array.from(breakEnd.querySelectorAll('option')).map((option) => option.value);
+
+    expect(startOptions).toContain('12:00');
+    expect(endOptions).toContain('14:00');
   });
 
   it('deve ter inputs de Início do Almoço e Fim do Almoço para cada dia ativo da escala semanal', async () => {

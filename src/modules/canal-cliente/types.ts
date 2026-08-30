@@ -33,6 +33,35 @@ export interface HorarioGradeCanal {
   available: boolean;
 }
 
+export interface IdentidadeClientePublica {
+  found: boolean;
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  cadastro_completo?: boolean;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_phone: string;
+  tenant_slug: string;
+}
+
+export interface DadosSessaoPublica {
+  found: boolean;
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  cadastro_completo?: boolean;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_phone: string;
+  tenant_slug: string;
+  tenant_timezone?: string;
+  business_hours?: Record<string, { active: boolean; open: string; close: string }>;
+  min_cancellation_lead_time_minutes?: number;
+  min_booking_lead_time_minutes?: number;
+  slot_interval_minutes?: number;
+}
+
 export interface ServicoCanal {
   id: string;
   name: string;
@@ -121,6 +150,22 @@ export interface ICanalClienteAdapter {
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
   buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
+  buscarIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string
+  ): Promise<IdentidadeClientePublica | null>;
+  iniciarSessaoPublica(
+    slug: string,
+    name: string,
+    phone: string,
+    captchaToken?: string,
+  ): Promise<DadosSessaoPublica | null>;
+  obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null>;
+  encerrarSessaoPublica(): Promise<void>;
+  listarAgendamentosPublicoSessao(): Promise<AgendamentoCanal[]>;
+  cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void>;
+  reagendarAgendamentoPublicoSessao(input: InputReagendarAgendamento): Promise<void>;
   listarServicosPorSlug(slug: string): Promise<ServicoCanal[]>;
   listarProfissionaisPorSlug(slug: string, serviceId: string): Promise<ProfissionalCanal[]>;
   buscarGradeHorariosPorSlug(

@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MenuCliente } from '../MenuCliente';
 
-const { mockAddToast, mockRpc } = vi.hoisted(() => ({
+const { mockAddToast, mockRpc, mockPublicRpc, mockPublicGetSession, mockPublicSignOut } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockRpc: vi.fn(),
+  mockPublicRpc: vi.fn(),
+  mockPublicGetSession: vi.fn(),
+  mockPublicSignOut: vi.fn(),
 }));
 
 vi.mock('../../../components/Toast', () => ({
@@ -22,11 +25,21 @@ vi.mock('../../../lib/supabase', () => ({
     }),
     removeChannel: () => {}
   },
+  publicSupabase: {
+    rpc: mockPublicRpc,
+    auth: {
+      getSession: mockPublicGetSession,
+      signOut: mockPublicSignOut,
+    },
+  },
 }));
 
 describe('MenuCliente - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPublicGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockPublicSignOut.mockResolvedValue({ error: null });
+    mockPublicRpc.mockResolvedValue({ data: [], error: null });
     localStorage.clear();
     localStorage.setItem('navalhado_customer_token', 'mock-customer-token');
   });
@@ -277,6 +290,8 @@ describe('MenuCliente - TDD', () => {
 
     expect(await screen.findByText('Corte Validado')).toBeInTheDocument();
     expect(screen.getByText(/Olá, Cliente/)).toBeInTheDocument();
+    expect(screen.getByText('Finalizados')).toBeInTheDocument();
+    expect(screen.queryByText('Histórico')).not.toBeInTheDocument();
     expect(mockRpc).toHaveBeenCalledWith('get_customer_details_by_token', { p_token: 'token-validado' });
 
     fireEvent.click(screen.getByRole('button', { name: /Agendar novo horário/i }));
@@ -304,5 +319,106 @@ describe('MenuCliente - TDD', () => {
     );
 
     expect(await screen.findByText('Acesso expirado')).toBeInTheDocument();
+  });
+
+  it('abre o menu pela sessão pública e inicia novo agendamento pelo slug da barbearia', async () => {
+    localStorage.clear();
+    const publicDetails = {
+      customer_id: 'cust-public',
+      customer_name: 'Cliente Público',
+      customer_phone: '92999999999',
+      tenant_id: 'tenant-public',
+      tenant_name: 'Barbearia Pública',
+      tenant_phone: '5592999999999',
+      tenant_slug: 'brooklyn',
+      cadastro_completo: true,
+    };
+    const publicAppointment = {
+      appointment_id: 'app-public',
+      start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      status: 'confirmed',
+      payment_status: 'pending',
+      cancellation_reason: null,
+      professional_name: 'Profissional Público',
+      professional_id: 'prof-public',
+      service_name: 'Corte Público',
+      service_id: 'service-public',
+      service_price: 50,
+      service_duration: 60,
+      tenant_name: 'Barbearia Pública',
+      tenant_id: 'tenant-public',
+      tenant_phone: '5592999999999',
+      customer_name: 'Cliente Público',
+    };
+
+    mockPublicGetSession.mockResolvedValue({
+      data: { session: { user: { is_anonymous: true } } },
+      error: null,
+    });
+    mockPublicRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_customer_session') return { data: [publicDetails], error: null };
+      if (name === 'get_public_customer_appointments') return { data: [publicAppointment], error: null };
+      return { data: [], error: null };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/menu']}>
+        <Routes>
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/brooklyn" element={<div>Catálogo público</div>} />
+          <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Corte Público')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Agendar novo horário/i }));
+    expect(await screen.findByText('Catálogo público')).toBeInTheDocument();
+  });
+
+  it('encerra a sessão pública e retorna ao catálogo da mesma barbearia', async () => {
+    localStorage.clear();
+    mockPublicGetSession.mockResolvedValue({
+      data: { session: { user: { is_anonymous: true } } },
+      error: null,
+    });
+    mockPublicRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_customer_session') {
+        return {
+          data: [{
+            customer_id: 'cust-public',
+            customer_name: 'Cliente Público',
+            customer_phone: '92999999999',
+            tenant_id: 'tenant-public',
+            tenant_name: 'Barbearia Pública',
+            tenant_phone: '5592999999999',
+            tenant_slug: 'brooklyn',
+            cadastro_completo: true,
+          }],
+          error: null,
+        };
+      }
+      if (name === 'get_public_customer_appointments') return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/cliente/menu']}>
+        <Routes>
+          <Route path="/cliente/menu" element={<MenuCliente />} />
+          <Route path="/brooklyn" element={<div>Catálogo público</div>} />
+          <Route path="/cliente/acesso-expirado" element={<div>Acesso expirado</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Sair' });
+    fireEvent.click(screen.getByRole('button', { name: 'Sair' }));
+
+    await waitFor(() => expect(mockPublicSignOut).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Catálogo público')).toBeInTheDocument();
   });
 });

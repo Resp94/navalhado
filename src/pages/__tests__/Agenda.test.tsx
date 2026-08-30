@@ -142,6 +142,15 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           }),
         };
       }
+      if (table === 'professional_services') {
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          then: (resolve: (value: any) => unknown) =>
+            Promise.resolve(resolve({ data: [], error: null })),
+        };
+        return builder;
+      }
       if (table === 'appointments') {
         const builder: any = {
           select: () => builder,

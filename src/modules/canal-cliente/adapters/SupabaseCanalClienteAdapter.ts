@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase';
+import { publicSupabase, supabase } from '../../../lib/supabase';
 import {
   CanalClienteTokenError,
   AgendamentoConflitoError,
@@ -8,7 +8,9 @@ import {
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
+  DadosSessaoPublica,
   HorarioGradeCanal,
+  IdentidadeClientePublica,
   ICanalClienteAdapter,
   ConfirmacaoAgendamentoPublico,
   InputConfirmarAgendamentoPublico,
@@ -110,6 +112,149 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
       min_booking_lead_time_minutes: Number(row.min_booking_lead_time_minutes ?? 15),
       min_cancellation_lead_time_minutes: Number(row.min_cancellation_lead_time_minutes ?? 120),
     };
+  }
+
+  async buscarIdentidadePublica(
+    slug: string,
+    name: string,
+    phone: string,
+  ): Promise<IdentidadeClientePublica | null> {
+    const { data, error } = await supabase.rpc('resolve_public_customer_identity', {
+      p_slug: slug,
+      p_name: name,
+      p_phone: phone,
+    });
+
+    if (error) throw error;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+    const row = data[0];
+    return {
+      found: Boolean(row.found),
+      customer_id: row.customer_id || undefined,
+      customer_name: row.customer_name || undefined,
+      customer_phone: row.customer_phone || undefined,
+      cadastro_completo: row.cadastro_completo === undefined ? undefined : Boolean(row.cadastro_completo),
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
+    };
+  }
+
+  async iniciarSessaoPublica(
+    slug: string,
+    name: string,
+    phone: string,
+    captchaToken?: string,
+  ): Promise<DadosSessaoPublica | null> {
+    const currentSession = await publicSupabase.auth.getSession();
+    if (currentSession.error) throw currentSession.error;
+
+    if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
+      const anonymousSession = await publicSupabase.auth.signInAnonymously(
+        captchaToken ? { options: { captchaToken } } : undefined,
+      );
+      if (anonymousSession.error) throw anonymousSession.error;
+    }
+
+    const { data, error } = await publicSupabase.rpc('start_public_customer_session', {
+      p_slug: slug,
+      p_name: name,
+      p_phone: phone,
+    });
+
+    if (error) throw error;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+    const row = data[0];
+    return {
+      found: Boolean(row.found),
+      customer_id: row.customer_id || undefined,
+      customer_name: row.customer_name || undefined,
+      customer_phone: row.customer_phone || undefined,
+      cadastro_completo: row.cadastro_completo === undefined ? undefined : Boolean(row.cadastro_completo),
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
+      tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
+      min_cancellation_lead_time_minutes: row.min_cancellation_lead_time_minutes == null ? undefined : Number(row.min_cancellation_lead_time_minutes),
+      min_booking_lead_time_minutes: row.min_booking_lead_time_minutes == null ? undefined : Number(row.min_booking_lead_time_minutes),
+      slot_interval_minutes: row.slot_interval_minutes == null ? undefined : Number(row.slot_interval_minutes),
+    };
+  }
+
+  async obterPerfilPublicoSessao(): Promise<PerfilClienteCanal | null> {
+    const currentSession = await publicSupabase.auth.getSession();
+    if (currentSession.error) throw currentSession.error;
+    if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
+      return null;
+    }
+
+    const { data, error } = await publicSupabase.rpc('get_public_customer_session');
+    if (error) throw error;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+    const row = data[0];
+    return {
+      customer_id: row.customer_id,
+      customer_name: row.customer_name,
+      customer_phone: row.customer_phone || '',
+      tenant_id: row.tenant_id,
+      tenant_name: row.tenant_name,
+      tenant_phone: row.tenant_phone || '',
+      tenant_slug: row.tenant_slug,
+      cadastro_completo: Boolean(row.cadastro_completo),
+      tenant_timezone: row.tenant_timezone || 'America/Sao_Paulo',
+      business_hours: row.business_hours || undefined,
+      min_cancellation_lead_time_minutes: row.min_cancellation_lead_time_minutes == null ? undefined : Number(row.min_cancellation_lead_time_minutes),
+      min_booking_lead_time_minutes: row.min_booking_lead_time_minutes == null ? undefined : Number(row.min_booking_lead_time_minutes),
+      slot_interval_minutes: row.slot_interval_minutes == null ? undefined : Number(row.slot_interval_minutes),
+    };
+  }
+
+  async encerrarSessaoPublica(): Promise<void> {
+    const { error } = await publicSupabase.auth.signOut();
+    if (error) throw error;
+  }
+
+  async listarAgendamentosPublicoSessao(): Promise<AgendamentoCanal[]> {
+    const { data, error } = await publicSupabase.rpc('get_public_customer_appointments');
+    if (error) throw error;
+    return (data || []) as AgendamentoCanal[];
+  }
+
+  async cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void> {
+    const { error } = await publicSupabase.rpc('cancel_appointment_by_public_session', {
+      p_appointment_id: appointmentId,
+      p_reason: motivo || 'Cancelado pelo cliente',
+    });
+
+    if (error) {
+      if (error.message.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED') || error.message.includes('prazo') || error.message.includes('expirou')) {
+        throw new AgendamentoRegraCancelamentoError(error.message);
+      }
+      throw new CanalClienteValidationError(error.message);
+    }
+  }
+
+  async reagendarAgendamentoPublicoSessao(input: InputReagendarAgendamento): Promise<void> {
+    const { error } = await publicSupabase.rpc('reschedule_appointment_by_public_session', {
+      p_appointment_id: input.appointmentId,
+      p_new_service_id: input.newServiceId || null,
+      p_new_professional_id: input.newProfessionalId || null,
+      p_new_date: input.newDate || null,
+      p_new_slot: input.newSlot || null,
+    });
+
+    if (error) {
+      if (error.code === '23505' || error.message.includes('conflito') || error.message.includes('indisponível')) {
+        throw new AgendamentoConflitoError();
+      }
+      throw new CanalClienteValidationError(error.message);
+    }
   }
 
   async listarServicosPorSlug(slug: string): Promise<ServicoCanal[]> {

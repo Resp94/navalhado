@@ -9,7 +9,7 @@ import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
 import type { PerfilClienteCanal, AgendamentoCanal } from '../../modules/canal-cliente/types';
 import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { formatLeadTime } from '../../lib/timezone';
-import { 
+import {
   Calendar02Icon, 
   Time01Icon, 
   UserIcon,
@@ -19,6 +19,10 @@ import {
   InformationCircleIcon,
   WhatsappIcon,
 } from '@hugeicons/core-free-icons';
+
+const PUBLIC_TOKEN_STORAGE_PREFIX = 'navalhado_canal_cliente_v1_token_';
+const publicTokenStorageKey = (slug: string): string =>
+  `${PUBLIC_TOKEN_STORAGE_PREFIX}${encodeURIComponent(slug.trim().toLowerCase())}`;
 
 export const MenuCliente: React.FC = () => {
 
@@ -31,6 +35,7 @@ export const MenuCliente: React.FC = () => {
   const [appointments, setAppointments] = useState<AgendamentoCanal[]>([]);
   const [customerDetails, setCustomerDetails] = useState<PerfilClienteCanal | null>(null);
   const [loading, setLoading] = useState(true);
+  const [usingPublicSession, setUsingPublicSession] = useState(false);
 
   // Estados de Cancelamento
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -43,7 +48,7 @@ export const MenuCliente: React.FC = () => {
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
   const [expiredAppointment, setExpiredAppointment] = useState<AgendamentoCanal | null>(null);
 
-  // Controle de Abas (Ativos vs Histórico/Cancelados)
+// Controle de abas do gerenciamento (agendamentos ativos vs finalizados)
   const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
 
   const filteredAppointments = appointments.filter(app => 
@@ -55,14 +60,28 @@ export const MenuCliente: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const token = searchParams.get('token') || routeToken;
-        if (token) {
-          canalClienteRepository.definirTokenAcesso(token);
+        const explicitToken = searchParams.get('token') || routeToken;
+        if (explicitToken) {
+          canalClienteRepository.definirTokenAcesso(explicitToken);
           navigate('/cliente/menu', { replace: true });
           return;
         }
 
-        const customer = await canalClienteRepository.obterPerfil();
+        const publicSessionCustomer = await canalClienteRepository.obterPerfilPublicoSessao();
+        if (publicSessionCustomer) {
+          setUsingPublicSession(true);
+          setCustomerDetails(publicSessionCustomer);
+          await fetchAppointments(true);
+          return;
+        }
+
+        const storedToken = canalClienteRepository.obterTokenAcesso();
+        if (!storedToken) {
+          navigate('/cliente/acesso-expirado');
+          return;
+        }
+
+        const customer = await canalClienteRepository.obterPerfil(storedToken);
         if (!customer) {
           navigate('/cliente/acesso-expirado');
           return;
@@ -75,8 +94,7 @@ export const MenuCliente: React.FC = () => {
         }
 
         setCustomerDetails(customer);
-        await fetchAppointments();
-
+        await fetchAppointments(false);
       } catch (err) {
         console.error('Erro geral no menu do cliente:', err);
         navigate('/cliente/acesso-expirado');
@@ -88,9 +106,11 @@ export const MenuCliente: React.FC = () => {
     init();
   }, [searchParams, routeToken, navigate, canalClienteRepository]);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (publicSession = usingPublicSession) => {
     try {
-      const { todos } = await canalClienteRepository.obterAgendamentosSeparados();
+      const todos = publicSession
+        ? await canalClienteRepository.obterAgendamentosPublicoSessao()
+        : (await canalClienteRepository.obterAgendamentosSeparados()).todos;
       setAppointments(todos);
     } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
@@ -109,7 +129,11 @@ export const MenuCliente: React.FC = () => {
 
     setCanceling(true);
     try {
-      await canalClienteRepository.cancelarAgendamento(activeAppointmentId, cancelReason.trim() || undefined);
+      if (usingPublicSession) {
+        await canalClienteRepository.cancelarAgendamentoPublicoSessao(activeAppointmentId, cancelReason.trim() || undefined);
+      } else {
+        await canalClienteRepository.cancelarAgendamento(activeAppointmentId, cancelReason.trim() || undefined);
+      }
 
       addToast('Agendamento cancelado com sucesso.', 'success');
       setIsCancelModalOpen(false);
@@ -151,7 +175,11 @@ export const MenuCliente: React.FC = () => {
       return;
     }
 
-    navigate('/cliente/agendar', {
+    const publicBookingPath = usingPublicSession && customerDetails?.tenant_slug
+      ? `/${customerDetails.tenant_slug}`
+      : '/cliente/agendar';
+
+    navigate(publicBookingPath, {
       state: {
         serviceId: app.service_id,
         serviceName: app.service_name,
@@ -162,6 +190,29 @@ export const MenuCliente: React.FC = () => {
         rescheduleAppointmentId: app.appointment_id
       }
     });
+  };
+
+  const handleLogout = async () => {
+    const tenantSlug = customerDetails?.tenant_slug;
+    try {
+      if (usingPublicSession) {
+        await canalClienteRepository.encerrarSessaoPublica();
+        canalClienteRepository.limparTokenAcesso();
+        if (tenantSlug && typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(publicTokenStorageKey(tenantSlug));
+        }
+      } else {
+        canalClienteRepository.limparTokenAcesso();
+      }
+      if (tenantSlug) {
+        navigate(`/${tenantSlug}`, { replace: true });
+      } else {
+        navigate('/cliente/acesso-expirado', { replace: true });
+      }
+    } catch (error) {
+      console.error('Erro ao encerrar sessão do cliente:', error);
+      addToast('Não foi possível encerrar a sessão.', 'error');
+    }
   };
 
   const formatDateTime = (dateStr: string) => {
@@ -290,17 +341,35 @@ export const MenuCliente: React.FC = () => {
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span style={{
-              fontSize: '11px',
-              color: 'var(--color-brand-primary)',
-              fontWeight: 800,
-              backgroundColor: 'var(--color-brand-lightest)',
-              padding: '6px 14px',
-              borderRadius: '9999px',
-              border: '1px solid rgba(217, 108, 0, 0.15)'
-            }}>
-              {customerDetails?.tenant_name}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '11px',
+                color: 'var(--color-brand-primary)',
+                fontWeight: 800,
+                backgroundColor: 'var(--color-brand-lightest)',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(217, 108, 0, 0.15)'
+              }}>
+                {customerDetails?.tenant_name}
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                style={{
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-secondary)',
+                  borderRadius: '9999px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Sair
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -348,7 +417,12 @@ export const MenuCliente: React.FC = () => {
           </p>
 
           <button
-            onClick={() => navigate('/cliente/agendar', { state: { fromMenu: true } })}
+            onClick={() => navigate(
+              usingPublicSession && customerDetails?.tenant_slug
+                ? `/${customerDetails.tenant_slug}`
+                : '/cliente/agendar',
+              { state: { fromMenu: true } },
+            )}
             style={{
               alignSelf: 'flex-start',
               backgroundColor: '#FFFFFF',
@@ -471,7 +545,7 @@ export const MenuCliente: React.FC = () => {
                 gap: '6px'
               }}
             >
-              <span>Histórico</span>
+              <span>Finalizados</span>
               <span style={{
                 fontSize: '10px',
                 backgroundColor: activeTab === 'historico' ? 'var(--color-brand-lightest)' : 'rgba(234, 222, 214, 0.4)',
@@ -519,7 +593,7 @@ export const MenuCliente: React.FC = () => {
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-base)', margin: 0, fontWeight: 500 }}>
                   {activeTab === 'ativos' 
                     ? 'Você não possui nenhum agendamento ativo no momento.' 
-                    : 'Nenhum histórico de agendamento disponível.'}
+                    : 'Nenhum agendamento finalizado disponível.'}
                 </p>
               </div>
             </div>

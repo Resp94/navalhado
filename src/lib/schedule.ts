@@ -128,6 +128,29 @@ export const normalizeSlotIntervalMinutes = (
   return parsed;
 };
 
+export interface ProfessionalServiceDurationOverride {
+  service_id: string;
+  custom_duration_minutes?: number | null;
+  is_enabled?: boolean | null;
+}
+
+/** Resolve a duração usada nos conflitos e no término do atendimento. */
+export const getEffectiveServiceDuration = (
+  baseDurationMinutes: number,
+  serviceId: string,
+  professionalServices: ProfessionalServiceDurationOverride[] = []
+): number => {
+  const baseDuration = Number(baseDurationMinutes);
+  const override = professionalServices.find((service) => service.service_id === serviceId);
+  const customDuration = Number(override?.custom_duration_minutes);
+
+  if (override?.is_enabled !== false && Number.isFinite(customDuration) && customDuration > 0) {
+    return customDuration;
+  }
+
+  return Number.isFinite(baseDuration) && baseDuration > 0 ? baseDuration : 1;
+};
+
 /**
  * Verifica se o horário está alinhado à grade do tenant desde 00:00.
  * Fittings usam esta grade mesmo quando ficam fora do expediente oficial.
@@ -358,6 +381,16 @@ export const generateScheduleTimeOptions = (
   }
   return options;
 };
+
+/**
+ * Gera opções para a escala do profissional sem confundir a precisão do
+ * seletor com a cadência dos slots de agendamento do tenant.
+ */
+export const generateProfessionalTimeOptions = (
+  start: string,
+  end: string,
+  precisionMinutes = 5
+): string[] => generateScheduleTimeOptions(start, end, precisionMinutes);
 
 /**
  * Obtém o horário de funcionamento da barbearia para determinada data

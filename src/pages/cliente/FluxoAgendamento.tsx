@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import { TurnstileCaptcha } from '../../components/TurnstileCaptcha';
 
 import { useCanalCliente } from '../../modules/canal-cliente/useCanalCliente';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -38,6 +39,7 @@ export const FluxoAgendamento: React.FC = () => {
   const { token: routeToken, slug: routeSlug } = useParams();
   const [searchParams] = useSearchParams();
   const publicSlug = routeSlug || searchParams.get('tenant');
+  const turnstileSiteKey = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
   const { addToast } = useToast();
 
   // Estados de Dados do Estabelecimento
@@ -86,8 +88,40 @@ export const FluxoAgendamento: React.FC = () => {
   const [clientFullName, setClientFullName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [recognizedCustomer, setRecognizedCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [publicSessionAuthenticated, setPublicSessionAuthenticated] = useState(false);
+  const [isManagementModalOpen, setIsManagementModalOpen] = useState(false);
+  const [managementName, setManagementName] = useState('');
+  const [managementPhone, setManagementPhone] = useState('');
+  const [managementCaptchaToken, setManagementCaptchaToken] = useState<string | null>(null);
+  const [startingManagementSession, setStartingManagementSession] = useState(false);
 
   const canalClienteRepository = useCanalCliente();
+
+  const resolvePublicIdentity = useCallback(async (name: string, phone: string) => {
+    if (!publicSlug || canonicalToken) return;
+
+    const trimmedName = name.trim();
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (trimmedName.split(/\s+/).filter(Boolean).length < 2 || normalizedPhone.length < 10) {
+      return;
+    }
+
+    try {
+      const lookup = await canalClienteRepository.resolverIdentidadePublica(
+        publicSlug,
+        trimmedName,
+        normalizedPhone,
+      );
+      if (lookup?.found && lookup.customer_id && lookup.customer_name) {
+        setRecognizedCustomer({ id: lookup.customer_id, name: lookup.customer_name });
+        setClientFullName(lookup.customer_name);
+      } else {
+        setRecognizedCustomer(null);
+      }
+    } catch (error) {
+      console.warn('Erro ao resolver identidade pública:', error);
+    }
+  }, [canalClienteRepository, canonicalToken, publicSlug]);
 
   const handlePhoneChange = async (val: string) => {
     const masked = maskPhone(val);
@@ -108,6 +142,8 @@ export const FluxoAgendamento: React.FC = () => {
       } catch (e) {
         console.warn('Erro ao consultar cliente por telefone:', e);
       }
+    } else if (publicSlug && !canonicalToken && digits.length >= 10) {
+      void resolvePublicIdentity(clientFullName, val);
     } else {
       setRecognizedCustomer(null);
     }
@@ -128,6 +164,68 @@ export const FluxoAgendamento: React.FC = () => {
       } catch (e) {
         console.warn('Erro no blur ao consultar cliente por telefone:', e);
       }
+    } else if (publicSlug && !canonicalToken) {
+      await resolvePublicIdentity(clientFullName, clientPhone);
+    }
+  };
+
+  const handleManageAppointments = async () => {
+    if (!publicSlug) return;
+
+    try {
+      const sessionProfile = await canalClienteRepository.obterPerfilPublicoSessao();
+      if (sessionProfile?.tenant_id === publicContext?.tenant_id) {
+        navigate('/cliente/menu', { replace: true });
+        return;
+      }
+    } catch (error) {
+      console.warn('Não foi possível recuperar a sessão pública:', error);
+    }
+
+    setManagementName('');
+    setManagementPhone('');
+    setManagementCaptchaToken(null);
+    setIsManagementModalOpen(true);
+  };
+
+  const handleStartManagementSession = async () => {
+    if (!publicSlug) return;
+
+    const name = managementName.trim();
+    const phone = managementPhone.replace(/\D/g, '');
+    if (name.split(/\s+/).filter(Boolean).length < 2) {
+      addToast('Informe seu nome e sobrenome completos.', 'warning');
+      return;
+    }
+    if (phone.length < 10 || phone.length > 13) {
+      addToast('Informe um WhatsApp válido com DDD.', 'warning');
+      return;
+    }
+    if (turnstileSiteKey && !managementCaptchaToken) {
+      addToast('Conclua a verificação de segurança para continuar.', 'warning');
+      return;
+    }
+
+    setStartingManagementSession(true);
+    try {
+      const session = await canalClienteRepository.iniciarSessaoPublica(
+        publicSlug,
+        name,
+        phone,
+        managementCaptchaToken || undefined,
+      );
+      if (!session?.found) {
+        addToast('Não encontramos agendamentos para esses dados nesta barbearia.', 'warning');
+        return;
+      }
+
+      setIsManagementModalOpen(false);
+      navigate('/cliente/menu', { replace: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível iniciar sua sessão.';
+      addToast(message, 'error');
+    } finally {
+      setStartingManagementSession(false);
     }
   };
 
@@ -186,11 +284,24 @@ export const FluxoAgendamento: React.FC = () => {
           }
 
           const explicitToken = searchParams.get('token') || routeToken;
-          const storedToken = explicitToken?.trim() || (
+          let sessionProfile: PerfilClienteCanal | null = null;
+
+          if (!explicitToken) {
+            try {
+              const candidateSession = await canalClienteRepository.obterPerfilPublicoSessao();
+              if (candidateSession?.tenant_id === activePublicContext.tenant_id) {
+                sessionProfile = candidateSession;
+                setPublicSessionAuthenticated(true);
+              }
+            } catch (error) {
+              console.warn('Não foi possível recuperar a sessão pública:', error);
+            }
+          }
+
+          const storedToken = explicitToken?.trim() || (!sessionProfile &&
             typeof window !== 'undefined' && window.localStorage
               ? localStorage.getItem(publicTokenStorageKey(publicSlug)) || undefined
-              : undefined
-          );
+              : undefined);
 
           if (storedToken) {
             try {
@@ -202,6 +313,9 @@ export const FluxoAgendamento: React.FC = () => {
             } catch {
               token = null;
             }
+          } else if (sessionProfile) {
+            token = null;
+            activeDetails = sessionProfile;
           } else {
             token = null;
           }
@@ -368,7 +482,8 @@ export const FluxoAgendamento: React.FC = () => {
 
   const visibleSchedule = useMemo<HorarioGradeCanal[]>(() => {
     if (publicSlug && !canonicalToken) {
-      return publicSchedule;
+      const defensivelyAvailableSlots = new Set(filteredAvailableSlots);
+      return publicSchedule.filter((slot) => slot.available && defensivelyAvailableSlots.has(slot.slot_time));
     }
     return filteredAvailableSlots.map((slot) => ({ slot_time: slot, available: true }));
   }, [publicSchedule, publicSlug, canonicalToken, filteredAvailableSlots]);
@@ -396,6 +511,10 @@ export const FluxoAgendamento: React.FC = () => {
     try {
       const confirmationSlug = publicSlug || customerDetails?.tenant_slug;
       if (confirmationSlug && !isRescheduling) {
+        if (publicSlug && !canonicalToken) {
+          await resolvePublicIdentity(trimmedName, cleanPhone);
+        }
+
         const confirmation = await canalClienteRepository.confirmarAgendamentoPublico({
           slug: confirmationSlug,
           token: canonicalToken,
@@ -407,11 +526,26 @@ export const FluxoAgendamento: React.FC = () => {
           phone: cleanPhone,
         });
 
-        if (typeof window !== 'undefined' && window.localStorage) {
+        if (!publicSessionAuthenticated && typeof window !== 'undefined' && window.localStorage) {
           localStorage.setItem(publicTokenStorageKey(confirmationSlug), confirmation.token);
           localStorage.setItem('navalhado_customer_token', confirmation.token);
         }
         addToast('Agendamento realizado com sucesso!', 'success');
+        setIsConfirmModalOpen(false);
+        navigate('/cliente/menu');
+        return;
+      }
+
+      if (isRescheduling && rescheduleAppointmentId && publicSessionAuthenticated) {
+        await canalClienteRepository.reagendarAgendamentoPublicoSessao({
+          appointmentId: rescheduleAppointmentId,
+          newServiceId: selectedService.id,
+          newProfessionalId: selectedProfessional?.id || null,
+          newDate: selectedDate,
+          newSlot: selectedSlot,
+          newStartTime: `${selectedDate}T${selectedSlot}:00`,
+        });
+        addToast('Reagendamento concluído com sucesso!', 'success');
         setIsConfirmModalOpen(false);
         navigate('/cliente/menu');
         return;
@@ -569,7 +703,7 @@ export const FluxoAgendamento: React.FC = () => {
           )}
 
           {/* Botão Voltar para o Menu */}
-          {((etapa === 1) || isRescheduling) && (
+          {((etapa === 1 && !publicSlug) || isRescheduling) && (
             <button
               onClick={() => navigate('/cliente/menu')}
               style={{
@@ -887,6 +1021,24 @@ export const FluxoAgendamento: React.FC = () => {
                 ))
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => void handleManageAppointments()}
+              style={{
+                alignSelf: 'center',
+                backgroundColor: 'transparent',
+                color: 'var(--color-brand-primary)',
+                border: '1px solid var(--color-brand-primary)',
+                padding: '10px 18px',
+                borderRadius: '9999px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Gerenciar meus agendamentos
+            </button>
           </div>
         )}
 
@@ -1224,6 +1376,68 @@ export const FluxoAgendamento: React.FC = () => {
           </div>
         )}
       </main>
+
+      <Modal
+        isOpen={isManagementModalOpen}
+        onClose={() => {
+          if (!startingManagementSession) {
+            setManagementCaptchaToken(null);
+            setIsManagementModalOpen(false);
+          }
+        }}
+        title="Gerenciar meus agendamentos"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--color-text-primary)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-base)', lineHeight: 1.5 }}>
+            Informe seus dados para acessar seus agendamentos nesta barbearia.
+          </p>
+          <div>
+            <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+              Nome e sobrenome <span style={{ color: '#E11D48' }}>*</span>
+            </label>
+            <input
+              value={managementName}
+              onChange={(event) => setManagementName(event.target.value)}
+              placeholder="Ex.: Jonathas Lopes"
+              disabled={startingManagementSession}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+              Telefone / WhatsApp com DDD <span style={{ color: '#E11D48' }}>*</span>
+            </label>
+            <input
+              type="tel"
+              value={managementPhone}
+              onChange={(event) => setManagementPhone(maskPhone(event.target.value))}
+              placeholder="(92) 99420-4756"
+              inputMode="tel"
+              disabled={startingManagementSession}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+          {turnstileSiteKey && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', fontWeight: 700 }}>
+                Verificação de segurança
+              </span>
+              <TurnstileCaptcha
+                siteKey={turnstileSiteKey}
+                onTokenChange={setManagementCaptchaToken}
+              />
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <button type="button" onClick={() => setIsManagementModalOpen(false)} disabled={startingManagementSession} style={{ backgroundColor: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', padding: '10px 20px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              Voltar
+            </button>
+            <button type="button" onClick={() => void handleStartManagementSession()} disabled={startingManagementSession || Boolean(turnstileSiteKey && !managementCaptchaToken)} style={{ backgroundColor: 'var(--color-brand-primary)', color: '#FFFFFF', border: 'none', padding: '10px 24px', borderRadius: '9999px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              {startingManagementSession ? 'Entrando...' : 'Continuar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de Confirmação Final */}
       <Modal

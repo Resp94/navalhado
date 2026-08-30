@@ -177,6 +177,16 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(slots).not.toEqual(expect.arrayContaining(['14:20', '15:00', '15:40']));
     });
 
+    it('calcula o último início pela cadência que reinicia no retorno configurado', () => {
+      const slots = generateScheduleGridSlots(
+        [{ start: '09:00', end: '19:00', breakStart: '12:00', breakEnd: '15:00' }],
+        40,
+      );
+
+      expect(slots.at(-1)).toBe('18:20');
+      expect(slots).not.toContain('19:00');
+    });
+
     it('normaliza o intervalo do tenant sem aceitar valor inválido como uma nova régua', () => {
       expect(normalizeSlotIntervalMinutes(40)).toBe(40);
       expect(normalizeSlotIntervalMinutes('40')).toBe(40);

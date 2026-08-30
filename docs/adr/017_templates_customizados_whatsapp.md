@@ -28,6 +28,7 @@ As barbearias do Navalhado necessitam de flexibilidade para personalizar o tom d
      - `{profissional}`: Nome do barbeiro / profissional responsável.
      - `{data}`: Data formatada no fuso horário do tenant (ex: `18/08/2026`).
      - `{horario}`: Horário formatado (ex: `14:30`).
+     - `{valor}`: Valor do serviço de uma confirmação de novo agendamento, formatado em reais (ex: `R$ 80,00`).
      - `{link}`: URL tokenizada de acesso direto ao Canal do Cliente.
    - **Garantia de Não-Regressão**: Se qualquer coluna no banco for `null`, vazia ou não personalizada, o sistema recorre imediatamente à constante `DEFAULT_TEMPLATES`, mantendo 100% de paridade com o comportamento de fábrica original.
 

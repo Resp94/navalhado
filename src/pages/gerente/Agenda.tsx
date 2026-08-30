@@ -20,6 +20,7 @@ import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
+import { getAppointmentCardState } from '../../lib/appointment-card-state';
 import type { WaitingListEntry } from '../../modules/espera/types';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
@@ -50,6 +51,7 @@ import {
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
+  getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
 } from '../../lib/schedule';
 import type { ProfessionalDaySchedule, WeeklySchedule, ScheduleGridSegment } from '../../lib/schedule';
@@ -65,6 +67,7 @@ export {
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
+  getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
 };
 export type { ProfessionalDaySchedule, WeeklySchedule };
@@ -76,6 +79,11 @@ export interface Professional {
   is_active: boolean;
   phone?: string;
   weekly_schedule?: WeeklySchedule | null;
+  professional_services?: Array<{
+    service_id: string;
+    custom_duration_minutes?: number | null;
+    is_enabled?: boolean | null;
+  }>;
 }
 
 export interface Service {
@@ -135,6 +143,7 @@ interface CardLayout {
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 104;
+const ANY_PROFESSIONAL = 'any';
 
 const toScheduleGridSegment = (
   schedule: ProfessionalDaySchedule | null | undefined
@@ -489,7 +498,11 @@ export const Agenda: React.FC = () => {
       slotIntervalMinutes
     );
 
-    const durationMin = agendaRescheduleAppointment?.service?.duration_minutes || 30;
+    const durationMin = getEffectiveServiceDuration(
+      agendaRescheduleAppointment?.service?.duration_minutes || 30,
+      agendaRescheduleAppointment?.service?.id || '',
+      prof?.professional_services
+    );
 
     return baseSlots.filter((slotTime) => {
       const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
@@ -528,7 +541,6 @@ export const Agenda: React.FC = () => {
     () => services.find((s) => s.id === formServiceId),
     [services, formServiceId]
   );
-  const currentServiceDuration = currentService?.duration_minutes || slotIntervalMinutes;
 
   // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
   // Em modo de Encaixe (formIsFitting), o gerente tem flexibilidade total para alocar qualquer profissional ativo
@@ -536,15 +548,22 @@ export const Agenda: React.FC = () => {
     return professionals.filter((p) => {
       if (!p.is_active) return false;
       if (formIsFitting) return true;
+      const serviceDuration = currentService
+        ? getEffectiveServiceDuration(
+            currentService.duration_minutes,
+            currentService.id,
+            p.professional_services
+          )
+        : slotIntervalMinutes;
       return isProfessionalWorkingAt(
         p,
         formDate,
         formTime,
-        currentServiceDuration,
+        serviceDuration,
         tenant.businessHours
       );
     });
-  }, [professionals, formIsFitting, formDate, formTime, currentServiceDuration, tenant.businessHours]);
+  }, [professionals, formIsFitting, formDate, formTime, currentService, slotIntervalMinutes, tenant.businessHours]);
 
   const isPastFormTime = useMemo(() => {
     const nowInstant = new Date();
@@ -560,10 +579,13 @@ export const Agenda: React.FC = () => {
   useEffect(() => {
     if (isModalOpen) {
       if (availableProfessionalsForFormTime.length > 0) {
-        if (!availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)) {
+        if (
+          formProfessionalId !== ANY_PROFESSIONAL &&
+          !availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)
+        ) {
           setFormProfessionalId(availableProfessionalsForFormTime[0].id);
         }
-      } else {
+      } else if (formProfessionalId !== ANY_PROFESSIONAL) {
         setFormProfessionalId('');
       }
     }
@@ -622,7 +644,7 @@ export const Agenda: React.FC = () => {
     try {
       if (!tenant.tenantId) return;
 
-      const [profsRes, servsRes, custsRes] = await Promise.all([
+      const [profsRes, servsRes, custsRes, professionalServicesRes] = await Promise.all([
         supabase
           .from('professionals')
           .select('id, name, is_active, phone, weekly_schedule')
@@ -642,13 +664,32 @@ export const Agenda: React.FC = () => {
           .select('id, name, phone')
           .eq('tenant_id', tenant.tenantId)
           .order('name'),
+        supabase
+          .from('professional_services')
+          .select('professional_id, service_id, custom_duration_minutes, is_enabled')
+          .eq('tenant_id', tenant.tenantId),
       ]);
 
       if (profsRes.error) throw profsRes.error;
       if (servsRes.error) throw servsRes.error;
       if (custsRes.error) throw custsRes.error;
+      if (professionalServicesRes.error) throw professionalServicesRes.error;
 
-      const activeProfs = profsRes.data || [];
+      const servicesByProfessional = new Map<string, Professional['professional_services']>();
+      (professionalServicesRes.data || []).forEach((service) => {
+        const current = servicesByProfessional.get(service.professional_id) || [];
+        current.push({
+          service_id: service.service_id,
+          custom_duration_minutes: service.custom_duration_minutes,
+          is_enabled: service.is_enabled,
+        });
+        servicesByProfessional.set(service.professional_id, current);
+      });
+
+      const activeProfs = (profsRes.data || []).map((professional) => ({
+        ...professional,
+        professional_services: servicesByProfessional.get(professional.id) || [],
+      }));
       setProfessionals(activeProfs);
       setSelectedProfessionalIds(activeProfs.map((p) => p.id));
       if (activeProfs.length > 0 && !selectedWeekProfId) {
@@ -969,7 +1010,7 @@ export const Agenda: React.FC = () => {
   const handleSaveAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formProfessionalId) {
+    if (!formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
       addToast('Selecione um profissional.', 'warning');
       return;
     }
@@ -1039,12 +1080,21 @@ export const Agenda: React.FC = () => {
       }
 
       // Validação de intervalo e disponibilidade do barbeiro
-      const selectedProf = professionals.find((p) => p.id === formProfessionalId);
+      const selectedProfessionalId = formProfessionalId === ANY_PROFESSIONAL
+        ? availableProfessionalsForFormTime[0]?.id
+        : formProfessionalId;
+      const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
       if (!selectedProf) {
         addToast('Selecione um profissional disponível.', 'warning');
         setSavingAppointment(false);
         return;
       }
+
+      const effectiveServiceDuration = getEffectiveServiceDuration(
+        selectedService.duration_minutes,
+        selectedService.id,
+        selectedProf.professional_services
+      );
 
       const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
       if (!formIsFitting && !dayBh.active) {
@@ -1064,7 +1114,7 @@ export const Agenda: React.FC = () => {
       }
 
       if (!formIsFitting) {
-        if (isProfessionalOnBreak(selectedProf, formDate, formTime, selectedService.duration_minutes)) {
+        if (isProfessionalOnBreak(selectedProf, formDate, formTime, effectiveServiceDuration)) {
           addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
           setSavingAppointment(false);
           return;
@@ -1074,7 +1124,7 @@ export const Agenda: React.FC = () => {
           selectedProf,
           formDate,
           formTime,
-          selectedService.duration_minutes,
+          effectiveServiceDuration,
           tenant.businessHours
         )) {
           addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
@@ -1105,7 +1155,7 @@ export const Agenda: React.FC = () => {
       // Calcular timestamps com Timezone
       const startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
       const [sh, sm] = formTime.split(':').map(Number);
-      const endTotalMinutes = sh * 60 + sm + selectedService.duration_minutes;
+      const endTotalMinutes = sh * 60 + sm + effectiveServiceDuration;
       const eh = Math.floor(endTotalMinutes / 60);
       const em = endTotalMinutes % 60;
       const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
@@ -1114,7 +1164,7 @@ export const Agenda: React.FC = () => {
       const payload = {
         tenant_id: tenant.tenantId,
         customer_id: finalCustomerId,
-        professional_id: formProfessionalId,
+        professional_id: selectedProfessionalId,
         service_id: formServiceId,
         start_time: startIso,
         end_time: endIso,
@@ -1170,7 +1220,7 @@ export const Agenda: React.FC = () => {
                 tenant_id: tenant.tenantId,
                 item_type: 'servico',
                 service_id: formServiceId,
-                professional_id: formProfessionalId || null,
+                professional_id: selectedProfessionalId || null,
                 quantity: 1,
                 unit_price: srvPrice,
                 total_price: srvPrice,
@@ -1417,7 +1467,11 @@ export const Agenda: React.FC = () => {
     }
 
     const rescheduleProfessional = professionals.find((p) => p.id === agendaRescheduleProfId);
-    const rescheduleDuration = agendaRescheduleAppointment.service?.duration_minutes || 30;
+    const rescheduleDuration = getEffectiveServiceDuration(
+      agendaRescheduleAppointment.service?.duration_minutes || 30,
+      agendaRescheduleAppointment.service?.id || '',
+      rescheduleProfessional?.professional_services
+    );
     if (
       rescheduleProfessional &&
       !isProfessionalWorkingAt(
@@ -2015,18 +2069,12 @@ export const Agenda: React.FC = () => {
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
-                            let statusClass = 'card-status--pending';
-                            if (app.status === 'no_show') {
-                              statusClass = 'card-status--no-show';
-                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
-                              statusClass = 'card-status--completed';
-                            } else if (app.status === 'in_progress') {
-                              statusClass = 'card-status--in-progress';
-                            } else if (app.is_fitting) {
-                              statusClass = 'card-status--fitting';
-                            } else if (app.status === 'confirmed') {
-                              statusClass = 'card-status--confirmed';
-                            }
+                            const cardState = getAppointmentCardState({
+                              isFitting: app.is_fitting,
+                              appointmentStatus: app.status,
+                              paymentStatus: app.payment_status,
+                            });
+                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
 
                             return (
                               <div
@@ -2329,18 +2377,12 @@ export const Agenda: React.FC = () => {
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
                             const timeEnd = formatTimeInZone(app.end_time, tenant.timezone);
 
-                            let statusClass = 'card-status--pending';
-                            if (app.status === 'no_show') {
-                              statusClass = 'card-status--no-show';
-                            } else if (app.payment_status === 'paid' || app.status === 'completed') {
-                              statusClass = 'card-status--completed';
-                            } else if (app.status === 'in_progress') {
-                              statusClass = 'card-status--in-progress';
-                            } else if (app.is_fitting) {
-                              statusClass = 'card-status--fitting';
-                            } else if (app.status === 'confirmed') {
-                              statusClass = 'card-status--confirmed';
-                            }
+                            const cardState = getAppointmentCardState({
+                              isFitting: app.is_fitting,
+                              appointmentStatus: app.status,
+                              paymentStatus: app.payment_status,
+                            });
+                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
 
                             return (
                               <div
@@ -2501,11 +2543,14 @@ export const Agenda: React.FC = () => {
                 required
               >
                 {availableProfessionalsForFormTime.length > 0 ? (
-                  availableProfessionalsForFormTime.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))
+                  <>
+                    <option value={ANY_PROFESSIONAL}>Tanto faz</option>
+                    {availableProfessionalsForFormTime.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </>
                 ) : (
                   <option value="" disabled>
                     Nenhum barbeiro disponível (intervalo/folga)
