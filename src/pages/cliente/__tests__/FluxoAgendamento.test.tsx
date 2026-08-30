@@ -3,12 +3,14 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { FluxoAgendamento } from '../FluxoAgendamento';
 
-const { mockAddToast, mockRpc, mockPublicRpc, mockPublicGetSession, mockPublicSignIn } = vi.hoisted(() => ({
+const { mockAddToast, mockRpc, mockPublicRpc, mockPublicGetSession, mockPublicSignIn, mockPublicInvoke, mockPublicSetSession } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockRpc: vi.fn(),
   mockPublicRpc: vi.fn(),
   mockPublicGetSession: vi.fn(),
   mockPublicSignIn: vi.fn(),
+  mockPublicInvoke: vi.fn(),
+  mockPublicSetSession: vi.fn(),
 }));
 
 vi.mock('../../../components/Toast', () => ({
@@ -22,7 +24,11 @@ vi.mock('../../../lib/supabase', () => ({
     auth: {
       getSession: mockPublicGetSession,
       signInAnonymously: mockPublicSignIn,
+      setSession: mockPublicSetSession,
       signOut: vi.fn(),
+    },
+    functions: {
+      invoke: mockPublicInvoke,
     },
   },
 }));
@@ -639,10 +645,14 @@ describe('FluxoAgendamento - cadastro inicial', () => {
       if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
       return { data: [], error: null };
     });
-    mockPublicRpc.mockImplementation(async (name: string) => {
-      if (name === 'start_public_customer_session') {
-        return {
-          data: [{
+    mockPublicInvoke.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'access-token-management',
+          refresh_token: 'refresh-token-management',
+          user: { id: 'auth-user-management', is_anonymous: true },
+        },
+        profile: {
             found: true,
             customer_id: 'customer-session',
             customer_name: 'Maria Sessão',
@@ -652,12 +662,11 @@ describe('FluxoAgendamento - cadastro inicial', () => {
             tenant_name: 'Barbearia Pública',
             tenant_phone: '5592999999999',
             tenant_slug: 'brooklyn',
-          }],
-          error: null,
-        };
-      }
-      return { data: [], error: null };
+        },
+      },
+      error: null,
     });
+    mockPublicSetSession.mockResolvedValue({ data: { session: null }, error: null });
 
     renderBookingRoute('/brooklyn');
     expect(await screen.findByText('Serviço Público')).toBeInTheDocument();
@@ -667,10 +676,13 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
     expect(await screen.findByText('Menu do Cliente')).toBeInTheDocument();
-    expect(mockPublicRpc).toHaveBeenCalledWith('start_public_customer_session', {
-      p_slug: 'brooklyn',
-      p_name: 'Maria Sessão',
-      p_phone: '92999998888',
+    expect(mockPublicInvoke).toHaveBeenCalledWith('public-customer-session', {
+      body: {
+        slug: 'brooklyn',
+        name: 'Maria Sessão',
+        phone: '92999998888',
+        captchaToken: null,
+      },
     });
   });
 

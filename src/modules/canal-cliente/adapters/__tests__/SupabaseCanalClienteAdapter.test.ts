@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SupabaseCanalClienteAdapter } from '../SupabaseCanalClienteAdapter';
 
-const { mockRpc, mockGetSession, mockSignInAnonymously, mockSignOut } = vi.hoisted(() => ({
+const { mockRpc, mockGetSession, mockSignInAnonymously, mockInvoke, mockSetSession, mockSignOut } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
   mockGetSession: vi.fn(),
   mockSignInAnonymously: vi.fn(),
+  mockInvoke: vi.fn(),
+  mockSetSession: vi.fn(),
   mockSignOut: vi.fn(),
 }));
 
@@ -17,7 +19,11 @@ vi.mock('../../../../lib/supabase', () => ({
     auth: {
       getSession: mockGetSession,
       signInAnonymously: mockSignInAnonymously,
+      setSession: mockSetSession,
       signOut: mockSignOut,
+    },
+    functions: {
+      invoke: mockInvoke,
     },
   },
 }));
@@ -66,41 +72,57 @@ describe('SupabaseCanalClienteAdapter - reagendamento', () => {
     expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 
-  it('inicia sessão anônima e vincula o cliente ao tenant sem receber token de cliente', async () => {
+  it('inicia sessão pública pelo endpoint protegido e vincula o cliente ao tenant sem receber token de cliente', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-    mockSignInAnonymously.mockResolvedValue({
-      data: { session: { user: { id: 'auth-user-1', is_anonymous: true } } },
+    mockInvoke.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'access-token-1',
+          refresh_token: 'refresh-token-1',
+          user: { id: 'auth-user-1', is_anonymous: true },
+        },
+        profile: {
+          found: true,
+          customer_id: 'customer-1',
+          customer_name: 'Jonathas Teste',
+          customer_phone: '92999999999',
+          cadastro_completo: true,
+          tenant_id: 'tenant-1',
+          tenant_name: 'Barbearia Teste',
+          tenant_phone: '92999999998',
+          tenant_slug: 'barbearia-teste',
+          tenant_timezone: 'America/Manaus',
+          business_hours: {},
+          min_cancellation_lead_time_minutes: 60,
+          min_booking_lead_time_minutes: 30,
+          slot_interval_minutes: 40,
+        },
+      },
       error: null,
     });
-    mockRpc.mockResolvedValue({
-      data: [{
-        found: true,
-        customer_id: 'customer-1',
-        customer_name: 'Jonathas Teste',
-        customer_phone: '92999999999',
-        cadastro_completo: true,
-        tenant_id: 'tenant-1',
-        tenant_name: 'Barbearia Teste',
-        tenant_phone: '92999999998',
-        tenant_slug: 'barbearia-teste',
-        tenant_timezone: 'America/Manaus',
-        business_hours: {},
-        min_cancellation_lead_time_minutes: 60,
-        min_booking_lead_time_minutes: 30,
-        slot_interval_minutes: 40,
-      }],
-      error: null,
-    });
+    mockSetSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const adapter = new SupabaseCanalClienteAdapter();
-    const result = await adapter.iniciarSessaoPublica('barbearia-teste', 'Jonathas Teste', '92999999999');
+    const result = await adapter.iniciarSessaoPublica(
+      'barbearia-teste',
+      'Jonathas Teste',
+      '92999999999',
+      'turnstile-token-1',
+    );
 
-    expect(mockSignInAnonymously).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledWith('start_public_customer_session', {
-      p_slug: 'barbearia-teste',
-      p_name: 'Jonathas Teste',
-      p_phone: '92999999999',
+    expect(mockInvoke).toHaveBeenCalledWith('public-customer-session', {
+      body: {
+        slug: 'barbearia-teste',
+        name: 'Jonathas Teste',
+        phone: '92999999999',
+        captchaToken: 'turnstile-token-1',
+      },
     });
+    expect(mockSetSession).toHaveBeenCalledWith(expect.objectContaining({
+      access_token: 'access-token-1',
+      refresh_token: 'refresh-token-1',
+    }));
+    expect(mockSignInAnonymously).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       found: true,
       customer_id: 'customer-1',
@@ -109,39 +131,33 @@ describe('SupabaseCanalClienteAdapter - reagendamento', () => {
     expect(result).not.toHaveProperty('token_acesso');
   });
 
-  it('envia o token do Turnstile ao iniciar a sessão anônima', async () => {
+  it('não usa o Auth global diretamente ao iniciar uma sessão pública', async () => {
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-    mockSignInAnonymously.mockResolvedValue({
-      data: { session: { user: { id: 'auth-user-1', is_anonymous: true } } },
+    mockInvoke.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'access-token-1',
+          refresh_token: 'refresh-token-1',
+          user: { id: 'auth-user-1', is_anonymous: true },
+        },
+        profile: [{
+          found: true,
+          tenant_id: 'tenant-1',
+          tenant_name: 'Barbearia Teste',
+          tenant_phone: '92999999998',
+          tenant_slug: 'barbearia-teste',
+        }],
+      },
       error: null,
     });
-    mockRpc.mockResolvedValue({
-      data: [{
-        found: true,
-        customer_id: 'customer-1',
-        customer_name: 'Jonathas Teste',
-        customer_phone: '92999999999',
-        cadastro_completo: true,
-        tenant_id: 'tenant-1',
-        tenant_name: 'Barbearia Teste',
-        tenant_phone: '92999999998',
-        tenant_slug: 'barbearia-teste',
-      }],
-      error: null,
-    });
+    mockSetSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const adapter = new SupabaseCanalClienteAdapter();
 
-    await adapter.iniciarSessaoPublica(
-      'barbearia-teste',
-      'Jonathas Teste',
-      '92999999999',
-      'turnstile-token-1',
-    );
+    await adapter.iniciarSessaoPublica('barbearia-teste', 'Jonathas Teste', '92999999999');
 
-    expect(mockSignInAnonymously).toHaveBeenCalledWith({
-      options: { captchaToken: 'turnstile-token-1' },
-    });
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockSignInAnonymously).not.toHaveBeenCalled();
   });
 
   it('encerra a sessão pública pelo Supabase Auth', async () => {

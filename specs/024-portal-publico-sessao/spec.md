@@ -32,6 +32,10 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - Um cliente com sessão ativa poderá iniciar um novo agendamento pela área de gerenciamento; a confirmação reutilizará nome e telefone preenchidos pela sessão.
 - A sessão resolverá o tenant e o cliente fora da URL, usando o fluxo de nome e telefone normalizado já existente.
 - A sessão pública usará Supabase Auth anônimo e autorização baseada em `auth.uid()`; nenhum RPC de operação sensível aceitará apenas um identificador público de sessão.
+- A proteção CAPTCHA nativa do Supabase Auth não será usada como controle global do projeto, porque ela também bloqueia `/token` (login do app), `/signup` e outros endpoints administrativos. O CAPTCHA global deve permanecer desativado.
+- O portal público validará o Cloudflare Turnstile exclusivamente no endpoint `public-customer-session`, por meio de uma Edge Function com verificação server-side em `siteverify`; somente após essa validação a função criará a sessão anônima e chamará `start_public_customer_session` com o JWT anônimo.
+- `VITE_TURNSTILE_SITE_KEY` é uma variável pública do front-end; `TURNSTILE_SECRET_KEY` é segredo exclusivo da Edge Function e nunca será enviado ao navegador, ao login do app ou à URL pública.
+- A Edge Function pública terá autenticação JWT do gateway desativada apenas porque a requisição inicial ainda não possui sessão; a própria função aplica CORS restrito, validação de entrada e verificação obrigatória do Turnstile antes de criar qualquer sessão.
 - Usuários criados pelo Supabase Auth com `is_anonymous = true` serão mantidos somente em `auth.users` durante a sessão; o trigger `handle_new_user()` não os projetará em `public.users`, cuja identidade administrativa/profissional exige e-mail.
 - Não será criada uma segunda identidade de cliente baseada em URL.
 - Links legados tokenizados serão aceitos durante a transição e convertidos para a sessão pública sem quebrar mensagens já entregues.
@@ -43,7 +47,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - A Agenda administrativa manterá sua visualização operacional, podendo continuar exibindo horários ocupados ou indisponíveis.
 - A confirmação do horário será revalidada no servidor para impedir reservas concorrentes.
 - Toda implementação, teste, consulta de validação e migration desta spec será executada exclusivamente no banco/ambiente DEV. As credenciais de teste devem ser obtidas somente de `docs/credenciais_teste.md`, sem copiar valores para código, fixtures, logs ou documentação.
-- Toda migration necessária deverá ser versionada e numerada sequencialmente conforme o padrão existente; a correção desta etapa é a `087`, aplicada somente em DEV via MCP.
+- Toda migration necessária deverá ser versionada e numerada sequencialmente conforme o padrão existente. Esta correção não altera o schema nem exige migration: ela corrige a fronteira de autenticação no cliente e na Edge Function pública.
 
 ## Testing Decisions
 
@@ -58,6 +62,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - Devem confirmar que horários indisponíveis não aparecem como botões inativos e que o estado vazio é exibido quando a lista fica vazia.
 - Devem simular, quando possível sem mutar dados persistidos, a concorrência ou a revalidação de horário e registrar a resposta controlada sem duplicar agendamento.
 - A validação deve ser repetida em desktop e mobile, com prints dos estados relevantes e sem enviar mensagens reais.
+- Devem confirmar no log de Auth do DEV que login administrativo em `/token` e cadastro administrativo em `/signup` não retornam `captcha_failed` depois de desligado o CAPTCHA global, enquanto a sessão pública rejeita token Turnstile ausente ou inválido no endpoint próprio.
 - O checklist de validação manual está em [Validação manual 024](../../verificacao-manual/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope

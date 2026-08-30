@@ -152,10 +152,49 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     if (currentSession.error) throw currentSession.error;
 
     if (!currentSession.data.session || currentSession.data.session.user.is_anonymous !== true) {
-      const anonymousSession = await publicSupabase.auth.signInAnonymously(
-        captchaToken ? { options: { captchaToken } } : undefined,
+      const { data: sessionData, error: sessionError } = await publicSupabase.functions.invoke(
+        'public-customer-session',
+        {
+          body: {
+            slug,
+            name,
+            phone,
+            captchaToken: captchaToken || null,
+          },
+        },
       );
-      if (anonymousSession.error) throw anonymousSession.error;
+
+      if (sessionError) throw sessionError;
+
+      const session = sessionData?.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        throw new CanalClienteValidationError('Não foi possível iniciar a sessão pública.');
+      }
+
+      const { error: setSessionError } = await publicSupabase.auth.setSession(session);
+      if (setSessionError) throw setSessionError;
+
+      const sessionRow = Array.isArray(sessionData.profile)
+        ? sessionData.profile[0]
+        : sessionData.profile;
+      if (!sessionRow) return null;
+
+      return {
+        found: Boolean(sessionRow.found),
+        customer_id: sessionRow.customer_id || undefined,
+        customer_name: sessionRow.customer_name || undefined,
+        customer_phone: sessionRow.customer_phone || undefined,
+        cadastro_completo: sessionRow.cadastro_completo === undefined ? undefined : Boolean(sessionRow.cadastro_completo),
+        tenant_id: sessionRow.tenant_id,
+        tenant_name: sessionRow.tenant_name,
+        tenant_phone: sessionRow.tenant_phone || '',
+        tenant_slug: sessionRow.tenant_slug,
+        tenant_timezone: sessionRow.tenant_timezone || 'America/Sao_Paulo',
+        business_hours: sessionRow.business_hours || undefined,
+        min_cancellation_lead_time_minutes: sessionRow.min_cancellation_lead_time_minutes == null ? undefined : Number(sessionRow.min_cancellation_lead_time_minutes),
+        min_booking_lead_time_minutes: sessionRow.min_booking_lead_time_minutes == null ? undefined : Number(sessionRow.min_booking_lead_time_minutes),
+        slot_interval_minutes: sessionRow.slot_interval_minutes == null ? undefined : Number(sessionRow.slot_interval_minutes),
+      };
     }
 
     const { data, error } = await publicSupabase.rpc('start_public_customer_session', {

@@ -34,6 +34,7 @@
     "https://esm.sh/@supabase/postgrest-js@1.9.2/denonext/postgrest-js.mjs": "216c149bc04130518774d10fcf2df5d1c1369d985fee7fe942840f6f77459e27",
     "https://esm.sh/@supabase/realtime-js@2.9.3/denonext/realtime-js.mjs": "aac782e4fcf8d2e2f4b2592f566a0324b19b0262a2938a0c8ce546c681faef14",
     "https://esm.sh/@supabase/storage-js@2.5.5/denonext/storage-js.mjs": "a952ba6fdc889a4ae8d671ce4d1a152702c1caa3158eb2269a0208b091856075",
+    "https://esm.sh/@supabase/supabase-js@2.110.2": "a764256c977bc03fc703d7b0031ac3138137a49b9f831775fd7a7f42019f652d",
     "https://esm.sh/@supabase/supabase-js@2.39.8": "5cb81f5217dda9564abd7d7d6211484d30441d41a113954d5904bcd0ef1007e0",
     "https://esm.sh/@supabase/supabase-js@2.39.8/denonext/supabase-js.mjs": "1a4d0e38fed110fef252639a51247066a642e855794bea026efb26e5ed55abd8",
     "https://esm.sh/bufferutil@4.1.0/denonext/bufferutil.mjs": "9b6e81087bdc57848ad1de1f8618ebbace98ebd9ff6cab51260b48c2a045a9c9",
