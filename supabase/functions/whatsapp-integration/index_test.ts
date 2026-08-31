@@ -1678,6 +1678,7 @@ Deno.test("POST /send-notification Uazapi - retries temporary failures and recor
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
   const providerCalls: Record<string, unknown>[] = [];
   const idempotencyBodies: Record<string, unknown>[] = [];
+  const customerUpdates: Record<string, unknown>[] = [];
   let sendAttempts = 0;
 
   Deno.env.set("UAZAPI_BASE_URL", "https://api.uazapi.com");
@@ -1692,7 +1693,7 @@ Deno.test("POST /send-notification Uazapi - retries temporary failures and recor
       return new Response(JSON.stringify({
         id: "appointment-1",
         start_time: "2026-08-01T19:00:00.000Z",
-        customers: { name: "Cliente", phone: "11999991111", token_acesso: "customer-token" },
+        customers: { id: "customer-reminder-1", name: "Cliente", phone: "11999991111", token_acesso: "customer-token", last_first_contact_at: null },
         professionals: { name: "Barbeiro" },
         services: { name: "Corte" },
         tenants: { name: "Barbearia", timezone: "America/Manaus" },
@@ -1820,6 +1821,7 @@ Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant
   const originalAdminToken = Deno.env.get("UAZAPI_ADMIN_TOKEN");
   const providerCalls: Record<string, unknown>[] = [];
   const idempotencyBodies: Record<string, unknown>[] = [];
+  const customerUpdates: Record<string, unknown>[] = [];
   let idempotencyStatus = "processing";
   let idempotencyInserted = false;
 
@@ -1836,7 +1838,7 @@ Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant
       return new Response(JSON.stringify([{
         id: "appointment-1",
         start_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        customers: { name: "Cliente", phone: "11999991111", token_acesso: "customer-token" },
+        customers: { id: "customer-reminder-1", name: "Cliente", phone: "11999991111", token_acesso: "customer-token", last_first_contact_at: null },
         professionals: { name: "Barbeiro" },
         services: { name: "Corte" },
         tenants: { name: "Barbearia", timezone: "America/Manaus" },
@@ -1853,6 +1855,10 @@ Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant
       const patchBody = JSON.parse(String(init?.body));
       if (patchBody.status) idempotencyStatus = patchBody.status;
       return new Response(JSON.stringify({}), { status: 200 });
+    }
+    if (url.includes("rest/v1/customers") && method === "PATCH") {
+      customerUpdates.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({}), { status: 204 });
     }
     return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
   };
@@ -1881,6 +1887,7 @@ Deno.test("POST /process-reminders Uazapi - uses reminder idempotency and tenant
     assertEquals(idempotencyBodies[0]?.event_type, "appointment_reminder");
     assertEquals(idempotencyBodies[0]?.reminder_window, "2h");
     assertEquals(idempotencyBodies[0]?.idempotency_key, "appointment:appointment-1:appointment_reminder:2h");
+    assertEquals(customerUpdates, []);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalBaseUrl === undefined) Deno.env.delete("UAZAPI_BASE_URL");
@@ -3126,6 +3133,65 @@ Deno.test("POST /send-notification appointment_cancelled sends notification to c
   } finally {
     restoreFetch();
   }
+});
+
+Deno.test("POST /send-notification does not repurpose first-contact timestamp for cancellation", async () => {
+  const originalFetch = globalThis.fetch;
+  const customerUpdates: Array<Record<string, unknown>> = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({
+        id: "inst-1",
+        tenant_id: "tenant-1",
+        instance_name: "nav_test",
+        instance_token: "mock-token",
+        status: "connected",
+        send_confirmation: true,
+        send_reminders: true,
+        send_cancellation: true,
+        reminder_hours: 2,
+      }), { status: 200 });
+    }
+    if (url.includes("rest/v1/appointments")) {
+      return new Response(JSON.stringify({
+        id: "app-cancel-timestamp-1",
+        start_time: "2026-08-27T10:00:00Z",
+        is_fitting: false,
+        customers: { id: "customer-1", name: "Pedro Cliente", phone: "11988883333", token_acesso: "token-pedro", last_first_contact_at: null },
+        professionals: { name: "Felipe Barbeiro", phone: "11977774444" },
+        services: { name: "Corte + Barba", price: 80 },
+        tenants: { name: "Navalhado Matriz", slug: "navalhado-matriz", timezone: "America/Sao_Paulo" },
+      }), { status: 200 });
+    }
+    if (url.includes("rest/v1/whatsapp_message_idempotency")) {
+      return new Response(JSON.stringify({}), { status: method === "POST" ? 201 : 200 });
+    }
+    if (url.includes("rest/v1/customers") && method === "PATCH") {
+      customerUpdates.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({}), { status: 204 });
+    }
+
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  const provider = createProviderStub();
+  const response = await createHandler({ providerFactory: () => provider })(new Request(
+    "https://mock-supabase.co/functions/v1/whatsapp-integration/send-notification",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+      body: JSON.stringify({ event: "appointment_cancelled", appointment_id: "app-cancel-timestamp-1", tenant_id: "tenant-1" }),
+    },
+  ));
+
+  globalThis.fetch = originalFetch;
+
+  assertEquals(response.status, 200);
+  assertEquals(customerUpdates, []);
 });
 
 Deno.test("POST /send-notification sends to barber even if client send_confirmation is disabled", async () => {
