@@ -18,7 +18,7 @@
 - [ ] Horários indisponíveis não aparecem como botões inativos.
 - [ ] Estado vazio e isolamento entre tenants são comprovados.
 - [ ] A revalidação de concorrência é comprovada sem criar duplicidade.
-- [ ] Prints desktop e mobile são salvos em `verificacao-manual/` sem dados sensíveis.
+- [ ] Prints desktop e mobile são salvos em `verificacoes/` sem dados sensíveis.
 - [ ] Nenhuma mensagem real é enviada, nenhum dado de produção é alterado e nenhuma migration é aplicada fora do DEV.
 
-**Checklist de execução:** [Validação manual 024](../../../verificacao-manual/024-portal-publico-sessao.md).
+**Checklist de execução:** [Validação manual 024](../../../verificacoes/024-portal-publico-sessao.md).

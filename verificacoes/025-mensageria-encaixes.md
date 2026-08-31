@@ -8,7 +8,7 @@
 - Obter credenciais somente de `docs/credenciais_teste.md`; não copiar valores para este arquivo, prints, logs ou relatórios.
 - Usar coletor/outbox de teste quando houver confirmação; nenhum número externo pode receber mensagem.
 - Não executar validações, consultas ou migrations em produção.
-- Repetir os estados visuais relevantes em desktop e mobile e salvar prints em `verificacao-manual/`.
+- Repetir os estados visuais relevantes em desktop e mobile e salvar prints em `verificacoes/`.
 
 ## Encaixes e confirmações
 

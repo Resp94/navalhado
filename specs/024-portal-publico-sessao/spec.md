@@ -63,7 +63,7 @@ Links antigos tokenizados continuarão sendo aceitos durante a transição, mas 
 - Devem simular, quando possível sem mutar dados persistidos, a concorrência ou a revalidação de horário e registrar a resposta controlada sem duplicar agendamento.
 - A validação deve ser repetida em desktop e mobile, com prints dos estados relevantes e sem enviar mensagens reais.
 - Devem confirmar no log de Auth do DEV que login administrativo em `/token` e cadastro administrativo em `/signup` não retornam `captcha_failed` depois de desligado o CAPTCHA global, enquanto a sessão pública rejeita token Turnstile ausente ou inválido no endpoint próprio.
-- O checklist de validação manual está em [Validação manual 024](../../verificacao-manual/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
+- O checklist de validação manual está em [Validação manual 024](../../verificacoes/024-portal-publico-sessao.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope
 

@@ -50,7 +50,7 @@ A duração efetiva será a duração do serviço ou a duração personalizada p
 - Devem ser cobertos: intervalos de 40 e outros valores, retorno às 14:00 e 15:00, último slot, duração base e personalizada, conflitos, bloqueios, antecedência, fechamento e interseção tenant/profissional.
 - Com tenant `09:00–19:00`, grade de 40 e profissional com intervalo `12:00–14:00`, salvar e recarregar deve preservar exatamente os dois horários.
 - O teste deve confirmar que o slot de `18:20` pode iniciar serviço de 60 minutos e terminar depois das 19:00, sem criar início em `19:00`.
-- O checklist executável está em [Playwright 023](../../verificacao-playwright/023-agenda-disponibilidade.md) e deve usar exclusivamente o ambiente DEV.
+- O checklist executável está em [Playwright 023](../../verificacoes/023-agenda-disponibilidade.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope
 

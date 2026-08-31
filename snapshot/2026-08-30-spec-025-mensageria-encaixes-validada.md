@@ -38,15 +38,15 @@ A validação foi realizada no navegador integrado, em desktop e mobile, sem ace
 
 ### Prints registrados
 
-- [Slots públicos desktop](../verificacao-manual/evidencias/025/01-slots-publicos-desktop.png)
-- [Slots públicos mobile](../verificacao-manual/evidencias/025/02-slots-publicos-mobile.png)
-- [Confirmação com valor mobile](../verificacao-manual/evidencias/025/03-confirmacao-valor-mobile.png)
-- [Confirmação com valor desktop](../verificacao-manual/evidencias/025/04-confirmacao-valor-desktop.png)
-- [Agenda e grade desktop](../verificacao-manual/evidencias/025/05-agenda-grade-desktop.png)
-- [Último slot em 18:20](../verificacao-manual/evidencias/025/06-agenda-ultimo-slot-18-20.png)
-- [Agenda e grade mobile](../verificacao-manual/evidencias/025/07-agenda-grade-mobile.png)
-- [Encaixe passado confirmado](../verificacao-manual/evidencias/025/08-encaixe-passado-confirmado.png)
-- [Encaixe pago com card verde](../verificacao-manual/evidencias/025/09-encaixe-pago-verde.png)
+- [Slots públicos desktop](../verificacoes/evidencias/025/01-slots-publicos-desktop.png)
+- [Slots públicos mobile](../verificacoes/evidencias/025/02-slots-publicos-mobile.png)
+- [Confirmação com valor mobile](../verificacoes/evidencias/025/03-confirmacao-valor-mobile.png)
+- [Confirmação com valor desktop](../verificacoes/evidencias/025/04-confirmacao-valor-desktop.png)
+- [Agenda e grade desktop](../verificacoes/evidencias/025/05-agenda-grade-desktop.png)
+- [Último slot em 18:20](../verificacoes/evidencias/025/06-agenda-ultimo-slot-18-20.png)
+- [Agenda e grade mobile](../verificacoes/evidencias/025/07-agenda-grade-mobile.png)
+- [Encaixe passado confirmado](../verificacoes/evidencias/025/08-encaixe-passado-confirmado.png)
+- [Encaixe pago com card verde](../verificacoes/evidencias/025/09-encaixe-pago-verde.png)
 
 ## Persistência no banco DEV
 
@@ -79,4 +79,4 @@ Nenhuma mensagem real foi enviada durante os testes.
 ## Referências
 
 - [Spec 025](../specs/025-mensageria-encaixes/spec.md)
-- [Relatório de validação DEV](../verificacao-manual/025-validacao-dev-2026-08-30.md)
+- [Relatório de validação DEV](../verificacoes/025-validacao-dev-2026-08-30.md)
