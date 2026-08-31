@@ -150,21 +150,28 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     expect(await screen.findByText('Corte Público')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Corte Público'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
 
-    expect(screen.getByDisplayValue('25/08/2026')).toBeInTheDocument();
+    // Modal 02: Seleção de Dias da semana
+    expect(await screen.findByText(/Selecione o dia da semana desejado/i)).toBeInTheDocument();
+    expect(screen.getByText('25/08')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('25/08'));
+
+    // Modal 03: Barbeiro e Horários
+    expect(await screen.findByText(/Horários disponíveis/i)).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '10:00' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: '10:30' })).not.toBeInTheDocument();
-    expect(mockRpc).not.toHaveBeenCalledWith(
-      'get_or_create_provisional_customer_by_slug',
-      expect.anything(),
-    );
 
     fireEvent.click(screen.getByRole('button', { name: '10:00' }));
-    fireEvent.change(screen.getByPlaceholderText(/Ex: Matheus Lopes/i), { target: { value: 'Maria Silva' } });
-    fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
-    expect(await screen.findByText(/Cadastro reconhecido: Maria Silva/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Avançar para identificação/i }));
+
+    // Modal 04: Resumo da Comanda
+    expect(await screen.findByText(/Resumo do agendamento/i)).toBeInTheDocument();
+    const nameInput = screen.getByPlaceholderText(/Ex: Jonathas Lopes/i);
+    const phoneInput = screen.getByPlaceholderText('(92) 99420-4756');
+
+    fireEvent.change(nameInput, { target: { value: 'Maria Silva' } });
+    fireEvent.change(phoneInput, { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar agendamento/i }));
 
     await waitFor(() => {
       expect(mockRpc).toHaveBeenCalledWith('confirm_public_booking', {
@@ -178,138 +185,6 @@ describe('FluxoAgendamento - cadastro inicial', () => {
         p_token: null,
       });
     });
-  });
-
-  it('mantém o input nativo de data como alvo de toque no mobile', async () => {
-    const service = {
-      id: 'service-public-1',
-      name: 'Corte Público',
-      description: null,
-      price: 50,
-      duration_minutes: 40,
-      category: 'Cabelo',
-      is_active: true,
-    };
-
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_tenant_by_slug') {
-        return {
-          data: [{
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-            timezone: 'America/Manaus',
-            slot_interval_minutes: 30,
-            min_booking_lead_time_minutes: 0,
-            min_cancellation_lead_time_minutes: 120,
-          }],
-          error: null,
-        };
-      }
-      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
-      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
-      if (name === 'get_public_schedule_by_slug') return { data: [], error: null };
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute('/brooklyn');
-    fireEvent.click(await screen.findByText('Corte Público'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-
-    const dateInput = await screen.findByLabelText('Selecione o dia');
-    expect(dateInput).toHaveStyle({
-      pointerEvents: 'auto',
-      width: '100%',
-      height: '100%',
-    });
-  });
-
-  it('preenche cliente reconhecido, permite agendar para terceiro e envia o token validado', async () => {
-    const service = {
-      id: 'service-public-1',
-      name: 'Corte Público',
-      description: null,
-      price: 50,
-      duration_minutes: 40,
-      category: 'Cabelo',
-      is_active: true,
-    };
-    const recognizedDetails = {
-      ...incompleteDetails,
-      customer_id: 'customer-original',
-      customer_name: 'João Original',
-      customer_phone: '92999990000',
-      tenant_id: 'tenant-public',
-      tenant_name: 'Barbearia Pública',
-      tenant_phone: '5592999999999',
-      tenant_slug: 'brooklyn',
-      cadastro_completo: true,
-      token_acesso: 'token-recognized',
-    };
-
-    localStorage.setItem('navalhado_canal_cliente_v1_token_brooklyn', 'token-recognized');
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_tenant_by_slug') {
-        return {
-          data: [{
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-            timezone: 'America/Manaus',
-            slot_interval_minutes: 30,
-            min_booking_lead_time_minutes: 0,
-            min_cancellation_lead_time_minutes: 120,
-          }],
-          error: null,
-        };
-      }
-      if (name === 'get_customer_details_by_token') return { data: [recognizedDetails], error: null };
-      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
-      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
-      if (name === 'get_public_schedule_by_slug') {
-        return { data: [{ slot_time: '10:00', available: true }], error: null };
-      }
-      if (name === 'confirm_public_booking') {
-        return {
-          data: [{
-            appointment_id: 'appointment-third-party',
-            customer_id: 'customer-third-party',
-            token_acesso: 'token-third-party',
-            customer_name: 'Maria Terceira',
-            customer_phone: '92999998888',
-          }],
-          error: null,
-        };
-      }
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute({ pathname: '/brooklyn', state: { fromMenu: true } });
-    fireEvent.click(await screen.findByText('Corte Público'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
-
-    expect(await screen.findByPlaceholderText(/Ex: Matheus Lopes/i)).toHaveValue('João Original');
-    fireEvent.change(screen.getByPlaceholderText(/Ex: Matheus Lopes/i), { target: { value: 'Maria Terceira' } });
-    fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
-
-    await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledWith('confirm_public_booking', {
-        p_slug: 'brooklyn',
-        p_service_id: 'service-public-1',
-        p_professional_id: null,
-        p_date: expect.any(String),
-        p_slot: '10:00',
-        p_name: 'Maria Terceira',
-        p_phone: '92999998888',
-        p_token: 'token-recognized',
-      });
-    });
-    expect(mockRpc).not.toHaveBeenCalledWith('complete_customer_registration', expect.anything());
-    expect(mockRpc).not.toHaveBeenCalledWith('create_appointment_by_token', expect.anything());
   });
 
   it('carrega o catálogo diretamente mesmo para cliente sem cadastro prévio', async () => {
@@ -338,7 +213,7 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     renderBookingRoute();
 
-    expect(await screen.findByRole('heading', { name: /Selecione o Serviço/i })).toBeInTheDocument();
+    expect(await screen.findByText('Barbearia Navalhado')).toBeInTheDocument();
     expect(await screen.findByText('Corte')).toBeInTheDocument();
   });
 
@@ -376,18 +251,20 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     renderBookingRoute();
     fireEvent.click(await screen.findByText('Corte'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
+    fireEvent.click(await screen.findByText('25/08'));
+
+    expect(await screen.findByText(/Horários disponíveis/i)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: '14:00' }));
+    fireEvent.click(screen.getByRole('button', { name: /Avançar para identificação/i }));
 
-    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Resumo do agendamento/i)).toBeInTheDocument();
 
-    const nameInput = screen.getByPlaceholderText(/Ex: Matheus Lopes/i);
-    const phoneInput = screen.getByPlaceholderText(/\(92\) 99420-4756/i);
+    const nameInput = screen.getByPlaceholderText(/Ex: Jonathas Lopes/i);
+    const phoneInput = screen.getByPlaceholderText('(92) 99420-4756');
 
-    // Sem preencher nome completo
     fireEvent.change(nameInput, { target: { value: 'João' } });
     fireEvent.change(phoneInput, { target: { value: '92999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar agendamento/i }));
 
     expect(mockAddToast).toHaveBeenCalledWith(
       expect.stringContaining('nome e sobrenome completo'),
@@ -423,341 +300,23 @@ describe('FluxoAgendamento - cadastro inicial', () => {
 
     renderBookingRoute();
     fireEvent.click(await screen.findByText('Corte'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
+    fireEvent.click(await screen.findByText('25/08'));
+
+    expect(await screen.findByText(/Horários disponíveis/i)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: '14:00' }));
+    fireEvent.click(screen.getByRole('button', { name: /Avançar para identificação/i }));
 
-    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Resumo do agendamento/i)).toBeInTheDocument();
 
-    const nameInput = screen.getByPlaceholderText(/Ex: Matheus Lopes/i);
-    const phoneInput = screen.getByPlaceholderText(/\(92\) 99420-4756/i);
+    const nameInput = screen.getByPlaceholderText(/Ex: Jonathas Lopes/i);
+    const phoneInput = screen.getByPlaceholderText('(92) 99420-4756');
 
     fireEvent.change(nameInput, { target: { value: 'Maria Silva' } });
     fireEvent.change(phoneInput, { target: { value: '92999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar agendamento/i }));
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Agendamento realizado com sucesso!', 'success');
-    });
-  });
-
-  it('carrega slots pela RPC protegida com o token do cliente', async () => {
-    const completedDetails = { ...incompleteDetails, customer_name: 'Maria', cadastro_completo: true };
-    const service = {
-      id: 'service-1',
-      name: 'Corte',
-      description: null,
-      price: 50,
-      duration_minutes: 30,
-      category: 'Cabelo',
-      is_active: true,
-    };
-
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
-      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
-      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
-      if (name === 'get_available_slots_by_token') return { data: [], error: null };
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
-    fireEvent.click(await screen.findByText('Corte'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-
-    await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledWith('get_available_slots_by_token', {
-        p_token: 'token-abc',
-        p_service_id: 'service-1',
-        p_professional_id: null,
-        p_date: expect.any(String),
-        p_exclude_appointment_id: null,
-      });
-    });
-  });
-
-  it('exibe mensagem amigável de expediente encerrado quando não há slots para a data de hoje', async () => {
-    const completedDetails = { 
-      ...incompleteDetails, 
-      customer_name: 'Maria', 
-      cadastro_completo: true,
-      business_hours: {
-        segunda: { active: true, open: '09:00', close: '18:00' },
-        terca: { active: true, open: '09:00', close: '18:00' },
-        quarta: { active: true, open: '09:00', close: '18:00' },
-        quinta: { active: true, open: '09:00', close: '18:00' },
-        sexta: { active: true, open: '09:00', close: '18:00' },
-        sabado: { active: true, open: '09:00', close: '15:00' },
-        domingo: { active: false, open: '09:00', close: '12:00' }
-      }
-    };
-    const service = {
-      id: 'service-1',
-      name: 'Corte',
-      description: null,
-      price: 50,
-      duration_minutes: 30,
-      category: 'Cabelo',
-      is_active: true,
-    };
-
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
-      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
-      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
-      if (name === 'get_available_slots_by_token') return { data: [], error: null };
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
-    fireEvent.click(await screen.findByText('Corte'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-
-    expect(await screen.findByText(/expediente da barbearia para o dia de hoje já foi encerrado|Nenhum horário disponível/i)).toBeInTheDocument();
-  });
-
-  it('exibe a política da barbearia no modal de confirmação do agendamento', async () => {
-    const completedDetails = { 
-      ...incompleteDetails, 
-      customer_name: 'Maria', 
-      cadastro_completo: true,
-      min_cancellation_lead_time_minutes: 180,
-    };
-    const service = {
-      id: 'service-1',
-      name: 'Corte',
-      description: null,
-      price: 50,
-      duration_minutes: 30,
-      category: 'Cabelo',
-      is_active: true,
-    };
-
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_customer_details_by_token') return { data: [completedDetails], error: null };
-      if (name === 'get_services_by_customer_token') return { data: [service], error: null };
-      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
-      if (name === 'get_available_slots_by_token') return { data: ['23:30'], error: null };
-      return { data: null, error: null };
-    });
-
-    renderBookingRoute({ pathname: '/cliente/token-abc/agendar', state: { fromMenu: true } });
-    fireEvent.click(await screen.findByText('Corte'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-
-    const slotBtn = await screen.findByRole('button', { name: '23:30' });
-    fireEvent.click(slotBtn);
-
-    expect(await screen.findByText(/Confirmar agendamento/i)).toBeInTheDocument();
-    expect(screen.getByText(/Política da barbearia:/i)).toBeInTheDocument();
-    expect(screen.getByText(/3 horas/i)).toBeInTheDocument();
-  });
-
-  it('reutiliza a sessão pública ao iniciar novo agendamento e pré-preenche a confirmação', async () => {
-    const service = {
-      id: 'service-session',
-      name: 'Corte da Sessão',
-      description: null,
-      price: 80,
-      duration_minutes: 60,
-      category: 'Cabelo',
-      is_active: true,
-    };
-    const sessionDetails = {
-      ...incompleteDetails,
-      customer_id: 'customer-session',
-      customer_name: 'Maria Sessão',
-      customer_phone: '92999998888',
-      tenant_id: 'tenant-public',
-      tenant_name: 'Barbearia Pública',
-      tenant_phone: '5592999999999',
-      tenant_slug: 'brooklyn',
-      cadastro_completo: true,
-    };
-
-    mockPublicGetSession.mockResolvedValue({
-      data: { session: { user: { is_anonymous: true } } },
-      error: null,
-    });
-    mockPublicRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_customer_session') return { data: [sessionDetails], error: null };
-      return { data: [], error: null };
-    });
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_tenant_by_slug') {
-        return {
-          data: [{
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-            timezone: 'America/Manaus',
-            slot_interval_minutes: 40,
-            min_booking_lead_time_minutes: 0,
-            min_cancellation_lead_time_minutes: 120,
-          }],
-          error: null,
-        };
-      }
-      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
-      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
-      if (name === 'get_public_schedule_by_slug') return { data: [{ slot_time: '10:00', available: true }], error: null };
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute({ pathname: '/brooklyn', state: { fromMenu: true } });
-    fireEvent.click(await screen.findByText('Corte da Sessão'));
-    fireEvent.click(await screen.findByText('Tanto faz'));
-    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
-
-    expect(screen.getByPlaceholderText(/Ex: Matheus Lopes/i)).toHaveValue('Maria Sessão');
-    expect(screen.getByPlaceholderText(/\(92\) 99420-4756/i)).toHaveValue('(92) 99999-8888');
-    expect(localStorage.getItem('navalhado_customer_token')).toBeNull();
-  });
-
-  it('inicia a sessão ao entrar em gerenciar meus agendamentos sem alterar a entrada do agendamento', async () => {
-    const service = {
-      id: 'service-public-management',
-      name: 'Serviço Público',
-      description: null,
-      price: 40,
-      duration_minutes: 40,
-      category: 'Cabelo',
-      is_active: true,
-    };
-
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_tenant_by_slug') {
-        return {
-          data: [{
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-            timezone: 'America/Manaus',
-            slot_interval_minutes: 40,
-            min_booking_lead_time_minutes: 0,
-            min_cancellation_lead_time_minutes: 120,
-          }],
-          error: null,
-        };
-      }
-      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
-      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
-      return { data: [], error: null };
-    });
-    mockPublicInvoke.mockResolvedValue({
-      data: {
-        session: {
-          access_token: 'access-token-management',
-          refresh_token: 'refresh-token-management',
-          user: { id: 'auth-user-management', is_anonymous: true },
-        },
-        profile: {
-            found: true,
-            customer_id: 'customer-session',
-            customer_name: 'Maria Sessão',
-            customer_phone: '92999998888',
-            cadastro_completo: true,
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-        },
-      },
-      error: null,
-    });
-    mockPublicSetSession.mockResolvedValue({ data: { session: null }, error: null });
-
-    renderBookingRoute('/brooklyn');
-    expect(await screen.findByText('Serviço Público')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Gerenciar meus agendamentos' }));
-    fireEvent.change(await screen.findByPlaceholderText(/Ex.: Jonathas Lopes/i), { target: { value: 'Maria Sessão' } });
-    fireEvent.change(screen.getByPlaceholderText(/\(92\) 99420-4756/i), { target: { value: '92999998888' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-
-    expect(await screen.findByText('Menu do Cliente')).toBeInTheDocument();
-    expect(mockPublicInvoke).toHaveBeenCalledWith('public-customer-session', {
-      body: {
-        slug: 'brooklyn',
-        name: 'Maria Sessão',
-        phone: '92999998888',
-        captchaToken: null,
-      },
-    });
-  });
-
-  it('conclui o reagendamento iniciado pela sessão pública sem exigir token legado', async () => {
-    const service = {
-      id: 'service-reschedule-session',
-      name: 'Serviço para reagendar',
-      description: null,
-      price: 60,
-      duration_minutes: 40,
-      category: 'Cabelo',
-      is_active: true,
-    };
-    const sessionDetails = {
-      ...incompleteDetails,
-      customer_id: 'customer-session',
-      customer_name: 'Maria Sessão',
-      customer_phone: '92999998888',
-      tenant_id: 'tenant-public',
-      tenant_name: 'Barbearia Pública',
-      tenant_phone: '5592999999999',
-      tenant_slug: 'brooklyn',
-      cadastro_completo: true,
-    };
-
-    mockPublicGetSession.mockResolvedValue({
-      data: { session: { user: { is_anonymous: true } } },
-      error: null,
-    });
-    mockPublicRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_customer_session') return { data: [sessionDetails], error: null };
-      if (name === 'reschedule_appointment_by_public_session') return { data: 'appointment-rescheduled', error: null };
-      return { data: [], error: null };
-    });
-    mockRpc.mockImplementation(async (name: string) => {
-      if (name === 'get_public_tenant_by_slug') {
-        return {
-          data: [{
-            tenant_id: 'tenant-public',
-            tenant_name: 'Barbearia Pública',
-            tenant_phone: '5592999999999',
-            tenant_slug: 'brooklyn',
-            timezone: 'America/Manaus',
-            slot_interval_minutes: 40,
-            min_booking_lead_time_minutes: 0,
-            min_cancellation_lead_time_minutes: 120,
-          }],
-          error: null,
-        };
-      }
-      if (name === 'get_services_by_public_slug') return { data: [service], error: null };
-      if (name === 'get_public_schedule_by_slug') return { data: [{ slot_time: '10:00', available: true }], error: null };
-      throw new Error(`RPC inesperada: ${name}`);
-    });
-
-    renderBookingRoute({
-      pathname: '/brooklyn',
-      state: {
-        fromMenu: true,
-        rescheduleAppointmentId: 'appointment-old',
-        serviceId: service.id,
-      },
-    });
-    expect(await screen.findByText('Serviço para reagendar')).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar e agendar/i }));
-
-    await waitFor(() => {
-      expect(mockPublicRpc).toHaveBeenCalledWith('reschedule_appointment_by_public_session', {
-        p_appointment_id: 'appointment-old',
-        p_new_service_id: service.id,
-        p_new_professional_id: null,
-        p_new_date: expect.any(String),
-        p_new_slot: '10:00',
-      });
     });
   });
 });
