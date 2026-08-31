@@ -117,7 +117,8 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem;
-  margin-bottom: 0.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   border: 1px solid #EADED6;
   border-radius: 1rem;
   background-color: #FFFFFF;
@@ -145,7 +146,7 @@
 
 .cliente-tab--active {
   background-color: #D96C00;
-  color: #FFF1E6;
+  color: #000000;
   box-shadow: 0 1px 2px rgba(217, 108, 0, 0.2);
 }
 
@@ -732,7 +733,7 @@
 .cliente-appointments-list {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .card-agendamento-ativo {
@@ -760,7 +761,7 @@
   border-radius: 9999px;
   background-color: #FFF1E6;
   border: 1px solid #EADED6;
-  color: #D96C00;
+  color: #000000;
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -774,7 +775,7 @@
 .btn-action-remarcar:hover {
   background-color: #D96C00;
   border-color: #D96C00;
-  color: #FFFFFF;
+  color: #000000;
 }
 
 .btn-action-cancelar {
@@ -783,7 +784,7 @@
   border-radius: 9999px;
   background-color: #FFFFFF;
   border: 1px solid #EADED6;
-  color: #70625B;
+  color: #000000;
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -797,7 +798,7 @@
 .btn-action-cancelar:hover {
   background-color: #FDE8E8;
   border-color: #F05252;
-  color: #F05252;
+  color: #000000;
 }
 
 /* Linha do Tempo Histórico */
