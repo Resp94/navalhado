@@ -36,11 +36,11 @@ Validação somente leitura no navegador integrado, sem salvar configurações, 
 
 ### Prints registrados
 
-![Agenda mobile com retomada do intervalo em 15:00](../verificacao-manual/agenda-mobile-retorno-intervalo.png)
+![Agenda mobile com retomada do intervalo em 15:00](../verificacoes/agenda-mobile-retorno-intervalo.png)
 
-![Agenda mobile com último slot em 18:20](../verificacao-manual/agenda-mobile-ultimo-slot-1820.png)
+![Agenda mobile com último slot em 18:20](../verificacoes/agenda-mobile-ultimo-slot-1820.png)
 
-![Modal mobile do slot 18:20](../verificacao-manual/agenda-mobile-modal-1820.png)
+![Modal mobile do slot 18:20](../verificacoes/agenda-mobile-modal-1820.png)
 
 ## Banco e migrations
 

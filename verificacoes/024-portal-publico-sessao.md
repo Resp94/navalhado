@@ -8,7 +8,7 @@
 - Obter credenciais somente de `docs/credenciais_teste.md`; não copiar valores para este arquivo, prints, logs ou relatórios.
 - Não executar validações, consultas ou migrations em produção.
 - Não criar dados reais nem enviar mensagens para contatos externos. Quando uma confirmação for necessária, usar coletor/outbox de teste ou interromper antes do envio.
-- Repetir os cenários relevantes em desktop e mobile e salvar prints dos estados comprovados em `verificacao-manual/`.
+- Repetir os cenários relevantes em desktop e mobile e salvar prints dos estados comprovados em `verificacoes/`.
 
 ## Primeiro contato e sessão
 
@@ -77,7 +77,7 @@
 - [x] Confirmar no dia 31/08/2026 que o atendimento ocupado das 10:00 não aparece e o primeiro horário livre é 10:40.
 - [x] Confirmar a cadência dinâmica `10:40, 11:20, 12:00, 15:00, 15:40...18:20`, respeitando o intervalo configurado de 13:00–15:00.
 
-Evidências salvas em `verificacao-manual/evidencias/`:
+Evidências salvas em `verificacoes/evidencias/`:
 
 - `024-sessao-anonima-desktop.png`
 - `024-sessao-anonima-mobile-menu.png`

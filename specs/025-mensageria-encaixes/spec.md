@@ -62,7 +62,7 @@ O card somente ficará totalmente verde quando atendimento e comanda estiverem f
 - Deve preservar testes de confirmação, cancelamento, reagendamento, lembretes, boas-vindas, retorno e mensagens para profissionais.
 - Deve verificar isolamento entre tenants e ausência de telefone completo, token ou secret nas evidências e logs de teste.
 - A validação deve ser repetida em desktop e mobile, com prints dos estados relevantes e sem mutar produção.
-- O checklist de validação manual está em [Validação manual 025](../../verificacao-manual/025-mensageria-encaixes.md) e deve usar exclusivamente o ambiente DEV.
+- O checklist de validação manual está em [Validação manual 025](../../verificacoes/025-mensageria-encaixes.md) e deve usar exclusivamente o ambiente DEV.
 
 ## Out of Scope
 
