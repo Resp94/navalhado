@@ -88,3 +88,7 @@ Desktop.ini
 supabase/seed.sql
 docs/superpowers/
 docs/user.test
+verificacoes/
+snapshot/
+relatorios/
+.playwright-mcp/
