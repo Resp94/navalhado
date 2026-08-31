@@ -1845,7 +1845,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           id,
           start_time,
           is_fitting,
-          customers ( id, name, phone, token_acesso, last_first_contact_at ),
+          customers ( id, name, phone, token_acesso ),
           professionals ( name, phone ),
           services ( name, price ),
           tenants ( name, slug, timezone )
@@ -1967,11 +1967,6 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       } else if (customer?.phone) {
         const clientPhone = formatPhoneNumber(customer.phone);
         if (clientPhone) {
-          const isFirstDay = isFirstMessageOfDayForCustomer(
-            customer.last_first_contact_at,
-            tenant.timezone || "America/Sao_Paulo"
-          );
-
           try {
             const result = await dispatchMessage({
               tenantId: tenant_id,
@@ -1986,18 +1981,11 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               fallbackTemplate: resolver.fallback,
               variables: resolver.vars || variables,
               clientAccessLink,
-              isFirstMessageOfDay: isFirstDay,
               idempotencyKey: `appointment:${appointment_id}:${event}`,
             });
             clientAttempts = result.attempts;
             clientFinalized = result.status === "sent";
             clientSuccess = result.status === "sent";
-            if (clientSuccess && customer.id && isFirstDay) {
-              await supabase
-                .from("customers")
-                .update({ last_first_contact_at: new Date().toISOString() })
-                .eq("id", customer.id);
-            }
             if (clientSuccess) console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para o cliente ${maskPhoneNumber(clientPhone)}`);
           } catch (sendError) {
             deliveryFailed = true;
@@ -2140,7 +2128,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           .select(`
             id,
             start_time,
-            customers ( id, name, phone, token_acesso, last_first_contact_at ),
+            customers ( id, name, phone, token_acesso ),
             professionals ( name ),
             services ( name ),
             tenants ( name, slug, timezone )
@@ -2184,11 +2172,6 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               link,
             };
 
-            const isFirstDay = isFirstMessageOfDayForCustomer(
-              customer.last_first_contact_at,
-              tenant.timezone || "America/Sao_Paulo"
-            );
-
             const reminderWindow = `${hours}h`;
             try {
               const result = await dispatchMessage({
@@ -2204,7 +2187,6 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
                 fallbackTemplate: DEFAULT_TEMPLATES.appointment_reminder,
                 variables,
                 clientAccessLink: link,
-                isFirstMessageOfDay: isFirstDay,
                 reminderWindow,
                 idempotencyKey: `appointment:${app.id}:appointment_reminder:${reminderWindow}`,
               });
@@ -2221,13 +2203,6 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               }
 
               console.log(`[WhatsApp-Integration] Lembrete enviado com sucesso para ${maskPhoneNumber(clientPhone)}`);
-              if (customer.id && isFirstDay) {
-                await supabase
-                  .from("customers")
-                  .update({ last_first_contact_at: new Date().toISOString() })
-                  .eq("id", customer.id);
-              }
-
               const { error: markErr } = await supabase
                 .from("appointments")
                 .update({ reminder_sent: true })
