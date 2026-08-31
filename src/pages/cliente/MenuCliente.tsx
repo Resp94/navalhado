@@ -256,16 +256,6 @@ export const MenuCliente: React.FC = () => {
         {/* Banner Destaque Oficial: Novo Agendamento */}
         <BannerNovoAgendamento onNewBooking={handleNewBooking} />
 
-        {/* Cabeçalho da Seção com Microcopy de Gestão */}
-        <div>
-          <h2 className="text-base font-extrabold text-[#2D231E] m-0 tracking-tight">
-            Meus agendamentos
-          </h2>
-          <p className="text-xs text-[#70625B] mt-0.5 mb-0">
-            Acompanhe, remarque ou cancele seus atendimentos com facilidade.
-          </p>
-        </div>
-
         {/* Abas: Próximos horários vs Anteriores */}
         <div className="flex items-center gap-2 p-1 bg-white rounded-2xl border border-[#EADED6]">
           <button
@@ -295,7 +285,7 @@ export const MenuCliente: React.FC = () => {
 
         {/* Conteúdo da Aba Ativos */}
         {activeTab === 'ativos' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             {activeAppointments.length === 0 ? (
               <div className="text-center py-10 px-4 bg-white rounded-2xl border border-[#EADED6] flex flex-col items-center gap-2">
                 <p className="text-xs font-semibold text-[#70625B] m-0">
