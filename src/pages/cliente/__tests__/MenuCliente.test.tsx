@@ -97,6 +97,7 @@ describe('MenuCliente - TDD', () => {
     const corteText = await screen.findByText('Corte Degradê');
     expect(corteText).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Meus agendamentos' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Agendamentos' })).toBeInTheDocument();
 
     const cancelButtons = screen.getAllByRole('button', { name: /Cancelar/i });
     const rescheduleButtons = screen.getAllByRole('button', { name: /Remarcar/i });

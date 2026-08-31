@@ -257,11 +257,11 @@ export const MenuCliente: React.FC = () => {
         <BannerNovoAgendamento onNewBooking={handleNewBooking} />
 
         {/* Abas: Próximos horários vs Anteriores */}
-        <div className="flex items-center gap-2 p-1 bg-white rounded-2xl border border-[#EADED6]">
+        <div className="cliente-tabs" role="tablist" aria-label="Agendamentos">
           <button
             type="button"
             onClick={() => setActiveTab('ativos')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+            className={`cliente-tab ${activeTab === 'ativos' ? 'cliente-tab--active' : ''} ${
               activeTab === 'ativos'
                 ? 'bg-[#D96C00] text-[#FFF1E6] shadow-xs'
                 : 'text-[#70625B] hover:text-[#2D231E]'
@@ -273,7 +273,7 @@ export const MenuCliente: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('historico')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+            className={`cliente-tab ${activeTab === 'historico' ? 'cliente-tab--active' : ''} ${
               activeTab === 'historico'
                 ? 'bg-[#D96C00] text-[#FFF1E6] shadow-xs'
                 : 'text-[#70625B] hover:text-[#2D231E]'
@@ -285,7 +285,7 @@ export const MenuCliente: React.FC = () => {
 
         {/* Conteúdo da Aba Ativos */}
         {activeTab === 'ativos' && (
-          <div className="flex flex-col gap-1">
+          <div className="cliente-appointments-list">
             {activeAppointments.length === 0 ? (
               <div className="text-center py-10 px-4 bg-white rounded-2xl border border-[#EADED6] flex flex-col items-center gap-2">
                 <p className="text-xs font-semibold text-[#70625B] m-0">
@@ -335,17 +335,17 @@ export const MenuCliente: React.FC = () => {
         onClose={() => setIsDeadlineModalOpen(false)}
         title="Prazo de alteração expirado"
       >
-        <div className="space-y-4 text-center">
-          <div className="w-12 h-12 rounded-full bg-[#FEF3C7] text-[#D97706] flex items-center justify-center mx-auto">
+        <div className="deadline-modal-content">
+          <div className="deadline-modal-icon">
             <HugeiconsIcon icon={AlertCircleIcon} size={24} />
           </div>
 
-          <p className="text-xs text-[#2D231E] leading-relaxed">
+          <p className="deadline-modal-text deadline-modal-text--primary">
             O cancelamento ou reagendamento online é permitido com no mínimo{' '}
             <strong>{formatLeadTime(customerDetails?.min_booking_lead_time_minutes ?? 120)}</strong> de antecedência.
           </p>
 
-          <p className="text-xs text-[#70625B]">
+          <p className="deadline-modal-text deadline-modal-text--secondary">
             Para solicitar alterações de última hora, por favor entre em contato diretamente com o estabelecimento:
           </p>
 
@@ -356,13 +356,13 @@ export const MenuCliente: React.FC = () => {
               )}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3 px-4 rounded-full bg-[#0E9F6E] hover:bg-[#0E9F6E]/90 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors inline-block"
+              className="deadline-modal-whatsapp"
             >
               <HugeiconsIcon icon={WhatsappIcon} size={16} />
               <span>Falar no WhatsApp</span>
             </a>
           ) : (
-            <p className="text-xs text-[#70625B] italic">
+            <p className="deadline-modal-text deadline-modal-text--secondary deadline-modal-text--muted">
               Número de WhatsApp não informado pelo estabelecimento.
             </p>
           )}
@@ -370,7 +370,7 @@ export const MenuCliente: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsDeadlineModalOpen(false)}
-            className="w-full py-2.5 px-4 rounded-full border border-[#EADED6] text-xs font-bold text-[#70625B] hover:bg-[#FFF1E6] transition-colors cursor-pointer"
+            className="deadline-modal-dismiss"
           >
             Entendido
           </button>

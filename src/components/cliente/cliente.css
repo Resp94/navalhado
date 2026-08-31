@@ -111,6 +111,113 @@
   color: #2D231E;
 }
 
+/* Abas do painel: controle segmentado conforme o design system */
+.cliente-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid #EADED6;
+  border-radius: 1rem;
+  background-color: #FFFFFF;
+}
+
+.cliente-tab {
+  flex: 1;
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: #000000;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cliente-tab:hover:not(.cliente-tab--active) {
+  background-color: #FFF1E6;
+  color: #000000;
+}
+
+.cliente-tab--active {
+  background-color: #D96C00;
+  color: #FFF1E6;
+  box-shadow: 0 1px 2px rgba(217, 108, 0, 0.2);
+}
+
+.deadline-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.deadline-modal-icon {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 0.125rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+
+.deadline-modal-text {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.deadline-modal-text--primary { color: #2D231E; }
+.deadline-modal-text--secondary { color: #70625B; }
+.deadline-modal-text--muted { font-style: italic; }
+
+.deadline-modal-whatsapp,
+.deadline-modal-dismiss {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.deadline-modal-whatsapp {
+  background-color: #0E9F6E;
+  border: 1px solid #0E9F6E;
+  color: #FFFFFF;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(14, 159, 110, 0.18);
+}
+
+.deadline-modal-whatsapp:hover { background-color: #087A54; }
+
+.deadline-modal-dismiss {
+  background-color: #FFFFFF;
+  border: 1px solid #EADED6;
+  color: #70625B;
+}
+
+.deadline-modal-dismiss:hover {
+  background-color: #FFF1E6;
+  border-color: #D96C00;
+  color: #2D231E;
+}
+
 /* Filtro de Categorias */
 .categorias-bar {
   display: flex;
@@ -622,6 +729,12 @@
 }
 
 /* Card Agendamento Ativo */
+.cliente-appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .card-agendamento-ativo {
   background-color: #FFFFFF;
   border-radius: 1.25rem;
