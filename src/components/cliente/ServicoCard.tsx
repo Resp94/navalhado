@@ -28,41 +28,29 @@ export const ServicoCard: React.FC<ServicoCardProps> = ({
           onSelect(service);
         }
       }}
-      className={`w-full p-1 rounded-2xl transition-all duration-200 cursor-pointer text-left select-none ${
-        isSelected
-          ? 'bg-[#D96C00]/10 border border-[#D96C00]'
-          : 'bg-[#D96C00]/[0.03] border border-[#EADED6] hover:border-[#D96C00]/50'
-      }`}
+      className={`servico-card ${isSelected ? 'servico-card--selected' : ''}`}
     >
-      <div
-        className={`w-full py-3.5 px-4 rounded-xl border transition-all duration-200 flex flex-col justify-center ${
-          isSelected
-            ? 'bg-[#FFF1E6] border-[#D96C00]'
-            : 'bg-white border-[#EADED6]'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-[#2D231E] m-0 tracking-tight leading-snug">
-            {service.name}
-          </h3>
-          <span className="text-sm font-extrabold text-[#D96C00] shrink-0">
-            {formattedPrice}
-          </span>
-        </div>
+      <div className="servico-card__header">
+        <h3 className="servico-card__title">
+          {service.name}
+        </h3>
+        <span className="servico-card__price">
+          {formattedPrice}
+        </span>
+      </div>
 
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs font-semibold text-[#70625B]">
-            {service.duration_minutes} min
-          </span>
-          {service.category && (
-            <>
-              <span className="text-[10px] text-[#70625B]/50">•</span>
-              <span className="text-xs text-[#70625B]">
-                {service.category}
-              </span>
-            </>
-          )}
-        </div>
+      <div className="servico-card__meta">
+        <span className="servico-card__duration">
+          {service.duration_minutes} min
+        </span>
+        {service.category && (
+          <>
+            <span style={{ fontSize: '0.625rem', color: '#70625B', opacity: 0.5 }}>•</span>
+            <span className="servico-card__category">
+              {service.category}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

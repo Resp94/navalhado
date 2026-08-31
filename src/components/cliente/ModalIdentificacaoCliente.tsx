@@ -32,31 +32,31 @@ export const ModalIdentificacaoCliente: React.FC<ModalIdentificacaoClienteProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#14110F]/60 backdrop-blur-xs">
-      <div className="w-full max-w-[420px] bg-white rounded-t-3xl sm:rounded-3xl border border-[#EADED6] p-6 shadow-2xl relative">
+    <div className="modal-backdrop-custom">
+      <div className="modal-dialog-card">
         {/* Botão Fechar */}
         <button
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#FFF1E6] hover:bg-[#F2B277]/40 flex items-center justify-center text-[#70625B] transition-colors border border-[#EADED6] cursor-pointer disabled:opacity-50"
+          className="modal-btn-close"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
-        <div className="text-left pt-1 pb-3">
-          <h2 className="text-base font-extrabold text-[#2D231E] m-0 tracking-tight">
+        <div style={{ textAlign: 'left', paddingTop: '0.25rem', paddingBottom: '0.75rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
             Gerenciar meus agendamentos
           </h2>
-          <p className="text-xs text-[#70625B] mt-1 mb-0 leading-relaxed">
+          <p style={{ fontSize: '0.75rem', color: '#70625B', marginTop: '0.25rem', marginBottom: 0, lineHeight: 1.4 }}>
             Informe seus dados para acessar seus agendamentos nesta barbearia.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 mt-2">
-          <div>
-            <label className="block text-[11px] font-bold text-[#70625B] uppercase tracking-wider mb-1">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', marginTop: '0.5rem' }}>
+          <div className="cliente-input-group">
+            <label className="cliente-input-label">
               Nome e sobrenome *
             </label>
             <input
@@ -65,12 +65,12 @@ export const ModalIdentificacaoCliente: React.FC<ModalIdentificacaoClienteProps>
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Jonathas Lopes"
               disabled={loading}
-              className="w-full py-2.5 px-3.5 rounded-xl border border-[#EADED6] focus:border-[#D96C00] focus:outline-hidden text-xs font-semibold text-[#2D231E] bg-white transition-colors disabled:bg-gray-100"
+              className="cliente-input"
             />
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-[#70625B] uppercase tracking-wider mb-1">
+          <div className="cliente-input-group">
+            <label className="cliente-input-label">
               Telefone / WhatsApp com DDD *
             </label>
             <input
@@ -79,12 +79,13 @@ export const ModalIdentificacaoCliente: React.FC<ModalIdentificacaoClienteProps>
               onChange={(e) => setPhone(maskPhone(e.target.value))}
               placeholder="(92) 99420-4756"
               disabled={loading}
-              className="w-full py-2.5 px-3.5 rounded-xl border border-[#D96C00] focus:border-[#D96C00] focus:outline-hidden text-xs font-semibold text-[#2D231E] bg-white transition-colors disabled:bg-gray-100"
+              className="cliente-input"
+              style={{ borderColor: '#D96C00' }}
             />
           </div>
 
           {turnstileSiteKey && (
-            <div className="flex justify-center my-1">
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '0.25rem 0' }}>
               <TurnstileCaptcha
                 siteKey={turnstileSiteKey}
                 onTokenChange={(token) => setCaptchaToken(token)}
@@ -92,23 +93,24 @@ export const ModalIdentificacaoCliente: React.FC<ModalIdentificacaoClienteProps>
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '0.5rem' }}>
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 py-3 px-4 rounded-full text-xs font-bold bg-white hover:bg-[#FFF1E6] text-[#70625B] border border-[#EADED6] transition-colors cursor-pointer disabled:opacity-50"
+              style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FFFFFF', color: '#70625B', border: '1px solid #EADED6', cursor: 'pointer' }}
             >
               Voltar
             </button>
             <button
               type="submit"
               disabled={loading || !name.trim() || phone.length < 14 || (Boolean(turnstileSiteKey) && !captchaToken)}
-              className="flex-1 py-3 px-4 rounded-full text-xs font-extrabold bg-[#D96C00] hover:bg-[#9C3F00] text-[#FFF1E6] shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="btn-cliente-primary"
+              style={{ flex: 1 }}
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="spinner" style={{ width: 14, height: 14 }} />
                   <span>Acessando...</span>
                 </>
               ) : (

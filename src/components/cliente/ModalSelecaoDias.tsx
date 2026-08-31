@@ -57,56 +57,52 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#14110F]/60 backdrop-blur-xs">
-      <div className="w-full max-w-[390px] bg-white rounded-3xl border border-[#EADED6] p-6 shadow-2xl relative">
+    <div className="modal-backdrop-custom">
+      <div className="modal-dialog-card">
         {/* Botão Fechar */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#FFF1E6] hover:bg-[#F2B277]/40 flex items-center justify-center text-[#70625B] transition-colors border border-[#EADED6] cursor-pointer"
+          className="modal-btn-close"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Resumo do Serviço */}
-        <div className="text-center pt-1 pb-4">
-          <h2 className="text-base font-extrabold text-[#2D231E] m-0 tracking-tight">
+        <div style={{ textAlign: 'center', paddingTop: '0.25rem', paddingBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
             {service.name}
           </h2>
-          <div className="inline-flex items-center gap-1.5 mt-1.5 px-3 py-0.5 rounded-full bg-[#FFF1E6] border border-[#F2B277]/60 text-xs font-bold text-[#D96C00]">
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: '#FFF1E6', border: '1px solid rgba(242, 178, 119, 0.6)', fontSize: '0.75rem', fontWeight: 700, color: '#D96C00' }}>
             <span>{formattedPrice}</span>
             <span>•</span>
             <span>{service.duration_minutes} min</span>
           </div>
         </div>
 
-        <div className="w-full h-px bg-[#EADED6] mb-4" />
+        <div style={{ width: '100%', height: '1px', backgroundColor: '#EADED6', marginBottom: '1rem' }} />
 
         {/* Chamada */}
-        <p className="text-xs font-bold text-[#2D231E] text-center mb-3">
+        <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2D231E', textAlign: 'center', marginBottom: '0.75rem' }}>
           Selecione o dia da semana desejado:
         </p>
 
         {/* Navegação e Grade 2x3 */}
-        <div className="relative flex items-center justify-between gap-1 mb-4">
+        <div className="semana-nav-row">
           {/* Seta Anterior */}
           <button
             type="button"
             onClick={() => setWeekOffset((prev) => Math.max(0, prev - 1))}
             disabled={weekOffset === 0}
-            className={`w-7 h-7 rounded-full flex items-center justify-center border transition-colors cursor-pointer shrink-0 ${
-              weekOffset === 0
-                ? 'opacity-30 border-transparent text-[#70625B] cursor-not-allowed'
-                : 'bg-[#FFF1E6] border-[#EADED6] text-[#70625B] hover:bg-[#D96C00] hover:text-white'
-            }`}
+            className="semana-nav-btn"
             aria-label="Semana anterior"
           >
             <HugeiconsIcon icon={ArrowLeft01Icon} size={14} strokeWidth={2.5} />
           </button>
 
           {/* Grade 2x3 */}
-          <div className="grid grid-cols-2 gap-2 flex-1 mx-1">
+          <div className="grid-dias-2x3">
             {displayDays.map((d) => {
               const isSelected = selectedDate === d.dateStr;
               return (
@@ -119,21 +115,20 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
                     }
                   }}
                   disabled={d.isPast}
-                  className={`py-2.5 px-2 rounded-xl text-center transition-all duration-200 border cursor-pointer ${
+                  className={`dia-btn ${
                     isSelected
-                      ? 'bg-[#D96C00] border-[#D96C00] text-[#FFF1E6] shadow-xs'
+                      ? 'dia-btn--selected'
                       : d.isPast
-                      ? 'bg-[#EADED6]/30 border-transparent text-[#70625B]/40 cursor-not-allowed'
-                      : 'bg-white border-[#EADED6] text-[#2D231E] hover:border-[#D96C00]/60'
+                      ? 'dia-btn--past'
+                      : ''
                   }`}
                 >
-                  <div className="text-sm font-extrabold leading-tight">
+                  <div className="dia-btn__number">
                     {d.dayNumber}
                   </div>
                   <div
-                    className={`text-[11px] font-bold mt-0.5 ${
-                      isSelected ? 'text-[#FFF1E6]/90' : 'text-[#70625B]'
-                    }`}
+                    className="dia-btn__weekday"
+                    style={{ color: isSelected ? '#FFF1E6' : '#70625B' }}
                   >
                     {d.weekdayName}
                   </div>
@@ -146,14 +141,14 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
           <button
             type="button"
             onClick={() => setWeekOffset((prev) => prev + 1)}
-            className="w-7 h-7 rounded-full bg-[#FFF1E6] border border-[#EADED6] text-[#70625B] hover:bg-[#D96C00] hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="semana-nav-btn"
             aria-label="Próxima semana"
           >
             <HugeiconsIcon icon={ArrowRight01Icon} size={14} strokeWidth={2.5} />
           </button>
         </div>
 
-        <p className="text-[11px] text-[#70625B] text-center m-0">
+        <p style={{ fontSize: '0.6875rem', color: '#70625B', textAlign: 'center', margin: 0 }}>
           Toque no dia para escolher barbeiro e horário
         </p>
       </div>

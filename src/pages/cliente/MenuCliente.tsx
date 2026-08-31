@@ -1,3 +1,4 @@
+import '../../components/cliente/cliente.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
@@ -228,14 +229,14 @@ export const MenuCliente: React.FC = () => {
   }
 
   return (
-    <div className="min-h-dvh bg-[#FFF1E6] text-[#2D231E] font-['Outfit'] pb-28">
+    <div className="cliente-screen">
       {/* Topo do Painel */}
-      <header className="w-full max-w-[420px] mx-auto pt-4 pb-2 px-4 flex items-center justify-between">
+      <header className="cliente-container painel-cliente-header">
         <div className="flex flex-col">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#70625B]">
+          <span className="painel-cliente-header__tag">
             {customerDetails?.tenant_name || 'Barbearia Navalhado'}
           </span>
-          <h1 className="text-base font-extrabold text-[#2D231E] m-0 tracking-tight">
+          <h1 className="painel-cliente-header__name">
             Olá, {customerDetails?.customer_name || 'Cliente'}
           </h1>
         </div>
@@ -243,7 +244,7 @@ export const MenuCliente: React.FC = () => {
         <button
           type="button"
           onClick={handleLogout}
-          className="py-1.5 px-3 rounded-full bg-white hover:bg-[#FFF1E6] border border-[#EADED6] text-[#70625B] text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+          className="btn-logout"
           title="Encerrar sessão"
         >
           <HugeiconsIcon icon={Logout01Icon} size={14} />
@@ -251,7 +252,7 @@ export const MenuCliente: React.FC = () => {
         </button>
       </header>
 
-      <main className="w-full max-w-[420px] mx-auto px-4 mt-2 flex flex-col gap-4">
+      <main className="cliente-container">
         {/* Banner Destaque Oficial: Novo Agendamento */}
         <BannerNovoAgendamento onNewBooking={handleNewBooking} />
 

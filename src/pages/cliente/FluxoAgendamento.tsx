@@ -1,3 +1,4 @@
+import '../../components/cliente/cliente.css';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
@@ -575,17 +576,17 @@ export const FluxoAgendamento: React.FC = () => {
   }
 
   return (
-    <div className="min-h-dvh bg-[#FFF1E6] text-[#2D231E] font-['Outfit'] pb-28">
+    <div className="cliente-screen">
       {/* 01: Topo com Logo Oficial Real (/simbolo.svg) e Nome Limpo */}
       <CatalogoServicosHeader
         tenantName={customerDetails?.tenant_name || publicContext?.tenant_name}
         tenantLogoUrl={publicContext?.logo_url || null}
       />
 
-      <main className="w-full max-w-[420px] mx-auto px-4 mt-2">
+      <main className="cliente-container">
         {/* Filtro por Categorias Reais */}
         {categories.length > 1 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 mb-2">
+          <div className="categorias-bar">
             {['Todos', ...categories].map((cat) => {
               const isCatActive = activeCategory === cat;
               return (
@@ -593,11 +594,7 @@ export const FluxoAgendamento: React.FC = () => {
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`py-1.5 px-3.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border cursor-pointer ${
-                    isCatActive
-                      ? 'bg-[#D96C00] border-[#D96C00] text-[#FFF1E6] shadow-xs'
-                      : 'bg-white border-[#EADED6] text-[#70625B] hover:border-[#D96C00]/40'
-                  }`}
+                  className={`categoria-pill ${isCatActive ? "categoria-pill--active" : ""}`}
                 >
                   {cat}
                 </button>
@@ -607,7 +604,7 @@ export const FluxoAgendamento: React.FC = () => {
         )}
 
         {/* Lista de Cards de Serviços */}
-        <div className="flex flex-col gap-2.5">
+        <div className="servicos-list">
           {filteredServices.map((service) => (
             <ServicoCard
               key={service.id}

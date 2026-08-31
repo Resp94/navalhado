@@ -36,36 +36,36 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#14110F]/60 backdrop-blur-xs text-center">
-      <div className="w-full max-w-[390px] bg-white rounded-3xl border border-[#EADED6] p-6 shadow-2xl relative">
+    <div className="modal-backdrop-custom">
+      <div className="modal-dialog-card" style={{ textAlign: 'center' }}>
         {/* Botão Fechar */}
         <button
           type="button"
           onClick={onClose}
           disabled={canceling}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#FFF1E6] hover:bg-[#F2B277]/40 flex items-center justify-center text-[#70625B] transition-colors border border-[#EADED6] cursor-pointer disabled:opacity-50"
+          className="modal-btn-close"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Ícone de Alerta */}
-        <div className="w-12 h-12 rounded-full bg-[#FDE8E8] text-[#F05252] flex items-center justify-center mx-auto mb-3">
+        <div style={{ width: '3rem', height: '3rem', borderRadius: '9999px', backgroundColor: '#FDE8E8', color: '#F05252', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
           <HugeiconsIcon icon={AlertCircleIcon} size={24} strokeWidth={2.5} />
         </div>
 
-        <h2 className="text-base font-extrabold text-[#2D231E] m-0 tracking-tight">
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
           Deseja cancelar seu horário?
         </h2>
 
-        <p className="text-xs text-[#70625B] mt-1.5 mb-4 leading-relaxed">
+        <p style={{ fontSize: '0.75rem', color: '#70625B', marginTop: '0.375rem', marginBottom: '1rem', lineHeight: 1.4 }}>
           Seu horário para <strong>{appointment.service_name}</strong> na{' '}
           <strong>{formatDateTime(appointment.start_time)}</strong> será liberado para outros clientes.
         </p>
 
         {/* Campo de Motivo Opcional */}
-        <div className="text-left mb-5">
-          <label className="block text-[11px] font-bold text-[#70625B] uppercase tracking-wider mb-1">
+        <div style={{ textAlign: 'left', marginBottom: '1.25rem' }}>
+          <label className="cliente-input-label">
             Motivo do cancelamento (opcional):
           </label>
           <input
@@ -74,21 +74,22 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
             onChange={(e) => onChangeReason(e.target.value)}
             placeholder="Ex: Tive um imprevisto de horário"
             disabled={canceling}
-            className="w-full py-2.5 px-3.5 rounded-xl border border-[#EADED6] focus:border-[#D96C00] focus:outline-hidden text-xs font-medium text-[#2D231E] bg-[#FFF1E6]/40 transition-colors disabled:bg-gray-100"
+            className="cliente-input"
+            style={{ backgroundColor: 'rgba(255, 241, 230, 0.4)' }}
           />
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex flex-col gap-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <button
             type="button"
             onClick={onConfirmCancel}
             disabled={canceling}
-            className="w-full py-3 px-4 rounded-full text-xs font-extrabold bg-[#F05252] hover:bg-[#C81E1E] text-white shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 800, backgroundColor: '#F05252', color: '#FFFFFF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
             {canceling ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="spinner" style={{ width: 14, height: 14 }} />
                 <span>Cancelando...</span>
               </>
             ) : (
@@ -100,7 +101,7 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
             type="button"
             onClick={onClose}
             disabled={canceling}
-            className="w-full py-3 px-4 rounded-full text-xs font-bold bg-white hover:bg-[#FFF1E6] text-[#2D231E] border border-[#EADED6] transition-colors cursor-pointer disabled:opacity-50"
+            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FFFFFF', color: '#2D231E', border: '1px solid #EADED6', cursor: 'pointer' }}
           >
             Não, manter meu agendamento
           </button>

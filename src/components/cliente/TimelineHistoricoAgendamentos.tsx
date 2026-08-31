@@ -1,12 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  InformationCircleIcon,
-  Calendar02Icon,
-  UserIcon,
-  Tick01Icon,
-  Cancel01Icon,
-} from '@hugeicons/core-free-icons';
+import { CheckmarkCircle01Icon, CancelCircleIcon } from '@hugeicons/core-free-icons';
 import type { AgendamentoCanal } from '../../modules/canal-cliente/types';
 
 export interface TimelineHistoricoAgendamentosProps {
@@ -16,135 +10,92 @@ export interface TimelineHistoricoAgendamentosProps {
 export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendamentosProps> = ({
   appointments,
 }) => {
-  // Agrupa os agendamentos por Mês/Ano
-  const groupedByMonth = useMemo(() => {
-    const groups: { [key: string]: AgendamentoCanal[] } = {};
-    const monthsNames = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-
-    appointments.forEach((app) => {
-      if (!app.start_time) return;
-      const date = new Date(app.start_time);
-      const monthYearKey = `${monthsNames[date.getMonth()]} de ${date.getFullYear()}`;
-
-      if (!groups[monthYearKey]) {
-        groups[monthYearKey] = [];
-      }
-      groups[monthYearKey].push(app);
-    });
-
-    return Object.entries(groups).map(([monthYear, items]) => ({
-      monthYear,
-      items: items.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()),
-    }));
-  }, [appointments]);
-
   if (appointments.length === 0) {
     return (
-      <div className="text-center py-10 px-4 bg-white rounded-2xl border border-[#EADED6]">
-        <p className="text-xs font-semibold text-[#70625B] m-0">
-          Nenhum agendamento anterior encontrado.
+      <div style={{ textAlign: 'center', padding: '2.5rem 1rem', backgroundColor: '#FFFFFF', borderRadius: '1rem', border: '1px solid #EADED6' }}>
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#70625B', margin: 0 }}>
+          Você ainda não possui histórico de agendamentos anteriores.
         </p>
       </div>
     );
   }
 
-  const formatItemDate = (dateStr: string) => {
+  const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    const weekdays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const d = String(date.getDate()).padStart(2, '0');
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
 
-    return {
-      dayMonth: `${d}/${m}`,
-      dayOfWeek: weekdays[date.getDay()],
-      time: `${hours}:${minutes}`,
-    };
+    return `${weekdays[date.getDay()]}, ${d}/${m} às ${hours}:${minutes}`;
   };
 
   return (
-    <div className="w-full relative pl-6 flex flex-col gap-6">
-      {/* Trilho Vertical Âmbar Contínuo */}
-      <div className="absolute top-2 bottom-4 left-2.5 w-0.5 bg-[#D96C00]/60 rounded-full" />
+    <div className="timeline-container">
+      <div className="timeline-track-line" />
 
-      {groupedByMonth.map(({ monthYear, items }) => (
-        <div key={monthYear} className="flex flex-col gap-4 relative">
-          {/* Marcador de Mês */}
-          <div className="flex items-center gap-2 -ml-6 z-10">
-            <div className="w-3.5 h-3.5 rounded-full bg-[#D96C00] border-2 border-[#FFF1E6] shadow-xs" />
-            <span className="text-xs font-bold text-[#2D231E]">
-              {monthYear}
-            </span>
+      {appointments.map((app) => {
+        const isCompleted = app.status === 'completed' || app.status === 'confirmed';
+        const formattedPrice = Number(app.service_price || 0).toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+
+        return (
+          <div key={app.appointment_id} className="timeline-entry">
+            {/* Ponto / Ícone na Linha */}
+            <div
+              className={`timeline-entry__dot ${
+                isCompleted ? 'timeline-entry__dot--completed' : 'timeline-entry__dot--canceled'
+              }`}
+            >
+              {isCompleted ? (
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={10} />
+              ) : (
+                <HugeiconsIcon icon={CancelCircleIcon} size={10} />
+              )}
+            </div>
+
+            {/* Conteúdo do Card */}
+            <div className="timeline-entry__card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <h4 style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
+                  {app.service_name}
+                </h4>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D96C00' }}>
+                  {formattedPrice}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.25rem', fontSize: '0.6875rem', color: '#70625B' }}>
+                <span>{app.professional_name || 'Profissional'}</span>
+                <span>{formatDateTime(app.start_time)}</span>
+              </div>
+
+              <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span
+                  style={{
+                    fontSize: '0.625rem',
+                    fontWeight: 700,
+                    padding: '0.125rem 0.5rem',
+                    borderRadius: '9999px',
+                    backgroundColor: isCompleted ? '#E6F4EA' : '#FDE8E8',
+                    color: isCompleted ? '#0E9F6E' : '#F05252',
+                  }}
+                >
+                  {isCompleted ? 'Finalizado' : 'Cancelado'}
+                </span>
+                {app.cancellation_reason && (
+                  <span style={{ fontSize: '0.625rem', color: '#70625B', fontStyle: 'italic' }}>
+                    Motivo: {app.cancellation_reason}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-
-          {/* Lista de Atendimentos no Mês */}
-          <div className="flex flex-col gap-3.5">
-            {items.map((item) => {
-              const { dayMonth, dayOfWeek, time } = formatItemDate(item.start_time);
-              const formattedPrice = Number(item.service_price || 0).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              });
-              const isCompleted = item.status === 'completed';
-              const isCanceled = item.status === 'canceled';
-
-              return (
-                <div key={item.appointment_id} className="relative flex flex-col gap-1">
-                  {/* Ramificação de Data */}
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#D96C00]">
-                    <span className="w-3 h-0.5 bg-[#D96C00]/60 -ml-4" />
-                    <span>{dayMonth}</span>
-                  </div>
-
-                  {/* Card Double-Bezel do Histórico */}
-                  <div className="w-full p-0.5 rounded-2xl bg-[#D96C00]/[0.04] border border-[#EADED6] shadow-xs">
-                    <div className="w-full bg-white rounded-xl border border-[#EADED6] p-4 relative flex flex-col gap-1.5">
-                      {/* Selo Flutuante de Conclusão / Cancelamento */}
-                      <div className="absolute bottom-3 right-3">
-                        {isCompleted ? (
-                          <div className="w-7 h-7 rounded-full bg-[#0E9F6E] border-2 border-white shadow-sm flex items-center justify-center text-white" title="Concluído">
-                            <HugeiconsIcon icon={Tick01Icon} size={15} strokeWidth={3} />
-                          </div>
-                        ) : isCanceled ? (
-                          <div className="w-7 h-7 rounded-full bg-[#70625B] border-2 border-white shadow-sm flex items-center justify-center text-white" title="Cancelado">
-                            <HugeiconsIcon icon={Cancel01Icon} size={15} strokeWidth={3} />
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {/* Título do Serviço */}
-                      <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#2D231E]">
-                        <HugeiconsIcon icon={InformationCircleIcon} size={14} className="text-[#2D231E]" />
-                        <span>{item.service_name}</span>
-                      </div>
-
-                      {/* Data e Hora */}
-                      <div className="flex items-center gap-1.5 text-xs text-[#70625B]">
-                        <HugeiconsIcon icon={Calendar02Icon} size={13} className="text-[#70625B]" />
-                        <span>{dayOfWeek} {dayMonth} às {time}</span>
-                      </div>
-
-                      {/* Barbeiro e Valor */}
-                      <div className="flex items-center gap-1.5 text-xs text-[#2D231E] font-medium">
-                        <HugeiconsIcon icon={UserIcon} size={13} className="text-[#2D231E]" />
-                        <span>Profissional: {item.professional_name || 'Profissional'}</span>
-                      </div>
-
-                      <div className="text-xs font-extrabold text-[#D96C00] pt-0.5">
-                        Valor: {formattedPrice}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
