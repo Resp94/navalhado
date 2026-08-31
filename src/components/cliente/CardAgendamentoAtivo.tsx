@@ -2,7 +2,7 @@ import React from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Calendar02Icon,
-  Time01Icon,
+  ClockCheckIcon,
   UserIcon,
   RefreshIcon,
   Cancel01Icon,
@@ -63,12 +63,12 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
       {/* Box com Data e Hora */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 0.875rem', borderRadius: '0.75rem', backgroundColor: '#FFF1E6', border: '1px solid #EADED6' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', fontWeight: 700, color: '#2D231E' }}>
-          <HugeiconsIcon icon={Calendar02Icon} size={15} style={{ color: '#D96C00' }} />
+          <HugeiconsIcon icon={Calendar02Icon} size={15} style={{ color: '#000000' }} />
           <span>{dt.weekday}, {dt.dateFormatted}</span>
         </div>
         <span style={{ color: '#70625B', opacity: 0.5 }}>•</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', fontWeight: 700, color: '#2D231E' }}>
-          <HugeiconsIcon icon={Time01Icon} size={15} style={{ color: '#D96C00' }} />
+          <HugeiconsIcon icon={ClockCheckIcon} size={15} style={{ color: '#000000' }} />
           <span>{dt.timeFormatted} ({appointment.service_duration} min)</span>
         </div>
       </div>
