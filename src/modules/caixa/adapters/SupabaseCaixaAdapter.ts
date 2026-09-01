@@ -4,6 +4,8 @@ import type {
   AbrirCaixaInput,
   CashMovement,
   CashSession,
+  DailyFinancialSummary,
+  DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
   RegistrarMovimentacaoInput,
@@ -198,6 +200,44 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     }
 
     return { total, dinheiro, pix, cartao, outros, count: rows.length };
+  }
+
+  async obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]> {
+    const { data, error } = await supabase.rpc('get_daily_financial_summary', {
+      p_start_date: query.startDate,
+      p_end_date: query.endDate,
+      p_time_zone: query.timeZone,
+      p_tenant_id: query.tenantId,
+      p_cash_session_id: query.cashSessionId || null,
+    });
+
+    if (error) {
+      throw new Error(`Erro ao buscar resumo financeiro diário: ${error.message}`);
+    }
+
+    return (Array.isArray(data) ? data : []).map((row) => {
+      const raw = row as {
+        date?: string;
+        realized_revenue?: number | string;
+        received_total?: number | string;
+        by_method?: Partial<Record<'dinheiro' | 'pix' | 'cartao' | 'outros', number | string>>;
+        closed_comandas_count?: number | string;
+        payment_count?: number | string;
+      };
+      return {
+        date: raw.date || '',
+        realized_revenue: Number(raw.realized_revenue) || 0,
+        received_total: Number(raw.received_total) || 0,
+        by_method: {
+          dinheiro: Number(raw.by_method?.dinheiro) || 0,
+          pix: Number(raw.by_method?.pix) || 0,
+          cartao: Number(raw.by_method?.cartao) || 0,
+          outros: Number(raw.by_method?.outros) || 0,
+        },
+        closed_comandas_count: Number(raw.closed_comandas_count) || 0,
+        payment_count: Number(raw.payment_count) || 0,
+      } satisfies DailyFinancialSummary;
+    });
   }
 
   async registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement> {

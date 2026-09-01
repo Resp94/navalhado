@@ -42,19 +42,23 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'test-tenant-123',
     tenantName: 'Barbearia Modelo',
+    timezone: 'America/Sao_Paulo',
   }),
 }));
 
 describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRpc.mockResolvedValue({ data: null, error: null });
 
     // Default mock para consultas de tabela
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
+      lt: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -119,6 +123,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     // 5. Lucro líquido livre
     expect(screen.getByText('Lucro líquido livre')).toBeInTheDocument();
     expect(screen.getAllByText(/1\.500,00/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Resumo por dia')).toHaveLength(2);
   });
 
   it('deve alternar entre as abas Caixa diário e Repasses de comissões', async () => {
@@ -185,14 +190,14 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     render(<Financeiro />);
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
     });
 
     const btn30d = screen.getByRole('button', { name: /Últimos 30 dias/i });
     fireEvent.click(btn30d);
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledTimes(2);
+      expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
     });
   });
 

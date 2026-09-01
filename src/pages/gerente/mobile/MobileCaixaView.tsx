@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   PlusSignIcon,
@@ -11,7 +11,11 @@ import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet'
 import { formatCurrency } from '../../../lib/currency';
 import { useToast } from '../../../components/Toast';
 import { calculateExpectedDrawerCash } from '../../../modules/caixa/CaixaRepository';
-import type { CashSession, TurnPaymentsSummary } from '../../../modules/caixa/types';
+import type {
+  CashSession,
+  DailyFinancialSummary,
+  TurnPaymentsSummary,
+} from '../../../modules/caixa/types';
 import type { FinancialMetrics } from '../Financeiro';
 
 interface MobileCaixaViewProps {
@@ -22,6 +26,15 @@ interface MobileCaixaViewProps {
   sangriasTotal?: number;
   metrics: FinancialMetrics | null;
   historySessions: CashSession[];
+  dailySummary?: DailyFinancialSummary[];
+  dailySummaryLoading?: boolean;
+  dailySummaryError?: string | null;
+  dailyStartDate?: string;
+  dailyEndDate?: string;
+  selectedDailySessionId?: string;
+  onDailyStartDateChange?: (date: string) => void;
+  onDailyEndDateChange?: (date: string) => void;
+  onDailySessionChange?: (sessionId: string) => void;
   onOpenAbertura: () => void;
   onOpenFechamento: () => void;
   onSangria?: (amount: number, reason: string) => Promise<void> | void;
@@ -37,6 +50,15 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   sangriasTotal = 0,
   metrics,
   historySessions,
+  dailySummary = [],
+  dailySummaryLoading = false,
+  dailySummaryError = null,
+  dailyStartDate = '',
+  dailyEndDate = '',
+  selectedDailySessionId,
+  onDailyStartDateChange,
+  onDailyEndDateChange,
+  onDailySessionChange,
   onOpenAbertura,
   onOpenFechamento,
   onSangria,
@@ -63,6 +85,24 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   
   const initialAmount = Number(activeSession?.initial_amount) || 0;
   const totalCashInDrawer = calculateExpectedDrawerCash(initialAmount, activeSessionCashReceipts, suprimentosTotal, sangriasTotal);
+
+  const dailyTotals = useMemo(() => {
+    return dailySummary.reduce(
+      (totals, summary) => ({
+        realized: totals.realized + summary.realized_revenue,
+        received: totals.received + summary.received_total,
+      }),
+      { realized: 0, received: 0 },
+    );
+  }, [dailySummary]);
+
+  const formatDailyDate = (date: string) => {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(`${date}T12:00:00Z`));
+  };
 
   const handleOpenMovement = (type: 'sangria' | 'suprimento') => {
     setMovementType(type);
@@ -242,6 +282,93 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           </span>
         </div>
       </div>
+
+      {/* ─── 3. RESUMO FINANCEIRO POR DIA ─── */}
+      <section className="mobile-caixa__daily-summary" aria-labelledby="mobile-daily-summary-title">
+        <div className="mobile-caixa__daily-header">
+          <div>
+            <h3 id="mobile-daily-summary-title">Resumo por dia</h3>
+            <p>Faturamento realizado separado das entradas no caixa.</p>
+          </div>
+        </div>
+
+        <div className="mobile-caixa__daily-filters">
+          <label>
+            <span>De</span>
+            <input
+              aria-label="Data inicial do resumo diário"
+              type="date"
+              value={dailyStartDate}
+              onChange={(event) => onDailyStartDateChange?.(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Até</span>
+            <input
+              aria-label="Data final do resumo diário"
+              type="date"
+              value={dailyEndDate}
+              onChange={(event) => onDailyEndDateChange?.(event.target.value)}
+            />
+          </label>
+          <label className="mobile-caixa__daily-session-filter">
+            <span>Sessão</span>
+            <select
+              aria-label="Sessão do resumo diário"
+              value={selectedDailySessionId || ''}
+              onChange={(event) => onDailySessionChange?.(event.target.value)}
+            >
+              <option value="">Todas as sessões</option>
+              {historySessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mobile-caixa__daily-kpis">
+          <div>
+            <span>Faturamento realizado</span>
+            <strong>{formatCurrency(dailyTotals.realized)}</strong>
+          </div>
+          <div>
+            <span>Entradas no caixa</span>
+            <strong>{formatCurrency(dailyTotals.received)}</strong>
+          </div>
+        </div>
+
+        {dailySummaryLoading ? (
+          <div className="mobile-caixa__daily-state" role="status">Carregando resumo por dia...</div>
+        ) : dailySummaryError ? (
+          <div className="mobile-caixa__daily-state mobile-caixa__daily-state--error" role="alert">{dailySummaryError}</div>
+        ) : (
+          <div className="mobile-caixa__daily-list">
+            {dailySummary.map((summary) => (
+              <div className="mobile-caixa__daily-item" key={summary.date}>
+                <div className="mobile-caixa__daily-item-header">
+                  <strong>{formatDailyDate(summary.date)}</strong>
+                  <span>{summary.closed_comandas_count} comanda(s)</span>
+                </div>
+                <div className="mobile-caixa__daily-item-values">
+                  <span>Faturado <b>{formatCurrency(summary.realized_revenue)}</b></span>
+                  <span>Recebido <b>{formatCurrency(summary.received_total)}</b></span>
+                </div>
+                <div className="mobile-caixa__daily-item-methods">
+                  <span>Dinheiro {formatCurrency(summary.by_method.dinheiro)}</span>
+                  <span>PIX {formatCurrency(summary.by_method.pix)}</span>
+                  <span>Cartão {formatCurrency(summary.by_method.cartao)}</span>
+                  <span>Outros {formatCurrency(summary.by_method.outros)}</span>
+                </div>
+              </div>
+            ))}
+            {dailySummary.length === 0 && (
+              <div className="mobile-caixa__daily-state">Nenhum movimento no período selecionado.</div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* ─── 4. ÚLTIMOS TURNOS / MOVIMENTAÇÕES ─── */}
       <div className="mobile-caixa__history">
@@ -518,6 +645,154 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           font-size: 1.125rem;
           font-weight: 800;
           color: var(--color-text-primary);
+        }
+
+        .mobile-caixa__daily-summary {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          padding: 1rem;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg, 12px);
+          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
+        }
+
+        .mobile-caixa__daily-header h3 {
+          margin: 0;
+          font-size: 1rem;
+          color: var(--color-text-primary);
+        }
+
+        .mobile-caixa__daily-header p {
+          margin: 0.25rem 0 0;
+          font-size: 0.75rem;
+          color: var(--color-text-secondary);
+        }
+
+        .mobile-caixa__daily-filters {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.5rem;
+        }
+
+        .mobile-caixa__daily-filters label {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          min-width: 0;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+
+        .mobile-caixa__daily-filters input,
+        .mobile-caixa__daily-filters select {
+          width: 100%;
+          min-height: 40px;
+          padding: 0.45rem;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md, 8px);
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          font: inherit;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        .mobile-caixa__daily-session-filter {
+          grid-column: 1 / -1;
+        }
+
+        .mobile-caixa__daily-kpis {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.5rem;
+        }
+
+        .mobile-caixa__daily-kpis > div {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          padding: 0.7rem;
+          border-radius: var(--radius-md, 8px);
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+        }
+
+        .mobile-caixa__daily-kpis span {
+          font-size: 0.6875rem;
+          color: var(--color-text-secondary);
+        }
+
+        .mobile-caixa__daily-kpis strong {
+          font-size: 1rem;
+          color: var(--color-brand-primary);
+          font-variant-numeric: tabular-nums;
+        }
+
+        .mobile-caixa__daily-kpis > div:last-child strong {
+          color: var(--color-success);
+        }
+
+        .mobile-caixa__daily-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .mobile-caixa__daily-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+          padding: 0.7rem;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md, 8px);
+          background: var(--color-bg-primary);
+        }
+
+        .mobile-caixa__daily-item-header,
+        .mobile-caixa__daily-item-values,
+        .mobile-caixa__daily-item-methods {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+
+        .mobile-caixa__daily-item-header strong {
+          color: var(--color-text-primary);
+          font-size: 0.8125rem;
+        }
+
+        .mobile-caixa__daily-item-header span,
+        .mobile-caixa__daily-item-values span,
+        .mobile-caixa__daily-item-methods span {
+          color: var(--color-text-secondary);
+          font-size: 0.6875rem;
+        }
+
+        .mobile-caixa__daily-item-values b {
+          color: var(--color-text-primary);
+          font-variant-numeric: tabular-nums;
+        }
+
+        .mobile-caixa__daily-item-methods {
+          flex-wrap: wrap;
+          justify-content: flex-start;
+          padding-top: 0.35rem;
+          border-top: 1px solid var(--color-border);
+        }
+
+        .mobile-caixa__daily-state {
+          padding: 0.75rem;
+          text-align: center;
+          font-size: 0.75rem;
+          color: var(--color-text-secondary);
+        }
+
+        .mobile-caixa__daily-state--error {
+          color: var(--color-error);
         }
 
         .mobile-caixa__desktop-notice {

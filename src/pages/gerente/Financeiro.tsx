@@ -20,8 +20,13 @@ import './Financeiro.css';
 import { CaixaRepository, calculateExpectedDrawerCash } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { PAYMENT_METHOD_LABELS } from '../../modules/caixa/types';
-import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
+import type {
+  CashSession,
+  DailyFinancialSummary,
+  TurnPaymentsSummary,
+} from '../../modules/caixa/types';
 import { formatCurrency } from '../../lib/currency';
+import { dateInZone } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
@@ -63,6 +68,15 @@ export interface CommissionPayoutHistoryItem {
 type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
 type TabType = 'caixa' | 'comissoes';
 
+function formatLocalDay(date: string, timeZone: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+
 export const Financeiro: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -81,6 +95,13 @@ export const Financeiro: React.FC = () => {
   const [suprimentosTotal, setSuprimentosTotal] = useState<number>(0);
   const [sangriasTotal, setSangriasTotal] = useState<number>(0);
   const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
+  const [dailySummary, setDailySummary] = useState<DailyFinancialSummary[]>([]);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
+  const [dailySummaryError, setDailySummaryError] = useState<string | null>(null);
+  const [dailyStartDate, setDailyStartDate] = useState('');
+  const [dailyEndDate, setDailyEndDate] = useState('');
+  const [selectedDailySessionId, setSelectedDailySessionId] = useState<string | undefined>();
+  const [dailyRangeFollowsSession, setDailyRangeFollowsSession] = useState(true);
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
 
@@ -205,6 +226,51 @@ export const Financeiro: React.FC = () => {
     }
   }, [tenant?.tenantId, calculateDates, caixaRepo, addToast]);
 
+  useEffect(() => {
+    if (!dailyRangeFollowsSession || !tenant?.timezone) return;
+
+    const today = dateInZone(new Date(), tenant.timezone);
+    const sessionStart = activeSession
+      ? dateInZone(new Date(activeSession.opened_at), tenant.timezone)
+      : today;
+
+    setDailyStartDate(sessionStart);
+    setDailyEndDate(today);
+    setSelectedDailySessionId(activeSession?.id);
+  }, [activeSession?.id, activeSession?.opened_at, dailyRangeFollowsSession, tenant?.timezone]);
+
+  const fetchDailySummary = useCallback(async () => {
+    if (!tenant?.tenantId || !dailyStartDate || !dailyEndDate || !tenant.timezone) return;
+
+    try {
+      setDailySummaryLoading(true);
+      setDailySummaryError(null);
+      const result = await caixaRepo.getDailyFinancialSummary({
+        tenantId: tenant.tenantId,
+        startDate: dailyStartDate,
+        endDate: dailyEndDate,
+        timeZone: tenant.timezone,
+        cashSessionId: selectedDailySessionId,
+      });
+      setDailySummary(result);
+    } catch (error) {
+      console.error('Erro ao carregar resumo financeiro diário:', error);
+      setDailySummary([]);
+      setDailySummaryError('Não foi possível carregar o resumo por dia. Tente novamente.');
+    } finally {
+      setDailySummaryLoading(false);
+    }
+  }, [caixaRepo, dailyEndDate, dailyStartDate, selectedDailySessionId, tenant?.tenantId, tenant?.timezone]);
+
+  useEffect(() => {
+    void fetchDailySummary();
+  }, [fetchDailySummary]);
+
+  const refreshFinancialData = useCallback(() => {
+    void fetchFinancialData();
+    void fetchDailySummary();
+  }, [fetchDailySummary, fetchFinancialData]);
+
   const handleSangria = async (amount: number, reason: string) => {
     if (!activeSession || !tenant.tenantId) return;
     try {
@@ -247,9 +313,17 @@ export const Financeiro: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchFinancialData();
+  const refreshFinancialDataRef = useRef(refreshFinancialData);
 
+  useEffect(() => {
+    refreshFinancialDataRef.current = refreshFinancialData;
+  }, [refreshFinancialData]);
+
+  useEffect(() => {
+    void fetchFinancialData();
+  }, [fetchFinancialData]);
+
+  useEffect(() => {
     if (!tenant?.tenantId || typeof supabase.channel !== 'function') return;
 
     const channel = supabase
@@ -257,37 +331,29 @@ export const Financeiro: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'comandas', filter: `tenant_id=eq.${tenant.tenantId}` },
-        () => {
-          fetchFinancialData();
-        }
+        () => refreshFinancialDataRef.current(),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'comanda_pagamentos', filter: `tenant_id=eq.${tenant.tenantId}` },
-        () => {
-          fetchFinancialData();
-        }
+        () => refreshFinancialDataRef.current(),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cash_sessions', filter: `tenant_id=eq.${tenant.tenantId}` },
-        () => {
-          fetchFinancialData();
-        }
+        () => refreshFinancialDataRef.current(),
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cash_movements', filter: `tenant_id=eq.${tenant.tenantId}` },
-        () => {
-          fetchFinancialData();
-        }
+        () => refreshFinancialDataRef.current(),
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchFinancialData, tenant?.tenantId]);
+  }, [tenant?.tenantId]);
 
   const hasAnimatedEntrance = useRef(false);
 
@@ -351,6 +417,36 @@ export const Financeiro: React.FC = () => {
 
   const { start: dateStart, end: dateEnd } = calculateDates();
 
+  const dailyTotals = useMemo(() => {
+    return dailySummary.reduce(
+      (totals, summary) => ({
+        realized: totals.realized + summary.realized_revenue,
+        received: totals.received + summary.received_total,
+      }),
+      { realized: 0, received: 0 },
+    );
+  }, [dailySummary]);
+
+  const handleDailySessionChange = (sessionId: string) => {
+    setDailyRangeFollowsSession(false);
+    setSelectedDailySessionId(sessionId || undefined);
+
+    if (!sessionId) {
+      const today = dateInZone(new Date(), tenant.timezone);
+      setDailyStartDate(today);
+      setDailyEndDate(today);
+      return;
+    }
+
+    const session = historySessions.find((item) => item.id === sessionId);
+    if (!session) return;
+
+    setDailyStartDate(dateInZone(new Date(session.opened_at), tenant.timezone));
+    setDailyEndDate(
+      dateInZone(new Date(session.closed_at || new Date().toISOString()), tenant.timezone),
+    );
+  };
+
   return (
     <div className="financeiro-page">
       {/* ─── VISÃO MOBILE (<= 768px) ─── */}
@@ -363,6 +459,21 @@ export const Financeiro: React.FC = () => {
           sangriasTotal={sangriasTotal}
           metrics={metrics}
           historySessions={historySessions}
+          dailySummary={dailySummary}
+          dailySummaryLoading={dailySummaryLoading}
+          dailySummaryError={dailySummaryError}
+          dailyStartDate={dailyStartDate}
+          dailyEndDate={dailyEndDate}
+          selectedDailySessionId={selectedDailySessionId}
+          onDailyStartDateChange={(date) => {
+            setDailyRangeFollowsSession(false);
+            setDailyStartDate(date);
+          }}
+          onDailyEndDateChange={(date) => {
+            setDailyRangeFollowsSession(false);
+            setDailyEndDate(date);
+          }}
+          onDailySessionChange={handleDailySessionChange}
           onOpenAbertura={() => setIsAberturaModalOpen(true)}
           onOpenFechamento={() => setIsFechamentoModalOpen(true)}
           onSangria={handleSangria}
@@ -564,6 +675,114 @@ export const Financeiro: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Resumo financeiro diário: faturamento realizado separado das entradas */}
+          <section className="daily-financial-panel" aria-labelledby="daily-financial-title">
+            <div className="daily-financial-header">
+              <div>
+                <h3 id="daily-financial-title" className="card-panel-title">
+                  <HugeiconsIcon icon={Coins01Icon} size={18} />
+                  Resumo por dia
+                </h3>
+                <p className="card-panel-subtitle">
+                  Faturamento realizado e valores recebidos, separados por data local da barbearia.
+                </p>
+              </div>
+              <div className="daily-financial-filters" aria-label="Filtros do resumo diário">
+                <label>
+                  <span>De</span>
+                  <input
+                    aria-label="Data inicial do resumo diário"
+                    type="date"
+                    value={dailyStartDate}
+                    onChange={(event) => {
+                      setDailyRangeFollowsSession(false);
+                      setDailyStartDate(event.target.value);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Até</span>
+                  <input
+                    aria-label="Data final do resumo diário"
+                    type="date"
+                    value={dailyEndDate}
+                    onChange={(event) => {
+                      setDailyRangeFollowsSession(false);
+                      setDailyEndDate(event.target.value);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Sessão</span>
+                  <select
+                    aria-label="Sessão do resumo diário"
+                    value={selectedDailySessionId || ''}
+                    onChange={(event) => handleDailySessionChange(event.target.value)}
+                  >
+                    <option value="">Todas as sessões</option>
+                    {historySessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="daily-financial-kpis">
+              <div className="daily-financial-kpi daily-financial-kpi--revenue">
+                <span>Faturamento realizado</span>
+                <strong>{formatCurrency(dailyTotals.realized)}</strong>
+                <small>{dailySummary.reduce((count, item) => count + item.closed_comandas_count, 0)} comandas fechadas</small>
+              </div>
+              <div className="daily-financial-kpi daily-financial-kpi--received">
+                <span>Entradas no caixa</span>
+                <strong>{formatCurrency(dailyTotals.received)}</strong>
+                <small>{dailySummary.reduce((count, item) => count + item.payment_count, 0)} pagamentos registrados</small>
+              </div>
+            </div>
+
+            {dailySummaryLoading ? (
+              <div className="table-empty-notice" role="status">Carregando resumo por dia...</div>
+            ) : dailySummaryError ? (
+              <div className="table-empty-notice daily-financial-error" role="alert">{dailySummaryError}</div>
+            ) : (
+              <div className="table-responsive-container">
+                <table className="financeiro-data-table daily-financial-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Faturado</th>
+                      <th>Recebido</th>
+                      <th>Dinheiro</th>
+                      <th>PIX</th>
+                      <th>Cartão</th>
+                      <th>Outros</th>
+                      <th>Comandas</th>
+                      <th>Pagamentos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailySummary.map((summary) => (
+                      <tr key={summary.date}>
+                        <td style={{ fontWeight: 700 }}>{formatLocalDay(summary.date, tenant.timezone)}</td>
+                        <td className="daily-financial-value">{formatCurrency(summary.realized_revenue)}</td>
+                        <td className="daily-financial-value">{formatCurrency(summary.received_total)}</td>
+                        <td>{formatCurrency(summary.by_method.dinheiro)}</td>
+                        <td>{formatCurrency(summary.by_method.pix)}</td>
+                        <td>{formatCurrency(summary.by_method.cartao)}</td>
+                        <td>{formatCurrency(summary.by_method.outros)}</td>
+                        <td>{summary.closed_comandas_count}</td>
+                        <td>{summary.payment_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
           {/* Grid Intermediário: Métodos de Pagamento e Histórico de Sessões */}
           <div className="financeiro-split-grid">

@@ -2,6 +2,8 @@ import type {
   AbrirCaixaInput,
   CashMovement,
   CashSession,
+  DailyFinancialSummary,
+  DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
   RegistrarMovimentacaoInput,
@@ -89,6 +91,20 @@ export class CaixaRepository {
     return await this.adapter.obterResumoTurno(tenantId, sinceDate, sessionId);
   }
 
+  async getDailyFinancialSummary(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]> {
+    if (!query.tenantId || !query.tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!query.startDate || !query.endDate || query.startDate > query.endDate) {
+      throw new CaixaValidationError('O período financeiro diário é inválido.');
+    }
+    if (!query.timeZone || !query.timeZone.trim()) {
+      throw new CaixaValidationError('O fuso horário da barbearia é obrigatório.');
+    }
+
+    return await this.adapter.obterResumoFinanceiroDiario(query);
+  }
+
   async registerMovement(input: RegistrarMovimentacaoInput): Promise<CashMovement> {
     if (!input.tenant_id || !input.tenant_id.trim()) {
       throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
@@ -155,6 +171,10 @@ export class CaixaRepository {
 
   async obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }> {
     return await this.getMovementsSummary(sessionId);
+  }
+
+  async obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]> {
+    return await this.getDailyFinancialSummary(query);
   }
 }
 

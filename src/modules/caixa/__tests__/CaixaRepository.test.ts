@@ -13,6 +13,7 @@ describe('CaixaRepository', () => {
     registrarMovimentacao: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    obterResumoFinanceiroDiario: vi.fn(),
   };
 
   const repository = new CaixaRepository(mockAdapter);
@@ -72,7 +73,7 @@ describe('CaixaRepository', () => {
     ).rejects.toThrow(CaixaValidationError);
   });
 
-  it('lista histórico de caixas com sucesso', async () => {
+    it('lista histórico de caixas com sucesso', async () => {
     const mockHistory = [
       {
         id: 'sess-2',
@@ -91,8 +92,50 @@ describe('CaixaRepository', () => {
     vi.mocked(mockAdapter.listarHistorico).mockResolvedValueOnce(mockHistory);
     const history = await repository.listHistory('t-1');
     expect(history).toEqual(mockHistory);
-    expect(mockAdapter.listarHistorico).toHaveBeenCalledWith('t-1', 20);
-  });
+      expect(mockAdapter.listarHistorico).toHaveBeenCalledWith('t-1', 20);
+    });
+
+    it('obtém o resumo financeiro diário pelo seam do CaixaRepository', async () => {
+      const dailySummary = [
+        {
+          date: '2026-08-28',
+          realized_revenue: 80,
+          received_total: 80,
+          by_method: { dinheiro: 40, pix: 40, cartao: 0, outros: 0 },
+          closed_comandas_count: 1,
+          payment_count: 2,
+        },
+      ];
+      vi.mocked(mockAdapter.obterResumoFinanceiroDiario).mockResolvedValueOnce(dailySummary);
+
+      const result = await repository.getDailyFinancialSummary({
+        tenantId: 't-1',
+        startDate: '2026-08-28',
+        endDate: '2026-08-28',
+        timeZone: 'America/Manaus',
+        cashSessionId: 'session-1',
+      });
+
+      expect(result).toEqual(dailySummary);
+      expect(mockAdapter.obterResumoFinanceiroDiario).toHaveBeenCalledWith({
+        tenantId: 't-1',
+        startDate: '2026-08-28',
+        endDate: '2026-08-28',
+        timeZone: 'America/Manaus',
+        cashSessionId: 'session-1',
+      });
+    });
+
+    it('rejeita resumo diário sem fuso horário', async () => {
+      await expect(
+        repository.getDailyFinancialSummary({
+          tenantId: 't-1',
+          startDate: '2026-08-28',
+          endDate: '2026-08-28',
+          timeZone: '',
+        }),
+      ).rejects.toThrow(CaixaValidationError);
+    });
 
   it('lança erro ao fechar caixa sem ID de sessão', async () => {
     await expect(

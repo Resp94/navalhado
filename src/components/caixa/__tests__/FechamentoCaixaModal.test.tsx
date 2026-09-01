@@ -24,6 +24,7 @@ describe('FechamentoCaixaModal', () => {
     registrarMovimentacao: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    obterResumoFinanceiroDiario: vi.fn(),
   };
 
   const mockRepo = new CaixaRepository(mockAdapter);

@@ -100,6 +100,23 @@ export interface TurnPaymentsSummary {
   count: number;
 }
 
+export interface DailyFinancialSummaryQuery {
+  tenantId: string;
+  startDate: string;
+  endDate: string;
+  timeZone: string;
+  cashSessionId?: string;
+}
+
+export interface DailyFinancialSummary {
+  date: string;
+  realized_revenue: number;
+  received_total: number;
+  by_method: Record<PaymentCategory, number>;
+  closed_comandas_count: number;
+  payment_count: number;
+}
+
 export interface ICaixaAdapter {
   obterSessaoAtiva(tenantId: string): Promise<CashSession | null>;
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
@@ -107,6 +124,7 @@ export interface ICaixaAdapter {
   listarHistorico(tenantId: string, limit?: number): Promise<CashSession[]>;
   obterEntradasDinheiro(tenantId: string, sinceDate: string, sessionId?: string): Promise<number>;
   obterResumoTurno(tenantId: string, sinceDate: string, sessionId?: string): Promise<TurnPaymentsSummary>;
+  obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]>;
   registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement>;
   listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
   obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;

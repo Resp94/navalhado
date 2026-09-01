@@ -81,4 +81,41 @@ describe('MobileCaixaView Component', () => {
     fireEvent.click(closeBtn);
     expect(defaultProps.onOpenFechamento).toHaveBeenCalledTimes(1);
   });
+
+  it('exibe o faturamento realizado separado das entradas por dia', () => {
+    render(
+      <ToastProvider>
+        <MobileCaixaView
+          {...defaultProps}
+          dailyStartDate="2026-08-28"
+          dailyEndDate="2026-08-29"
+          dailySummary={[
+            {
+              date: '2026-08-28',
+              realized_revenue: 80,
+              received_total: 30,
+              by_method: { dinheiro: 0, pix: 30, cartao: 0, outros: 0 },
+              closed_comandas_count: 1,
+              payment_count: 1,
+            },
+            {
+              date: '2026-08-29',
+              realized_revenue: 0,
+              received_total: 50,
+              by_method: { dinheiro: 50, pix: 0, cartao: 0, outros: 0 },
+              closed_comandas_count: 0,
+              payment_count: 1,
+            },
+          ]}
+        />
+      </ToastProvider>
+    );
+
+    expect(screen.getByText('Resumo por dia')).toBeInTheDocument();
+    expect(screen.getByText('Faturamento realizado', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('28/08/2026')).toBeInTheDocument();
+    expect(screen.getByText('29/08/2026')).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s*80,00/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/R\$\s*30,00/).length).toBeGreaterThanOrEqual(1);
+  });
 });

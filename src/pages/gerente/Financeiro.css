@@ -592,6 +592,106 @@
   color: var(--color-text-secondary);
 }
 
+.daily-financial-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.daily-financial-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.daily-financial-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.daily-financial-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.daily-financial-filters input,
+.daily-financial-filters select {
+  min-height: 38px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+}
+
+.daily-financial-filters select {
+  min-width: 190px;
+}
+
+.daily-financial-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.daily-financial-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+}
+
+.daily-financial-kpi span,
+.daily-financial-kpi small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.daily-financial-kpi strong {
+  color: var(--color-text-primary);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-financial-kpi--revenue strong {
+  color: var(--color-brand-primary);
+}
+
+.daily-financial-kpi--received strong {
+  color: var(--color-success);
+}
+
+.daily-financial-table th,
+.daily-financial-table td {
+  white-space: nowrap;
+}
+
+.daily-financial-value {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-financial-error {
+  color: var(--color-error);
+}
+
 .financeiro-mobile-view {
   display: none;
 }
