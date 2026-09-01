@@ -97,11 +97,10 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   }, [dailySummary]);
 
   const formatDailyDate = (date: string) => {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(`${date}T12:00:00Z`));
+    // A RPC já retorna o dia do calendário no fuso do tenant. Não o
+    // transforme em um instante no fuso local do navegador.
+    const [year, month, day] = date.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const handleOpenMovement = (type: 'sangria' | 'suprimento') => {
@@ -354,6 +353,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
                 <div className="mobile-caixa__daily-item-values">
                   <span>Faturado <b>{formatCurrency(summary.realized_revenue)}</b></span>
                   <span>Recebido <b>{formatCurrency(summary.received_total)}</b></span>
+                  <span>Pagamentos <b>{summary.payment_count}</b></span>
                 </div>
                 <div className="mobile-caixa__daily-item-methods">
                   <span>Dinheiro {formatCurrency(summary.by_method.dinheiro)}</span>
