@@ -102,6 +102,8 @@ export const Financeiro: React.FC = () => {
   const [dailyEndDate, setDailyEndDate] = useState('');
   const [selectedDailySessionId, setSelectedDailySessionId] = useState<string | undefined>();
   const [dailyRangeFollowsSession, setDailyRangeFollowsSession] = useState(true);
+  const activeSessionId = activeSession?.id;
+  const activeSessionOpenedAt = activeSession?.opened_at;
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
 
@@ -230,14 +232,14 @@ export const Financeiro: React.FC = () => {
     if (!dailyRangeFollowsSession || !tenant?.timezone) return;
 
     const today = dateInZone(new Date(), tenant.timezone);
-    const sessionStart = activeSession
-      ? dateInZone(new Date(activeSession.opened_at), tenant.timezone)
+    const sessionStart = activeSessionOpenedAt
+      ? dateInZone(new Date(activeSessionOpenedAt), tenant.timezone)
       : today;
 
     setDailyStartDate(sessionStart);
     setDailyEndDate(today);
-    setSelectedDailySessionId(activeSession?.id);
-  }, [activeSession?.id, activeSession?.opened_at, dailyRangeFollowsSession, tenant?.timezone]);
+    setSelectedDailySessionId(activeSessionId);
+  }, [activeSessionId, activeSessionOpenedAt, dailyRangeFollowsSession, tenant?.timezone]);
 
   const fetchDailySummary = useCallback(async () => {
     if (!tenant?.tenantId || !dailyStartDate || !dailyEndDate || !tenant.timezone) return;
