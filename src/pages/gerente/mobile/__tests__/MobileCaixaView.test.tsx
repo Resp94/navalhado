@@ -117,5 +117,7 @@ describe('MobileCaixaView Component', () => {
     expect(screen.getByText('29/08/2026')).toBeInTheDocument();
     expect(screen.getAllByText(/R\$\s*80,00/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/R\$\s*30,00/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Pagamentos/).length).toBe(2);
+    expect(screen.getAllByText('1', { selector: 'b' }).length).toBeGreaterThanOrEqual(2);
   });
 });
