@@ -83,6 +83,15 @@ describe('schedule fitting slots', () => {
     expect(isValidFittingStartTime('25:00', 'custom', 40)).toBe(false);
   });
 
+  it('valida o encaixe pela mesma grade ancorada na escala do profissional', () => {
+    const professionalGrid = generateScheduleGridSlots([
+      { start: '09:00', end: '19:00', breakStart: '13:00', breakEnd: '15:00' },
+    ], 40);
+
+    expect(isValidFittingStartTime('17:40', 'grid', 40, professionalGrid)).toBe(true);
+    expect(isValidFittingStartTime('18:00', 'grid', 40, professionalGrid)).toBe(false);
+  });
+
   it('constrói o intervalo persistível no timezone e não trunca no fechamento', () => {
     const interval = buildFittingAppointmentInterval({
       date: '2026-08-31',

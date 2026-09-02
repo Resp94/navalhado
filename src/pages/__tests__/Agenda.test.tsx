@@ -510,6 +510,39 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockProfessionals[0].weekly_schedule = originalSchedule;
   });
 
+  it('salva um encaixe pela grade quando o slot reinicia no retorno do intervalo', async () => {
+    const originalInterval = mockOutletContext.slotIntervalMinutes;
+    const originalSchedule = mockProfessionals[0].weekly_schedule;
+    mockOutletContext.slotIntervalMinutes = 40;
+    mockProfessionals[0].weekly_schedule = {
+      sunday: { active: true, start: '09:00', end: '19:00', break_start: '13:00', break_end: '15:00' },
+    };
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: '17:40' })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/Horário de início/i), {
+      target: { value: '17:40' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar encaixe na agenda/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Encaixe agendado com sucesso!', 'success');
+    });
+
+    mockOutletContext.slotIntervalMinutes = originalInterval;
+    mockProfessionals[0].weekly_schedule = originalSchedule;
+  });
+
   it('permite encaixe com profissional ativo fora da escala individual', async () => {
     const originalSchedule = mockProfessionals[0].weekly_schedule;
     mockProfessionals[0].weekly_schedule = {

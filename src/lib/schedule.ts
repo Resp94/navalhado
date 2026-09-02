@@ -43,6 +43,7 @@ export interface FittingAppointmentIntervalInput {
   durationMinutes: number;
   mode: FittingTimeMode;
   slotIntervalMinutes: number;
+  gridSlots?: readonly string[];
 }
 
 export interface FittingAppointmentInterval {
@@ -206,11 +207,15 @@ const isValidLocalTime = (timeStr: string): boolean =>
 export const isValidFittingStartTime = (
   timeStr: string,
   mode: FittingTimeMode,
-  slotIntervalMinutes: number
+  slotIntervalMinutes: number,
+  gridSlots?: readonly string[]
 ): boolean => {
   if (!isValidLocalTime(timeStr)) return false;
   if (mode === 'custom') return true;
-  return mode === 'grid' && isTimeAlignedToSlotInterval(timeStr, slotIntervalMinutes);
+  if (mode !== 'grid') return false;
+  return gridSlots !== undefined
+    ? gridSlots.includes(timeStr)
+    : isTimeAlignedToSlotInterval(timeStr, slotIntervalMinutes);
 };
 
 /**
@@ -224,9 +229,10 @@ export const buildFittingAppointmentInterval = ({
   durationMinutes,
   mode,
   slotIntervalMinutes,
+  gridSlots,
 }: FittingAppointmentIntervalInput): FittingAppointmentInterval => {
   if (!isValidLocalDate(date)) throw new Error('INVALID_LOCAL_DATE');
-  if (!isValidFittingStartTime(time, mode, slotIntervalMinutes)) {
+  if (!isValidFittingStartTime(time, mode, slotIntervalMinutes, gridSlots)) {
     throw new Error(mode === 'grid' ? 'FITTING_TIME_NOT_ALIGNED' : 'INVALID_LOCAL_TIME');
   }
 

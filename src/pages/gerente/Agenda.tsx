@@ -947,7 +947,25 @@ export const Agenda: React.FC = () => {
     }
 
     if (timeSlot) {
-      if (finalIsFitting && !isValidFittingStartTime(timeSlot, 'grid', slotIntervalMinutes)) {
+      const directGridSlots = profId
+        ? (() => {
+            const prof = professionals.find((p) => p.id === profId);
+            const schedule = prof
+              ? getEffectiveProfessionalDaySchedule(prof, dateToCheck, tenant.businessHours)
+              : null;
+            const segment = schedule ? toScheduleGridSegment(schedule) : null;
+            return segment
+              ? generateScheduleGridSlots([segment], slotIntervalMinutes)
+              : timeSlots;
+          })()
+        : timeSlots;
+
+      if (finalIsFitting && !isValidFittingStartTime(
+        timeSlot,
+        'grid',
+        slotIntervalMinutes,
+        directGridSlots
+      )) {
         addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
         return;
       }
@@ -1149,7 +1167,12 @@ export const Agenda: React.FC = () => {
         setSavingAppointment(false);
         return;
       }
-      if (formIsFitting && !isValidFittingStartTime(formTime, fittingTimeMode, slotIntervalMinutes)) {
+      if (formIsFitting && !isValidFittingStartTime(
+        formTime,
+        fittingTimeMode,
+        slotIntervalMinutes,
+        fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined
+      )) {
         addToast(
           fittingTimeMode === 'grid'
             ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
@@ -1217,6 +1240,7 @@ export const Agenda: React.FC = () => {
             durationMinutes: effectiveServiceDuration,
             mode: fittingTimeMode,
             slotIntervalMinutes,
+            gridSlots: fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined,
           });
           startIso = fittingInterval.startIso;
           endIso = fittingInterval.endIso;
