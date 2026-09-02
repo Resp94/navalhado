@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildFittingAppointmentInterval,
   generateFittingTimeSlots,
   getEffectiveServiceDuration,
   generateProfessionalTimeOptions,
   generateScheduleTimeOptions,
+  isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
   normalizeBusinessHours,
 } from '../schedule';
@@ -58,5 +60,39 @@ describe('schedule fitting slots', () => {
     expect(getEffectiveServiceDuration(60, 'service-1', services)).toBe(45);
     expect(getEffectiveServiceDuration(60, 'service-2', services)).toBe(60);
     expect(getEffectiveServiceDuration(60, 'service-3', services)).toBe(60);
+  });
+
+  it('diferencia horário de encaixe pela grade de horário personalizado', () => {
+    expect(isValidFittingStartTime('18:00', 'grid', 40)).toBe(true);
+    expect(isValidFittingStartTime('18:10', 'grid', 40)).toBe(false);
+    expect(isValidFittingStartTime('18:10', 'custom', 40)).toBe(true);
+    expect(isValidFittingStartTime('25:00', 'custom', 40)).toBe(false);
+  });
+
+  it('constrói o intervalo persistível no timezone e não trunca no fechamento', () => {
+    const interval = buildFittingAppointmentInterval({
+      date: '2026-08-31',
+      time: '18:10',
+      timeZone: 'America/Manaus',
+      durationMinutes: 60,
+      mode: 'custom',
+      slotIntervalMinutes: 40,
+    });
+
+    expect(interval.startIso).toBe('2026-08-31T22:10:00.000Z');
+    expect(interval.endIso).toBe('2026-08-31T23:10:00.000Z');
+    expect(interval.startLocal).toEqual({ date: '2026-08-31', time: '18:10' });
+    expect(interval.endLocal).toEqual({ date: '2026-08-31', time: '19:10' });
+  });
+
+  it('rejeita horário desalinhado quando o modo de grade é usado', () => {
+    expect(() => buildFittingAppointmentInterval({
+      date: '2026-08-31',
+      time: '18:10',
+      timeZone: 'America/Manaus',
+      durationMinutes: 60,
+      mode: 'grid',
+      slotIntervalMinutes: 40,
+    })).toThrow('FITTING_TIME_NOT_ALIGNED');
   });
 });

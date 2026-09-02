@@ -2,9 +2,10 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { Agenda } from '../gerente/Agenda';
 
-const { mockAddToast, mockNavigate, mockOutletContext } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockOutletContext, mockAppointmentInsert } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
+  mockAppointmentInsert: vi.fn(),
   mockOutletContext: {
     tenantId: 'tenant-123',
     tenantName: 'Barbearia Navalhado',
@@ -159,17 +160,20 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           lt: () => builder,
           neq: () => builder,
           order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
-          insert: (payload: any) => ({
-            select: () => ({
-              single: vi.fn().mockResolvedValue({
-                data: {
-                  id: 'app-new',
-                  ...payload,
-                },
-                error: null,
+          insert: (payload: any) => {
+            mockAppointmentInsert(payload);
+            return {
+              select: () => ({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'app-new',
+                    ...payload,
+                  },
+                  error: null,
+                }),
               }),
-            }),
-          }),
+            };
+          },
           update: () => {
             const updateBuilder: any = {
               eq: () => updateBuilder,
@@ -435,6 +439,43 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Encaixe agendado com sucesso!', 'success');
     });
+  });
+
+  it('permite salvar encaixe em horário personalizado fora da grade', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Horário personalizado/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Horário personalizado/i }));
+    const timeInput = screen.getByLabelText(/Horário de início/i);
+    expect(timeInput).toHaveAttribute('type', 'time');
+    fireEvent.change(timeInput, { target: { value: '18:10' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar encaixe na agenda/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Encaixe agendado com sucesso!', 'success');
+    });
+    expect(mockAppointmentInsert).toHaveBeenCalledWith(expect.objectContaining({
+      tenant_id: 'tenant-123',
+      professional_id: 'prof-1',
+      service_id: 'serv-1',
+      start_time: '2026-08-16T21:10:00.000Z',
+      end_time: '2026-08-16T21:40:00.000Z',
+      is_fitting: true,
+      origin: 'manual',
+    }));
+    expect(mockAddToast).not.toHaveBeenCalledWith(
+      'Horário de encaixe deve seguir a grade de 30 minutos.',
+      'warning'
+    );
   });
 
   it('permite encaixe com profissional ativo fora da escala individual', async () => {
