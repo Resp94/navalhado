@@ -61,7 +61,7 @@ select is(
 );
 select is(
   (select count(*)::integer from public.get_available_slots('70200000-0000-0000-0000-000000000001','70200000-0000-0000-0000-000000000021','70200000-0000-0000-0000-000000000011','2040-01-06')),
-  15,
+  14,
   'available slots keep the same canonical business-hours window after the existing appointment is excluded'
 );
 select ok(

@@ -93,9 +93,13 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
       expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:00', 60)).toBe(true); // Termina às 15:00
     });
 
-    it('retorna true quando o início está antes do fechamento mesmo que o serviço termine depois', () => {
-      // Sábado fecha às 15:00. O horário 14:30 ainda começa antes do fechamento.
-      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(true);
+    it('retorna false quando a duração ultrapassa o fechamento do profissional', () => {
+      // Sábado fecha às 15:00. Um serviço de 40 minutos iniciado às 14:30 não cabe.
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:30', 40)).toBe(false);
+    });
+
+    it('aceita o horário que termina exatamente no fechamento', () => {
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-22', '14:20', 40)).toBe(true);
     });
 
     it('retorna false se o serviço invade o intervalo', () => {
@@ -203,6 +207,8 @@ describe('Agenda & Schedule: Regras de Intervalo e Disponibilidade com Duração
 
       expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '10:00', 30, businessHours)).toBe(true);
       expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '18:00', 30, businessHours)).toBe(false);
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '17:30', 30, businessHours)).toBe(true);
+      expect(isProfessionalWorkingAt(mockProfessional, '2026-08-17', '17:31', 30, businessHours)).toBe(false);
     });
 
     it('não permite valores de horário fora do intervalo informado', () => {
