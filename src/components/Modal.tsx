@@ -122,6 +122,8 @@ export const Modal: React.FC<ModalProps> = ({
           border-radius: var(--radius-lg);
           width: 100%;
           max-height: 100%;
+          min-width: 0;
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           box-shadow:
@@ -187,6 +189,8 @@ export const Modal: React.FC<ModalProps> = ({
           overscroll-behavior: contain;
           touch-action: pan-y;
           max-height: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         @media (max-width: 768px) {
@@ -220,6 +224,7 @@ export const Modal: React.FC<ModalProps> = ({
 
           .modal-body {
             padding: 0.75rem 1.25rem 1.25rem;
+            overflow-x: hidden;
           }
         }
 

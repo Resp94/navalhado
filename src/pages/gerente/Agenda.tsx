@@ -2792,8 +2792,6 @@ export const Agenda: React.FC = () => {
           <div className={`fitting-toggle-card ${formIsFitting ? 'fitting-toggle-card--active' : ''}`}>
             <div className="fitting-toggle-info">
               <div className="fitting-toggle-header">
-                <span className="fitting-toggle-title">Encaixe de balcão (50% do tempo)</span>
-                {formIsFitting && <span className="badge-fitting-active">Ativo</span>}
                 {isPastFormTime && (
                   <span className="badge-fitting-active" style={{ background: 'var(--color-bg-tertiary, #f3f4f6)', color: 'var(--color-text-secondary, #4b5563)' }}>
                     Obrigatório (passado)
@@ -2815,7 +2813,7 @@ export const Agenda: React.FC = () => {
                 aria-label="Modalidade do horário do encaixe"
               >
                 <span className={`fitting-mode-switch__label ${fittingTimeMode === 'grid' ? 'fitting-mode-switch__label--active' : ''}`}>
-                  Usar horário da grade
+                  Grade
                 </span>
                 <button
                   type="button"
@@ -2830,9 +2828,10 @@ export const Agenda: React.FC = () => {
                 <button
                   type="button"
                   className={`fitting-mode-switch__label fitting-mode-switch__label-button ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__label--active' : ''}`}
+                  aria-label="Horário personalizado"
                   onClick={() => setFittingTimeMode('custom')}
                 >
-                  Horário personalizado
+                  Personalizado
                 </button>
               </div>
             )}
@@ -2847,7 +2846,7 @@ export const Agenda: React.FC = () => {
                   if (!e.target.checked) setFittingTimeMode('grid');
                 }}
               />
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-brand-primary)' }}>Encaixe</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>Encaixe</span>
             </label>
           </div>
 
@@ -4010,6 +4009,17 @@ export const Agenda: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        .form-row-2 {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+          width: 100%;
+          min-width: 0;
         }
 
         .form-group-segmented {
@@ -4043,6 +4053,7 @@ export const Agenda: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
+          min-width: 0;
         }
 
         .form-group label {
@@ -4055,14 +4066,17 @@ export const Agenda: React.FC = () => {
 
         .form-row-2col {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.75rem;
+          min-width: 0;
         }
 
         .input-text,
         .input-select,
         .input-textarea {
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           padding: 0.6rem 0.8rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -4071,6 +4085,14 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-sm);
           font-family: inherit;
           box-sizing: border-box;
+          inline-size: 100%;
+        }
+
+        #form-date,
+        #form-time {
+          min-inline-size: 0;
+          max-inline-size: 100%;
+          width: 100%;
         }
 
         .input-textarea {
@@ -4105,10 +4127,12 @@ export const Agenda: React.FC = () => {
           border-radius: var(--radius-md);
           background-color: var(--color-bg-primary);
           border: 1px solid var(--color-border);
-          display: flex;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           align-items: center;
-          justify-content: space-between;
           gap: 0.75rem;
+          min-width: 0;
+          box-sizing: border-box;
           transition: all 0.2s ease;
         }
 
@@ -4121,12 +4145,14 @@ export const Agenda: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.15rem;
+          min-width: 0;
         }
 
         .fitting-toggle-header {
           display: flex;
           align-items: center;
           gap: 0.4rem;
+          flex-wrap: wrap;
         }
 
         .fitting-toggle-title {
@@ -4155,8 +4181,7 @@ export const Agenda: React.FC = () => {
           align-items: center;
           justify-content: flex-end;
           gap: 0.45rem;
-          width: 100%;
-          margin-top: 0.7rem;
+          min-width: 0;
         }
 
         .fitting-mode-switch__label {
@@ -4222,6 +4247,31 @@ export const Agenda: React.FC = () => {
           gap: 0.5rem;
           font-size: var(--font-size-sm);
           cursor: pointer;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 480px) {
+          .modal-agenda-form .form-row-2col,
+          .modal-agenda-form .form-row-2 {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .fitting-toggle-card {
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .fitting-mode-switch {
+            justify-content: flex-start;
+            width: 100%;
+          }
+
+          #form-date,
+          #form-time {
+            display: block;
+            min-inline-size: 0;
+            max-inline-size: 100%;
+            width: 100%;
+          }
         }
 
         .modal-actions-footer {
