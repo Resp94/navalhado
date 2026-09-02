@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 insert into public.tenants(
   id, name, email, phone, slug, business_hours, timezone,
@@ -56,8 +56,17 @@ select ok(exists(
     '07500000-0000-0000-0000-000000000021',
     '07500000-0000-0000-0000-000000000011',
     '2040-01-04'
+  ) where slot_time = '17:00'
+), 'available slots include the last grid start whose service ends at closing');
+
+select ok(not exists(
+  select 1 from public.get_available_slots(
+    '07500000-0000-0000-0000-000000000001',
+    '07500000-0000-0000-0000-000000000021',
+    '07500000-0000-0000-0000-000000000011',
+    '2040-01-04'
   ) where slot_time = '17:40'
-), 'available slots include the last grid start before closing');
+), 'available slots reject a service that would cross the closing time');
 
 select ok(not exists(
   select 1 from public.get_available_slots(
@@ -74,8 +83,17 @@ select ok(exists(
     '2040-01-04',
     '07500000-0000-0000-0000-000000000011',
     '07500000-0000-0000-0000-000000000021'
+  ) where slot_time = '17:00' and available is true
+), 'public schedule includes the last grid start whose service ends at closing');
+
+select ok(not exists(
+  select 1 from public.get_public_schedule_by_slug(
+    'closing-boundary-test',
+    '2040-01-04',
+    '07500000-0000-0000-0000-000000000011',
+    '07500000-0000-0000-0000-000000000021'
   ) where slot_time = '17:40' and available is true
-), 'public schedule includes the last grid start before closing');
+), 'public schedule marks a crossing slot unavailable');
 
 select ok(not exists(
   select 1 from public.get_public_schedule_by_slug(
@@ -114,7 +132,7 @@ select lives_ok($sql$
   );
 $sql$, 'a professional schedule within tenant hours is accepted');
 
-select lives_ok($sql$
+select throws_ok($sql$
   insert into public.appointments(
     tenant_id, professional_id, service_id, start_time, end_time,
     status, payment_status, is_fitting, origin
@@ -126,7 +144,7 @@ select lives_ok($sql$
     '2040-01-04 18:10:00-04',
     'confirmed', 'pending', false, 'manual'
   );
-$sql$, 'appointments accept a start before closing even when service ends after it');
+$sql$, '22023', NULL, 'appointments reject a normal service that ends after closing');
 
 select throws_ok($sql$
   insert into public.appointments(

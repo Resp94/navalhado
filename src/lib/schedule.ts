@@ -343,6 +343,17 @@ export const isProfessionalWorkingAt = (
     return false;
   }
 
+  const hasServiceDuration = Number.isFinite(durationMinutes) && durationMinutes > 0;
+  const slotEndMin = slotStartMin + (hasServiceDuration ? durationMinutes : 0);
+
+  if (
+    dayBusinessHours &&
+    hasServiceDuration &&
+    slotEndMin > timeToMinutes(dayBusinessHours.close)
+  ) {
+    return false;
+  }
+
   const schedule = businessHours
     ? getEffectiveProfessionalDaySchedule(prof, dateStr, businessHours)
     : getProfessionalDaySchedule(prof, dateStr);
@@ -350,8 +361,9 @@ export const isProfessionalWorkingAt = (
   if (schedule.active === false) return false;
 
   if (schedule.start && slotStartMin < timeToMinutes(schedule.start)) return false;
-  // O fechamento limita o início do slot; a duração pode ultrapassar alguns minutos.
+  // O horário inicial e a duração precisam caber no expediente efetivo.
   if (schedule.end && slotStartMin >= timeToMinutes(schedule.end)) return false;
+  if (schedule.end && hasServiceDuration && slotEndMin > timeToMinutes(schedule.end)) return false;
 
   if (isProfessionalOnBreak(prof, dateStr, timeSlot, durationMinutes)) return false;
 

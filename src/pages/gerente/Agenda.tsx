@@ -458,6 +458,35 @@ export const Agenda: React.FC = () => {
     const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
     if (!dayBh.active) return [];
 
+    const filterNormalServiceSlots = (slots: string[]): string[] => {
+      if (formIsFitting || !formServiceId) return slots;
+
+      const service = services.find((item) => item.id === formServiceId);
+      if (!service) return slots;
+
+      const candidateProfessionals = formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL
+        ? professionals.filter((professional) => professional.id === formProfessionalId)
+        : professionals.filter((professional) => professional.is_active);
+
+      if (candidateProfessionals.length === 0) return [];
+
+      return slots.filter((slot) => candidateProfessionals.some((professional) => {
+        const duration = getEffectiveServiceDuration(
+          service.duration_minutes,
+          service.id,
+          professional.professional_services
+        );
+
+        return isProfessionalWorkingAt(
+          professional,
+          formDate,
+          slot,
+          duration,
+          tenant.businessHours
+        );
+      }));
+    };
+
     if (formIsFitting && fittingTimeMode === 'grid') {
       if (formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
         const selectedProf = professionals.find((p) => p.id === formProfessionalId);
@@ -505,7 +534,7 @@ export const Agenda: React.FC = () => {
       if (profSched?.active === false) return [];
       const segment = profSched ? toScheduleGridSegment(profSched) : null;
       if (segment) {
-        return generateScheduleGridSlots([segment], slotIntervalMinutes);
+        return filterNormalServiceSlots(generateScheduleGridSlots([segment], slotIntervalMinutes));
       }
     }
 
@@ -521,8 +550,8 @@ export const Agenda: React.FC = () => {
       schedules.push({ start: dayBh.open, end: dayBh.close });
     }
 
-    return generateScheduleGridSlots(schedules, slotIntervalMinutes);
-  }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
+    return filterNormalServiceSlots(generateScheduleGridSlots(schedules, slotIntervalMinutes));
+  }, [formDate, tenant.businessHours, formProfessionalId, formServiceId, professionals, services, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
 
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
   const agendaRescheduleAvailableSlots = useMemo(() => {
@@ -532,6 +561,7 @@ export const Agenda: React.FC = () => {
     if (!dayBh.active) return [];
 
     const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
+    if (!prof) return [];
     const profSched = prof
       ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
       : null;
@@ -550,6 +580,14 @@ export const Agenda: React.FC = () => {
     );
 
     return baseSlots.filter((slotTime) => {
+      if (!isProfessionalWorkingAt(
+        prof,
+        agendaRescheduleDate,
+        slotTime,
+        durationMin,
+        tenant.businessHours
+      )) return false;
+
       const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
       const slotEndIso = new Date(new Date(slotStartIso).getTime() + durationMin * 60 * 1000).toISOString();
 

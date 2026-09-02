@@ -543,6 +543,39 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockProfessionals[0].weekly_schedule = originalSchedule;
   });
 
+  it('não oferece no agendamento normal um slot que não comporta a duração até o fechamento', async () => {
+    const originalInterval = mockOutletContext.slotIntervalMinutes;
+    const originalClose = mockOutletContext.businessHours.domingo.close;
+    const originalSchedule = mockProfessionals[0].weekly_schedule;
+    const originalDuration = mockServices[0].duration_minutes;
+
+    mockOutletContext.slotIntervalMinutes = 40;
+    mockOutletContext.businessHours.domingo.close = '19:00';
+    mockProfessionals[0].weekly_schedule = {
+      sunday: { active: true, start: '09:00', end: '19:00', break_start: '12:00', break_end: '14:00' },
+    };
+    mockServices[0].duration_minutes = 40;
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('slot-cell-prof-1-18:40')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('slot-cell-prof-1-18:40'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Novo agendamento')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('option', { name: '18:40' })).not.toBeInTheDocument();
+
+    mockOutletContext.slotIntervalMinutes = originalInterval;
+    mockOutletContext.businessHours.domingo.close = originalClose;
+    mockProfessionals[0].weekly_schedule = originalSchedule;
+    mockServices[0].duration_minutes = originalDuration;
+  });
+
   it('permite encaixe com profissional ativo fora da escala individual', async () => {
     const originalSchedule = mockProfessionals[0].weekly_schedule;
     mockProfessionals[0].weekly_schedule = {

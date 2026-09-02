@@ -153,8 +153,8 @@ select ok(exists(
     '08600000-0000-0000-0000-000000000011',
     null
   )
-  where slot_time = '18:20' and available is true
-), 'free-choice schedule keeps the last valid start before professional closing');
+  where slot_time = '18:00' and available is true
+), 'free-choice schedule keeps the last valid start whose service ends at professional closing');
 
 select ok(not exists(
   select 1
