@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
@@ -26,6 +26,7 @@ import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
+  BadgeXIcon,
   Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
@@ -167,6 +168,322 @@ const toScheduleGridSegment = (
   };
 };
 
+interface CustomDatePickerProps {
+  selectedDate: string;
+  timezone: string;
+  onSelectDate: (dateStr: string) => void;
+  onClose: () => void;
+}
+
+const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
+  selectedDate,
+  timezone,
+  onSelectDate,
+}) => {
+  const [currentYear, setCurrentYear] = useState(() => {
+    const [y] = selectedDate.split('-').map(Number);
+    return isNaN(y) ? new Date().getFullYear() : y;
+  });
+
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const [, m] = selectedDate.split('-').map(Number);
+    return isNaN(m) ? new Date().getMonth() : m - 1;
+  });
+
+  const todayStr = useMemo(() => dateInZone(new Date(), timezone), [timezone]);
+
+  const handlePrevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+  };
+
+  const monthLabel = useMemo(() => {
+    const d = new Date(currentYear, currentMonth, 1);
+    const mName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(d);
+    const capitalized = mName.charAt(0).toUpperCase() + mName.slice(1);
+    return `${capitalized} ${currentYear}`;
+  }, [currentYear, currentMonth]);
+
+  const calendarDays = useMemo(() => {
+    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday
+    const daysInCurrMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    const days: Array<{
+      dayNumber: number;
+      dateStr: string;
+      isCurrentMonth: boolean;
+      isSelected: boolean;
+      isToday: boolean;
+    }> = [];
+
+    // Dias do mês anterior para completar o início da grade (Domingo)
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const dNum = daysInPrevMonth - i;
+      const prevDate = new Date(currentYear, currentMonth - 1, dNum);
+      const dateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+      days.push({
+        dayNumber: dNum,
+        dateStr,
+        isCurrentMonth: false,
+        isSelected: dateStr === selectedDate,
+        isToday: dateStr === todayStr,
+      });
+    }
+
+    // Dias do mês atual
+    for (let d = 1; d <= daysInCurrMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      days.push({
+        dayNumber: d,
+        dateStr,
+        isCurrentMonth: true,
+        isSelected: dateStr === selectedDate,
+        isToday: dateStr === todayStr,
+      });
+    }
+
+    // Dias do próximo mês para completar 35 ou 42 células da grade
+    const totalSlots = days.length <= 35 ? 35 : 42;
+    const remaining = totalSlots - days.length;
+    for (let d = 1; d <= remaining; d++) {
+      const nextDate = new Date(currentYear, currentMonth + 1, d);
+      const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      days.push({
+        dayNumber: d,
+        dateStr,
+        isCurrentMonth: false,
+        isSelected: dateStr === selectedDate,
+        isToday: dateStr === todayStr,
+      });
+    }
+
+    return days;
+  }, [currentYear, currentMonth, selectedDate, todayStr]);
+
+  const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  return (
+    <div
+      className="custom-datepicker-dropdown"
+      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-label="Seletor de data"
+    >
+      {/* Cabeçalho */}
+      <div className="custom-datepicker-header">
+        <div className="custom-datepicker-title-group">
+          <span className="custom-datepicker-title">{monthLabel}</span>
+          <HugeiconsIcon icon={ArrowRight01Icon} size={15} className="custom-datepicker-chevron" />
+        </div>
+
+        <div className="custom-datepicker-arrows">
+          <button
+            type="button"
+            className="custom-datepicker-arrow-btn"
+            onClick={handlePrevMonth}
+            aria-label="Mês anterior"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
+          </button>
+          <button
+            type="button"
+            className="custom-datepicker-arrow-btn"
+            onClick={handleNextMonth}
+            aria-label="Próximo mês"
+          >
+            <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Linha dos dias da semana */}
+      <div className="custom-datepicker-weekdays">
+        {weekdays.map((wd) => (
+          <span key={wd} className="custom-datepicker-weekday">
+            {wd}
+          </span>
+        ))}
+      </div>
+
+      {/* Grade de dias */}
+      <div className="custom-datepicker-grid">
+        {calendarDays.map((item) => {
+          let cellClass = 'custom-datepicker-cell';
+          if (!item.isCurrentMonth) cellClass += ' custom-datepicker-cell--outside';
+          if (item.isSelected) cellClass += ' custom-datepicker-cell--selected';
+          else if (item.isToday) cellClass += ' custom-datepicker-cell--today';
+
+          return (
+            <button
+              key={item.dateStr}
+              type="button"
+              className={cellClass}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectDate(item.dateStr);
+              }}
+            >
+              {item.dayNumber}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+interface AgendaGridSkeletonProps {
+  viewMode: 'day' | 'week';
+  professionals: Professional[];
+  weekDays: Array<{ dateStr: string; label: string; shortWeekday: string }>;
+  timeSlots: string[];
+  slotHeightPx: number;
+}
+
+const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
+  viewMode,
+  professionals,
+  weekDays,
+  timeSlots,
+  slotHeightPx,
+}) => {
+  const displaySlots =
+    timeSlots.length > 0
+      ? timeSlots
+      : ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
+  const columns =
+    viewMode === 'week'
+      ? weekDays.map((d) => ({
+          id: d.dateStr,
+          initials: d.shortWeekday.slice(0, 2),
+        }))
+      : (professionals.length > 0
+          ? professionals
+          : [
+              { id: 'sk-1', name: 'Barbeiro 1' },
+              { id: 'sk-2', name: 'Barbeiro 2' },
+              { id: 'sk-3', name: 'Barbeiro 3' },
+            ]
+        ).map((p) => ({
+          id: p.id,
+          initials: (p.name || 'BA').slice(0, 2).toUpperCase(),
+        }));
+
+  return (
+    <div
+      className="agenda-timeline-board agenda-timeline-board--skeleton"
+      aria-busy="true"
+      aria-label="Carregando grade da agenda"
+    >
+      {/* Coluna Fixa da Régua de Horários */}
+      <div className="timeline-axis-column">
+        <div className="timeline-axis-header">
+          <HugeiconsIcon icon={Clock01Icon} size={16} />
+        </div>
+        <div className="timeline-axis-body">
+          {displaySlots.map((slot) => (
+            <div
+              key={slot}
+              className="time-slot-label"
+              style={{ height: `${slotHeightPx}px` }}
+            >
+              <div
+                className="skeleton-box skeleton-time-label"
+                style={{ width: '38px', height: '11px', margin: '0 auto', borderRadius: '4px' }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Colunas da Grade com Shimmer */}
+      <div className="professionals-columns-container">
+        {columns.map((col, colIndex) => (
+          <div key={col.id} className="professional-timeline-column">
+            {/* Cabeçalho Skeleton */}
+            <div className="prof-col-header">
+              <div className="prof-col-avatar skeleton-box" style={{ color: 'transparent' }}>
+                {col.initials}
+              </div>
+              <div className="prof-col-info">
+                <div
+                  className="skeleton-box skeleton-title"
+                  style={{ width: viewMode === 'week' ? '56px' : '90px' }}
+                />
+                <div
+                  className="skeleton-box skeleton-subtitle"
+                  style={{ width: '64px', marginTop: '4px' }}
+                />
+              </div>
+            </div>
+
+            {/* Corpo da Grade com Slots e Cards Fantasmas */}
+            <div className="prof-col-grid-body">
+              {displaySlots.map((slot) => (
+                <div
+                  key={slot}
+                  className="grid-slot-cell"
+                  style={{ height: `${slotHeightPx}px` }}
+                />
+              ))}
+
+              {/* Cards Fantasma de Agendamento em Posições Realistas */}
+              {colIndex % 2 === 0 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 0.5}px`, height: `${slotHeightPx * 1.5}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                  <div className="skeleton-box skeleton-card-service" />
+                </div>
+              )}
+
+              {colIndex % 3 === 1 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 2.6}px`, height: `${slotHeightPx * 1.2}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                </div>
+              )}
+
+              {colIndex % 2 === 1 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 4.6}px`, height: `${slotHeightPx * 1.7}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                  <div className="skeleton-box skeleton-card-service" />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
@@ -184,7 +501,16 @@ export const Agenda: React.FC = () => {
 
   // Estados de Controle de Escopo Temporal (Dia vs Semana)
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [isViewTransitioning, setIsViewTransitioning] = useState(false);
+  const isViewTransitioningRef = useRef(false);
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
+
+  const handleViewModeChange = useCallback((mode: 'day' | 'week') => {
+    if (mode === viewMode) return;
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
+    setViewMode(mode);
+  }, [viewMode]);
 
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
@@ -202,6 +528,8 @@ export const Agenda: React.FC = () => {
   // Estados de Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -211,6 +539,27 @@ export const Agenda: React.FC = () => {
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
   const [isRemovingBlock, setIsRemovingBlock] = useState(false);
+
+  // Fechar o DatePicker ao clicar fora ou pressionar ESC
+  useEffect(() => {
+    if (!isDatePickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDatePickerOpen]);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formDate, setFormDate] = useState(selectedDate);
@@ -897,6 +1246,12 @@ export const Agenda: React.FC = () => {
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
       setLoading(false);
+      if (isViewTransitioningRef.current) {
+        setTimeout(() => {
+          isViewTransitioningRef.current = false;
+          setIsViewTransitioning(false);
+        }, 320);
+      }
     }
   }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
 
@@ -944,16 +1299,22 @@ export const Agenda: React.FC = () => {
 
   // Controles de Navegação de Data
   const handlePrevDay = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? -7 : -1;
     setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleNextDay = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? 7 : 1;
     setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleToday = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     setSelectedDate(dateInZone(new Date(), tenant.timezone));
   };
 
@@ -1809,14 +2170,14 @@ export const Agenda: React.FC = () => {
           <div className="agenda-view-mode-selector">
             <button
               type="button"
-              onClick={() => setViewMode('day')}
+              onClick={() => handleViewModeChange('day')}
               className={`btn-view-mode ${viewMode === 'day' ? 'btn-view-mode--active' : ''}`}
             >
               Dia
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('week')}
+              onClick={() => handleViewModeChange('week')}
               className={`btn-view-mode ${viewMode === 'week' ? 'btn-view-mode--active' : ''}`}
             >
               Semana
@@ -1851,15 +2212,42 @@ export const Agenda: React.FC = () => {
               <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
             </button>
 
-            <label className="agenda-date-picker-label">
-              <HugeiconsIcon icon={Calendar03Icon} size={16} className="date-icon" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="agenda-date-picker-input"
-              />
-            </label>
+            <div className="agenda-date-picker-wrapper" ref={datePickerRef}>
+              <label
+                className="agenda-date-picker-label"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsDatePickerOpen((prev) => !prev);
+                }}
+                title="Escolher data no calendário"
+                aria-label="Escolher data no calendário"
+                aria-expanded={isDatePickerOpen}
+              >
+                <HugeiconsIcon icon={Calendar03Icon} size={16} className="date-icon" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                  className="agenda-date-picker-input-hidden"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </label>
+
+              {isDatePickerOpen && (
+                <CustomDatePicker
+                  selectedDate={selectedDate}
+                  timezone={tenant.timezone}
+                  onSelectDate={(newDate) => {
+                    isViewTransitioningRef.current = true;
+                    setIsViewTransitioning(true);
+                    setSelectedDate(newDate);
+                    setIsDatePickerOpen(false);
+                  }}
+                  onClose={() => setIsDatePickerOpen(false)}
+                />
+              )}
+            </div>
           </div>
 
           {/* Filtro de Barbeiros na Visão Dia / Seletor de Barbeiro na Visão Semana */}
@@ -1960,11 +2348,14 @@ export const Agenda: React.FC = () => {
 
       {/* 2. GRADE TEMPORAL CONTÍNUA */}
       <div className="agenda-grid-wrapper">
-        {loading ? (
-          <div className="agenda-skeleton-loading">
-            <div className="spinner-brand" />
-            <p>Carregando escala...</p>
-          </div>
+        {isViewTransitioning || loading ? (
+          <AgendaGridSkeleton
+            viewMode={viewMode}
+            professionals={visibleProfessionals}
+            weekDays={weekDays}
+            timeSlots={timeSlots}
+            slotHeightPx={slotHeightPx}
+          />
         ) : viewMode === 'day' && visibleProfessionals.length === 0 ? (
           <div className="agenda-empty-state">
             <HugeiconsIcon icon={AlertCircleIcon} size={48} className="empty-icon" />
@@ -2260,62 +2651,53 @@ export const Agenda: React.FC = () => {
                                 </div>
 
                                 <div className="card-client-row">
-                                  <span className="card-client-name" title={app.customer?.name}>
-                                    {app.customer?.name || 'Cliente'}
-                                  </span>
-                                  <span className="card-service-name" title={app.service?.name}>
-                                    {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
-                                  </span>
-                                  {app.notes && (
-                                    <p className="card-notes-snippet" title={app.notes}>
-                                      <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
-                                    </p>
-                                  )}
-                                  {(app.status === 'pending' || app.status === 'confirmed') &&
-                                    new Date(app.start_time).getTime() <= Date.now() && (
+                                  <div className="card-client-info">
+                                    <span className="card-client-name" title={app.customer?.name}>
+                                      {app.customer?.name || 'Cliente'}
+                                    </span>
+                                    <span className="card-service-name" title={app.service?.name}>
+                                      {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
+                                    </span>
+                                    {app.notes && (
+                                      <p className="card-notes-snippet" title={app.notes}>
+                                        <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="card-quick-actions-right">
+                                    {(app.status === 'pending' || app.status === 'confirmed') &&
+                                      new Date(app.start_time).getTime() <= Date.now() && (
+                                        <button
+                                          type="button"
+                                          className="card-quick-no-show-btn"
+                                          title="Marcar atendimento como não compareceu"
+                                          aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            void handleMarkNoShow(app);
+                                          }}
+                                        >
+                                          <HugeiconsIcon icon={BadgeXIcon} size={11} />
+                                          <span>Não compareceu</span>
+                                        </button>
+                                      )}
+                                    {app.status !== 'canceled' && (
                                       <button
                                         type="button"
-                                        className="card-quick-no-show-btn"
-                                        title="Marcar atendimento como não compareceu"
-                                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+                                        className="card-quick-reagendar-btn"
+                                        title="Reagendar horário deste agendamento"
+                                        aria-label="Reagendar horário"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          void handleMarkNoShow(app);
+                                          handleOpenRescheduleModal(app);
                                         }}
                                       >
-                                        Não compareceu
+                                        <HugeiconsIcon icon={Calendar02Icon} size={11} />
+                                        <span>Reagendar</span>
                                       </button>
                                     )}
-                                  {app.status !== 'canceled' && (
-                                    <button
-                                      type="button"
-                                      className="card-quick-reagendar-btn"
-                                      title="Reagendar horário deste agendamento"
-                                      aria-label="Reagendar horário"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenRescheduleModal(app);
-                                      }}
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '3px',
-                                        background: 'rgba(255, 255, 255, 0.9)',
-                                        border: '1px solid rgba(2, 132, 199, 0.3)',
-                                        borderRadius: '4px',
-                                        padding: '2px 6px',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 500,
-                                        cursor: 'pointer',
-                                        color: '#0284C7',
-                                        marginTop: '4px',
-                                        width: 'fit-content',
-                                      }}
-                                    >
-                                      <HugeiconsIcon icon={Calendar02Icon} size={11} />
-                                      <span>Reagendar</span>
-                                    </button>
-                                  )}
+                                  </div>
                                 </div>
 
                                 {app.payment_status === 'paid' && (
@@ -3254,7 +3636,7 @@ export const Agenda: React.FC = () => {
           background-color: rgba(255, 255, 255, 0.8);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          overflow: hidden;
+          position: relative;
         }
 
         .btn-date-nav {
@@ -3283,8 +3665,23 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-date-today--active {
-          color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.06);
+          color: #000000 !important;
+          font-weight: 700 !important;
+          background-color: rgba(45, 35, 30, 0.05);
+        }
+
+        .dark-theme .btn-date-today--active {
+          color: #FFFFFF !important;
+          font-weight: 700 !important;
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* CUSTOM DATEPICKER */
+        .agenda-date-picker-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          z-index: 120;
         }
 
         .agenda-date-picker-label {
@@ -3293,16 +3690,205 @@ export const Agenda: React.FC = () => {
           gap: 0.4rem;
           padding: 0.35rem 0.6rem;
           border-left: 1px solid var(--color-border);
+          border-top-right-radius: var(--radius-md);
+          border-bottom-right-radius: var(--radius-md);
           cursor: pointer;
           position: relative;
+          color: var(--color-text-secondary);
+          transition: color 0.15s ease;
         }
 
-        .agenda-date-picker-input {
+        .agenda-date-picker-label:hover {
+          color: var(--color-text-primary);
+        }
+
+        .agenda-date-picker-input-hidden {
           position: absolute;
-          inset: 0;
           opacity: 0;
+          pointer-events: none;
+          width: 0;
+          height: 0;
+          margin: 0;
+          padding: 0;
+          border: none;
+        }
+
+        .custom-datepicker-dropdown {
+          position: absolute;
+          top: calc(100% + 10px);
+          right: 0;
+          width: 300px;
+          background: #ffffff;
+          border-radius: 20px;
+          padding: 18px 20px 20px 20px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          z-index: 1000;
+          box-sizing: border-box;
+          user-select: none;
+          animation: datepickerFadeIn 0.15s ease-out;
+        }
+
+        .dark-theme .custom-datepicker-dropdown {
+          background: #1c1917;
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+        }
+
+        @keyframes datepickerFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .custom-datepicker-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .custom-datepicker-title-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--color-text-primary, #1e293b);
+        }
+
+        .custom-datepicker-title {
+          font-size: 1.0625rem;
+          font-weight: 700;
+          color: var(--color-text-primary, #1e293b);
+          font-family: var(--font-family-base);
+          letter-spacing: -0.01em;
+        }
+
+        .dark-theme .custom-datepicker-title {
+          color: #ffffff;
+        }
+
+        .custom-datepicker-chevron {
+          color: #0084ff;
+          margin-top: 1px;
+        }
+
+        .custom-datepicker-arrows {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .custom-datepicker-arrow-btn {
+          background: transparent;
+          border: none;
           cursor: pointer;
-          width: 100%;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0084ff;
+          border-radius: 6px;
+          transition: background-color 0.15s ease, opacity 0.15s ease;
+        }
+
+        .custom-datepicker-arrow-btn:hover {
+          background-color: rgba(0, 132, 255, 0.08);
+        }
+
+        .custom-datepicker-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          margin-bottom: 8px;
+        }
+
+        .custom-datepicker-weekday {
+          text-align: center;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #64748b;
+          font-family: var(--font-family-base);
+        }
+
+        .dark-theme .custom-datepicker-weekday {
+          color: #a8a29e;
+        }
+
+        .custom-datepicker-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+          row-gap: 6px;
+        }
+
+        .custom-datepicker-cell {
+          aspect-ratio: 1;
+          width: 36px;
+          height: 36px;
+          margin: 0 auto;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: #1e293b;
+          background: transparent;
+          border: 2px solid transparent;
+          cursor: pointer;
+          padding: 0;
+          outline: none;
+          font-family: var(--font-family-base);
+          transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+          box-sizing: border-box;
+        }
+
+        .dark-theme .custom-datepicker-cell {
+          color: #f5f5f4;
+        }
+
+        .custom-datepicker-cell:hover {
+          background-color: #f1f5f9;
+        }
+
+        .dark-theme .custom-datepicker-cell:hover {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .custom-datepicker-cell--outside {
+          color: #94a3b8;
+          font-weight: 400;
+        }
+
+        .dark-theme .custom-datepicker-cell--outside {
+          color: #78716c;
+        }
+
+        .custom-datepicker-cell--today {
+          background-color: #f1f5f9;
+          font-weight: 600;
+        }
+
+        .dark-theme .custom-datepicker-cell--today {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Selected Day: Anel azul com preenchimento suave */
+        .custom-datepicker-cell--selected {
+          border: 2px solid #0084ff !important;
+          background-color: #e5f2fe !important;
+          color: #0070d2 !important;
+          font-weight: 700 !important;
+        }
+
+        .dark-theme .custom-datepicker-cell--selected {
+          border-color: #38bdf8 !important;
+          background-color: rgba(56, 189, 248, 0.22) !important;
+          color: #38bdf8 !important;
         }
 
         /* FILTRO DE EQUIPE */
@@ -3463,7 +4049,7 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-sm);
           cursor: pointer;
           box-shadow: var(--shadow-sm);
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: background-color 0.1s ease, box-shadow 0.1s ease, transform 0.1s ease;
         }
 
         .btn-master-encaixe:hover {
@@ -3604,7 +4190,7 @@ export const Agenda: React.FC = () => {
           border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
           cursor: pointer;
           position: relative;
-          transition: background-color 0.15s ease;
+          transition: background-color 0.08s ease;
         }
 
         .grid-slot-cell:hover {
@@ -3746,7 +4332,7 @@ export const Agenda: React.FC = () => {
           border: 1px dashed var(--color-text-secondary);
           color: var(--color-text-primary);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.08s ease, border-color 0.08s ease;
         }
 
         .timeline-blocked-card:hover {
@@ -3762,20 +4348,20 @@ export const Agenda: React.FC = () => {
           z-index: 10;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
+          justify-content: flex-start;
+          gap: 4px;
           overflow: hidden;
           box-sizing: border-box;
           background-color: var(--color-bg-secondary);
           box-shadow: var(--shadow-sm);
           border: 1px solid var(--color-border);
           cursor: pointer;
-          transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
+          transition: box-shadow 0.08s ease, border-color 0.08s ease;
         }
 
         .timeline-appointment-card:hover {
-          transform: translateY(-2px);
           box-shadow: var(--shadow-md);
-          filter: brightness(1.02);
+          border-color: rgba(217, 108, 0, 0.45);
           z-index: 15;
         }
 
@@ -3823,18 +4409,54 @@ export const Agenda: React.FC = () => {
           color: #fff;
         }
 
-        .card-quick-no-show-btn {
+        .card-quick-no-show-btn,
+        .card-quick-reagendar-btn {
           display: inline-flex;
           align-items: center;
-          border: 1px solid rgba(185, 28, 28, 0.35);
+          gap: 3px;
           border-radius: 4px;
           padding: 2px 6px;
-          margin-top: 4px;
-          background: rgba(255, 255, 255, 0.9);
-          color: #b91c1c;
           font-size: 0.72rem;
-          font-weight: 600;
+          font-weight: 500;
           cursor: pointer;
+          white-space: nowrap;
+          line-height: 1.2;
+          box-sizing: border-box;
+          transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+
+        .card-quick-no-show-btn {
+          border: 1px solid rgba(185, 28, 28, 0.35);
+          background: rgba(254, 242, 242, 0.95);
+          color: #b91c1c;
+        }
+
+        .card-quick-no-show-btn:hover {
+          background: rgba(254, 226, 226, 1);
+          border-color: rgba(185, 28, 28, 0.55);
+        }
+
+        .card-quick-reagendar-btn {
+          border: 1px solid rgba(2, 132, 199, 0.35);
+          background: rgba(240, 249, 255, 0.95);
+          color: #0284c7;
+        }
+
+        .card-quick-reagendar-btn:hover {
+          background: rgba(224, 242, 254, 1);
+          border-color: rgba(2, 132, 199, 0.55);
+        }
+
+        .dark-theme .card-quick-no-show-btn {
+          background: rgba(185, 28, 28, 0.2);
+          border-color: rgba(248, 113, 113, 0.4);
+          color: #f87171;
+        }
+
+        .dark-theme .card-quick-reagendar-btn {
+          background: rgba(2, 132, 199, 0.2);
+          border-color: rgba(56, 189, 248, 0.4);
+          color: #38bdf8;
         }
 
         .card-top-row {
@@ -3881,9 +4503,27 @@ export const Agenda: React.FC = () => {
 
         .card-client-row {
           display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 6px;
+          margin: 0;
+          width: 100%;
+        }
+
+        .card-client-info {
+          display: flex;
           flex-direction: column;
-          gap: 0.05rem;
-          margin: 0.1rem 0;
+          gap: 2px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .card-quick-actions-right {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-left: auto;
+          flex-shrink: 0;
         }
 
         .card-client-name {
@@ -3946,7 +4586,7 @@ export const Agenda: React.FC = () => {
           box-sizing: border-box;
           vertical-align: middle;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: background-color 0.08s ease, color 0.08s ease;
         }
 
         .btn-card-action span {
@@ -4346,8 +4986,108 @@ export const Agenda: React.FC = () => {
           margin-bottom: 1rem;
         }
 
-        /* EMPTY STATE E SKELETON */
-        .agenda-skeleton-loading,
+        /* SKELETON LOADING DA GRADE DA AGENDA */
+        @keyframes skeletonShimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+
+        .agenda-timeline-board--skeleton {
+          pointer-events: none;
+          user-select: none;
+          animation: skeletonFadeIn 0.2s ease-out;
+        }
+
+        @keyframes skeletonFadeIn {
+          from {
+            opacity: 0.6;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .skeleton-box {
+          background: linear-gradient(
+            90deg,
+            rgba(45, 35, 30, 0.05) 0%,
+            rgba(217, 108, 0, 0.12) 50%,
+            rgba(45, 35, 30, 0.05) 100%
+          );
+          background-size: 200% 100%;
+          animation: skeletonShimmer 1.5s ease-in-out infinite;
+          border-radius: var(--radius-sm, 6px);
+        }
+
+        .dark-theme .skeleton-box {
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.04) 0%,
+            rgba(217, 108, 0, 0.16) 50%,
+            rgba(255, 255, 255, 0.04) 100%
+          );
+          background-size: 200% 100%;
+        }
+
+        .skeleton-title {
+          height: 14px;
+          border-radius: 4px;
+        }
+
+        .skeleton-subtitle {
+          height: 10px;
+          border-radius: 4px;
+        }
+
+        .skeleton-appointment-card {
+          position: absolute;
+          left: 4px;
+          right: 4px;
+          border-radius: var(--radius-md, 8px);
+          padding: 0.5rem;
+          box-sizing: border-box;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(234, 222, 214, 0.8);
+          box-shadow: 0 2px 8px rgba(45, 35, 30, 0.04);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          overflow: hidden;
+          pointer-events: none;
+          z-index: 5;
+        }
+
+        .dark-theme .skeleton-appointment-card {
+          background: rgba(30, 27, 24, 0.85);
+          border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .skeleton-card-badge {
+          width: 44px;
+          height: 12px;
+          border-radius: 4px;
+        }
+
+        .skeleton-card-name {
+          width: 72%;
+          height: 13px;
+          border-radius: 4px;
+        }
+
+        .skeleton-card-service {
+          width: 50%;
+          height: 11px;
+          border-radius: 4px;
+        }
+
+        /* EMPTY STATE */
         .agenda-empty-state {
           padding: 4rem 2rem;
           display: flex;
@@ -4356,15 +5096,6 @@ export const Agenda: React.FC = () => {
           justify-content: center;
           gap: 1rem;
           text-align: center;
-        }
-
-        .spinner-brand {
-          width: 32px;
-          height: 32px;
-          border: 3px solid rgba(217, 108, 0, 0.2);
-          border-top-color: var(--color-brand-primary);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
         }
 
         .empty-icon {
