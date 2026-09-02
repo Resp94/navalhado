@@ -4088,6 +4088,13 @@ export const Agenda: React.FC = () => {
           inline-size: 100%;
         }
 
+        #form-date,
+        #form-time {
+          min-inline-size: 0;
+          max-inline-size: 100%;
+          width: 100%;
+        }
+
         .input-textarea {
           resize: vertical;
           min-height: 60px;
@@ -4255,6 +4262,14 @@ export const Agenda: React.FC = () => {
 
           .fitting-mode-switch {
             justify-content: flex-start;
+            width: 100%;
+          }
+
+          #form-date,
+          #form-time {
+            display: block;
+            min-inline-size: 0;
+            max-inline-size: 100%;
             width: 100%;
           }
         }

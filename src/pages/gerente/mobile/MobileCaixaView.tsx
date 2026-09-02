@@ -675,8 +675,8 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
         .mobile-caixa__daily-filters {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0.75rem;
           min-width: 0;
           max-width: 100%;
           box-sizing: border-box;
@@ -697,6 +697,8 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__daily-filters input,
         .mobile-caixa__daily-filters select {
           width: 100%;
+          inline-size: 100%;
+          min-inline-size: 0;
           min-width: 0;
           max-width: 100%;
           min-height: 40px;
