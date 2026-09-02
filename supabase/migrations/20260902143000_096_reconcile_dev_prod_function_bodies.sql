@@ -2,7 +2,7 @@
 -- Não altera tabelas nem dados. Preserva as assinaturas, SECURITY DEFINER,
 -- search_path e privilégios existentes ao usar CREATE OR REPLACE.
 
-+CREATE OR REPLACE FUNCTION private.clamp_professional_schedule_to_tenant(p_schedule jsonb, p_business_hours jsonb)
+CREATE OR REPLACE FUNCTION private.clamp_professional_schedule_to_tenant(p_schedule jsonb, p_business_hours jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
