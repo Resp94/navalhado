@@ -4,6 +4,7 @@ import {
   generateFittingTimeSlots,
   getEffectiveServiceDuration,
   generateProfessionalTimeOptions,
+  generateScheduleGridSlots,
   generateScheduleTimeOptions,
   isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
@@ -26,6 +27,19 @@ describe('schedule fitting slots', () => {
     expect(slots).toHaveLength(36);
     expect(slots).toContain('07:20');
     expect(slots).not.toContain('07:17');
+  });
+
+  it('ancora a grade na escala do profissional e reinicia no retorno do intervalo', () => {
+    const slots = generateScheduleGridSlots([
+      { start: '09:00', end: '19:00', breakStart: '12:00', breakEnd: '14:00' },
+    ], 40);
+
+    expect(slots.slice(0, 4)).toEqual(['09:00', '09:40', '10:20', '11:00']);
+    expect(slots).toContain('14:00');
+    expect(slots).toContain('14:40');
+    expect(slots).toContain('18:00');
+    expect(slots).not.toContain('09:20');
+    expect(slots).not.toContain('13:20');
   });
 
   it('normalizes Friday to 20:00 and restricts schedule options to business hours', () => {

@@ -418,7 +418,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockAppointments[0].end_time = originalEnd;
   });
 
-  it('permite salvar encaixe fora do expediente usando o intervalo da grade', async () => {
+  it('permite salvar encaixe personalizado fora do expediente', async () => {
     render(<Agenda />);
 
     await waitFor(() => {
@@ -431,6 +431,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByText(/Novo encaixe rápido/i)).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole('switch', { name: /Alternar entre horário da grade e personalizado/i }));
     fireEvent.change(screen.getByLabelText(/Horário de início/i), {
       target: { value: '22:30' },
     });
@@ -454,7 +455,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByRole('button', { name: /Horário personalizado/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Horário personalizado/i }));
+    const modeSwitch = screen.getByRole('switch', { name: /Alternar entre horário da grade e personalizado/i });
+    expect(modeSwitch).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(modeSwitch);
+    expect(modeSwitch).toHaveAttribute('aria-checked', 'true');
     const timeInput = screen.getByLabelText(/Horário de início/i);
     expect(timeInput).toHaveAttribute('type', 'time');
     fireEvent.change(timeInput, { target: { value: '18:10' } });
@@ -478,6 +482,34 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     );
   });
 
+  it('usa a escala do profissional para sugerir a grade do encaixe', async () => {
+    const originalInterval = mockOutletContext.slotIntervalMinutes;
+    const originalSchedule = mockProfessionals[0].weekly_schedule;
+    mockOutletContext.slotIntervalMinutes = 40;
+    mockProfessionals[0].weekly_schedule = {
+      sunday: { active: true, start: '09:00', end: '19:00', break_start: '12:00', break_end: '14:00' },
+    };
+
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: '09:00' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: '14:00' })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('option', { name: '09:20' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '13:20' })).not.toBeInTheDocument();
+
+    mockOutletContext.slotIntervalMinutes = originalInterval;
+    mockProfessionals[0].weekly_schedule = originalSchedule;
+  });
+
   it('permite encaixe com profissional ativo fora da escala individual', async () => {
     const originalSchedule = mockProfessionals[0].weekly_schedule;
     mockProfessionals[0].weekly_schedule = {
@@ -495,6 +527,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByText(/Novo encaixe rápido/i)).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole('switch', { name: /Alternar entre horário da grade e personalizado/i }));
     fireEvent.change(screen.getByLabelText(/Horário de início/i), {
       target: { value: '14:00' },
     });

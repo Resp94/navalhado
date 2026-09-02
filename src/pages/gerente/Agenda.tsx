@@ -453,15 +453,49 @@ export const Agenda: React.FC = () => {
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
-  // Geração de horários 24 horas (00:00 às 23:00) para encaixes
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
-    if (formIsFitting && fittingTimeMode === 'grid') {
-      return generateFittingTimeSlots(slotIntervalMinutes);
-    }
-
     const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
     if (!dayBh.active) return [];
+
+    if (formIsFitting && fittingTimeMode === 'grid') {
+      if (formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
+        const selectedProf = professionals.find((p) => p.id === formProfessionalId);
+        const selectedProfSchedule = selectedProf
+          ? getEffectiveProfessionalDaySchedule(selectedProf, formDate, tenant.businessHours)
+          : null;
+
+        if (selectedProfSchedule?.active === false) return [];
+
+        const selectedSegment = selectedProfSchedule
+          ? toScheduleGridSegment(selectedProfSchedule)
+          : null;
+        if (selectedSegment) {
+          return generateScheduleGridSlots([selectedSegment], slotIntervalMinutes);
+        }
+      }
+
+      const fittingSchedules: ScheduleGridSegment[] = [];
+      professionals.forEach((professional) => {
+        if (!professional.is_active) return;
+        const schedule = getEffectiveProfessionalDaySchedule(
+          professional,
+          formDate,
+          tenant.businessHours
+        );
+        const segment = toScheduleGridSegment(schedule);
+        if (segment) fittingSchedules.push(segment);
+      });
+
+      if (fittingSchedules.length > 0) {
+        return generateScheduleGridSlots(fittingSchedules, slotIntervalMinutes);
+      }
+
+      return generateScheduleGridSlots(
+        [{ start: dayBh.open, end: dayBh.close }],
+        slotIntervalMinutes
+      );
+    }
 
     if (formProfessionalId) {
       const prof = professionals.find((p) => p.id === formProfessionalId);
@@ -2714,21 +2748,26 @@ export const Agenda: React.FC = () => {
             </div>
             {formIsFitting && (
               <div
-                className="form-group-segmented"
+                className="fitting-mode-switch"
                 role="group"
                 aria-label="Modalidade do horário do encaixe"
-                style={{ marginTop: '0.75rem' }}
               >
+                <span className={`fitting-mode-switch__label ${fittingTimeMode === 'grid' ? 'fitting-mode-switch__label--active' : ''}`}>
+                  Usar horário da grade
+                </span>
                 <button
                   type="button"
-                  className={`segmented-btn ${fittingTimeMode === 'grid' ? 'segmented-btn--active' : ''}`}
-                  onClick={() => setFittingTimeMode('grid')}
+                  role="switch"
+                  aria-checked={fittingTimeMode === 'custom'}
+                  aria-label="Alternar entre horário da grade e personalizado"
+                  className={`fitting-mode-switch__control ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__control--custom' : ''}`}
+                  onClick={() => setFittingTimeMode((current) => current === 'grid' ? 'custom' : 'grid')}
                 >
-                  Usar horário da grade
+                  <span className="fitting-mode-switch__thumb" />
                 </button>
                 <button
                   type="button"
-                  className={`segmented-btn ${fittingTimeMode === 'custom' ? 'segmented-btn--active' : ''}`}
+                  className={`fitting-mode-switch__label fitting-mode-switch__label-button ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__label--active' : ''}`}
                   onClick={() => setFittingTimeMode('custom')}
                 >
                   Horário personalizado
@@ -4047,6 +4086,72 @@ export const Agenda: React.FC = () => {
         .fitting-toggle-desc {
           font-size: 0.7rem;
           color: var(--color-text-secondary);
+        }
+
+        .fitting-mode-switch {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.45rem;
+          width: 100%;
+          margin-top: 0.7rem;
+        }
+
+        .fitting-mode-switch__label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          transition: color 0.2s ease;
+        }
+
+        .fitting-mode-switch__label--active {
+          color: var(--color-text-primary);
+        }
+
+        .fitting-mode-switch__label-button {
+          border: 0;
+          padding: 0;
+          background: transparent;
+          font-family: inherit;
+          cursor: pointer;
+        }
+
+        .fitting-mode-switch__control {
+          position: relative;
+          width: 2.55rem;
+          height: 1.35rem;
+          padding: 0.15rem;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-border);
+          cursor: pointer;
+          transition: background-color 0.2s ease, border-color 0.2s ease;
+          box-sizing: border-box;
+        }
+
+        .fitting-mode-switch__control--custom {
+          background: var(--color-brand-primary);
+          border-color: var(--color-brand-primary);
+        }
+
+        .fitting-mode-switch__control:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
+        }
+
+        .fitting-mode-switch__thumb {
+          display: block;
+          width: 0.95rem;
+          height: 0.95rem;
+          border-radius: 50%;
+          background: var(--color-bg-secondary);
+          box-shadow: var(--shadow-sm);
+          transform: translateX(0);
+          transition: transform 0.2s ease;
+        }
+
+        .fitting-mode-switch__control--custom .fitting-mode-switch__thumb {
+          transform: translateX(1.05rem);
         }
 
         .checkbox-label {
