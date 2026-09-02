@@ -689,6 +689,8 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         .mobile-caixa__daily-filters input,
         .mobile-caixa__daily-filters select {
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           min-height: 40px;
           padding: 0.45rem;
           border: 1px solid var(--color-border);
@@ -698,6 +700,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           font: inherit;
           font-size: 0.75rem;
           font-weight: 600;
+          box-sizing: border-box;
         }
 
         .mobile-caixa__daily-session-filter {

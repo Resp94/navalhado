@@ -16,6 +16,8 @@ O drawer de novo encaixe tinha overflow horizontal porque o card de configuraç�
 - Aplicado grid responsivo ao card e aos campos do formulário.
 - Garantidos `min-width: 0`, `max-width: 100%` e ausência de overflow horizontal no modal.
 - Ajustado o resumo diário do caixa para respeitar margens e espaço disponível no mobile.
+- Corrigida a largura intrínseca dos campos nativos de data e hora no Safari/iOS.
+- Aplicado `box-sizing: border-box` aos filtros da visão mobile do caixa para impedir sobreposição nas bordas.
 
 ## Preservação funcional
 

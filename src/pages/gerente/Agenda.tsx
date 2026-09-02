@@ -4064,6 +4064,8 @@ export const Agenda: React.FC = () => {
         .input-select,
         .input-textarea {
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           padding: 0.6rem 0.8rem;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -4072,6 +4074,7 @@ export const Agenda: React.FC = () => {
           font-size: var(--font-size-sm);
           font-family: inherit;
           box-sizing: border-box;
+          inline-size: 100%;
         }
 
         .input-textarea {
