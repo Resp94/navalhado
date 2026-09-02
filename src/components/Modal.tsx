@@ -189,6 +189,8 @@ export const Modal: React.FC<ModalProps> = ({
           overscroll-behavior: contain;
           touch-action: pan-y;
           max-height: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         @media (max-width: 768px) {

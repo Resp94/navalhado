@@ -4009,6 +4009,16 @@ export const Agenda: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        .form-row-2 {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+          width: 100%;
           min-width: 0;
         }
 
@@ -4043,6 +4053,7 @@ export const Agenda: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
+          min-width: 0;
         }
 
         .form-group label {
@@ -4233,7 +4244,8 @@ export const Agenda: React.FC = () => {
         }
 
         @media (max-width: 480px) {
-          .modal-agenda-form .form-row-2col {
+          .modal-agenda-form .form-row-2col,
+          .modal-agenda-form .form-row-2 {
             grid-template-columns: minmax(0, 1fr);
           }
 

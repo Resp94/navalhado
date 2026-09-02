@@ -656,6 +656,9 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg, 12px);
           box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .mobile-caixa__daily-header h3 {
@@ -674,6 +677,9 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 0.5rem;
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .mobile-caixa__daily-filters label {
@@ -684,6 +690,8 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           font-size: 0.6875rem;
           font-weight: 700;
           color: var(--color-text-secondary);
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .mobile-caixa__daily-filters input,
@@ -700,6 +708,12 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           font: inherit;
           font-size: 0.75rem;
           font-weight: 600;
+          box-sizing: border-box;
+        }
+
+        .mobile-caixa {
+          min-width: 0;
+          max-width: 100%;
           box-sizing: border-box;
         }
 
