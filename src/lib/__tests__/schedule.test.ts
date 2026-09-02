@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildFittingAppointmentInterval,
   generateFittingTimeSlots,
   getEffectiveServiceDuration,
   generateProfessionalTimeOptions,
+  generateScheduleGridSlots,
   generateScheduleTimeOptions,
+  isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
   normalizeBusinessHours,
 } from '../schedule';
@@ -24,6 +27,19 @@ describe('schedule fitting slots', () => {
     expect(slots).toHaveLength(36);
     expect(slots).toContain('07:20');
     expect(slots).not.toContain('07:17');
+  });
+
+  it('ancora a grade na escala do profissional e reinicia no retorno do intervalo', () => {
+    const slots = generateScheduleGridSlots([
+      { start: '09:00', end: '19:00', breakStart: '12:00', breakEnd: '14:00' },
+    ], 40);
+
+    expect(slots.slice(0, 4)).toEqual(['09:00', '09:40', '10:20', '11:00']);
+    expect(slots).toContain('14:00');
+    expect(slots).toContain('14:40');
+    expect(slots).toContain('18:00');
+    expect(slots).not.toContain('09:20');
+    expect(slots).not.toContain('13:20');
   });
 
   it('normalizes Friday to 20:00 and restricts schedule options to business hours', () => {
@@ -58,5 +74,48 @@ describe('schedule fitting slots', () => {
     expect(getEffectiveServiceDuration(60, 'service-1', services)).toBe(45);
     expect(getEffectiveServiceDuration(60, 'service-2', services)).toBe(60);
     expect(getEffectiveServiceDuration(60, 'service-3', services)).toBe(60);
+  });
+
+  it('diferencia horário de encaixe pela grade de horário personalizado', () => {
+    expect(isValidFittingStartTime('18:00', 'grid', 40)).toBe(true);
+    expect(isValidFittingStartTime('18:10', 'grid', 40)).toBe(false);
+    expect(isValidFittingStartTime('18:10', 'custom', 40)).toBe(true);
+    expect(isValidFittingStartTime('25:00', 'custom', 40)).toBe(false);
+  });
+
+  it('valida o encaixe pela mesma grade ancorada na escala do profissional', () => {
+    const professionalGrid = generateScheduleGridSlots([
+      { start: '09:00', end: '19:00', breakStart: '13:00', breakEnd: '15:00' },
+    ], 40);
+
+    expect(isValidFittingStartTime('17:40', 'grid', 40, professionalGrid)).toBe(true);
+    expect(isValidFittingStartTime('18:00', 'grid', 40, professionalGrid)).toBe(false);
+  });
+
+  it('constrói o intervalo persistível no timezone e não trunca no fechamento', () => {
+    const interval = buildFittingAppointmentInterval({
+      date: '2026-08-31',
+      time: '18:10',
+      timeZone: 'America/Manaus',
+      durationMinutes: 60,
+      mode: 'custom',
+      slotIntervalMinutes: 40,
+    });
+
+    expect(interval.startIso).toBe('2026-08-31T22:10:00.000Z');
+    expect(interval.endIso).toBe('2026-08-31T23:10:00.000Z');
+    expect(interval.startLocal).toEqual({ date: '2026-08-31', time: '18:10' });
+    expect(interval.endLocal).toEqual({ date: '2026-08-31', time: '19:10' });
+  });
+
+  it('rejeita horário desalinhado quando o modo de grade é usado', () => {
+    expect(() => buildFittingAppointmentInterval({
+      date: '2026-08-31',
+      time: '18:10',
+      timeZone: 'America/Manaus',
+      durationMinutes: 60,
+      mode: 'grid',
+      slotIntervalMinutes: 40,
+    })).toThrow('FITTING_TIME_NOT_ALIGNED');
   });
 });

@@ -48,13 +48,20 @@ import {
   generateTimeSlotsForSchedule,
   generateScheduleGridSlots,
   generateFittingTimeSlots,
+  buildFittingAppointmentInterval,
+  isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
 } from '../../lib/schedule';
-import type { ProfessionalDaySchedule, WeeklySchedule, ScheduleGridSegment } from '../../lib/schedule';
+import type {
+  FittingTimeMode,
+  ProfessionalDaySchedule,
+  WeeklySchedule,
+  ScheduleGridSegment,
+} from '../../lib/schedule';
 
 export {
   getProfessionalDaySchedule,
@@ -64,13 +71,15 @@ export {
   generateTimeSlotsForSchedule,
   generateScheduleGridSlots,
   generateFittingTimeSlots,
+  buildFittingAppointmentInterval,
+  isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
   getDayBusinessHours,
   getEffectiveProfessionalDaySchedule,
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
 };
-export type { ProfessionalDaySchedule, WeeklySchedule };
+export type { FittingTimeMode, ProfessionalDaySchedule, WeeklySchedule };
 
 // --- Interfaces de Domínio ---
 export interface Professional {
@@ -209,6 +218,7 @@ export const Agenda: React.FC = () => {
   const [formServiceId, setFormServiceId] = useState('');
   const [formTime, setFormTime] = useState('09:00');
   const [formIsFitting, setFormIsFitting] = useState(false);
+  const [fittingTimeMode, setFittingTimeMode] = useState<FittingTimeMode>('grid');
   const [formNotes, setFormNotes] = useState('');
   const [customerMode, setCustomerMode] = useState<'existing' | 'new' | 'none'>('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -252,6 +262,7 @@ export const Agenda: React.FC = () => {
 
     if (action === 'encaixe') {
       setFormIsFitting(true);
+      setFittingTimeMode('grid');
       if (locState?.customerId) {
         setCustomerMode('existing');
         setSelectedCustomerId(locState.customerId);
@@ -442,15 +453,49 @@ export const Agenda: React.FC = () => {
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
 
-  // Geração de horários 24 horas (00:00 às 23:00) para encaixes
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
-    if (formIsFitting) {
-      return generateFittingTimeSlots(slotIntervalMinutes);
-    }
-
     const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
     if (!dayBh.active) return [];
+
+    if (formIsFitting && fittingTimeMode === 'grid') {
+      if (formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
+        const selectedProf = professionals.find((p) => p.id === formProfessionalId);
+        const selectedProfSchedule = selectedProf
+          ? getEffectiveProfessionalDaySchedule(selectedProf, formDate, tenant.businessHours)
+          : null;
+
+        if (selectedProfSchedule?.active === false) return [];
+
+        const selectedSegment = selectedProfSchedule
+          ? toScheduleGridSegment(selectedProfSchedule)
+          : null;
+        if (selectedSegment) {
+          return generateScheduleGridSlots([selectedSegment], slotIntervalMinutes);
+        }
+      }
+
+      const fittingSchedules: ScheduleGridSegment[] = [];
+      professionals.forEach((professional) => {
+        if (!professional.is_active) return;
+        const schedule = getEffectiveProfessionalDaySchedule(
+          professional,
+          formDate,
+          tenant.businessHours
+        );
+        const segment = toScheduleGridSegment(schedule);
+        if (segment) fittingSchedules.push(segment);
+      });
+
+      if (fittingSchedules.length > 0) {
+        return generateScheduleGridSlots(fittingSchedules, slotIntervalMinutes);
+      }
+
+      return generateScheduleGridSlots(
+        [{ start: dayBh.open, end: dayBh.close }],
+        slotIntervalMinutes
+      );
+    }
 
     if (formProfessionalId) {
       const prof = professionals.find((p) => p.id === formProfessionalId);
@@ -477,7 +522,7 @@ export const Agenda: React.FC = () => {
     }
 
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
-  }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting]);
+  }, [formDate, tenant.businessHours, formProfessionalId, professionals, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
 
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
   const agendaRescheduleAvailableSlots = useMemo(() => {
@@ -902,7 +947,25 @@ export const Agenda: React.FC = () => {
     }
 
     if (timeSlot) {
-      if (finalIsFitting && !isTimeAlignedToSlotInterval(timeSlot, slotIntervalMinutes)) {
+      const directGridSlots = profId
+        ? (() => {
+            const prof = professionals.find((p) => p.id === profId);
+            const schedule = prof
+              ? getEffectiveProfessionalDaySchedule(prof, dateToCheck, tenant.businessHours)
+              : null;
+            const segment = schedule ? toScheduleGridSegment(schedule) : null;
+            return segment
+              ? generateScheduleGridSlots([segment], slotIntervalMinutes)
+              : timeSlots;
+          })()
+        : timeSlots;
+
+      if (finalIsFitting && !isValidFittingStartTime(
+        timeSlot,
+        'grid',
+        slotIntervalMinutes,
+        directGridSlots
+      )) {
         addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
         return;
       }
@@ -962,6 +1025,7 @@ export const Agenda: React.FC = () => {
 
     setFormDate(dateToCheck);
     setFormIsFitting(finalIsFitting);
+    setFittingTimeMode('grid');
     setFormNotes('');
     setCustomerMode('existing');
     setSelectedCustomerId(customers.length > 0 ? customers[0].id : '');
@@ -1001,6 +1065,7 @@ export const Agenda: React.FC = () => {
       entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]'
     );
     setFormIsFitting(true);
+    setFittingTimeMode('grid');
     setIsModalOpen(true);
 
     esperaRepository.setStatus(entry.id, 'atendido').catch(console.error);
@@ -1102,8 +1167,18 @@ export const Agenda: React.FC = () => {
         setSavingAppointment(false);
         return;
       }
-      if (formIsFitting && !isTimeAlignedToSlotInterval(formTime, slotIntervalMinutes)) {
-        addToast(`Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`, 'warning');
+      if (formIsFitting && !isValidFittingStartTime(
+        formTime,
+        fittingTimeMode,
+        slotIntervalMinutes,
+        fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined
+      )) {
+        addToast(
+          fittingTimeMode === 'grid'
+            ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
+            : 'Informe um horário de início válido.',
+          'warning'
+        );
         setSavingAppointment(false);
         return;
       }
@@ -1152,14 +1227,43 @@ export const Agenda: React.FC = () => {
         }
       }
 
-      // Calcular timestamps com Timezone
-      const startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
-      const [sh, sm] = formTime.split(':').map(Number);
-      const endTotalMinutes = sh * 60 + sm + effectiveServiceDuration;
-      const eh = Math.floor(endTotalMinutes / 60);
-      const em = endTotalMinutes % 60;
-      const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-      const endIso = localDateTimeToIso(formDate, endTimeStr, tenant.timezone);
+      // Calcular timestamps com Timezone. Encaixes usam o seam compartilhado;
+      // agendamentos normais preservam o cálculo existente nesta etapa.
+      let startIso: string;
+      let endIso: string;
+      if (formIsFitting) {
+        try {
+          const fittingInterval = buildFittingAppointmentInterval({
+            date: formDate,
+            time: formTime,
+            timeZone: tenant.timezone,
+            durationMinutes: effectiveServiceDuration,
+            mode: fittingTimeMode,
+            slotIntervalMinutes,
+            gridSlots: fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined,
+          });
+          startIso = fittingInterval.startIso;
+          endIso = fittingInterval.endIso;
+        } catch (error) {
+          const errorCode = error instanceof Error ? error.message : '';
+          addToast(
+            errorCode === 'FITTING_TIME_NOT_ALIGNED'
+              ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
+              : 'Informe uma data e horário válidos para o encaixe.',
+            'warning'
+          );
+          setSavingAppointment(false);
+          return;
+        }
+      } else {
+        startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
+        const [sh, sm] = formTime.split(':').map(Number);
+        const endTotalMinutes = sh * 60 + sm + effectiveServiceDuration;
+        const eh = Math.floor(endTotalMinutes / 60);
+        const em = endTotalMinutes % 60;
+        const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+        endIso = localDateTimeToIso(formDate, endTimeStr, tenant.timezone);
+      }
 
       const payload = {
         tenant_id: tenant.tenantId,
@@ -2605,7 +2709,17 @@ export const Agenda: React.FC = () => {
 
             <div className="form-group">
               <label htmlFor="form-time">Horário de início</label>
-              {modalAvailableTimeSlots.length > 0 ? (
+              {formIsFitting && fittingTimeMode === 'custom' ? (
+                <input
+                  id="form-time"
+                  type="time"
+                  step="60"
+                  value={formTime}
+                  onChange={(e) => setFormTime(e.target.value)}
+                  className="input-text"
+                  required
+                />
+              ) : modalAvailableTimeSlots.length > 0 ? (
                 <select
                   id="form-time"
                   value={formTime}
@@ -2613,6 +2727,9 @@ export const Agenda: React.FC = () => {
                   className="input-select"
                   required
                 >
+                  {formIsFitting && !modalAvailableTimeSlots.includes(formTime) && (
+                    <option value={formTime}>{formTime} (fora da grade)</option>
+                  )}
                   {modalAvailableTimeSlots.map((slot) => (
                     <option key={slot} value={slot}>
                       {slot}
@@ -2623,6 +2740,7 @@ export const Agenda: React.FC = () => {
                 <input
                   id="form-time"
                   type="time"
+                  step="60"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
                   className="input-text"
@@ -2645,18 +2763,51 @@ export const Agenda: React.FC = () => {
                 )}
               </div>
               <span className="fitting-toggle-desc">
-                {isPastFormTime
+                {formIsFitting && fittingTimeMode === 'custom'
+                  ? 'Horário personalizado: permite registrar uma exceção fora da grade e do expediente configurado.'
+                  : isPastFormTime
                   ? 'Horário já decorrido: o registro neste horário é restrito a Encaixe de balcão.'
                   : 'Permite atender dois clientes no mesmo horário dividindo a coluna da grade.'}
               </span>
             </div>
+            {formIsFitting && (
+              <div
+                className="fitting-mode-switch"
+                role="group"
+                aria-label="Modalidade do horário do encaixe"
+              >
+                <span className={`fitting-mode-switch__label ${fittingTimeMode === 'grid' ? 'fitting-mode-switch__label--active' : ''}`}>
+                  Usar horário da grade
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={fittingTimeMode === 'custom'}
+                  aria-label="Alternar entre horário da grade e personalizado"
+                  className={`fitting-mode-switch__control ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__control--custom' : ''}`}
+                  onClick={() => setFittingTimeMode((current) => current === 'grid' ? 'custom' : 'grid')}
+                >
+                  <span className="fitting-mode-switch__thumb" />
+                </button>
+                <button
+                  type="button"
+                  className={`fitting-mode-switch__label fitting-mode-switch__label-button ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__label--active' : ''}`}
+                  onClick={() => setFittingTimeMode('custom')}
+                >
+                  Horário personalizado
+                </button>
+              </div>
+            )}
             <label className="checkbox-label" style={{ margin: 0, cursor: isPastFormTime ? 'not-allowed' : 'pointer' }}>
               <input
                 type="checkbox"
                 aria-label="Marcar como Encaixe de Balcão"
                 checked={formIsFitting}
                 disabled={isPastFormTime}
-                onChange={(e) => setFormIsFitting(e.target.checked)}
+                onChange={(e) => {
+                  setFormIsFitting(e.target.checked);
+                  if (!e.target.checked) setFittingTimeMode('grid');
+                }}
               />
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-brand-primary)' }}>Encaixe</span>
             </label>
@@ -3959,6 +4110,72 @@ export const Agenda: React.FC = () => {
         .fitting-toggle-desc {
           font-size: 0.7rem;
           color: var(--color-text-secondary);
+        }
+
+        .fitting-mode-switch {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.45rem;
+          width: 100%;
+          margin-top: 0.7rem;
+        }
+
+        .fitting-mode-switch__label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          transition: color 0.2s ease;
+        }
+
+        .fitting-mode-switch__label--active {
+          color: var(--color-text-primary);
+        }
+
+        .fitting-mode-switch__label-button {
+          border: 0;
+          padding: 0;
+          background: transparent;
+          font-family: inherit;
+          cursor: pointer;
+        }
+
+        .fitting-mode-switch__control {
+          position: relative;
+          width: 2.55rem;
+          height: 1.35rem;
+          padding: 0.15rem;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-border);
+          cursor: pointer;
+          transition: background-color 0.2s ease, border-color 0.2s ease;
+          box-sizing: border-box;
+        }
+
+        .fitting-mode-switch__control--custom {
+          background: var(--color-brand-primary);
+          border-color: var(--color-brand-primary);
+        }
+
+        .fitting-mode-switch__control:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
+        }
+
+        .fitting-mode-switch__thumb {
+          display: block;
+          width: 0.95rem;
+          height: 0.95rem;
+          border-radius: 50%;
+          background: var(--color-bg-secondary);
+          box-shadow: var(--shadow-sm);
+          transform: translateX(0);
+          transition: transform 0.2s ease;
+        }
+
+        .fitting-mode-switch__control--custom .fitting-mode-switch__thumb {
+          transform: translateX(1.05rem);
         }
 
         .checkbox-label {

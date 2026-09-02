@@ -1,3 +1,5 @@
+import { localDateTimeToIso, shiftCalendarDate } from './timezone';
+
 export interface ProfessionalDaySchedule {
   active?: boolean;
   start?: string;
@@ -30,6 +32,25 @@ export interface ScheduleGridSegment {
   end: string;
   breakStart?: string;
   breakEnd?: string;
+}
+
+export type FittingTimeMode = 'grid' | 'custom';
+
+export interface FittingAppointmentIntervalInput {
+  date: string;
+  time: string;
+  timeZone: string;
+  durationMinutes: number;
+  mode: FittingTimeMode;
+  slotIntervalMinutes: number;
+  gridSlots?: readonly string[];
+}
+
+export interface FittingAppointmentInterval {
+  startIso: string;
+  endIso: string;
+  startLocal: { date: string; time: string };
+  endLocal: { date: string; time: string };
 }
 
 const ENGLISH_DAY_KEYS = [
@@ -166,6 +187,71 @@ export const isTimeAlignedToSlotInterval = (
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeStr)) return false;
 
   return minutes % interval === 0;
+};
+
+const isValidLocalDate = (dateStr: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toISOString().slice(0, 10) === dateStr;
+};
+
+const isValidLocalTime = (timeStr: string): boolean =>
+  /^([01]\d|2[0-3]):[0-5]\d$/.test(timeStr);
+
+/**
+ * Valida o horário inicial conforme a modalidade escolhida no formulário de encaixe.
+ * O modo personalizado continua validando o relógio, mas não exige alinhamento à grade.
+ */
+export const isValidFittingStartTime = (
+  timeStr: string,
+  mode: FittingTimeMode,
+  slotIntervalMinutes: number,
+  gridSlots?: readonly string[]
+): boolean => {
+  if (!isValidLocalTime(timeStr)) return false;
+  if (mode === 'custom') return true;
+  if (mode !== 'grid') return false;
+  return gridSlots !== undefined
+    ? gridSlots.includes(timeStr)
+    : isTimeAlignedToSlotInterval(timeStr, slotIntervalMinutes);
+};
+
+/**
+ * Constrói o intervalo persistível de um encaixe no timezone do tenant.
+ * O término é calculado pelo tempo efetivo do serviço e nunca é truncado pelo expediente.
+ */
+export const buildFittingAppointmentInterval = ({
+  date,
+  time,
+  timeZone,
+  durationMinutes,
+  mode,
+  slotIntervalMinutes,
+  gridSlots,
+}: FittingAppointmentIntervalInput): FittingAppointmentInterval => {
+  if (!isValidLocalDate(date)) throw new Error('INVALID_LOCAL_DATE');
+  if (!isValidFittingStartTime(time, mode, slotIntervalMinutes, gridSlots)) {
+    throw new Error(mode === 'grid' ? 'FITTING_TIME_NOT_ALIGNED' : 'INVALID_LOCAL_TIME');
+  }
+
+  const duration = Number(durationMinutes);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error('INVALID_SERVICE_DURATION');
+  }
+
+  const startMinutes = timeToMinutes(time);
+  const endTotalMinutes = startMinutes + duration;
+  const endDate = shiftCalendarDate(date, Math.floor(endTotalMinutes / (24 * 60)));
+  const endTime = minutesToTime(endTotalMinutes % (24 * 60));
+
+  return {
+    startIso: localDateTimeToIso(date, time, timeZone),
+    endIso: localDateTimeToIso(endDate, endTime, timeZone),
+    startLocal: { date, time },
+    endLocal: { date: endDate, time: endTime },
+  };
 };
 
 /**
