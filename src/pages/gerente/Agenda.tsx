@@ -30,17 +30,17 @@ import {
   Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
-  PlusSignIcon,
+  AddCircleIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
   FilterIcon,
   CheckmarkCircle02Icon,
-  Note01Icon,
   AlertCircleIcon,
   UnavailableIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 import { MobileAgendaView } from './mobile/MobileAgendaView';
+import { AgendaEquipeFilter } from './AgendaEquipeFilter';
 import {
   getProfessionalDaySchedule,
   isProfessionalOnBreak,
@@ -56,6 +56,7 @@ import {
   getEffectiveProfessionalDaySchedule,
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
+  timeToMinutes,
 } from '../../lib/schedule';
 import type {
   FittingTimeMode,
@@ -152,7 +153,7 @@ interface CardLayout {
 // Mapeamento e auxílio de horários de funcionamento por dia da semana
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
-const DEFAULT_SLOT_HEIGHT_PX = 104;
+const DEFAULT_SLOT_HEIGHT_PX = 76;
 const ANY_PROFESSIONAL = 'any';
 
 const toScheduleGridSegment = (
@@ -484,6 +485,63 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
   );
 };
 
+interface AppointmentQuickActionsProps {
+  app: Appointment;
+  onMarkNoShow: (app: Appointment) => void;
+  onReschedule: (app: Appointment) => void;
+  className?: string;
+}
+
+const AppointmentQuickActions: React.FC<AppointmentQuickActionsProps> = React.memo(({
+  app,
+  onMarkNoShow,
+  onReschedule,
+  className = 'card-quick-actions-right',
+}) => {
+  const canMarkNoShow =
+    (app.status === 'pending' || app.status === 'confirmed') &&
+    new Date(app.start_time).getTime() <= Date.now();
+  const canReschedule = app.status !== 'canceled';
+
+  if (!canMarkNoShow && !canReschedule) return null;
+
+  return (
+    <div className={className}>
+      {canMarkNoShow && (
+        <button
+          type="button"
+          className="card-quick-no-show-btn"
+          title="Marcar atendimento como não compareceu"
+          aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMarkNoShow(app);
+          }}
+        >
+          <HugeiconsIcon icon={BadgeXIcon} size={11} />
+          <span>Não compareceu</span>
+        </button>
+      )}
+      {canReschedule && (
+        <button
+          type="button"
+          className="card-quick-reagendar-btn"
+          title="Reagendar horário deste agendamento"
+          aria-label="Reagendar horário"
+          onClick={(e) => {
+            e.stopPropagation();
+            onReschedule(app);
+          }}
+        >
+          <HugeiconsIcon icon={Calendar02Icon} size={11} color="#ffffff" />
+          <span>Reagendar</span>
+        </button>
+      )}
+    </div>
+  );
+});
+AppointmentQuickActions.displayName = 'AppointmentQuickActions';
+
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
@@ -505,13 +563,6 @@ export const Agenda: React.FC = () => {
   const isViewTransitioningRef = useRef(false);
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
 
-  const handleViewModeChange = useCallback((mode: 'day' | 'week') => {
-    if (mode === viewMode) return;
-    isViewTransitioningRef.current = true;
-    setIsViewTransitioning(true);
-    setViewMode(mode);
-  }, [viewMode]);
-
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() =>
@@ -527,9 +578,22 @@ export const Agenda: React.FC = () => {
 
   // Estados de Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  const handleViewModeChange = useCallback((mode: 'day' | 'week') => {
+    if (mode === viewMode) return;
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
+    if (mode === 'week') {
+      if (selectedProfessionalIds.length === 1 && selectedProfessionalIds[0] !== selectedWeekProfId) {
+        setSelectedWeekProfId(selectedProfessionalIds[0]);
+      } else if (!selectedWeekProfId && professionals.length > 0) {
+        setSelectedWeekProfId(professionals[0].id);
+      }
+    }
+    setViewMode(mode);
+  }, [viewMode, selectedProfessionalIds, selectedWeekProfId, professionals]);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -1057,19 +1121,6 @@ export const Agenda: React.FC = () => {
     const todayStr = dateInZone(new Date(), tenant.timezone);
     return selectedDate === todayStr;
   }, [selectedDate, tenant.timezone]);
-
-  // Fechar dropdown de filtro ao clicar fora
-  useEffect(() => {
-    if (!isFilterOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.agenda-filter-container')) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isFilterOpen]);
 
   // Carregar dados de Apoio (Profissionais, Serviços, Clientes)
   const loadInitialData = useCallback(async () => {
@@ -2043,22 +2094,57 @@ export const Agenda: React.FC = () => {
   const calculateCardPosition = (startTimeIso: string, endTimeIso: string) => {
     const timeStr = formatTimeInZone(startTimeIso, tenant.timezone);
     const [h, m] = timeStr.split(':').map(Number);
-    const startMinutesFromGridStart = (h * 60 + m) - gridStartTotalMin;
+    const appMinutes = h * 60 + m;
 
-    const topPx = startMinutesFromGridStart * pxPerMinute;
+    let topPx = 0;
+    if (timeSlots.length > 0) {
+      const firstSlotMin = timeToMinutes(timeSlots[0]);
+      const lastSlotMin = timeToMinutes(timeSlots[timeSlots.length - 1]);
+      const regularEndMin = lastSlotMin + slotIntervalMinutes;
+
+      if (appMinutes < firstSlotMin) {
+        // Antes do início da grade regular
+        const diff = appMinutes - firstSlotMin;
+        topPx = Math.max(0, (diff / slotIntervalMinutes) * slotHeightPx);
+      } else if (appMinutes >= regularEndMin) {
+        // Após o horário de funcionamento regular: fica no final da grade
+        const diff = appMinutes - regularEndMin;
+        topPx = timeSlots.length * slotHeightPx + (diff / slotIntervalMinutes) * slotHeightPx;
+      } else {
+        // Dentro do horário da grade: alinhamento direto com os slots correspondentes
+        let baseIndex = 0;
+        for (let i = timeSlots.length - 1; i >= 0; i--) {
+          if (timeToMinutes(timeSlots[i]) <= appMinutes) {
+            baseIndex = i;
+            break;
+          }
+        }
+        const baseSlotMin = timeToMinutes(timeSlots[baseIndex]);
+        const minutesAfterSlot = appMinutes - baseSlotMin;
+        topPx = baseIndex * slotHeightPx + (minutesAfterSlot / slotIntervalMinutes) * slotHeightPx;
+      }
+    }
 
     // Calcular duração
     const endTimeStr = formatTimeInZone(endTimeIso, tenant.timezone);
     const [eh, em] = endTimeStr.split(':').map(Number);
     const durationMinutes = Math.max(slotIntervalMinutes, eh * 60 + em - (h * 60 + m));
-    const heightPx = durationMinutes * pxPerMinute - 4;
+    const durationSlots = durationMinutes / slotIntervalMinutes;
+    const heightPx =
+      durationMinutes <= slotIntervalMinutes
+        ? 69
+        : Math.max(69, Math.round(durationSlots * slotHeightPx - (slotHeightPx - 69)));
 
-    return { topPx: Math.max(0, topPx), heightPx: Math.max(36, heightPx) };
+    // Centralização vertical dentro do slot (não colado ao slot de cima e alinhado entre as linhas da grade)
+    const verticalOffset = Math.max(0, Math.round((slotHeightPx - 69) / 2));
+
+    return { topPx: Math.max(0, Math.round(topPx + verticalOffset)), heightPx };
   };
 
   // Algoritmo de posicionamento com detecção de colisões para Split Grid 50%/50%
   const calculateAppointmentsLayout = (
-    appointmentsList: Appointment[]
+    appointmentsList: Appointment[],
+    isWeekView = false
   ): Map<string, CardLayout> => {
     const layoutMap = new Map<string, CardLayout>();
 
@@ -2099,15 +2185,17 @@ export const Agenda: React.FC = () => {
         layoutMap.set(app.id, {
           topPx: pos.topPx,
           heightPx: pos.heightPx,
-          left: isSecondSlot ? 'calc(50% + 2px)' : '4px',
-          width: 'calc(50% - 6px)',
+          left: isWeekView
+            ? (isSecondSlot ? '239px' : '3px')
+            : (isSecondSlot ? '434px' : '3px'),
+          width: isWeekView ? '231px' : '426px',
         });
       } else {
         layoutMap.set(app.id, {
           topPx: pos.topPx,
           heightPx: pos.heightPx,
-          left: '4px',
-          width: 'calc(100% - 8px)',
+          left: isWeekView ? '5px' : '5px',
+          width: isWeekView ? '463px' : '853px',
         });
       }
     }
@@ -2117,10 +2205,24 @@ export const Agenda: React.FC = () => {
 
   // Posição da Linha Vermelha de Tempo Real
   const redLineTopPx = useMemo(() => {
-    const minutesFromStart = currentTimeMinutes - gridStartTotalMin;
-    if (minutesFromStart < 0 || minutesFromStart > totalGridMinutes) return null;
-    return minutesFromStart * pxPerMinute;
-  }, [currentTimeMinutes, gridStartTotalMin, totalGridMinutes, pxPerMinute]);
+    if (timeSlots.length === 0) return null;
+    const firstSlotMin = timeToMinutes(timeSlots[0]);
+    const lastSlotMin = timeToMinutes(timeSlots[timeSlots.length - 1]);
+    const regularEndMin = lastSlotMin + slotIntervalMinutes;
+
+    if (currentTimeMinutes < firstSlotMin || currentTimeMinutes > regularEndMin) return null;
+
+    let baseIndex = 0;
+    for (let i = timeSlots.length - 1; i >= 0; i--) {
+      if (timeToMinutes(timeSlots[i]) <= currentTimeMinutes) {
+        baseIndex = i;
+        break;
+      }
+    }
+    const baseSlotMin = timeToMinutes(timeSlots[baseIndex]);
+    const minutesAfterSlot = currentTimeMinutes - baseSlotMin;
+    return Math.round(baseIndex * slotHeightPx + (minutesAfterSlot / slotIntervalMinutes) * slotHeightPx);
+  }, [currentTimeMinutes, timeSlots, slotIntervalMinutes, slotHeightPx]);
 
   return (
     <div className="agenda-page">
@@ -2159,7 +2261,9 @@ export const Agenda: React.FC = () => {
               <h2>{formattedDateTitle}</h2>
               <p className="agenda-header-subtitle">
                 {viewMode === 'week'
-                  ? `Visão semanal do profissional ${professionals.find((p) => p.id === selectedWeekProfId)?.name || ''}`
+                  ? visibleProfessionals.length === 1
+                    ? `Visão semanal do profissional ${visibleProfessionals[0].name}`
+                    : `Visão semanal de ${visibleProfessionals.length} profissional(is)`
                   : `${visibleProfessionals.length} profissional(is) em atendimento`}
               </p>
             </div>
@@ -2250,66 +2354,15 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
 
-          {/* Filtro de Barbeiros na Visão Dia / Seletor de Barbeiro na Visão Semana */}
-          {viewMode === 'day' ? (
-            <div className="agenda-filter-container">
-              <button
-                type="button"
-                className={`btn-agenda-filter ${isFilterOpen ? 'btn-agenda-filter--active' : ''}`}
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                title="Filtrar Equipe"
-              >
-                <HugeiconsIcon icon={FilterIcon} size={16} />
-                <span>Equipe ({selectedProfessionalIds.length})</span>
-              </button>
-
-              {isFilterOpen && (
-                <div className="agenda-filter-dropdown">
-                  <div className="agenda-filter-dropdown__header">
-                    <strong>Exibir Barbeiros</strong>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedProfessionalIds(professionals.map((p) => p.id))
-                      }
-                      className="btn-link-xs"
-                    >
-                      Todos
-                    </button>
-                  </div>
-                  <div className="agenda-filter-dropdown__list">
-                    {professionals.map((prof) => {
-                      const isChecked = selectedProfessionalIds.includes(prof.id);
-                      return (
-                        <label key={prof.id} className="filter-checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleProfessionalFilter(prof.id)}
-                          />
-                          <span>{prof.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="agenda-week-prof-select-wrapper">
-              <select
-                value={selectedWeekProfId}
-                onChange={(e) => setSelectedWeekProfId(e.target.value)}
-                className="agenda-week-prof-select"
-              >
-                {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) */}
+          <AgendaEquipeFilter
+            professionals={professionals}
+            selectedProfessionalIds={selectedProfessionalIds}
+            onToggleProfessional={toggleProfessionalFilter}
+            onSelectAllProfessionals={() =>
+              setSelectedProfessionalIds(professionals.map((p) => p.id))
+            }
+          />
 
           {/* Botão Fila de Espera */}
           <button
@@ -2340,7 +2393,7 @@ export const Agenda: React.FC = () => {
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
             title="Atender cliente que chegou agora sem agendamento"
           >
-            <HugeiconsIcon icon={PlusSignIcon} size={18} />
+            <HugeiconsIcon icon={AddCircleIcon} size={18} />
             <span>Encaixe</span>
           </button>
         </div>
@@ -2356,7 +2409,7 @@ export const Agenda: React.FC = () => {
             timeSlots={timeSlots}
             slotHeightPx={slotHeightPx}
           />
-        ) : viewMode === 'day' && visibleProfessionals.length === 0 ? (
+        ) : visibleProfessionals.length === 0 ? (
           <div className="agenda-empty-state">
             <HugeiconsIcon icon={AlertCircleIcon} size={48} className="empty-icon" />
             <h3>Nenhum profissional selecionado</h3>
@@ -2461,10 +2514,7 @@ export const Agenda: React.FC = () => {
                                 ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
                                 formatTimeInZone(app.start_time, tenant.timezone) === slot
                             );
-                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
-                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
-                            const isFittingFull = fittingCount >= 1;
-                            const isSlotFull = standardCount >= 1 && isFittingFull;
+                            const hasOccupancy = slotApps.length > 0;
 
                             const isProfBreak = isProfessionalOnBreak(prof, selectedDate, slot);
                             const isProfWorking = isProfessionalWorkingAt(
@@ -2477,9 +2527,9 @@ export const Agenda: React.FC = () => {
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';
+                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
                             else if (isPast) slotClass += ' grid-slot-cell--past';
                             else if (isOutsideHours || !isProfWorking) slotClass += ' grid-slot-cell--closed';
-                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
@@ -2498,19 +2548,14 @@ export const Agenda: React.FC = () => {
                                 addToast(`O profissional ${prof.name} não está atendendo neste horário.`, 'warning');
                                 return;
                               }
-                              if (isSlotFull) {
-                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                              if (hasOccupancy) {
                                 return;
                               }
                               if (isPast) {
                                 handleOpenNewAppointment(prof.id, slot, true, selectedDate);
                                 return;
                               }
-                              if (standardCount >= 1 && !isFittingFull) {
-                                handleOpenNewAppointment(prof.id, slot, true, selectedDate);
-                              } else {
-                                handleOpenNewAppointment(prof.id, slot, false, selectedDate);
-                              }
+                              handleOpenNewAppointment(prof.id, slot, false, selectedDate);
                             };
 
                             return (
@@ -2525,12 +2570,12 @@ export const Agenda: React.FC = () => {
                                     ? `Barbearia fechada neste dia (${slot})`
                                     : isProfBreak
                                     ? `Intervalo do profissional ${prof.name} (${slot})`
+                                    : hasOccupancy
+                                    ? `Horário ocupado (${slot})`
                                     : isPast
                                     ? `Horário decorrido (${slot}) - Clique para registrar encaixe`
                                     : isOutsideHours || !isProfWorking
                                     ? `Fora do expediente/atendimento de ${prof.name} (${slot})`
-                                    : isSlotFull
-                                    ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} com ${prof.name}`
                                 }
                               >
@@ -2541,10 +2586,10 @@ export const Agenda: React.FC = () => {
                                       : 'Intervalo'}
                                   </span>
                                 )}
-                                {!isProfBreak && isPast && (
+                                {!isProfBreak && !hasOccupancy && isPast && (
                                   <span className="slot-hover-text">Encaixe</span>
                                 )}
-                                {!isProfBreak && !isPast && !isOutsideHours && isProfWorking && !isSlotFull && (
+                                {!isProfBreak && !hasOccupancy && !isPast && !isOutsideHours && isProfWorking && (
                                   <span className="slot-hover-text">+ {slot}</span>
                                 )}
                               </div>
@@ -2593,10 +2638,10 @@ export const Agenda: React.FC = () => {
                           {/* Cards de Agendamento Flutuantes (Split Grid 50%/50%) */}
                           {profAppointments.map((app) => {
                             const layout = layoutMap.get(app.id) || {
-                              topPx: 0,
-                              heightPx: 36,
-                              left: '4px',
-                              width: 'calc(100% - 8px)',
+                              topPx: 4,
+                              heightPx: 69,
+                              left: '5px',
+                              width: '853px',
                             };
 
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
@@ -2608,6 +2653,12 @@ export const Agenda: React.FC = () => {
                               paymentStatus: app.payment_status,
                             });
                             const statusClass = `card-status--${cardState.replace('_', '-')}`;
+                            const hasTopBadges = Boolean(
+                              app.is_fitting ||
+                              app.status === 'no_show' ||
+                              app.status === 'in_progress' ||
+                              app.payment_status === 'paid'
+                            );
 
                             return (
                               <div
@@ -2626,28 +2677,36 @@ export const Agenda: React.FC = () => {
                                   <span className="card-time-badge">
                                     {timeStart} - {timeEnd}
                                   </span>
-                                  <div className="card-badges-row">
-                                    {app.is_fitting && (
-                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
-                                        Encaixe
-                                      </span>
-                                    )}
-                                    {app.status === 'no_show' && (
-                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
-                                        Não compareceu
-                                      </span>
-                                    )}
-                                    {app.status === 'in_progress' && (
-                                      <span className="badge-chip badge-chip--progress" title="Em Atendimento">
-                                        Atendendo
-                                      </span>
-                                    )}
-                                    {app.payment_status === 'paid' && (
-                                      <span className="badge-chip badge-chip--paid" title="Pago">
-                                        Pago
-                                      </span>
-                                    )}
-                                  </div>
+                                  {hasTopBadges ? (
+                                    <div className="card-badges-row">
+                                      {app.is_fitting && (
+                                        <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                          Encaixe
+                                        </span>
+                                      )}
+                                      {app.status === 'no_show' && (
+                                        <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                          Não compareceu
+                                        </span>
+                                      )}
+                                      {app.status === 'in_progress' && (
+                                        <span className="badge-chip badge-chip--progress" title="Em Atendimento">
+                                          Atendendo
+                                        </span>
+                                      )}
+                                      {app.payment_status === 'paid' && (
+                                        <span className="badge-chip badge-chip--paid" title="Pago">
+                                          Pago
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <AppointmentQuickActions
+                                      app={app}
+                                      onMarkNoShow={(target) => void handleMarkNoShow(target)}
+                                      onReschedule={handleOpenRescheduleModal}
+                                    />
+                                  )}
                                 </div>
 
                                 <div className="card-client-row">
@@ -2658,46 +2717,15 @@ export const Agenda: React.FC = () => {
                                     <span className="card-service-name" title={app.service?.name}>
                                       {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                     </span>
-                                    {app.notes && (
-                                      <p className="card-notes-snippet" title={app.notes}>
-                                        <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
-                                      </p>
-                                    )}
                                   </div>
 
-                                  <div className="card-quick-actions-right">
-                                    {(app.status === 'pending' || app.status === 'confirmed') &&
-                                      new Date(app.start_time).getTime() <= Date.now() && (
-                                        <button
-                                          type="button"
-                                          className="card-quick-no-show-btn"
-                                          title="Marcar atendimento como não compareceu"
-                                          aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            void handleMarkNoShow(app);
-                                          }}
-                                        >
-                                          <HugeiconsIcon icon={BadgeXIcon} size={11} />
-                                          <span>Não compareceu</span>
-                                        </button>
-                                      )}
-                                    {app.status !== 'canceled' && (
-                                      <button
-                                        type="button"
-                                        className="card-quick-reagendar-btn"
-                                        title="Reagendar horário deste agendamento"
-                                        aria-label="Reagendar horário"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenRescheduleModal(app);
-                                        }}
-                                      >
-                                        <HugeiconsIcon icon={Calendar02Icon} size={11} />
-                                        <span>Reagendar</span>
-                                      </button>
-                                    )}
-                                  </div>
+                                  {hasTopBadges && (
+                                    <AppointmentQuickActions
+                                      app={app}
+                                      onMarkNoShow={(target) => void handleMarkNoShow(target)}
+                                      onReschedule={handleOpenRescheduleModal}
+                                    />
+                                  )}
                                 </div>
 
                                 {app.payment_status === 'paid' && (
@@ -2717,13 +2745,13 @@ export const Agenda: React.FC = () => {
                 : weekDays.map((day) => {
                     const dayAppointments = appointments.filter((a) => {
                       const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
-                      return aDate === day.dateStr && a.professional_id === selectedWeekProfId;
+                      return aDate === day.dateStr && selectedProfessionalIds.includes(a.professional_id);
                     });
                     const dayBlocked = blockedSlots.filter((b) => {
                       const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
-                      return bDate === day.dateStr && b.professional_id === selectedWeekProfId;
+                      return bDate === day.dateStr && selectedProfessionalIds.includes(b.professional_id);
                     });
-                    const layoutMap = calculateAppointmentsLayout(dayAppointments);
+                    const layoutMap = calculateAppointmentsLayout(dayAppointments, true);
 
                     const dayBh = getDayBusinessHours(day.dateStr, tenant.businessHours);
                     const isDayClosed = !dayBh.active;
@@ -2769,29 +2797,30 @@ export const Agenda: React.FC = () => {
                                 ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
                                 formatTimeInZone(app.start_time, tenant.timezone) === slot
                             );
-                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
-                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
-                            const isFittingFull = fittingCount >= 1;
-                            const isSlotFull = standardCount >= 1 && isFittingFull;
+                            const hasOccupancy = slotApps.length > 0;
 
-                            const weekProf = professionals.find((p) => p.id === selectedWeekProfId);
-                            const isProfBreak = weekProf ? isProfessionalOnBreak(weekProf, day.dateStr, slot) : false;
-                            const isProfWorking = weekProf
-                              ? isProfessionalWorkingAt(weekProf, day.dateStr, slot, 0, tenant.businessHours)
-                              : true;
+                            const activeWeekProfs = visibleProfessionals;
+                            const defaultTargetProfId = activeWeekProfs[0]?.id || professionals[0]?.id;
+                            const weekProf = activeWeekProfs[0] || professionals.find((p) => p.id === defaultTargetProfId);
+                            const anyProfWorking = activeWeekProfs.length === 0 || activeWeekProfs.some((p) =>
+                              isProfessionalWorkingAt(p, day.dateStr, slot, 0, tenant.businessHours)
+                            );
+                            const allProfsBreak =
+                              activeWeekProfs.length > 0 &&
+                              activeWeekProfs.every((p) => isProfessionalOnBreak(p, day.dateStr, slot));
 
                             let slotClass = 'grid-slot-cell';
-                            if (isProfBreak) slotClass += ' grid-slot-cell--break';
+                            if (allProfsBreak) slotClass += ' grid-slot-cell--break';
+                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
                             else if (isPast) slotClass += ' grid-slot-cell--past';
-                            else if (isOutsideHours || !isProfWorking) slotClass += ' grid-slot-cell--closed';
-                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
+                            else if (isOutsideHours || !anyProfWorking) slotClass += ' grid-slot-cell--closed';
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
                                 addToast('A barbearia não abre neste dia conforme as configurações.', 'warning');
                                 return;
                               }
-                              if (isProfBreak) {
+                              if (allProfsBreak) {
                                 if (weekProf) {
                                   addToast(getProfessionalBreakMessage(weekProf, day.dateStr), 'warning');
                                 }
@@ -2801,24 +2830,19 @@ export const Agenda: React.FC = () => {
                                 addToast(`Horário fora do funcionamento da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
                                 return;
                               }
-                              if (!isProfWorking) {
-                                addToast(`O profissional ${weekProf?.name || 'selecionado'} não está atendendo neste horário.`, 'warning');
+                              if (!anyProfWorking) {
+                                addToast(`Nenhum dos profissionais selecionados está atendendo neste horário.`, 'warning');
                                 return;
                               }
-                              if (isSlotFull) {
-                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                              if (hasOccupancy) {
                                 return;
                               }
                               setSelectedDate(day.dateStr);
                               if (isPast) {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, true, day.dateStr);
+                                handleOpenNewAppointment(defaultTargetProfId, slot, true, day.dateStr);
                                 return;
                               }
-                              if (standardCount >= 1 && !isFittingFull) {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, true, day.dateStr);
-                              } else {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, false, day.dateStr);
-                              }
+                              handleOpenNewAppointment(defaultTargetProfId, slot, false, day.dateStr);
                             };
 
                             return (
@@ -2831,28 +2855,28 @@ export const Agenda: React.FC = () => {
                                 title={
                                   isDayClosed
                                     ? `Barbearia fechada neste dia (${slot})`
-                                    : isProfBreak
+                                    : allProfsBreak
                                     ? `Intervalo do profissional ${weekProf?.name || ''} (${slot})`
+                                    : hasOccupancy
+                                    ? `Horário ocupado (${slot})`
                                     : isPast
                                     ? `Horário decorrido (${slot}) - Clique para registrar encaixe`
-                                    : isOutsideHours || !isProfWorking
+                                    : isOutsideHours || !anyProfWorking
                                     ? `Fora do expediente/atendimento (${slot})`
-                                    : isSlotFull
-                                    ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} em ${day.label}`
                                 }
                               >
-                                {isProfBreak && (
+                                {allProfsBreak && (
                                   <span className="slot-break-label">
                                     {weekProf && getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end
                                       ? `Intervalo até ${getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end}`
                                       : 'Intervalo'}
                                   </span>
                                 )}
-                                {!isProfBreak && isPast && (
+                                {!allProfsBreak && !hasOccupancy && isPast && (
                                   <span className="slot-hover-text">Encaixe</span>
                                 )}
-                                {!isProfBreak && !isPast && !isOutsideHours && isProfWorking && !isSlotFull && (
+                                {!allProfsBreak && !hasOccupancy && !isPast && !isOutsideHours && anyProfWorking && (
                                   <span className="slot-hover-text">+ {slot}</span>
                                 )}
                               </div>
@@ -3585,6 +3609,7 @@ export const Agenda: React.FC = () => {
         }
 
         .agenda-header-subtitle {
+          display: none;
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
         }
@@ -3601,7 +3626,7 @@ export const Agenda: React.FC = () => {
           display: flex;
           align-items: center;
           padding: 3px;
-          background-color: var(--color-bg-primary);
+          background-color: #ffffff;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           gap: 2px;
@@ -3623,9 +3648,10 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary);
         }
 
-        .btn-view-mode--active {
-          background-color: var(--color-brand-primary);
-          color: white;
+        .btn-view-mode--active,
+        .btn-view-mode--active:hover {
+          background-color: #f2b277;
+          color: #000000;
           box-shadow: var(--shadow-sm);
         }
 
@@ -3664,16 +3690,18 @@ export const Agenda: React.FC = () => {
           border-right: 1px solid var(--color-border);
         }
 
-        .btn-date-today--active {
+        .btn-date-today--active,
+        .btn-date-today--active:hover {
           color: #000000 !important;
           font-weight: 700 !important;
-          background-color: rgba(45, 35, 30, 0.05);
+          background-color: #f2b277 !important;
         }
 
-        .dark-theme .btn-date-today--active {
-          color: #FFFFFF !important;
+        .dark-theme .btn-date-today--active,
+        .dark-theme .btn-date-today--active:hover {
+          color: #000000 !important;
           font-weight: 700 !important;
-          background-color: rgba(255, 255, 255, 0.1);
+          background-color: #f2b277 !important;
         }
 
         /* CUSTOM DATEPICKER */
@@ -3898,24 +3926,46 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-agenda-filter {
-          display: flex;
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
+          display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.55rem 1rem;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0 0.5rem;
           background-color: rgba(255, 255, 255, 0.8);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-xs);
           font-weight: 600;
           color: var(--color-text-primary);
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-filter:hover,
         .btn-agenda-filter--active {
           border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
+          color: #000000;
+        }
+
+        .btn-agenda-filter:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
+        }
+
+        .dark-theme .btn-agenda-filter {
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .dark-theme .btn-agenda-filter:hover,
+        .dark-theme .btn-agenda-filter--active {
+          border-color: var(--color-brand-primary);
+          color: #FFFFFF;
         }
 
         .agenda-filter-dropdown {
@@ -3946,10 +3996,19 @@ export const Agenda: React.FC = () => {
         .btn-link-xs {
           background: none;
           border: none;
-          color: var(--color-brand-primary);
+          color: #000000;
           font-size: var(--font-size-xs);
           cursor: pointer;
           font-weight: 600;
+        }
+
+        .btn-link-xs:hover {
+          color: #000000;
+          text-decoration: underline;
+        }
+
+        .dark-theme .btn-link-xs {
+          color: #FFFFFF;
         }
 
         .agenda-filter-dropdown__list {
@@ -3966,37 +4025,48 @@ export const Agenda: React.FC = () => {
           gap: 0.5rem;
           font-size: var(--font-size-sm);
           cursor: pointer;
+          padding: 4px 6px;
+          border-radius: var(--radius-sm);
+          transition: background-color 0.15s ease;
         }
 
-        /* SELETOR DE BARBEIRO NA SEMANA */
-        .agenda-week-prof-select-wrapper {
-          display: flex;
-          align-items: center;
+        .filter-checkbox-item:hover {
+          background-color: rgba(0, 0, 0, 0.05);
         }
 
-        .agenda-week-prof-select {
-          padding: 0.55rem 0.9rem;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          outline: none;
+        .dark-theme .filter-checkbox-item:hover {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .filter-checkbox-item input[type="radio"],
+        .filter-checkbox-item input[type="checkbox"] {
+          accent-color: var(--color-brand-primary);
           cursor: pointer;
+          width: 16px;
+          height: 16px;
         }
 
-        .agenda-week-prof-select:focus {
-          border-color: var(--color-brand-primary);
+        @media (pointer: coarse) {
+          .btn-agenda-filter {
+            min-height: 44px;
+            min-width: 44px;
+          }
+          .filter-checkbox-item {
+            min-height: 44px;
+            padding: 8px 6px;
+          }
         }
 
         /* BOTÕES DE AÇÃO DO HEADER */
         .btn-agenda-espera {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 0.95rem;
+          padding: 0 0.5rem;
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -4005,61 +4075,67 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary);
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-espera:hover {
-          background-color: var(--color-brand-lightest);
-          border-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
+          border-color: #d96c00;
         }
 
         .btn-agenda-bloquear {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 0.95rem;
-          background-color: var(--color-error-bg);
-          border: 1px solid rgba(240, 82, 82, 0.3);
+          padding: 0 0.5rem;
+          background-color: #FFFFFF;
+          border: 1px solid #F05252;
           border-radius: var(--radius-md);
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-error);
+          color: #F05252;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-bloquear:hover {
-          background-color: #fbd5d5;
-          border-color: var(--color-error);
+          background-color: #FFF5F5;
+          border-color: #F05252;
         }
 
         /* BOTÃO MESTRE + ENCAIXE */
         .btn-master-encaixe {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 1.15rem;
-          background-color: var(--color-brand-primary);
-          color: white;
+          padding: 0 0.5rem;
+          background-color: #F2B277;
+          color: #000000;
           border: none;
           border-radius: var(--radius-md);
           font-weight: 700;
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-xs);
           cursor: pointer;
           box-shadow: var(--shadow-sm);
-          transition: background-color 0.1s ease, box-shadow 0.1s ease, transform 0.1s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-master-encaixe:hover {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
-        }
-
-        .btn-master-encaixe:active {
-          transform: scale(0.97);
+          background-color: #F2B277;
+          color: #000000;
+          transform: none;
+          box-shadow: var(--shadow-sm);
         }
 
         /* GRADE DA TIMELINE */
@@ -4073,6 +4149,48 @@ export const Agenda: React.FC = () => {
           border-radius: var(--radius-lg);
           padding: 1rem;
           box-shadow: var(--shadow-sm);
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+          transition: scrollbar-color 0.2s ease;
+        }
+
+        .agenda-grid-wrapper:hover {
+          scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover {
+          scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar {
+          height: 6px;
+          width: 6px;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 9999px;
+          transition: background-color 0.2s ease;
+        }
+
+        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
+          background: rgba(45, 35, 30, 0.25);
+        }
+
+        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(45, 35, 30, 0.45);
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.25);
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.45);
         }
 
         .agenda-timeline-board {
@@ -4105,7 +4223,8 @@ export const Agenda: React.FC = () => {
         }
 
         .time-slot-label {
-          min-height: 50px;
+          height: 76px;
+          min-height: 76px;
           box-sizing: border-box;
           display: flex;
           align-items: flex-start;
@@ -4125,14 +4244,16 @@ export const Agenda: React.FC = () => {
 
         .professional-timeline-column {
           flex: 1;
-          min-width: 240px;
+          min-width: 863px;
+          width: 863px;
           border-right: 1px solid rgba(234, 222, 214, 0.7);
           display: flex;
           flex-direction: column;
         }
 
         .week-timeline-column {
-          min-width: 140px;
+          width: 473px;
+          min-width: 473px;
           flex: 1;
         }
 
@@ -4185,12 +4306,15 @@ export const Agenda: React.FC = () => {
         }
 
         .grid-slot-cell {
-          min-height: 50px;
+          height: 76px;
+          min-height: 76px;
           box-sizing: border-box;
           border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
           cursor: pointer;
           position: relative;
           transition: background-color 0.08s ease;
+          padding-top: var(--radius-sm, 4px);
+          padding-bottom: var(--radius-sm, 4px);
         }
 
         .grid-slot-cell:hover {
@@ -4265,9 +4389,19 @@ export const Agenda: React.FC = () => {
           ) !important;
         }
 
+        .grid-slot-cell--occupied,
         .grid-slot-cell--full {
-          background-color: rgba(217, 108, 0, 0.08);
-          cursor: not-allowed;
+          cursor: default;
+        }
+
+        .grid-slot-cell--occupied:hover,
+        .grid-slot-cell--full:hover {
+          background-color: transparent !important;
+        }
+
+        .grid-slot-cell--occupied .slot-hover-text,
+        .grid-slot-cell--full .slot-hover-text {
+          display: none !important;
         }
 
         .slot-hover-text {
@@ -4350,6 +4484,7 @@ export const Agenda: React.FC = () => {
           flex-direction: column;
           justify-content: flex-start;
           gap: 4px;
+          min-height: 69px;
           overflow: hidden;
           box-sizing: border-box;
           background-color: var(--color-bg-secondary);
@@ -4413,16 +4548,33 @@ export const Agenda: React.FC = () => {
         .card-quick-reagendar-btn {
           display: inline-flex;
           align-items: center;
-          gap: 3px;
+          justify-content: center;
+          gap: 4px;
           border-radius: 4px;
           padding: 2px 6px;
           font-size: 0.72rem;
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
-          line-height: 1.2;
+          line-height: 1;
+          height: 19px;
           box-sizing: border-box;
+          vertical-align: middle;
           transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+        }
+
+        .card-quick-no-show-btn svg,
+        .card-quick-reagendar-btn svg {
+          display: block;
+          flex-shrink: 0;
+          margin: 0;
+        }
+
+        .card-quick-no-show-btn span,
+        .card-quick-reagendar-btn span {
+          display: inline-flex;
+          align-items: center;
+          line-height: 1;
         }
 
         .card-quick-no-show-btn {
@@ -4437,14 +4589,19 @@ export const Agenda: React.FC = () => {
         }
 
         .card-quick-reagendar-btn {
-          border: 1px solid rgba(2, 132, 199, 0.35);
-          background: rgba(240, 249, 255, 0.95);
-          color: #0284c7;
+          border: 1px solid #0284c7;
+          background: #0284c7;
+          color: #ffffff;
+        }
+
+        .card-quick-reagendar-btn svg {
+          color: #ffffff;
         }
 
         .card-quick-reagendar-btn:hover {
-          background: rgba(224, 242, 254, 1);
-          border-color: rgba(2, 132, 199, 0.55);
+          background: #0369a1;
+          border-color: #0369a1;
+          color: #ffffff;
         }
 
         .dark-theme .card-quick-no-show-btn {
@@ -4454,9 +4611,9 @@ export const Agenda: React.FC = () => {
         }
 
         .dark-theme .card-quick-reagendar-btn {
-          background: rgba(2, 132, 199, 0.2);
-          border-color: rgba(56, 189, 248, 0.4);
-          color: #38bdf8;
+          background: #0284c7;
+          border-color: #38bdf8;
+          color: #ffffff;
         }
 
         .card-top-row {
@@ -4470,6 +4627,8 @@ export const Agenda: React.FC = () => {
           font-size: 0.72rem;
           font-weight: 800;
           color: var(--color-text-primary);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .card-badges-row {
@@ -4484,6 +4643,8 @@ export const Agenda: React.FC = () => {
           padding: 0.1rem 0.35rem;
           border-radius: var(--radius-sm);
           text-transform: uppercase;
+          white-space: nowrap;
+          line-height: 1.2;
         }
 
         .badge-chip--fitting {
@@ -4542,6 +4703,77 @@ export const Agenda: React.FC = () => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.15;
+          font-weight: 500;
+        }
+
+        /* REGRAS ESPECÍFICAS DA VISÃO SEMANAL */
+        .week-timeline-column .timeline-appointment-card {
+          padding: 0.3rem 0.45rem;
+          gap: 1px;
+          justify-content: flex-start;
+        }
+
+        .week-timeline-column .card-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 3px;
+          margin-bottom: 2px;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+
+        .week-timeline-column .card-time-badge {
+          font-size: 0.66rem;
+          font-weight: 800;
+          white-space: nowrap;
+          flex-shrink: 0;
+          line-height: 1;
+        }
+
+        .week-timeline-column .card-badges-row {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          flex-shrink: 0;
+        }
+
+        .week-timeline-column .badge-chip {
+          font-size: 0.52rem;
+          padding: 1px 3px;
+          white-space: nowrap;
+          line-height: 1;
+          letter-spacing: 0.2px;
+        }
+
+        .week-timeline-column .card-client-row {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1px;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .week-timeline-column .card-client-name {
+          font-size: 0.78rem;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          display: block;
+          line-height: 1.15;
+        }
+
+        .week-timeline-column .card-service-name {
+          font-size: 0.68rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          display: block;
           line-height: 1.15;
           font-weight: 500;
         }
@@ -5122,6 +5354,38 @@ export const Agenda: React.FC = () => {
           flex-direction: column;
           gap: 1.5rem;
           width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+          .agenda-header-subtitle {
+            display: none;
+          }
+          .card-notes-snippet {
+            display: none;
+          }
+          .grid-slot-cell {
+            padding-top: var(--radius-sm, 4px);
+            padding-bottom: var(--radius-sm, 4px);
+          }
+          .card-quick-no-show-btn {
+            width: 115px;
+            height: 19px;
+            padding: 0 4px;
+            font-size: 0.65rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .card-quick-reagendar-btn {
+            height: 19px;
+            padding: 0 4px;
+            font-size: 0.65rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
         }
 
         @media (max-width: 768px) {

@@ -245,7 +245,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/Corte Tradicional/i).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText(/Cliente prefere tesoura/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText(/Cliente prefere tesoura/i)).toBeNull();
     });
   });
 
@@ -692,4 +692,283 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByRole('button', { name: /Confirmar Reagendamento/i })).toBeInTheDocument();
     });
   });
+
+  it('posiciona botões de ações rápidas no topo (.card-top-row) quando não há badges', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+    });
+
+    const clientLabels = screen.getAllByText('Pedro Cliente');
+    const card = clientLabels
+      .find((el) => el.closest('.timeline-appointment-card'))
+      ?.closest('.timeline-appointment-card');
+    expect(card).toBeInTheDocument();
+
+    const topRow = card!.querySelector('.card-top-row');
+    expect(topRow).toBeInTheDocument();
+    expect(topRow!.querySelector('.card-quick-actions-right')).toBeInTheDocument();
+    expect(topRow!.querySelector('.card-quick-reagendar-btn')).toBeInTheDocument();
+
+    const clientRow = card!.querySelector('.card-client-row');
+    expect(clientRow).toBeInTheDocument();
+    expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
+  });
+
+  it('posiciona botões de ações rápidas na linha inferior (.card-client-row) quando há badge de encaixe', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      is_fitting: true,
+    };
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+      });
+
+      const clientLabels = screen.getAllByText('Pedro Cliente');
+      const card = clientLabels
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card');
+      expect(card).toBeInTheDocument();
+
+      const topRow = card!.querySelector('.card-top-row');
+      expect(topRow).toBeInTheDocument();
+      expect(topRow!.querySelector('.badge-chip--fitting')).toBeInTheDocument();
+      expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
+
+      const clientRow = card!.querySelector('.card-client-row');
+      expect(clientRow).toBeInTheDocument();
+      expect(clientRow!.querySelector('.card-quick-actions-right')).toBeInTheDocument();
+      expect(clientRow!.querySelector('.card-quick-reagendar-btn')).toBeInTheDocument();
+    } finally {
+      mockAppointments[0] = originalAppointments[0];
+    }
+  });
+
+  it('aplica largura de 853px para agendamento individual e 426px quando divide slot com encaixe', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      id: 'app-regular',
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: false,
+    };
+    mockAppointments[1] = {
+      ...mockAppointments[0],
+      id: 'app-fitting',
+      customer_id: 'cust-2',
+      customer: { name: 'Cliente Encaixe', phone: '11999999992' },
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: true,
+    };
+    mockAppointments[2] = {
+      ...mockAppointments[0],
+      id: 'app-solo',
+      customer_id: 'cust-3',
+      customer: { name: 'Cliente Solo', phone: '11999999993' },
+      start_time: '2026-08-16T14:00:00.000Z', // 11:00 em SP
+      end_time: '2026-08-16T14:30:00.000Z',
+      is_fitting: false,
+    };
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Cliente Solo').length).toBeGreaterThan(0);
+      });
+
+      const soloCard = screen
+        .getAllByText('Cliente Solo')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(soloCard).toBeInTheDocument();
+      expect(soloCard.style.width).toBe('853px');
+      expect(soloCard.style.height).toBe('69px');
+      expect(soloCard.style.left).toBe('5px'); // Centralizado horizontalmente no slot W863 (5px margem esquerda, 5px margem direita)
+
+      const regularCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(regularCard).toBeInTheDocument();
+      expect(regularCard.style.width).toBe('426px');
+      expect(regularCard.style.height).toBe('69px');
+      expect(regularCard.style.left).toBe('3px'); // Centralizado simetricamente no slot compartilhado
+
+      const fittingCard = screen
+        .getAllByText('Cliente Encaixe')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(fittingCard).toBeInTheDocument();
+      expect(fittingCard.style.width).toBe('426px');
+      expect(fittingCard.style.height).toBe('69px');
+      expect(fittingCard.style.left).toBe('434px'); // Centralizado simetricamente (3px esq, 5px gap, 3px dir no slot W863)
+      // O encaixe no horário da grade fica exatamente no mesmo topo do agendamento regular do slot
+      expect(fittingCard.style.top).toBe(regularCard.style.top);
+      expect(parseInt(soloCard.style.top)).toBeGreaterThan(parseInt(regularCard.style.top));
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
+  it('desabilita opção de agendamento e encaixe em slot que já possui agendamento ou encaixe', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('slot-cell-prof-1-09:00')).toBeInTheDocument();
+    });
+
+    const occupiedSlot = screen.getByTestId('slot-cell-prof-1-09:00');
+    expect(occupiedSlot).toHaveClass('grid-slot-cell--occupied');
+    expect(occupiedSlot).toHaveAttribute('title', expect.stringContaining('Horário ocupado'));
+    expect(occupiedSlot.querySelector('.slot-hover-text')).toBeNull();
+
+    // Clicar no slot ocupado não deve abrir o modal de novo agendamento
+    fireEvent.click(occupiedSlot);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('aplica largura de 463px para agendamento individual e 231px quando divide slot com encaixe na visão semanal', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      id: 'week-app-regular',
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: false,
+    };
+    mockAppointments[1] = {
+      ...mockAppointments[0],
+      id: 'week-app-fitting',
+      customer_id: 'cust-week-2',
+      customer: { name: 'Cliente Semana Encaixe', phone: '11999999992' },
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: true,
+    };
+    mockAppointments[2] = {
+      ...mockAppointments[0],
+      id: 'week-app-solo',
+      customer_id: 'cust-week-3',
+      customer: { name: 'Cliente Semana Solo', phone: '11999999993' },
+      start_time: '2026-08-16T14:00:00.000Z', // 11:00 em SP
+      end_time: '2026-08-16T14:30:00.000Z',
+      is_fitting: false,
+    };
+
+    try {
+      render(<Agenda />);
+
+      // Alternar para a visão semanal
+      const weekBtn = screen.getByText('Semana');
+      fireEvent.click(weekBtn);
+
+      await waitFor(
+        () => {
+          const cards = document.querySelectorAll('.timeline-appointment-card');
+          expect(cards.length).toBeGreaterThan(0);
+        },
+        { timeout: 3000 }
+      );
+
+      const soloCard = screen
+        .getAllByText('Cliente Semana Solo')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(soloCard).toBeInTheDocument();
+      expect(soloCard.style.width).toBe('463px');
+      expect(soloCard.style.height).toBe('69px');
+      expect(soloCard.style.left).toBe('5px');
+
+      const regularCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(regularCard).toBeInTheDocument();
+      expect(regularCard.style.width).toBe('231px');
+      expect(regularCard.style.height).toBe('69px');
+      expect(regularCard.style.left).toBe('3px');
+
+      const fittingCard = screen
+        .getAllByText('Cliente Semana Encaixe')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(fittingCard).toBeInTheDocument();
+      expect(fittingCard.style.width).toBe('231px');
+      expect(fittingCard.style.height).toBe('69px');
+      expect(fittingCard.style.left).toBe('239px');
+      expect(fittingCard.style.top).toBe(regularCard.style.top);
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
+  it('mantém o botão de filtro de equipe idêntico ao alternar de dia para semana e permite alternar o profissional', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Carlos Barbeiro').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Na visão de dia, o botão de equipe existe com título e classe corretos
+    const dayFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
+    expect(dayFilterBtn).toBeInTheDocument();
+    expect(dayFilterBtn).toHaveClass('btn-agenda-filter');
+    expect(dayFilterBtn).toHaveTextContent(/Equipe \(\s*2\s*\)/i);
+
+    // Alternar para a visão semanal
+    const weekBtn = screen.getByRole('button', { name: 'Semana' });
+    fireEvent.click(weekBtn);
+
+    // Na visão semanal, o botão de equipe NÃO deve virar um <select>, deve permanecer o mesmo botão
+    const weekFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
+    expect(weekFilterBtn).toBeInTheDocument();
+    expect(weekFilterBtn).toHaveClass('btn-agenda-filter');
+    expect(document.querySelector('.agenda-week-prof-select')).toBeNull();
+
+    // Clicar no botão para abrir o dropdown de seleção na semana
+    fireEvent.click(weekFilterBtn);
+
+    // Deve abrir o dropdown com opção dos profissionais com checkbox
+    expect(screen.getByRole('dialog', { name: /Filtrar Barbeiros da Equipe/i })).toBeInTheDocument();
+    const carlosCheckbox = screen.getByLabelText('Carlos Barbeiro');
+    const marcosCheckbox = screen.getByLabelText('Marcos Navalha');
+    expect(carlosCheckbox).toBeChecked();
+    expect(marcosCheckbox).toBeChecked();
+
+    // Desmarcar Marcos Navalha -> fica apenas Carlos selecionado
+    fireEvent.click(marcosCheckbox);
+    expect(marcosCheckbox).not.toBeChecked();
+
+    // A visão semanal deve refletir apenas Carlos Barbeiro no subtítulo
+    await waitFor(() => {
+      expect(screen.getByText(/Visão semanal do profissional Carlos Barbeiro/i)).toBeInTheDocument();
+    });
+
+    // Desmarcar Carlos Barbeiro -> 0 selecionados, deve exibir o mesmo empty state do dia
+    fireEvent.click(carlosCheckbox);
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum profissional selecionado')).toBeInTheDocument();
+      expect(screen.getByText(/Ative ao menos um profissional no filtro acima/i)).toBeInTheDocument();
+    });
+
+    // Clicar em "Exibir Todos" no empty state da semana deve restaurar todos os profissionais
+    const exibirTodosBtn = screen.getByRole('button', { name: /Exibir Todos/i });
+    fireEvent.click(exibirTodosBtn);
+    await waitFor(() => {
+      expect(screen.queryByText('Nenhum profissional selecionado')).toBeNull();
+      expect(screen.getByText(/Visão semanal de 2 profissional\(is\)/i)).toBeInTheDocument();
+    });
+  });
 });
+
