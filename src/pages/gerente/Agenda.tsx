@@ -17,6 +17,7 @@ import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutM
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
+import { CustomDatePicker } from '../../components/CustomDatePicker';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
@@ -167,186 +168,6 @@ const toScheduleGridSegment = (
     breakStart: schedule.break_start,
     breakEnd: schedule.break_end,
   };
-};
-
-interface CustomDatePickerProps {
-  selectedDate: string;
-  timezone: string;
-  onSelectDate: (dateStr: string) => void;
-  onClose: () => void;
-}
-
-const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
-  selectedDate,
-  timezone,
-  onSelectDate,
-}) => {
-  const [currentYear, setCurrentYear] = useState(() => {
-    const [y] = selectedDate.split('-').map(Number);
-    return isNaN(y) ? new Date().getFullYear() : y;
-  });
-
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const [, m] = selectedDate.split('-').map(Number);
-    return isNaN(m) ? new Date().getMonth() : m - 1;
-  });
-
-  const todayStr = useMemo(() => dateInZone(new Date(), timezone), [timezone]);
-
-  const handlePrevMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
-    } else {
-      setCurrentMonth((m) => m - 1);
-    }
-  };
-
-  const handleNextMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
-    } else {
-      setCurrentMonth((m) => m + 1);
-    }
-  };
-
-  const monthLabel = useMemo(() => {
-    const d = new Date(currentYear, currentMonth, 1);
-    const mName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(d);
-    const capitalized = mName.charAt(0).toUpperCase() + mName.slice(1);
-    return `${capitalized} ${currentYear}`;
-  }, [currentYear, currentMonth]);
-
-  const calendarDays = useMemo(() => {
-    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday
-    const daysInCurrMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
-
-    const days: Array<{
-      dayNumber: number;
-      dateStr: string;
-      isCurrentMonth: boolean;
-      isSelected: boolean;
-      isToday: boolean;
-    }> = [];
-
-    // Dias do mês anterior para completar o início da grade (Domingo)
-    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-      const dNum = daysInPrevMonth - i;
-      const prevDate = new Date(currentYear, currentMonth - 1, dNum);
-      const dateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
-      days.push({
-        dayNumber: dNum,
-        dateStr,
-        isCurrentMonth: false,
-        isSelected: dateStr === selectedDate,
-        isToday: dateStr === todayStr,
-      });
-    }
-
-    // Dias do mês atual
-    for (let d = 1; d <= daysInCurrMonth; d++) {
-      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      days.push({
-        dayNumber: d,
-        dateStr,
-        isCurrentMonth: true,
-        isSelected: dateStr === selectedDate,
-        isToday: dateStr === todayStr,
-      });
-    }
-
-    // Dias do próximo mês para completar 35 ou 42 células da grade
-    const totalSlots = days.length <= 35 ? 35 : 42;
-    const remaining = totalSlots - days.length;
-    for (let d = 1; d <= remaining; d++) {
-      const nextDate = new Date(currentYear, currentMonth + 1, d);
-      const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      days.push({
-        dayNumber: d,
-        dateStr,
-        isCurrentMonth: false,
-        isSelected: dateStr === selectedDate,
-        isToday: dateStr === todayStr,
-      });
-    }
-
-    return days;
-  }, [currentYear, currentMonth, selectedDate, todayStr]);
-
-  const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  return (
-    <div
-      className="custom-datepicker-dropdown"
-      onClick={(e) => e.stopPropagation()}
-      role="dialog"
-      aria-label="Seletor de data"
-    >
-      {/* Cabeçalho */}
-      <div className="custom-datepicker-header">
-        <div className="custom-datepicker-title-group">
-          <span className="custom-datepicker-title">{monthLabel}</span>
-          <HugeiconsIcon icon={ArrowRight01Icon} size={15} className="custom-datepicker-chevron" />
-        </div>
-
-        <div className="custom-datepicker-arrows">
-          <button
-            type="button"
-            className="custom-datepicker-arrow-btn"
-            onClick={handlePrevMonth}
-            aria-label="Mês anterior"
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
-          </button>
-          <button
-            type="button"
-            className="custom-datepicker-arrow-btn"
-            onClick={handleNextMonth}
-            aria-label="Próximo mês"
-          >
-            <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* Linha dos dias da semana */}
-      <div className="custom-datepicker-weekdays">
-        {weekdays.map((wd) => (
-          <span key={wd} className="custom-datepicker-weekday">
-            {wd}
-          </span>
-        ))}
-      </div>
-
-      {/* Grade de dias */}
-      <div className="custom-datepicker-grid">
-        {calendarDays.map((item) => {
-          let cellClass = 'custom-datepicker-cell';
-          if (!item.isCurrentMonth) cellClass += ' custom-datepicker-cell--outside';
-          if (item.isSelected) cellClass += ' custom-datepicker-cell--selected';
-          else if (item.isToday) cellClass += ' custom-datepicker-cell--today';
-
-          return (
-            <button
-              key={item.dateStr}
-              type="button"
-              className={cellClass}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectDate(item.dateStr);
-              }}
-            >
-              {item.dayNumber}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
 };
 
 interface AgendaGridSkeletonProps {
@@ -814,57 +635,116 @@ export const Agenda: React.FC = () => {
 
   // Gerar Slots de Horário da Régua Dinamicamente
   const timeSlots = useMemo(() => {
-    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
-    if (viewMode === 'day' && !dayBh.active && appointments.length === 0 && blockedSlots.length === 0) {
+    const schedules: ScheduleGridSegment[] = [];
+
+    if (selectedProfessionalIds.length === 0) {
       return [];
     }
 
-    const schedules: ScheduleGridSegment[] = [];
+    const filteredProfessionals = professionals.filter((p) =>
+      selectedProfessionalIds.includes(p.id) && p.is_active
+    );
 
-    if (selectedProfessionalIds.length === 1) {
-      const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
-      const profSchedule = selectedProf
-        ? getEffectiveProfessionalDaySchedule(selectedProf, selectedDate, tenant.businessHours)
-        : null;
-      if (profSchedule) {
-        const segment = toScheduleGridSegment(profSchedule);
-        if (segment) schedules.push(segment);
-      } else {
-        schedules.push({
-          start: dayBh.open || '08:00',
-          end: dayBh.close || '20:00',
+    if (viewMode === 'week') {
+      weekDays.forEach((d) => {
+        const dayBh = getDayBusinessHours(d.dateStr, tenant.businessHours);
+        if (!dayBh.active) return;
+
+        filteredProfessionals.forEach((p) => {
+          const sched = getEffectiveProfessionalDaySchedule(p, d.dateStr, tenant.businessHours);
+          if (sched) {
+            const segment = toScheduleGridSegment(sched);
+            if (segment) schedules.push(segment);
+          } else if (!p.weekly_schedule) {
+            // Apenas se o profissional não tiver escala configurada, adota horário do dia da barbearia
+            schedules.push({
+              start: dayBh.open || '08:00',
+              end: dayBh.close || '20:00',
+            });
+          }
         });
-      }
-    } else if (selectedProfessionalIds.length > 1) {
-      let hasProfessionalWithoutExplicitSchedule = false;
-      professionals.filter((p) => selectedProfessionalIds.includes(p.id)).forEach((p) => {
-        if (!p.is_active) return;
-        const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
-        if (!sched) {
-          hasProfessionalWithoutExplicitSchedule = true;
-          return;
-        }
-        const segment = toScheduleGridSegment(sched);
-        if (segment) schedules.push(segment);
       });
 
-      if (hasProfessionalWithoutExplicitSchedule) {
-        schedules.push({
-          start: dayBh.open || '08:00',
-          end: dayBh.close || '20:00',
-        });
+      // Incluir horários de agendamentos e bloqueios existentes dos profissionais selecionados na semana
+      appointments.forEach((a) => {
+        if (selectedProfessionalIds.includes(a.professional_id)) {
+          const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
+          if (weekDays.some((d) => d.dateStr === aDate)) {
+            schedules.push({
+              start: formatTimeInZone(a.start_time, tenant.timezone),
+              end: formatTimeInZone(a.end_time, tenant.timezone),
+            });
+          }
+        }
+      });
+
+      blockedSlots.forEach((b) => {
+        if (selectedProfessionalIds.includes(b.professional_id)) {
+          const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
+          if (weekDays.some((d) => d.dateStr === bDate)) {
+            schedules.push({
+              start: formatTimeInZone(b.start_time, tenant.timezone),
+              end: formatTimeInZone(b.end_time, tenant.timezone),
+            });
+          }
+        }
+      });
+
+      if (schedules.length === 0) {
+        return [];
       }
+
+      return generateScheduleGridSlots(schedules, slotIntervalMinutes);
     }
 
-    if (schedules.length === 0 && selectedProfessionalIds.length > 0) {
-      schedules.push({
-        start: dayBh.open || '08:00',
-        end: dayBh.close || '20:00',
-      });
+    // Visão Diária
+    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
+
+    filteredProfessionals.forEach((p) => {
+      const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
+      if (sched) {
+        const segment = toScheduleGridSegment(sched);
+        if (segment) schedules.push(segment);
+      } else if (!p.weekly_schedule && dayBh.active) {
+        // Apenas se o profissional não tiver escala configurada, adota horário da barbearia
+        schedules.push({
+          start: dayBh.open || '08:00',
+          end: dayBh.close || '20:00',
+        });
+      }
+    });
+
+    // Incluir horários de agendamentos e bloqueios pontuais fora da grade regular
+    appointments.forEach((a) => {
+      if (selectedProfessionalIds.includes(a.professional_id)) {
+        const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
+        if (aDate === selectedDate) {
+          schedules.push({
+            start: formatTimeInZone(a.start_time, tenant.timezone),
+            end: formatTimeInZone(a.end_time, tenant.timezone),
+          });
+        }
+      }
+    });
+
+    blockedSlots.forEach((b) => {
+      if (selectedProfessionalIds.includes(b.professional_id)) {
+        const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
+        if (bDate === selectedDate) {
+          schedules.push({
+            start: formatTimeInZone(b.start_time, tenant.timezone),
+            end: formatTimeInZone(b.end_time, tenant.timezone),
+          });
+        }
+      }
+    });
+
+    if (schedules.length === 0) {
+      return [];
     }
 
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
-  }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
+  }, [selectedDate, tenant.businessHours, viewMode, appointments, blockedSlots, selectedProfessionalIds, professionals, slotIntervalMinutes, weekDays, tenant.timezone]);
 
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
@@ -1117,10 +997,20 @@ export const Agenda: React.FC = () => {
     }
   }, [selectedDate, viewMode, weekDays]);
 
+  const todayDateStr = useMemo(() => dateInZone(new Date(), tenant.timezone), [tenant.timezone]);
   const isToday = useMemo(() => {
-    const todayStr = dateInZone(new Date(), tenant.timezone);
-    return selectedDate === todayStr;
-  }, [selectedDate, tenant.timezone]);
+    return selectedDate === todayDateStr;
+  }, [selectedDate, todayDateStr]);
+
+  const isTodayInWeek = useMemo(() => {
+    return weekDays.some((d) => d.dateStr === todayDateStr);
+  }, [weekDays, todayDateStr]);
+
+  const currentTimeFormatted = useMemo(() => {
+    const h = String(Math.floor(currentTimeMinutes / 60)).padStart(2, '0');
+    const m = String(currentTimeMinutes % 60).padStart(2, '0');
+    return `${h}:${m}`;
+  }, [currentTimeMinutes]);
 
   // Carregar dados de Apoio (Profissionais, Serviços, Clientes)
   const loadInitialData = useCallback(async () => {
@@ -2446,7 +2336,17 @@ export const Agenda: React.FC = () => {
               <div className="timeline-axis-header">
                 <HugeiconsIcon icon={Clock01Icon} size={16} />
               </div>
-              <div className="timeline-axis-body">
+              <div className="timeline-axis-body" style={{ position: 'relative' }}>
+                {/* Indicador da Linha Vermelha de Tempo Real na Régua de Horários */}
+                {(viewMode === 'day' ? isToday : isTodayInWeek) && redLineTopPx !== null && (
+                  <div
+                    className="timeline-axis-now-badge"
+                    style={{ top: `${redLineTopPx}px` }}
+                    title={`Hora atual: ${currentTimeFormatted}`}
+                  >
+                    <span>{currentTimeFormatted}</span>
+                  </div>
+                )}
                 {timeSlots.map((slot) => (
                   <div
                     key={slot}
@@ -2882,6 +2782,15 @@ export const Agenda: React.FC = () => {
                               </div>
                             );
                           })}
+
+                          {/* Linha Vermelha de Tempo Real na Visão Semanal */}
+                          {day.dateStr === todayDateStr && redLineTopPx !== null && (
+                            <div
+                              className="agenda-red-line"
+                              style={{ top: `${redLineTopPx}px` }}
+                              title={`Hora Atual: ${currentTimeFormatted}`}
+                            />
+                          )}
 
                           {/* Bloqueios do Dia */}
                           {dayBlocked.map((blk) => {
@@ -3745,10 +3654,10 @@ export const Agenda: React.FC = () => {
           position: absolute;
           top: calc(100% + 10px);
           right: 0;
-          width: 300px;
+          width: 312px;
           background: #ffffff;
           border-radius: 20px;
-          padding: 18px 20px 20px 20px;
+          padding: 18px 18px 20px 18px;
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
           border: 1px solid rgba(0, 0, 0, 0.08);
           z-index: 1000;
@@ -3831,7 +3740,10 @@ export const Agenda: React.FC = () => {
         .custom-datepicker-weekdays {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
           margin-bottom: 8px;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .custom-datepicker-weekday {
@@ -3840,6 +3752,11 @@ export const Agenda: React.FC = () => {
           font-weight: 500;
           color: #64748b;
           font-family: var(--font-family-base);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          margin: 0 auto;
         }
 
         .dark-theme .custom-datepicker-weekday {
@@ -3851,12 +3768,15 @@ export const Agenda: React.FC = () => {
           grid-template-columns: repeat(7, 1fr);
           gap: 4px;
           row-gap: 6px;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .custom-datepicker-cell {
           aspect-ratio: 1;
           width: 36px;
           height: 36px;
+          max-width: 100%;
           margin: 0 auto;
           border-radius: 50%;
           display: flex;
@@ -3873,6 +3793,20 @@ export const Agenda: React.FC = () => {
           font-family: var(--font-family-base);
           transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
           box-sizing: border-box;
+        }
+
+        @media (max-width: 380px) {
+          .custom-datepicker-dropdown {
+            width: calc(100vw - 24px);
+            right: -12px;
+            padding: 16px 12px 18px 12px;
+          }
+          .custom-datepicker-weekday,
+          .custom-datepicker-cell {
+            width: 32px;
+            height: 32px;
+            font-size: 0.85rem;
+          }
         }
 
         .dark-theme .custom-datepicker-cell {
@@ -4141,30 +4075,37 @@ export const Agenda: React.FC = () => {
         /* GRADE DA TIMELINE */
         .agenda-grid-wrapper {
           width: 100%;
-          overflow-x: auto;
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.6);
+          max-height: calc(100dvh - 165px);
+          overflow: auto;
+          overscroll-behavior: contain;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          border: 1px solid rgba(234, 222, 214, 0.7);
           border-radius: var(--radius-lg);
-          padding: 1rem;
+          padding: 0;
           box-shadow: var(--shadow-sm);
           scrollbar-width: thin;
-          scrollbar-color: transparent transparent;
+          scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
           transition: scrollbar-color 0.2s ease;
+          position: relative;
         }
 
         .agenda-grid-wrapper:hover {
-          scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
+          scrollbar-color: rgba(45, 35, 30, 0.45) transparent;
         }
 
-        .dark-theme .agenda-grid-wrapper:hover {
+        .dark-theme .agenda-grid-wrapper {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-color: var(--color-border);
           scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
         }
 
+        .dark-theme .agenda-grid-wrapper:hover {
+          scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
+        }
+
         .agenda-grid-wrapper::-webkit-scrollbar {
-          height: 6px;
-          width: 6px;
+          height: 5px;
+          width: 5px;
         }
 
         .agenda-grid-wrapper::-webkit-scrollbar-track {
@@ -4172,54 +4113,108 @@ export const Agenda: React.FC = () => {
         }
 
         .agenda-grid-wrapper::-webkit-scrollbar-thumb {
-          background: transparent;
+          background: rgba(45, 35, 30, 0.15);
           border-radius: 9999px;
           transition: background-color 0.2s ease;
         }
 
         .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
-          background: rgba(45, 35, 30, 0.25);
+          background: rgba(45, 35, 30, 0.35);
         }
 
         .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(45, 35, 30, 0.45);
+          background: rgba(45, 35, 30, 0.55);
+        }
+
+        .dark-theme .agenda-grid-wrapper::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.15);
         }
 
         .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.35);
         }
 
         .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.45);
+          background: rgba(255, 255, 255, 0.55);
         }
 
         .agenda-timeline-board {
           display: flex;
-          min-width: 800px;
+          min-width: 100%;
+          width: max-content;
           position: relative;
         }
 
-        /* Eixo de Horários */
+        /* Eixo de Horários (Coluna Fixa à Esquerda no Scroll Horizontal) */
         .timeline-axis-column {
           width: 65px;
+          min-width: 65px;
           flex-shrink: 0;
           border-right: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
+          position: sticky;
+          left: 0;
+          z-index: 35;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
         }
 
+        .dark-theme .timeline-axis-column {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-right-color: var(--color-border);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Canto Superior Esquerdo - Interseção Horários x Datas */
         .timeline-axis-header {
           height: 60px;
+          min-height: 60px;
           border-bottom: 1px solid var(--color-border);
           display: flex;
           align-items: center;
           justify-content: center;
           color: var(--color-text-secondary);
+          position: sticky;
+          top: 0;
+          left: 0;
+          z-index: 50; /* Maior z-index de toda a estrutura */
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          border-top-left-radius: calc(var(--radius-lg) - 1px);
+          box-sizing: border-box;
+        }
+
+        .dark-theme .timeline-axis-header {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-bottom-color: var(--color-border);
         }
 
         .timeline-axis-body {
           display: flex;
           flex-direction: column;
+          background-color: inherit;
+        }
+
+        /* Indicador de Tempo Real na Régua de Horários */
+        .timeline-axis-now-badge {
+          position: absolute;
+          left: 3px;
+          right: 3px;
+          transform: translateY(-50%);
+          background-color: var(--color-error, #EF4444);
+          color: #FFFFFF;
+          font-size: 0.65rem;
+          font-weight: 800;
+          padding: 2px 3px;
+          border-radius: var(--radius-sm, 4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 45;
+          pointer-events: none;
+          box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+          white-space: nowrap;
+          letter-spacing: -0.02em;
         }
 
         .time-slot-label {
@@ -4227,13 +4222,17 @@ export const Agenda: React.FC = () => {
           min-height: 76px;
           box-sizing: border-box;
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: center;
-          padding-top: 6px;
           font-size: 0.75rem;
           font-weight: 700;
           color: var(--color-text-secondary);
           border-bottom: 1px dashed rgba(234, 222, 214, 0.4);
+          background-color: inherit;
+        }
+
+        .dark-theme .time-slot-label {
+          border-bottom-color: rgba(255, 255, 255, 0.06);
         }
 
         /* Colunas dos Barbeiros */
@@ -4261,14 +4260,31 @@ export const Agenda: React.FC = () => {
           border-right: none;
         }
 
+        .professional-timeline-column:last-child .prof-col-header {
+          border-top-right-radius: calc(var(--radius-lg) - 1px);
+        }
+
+        /* Header das Datas e Profissionais (Fixo no Topo no Scroll Vertical) */
         .prof-col-header {
           height: 60px;
+          min-height: 60px;
           border-bottom: 1px solid var(--color-border);
           padding: 0.5rem 0.75rem;
           display: flex;
           align-items: center;
           gap: 0.6rem;
-          background-color: rgba(255, 255, 255, 0.4);
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          box-sizing: border-box;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark-theme .prof-col-header {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-bottom-color: var(--color-border);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
         }
 
         .prof-col-avatar {
