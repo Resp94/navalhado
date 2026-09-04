@@ -22,6 +22,7 @@ import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
 import { getAppointmentCardState } from '../../lib/appointment-card-state';
+import { calculateAgendaHorizontalLayout } from '../../lib/agenda-layout';
 import type { WaitingListEntry } from '../../modules/espera/types';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
@@ -2031,63 +2032,29 @@ export const Agenda: React.FC = () => {
     return { topPx: Math.max(0, Math.round(topPx + verticalOffset)), heightPx };
   };
 
-  // Algoritmo de posicionamento com detecção de colisões para Split Grid 50%/50%
   const calculateAppointmentsLayout = (
     appointmentsList: Appointment[],
-    isWeekView = false
   ): Map<string, CardLayout> => {
     const layoutMap = new Map<string, CardLayout>();
-
-    const sorted = [...appointmentsList].sort(
-      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    const horizontalLayout = calculateAgendaHorizontalLayout(
+      appointmentsList.map((appointment) => ({
+        id: appointment.id,
+        startMs: new Date(appointment.start_time).getTime(),
+        endMs: new Date(appointment.end_time).getTime(),
+        isFitting: appointment.is_fitting,
+      })),
     );
 
-    for (let i = 0; i < sorted.length; i++) {
-      const app = sorted[i];
+    for (const app of appointmentsList) {
       const pos = calculateCardPosition(app.start_time, app.end_time);
-      const appStart = new Date(app.start_time).getTime();
-      const appEnd = new Date(app.end_time).getTime();
+      const horizontal = horizontalLayout.get(app.id);
 
-      let hasOverlap = false;
-      let isSecondSlot = false;
-
-      for (let j = 0; j < sorted.length; j++) {
-        if (i !== j) {
-          const other = sorted[j];
-          const otherStart = new Date(other.start_time).getTime();
-          const otherEnd = new Date(other.end_time).getTime();
-
-          if (appStart < otherEnd && appEnd > otherStart) {
-            hasOverlap = true;
-            if (app.is_fitting && !other.is_fitting) {
-              isSecondSlot = true;
-            } else if (!app.is_fitting && other.is_fitting) {
-              isSecondSlot = false;
-            } else if (appStart > otherStart || (appStart === otherStart && i > j)) {
-              isSecondSlot = true;
-            }
-            break;
-          }
-        }
-      }
-
-      if (hasOverlap) {
-        layoutMap.set(app.id, {
-          topPx: pos.topPx,
-          heightPx: pos.heightPx,
-          left: isWeekView
-            ? (isSecondSlot ? '239px' : '3px')
-            : (isSecondSlot ? '434px' : '3px'),
-          width: isWeekView ? '231px' : '426px',
-        });
-      } else {
-        layoutMap.set(app.id, {
-          topPx: pos.topPx,
-          heightPx: pos.heightPx,
-          left: isWeekView ? '5px' : '5px',
-          width: isWeekView ? '463px' : '853px',
-        });
-      }
+      layoutMap.set(app.id, {
+        topPx: pos.topPx,
+        heightPx: pos.heightPx,
+        left: horizontal?.left ?? '4px',
+        width: horizontal?.width ?? 'calc(100% - 8px)',
+      });
     }
 
     return layoutMap;
@@ -2540,8 +2507,8 @@ export const Agenda: React.FC = () => {
                             const layout = layoutMap.get(app.id) || {
                               topPx: 4,
                               heightPx: 69,
-                              left: '5px',
-                              width: '853px',
+                              left: '4px',
+                              width: 'calc(100% - 8px)',
                             };
 
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
@@ -2651,7 +2618,7 @@ export const Agenda: React.FC = () => {
                       const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
                       return bDate === day.dateStr && selectedProfessionalIds.includes(b.professional_id);
                     });
-                    const layoutMap = calculateAppointmentsLayout(dayAppointments, true);
+                    const layoutMap = calculateAppointmentsLayout(dayAppointments);
 
                     const dayBh = getDayBusinessHours(day.dateStr, tenant.businessHours);
                     const isDayClosed = !dayBh.active;
@@ -2825,8 +2792,8 @@ export const Agenda: React.FC = () => {
                           {/* Cards do Dia */}
                           {dayAppointments.map((app) => {
                             const layout = layoutMap.get(app.id) || {
-                              topPx: 0,
-                              heightPx: 36,
+                              topPx: 4,
+                              heightPx: 69,
                               left: '4px',
                               width: 'calc(100% - 8px)',
                             };

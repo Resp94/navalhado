@@ -750,13 +750,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     }
   });
 
-  it('aplica largura de 853px para agendamento individual e 426px quando divide slot com encaixe', async () => {
+  it('aplica layout horizontal percentual no dia para card solo e slot dividido com encaixe', async () => {
     const originalAppointments = [...mockAppointments];
     mockAppointments[0] = {
       ...mockAppointments[0],
       id: 'app-regular',
-      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
-      end_time: '2026-08-16T13:30:00.000Z',
+      start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+      end_time: '2026-08-16T12:30:00.000Z',
       is_fitting: false,
     };
     mockAppointments[1] = {
@@ -764,8 +764,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       id: 'app-fitting',
       customer_id: 'cust-2',
       customer: { name: 'Cliente Encaixe', phone: '11999999992' },
-      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
-      end_time: '2026-08-16T13:30:00.000Z',
+      start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+      end_time: '2026-08-16T12:30:00.000Z',
       is_fitting: true,
     };
     mockAppointments[2] = {
@@ -773,8 +773,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       id: 'app-solo',
       customer_id: 'cust-3',
       customer: { name: 'Cliente Solo', phone: '11999999993' },
-      start_time: '2026-08-16T14:00:00.000Z', // 11:00 em SP
-      end_time: '2026-08-16T14:30:00.000Z',
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
       is_fitting: false,
     };
 
@@ -790,28 +790,27 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(soloCard).toBeInTheDocument();
-      expect(soloCard.style.width).toBe('853px');
+      expect(soloCard.style.width).toBe('calc(100% - 8px)');
       expect(soloCard.style.height).toBe('69px');
-      expect(soloCard.style.left).toBe('5px'); // Centralizado horizontalmente no slot W863 (5px margem esquerda, 5px margem direita)
+      expect(soloCard.style.left).toBe('4px');
 
       const regularCard = screen
         .getAllByText('Pedro Cliente')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(regularCard).toBeInTheDocument();
-      expect(regularCard.style.width).toBe('426px');
+      expect(regularCard.style.width).toBe('calc(50% - 8px)');
       expect(regularCard.style.height).toBe('69px');
-      expect(regularCard.style.left).toBe('3px'); // Centralizado simetricamente no slot compartilhado
+      expect(regularCard.style.left).toBe('4px');
 
       const fittingCard = screen
         .getAllByText('Cliente Encaixe')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(fittingCard).toBeInTheDocument();
-      expect(fittingCard.style.width).toBe('426px');
+      expect(fittingCard.style.width).toBe('calc(50% - 8px)');
       expect(fittingCard.style.height).toBe('69px');
-      expect(fittingCard.style.left).toBe('434px'); // Centralizado simetricamente (3px esq, 5px gap, 3px dir no slot W863)
-      // O encaixe no horário da grade fica exatamente no mesmo topo do agendamento regular do slot
+      expect(fittingCard.style.left).toBe('calc(50% + 4px)');
       expect(fittingCard.style.top).toBe(regularCard.style.top);
       expect(parseInt(soloCard.style.top)).toBeGreaterThan(parseInt(regularCard.style.top));
     } finally {
@@ -837,7 +836,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('aplica largura de 463px para agendamento individual e 231px quando divide slot com encaixe na visão semanal', async () => {
+  it('aplica o mesmo layout horizontal percentual na visão semanal', async () => {
     const originalAppointments = [...mockAppointments];
     mockAppointments[0] = {
       ...mockAppointments[0],
@@ -885,27 +884,27 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(soloCard).toBeInTheDocument();
-      expect(soloCard.style.width).toBe('463px');
+      expect(soloCard.style.width).toBe('calc(100% - 8px)');
       expect(soloCard.style.height).toBe('69px');
-      expect(soloCard.style.left).toBe('5px');
+      expect(soloCard.style.left).toBe('4px');
 
       const regularCard = screen
         .getAllByText('Pedro Cliente')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(regularCard).toBeInTheDocument();
-      expect(regularCard.style.width).toBe('231px');
+      expect(regularCard.style.width).toBe('calc(50% - 8px)');
       expect(regularCard.style.height).toBe('69px');
-      expect(regularCard.style.left).toBe('3px');
+      expect(regularCard.style.left).toBe('4px');
 
       const fittingCard = screen
         .getAllByText('Cliente Semana Encaixe')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(fittingCard).toBeInTheDocument();
-      expect(fittingCard.style.width).toBe('231px');
+      expect(fittingCard.style.width).toBe('calc(50% - 8px)');
       expect(fittingCard.style.height).toBe('69px');
-      expect(fittingCard.style.left).toBe('239px');
+      expect(fittingCard.style.left).toBe('calc(50% + 4px)');
       expect(fittingCard.style.top).toBe(regularCard.style.top);
     } finally {
       mockAppointments.length = 0;
