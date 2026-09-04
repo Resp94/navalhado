@@ -61,7 +61,7 @@ percentuais relativos à coluna, com margem externa de 4 px e desconto de 8 px.
 
 ### `npm test`
 
-Resultado: aprovado — 61 arquivos de teste e 353 testes, 0 falhas.
+Resultado: aprovado — 61 arquivos de teste e 354 testes, 0 falhas.
 
 ### `npm run build`
 
