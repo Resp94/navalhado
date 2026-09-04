@@ -849,7 +849,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         ...mockAppointments[0],
         id,
         customer_id: `cust-three-${index}`,
-        customer: { name: customerName, phone: `1199999999${index}` },
+        customer: { id: `cust-three-${index}`, name: customerName, phone: `1199999999${index}` },
         start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
         end_time: '2026-08-16T12:30:00.000Z',
         is_fitting: false,

@@ -68,8 +68,9 @@ Resultado: aprovado — 61 arquivos de teste e 353 testes, 0 falhas.
 Resultado: falhou com código 1 por erros TypeScript preexistentes, fora do
 escopo de validação visual e sem alteração nesta Task:
 
-- `src/pages/__tests__/Agenda.test.tsx`: cinco fixtures sem a propriedade
-  obrigatória `id` no cliente.
+- `src/pages/__tests__/Agenda.test.tsx`: quatro fixtures preexistentes sem a
+  propriedade obrigatória `id` no cliente. O fixture adicionado para três
+  compromissos foi corrigido posteriormente para incluir esse id.
 - `src/pages/gerente/__tests__/AgendaEquipeFilter.test.tsx`: import `React`
   não utilizado.
 - `src/pages/gerente/Agenda.tsx`: `FilterIcon`, `pxPerMinute` e
