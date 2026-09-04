@@ -19,7 +19,9 @@ export function calculateAgendaHorizontalLayout(
   items: readonly AgendaLayoutItem[],
 ): Map<string, AgendaHorizontalLayout> {
   const sortedItems = [...items].sort((a, b) =>
-    a.startMs - b.startMs || Number(Boolean(a.isFitting)) - Number(Boolean(b.isFitting)),
+    a.startMs - b.startMs ||
+    Number(Boolean(a.isFitting)) - Number(Boolean(b.isFitting)) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
   const result = new Map<string, AgendaHorizontalLayout>();
 

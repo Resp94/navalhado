@@ -2502,7 +2502,7 @@ export const Agenda: React.FC = () => {
                             );
                           })}
 
-                          {/* Cards de Agendamento Flutuantes (Split Grid 50%/50%) */}
+                          {/* Cards de Agendamento Flutuantes (lanes percentuais genéricas) */}
                           {profAppointments.map((app) => {
                             const layout = layoutMap.get(app.id) || {
                               topPx: 4,

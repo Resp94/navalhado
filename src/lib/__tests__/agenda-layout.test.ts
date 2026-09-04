@@ -68,6 +68,21 @@ describe('calculateAgendaHorizontalLayout', () => {
     expect(layout.get('c')?.width).toBe('calc(33.333% - 8px)');
   });
 
+  it('mantém a mesma distribuição quando a ordem de entrada dos regulares varia', () => {
+    const firstOrder = calculateAgendaHorizontalLayout([
+      item('a', 0, 30),
+      item('b', 0, 30),
+      item('c', 0, 30),
+    ]);
+    const secondOrder = calculateAgendaHorizontalLayout([
+      item('c', 0, 30),
+      item('a', 0, 30),
+      item('b', 0, 30),
+    ]);
+
+    expect([...firstOrder.entries()]).toEqual([...secondOrder.entries()]);
+  });
+
   it('não considera intervalos apenas encostados como sobreposição', () => {
     const layout = calculateAgendaHorizontalLayout([
       item('first', 0, 30),
