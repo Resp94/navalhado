@@ -4108,7 +4108,7 @@ export const Agenda: React.FC = () => {
         .agenda-timeline-board {
           display: flex;
           min-width: 100%;
-          width: max-content;
+          width: 100%;
           position: relative;
         }
 
@@ -4205,22 +4205,23 @@ export const Agenda: React.FC = () => {
         /* Colunas dos Barbeiros */
         .professionals-columns-container {
           display: flex;
-          flex: 1;
+          flex: 1 1 auto;
+          min-width: 0;
         }
 
         .professional-timeline-column {
-          flex: 1;
-          min-width: 863px;
-          width: 863px;
+          flex: 1 1 0;
+          width: 100%;
+          min-width: clamp(240px, 22vw, 640px);
           border-right: 1px solid rgba(234, 222, 214, 0.7);
           display: flex;
           flex-direction: column;
         }
 
         .week-timeline-column {
-          width: 473px;
-          min-width: 473px;
-          flex: 1;
+          flex: 1 1 0;
+          width: 100%;
+          min-width: clamp(140px, 12vw, 220px);
         }
 
         .professional-timeline-column:last-child {
@@ -4289,6 +4290,8 @@ export const Agenda: React.FC = () => {
         }
 
         .grid-slot-cell {
+          width: 100%;
+          flex: 0 0 auto;
           height: 76px;
           min-height: 76px;
           box-sizing: border-box;
