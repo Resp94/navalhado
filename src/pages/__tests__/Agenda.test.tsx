@@ -836,6 +836,65 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('distribui três compromissos sobrepostos em faixas percentuais sem largura fixa', async () => {
+    const originalAppointments = [...mockAppointments];
+    const overlappingAppointments = [
+      ['three-app-a', 'Cliente Sobreposto A'],
+      ['three-app-b', 'Cliente Sobreposto B'],
+      ['three-app-c', 'Cliente Sobreposto C'],
+    ];
+
+    overlappingAppointments.forEach(([id, customerName], index) => {
+      mockAppointments[index] = {
+        ...mockAppointments[0],
+        id,
+        customer_id: `cust-three-${index}`,
+        customer: { name: customerName, phone: `1199999999${index}` },
+        start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+        end_time: '2026-08-16T12:30:00.000Z',
+        is_fitting: false,
+      };
+    });
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Cliente Sobreposto A').length).toBeGreaterThan(0);
+      });
+
+      const cards = overlappingAppointments.map(([, customerName]) => {
+        const card = screen
+          .getAllByText(customerName)
+          .find((el) => el.closest('.timeline-appointment-card'))
+          ?.closest('.timeline-appointment-card') as HTMLElement;
+        expect(card).toBeInTheDocument();
+        return card;
+      });
+
+      expect(cards.map((card) => card.style.left)).toEqual([
+        '4px',
+        'calc(33.333% + 4px)',
+        'calc(66.667% + 4px)',
+      ]);
+      expect(cards.map((card) => card.style.width)).toEqual([
+        'calc(33.333% - 8px)',
+        'calc(33.333% - 8px)',
+        'calc(33.333% - 8px)',
+      ]);
+      expect(cards.every((card) => !/^\d+px$/.test(card.style.width))).toBe(true);
+      expect(cards.map((card) => card.style.top)).toEqual([
+        cards[0].style.top,
+        cards[0].style.top,
+        cards[0].style.top,
+      ]);
+      expect(cards.map((card) => card.style.height)).toEqual(['69px', '69px', '69px']);
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
   it('aplica o mesmo layout horizontal percentual na visão semanal', async () => {
     const originalAppointments = [...mockAppointments];
     mockAppointments[0] = {
