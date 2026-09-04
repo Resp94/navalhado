@@ -394,28 +394,42 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     const originalEnd = mockAppointments[0].end_time;
     mockAppointments[0].start_time = '2026-08-16T10:00:00.000Z';
     mockAppointments[0].end_time = '2026-08-16T10:30:00.000Z';
-    render(<Agenda />);
+    try {
+      render(<Agenda />);
 
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i }).length).toBeGreaterThan(0);
-    });
+      await waitFor(() => {
+        expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+      });
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i })[0]);
+      const appointmentCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((element) => element.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card');
+      expect(appointmentCard).toBeInTheDocument();
+      fireEvent.click(appointmentCard!);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Confirmar não comparecimento/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Sim, não compareceu/i })).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(screen.getByText('Comanda de atendimento')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
+      });
 
-    fireEvent.click(screen.getByRole('button', { name: /Sim, não compareceu/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
 
-    await waitFor(() => {
-      expect(mockFrom).toHaveBeenCalledWith('appointments');
-      expect(screen.getAllByText('Não compareceu').length).toBeGreaterThan(0);
-    });
+      await waitFor(() => {
+        expect(screen.getByText(/Confirmar não comparecimento/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Sim, não compareceu/i })).toBeInTheDocument();
+      });
 
-    mockAppointments[0].start_time = originalStart;
-    mockAppointments[0].end_time = originalEnd;
+      fireEvent.click(screen.getByRole('button', { name: /Sim, não compareceu/i }));
+
+      await waitFor(() => {
+        expect(mockFrom).toHaveBeenCalledWith('appointments');
+        expect(screen.getAllByText('Não compareceu').length).toBeGreaterThan(0);
+      });
+    } finally {
+      mockAppointments[0].start_time = originalStart;
+      mockAppointments[0].end_time = originalEnd;
+    }
   });
 
   it('permite salvar encaixe personalizado fora do expediente', async () => {
@@ -677,23 +691,26 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
-  it('abre o modal direto de reagendamento ao clicar no botão Reagendar do card na agenda', async () => {
+  it('não renderiza ações rápidas dentro dos cards da agenda', async () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Reagendar horário/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
     });
 
-    const rescheduleButtons = screen.getAllByRole('button', { name: /Reagendar horário/i });
-    fireEvent.click(rescheduleButtons[0]);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Reagendar horário de/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Confirmar Reagendamento/i })).toBeInTheDocument();
+    const cards = screen
+      .getAllByText('Pedro Cliente')
+      .map((element) => element.closest('.timeline-appointment-card'))
+      .filter(Boolean);
+    expect(cards.length).toBeGreaterThan(0);
+    cards.forEach((card) => {
+      expect(card?.querySelector('.card-quick-actions-right')).toBeNull();
+      expect(card?.querySelector('.card-quick-no-show-btn')).toBeNull();
+      expect(card?.querySelector('.card-quick-reagendar-btn')).toBeNull();
     });
   });
 
-  it('posiciona botões de ações rápidas no topo (.card-top-row) quando não há badges', async () => {
+  it('mantém o card normal livre de ações rápidas no topo', async () => {
     render(<Agenda />);
 
     await waitFor(() => {
@@ -708,15 +725,15 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
     const topRow = card!.querySelector('.card-top-row');
     expect(topRow).toBeInTheDocument();
-    expect(topRow!.querySelector('.card-quick-actions-right')).toBeInTheDocument();
-    expect(topRow!.querySelector('.card-quick-reagendar-btn')).toBeInTheDocument();
+    expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
+    expect(topRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
 
     const clientRow = card!.querySelector('.card-client-row');
     expect(clientRow).toBeInTheDocument();
     expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
   });
 
-  it('posiciona botões de ações rápidas na linha inferior (.card-client-row) quando há badge de encaixe', async () => {
+  it('mantém o card de encaixe livre de ações rápidas na linha inferior', async () => {
     const originalAppointments = [...mockAppointments];
     mockAppointments[0] = {
       ...mockAppointments[0],
@@ -743,8 +760,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const clientRow = card!.querySelector('.card-client-row');
       expect(clientRow).toBeInTheDocument();
-      expect(clientRow!.querySelector('.card-quick-actions-right')).toBeInTheDocument();
-      expect(clientRow!.querySelector('.card-quick-reagendar-btn')).toBeInTheDocument();
+      expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
+      expect(clientRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
     } finally {
       mockAppointments[0] = originalAppointments[0];
     }

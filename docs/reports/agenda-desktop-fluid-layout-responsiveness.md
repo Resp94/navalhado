@@ -59,6 +59,17 @@ percentuais relativos à coluna, com margem externa de 4 px e desconto de 8 px.
 
 ## Verificações automatizadas
 
+## Atualização funcional dos cards
+
+- As ações rápidas `Reagendar` e `Não compareceu` foram removidas dos cards
+  desktop de Dia e Semana, evitando que a divisão horizontal comprima nomes e
+  controles.
+- `Não compareceu` agora aparece no cabeçalho da `ComandaCheckoutModal`,
+  imediatamente à direita de `Reagendar`, mantendo a confirmação e as regras
+  existentes de elegibilidade.
+- A inspeção visual autenticada em 01/09/2026 confirmou cards sem ações
+  embutidas e o modal com os dois controles lado a lado.
+
 ### `npm test`
 
 Resultado: aprovado — 61 arquivos de teste e 354 testes, 0 falhas.
@@ -80,8 +91,10 @@ O teste completo passou apesar do bloqueio de compilação estrita do build.
 
 ## Ressalvas e recomendações
 
-Não houve alteração em `MobileAgendaView`, CSS mobile, lógica de negócio,
-markup, contratos ou testids. A checagem mobile foi somente regressiva.
+Não houve alteração em `MobileAgendaView` ou CSS mobile. A lógica de negócio
+de não comparecimento foi preservada; a mudança de markup ficou restrita aos
+cards desktop e ao cabeçalho da comanda. A checagem mobile foi somente
+regressiva.
 
 O Dia foi complementado com um dia que contém atendimentos. Se for necessário
 validar visualmente três cards concorrentes, recomenda-se usar fixtures ou um

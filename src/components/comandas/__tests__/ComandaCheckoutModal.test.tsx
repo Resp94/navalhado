@@ -699,6 +699,7 @@ describe('ComandaCheckoutModal', () => {
 
   it('deve permitir abrir painel de reagendamento direto e salvar novo horário mantendo a comanda aberta', async () => {
     const mockOnRescheduled = vi.fn();
+    const mockOnMarkNoShow = vi.fn();
     mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
       id: 'com-123',
       tenant_id: 't-1',
@@ -737,6 +738,7 @@ describe('ComandaCheckoutModal', () => {
         onClose={mockOnClose}
         onFinalizado={mockOnFinalizado}
         onRescheduled={mockOnRescheduled}
+        onMarkNoShow={mockOnMarkNoShow}
         comandaRepo={comandaRepo}
         caixaRepo={caixaRepo}
         produtoRepo={produtoRepo}
@@ -746,6 +748,7 @@ describe('ComandaCheckoutModal', () => {
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Reagendar atendimento/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
     });
 
     // 1. Clicar no botão "Reagendar"

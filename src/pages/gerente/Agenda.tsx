@@ -28,8 +28,6 @@ import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  BadgeXIcon,
-  Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
   AddCircleIcon,
@@ -306,63 +304,6 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
     </div>
   );
 };
-
-interface AppointmentQuickActionsProps {
-  app: Appointment;
-  onMarkNoShow: (app: Appointment) => void;
-  onReschedule: (app: Appointment) => void;
-  className?: string;
-}
-
-const AppointmentQuickActions: React.FC<AppointmentQuickActionsProps> = React.memo(({
-  app,
-  onMarkNoShow,
-  onReschedule,
-  className = 'card-quick-actions-right',
-}) => {
-  const canMarkNoShow =
-    (app.status === 'pending' || app.status === 'confirmed') &&
-    new Date(app.start_time).getTime() <= Date.now();
-  const canReschedule = app.status !== 'canceled';
-
-  if (!canMarkNoShow && !canReschedule) return null;
-
-  return (
-    <div className={className}>
-      {canMarkNoShow && (
-        <button
-          type="button"
-          className="card-quick-no-show-btn"
-          title="Marcar atendimento como não compareceu"
-          aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkNoShow(app);
-          }}
-        >
-          <HugeiconsIcon icon={BadgeXIcon} size={11} />
-          <span>Não compareceu</span>
-        </button>
-      )}
-      {canReschedule && (
-        <button
-          type="button"
-          className="card-quick-reagendar-btn"
-          title="Reagendar horário deste agendamento"
-          aria-label="Reagendar horário"
-          onClick={(e) => {
-            e.stopPropagation();
-            onReschedule(app);
-          }}
-        >
-          <HugeiconsIcon icon={Calendar02Icon} size={11} color="#ffffff" />
-          <span>Reagendar</span>
-        </button>
-      )}
-    </div>
-  );
-});
-AppointmentQuickActions.displayName = 'AppointmentQuickActions';
 
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
@@ -2520,13 +2461,6 @@ export const Agenda: React.FC = () => {
                               paymentStatus: app.payment_status,
                             });
                             const statusClass = `card-status--${cardState.replace('_', '-')}`;
-                            const hasTopBadges = Boolean(
-                              app.is_fitting ||
-                              app.status === 'no_show' ||
-                              app.status === 'in_progress' ||
-                              app.payment_status === 'paid'
-                            );
-
                             return (
                               <div
                                 key={app.id}
@@ -2544,36 +2478,28 @@ export const Agenda: React.FC = () => {
                                   <span className="card-time-badge">
                                     {timeStart} - {timeEnd}
                                   </span>
-                                  {hasTopBadges ? (
-                                    <div className="card-badges-row">
-                                      {app.is_fitting && (
-                                        <span className="badge-chip badge-chip--fitting" title="Encaixe">
-                                          Encaixe
-                                        </span>
-                                      )}
-                                      {app.status === 'no_show' && (
-                                        <span className="badge-chip badge-chip--no-show" title="Não compareceu">
-                                          Não compareceu
-                                        </span>
-                                      )}
-                                      {app.status === 'in_progress' && (
-                                        <span className="badge-chip badge-chip--progress" title="Em Atendimento">
-                                          Atendendo
-                                        </span>
-                                      )}
-                                      {app.payment_status === 'paid' && (
-                                        <span className="badge-chip badge-chip--paid" title="Pago">
-                                          Pago
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <AppointmentQuickActions
-                                      app={app}
-                                      onMarkNoShow={(target) => void handleMarkNoShow(target)}
-                                      onReschedule={handleOpenRescheduleModal}
-                                    />
-                                  )}
+                                  <div className="card-badges-row">
+                                    {app.is_fitting && (
+                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                        Encaixe
+                                      </span>
+                                    )}
+                                    {app.status === 'no_show' && (
+                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                        Não compareceu
+                                      </span>
+                                    )}
+                                    {app.status === 'in_progress' && (
+                                      <span className="badge-chip badge-chip--progress" title="Em Atendimento">
+                                        Atendendo
+                                      </span>
+                                    )}
+                                    {app.payment_status === 'paid' && (
+                                      <span className="badge-chip badge-chip--paid" title="Pago">
+                                        Pago
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
                                 <div className="card-client-row">
@@ -2586,13 +2512,6 @@ export const Agenda: React.FC = () => {
                                     </span>
                                   </div>
 
-                                  {hasTopBadges && (
-                                    <AppointmentQuickActions
-                                      app={app}
-                                      onMarkNoShow={(target) => void handleMarkNoShow(target)}
-                                      onReschedule={handleOpenRescheduleModal}
-                                    />
-                                  )}
                                 </div>
 
                                 {app.payment_status === 'paid' && (
@@ -3208,6 +3127,7 @@ export const Agenda: React.FC = () => {
             addToast('Atendimento reagendado com sucesso!', 'success');
             fetchAppointments();
           }}
+          onMarkNoShow={() => handleMarkNoShow(checkoutAppointment)}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
             fetchAppointments();
@@ -4530,78 +4450,6 @@ export const Agenda: React.FC = () => {
           color: #fff;
         }
 
-        .card-quick-no-show-btn,
-        .card-quick-reagendar-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          border-radius: 4px;
-          padding: 2px 6px;
-          font-size: 0.72rem;
-          font-weight: 500;
-          cursor: pointer;
-          white-space: nowrap;
-          line-height: 1;
-          height: 19px;
-          box-sizing: border-box;
-          vertical-align: middle;
-          transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-        }
-
-        .card-quick-no-show-btn svg,
-        .card-quick-reagendar-btn svg {
-          display: block;
-          flex-shrink: 0;
-          margin: 0;
-        }
-
-        .card-quick-no-show-btn span,
-        .card-quick-reagendar-btn span {
-          display: inline-flex;
-          align-items: center;
-          line-height: 1;
-        }
-
-        .card-quick-no-show-btn {
-          border: 1px solid rgba(185, 28, 28, 0.35);
-          background: rgba(254, 242, 242, 0.95);
-          color: #b91c1c;
-        }
-
-        .card-quick-no-show-btn:hover {
-          background: rgba(254, 226, 226, 1);
-          border-color: rgba(185, 28, 28, 0.55);
-        }
-
-        .card-quick-reagendar-btn {
-          border: 1px solid #0284c7;
-          background: #0284c7;
-          color: #ffffff;
-        }
-
-        .card-quick-reagendar-btn svg {
-          color: #ffffff;
-        }
-
-        .card-quick-reagendar-btn:hover {
-          background: #0369a1;
-          border-color: #0369a1;
-          color: #ffffff;
-        }
-
-        .dark-theme .card-quick-no-show-btn {
-          background: rgba(185, 28, 28, 0.2);
-          border-color: rgba(248, 113, 113, 0.4);
-          color: #f87171;
-        }
-
-        .dark-theme .card-quick-reagendar-btn {
-          background: #0284c7;
-          border-color: #38bdf8;
-          color: #ffffff;
-        }
-
         .card-top-row {
           display: flex;
           align-items: center;
@@ -4663,14 +4511,6 @@ export const Agenda: React.FC = () => {
           gap: 2px;
           min-width: 0;
           flex: 1;
-        }
-
-        .card-quick-actions-right {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          margin-left: auto;
-          flex-shrink: 0;
         }
 
         .card-client-name {
@@ -5352,25 +5192,6 @@ export const Agenda: React.FC = () => {
           .grid-slot-cell {
             padding-top: var(--radius-sm, 4px);
             padding-bottom: var(--radius-sm, 4px);
-          }
-          .card-quick-no-show-btn {
-            width: 115px;
-            height: 19px;
-            padding: 0 4px;
-            font-size: 0.65rem;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .card-quick-reagendar-btn {
-            height: 19px;
-            padding: 0 4px;
-            font-size: 0.65rem;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
           }
         }
 

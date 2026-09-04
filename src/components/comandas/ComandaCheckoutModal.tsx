@@ -14,6 +14,7 @@ import {
   Coins01Icon,
   Discount01Icon,
   AlertCircleIcon,
+  BadgeXIcon,
   UserIcon,
   WhatsappIcon,
   Calendar02Icon,
@@ -70,6 +71,7 @@ interface ComandaCheckoutModalProps {
   onClose: () => void;
   onFinalizado: (comanda: Comanda) => void;
   onRescheduled?: (newStartTime: string, newProfessionalId?: string | null) => void;
+  onMarkNoShow?: () => void;
   comandaRepo?: ComandaRepository;
   caixaRepo?: CaixaRepository;
   produtoRepo?: ProdutoRepository;
@@ -137,6 +139,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   onClose,
   onFinalizado,
   onRescheduled,
+  onMarkNoShow,
   comandaRepo,
   caixaRepo,
   produtoRepo,
@@ -940,6 +943,30 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             >
                               <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: '#0284C7' }} />
                               <span>Reagendar</span>
+                            </button>
+                          )}
+                          {!isClosed && onMarkNoShow && (
+                            <button
+                              type="button"
+                              onClick={onMarkNoShow}
+                              className="comanda-customer-phone-tag"
+                              style={{
+                                backgroundColor: 'rgba(185, 28, 28, 0.08)',
+                                borderColor: 'rgba(185, 28, 28, 0.3)',
+                                color: '#b91c1c',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontWeight: 500,
+                              }}
+                              title="Marcar atendimento como não compareceu"
+                              aria-label="Marcar atendimento como não compareceu"
+                            >
+                              <HugeiconsIcon icon={BadgeXIcon} size={13} style={{ color: '#b91c1c' }} />
+                              <span>Não compareceu</span>
                             </button>
                           )}
                         </>
