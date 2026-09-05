@@ -15,7 +15,6 @@ import type {
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Search01Icon,
   PlusSignIcon,
   Edit01Icon,
   Clock01Icon,
@@ -27,8 +26,23 @@ import {
   Note01Icon,
 } from '@hugeicons/core-free-icons';
 
+import {
+  StatCard,
+  SearchInput,
+  SegmentedControl,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Badge,
+  Button,
+  IconButton,
+  EmptyState,
+} from '../../components/ui';
+
 // Ícones Oficiais Hugeicons
-const SearchIcon = () => <HugeiconsIcon icon={Search01Icon} size={18} aria-hidden="true" />;
 const PlusIcon = () => <HugeiconsIcon icon={PlusSignIcon} size={18} aria-hidden="true" />;
 const EditIcon = () => <HugeiconsIcon icon={Edit01Icon} size={16} aria-hidden="true" />;
 const HistoryIcon = () => <HugeiconsIcon icon={Clock01Icon} size={16} aria-hidden="true" />;
@@ -123,7 +137,10 @@ export const Produtos: React.FC = () => {
 
   // Animação de entrada da tabela
   useGSAP(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false;
     if (prefersReducedMotion) return;
 
     if (!loading && products.length > 0) {
@@ -427,203 +444,176 @@ export const Produtos: React.FC = () => {
     <div className="produtos-page">
       {/* 1. ESTATÍSTICAS DO ESTOQUE */}
       <section className="stat-cards-grid" aria-label="Estatísticas gerais de produtos e estoque">
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Total no catálogo</span>
-          <span className="stat-card__number">{stats.total}</span>
-          <span className="stat-card__helper">Itens cadastrados</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Venda no balcão</span>
-          <span className="stat-card__number text-brand">{stats.retailCount}</span>
-          <span className="stat-card__helper">Pomadas, óleos e varejo</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Insumos de bancada</span>
-          <span className="stat-card__number">{stats.internalCount}</span>
-          <span className="stat-card__helper">Lâminas, golas e toalhas</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Reposição necessária</span>
-          <span className={`stat-card__number ${stats.lowStockCount > 0 ? 'text-error' : 'text-success'}`}>
-            {stats.lowStockCount}
-          </span>
-          <span className="stat-card__helper">Itens abaixo do mínimo</span>
-        </div>
+        <StatCard
+          title="Total no catálogo"
+          value={stats.total}
+          subtext="Itens cadastrados"
+          className="stat-card"
+        />
+        <StatCard
+          title="Venda no balcão"
+          value={<span className="text-brand">{stats.retailCount}</span>}
+          subtext="Pomadas, óleos e varejo"
+          className="stat-card"
+        />
+        <StatCard
+          title="Insumos de bancada"
+          value={stats.internalCount}
+          subtext="Lâminas, golas e toalhas"
+          className="stat-card"
+        />
+        <StatCard
+          title="Reposição necessária"
+          value={
+            <span className={stats.lowStockCount > 0 ? 'text-error' : 'text-success'}>
+              {stats.lowStockCount}
+            </span>
+          }
+          subtext="Itens abaixo do mínimo"
+          className="stat-card"
+        />
       </section>
 
       {/* 2. BARRA DE CONTROLES E BUSCA */}
       <div className="products-controls-bar">
         <div className="search-input-wrapper">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="text"
+          <SearchInput
             placeholder="Buscar por nome, marca ou categoria..."
             aria-label="Buscar produtos por nome, marca ou categoria"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-control"
+            onChange={setSearchTerm}
           />
         </div>
 
-        <div className="filter-group-container" role="group" aria-label="Filtrar por tipo de produto">
-          <button
-            type="button"
-            onClick={() => setFilterType('all')}
-            className={`btn-filter ${filterType === 'all' ? 'btn-filter--active' : ''}`}
-            aria-pressed={filterType === 'all'}
-          >
-            Todos ({products.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('retail')}
-            className={`btn-filter ${filterType === 'retail' ? 'btn-filter--active' : ''}`}
-            aria-pressed={filterType === 'retail'}
-          >
-            Venda no balcão ({stats.retailCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('internal_use')}
-            className={`btn-filter ${filterType === 'internal_use' ? 'btn-filter--active' : ''}`}
-            aria-pressed={filterType === 'internal_use'}
-          >
-            Insumos ({stats.internalCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType('low_stock')}
-            className={`btn-filter ${filterType === 'low_stock' ? 'btn-filter--active btn-filter--alert' : ''}`}
-            aria-pressed={filterType === 'low_stock'}
-          >
-            Estoque baixo ({stats.lowStockCount})
-          </button>
-        </div>
+        <SegmentedControl<'all' | 'retail' | 'internal_use' | 'low_stock'>
+          aria-label="Filtrar por tipo de produto"
+          fullWidth={false}
+          value={filterType}
+          onChange={setFilterType}
+          options={[
+            { id: 'all', label: 'Todos', count: products.length },
+            { id: 'retail', label: 'Venda no balcão', count: stats.retailCount },
+            { id: 'internal_use', label: 'Insumos', count: stats.internalCount },
+            { id: 'low_stock', label: 'Estoque baixo', count: stats.lowStockCount },
+          ]}
+        />
 
-        <button
+        <Button
           type="button"
           onClick={() => handleOpenModal(null)}
-          className="btn btn--primary btn-add-product"
+          className="btn-add-product"
+          icon={<PlusIcon />}
         >
-          <PlusIcon /> Novo produto
-        </button>
+          Novo produto
+        </Button>
       </div>
 
       {/* 3. TABELA DE PRODUTOS */}
-      <div className="table-container shadow-glass">
-        {loading ? (
-          <div className="loading-state">
-            <div className="spinner mb-2" />
-            <p>Carregando catálogo de produtos...</p>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="empty-state">
-            <p>Nenhum produto encontrado para os filtros selecionados.</p>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="products-table">
-              <caption className="sr-only">Lista de produtos cadastrados e seus níveis de estoque</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Produto e marca</th>
-                  <th scope="col">Finalidade de uso</th>
-                  <th scope="col">Categoria</th>
-                  <th scope="col">Preço de venda</th>
-                  <th scope="col">Estoque atual</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((p) => {
-                  const isLowStock = p.stock_quantity <= p.min_stock_alert;
-                  return (
-                    <tr key={p.id} className={`product-row ${isLowStock ? 'row-low-stock' : ''}`}>
-                      <td>
-                        <div className="product-title-cell">
-                          <strong className="product-name">{p.name}</strong>
-                          {p.brand && <span className="product-brand">{p.brand}</span>}
-                        </div>
-                      </td>
-                      <td>
-                        {p.product_type === 'retail' ? (
-                          <span className="badge badge--retail">Venda no balcão</span>
-                        ) : (
-                          <span className="badge badge--internal">Insumo de bancada</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="product-category-text">{p.category || 'Geral'}</span>
-                      </td>
-                      <td>
-                        <div className="price-info-cell">
-                          <strong className="font-mono text-brand">
-                            R$ {p.price.toFixed(2).replace('.', ',')}
-                          </strong>
-                          {p.cost_price > 0 && (
-                            <span className="cost-price-hint">
-                              Custo: R$ {p.cost_price.toFixed(2).replace('.', ',')}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="stock-level-cell">
-                          <span className={`stock-badge ${isLowStock ? 'stock-badge--alert' : 'stock-badge--ok'}`}>
-                            {isLowStock && (
-                              <>
-                                <AlertTriangleIcon />
-                                <span className="sr-only">Alerta: estoque baixo</span>
-                              </>
-                            )}
-                            <strong>{p.stock_quantity}</strong> {p.unit_type}
-                          </span>
-                          {isLowStock && (
-                            <span className="stock-alert-hint">Mínimo: {p.min_stock_alert}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="actions-cell">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAdjustModal(p)}
-                            className="btn btn--outline btn--xs"
-                            title={`Ajustar quantidade em estoque de ${p.name}`}
-                            aria-label={`Ajustar estoque de ${p.name}`}
-                          >
-                            Ajustar estoque
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenHistoryModal(p)}
-                            className="btn btn-icon-only"
-                            title={`Histórico de movimentações de ${p.name}`}
-                            aria-label={`Ver histórico de movimentações de ${p.name}`}
-                          >
-                            <HistoryIcon />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenModal(p)}
-                            className="btn btn-icon-only"
-                            title={`Editar produto ${p.name}`}
-                            aria-label={`Editar produto ${p.name}`}
-                          >
-                            <EditIcon />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="loading-state">
+          <div className="spinner mb-2" />
+          <p>Carregando catálogo de produtos...</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <EmptyState
+          title="Nenhum produto encontrado"
+          description="Nenhum produto encontrado para os filtros selecionados."
+        />
+      ) : (
+        <Table className="shadow-glass">
+          <caption className="sr-only">Lista de produtos cadastrados e seus níveis de estoque</caption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Produto e marca</TableHead>
+              <TableHead scope="col">Finalidade de uso</TableHead>
+              <TableHead scope="col">Categoria</TableHead>
+              <TableHead scope="col">Preço de venda</TableHead>
+              <TableHead scope="col">Estoque atual</TableHead>
+              <TableHead scope="col" style={{ textAlign: 'right' }}>Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredProducts.map((p) => {
+              const isLowStock = p.stock_quantity <= p.min_stock_alert;
+              return (
+                <TableRow key={p.id} className={`product-row ${isLowStock ? 'row-low-stock' : ''}`}>
+                  <TableCell>
+                    <div className="product-title-cell">
+                      <strong className="product-name">{p.name}</strong>
+                      {p.brand && <span className="product-brand">{p.brand}</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {p.product_type === 'retail' ? (
+                      <Badge variant="brand">Venda no balcão</Badge>
+                    ) : (
+                      <Badge variant="success">Insumo de bancada</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="product-category-text">{p.category || 'Geral'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="price-info-cell">
+                      <strong className="font-mono text-brand">
+                        R$ {p.price.toFixed(2).replace('.', ',')}
+                      </strong>
+                      {p.cost_price > 0 && (
+                        <span className="cost-price-hint">
+                          Custo: R$ {p.cost_price.toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="stock-level-cell">
+                      <Badge
+                        variant={isLowStock ? 'error' : 'neutral'}
+                        icon={isLowStock ? <AlertTriangleIcon /> : undefined}
+                      >
+                        <strong>{p.stock_quantity}</strong> {p.unit_type}
+                      </Badge>
+                      {isLowStock && (
+                        <span className="stock-alert-hint">Mínimo: {p.min_stock_alert}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="actions-cell">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => handleOpenAdjustModal(p)}
+                        title={`Ajustar quantidade em estoque de ${p.name}`}
+                        aria-label={`Ajustar estoque de ${p.name}`}
+                      >
+                        Ajustar estoque
+                      </Button>
+                      <IconButton
+                        icon={<HistoryIcon />}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenHistoryModal(p)}
+                        title={`Histórico de movimentações de ${p.name}`}
+                        aria-label={`Ver histórico de movimentações de ${p.name}`}
+                      />
+                      <IconButton
+                        icon={<EditIcon />}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenModal(p)}
+                        title={`Editar produto ${p.name}`}
+                        aria-label={`Editar produto ${p.name}`}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
 
       {/* 4. MODAL POLIDO DE CADASTRO/EDIÇÃO DE PRODUTO */}
       {isModalOpen && (
@@ -649,14 +639,13 @@ export const Produtos: React.FC = () => {
                   {editingProduct ? `Editar: ${editingProduct.name}` : 'Cadastrar novo produto'}
                 </h3>
               </div>
-              <button
-                type="button"
+              <IconButton
+                icon={<CloseIcon />}
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsModalOpen(false)}
-                className="btn-close-modal"
                 aria-label="Fechar janela"
-              >
-                <CloseIcon />
-              </button>
+              />
             </header>
 
             <form onSubmit={handleSaveSubmit} className="modal-body modal-body--polished">
@@ -914,22 +903,21 @@ export const Produtos: React.FC = () => {
               </div>
 
               <footer className="modal-footer">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn btn--outline"
                 >
                   Cancelar
-                </button>
-                <button type="submit" disabled={saving} className="btn btn--primary btn--save-product">
-                  {saving ? (
-                    <div className="spinner spinner--sm" />
-                  ) : editingProduct ? (
-                    'Salvar alterações'
-                  ) : (
-                    'Cadastrar produto'
-                  )}
-                </button>
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={saving}
+                  className="btn--save-product"
+                >
+                  {editingProduct ? 'Salvar alterações' : 'Cadastrar produto'}
+                </Button>
               </footer>
             </form>
           </div>
@@ -959,14 +947,13 @@ export const Produtos: React.FC = () => {
                   Ajustar: {adjustProduct.name}
                 </h3>
               </div>
-              <button
-                type="button"
+              <IconButton
+                icon={<CloseIcon />}
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsAdjustModalOpen(false)}
-                className="btn-close-modal"
                 aria-label="Fechar janela"
-              >
-                <CloseIcon />
-              </button>
+              />
             </header>
 
             <form onSubmit={handleAdjustSubmit} className="modal-body">
@@ -1027,16 +1014,16 @@ export const Produtos: React.FC = () => {
               </div>
 
               <footer className="modal-footer">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsAdjustModalOpen(false)}
-                  className="btn btn--outline"
                 >
                   Cancelar
-                </button>
-                <button type="submit" disabled={saving} className="btn btn--primary">
-                  {saving ? <div className="spinner spinner--sm" /> : 'Confirmar movimentação'}
-                </button>
+                </Button>
+                <Button type="submit" variant="primary" loading={saving}>
+                  Confirmar movimentação
+                </Button>
               </footer>
             </form>
           </div>
@@ -1075,14 +1062,13 @@ export const Produtos: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
+              <IconButton
+                icon={<CloseIcon />}
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="btn-close-modal"
                 aria-label="Fechar janela"
-              >
-                <CloseIcon />
-              </button>
+              />
             </header>
 
             <div className="modal-body modal-body--history">
@@ -1153,17 +1139,14 @@ export const Produtos: React.FC = () => {
                   <p>Carregando histórico de movimentações...</p>
                 </div>
               ) : filteredMovements.length === 0 ? (
-                <div className="empty-state empty-state--history">
-                  <div className="empty-state__icon">
-                    <HugeiconsIcon icon={Clock01Icon} size={28} aria-hidden="true" />
-                  </div>
-                  <strong>Nenhuma movimentação encontrada</strong>
-                  <p>
-                    {historyFilter !== 'all'
+                <EmptyState
+                  title="Nenhuma movimentação encontrada"
+                  description={
+                    historyFilter !== 'all'
                       ? 'Nenhum registro localizado para a categoria selecionada.'
-                      : 'As compras de fornecedor, vendas em comanda e baixas de bancada aparecerão aqui.'}
-                  </p>
-                </div>
+                      : 'As compras de fornecedor, vendas em comanda e baixas de bancada aparecerão aqui.'
+                  }
+                />
               ) : (
                 <div className="timeline-container">
                   <div className="timeline-track" />
@@ -1253,13 +1236,13 @@ export const Produtos: React.FC = () => {
               )}
 
               <footer className="modal-footer">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsHistoryModalOpen(false)}
-                  className="btn btn--outline"
                 >
                   Fechar histórico
-                </button>
+                </Button>
               </footer>
             </div>
           </div>
@@ -1282,36 +1265,6 @@ export const Produtos: React.FC = () => {
           gap: 1.25rem;
         }
 
-        .stat-card {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .stat-card__eyebrow {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 600;
-        }
-
-        .stat-card__number {
-          font-size: var(--font-size-3xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .stat-card__helper {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
         .products-controls-bar {
           display: flex;
           align-items: center;
@@ -1320,104 +1273,12 @@ export const Produtos: React.FC = () => {
         }
 
         .search-input-wrapper {
-          position: relative;
           flex: 1;
           min-width: 260px;
         }
 
-        .search-icon {
-          position: absolute;
-          left: 0.85rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--color-text-secondary);
-          display: flex;
-          align-items: center;
-          pointer-events: none;
-        }
-
-        .search-input-wrapper .form-control {
-          padding-left: 2.5rem;
-          height: 42px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          width: 100%;
-          outline: none;
-          font-size: var(--font-size-sm);
-        }
-
-        .filter-group-container {
-          display: flex;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 3px;
-          gap: 2px;
-        }
-
-        .btn-filter {
-          padding: 0.5rem 0.85rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          border: none;
-          background: transparent;
-          color: var(--color-text-secondary);
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-filter--active {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .btn-filter--alert.btn-filter--active {
-          color: var(--color-error);
-        }
-
-        .btn-add-product {
-          height: 42px;
-        }
-
-        .table-container {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-        }
-
-        .table-responsive {
-          width: 100%;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .products-table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 680px;
-        }
-
-        .products-table th {
-          background: var(--color-bg-secondary);
-          padding: 0.85rem 1rem;
-          font-size: var(--font-size-xs);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          border-bottom: 1px solid var(--color-border);
-          text-align: left;
-        }
-
-        .products-table td {
-          padding: 0.85rem 1rem;
-          border-bottom: 1px solid var(--color-border);
-          font-size: var(--font-size-sm);
+        .product-row.row-low-stock {
+          background-color: rgba(239, 68, 68, 0.04);
         }
 
         .product-title-cell {
@@ -1442,27 +1303,6 @@ export const Produtos: React.FC = () => {
           color: var(--color-text-primary);
         }
 
-        .badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 4px 10px;
-          border-radius: var(--radius-full);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          line-height: 1;
-        }
-
-        .badge--retail {
-          background: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
-          border: 1px solid var(--color-brand-soft);
-        }
-
-        .badge--internal {
-          background: var(--color-success-bg);
-          color: var(--color-success);
-        }
-
         .price-info-cell {
           display: flex;
           flex-direction: column;
@@ -1480,29 +1320,6 @@ export const Produtos: React.FC = () => {
           gap: 0.2rem;
         }
 
-        .stock-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: var(--font-size-xs);
-          padding: 3px 8px;
-          border-radius: var(--radius-sm);
-          width: fit-content;
-        }
-
-        .stock-badge--ok {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          border: 1px solid var(--color-border);
-        }
-
-        .stock-badge--alert {
-          background: var(--color-error-bg);
-          color: var(--color-error);
-          font-weight: 700;
-          border: 1px solid rgba(240, 82, 82, 0.2);
-        }
-
         .stock-alert-hint {
           font-size: var(--font-size-xs);
           color: var(--color-error);
@@ -1514,43 +1331,6 @@ export const Produtos: React.FC = () => {
           align-items: center;
           justify-content: flex-end;
           gap: 0.5rem;
-        }
-
-        .btn-icon-only {
-          background: transparent;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          color: var(--color-text-secondary);
-          width: 36px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-icon-only:hover {
-          background: var(--color-bg-primary);
-          color: var(--color-brand-primary);
-          border-color: var(--color-brand-soft);
-        }
-
-        .btn--xs {
-          padding: 0.4rem 0.75rem;
-          font-size: var(--font-size-xs);
-          height: 36px;
-        }
-
-        .btn--outline {
-          background: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-primary);
-        }
-
-        .btn--outline:hover {
-          background: var(--color-bg-primary);
-          border-color: var(--color-brand-soft);
         }
 
         /* MODAIS GERAIS */
@@ -1641,25 +1421,6 @@ export const Produtos: React.FC = () => {
         .badge-tag--category {
           color: var(--color-brand-primary);
           border-color: var(--color-brand-soft);
-        }
-
-        .btn-close-modal {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-md);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-close-modal:hover {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
         }
 
         .modal-body {
@@ -1920,28 +1681,6 @@ export const Produtos: React.FC = () => {
           background: var(--color-bg-primary);
           padding: 0.35rem 0.65rem;
           border-radius: var(--radius-sm);
-        }
-
-        /* EMPTY STATE HISTÓRICO */
-        .empty-state--history {
-          padding: 3rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .empty-state__icon {
-          width: 56px;
-          height: 56px;
-          border-radius: var(--radius-full);
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-brand-primary);
-          margin-bottom: 0.25rem;
         }
 
         /* SELETOR DE CLASSIFICAÇÃO COM CARDS TÁTEIS */
@@ -2241,13 +1980,6 @@ export const Produtos: React.FC = () => {
         }
 
         .loading-state,
-        .empty-state {
-          padding: 3rem 1.5rem;
-          text-align: center;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-        }
-
         /* Responsividade Mobile e Tablet */
         @media (max-width: 768px) {
           .products-controls-bar {
@@ -2257,18 +1989,6 @@ export const Produtos: React.FC = () => {
 
           .search-input-wrapper {
             min-width: 100%;
-          }
-
-          .filter-group-container {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-
-          .btn-filter {
-            flex: 1;
-            white-space: nowrap;
-            text-align: center;
           }
 
           .btn-add-product {
@@ -2303,14 +2023,6 @@ export const Produtos: React.FC = () => {
             gap: 0.75rem;
           }
 
-          .stat-card {
-            padding: 1rem;
-          }
-
-          .stat-card__number {
-            font-size: var(--font-size-2xl);
-          }
-
           .modal-body {
             padding: 1rem;
           }
@@ -2325,7 +2037,7 @@ export const Produtos: React.FC = () => {
             flex-direction: column-reverse;
           }
 
-          .modal-footer .btn {
+          .modal-footer .ui-btn {
             width: 100%;
           }
 

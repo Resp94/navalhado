@@ -19,6 +19,13 @@ import {
   PlusSignIcon,
   Edit01Icon,
 } from '@hugeicons/core-free-icons';
+import {
+  Button,
+  IconButton,
+  Avatar,
+  Badge,
+  EmptyState,
+} from '../../components/ui';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import {
   clampProfessionalScheduleToBusinessHours,
@@ -531,21 +538,21 @@ export const Profissionais: React.FC = () => {
             </p>
           </div>
           <div className="prof-header-actions">
-            <button
+            <Button
               type="button"
+              variant="primary"
               onClick={handleOpenCreateDrawer}
-              className="btn btn--primary"
+              icon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
             >
-              <HugeiconsIcon icon={PlusSignIcon} size={18} />
               Novo Barbeiro
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={() => navigate('/profissionais/cadastro-acesso')}
-              className="btn btn--outline"
             >
               Criar acesso do barbeiro
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -575,24 +582,21 @@ export const Profissionais: React.FC = () => {
             <p>Carregando equipe...</p>
           </div>
         ) : professionals.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <HugeiconsIcon icon={UserGroupIcon} size={32} />
-            </div>
-            <p>Nenhum barbeiro cadastrado na barbearia.</p>
-            <span className="empty-desc">
-              Cadastre o primeiro profissional para liberar a agenda e permitir novos agendamentos.
-            </span>
-            <button
-              type="button"
-              onClick={handleOpenCreateDrawer}
-              className="btn btn--primary"
-              style={{ marginTop: '1rem' }}
-            >
-              <HugeiconsIcon icon={PlusSignIcon} size={16} />
-              Cadastrar Primeiro Barbeiro
-            </button>
-          </div>
+          <EmptyState
+            icon={<HugeiconsIcon icon={UserGroupIcon} size={32} />}
+            title="Nenhum barbeiro cadastrado na barbearia."
+            description="Cadastre o primeiro profissional para liberar a agenda e permitir novos agendamentos."
+            action={
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOpenCreateDrawer}
+                icon={<HugeiconsIcon icon={PlusSignIcon} size={16} />}
+              >
+                Cadastrar Primeiro Barbeiro
+              </Button>
+            }
+          />
         ) : (
           <div className="prof-list-container">
             {professionals.map((prof) => (
@@ -602,14 +606,12 @@ export const Profissionais: React.FC = () => {
               >
                 <div className="prof-card-header">
                   <div className="prof-card-title-group">
-                    <div className="prof-avatar" aria-hidden="true">
-                      {prof.name.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar name={prof.name} size="md" />
                     <div className="prof-meta-wrap">
                       <div className="prof-name-row">
                         <h4>{prof.name}</h4>
                         {!prof.is_active && (
-                          <span className="prof-inactive-tag">Inativo</span>
+                          <Badge variant="neutral">Inativo</Badge>
                         )}
                       </div>
                       <span className="prof-phone">{prof.phone}</span>
@@ -736,14 +738,13 @@ export const Profissionais: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
+              <IconButton
+                icon={<HugeiconsIcon icon={Cancel01Icon} size={20} />}
+                variant="ghost"
+                size="sm"
                 onClick={handleCloseDrawer}
-                className="prof-drawer-close-btn"
                 aria-label="Fechar painel"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} size={20} />
-              </button>
+              />
             </div>
 
             <form onSubmit={handleSubmit} className="prof-drawer-form">
@@ -906,26 +907,20 @@ export const Profissionais: React.FC = () => {
               </div>
 
               <div className="prof-drawer-footer">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={handleCloseDrawer}
-                  className="btn btn--outline-secondary"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={saving}
-                  className="btn btn--primary"
+                  variant="primary"
+                  loading={saving}
                 >
-                  {saving ? (
-                    <div className="spinner spinner--sm" />
-                  ) : editingId ? (
-                    'Salvar Alterações'
-                  ) : (
-                    'Cadastrar Profissional'
-                  )}
-                </button>
+                  {editingId ? 'Salvar Alterações' : 'Cadastrar Profissional'}
+                </Button>
               </div>
             </form>
           </div>
@@ -967,15 +962,14 @@ export const Profissionais: React.FC = () => {
                   Serviços atendidos por {selectedProfForServices.name}
                 </h3>
               </div>
-              <button 
-                type="button"
-                onClick={() => setIsServicesModalOpen(false)} 
-                className="btn-close-modal"
+              <IconButton
+                icon={<CloseIcon />}
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsServicesModalOpen(false)}
                 aria-label="Fechar modal de serviços"
                 title="Fechar"
-              >
-                <CloseIcon />
-              </button>
+              />
             </header>
 
             <div className="modal-body">
@@ -984,20 +978,22 @@ export const Profissionais: React.FC = () => {
               </p>
 
               <div className="modal-services-toolbar">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="xs"
                   onClick={handleEnableAllServices}
-                  className="btn btn--outline btn--xs"
                 >
                   Habilitar todos (40 min padrão)
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
+                  size="xs"
                   onClick={handleDisableAllServices}
-                  className="btn btn--outline-secondary btn--xs"
                 >
                   Desabilitar todos
-                </button>
+                </Button>
               </div>
 
               {loadingProfServices ? (
@@ -1099,25 +1095,21 @@ export const Profissionais: React.FC = () => {
               )}
 
               <footer className="modal-footer">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsServicesModalOpen(false)}
-                  className="btn btn--outline"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="primary"
                   onClick={handleSaveServices}
-                  disabled={savingProfServices}
-                  className="btn btn--primary"
+                  loading={savingProfServices}
                 >
-                  {savingProfServices ? (
-                    <div className="spinner spinner--sm" />
-                  ) : (
-                    'Salvar configurações'
-                  )}
-                </button>
+                  Salvar configurações
+                </Button>
               </footer>
             </div>
           </div>
@@ -1247,24 +1239,6 @@ export const Profissionais: React.FC = () => {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
           display: block;
-        }
-
-        .prof-drawer-close-btn {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          padding: 6px;
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.15s ease;
-        }
-
-        .prof-drawer-close-btn:hover {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
         }
 
         .prof-drawer-form {
@@ -1582,19 +1556,6 @@ export const Profissionais: React.FC = () => {
           margin-top: 0.5rem;
         }
 
-        .btn--outline-secondary {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
-          border-radius: var(--radius-md);
-        }
-
-        .btn--outline-secondary:hover {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          border-color: var(--color-brand-soft);
-        }
-
         .prof-list-container {
           display: flex;
           flex-direction: column;
@@ -1639,20 +1600,6 @@ export const Profissionais: React.FC = () => {
           flex: 1 1 180px;
         }
 
-        .prof-avatar {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-deep) 100%);
-          color: #ffffff;
-          font-weight: 800;
-          font-size: 1.15rem;
-          display: grid;
-          place-items: center;
-          flex-shrink: 0;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(217, 108, 0, 0.2);
-        }
-
         .prof-meta-wrap {
           display: flex;
           flex-direction: column;
@@ -1674,17 +1621,6 @@ export const Profissionais: React.FC = () => {
           margin: 0;
           letter-spacing: -0.01em;
           word-break: break-word;
-        }
-
-        .prof-inactive-tag {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          padding: 1px 6px;
-          border-radius: var(--radius-sm);
-          background: var(--color-warning-bg);
-          color: var(--color-warning);
-          border: 1px solid rgba(217, 119, 6, 0.2);
         }
 
         .prof-phone {
@@ -2005,24 +1941,6 @@ export const Profissionais: React.FC = () => {
           letter-spacing: -0.01em;
         }
 
-        .btn-close-modal {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          padding: 0.35rem;
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: color 0.2s ease, background-color 0.2s ease;
-        }
-
-        .btn-close-modal:hover {
-          color: var(--color-text-primary);
-          background: var(--color-bg-primary);
-        }
-
         .modal-body {
           padding: 1.25rem 1.5rem;
         }
@@ -2039,25 +1957,6 @@ export const Profissionais: React.FC = () => {
           gap: 0.5rem;
           margin-bottom: 1rem;
           flex-wrap: wrap;
-        }
-
-        .btn--outline {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          border-radius: var(--radius-md);
-        }
-
-        .btn--outline:hover {
-          border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
-          background: var(--color-bg-primary);
-        }
-
-        .btn--xs {
-          padding: 0.35rem 0.75rem;
-          font-size: 11px;
-          font-weight: 700;
         }
 
         .services-association-table-wrap {
@@ -2163,36 +2062,6 @@ export const Profissionais: React.FC = () => {
           padding-top: 1.25rem;
           margin-top: 1rem;
           border-top: 1px solid var(--color-border);
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 2.5rem 1.5rem;
-          text-align: center;
-          color: var(--color-text-secondary);
-          gap: 0.5rem;
-        }
-
-        .empty-state-icon {
-          color: var(--color-brand-soft);
-          margin-bottom: 0.25rem;
-        }
-
-        .empty-state p {
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .empty-desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          max-width: 34ch;
-        }
-
         .loading-state {
           display: flex;
           flex-direction: column;

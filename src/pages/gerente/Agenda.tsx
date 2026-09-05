@@ -33,7 +33,6 @@ import {
   AddCircleIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
-  FilterIcon,
   CheckmarkCircle02Icon,
   AlertCircleIcon,
   UnavailableIcon,
@@ -502,78 +501,6 @@ export const Agenda: React.FC = () => {
     DEFAULT_SLOT_DURATION_MINUTES
   );
   const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
-  const pxPerMinute = slotHeightPx / slotIntervalMinutes;
-
-  // Horários de Início e Término da Grade Dinâmicos Conforme Funcionamento da Barbearia
-  const { gridStartTotalMin, gridEndTotalMin } = useMemo(() => {
-    if (viewMode === 'week') {
-      let minOpen = 24 * 60;
-      let maxClose = 0;
-      let anyActive = false;
-
-      weekDays.forEach((d) => {
-        const bh = getDayBusinessHours(d.dateStr, tenant.businessHours);
-        if (bh.active) {
-          anyActive = true;
-          const [oh, om] = bh.open.split(':').map(Number);
-          const [ch, cm] = bh.close.split(':').map(Number);
-          minOpen = Math.min(minOpen, oh * 60 + om);
-          maxClose = Math.max(maxClose, ch * 60 + cm);
-        }
-      });
-
-      if (!anyActive) {
-        minOpen = 9 * 60;
-        maxClose = 18 * 60;
-      }
-
-      // Expandir se houver agendamentos ou bloqueios pontuais fora da grade regular
-      appointments.forEach((a) => {
-        const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
-        const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
-        minOpen = Math.min(minOpen, ah * 60 + am);
-        maxClose = Math.max(maxClose, eh * 60 + em);
-      });
-      blockedSlots.forEach((b) => {
-        const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
-        const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
-        minOpen = Math.min(minOpen, bh * 60 + bm);
-        maxClose = Math.max(maxClose, eh * 60 + em);
-      });
-
-      return { gridStartTotalMin: minOpen, gridEndTotalMin: maxClose };
-    }
-
-    // Visão Diária
-    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
-    if (!dayBh.active) {
-      if (appointments.length === 0 && blockedSlots.length === 0) {
-        return { gridStartTotalMin: 9 * 60, gridEndTotalMin: 18 * 60 };
-      }
-    }
-
-    const [oh, om] = dayBh.open.split(':').map(Number);
-    const [ch, cm] = dayBh.close.split(':').map(Number);
-    let startMin = oh * 60 + om;
-    let endMin = ch * 60 + cm;
-
-    appointments.forEach((a) => {
-      const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
-      const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
-      startMin = Math.min(startMin, ah * 60 + am);
-      endMin = Math.max(endMin, eh * 60 + em);
-    });
-    blockedSlots.forEach((b) => {
-      const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
-      const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
-      startMin = Math.min(startMin, bh * 60 + bm);
-      endMin = Math.max(endMin, eh * 60 + em);
-    });
-
-    return { gridStartTotalMin: startMin, gridEndTotalMin: endMin };
-  }, [viewMode, selectedDate, weekDays, tenant.businessHours, appointments, blockedSlots, tenant.timezone]);
-
-  const totalGridMinutes = Math.max(slotIntervalMinutes, gridEndTotalMin - gridStartTotalMin);
 
   // Gerar Slots de Horário da Régua Dinamicamente
   const timeSlots = useMemo(() => {

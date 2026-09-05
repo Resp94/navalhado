@@ -780,7 +780,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       ...mockAppointments[0],
       id: 'app-fitting',
       customer_id: 'cust-2',
-      customer: { name: 'Cliente Encaixe', phone: '11999999992' },
+      customer: { id: 'cust-2', name: 'Cliente Encaixe', phone: '11999999992' },
       start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
       end_time: '2026-08-16T12:30:00.000Z',
       is_fitting: true,
@@ -789,7 +789,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       ...mockAppointments[0],
       id: 'app-solo',
       customer_id: 'cust-3',
-      customer: { name: 'Cliente Solo', phone: '11999999993' },
+      customer: { id: 'cust-3', name: 'Cliente Solo', phone: '11999999993' },
       start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
       end_time: '2026-08-16T13:30:00.000Z',
       is_fitting: false,
@@ -925,7 +925,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       ...mockAppointments[0],
       id: 'week-app-fitting',
       customer_id: 'cust-week-2',
-      customer: { name: 'Cliente Semana Encaixe', phone: '11999999992' },
+      customer: { id: 'cust-week-2', name: 'Cliente Semana Encaixe', phone: '11999999992' },
       start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
       end_time: '2026-08-16T13:30:00.000Z',
       is_fitting: true,
@@ -934,7 +934,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       ...mockAppointments[0],
       id: 'week-app-solo',
       customer_id: 'cust-week-3',
-      customer: { name: 'Cliente Semana Solo', phone: '11999999993' },
+      customer: { id: 'cust-week-3', name: 'Cliente Semana Solo', phone: '11999999993' },
       start_time: '2026-08-16T14:00:00.000Z', // 11:00 em SP
       end_time: '2026-08-16T14:30:00.000Z',
       is_fitting: false,

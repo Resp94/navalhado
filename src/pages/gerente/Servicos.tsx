@@ -13,7 +13,6 @@ import {
   Edit01Icon,
   WhatsappIcon,
   PlusSignIcon,
-  Cancel01Icon,
   ArrowUp01Icon,
   ArrowDown01Icon,
   ScissorIcon,
@@ -21,6 +20,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { formatCurrencyInput, parseCurrencyInput } from '../../lib/currency';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
+import { Button, Input, Select, Textarea, Drawer, EmptyState } from '../../components/ui';
 
 export interface Service {
   id: string;
@@ -151,28 +151,30 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             </label>
           </div>
 
-          <div className="service-card-action-btns">
-            <button
-              type="button"
-              aria-label={`Editar ${service.name}`}
-              onClick={() => onEdit(service)}
-              className="btn-action-edit"
-            >
-              <HugeiconsIcon icon={Edit01Icon} size={13} />
-              Editar
-            </button>
+            <div className="service-card-action-btns">
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                aria-label={`Editar ${service.name}`}
+                onClick={() => onEdit(service)}
+                leftIcon={<HugeiconsIcon icon={Edit01Icon} size={13} />}
+              >
+                Editar
+              </Button>
 
-            <button
-              type="button"
-              aria-label={`Excluir ${service.name}`}
-              onClick={() => onDelete(service)}
-              className="btn-action-delete"
-              title="Excluir serviço (mantém histórico)"
-            >
-              <HugeiconsIcon icon={Delete02Icon} size={13} />
-              Excluir
-            </button>
-          </div>
+              <Button
+                type="button"
+                size="xs"
+                variant="danger-outline"
+                aria-label={`Excluir ${service.name}`}
+                onClick={() => onDelete(service)}
+                leftIcon={<HugeiconsIcon icon={Delete02Icon} size={13} />}
+                title="Excluir serviço (mantém histórico)"
+              >
+                Excluir
+              </Button>
+            </div>
         </div>
       </div>
     );
@@ -453,10 +455,14 @@ export const Servicos: React.FC = () => {
           <h2>Cardápio de serviços</h2>
           <p>Defina os cortes, barbas e combos, organize a ordem de exibição no link do cliente e configure mensagens automáticas de retorno.</p>
         </div>
-        <button type="button" onClick={handleOpenCreateDrawer} className="btn btn--primary btn-create-service-cta">
-          <HugeiconsIcon icon={PlusSignIcon} size={18} />
-          <span>Cadastrar serviço</span>
-        </button>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={handleOpenCreateDrawer}
+          leftIcon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
+        >
+          Cadastrar serviço
+        </Button>
       </div>
 
       <div className="services-control-bar">
@@ -486,11 +492,16 @@ export const Servicos: React.FC = () => {
         {loading ? (
           <div className="loading-state"><div className="spinner spinner--brand" /></div>
         ) : displayedServices.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon-circle"><HugeiconsIcon icon={ScissorIcon} size={32} /></div>
-            <p>Nenhum serviço encontrado</p>
-            <button type="button" onClick={handleOpenCreateDrawer} className="btn btn--primary" style={{ marginTop: '1rem' }}>Cadastrar serviço</button>
-          </div>
+          <EmptyState
+            icon={<HugeiconsIcon icon={ScissorIcon} size={32} />}
+            title="Nenhum serviço encontrado"
+            description="Nenhum serviço cadastrado nesta categoria."
+            action={
+              <Button variant="primary" onClick={handleOpenCreateDrawer}>
+                Cadastrar serviço
+              </Button>
+            }
+          />
         ) : (
           <div className="services-items-grid">
             {displayedServices.map((service) => {
@@ -530,95 +541,150 @@ export const Servicos: React.FC = () => {
         onClose={() => setServiceToDelete(null)}
       />
 
-      {isDrawerOpen && (
-        <div className="service-drawer-overlay" onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}>
-          <div className="service-drawer-panel">
-            <div className="service-drawer-header">
-              <div className="drawer-header-info">
-                <div className="drawer-icon-badge"><HugeiconsIcon icon={ScissorIcon} size={20} /></div>
-                <div>
-                  <h3 className="drawer-title">{editingId ? 'Editar serviço' : 'Cadastrar novo serviço'}</h3>
+      <Drawer
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        title={editingId ? 'Editar serviço' : 'Cadastrar novo serviço'}
+        width={520}
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem 0' }}>
+          <Input
+            label="Nome do serviço *"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <Select
+              label="Categoria"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              label="Tipo de preço"
+              value={priceType}
+              onChange={(e) => setPriceType(e.target.value as any)}
+            >
+              <option value="fixed">Fixo</option>
+              <option value="starting_at">A partir de</option>
+            </Select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <Input
+              label="Valor *"
+              prefixText="R$"
+              value={price}
+              onChange={handlePriceChange}
+              required
+            />
+            <Input
+              label="Comissão (%)"
+              type="number"
+              value={commission}
+              onChange={(e) => setCommission(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Tempo estimado: <span className="duration-highlight">{duration} min</span>
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="180"
+              step="5"
+              value={duration}
+              onChange={(e) => setDuration(parseInt(e.target.value))}
+              className="duration-slider"
+            />
+          </div>
+
+          <div className="commercial-section">
+            <Input
+              label="Dias para retorno"
+              type="number"
+              value={returnPeriodDays}
+              onChange={(e) => setReturnPeriodDays(e.target.value)}
+            />
+
+            <div className="form-group" style={{ marginTop: '0.5rem' }}>
+              <div className="template-label-row">
+                <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Mensagem de lembrete
+                </label>
+                <div className="tag-chips-wrapper">
+                  {['{cliente}', '{servico}', '{dias}', '{link}'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => insertTagIntoTemplate(tag)}
+                      className="btn-tag-chip"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <button type="button" onClick={handleCloseDrawer} className="drawer-close-btn"><HugeiconsIcon icon={Cancel01Icon} size={20} /></button>
+              <Textarea
+                rows={3}
+                value={reminderTemplate}
+                onChange={(e) => setReminderTemplate(e.target.value)}
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="service-drawer-form">
-              <div className="service-drawer-body">
-                <div className="form-group">
-                  <label>Nome do serviço *</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Categoria</label>
-                    <select value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
-                  </div>
-                  <div className="form-group">
-                    <label>Tipo de preço</label>
-                    <select value={priceType} onChange={(e) => setPriceType(e.target.value as any)}><option value="fixed">Fixo</option><option value="starting_at">A partir de</option></select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Valor *</label>
-                    <div className="input-group input-group--prefix"><span className="input-group__prefix">R$</span><input type="text" value={price} onChange={handlePriceChange} required /></div>
-                  </div>
-                  <div className="form-group">
-                    <label>Comissão (%)</label>
-                    <input type="number" value={commission} onChange={(e) => setCommission(e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Tempo estimado: <span className="duration-highlight">{duration} min</span></label>
-                  <input type="range" min="10" max="180" step="5" value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} className="duration-slider" />
-                </div>
-                <div className="commercial-section">
-                  <div className="form-group">
-                    <label>Dias para retorno</label>
-                    <input type="number" value={returnPeriodDays} onChange={(e) => setReturnPeriodDays(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <div className="template-label-row">
-                      <label>Mensagem de lembrete</label>
-                      <div className="tag-chips-wrapper">
-                        {['{cliente}', '{servico}', '{dias}', '{link}'].map((tag) => (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => insertTagIntoTemplate(tag)}
-                            className="btn-tag-chip"
-                          >
-                            + {tag}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <textarea rows={3} value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
-                  </div>
-                  <div className="whatsapp-preview-card">
-                    <div className="whatsapp-preview-header">
-                      <HugeiconsIcon icon={WhatsappIcon} size={14} />
-                      <span>Prévia no WhatsApp</span>
-                    </div>
-                    <p className="whatsapp-preview-text">{previewMessage}</p>
-                  </div>
-                </div>
-                {editingId && (
-                  <div className="form-group form-switch-group">
-                    <label>Serviço ativo</label>
-                    <label className="switch"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /><span className="slider" /></label>
-                  </div>
-                )}
+            <div className="whatsapp-preview-card">
+              <div className="whatsapp-preview-header">
+                <HugeiconsIcon icon={WhatsappIcon} size={14} />
+                <span>Prévia no WhatsApp</span>
               </div>
-              <div className="service-drawer-footer">
-                <button type="button" onClick={handleCloseDrawer} className="btn btn--outline-secondary" style={{ flex: 1 }}>Cancelar</button>
-                <button type="submit" disabled={saving} className="btn btn--primary" style={{ flex: 1.5 }}>{saving ? '...' : 'Salvar'}</button>
-              </div>
-            </form>
+              <p className="whatsapp-preview-text">{previewMessage}</p>
+            </div>
           </div>
-        </div>
-      )}
+
+          {editingId && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', backgroundColor: 'var(--color-bg-primary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+              <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Serviço ativo</span>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                />
+                <span className="slider" />
+              </label>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCloseDrawer}
+              fullWidth
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={saving}
+              fullWidth
+            >
+              Salvar
+            </Button>
+          </div>
+        </form>
+      </Drawer>
 
        <style>{`
         .services-page {
@@ -1121,139 +1187,7 @@ export const Servicos: React.FC = () => {
           cursor: not-allowed;
         }
 
-        /* DRAWER OVERLAY & PANEL */
-        .service-drawer-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          z-index: 1000;
-          display: flex;
-          justify-content: flex-end;
-          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .service-drawer-panel {
-          width: 100%;
-          max-width: 520px;
-          height: 100vh;
-          background: var(--color-bg-secondary);
-          border-left: 1px solid var(--color-border);
-          box-shadow: var(--shadow-xl);
-          display: flex;
-          flex-direction: column;
-          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .service-drawer-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .drawer-header-info {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .drawer-icon-badge {
-          width: 40px;
-          height: 40px;
-          border-radius: var(--radius-lg);
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .drawer-title {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .drawer-close-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-primary);
-          color: var(--color-text-secondary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .drawer-close-btn:hover {
-          color: var(--color-text-primary);
-          border-color: var(--color-text-primary);
-        }
-
-        .service-drawer-form {
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-          min-height: 0;
-        }
-
-        .service-drawer-body {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.15rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-          padding: 0.7rem 0.85rem;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
-        }
-
+        /* DURATION SLIDER & TEMPLATE PREVIEW */
         .duration-highlight {
           color: var(--color-brand-primary);
           font-weight: 800;
@@ -1263,16 +1197,17 @@ export const Servicos: React.FC = () => {
           accent-color: var(--color-brand-primary);
           cursor: pointer;
           height: 32px;
+          width: 100%;
         }
 
         .commercial-section {
           background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 1.15rem;
+          padding: 1rem;
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
+          gap: 0.75rem;
         }
 
         .template-label-row {
@@ -1281,6 +1216,7 @@ export const Servicos: React.FC = () => {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 0.5rem;
+          margin-bottom: 0.35rem;
         }
 
         .tag-chips-wrapper {
@@ -1333,102 +1269,6 @@ export const Servicos: React.FC = () => {
           margin: 0;
           line-height: 1.4;
           word-break: break-word;
-        }
-
-        .input-group {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .input-group input {
-          width: 100%;
-          padding-right: 2.5rem;
-        }
-
-        .input-group--prefix input {
-          padding-left: 2.25rem;
-          padding-right: 0.85rem;
-        }
-
-        .input-group__prefix {
-          position: absolute;
-          left: 0.75rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 700;
-          pointer-events: none;
-        }
-
-        .form-switch-group {
-          display: flex;
-          flex-direction: row;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.75rem 1rem;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-        }
-
-        .service-drawer-footer {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 1rem 1.5rem;
-          border-top: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-        }
-
-        .btn--outline-secondary {
-          background: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          border-radius: var(--radius-full);
-          padding: 0.75rem 1.25rem;
-          font-weight: 600;
-          font-size: var(--font-size-sm);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          min-height: 44px;
-        }
-
-        .btn--outline-secondary:hover {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          border-color: var(--color-text-secondary);
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem 1.5rem;
-          text-align: center;
-        }
-
-        .empty-icon-circle {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          background: rgba(217, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1rem;
-        }
-
-        .empty-state p {
-          font-size: var(--font-size-base);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0 0 0.25rem 0;
         }
 
         .switch {
@@ -1500,19 +1340,6 @@ export const Servicos: React.FC = () => {
         @media (max-width: 768px) {
           .services-list-wrapper.card {
             padding: 0.75rem;
-          }
-
-          .service-drawer-overlay {
-            align-items: flex-end;
-          }
-
-          .service-drawer-panel {
-            max-width: 100%;
-            height: 90vh;
-            border-radius: 20px 20px 0 0;
-            border-left: none;
-            border-top: 1px solid var(--color-border);
-            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           }
 
           .services-items-grid {
@@ -1629,12 +1456,6 @@ export const Servicos: React.FC = () => {
 
           .status-switch-label {
             font-size: 11px;
-          }
-
-          .form-group input,
-          .form-group select,
-          .form-group textarea {
-            font-size: 16px;
           }
         }
 
