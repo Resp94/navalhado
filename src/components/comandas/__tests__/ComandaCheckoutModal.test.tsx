@@ -778,4 +778,82 @@ describe('ComandaCheckoutModal', () => {
       expect(mockOnRescheduled).toHaveBeenCalled();
     });
   });
+
+  it('exibe o painel inline de confirmação de Não Comparecimento e executa a confirmação', async () => {
+    const mockOnClose = vi.fn();
+    const mockOnFinalizado = vi.fn();
+    const mockOnRescheduled = vi.fn();
+    const mockOnMarkNoShow = vi.fn().mockResolvedValue(undefined);
+
+    mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
+      id: 'cmd-999',
+      tenant_id: 't-1',
+      comanda_number: 105,
+      status: 'aberta',
+      subtotal: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      final_amount: 35.0,
+      created_at: '2026-08-28T14:00:00.000Z',
+      itens: [
+        {
+          id: 'item-1',
+          comanda_id: 'cmd-999',
+          item_type: 'service',
+          service_id: 'srv-1',
+          name: 'Corte Tradicional',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+          professional_id: 'prof-1',
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="app-999"
+        appointmentStartTime="2026-08-28T14:00:00.000Z"
+        appointmentServiceName="Corte Tradicional"
+        customerName="Carlos Silva"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        onRescheduled={mockOnRescheduled}
+        onMarkNoShow={mockOnMarkNoShow}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
+    });
+
+    // 1. Clicar no botão "Não compareceu"
+    fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
+
+    // 2. Painel inline de confirmação de Não Comparecimento abre
+    const confirmPanel = screen.getByRole('region', { name: /Painel de Confirmação de Não Comparecimento/i });
+    expect(confirmPanel).toBeInTheDocument();
+    expect(screen.getByText(/Deseja marcar o atendimento de/i)).toBeInTheDocument();
+
+    // 3. Clicar em "Voltar" deve fechar o painel inline
+    const backBtn = screen.getByRole('button', { name: /Voltar/i });
+    fireEvent.click(backBtn);
+    expect(screen.queryByRole('region', { name: /Painel de Confirmação de Não Comparecimento/i })).toBeNull();
+
+    // 4. Abrir novamente e confirmar
+    fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
+    const confirmBtn = screen.getByRole('button', { name: /Sim, não compareceu/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(mockOnMarkNoShow).toHaveBeenCalledTimes(1);
+    });
+  });
 });

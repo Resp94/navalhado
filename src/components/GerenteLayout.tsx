@@ -199,11 +199,13 @@ export const GerenteLayout: React.FC = () => {
     { id: 'mais', label: 'Mais', icon: Menu01Icon, onClick: () => setIsMaisOpen(true) },
   ];
 
+  const isAgenda = location.pathname.startsWith('/agenda');
+
   return (
     <>
       <div className="noise-overlay" />
 
-      <div className="gerente-layout">
+      <div className={`gerente-layout ${isAgenda ? 'gerente-layout--agenda' : ''}`}>
         {/* HEADER MOBILE (<= 768px) */}
         <MobileHeader
           tenantName={tenantInfo.tenantName}
@@ -226,7 +228,7 @@ export const GerenteLayout: React.FC = () => {
         />
 
         {/* CONTAINER DO CONTEÚDO DA PÁGINA */}
-        <main className="gerente-container">
+        <main className={`gerente-container ${isAgenda ? 'gerente-container--agenda' : ''}`}>
           <Outlet context={tenantInfo} />
         </main>
 
@@ -255,6 +257,13 @@ export const GerenteLayout: React.FC = () => {
           flex-direction: row;
         }
 
+        .gerente-layout--agenda {
+          height: 100vh;
+          height: 100dvh;
+          max-height: 100dvh;
+          overflow: hidden;
+        }
+
         .gerente-container {
           flex: 1;
           max-width: 1440px;
@@ -266,6 +275,20 @@ export const GerenteLayout: React.FC = () => {
           gap: 1.5rem;
           min-width: 0;
           box-sizing: border-box;
+        }
+
+        .gerente-container--agenda {
+          height: 100vh;
+          height: 100dvh;
+          max-height: 100dvh;
+          max-width: 100%;
+          margin: 0;
+          padding: 1rem 1.5rem 1rem 1rem;
+          overflow: hidden;
+          gap: 0;
+          position: static;
+          top: 0;
+          left: 0;
         }
 
         .btn--outline-danger {
@@ -284,11 +307,38 @@ export const GerenteLayout: React.FC = () => {
           font-size: var(--font-size-xs);
         }
 
+        @media (max-width: 1024px) {
+          .gerente-container:not(.gerente-container--agenda) {
+            position: relative;
+            top: -8px;
+            left: 0;
+          }
+          .gerente-container--agenda {
+            position: static;
+            top: 0;
+            left: 0;
+          }
+        }
+
         @media (max-width: 768px) {
           .gerente-layout {
             flex-direction: column;
           }
+          .gerente-layout--agenda {
+            height: auto;
+            max-height: none;
+            overflow: visible;
+          }
           .gerente-container {
+            position: static;
+            top: 0;
+            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
+            gap: 1rem;
+          }
+          .gerente-container--agenda {
+            height: auto;
+            max-height: none;
+            overflow: visible;
             padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
             gap: 1rem;
           }

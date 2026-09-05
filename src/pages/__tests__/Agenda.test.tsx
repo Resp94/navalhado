@@ -912,7 +912,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     }
   });
 
-  it('aplica o mesmo layout horizontal percentual na visão semanal', async () => {
+  it('aplica largura de 463px para agendamento individual e 231px quando divide slot com encaixe na visão semanal', async () => {
     const originalAppointments = [...mockAppointments];
     mockAppointments[0] = {
       ...mockAppointments[0],
@@ -960,27 +960,27 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(soloCard).toBeInTheDocument();
-      expect(soloCard.style.width).toBe('calc(100% - 8px)');
+      expect(soloCard.style.width).toBe('463px');
       expect(soloCard.style.height).toBe('69px');
-      expect(soloCard.style.left).toBe('4px');
+      expect(soloCard.style.left).toBe('5px');
 
       const regularCard = screen
         .getAllByText('Pedro Cliente')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(regularCard).toBeInTheDocument();
-      expect(regularCard.style.width).toBe('calc(50% - 8px)');
+      expect(regularCard.style.width).toBe('231px');
       expect(regularCard.style.height).toBe('69px');
-      expect(regularCard.style.left).toBe('4px');
+      expect(regularCard.style.left).toBe('3px');
 
       const fittingCard = screen
         .getAllByText('Cliente Semana Encaixe')
         .find((el) => el.closest('.timeline-appointment-card'))
         ?.closest('.timeline-appointment-card') as HTMLElement;
       expect(fittingCard).toBeInTheDocument();
-      expect(fittingCard.style.width).toBe('calc(50% - 8px)');
+      expect(fittingCard.style.width).toBe('231px');
       expect(fittingCard.style.height).toBe('69px');
-      expect(fittingCard.style.left).toBe('calc(50% + 4px)');
+      expect(fittingCard.style.left).toBe('239px');
       expect(fittingCard.style.top).toBe(regularCard.style.top);
     } finally {
       mockAppointments.length = 0;

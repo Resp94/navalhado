@@ -178,6 +178,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [noShowConfirmOpen, setNoShowConfirmOpen] = useState(false);
+  const [isMarkingNoShow, setIsMarkingNoShow] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Estados de reagendamento direto do agendamento vinculado à comanda
@@ -290,6 +292,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       setErrorMsg(err?.message || 'Erro ao reagendar atendimento.');
     } finally {
       setIsRescheduling(false);
+    }
+  };
+
+  const handleConfirmNoShowAction = async () => {
+    if (!onMarkNoShow || isMarkingNoShow) return;
+    setIsMarkingNoShow(true);
+    setErrorMsg(null);
+    try {
+      await onMarkNoShow();
+      setNoShowConfirmOpen(false);
+    } catch (err: any) {
+      console.error('Erro ao marcar atendimento como não compareceu:', err);
+      setErrorMsg(err?.message || 'Erro ao marcar como não compareceu.');
+    } finally {
+      setIsMarkingNoShow(false);
     }
   };
 
@@ -856,134 +873,118 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   <div className="comanda-header-icon-badge">
                     <HugeiconsIcon icon={Invoice01Icon} size={18} />
                   </div>
-                  <div>
-                    <div className="comanda-header-title-row">
-                      <h3 id="modal-checkout-title" className="comanda-modal-title">
-                        {loadedComanda?.comanda_number
-                          ? `Comanda #${loadedComanda.comanda_number}`
-                          : 'Comanda de atendimento'}
-                      </h3>
-                      <span
-                        className={`comanda-status-pill ${
-                          isClosed ? 'comanda-status-pill--closed' : 'comanda-status-pill--open'
-                        }`}
-                      >
-                        {isClosed ? 'Liquidada' : 'Em aberto'}
+                  <div className="comanda-header-title-row">
+                    <h3 id="modal-checkout-title" className="comanda-modal-title">
+                      {loadedComanda?.comanda_number
+                        ? `Comanda #${loadedComanda.comanda_number}`
+                        : 'Comanda de atendimento'}
+                    </h3>
+                    <span
+                      className={`comanda-status-pill ${
+                        isClosed ? 'comanda-status-pill--closed' : 'comanda-status-pill--open'
+                      }`}
+                    >
+                      {isClosed ? 'Liquidada' : 'Em aberto'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="comanda-modal-subtitle">
+                  <div className="comanda-subtitle-row">
+                    <span className="comanda-subtitle-customer">
+                      <HugeiconsIcon icon={UserIcon} size={13} className="inline-user-icon" />
+                      <span>
+                        Cliente: <strong>{customerName}</strong>
                       </span>
-                    </div>
-                    <div className="comanda-modal-subtitle">
-                      <span className="comanda-subtitle-customer">
-                        <HugeiconsIcon icon={UserIcon} size={13} className="inline-user-icon" />
+                    </span>
+                    {customerPhone && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openWhatsApp(customerPhone, `Olá ${customerName}, tudo bem? Falamos da barbearia.`);
+                        }}
+                        className="comanda-customer-phone-tag comanda-customer-phone-btn"
+                        title="Abrir conversa no WhatsApp com o cliente"
+                      >
+                        <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
+                        <span>{customerPhone}</span>
+                      </button>
+                    )}
+                  </div>
+                  {appointmentId ? (
+                    <div className="comanda-subtitle-row">
+                      <span
+                        className="comanda-customer-phone-tag comanda-appointment-tag"
+                        title="Comanda gerada a partir de agendamento da agenda"
+                      >
+                        <HugeiconsIcon icon={Calendar02Icon} size={13} />
                         <span>
-                          Cliente: <strong>{customerName}</strong>
+                          {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
+                          {currentStartTime
+                            ? `: ${new Date(currentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(currentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            : ''}
+                          {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
                         </span>
                       </span>
-                      {customerPhone && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openWhatsApp(customerPhone, `Olá ${customerName}, tudo bem? Falamos da barbearia.`);
-                          }}
-                          className="comanda-customer-phone-tag comanda-customer-phone-btn"
-                          title="Abrir conversa no WhatsApp com o cliente"
-                        >
-                          <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
-                          <span>{customerPhone}</span>
-                        </button>
-                      )}
-                      {appointmentId ? (
-                        <>
-                          <span
-                            className="comanda-customer-phone-tag"
-                            style={{
-                              backgroundColor: appointmentIsFitting ? 'rgba(217, 108, 0, 0.12)' : 'rgba(217, 108, 0, 0.08)',
-                              borderColor: 'rgba(217, 108, 0, 0.25)',
-                              color: 'var(--color-brand-primary)',
+                      {!isClosed && (
+                        <div className="comanda-appointment-actions">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNoShowConfirmOpen(false);
+                              setReopenConfirmOpen(false);
+                              setCancelConfirmOpen(false);
+                              if (currentStartTime) {
+                                const d = new Date(currentStartTime);
+                                setRescheduleDate(d.toISOString().slice(0, 10));
+                                const hh = String(d.getHours()).padStart(2, '0');
+                                const mm = String(d.getMinutes()).padStart(2, '0');
+                                setRescheduleTime(`${hh}:${mm}`);
+                              }
+                              setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
+                              setIsRescheduleModalOpen((prev) => !prev);
                             }}
-                            title="Comanda gerada a partir de agendamento da agenda"
+                            className="comanda-customer-phone-tag comanda-reschedule-btn"
+                            title="Reagendar horário deste atendimento mantendo a comanda aberta"
+                            aria-label="Reagendar atendimento"
                           >
-                            <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: 'var(--color-brand-primary)' }} />
-                            <span>
-                              {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
-                              {currentStartTime
-                                ? `: ${new Date(currentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(currentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                                : ''}
-                              {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
-                            </span>
-                          </span>
-                          {!isClosed && (
+                            <HugeiconsIcon icon={Calendar02Icon} size={13} />
+                            <span>Reagendar</span>
+                          </button>
+                          {onMarkNoShow && (
                             <button
                               type="button"
                               onClick={() => {
-                                if (currentStartTime) {
-                                  const d = new Date(currentStartTime);
-                                  setRescheduleDate(d.toISOString().slice(0, 10));
-                                  const hh = String(d.getHours()).padStart(2, '0');
-                                  const mm = String(d.getMinutes()).padStart(2, '0');
-                                  setRescheduleTime(`${hh}:${mm}`);
-                                }
-                                setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
-                                setIsRescheduleModalOpen((prev) => !prev);
+                                setIsRescheduleModalOpen(false);
+                                setReopenConfirmOpen(false);
+                                setCancelConfirmOpen(false);
+                                setNoShowConfirmOpen((prev) => !prev);
                               }}
-                              className="comanda-customer-phone-tag"
-                              style={{
-                                backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                                borderColor: 'rgba(14, 165, 233, 0.3)',
-                                color: '#0284C7',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontWeight: 500,
-                              }}
-                              title="Reagendar horário deste atendimento mantendo a comanda aberta"
-                              aria-label="Reagendar atendimento"
-                            >
-                              <HugeiconsIcon icon={Calendar02Icon} size={13} style={{ color: '#0284C7' }} />
-                              <span>Reagendar</span>
-                            </button>
-                          )}
-                          {!isClosed && onMarkNoShow && (
-                            <button
-                              type="button"
-                              onClick={onMarkNoShow}
-                              className="comanda-customer-phone-tag"
-                              style={{
-                                backgroundColor: 'rgba(185, 28, 28, 0.08)',
-                                borderColor: 'rgba(185, 28, 28, 0.3)',
-                                color: '#b91c1c',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontWeight: 500,
-                              }}
+                              className="comanda-customer-phone-tag comanda-noshow-btn"
                               title="Marcar atendimento como não compareceu"
                               aria-label="Marcar atendimento como não compareceu"
                             >
-                              <HugeiconsIcon icon={BadgeXIcon} size={13} style={{ color: '#b91c1c' }} />
+                              <HugeiconsIcon icon={BadgeXIcon} size={13} />
                               <span>Não compareceu</span>
                             </button>
                           )}
-                        </>
-                      ) : (
-                        <span
-                          className="comanda-customer-phone-tag"
-                          style={{
-                            backgroundColor: 'rgba(45, 35, 30, 0.04)',
-                            color: 'var(--color-text-secondary)',
-                          }}
-                          title="Comanda aberta diretamente no balcão"
-                        >
-                          <span>Atendimento Balcão / Avulsa</span>
-                        </span>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="comanda-subtitle-row">
+                      <span
+                        className="comanda-customer-phone-tag"
+                        style={{
+                          backgroundColor: 'rgba(45, 35, 30, 0.04)',
+                          color: 'var(--color-text-secondary)',
+                        }}
+                        title="Comanda aberta diretamente no balcão"
+                      >
+                        <span>Atendimento Balcão / Avulsa</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <button
@@ -1105,6 +1106,45 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               </div>
             )}
 
+            {/* Banner de Confirmação de Não Comparecimento */}
+            {noShowConfirmOpen && (
+              <div
+                className="comanda-cancel-confirm-card comanda-no-show-confirm-card"
+                role="region"
+                aria-label="Painel de Confirmação de Não Comparecimento"
+              >
+                <div className="comanda-reopen-content">
+                  <div className="comanda-reopen-icon comanda-reopen-icon--danger">
+                    <HugeiconsIcon icon={BadgeXIcon} size={18} />
+                  </div>
+                  <div>
+                    <h4 className="comanda-reopen-title">Confirmar não comparecimento</h4>
+                    <p className="comanda-reopen-desc">
+                      Deseja marcar o atendimento de <strong>{customerName || 'Cliente'}</strong> como não compareceu? A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
+                    </p>
+                  </div>
+                </div>
+                <div className="comanda-reopen-actions">
+                  <button
+                    type="button"
+                    onClick={() => setNoShowConfirmOpen(false)}
+                    disabled={isMarkingNoShow}
+                    className="comanda-btn-ghost-sm"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isMarkingNoShow}
+                    onClick={handleConfirmNoShowAction}
+                    className="comanda-btn-danger-sm"
+                  >
+                    {isMarkingNoShow ? 'Marcando...' : 'Sim, não compareceu'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Banner de Confirmação de Reabertura */}
             {reopenConfirmOpen && (
               <div className="comanda-reopen-confirm-card" role="alert">
@@ -1218,7 +1258,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   <div className="comanda-section">
                     <div className="comanda-section-header">
                       <div className="comanda-section-title-wrap">
-                        <h4 className="comanda-section-title">Itens consumidos</h4>
+                        <h4 className="comanda-section-title">ITENS CONSUMIDOS</h4>
                         <span className="comanda-section-count-badge">{itens.length}</span>
                       </div>
                       {!isClosed && (
@@ -1355,25 +1395,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         itens.map((it) => (
                           <div key={it.tempId} className="comanda-item-card">
                             <div className="comanda-item-info">
-                              <div
-                                className={`comanda-item-icon-tag ${
-                                  it.item_type === 'servico'
-                                    ? 'comanda-item-icon-tag--service'
-                                    : 'comanda-item-icon-tag--product'
-                                }`}
-                              >
-                                <HugeiconsIcon
-                                  icon={it.item_type === 'servico' ? ScissorIcon : ShoppingBag01Icon}
-                                  size={16}
-                                />
-                              </div>
                               <div className="comanda-item-text-group">
                                 <strong className="comanda-item-name">{it.name}</strong>
                                 <div className="comanda-item-detail">
                                   <span className="comanda-type-tag">
                                     {it.item_type === 'servico' ? 'Serviço' : 'Produto'}
                                   </span>
-                                  <span>• {it.quantity}x</span>
+                                  {it.quantity > 1 && <span>• {it.quantity}x</span>}
                                   <span>• R$ {it.unit_price.toFixed(2)}</span>
                                   {it.professional_id &&
                                     availableProfessionals.find((p) => p.id === it.professional_id) && (
@@ -1492,7 +1520,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     <div className="summary-divider" />
                     <div className="summary-row summary-total">
                       <span className="summary-total-label">
-                        {isClosed ? 'Total liquidado' : 'Total a pagar'}
+                        {isClosed ? 'TOTAL LIQUIDADO' : 'TOTAL A PAGAR'}
                       </span>
                       <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
                     </div>
@@ -1503,7 +1531,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     <div className="comanda-section-header">
                       <div className="comanda-section-title-wrap">
                         <h4 className="comanda-section-title">
-                          {isClosed ? 'Pagamentos registrados' : 'Forma de pagamento'}
+                          {isClosed ? 'PAGAMENTOS REGISTRADOS' : 'FORMA DE PAGAMENTO'}
                         </h4>
                       </div>
                       {!isClosed && !isSplitting && (
@@ -1744,7 +1772,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             className="btn-add-split-line"
                           >
                             <HugeiconsIcon icon={Invoice01Icon} size={15} />
-                            <span>+ Adicionar outra forma de pagamento</span>
+                            <span>Adicionar outra forma de pagamento</span>
                           </button>
                           <div className="split-summary-bar">
                             <div className="split-summary-info">
@@ -1895,7 +1923,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         /* Double-Bezel Container */
         .comanda-modal-shell {
           width: 100%;
-          max-width: 620px;
+          max-width: 640px;
           max-height: calc(100dvh - 2.5rem);
           display: flex;
           flex-direction: column;
@@ -1913,7 +1941,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-modal-card {
           background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          border: 1px solid var(--color-text-primary);
           border-radius: var(--radius-xl);
           width: 100%;
           max-height: 100%;
@@ -1928,39 +1956,61 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         /* Header */
         .comanda-modal-header {
+          position: relative;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-          background: linear-gradient(to bottom, var(--color-bg-secondary), var(--color-bg-primary));
+          padding: 1.25rem 1.5rem var(--radius-xl);
+          border-bottom: 1px solid var(--color-text-primary);
+          background-color: transparent;
+          background-image: none;
           flex-shrink: 0;
         }
 
         .comanda-modal-header-info {
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.65rem;
+          flex: 1;
+          min-width: 0;
         }
 
         .comanda-modal-badge-wrapper {
           display: flex;
           align-items: center;
-          gap: 0.85rem;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+          padding-right: 2.5rem;
         }
 
         .comanda-header-icon-badge {
-          width: 40px;
-          height: 40px;
+          width: 38px;
+          height: 38px;
           border-radius: var(--radius-md);
           background-color: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
-          border: 1px solid var(--color-brand-soft);
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          box-shadow: var(--shadow-sm);
+        }
+
+        .comanda-header-icon-badge svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-header-icon-badge svg path:nth-of-type(1) {
+          fill: var(--color-text-primary);
+          stroke: var(--color-text-primary);
+        }
+
+        .comanda-header-icon-badge svg path:nth-of-type(2),
+        .comanda-header-icon-badge svg path:nth-of-type(3) {
+          stroke: var(--color-bg-secondary);
         }
 
         .comanda-header-title-row {
@@ -1968,6 +2018,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           gap: 0.6rem;
           flex-wrap: wrap;
+          min-height: 38px;
         }
 
         .comanda-modal-title {
@@ -1990,20 +2041,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-status-pill--open {
           background-color: var(--color-warning-bg);
-          color: var(--color-warning);
-          border: 1px solid var(--color-warning);
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .comanda-status-pill--closed {
           background-color: var(--color-success-bg);
-          color: var(--color-success);
-          border: 1px solid var(--color-success);
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .comanda-modal-subtitle {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          margin: 0.35rem 0 0 0;
+          margin-top: 0.15rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          width: 100%;
+        }
+
+        .comanda-subtitle-row {
           display: flex;
           align-items: center;
           gap: 0.6rem;
@@ -2014,12 +2074,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .comanda-subtitle-customer span {
+          font-weight: 700;
+          color: var(--color-text-primary);
         }
 
         .comanda-subtitle-customer strong {
           color: var(--color-text-primary);
           font-weight: 700;
+        }
+
+        .comanda-subtitle-customer svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-subtitle-customer svg path {
+          stroke: var(--color-text-primary);
         }
 
         .comanda-customer-phone-tag {
@@ -2029,51 +2104,147 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           color: var(--color-text-primary);
           font-weight: 700;
           font-size: 0.75rem;
-          background-color: var(--color-bg-primary);
-          padding: 0.2rem 0.6rem;
+          background-color: var(--color-warning-bg);
+          padding: 0.25rem 0.6rem;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           letter-spacing: 0.01em;
+        }
+
+        .comanda-customer-phone-tag svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-customer-phone-tag svg path {
+          stroke: var(--color-text-primary);
         }
 
         .comanda-customer-phone-btn {
           cursor: pointer;
+          background-color: var(--color-warning-bg);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border: none;
+          font-weight: 700;
           transition: all 0.2s ease;
           user-select: none;
         }
 
         .comanda-customer-phone-btn:hover {
-          background-color: rgba(16, 185, 129, 0.12);
-          border-color: var(--color-success);
-          color: var(--color-success);
+          background-color: var(--color-warning);
+          color: var(--color-text-primary);
         }
 
         .comanda-customer-phone-btn:active {
           transform: scale(0.97);
         }
 
+        .comanda-appointment-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          flex-shrink: 0;
+        }
+
+        .comanda-appointment-tag {
+          background-color: var(--color-warning-bg);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border: none;
+          font-weight: 700;
+        }
+
+        .comanda-appointment-tag span {
+          color: var(--color-text-primary);
+        }
+
+        .comanda-appointment-tag svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-appointment-tag svg path {
+          stroke: var(--color-text-primary);
+        }
+
+        .comanda-reschedule-btn {
+          background-color: #FEF3C7;
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border: none;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 0.25rem 0.6rem;
+          border-radius: var(--radius-sm);
+          transition: all 0.15s ease;
+        }
+
+        .comanda-reschedule-btn:hover {
+          filter: brightness(0.95);
+        }
+
+        .comanda-reschedule-btn svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .comanda-reschedule-btn svg path {
+          stroke: var(--color-text-primary);
+        }
+
+        .comanda-noshow-btn {
+          background-color: var(--color-bg-secondary);
+          color: #F05252;
+          box-shadow: 0 0 0 0.8px #F05252;
+          border: none;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 0.25rem 0.6rem;
+          border-radius: var(--radius-sm);
+          transition: all 0.15s ease;
+        }
+
+        .comanda-noshow-btn:hover {
+          background-color: var(--color-error-bg);
+        }
+
+        .comanda-noshow-btn svg {
+          height: fit-content;
+          color: #F05252;
+        }
+
+        .comanda-noshow-btn svg path {
+          stroke: #F05252 !important;
+        }
+
         .inline-phone-icon {
-          color: var(--color-success);
+          color: var(--color-text-primary);
           flex-shrink: 0;
         }
 
         .inline-user-icon {
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
           flex-shrink: 0;
         }
 
-        .comanda-separator-bullet {
-          color: var(--color-text-secondary);
-          opacity: 0.5;
-        }
-
         .comanda-btn-close {
+          position: absolute;
+          top: 1.25rem;
+          right: 1.5rem;
           width: 38px;
           height: 38px;
           border-radius: var(--radius-full);
           border: 1px solid transparent;
           background: transparent;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -2169,6 +2340,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           transform: translateY(-1px);
         }
 
+        .comanda-no-show-confirm-card,
         .comanda-cancel-confirm-card {
           margin: 1rem 1.5rem 0;
           padding: 0.9rem 1.15rem;
@@ -2207,10 +2379,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           flex: 1;
           overflow-y: auto;
           overscroll-behavior: contain;
-          padding: 1.5rem;
+          padding: 0.9rem 1.5rem 1rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1.35rem;
+          gap: 0.75rem;
         }
 
         .comanda-loading-state {
@@ -2312,7 +2484,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-section {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.5rem;
         }
 
         .comanda-section-header {
@@ -2332,10 +2504,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-section-title {
           font-size: var(--font-size-xs);
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
+          color: #2D231E;
           margin: 0;
           line-height: 1;
           display: inline-flex;
@@ -2352,7 +2524,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-size: 0.72rem;
           font-weight: 800;
           border-radius: var(--radius-full);
-          background-color: var(--color-brand-deep);
+          background-color: #2D231E;
           color: #FFF1E6;
           line-height: 1;
           box-sizing: border-box;
@@ -2368,12 +2540,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .btn-add-item {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.45rem 0.85rem;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
-          color: var(--color-brand-primary);
+          gap: 0.45rem;
+          padding: 0.35rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid var(--color-text-primary);
+          background-color: var(--color-brand-lightest);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
@@ -2382,11 +2554,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .btn-add-item:hover,
         .btn-add-item--active {
-          background-color: var(--color-brand-lightest);
-          border-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
+          background-color: #F6E7DB;
+          border-color: var(--color-text-primary);
+          color: var(--color-text-primary);
           transform: translateY(-1px);
-          box-shadow: var(--shadow-sm);
         }
 
         /* Caixas de Adição */
@@ -2472,8 +2643,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-empty-items {
           padding: 1.5rem;
           text-align: center;
-          background-color: var(--color-bg-primary);
-          border: 1px dashed var(--color-border);
+          background-color: var(--color-brand-lightest);
+          border: 1px dashed var(--color-text-primary);
           border-radius: var(--radius-md);
           color: var(--color-text-secondary);
           font-size: var(--font-size-xs);
@@ -2484,54 +2655,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           justify-content: space-between;
           padding: 0.75rem 1rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border-radius: 12px;
+          background-color: var(--color-brand-lightest);
+          border: 1px solid var(--color-text-primary);
           transition: all 0.2s ease;
-        }
-
-        .comanda-item-card:hover {
-          border-color: var(--color-brand-soft);
-          background-color: var(--color-bg-secondary);
-          box-shadow: var(--shadow-sm);
         }
 
         .comanda-item-info {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
           min-width: 0;
-        }
-
-        .comanda-item-icon-tag {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .comanda-item-icon-tag--service {
-          color: var(--color-brand-primary);
-        }
-
-        .comanda-item-icon-tag--product {
-          color: var(--color-warning);
         }
 
         .comanda-item-text-group {
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
+          gap: 0.2rem;
           min-width: 0;
         }
 
         .comanda-item-name {
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-base);
           font-weight: 700;
           color: var(--color-text-primary);
           white-space: nowrap;
@@ -2543,18 +2687,20 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           gap: 0.35rem;
-          font-size: 0.72rem;
-          color: var(--color-text-secondary);
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
           flex-wrap: wrap;
         }
 
         .comanda-type-tag {
           font-weight: 700;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
         }
 
         .comanda-prof-tag {
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          font-weight: 600;
         }
 
         .comanda-item-right {
@@ -2565,29 +2711,37 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-item-total {
-          font-size: var(--font-size-sm);
+          font-size: 1.15rem;
           font-weight: 800;
           color: var(--color-text-primary);
         }
 
         .comanda-item-remove-btn {
           background: transparent;
-          border: 1px solid transparent;
-          color: var(--color-text-secondary);
+          border: 1px solid #2D231E;
+          color: #2D231E;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-md);
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
           transition: all 0.2s ease;
+        }
+
+        .comanda-item-remove-btn svg path {
+          stroke: #2D231E;
         }
 
         .comanda-item-remove-btn:hover {
           color: var(--color-error);
           background-color: var(--color-error-bg);
           border-color: var(--color-error);
+        }
+
+        .comanda-item-remove-btn:hover svg path {
+          stroke: var(--color-error);
         }
 
         /* Desconto e Gorjeta */
@@ -2606,14 +2760,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           display: flex;
           align-items: center;
           gap: 0.35rem;
         }
 
         .label-icon {
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
         }
 
         .comanda-input-segmented-wrapper {
@@ -2623,16 +2777,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-segmented-type {
           display: flex;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
+          border: 1px solid var(--color-text-primary);
+          border-radius: 8px;
           overflow: hidden;
-          background-color: var(--color-bg-primary);
+          background-color: var(--color-brand-lightest);
           flex-shrink: 0;
         }
 
         .seg-type-btn {
           border: none;
-          background: transparent;
+          background-color: var(--color-brand-lightest);
           padding: 0.5rem 0.75rem;
           min-width: 38px;
           display: inline-flex;
@@ -2640,20 +2794,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           justify-content: center;
           font-size: 0.82rem;
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           cursor: pointer;
           line-height: 1;
           transition: all 0.15s ease;
         }
 
         .seg-type-btn:hover:not(.seg-type-btn--active) {
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
+          background-color: rgba(45, 35, 30, 0.08);
+          color: var(--color-text-primary);
         }
 
         .seg-type-btn--active {
-          background-color: var(--color-brand-primary);
-          color: white;
+          background-color: var(--color-warning);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary);
         }
 
         .comanda-input-prefix-wrapper {
@@ -2668,19 +2823,20 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           left: 0.85rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           pointer-events: none;
         }
 
         .comanda-input-num,
         .comanda-select {
           width: 100%;
-          padding: 0.6rem 0.85rem;
+          padding: 0.55rem 0.85rem;
           font-size: var(--font-size-sm);
+          font-weight: 600;
           color: var(--color-text-primary);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
+          background-color: var(--color-brand-lightest);
+          border: 1px solid var(--color-text-primary);
+          border-radius: 8px;
           outline: none;
           transition: all 0.2s ease;
           font-family: inherit;
@@ -2692,21 +2848,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .comanda-input-num:focus,
         .comanda-select:focus {
-          border-color: var(--color-brand-primary);
-          background-color: var(--color-bg-secondary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          border-color: var(--color-text-primary);
+          background-color: var(--color-brand-lightest);
         }
 
         /* Sumário de Totais (Recibo) */
         .comanda-summary-box {
-          padding: 1.15rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          padding: 0.85rem 1.15rem;
+          border-radius: 12px;
+          background-color: var(--color-brand-lightest);
+          border: 1px solid var(--color-text-primary);
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
-          box-shadow: inset 0 1px 2px rgba(20, 17, 15, 0.04);
+          gap: 0.4rem;
         }
 
         .summary-row {
@@ -2717,7 +2871,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .summary-label {
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-weight: 600;
         }
 
@@ -2740,12 +2894,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .summary-divider {
           height: 1px;
-          background-color: var(--color-border);
-          margin: 0.25rem 0;
+          background-color: rgba(45, 35, 30, 0.15);
+          margin: 0.2rem 0;
         }
 
         .summary-total {
-          padding-top: 0.25rem;
+          padding-top: 0.2rem;
         }
 
         .summary-total-label {
@@ -2757,47 +2911,48 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .summary-total-value {
-          color: var(--color-brand-primary);
-          font-size: var(--font-size-xl);
+          color: var(--color-text-primary);
+          font-size: 1.45rem;
           font-weight: 800;
           letter-spacing: -0.02em;
         }
 
         /* Formas de Pagamento */
         .btn-split-toggle {
-          background-color: var(--color-brand-lightest);
-          border: 1px solid var(--color-brand-soft);
-          color: var(--color-brand-deep);
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-text-primary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
           font-weight: 700;
-          padding: 0.4rem 0.85rem;
-          border-radius: var(--radius-md);
+          padding: 0.35rem 0.85rem;
+          border-radius: 8px;
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
         .btn-split-toggle:hover {
-          background-color: var(--color-brand-soft);
-          color: white;
+          background-color: var(--color-brand-lightest);
+          border-color: var(--color-text-primary);
           transform: translateY(-1px);
         }
 
         .btn-split-cancel {
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
+          background-color: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
-          font-weight: 600;
-          padding: 0.4rem 0.85rem;
-          border-radius: var(--radius-md);
+          font-weight: 700;
+          padding: 0.35rem 0.85rem;
+          border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .btn-split-cancel:hover {
-          color: var(--color-error);
-          border-color: var(--color-error);
-          background-color: var(--color-error-bg);
+          background-color: var(--color-brand-lightest);
+          filter: brightness(0.96);
+          transform: translateY(-1px);
         }
 
         .quick-methods-grid {
@@ -2811,11 +2966,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.45rem;
-          padding: 0.85rem 0.5rem;
-          border: 1.5px solid var(--color-border);
-          background-color: var(--color-bg-primary);
-          border-radius: var(--radius-lg);
+          gap: 0.35rem;
+          padding: 0.65rem 0.5rem;
+          border: 1px solid var(--color-text-primary);
+          background-color: var(--color-brand-lightest);
+          border-radius: 12px;
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-primary);
@@ -2825,39 +2980,46 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .btn-quick-method:hover {
-          border-color: var(--color-brand-soft);
-          background-color: var(--color-bg-secondary);
-          transform: translateY(-2px);
+          border-color: var(--color-text-primary);
+          transform: translateY(-1px);
           box-shadow: var(--shadow-sm);
         }
 
-        .btn-quick-method--active {
-          border-color: var(--color-brand-primary);
+        .btn-quick-method--active,
+        .btn-quick-method--active:focus,
+        .btn-quick-method.btn-quick-method--active {
+          border: 1.5px solid var(--color-text-primary);
           background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
-          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.15);
-          transform: translateY(-2px);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary);
+        }
+
+        .btn-quick-method--active:hover,
+        .btn-quick-method.btn-quick-method--active:hover {
+          border: 1.5px solid var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary), var(--shadow-sm);
         }
 
         .quick-method-icon {
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
           transition: transform 0.2s ease;
         }
 
         .btn-quick-method:hover .quick-method-icon {
-          transform: scale(1.1);
+          transform: scale(1.08);
         }
 
         /* Dinheiro & Troco */
         .cash-single-calculator {
           margin-top: 0.85rem;
-          padding: 1rem;
+          padding: 1rem 1.15rem;
           border-radius: var(--radius-lg);
           background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
+          gap: 0.95rem;
           animation: fadeIn 0.15s ease-out;
         }
 
@@ -2865,20 +3027,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: flex;
           align-items: center;
           flex-wrap: wrap;
-          gap: 0.45rem;
+          gap: 0.5rem;
         }
 
         .cash-notes-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           margin-right: 0.25rem;
         }
 
         .btn-quick-note {
-          padding: 0.35rem 0.75rem;
+          padding: 0.35rem 0.85rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-xs);
@@ -2888,16 +3051,20 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .btn-quick-note:hover {
-          border-color: var(--color-brand-soft);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
+          filter: brightness(0.96);
+          transform: translateY(-1px);
         }
 
         .btn-quick-note--active {
-          border-color: var(--color-brand-primary);
-          background-color: var(--color-brand-primary);
-          color: white;
-          box-shadow: var(--shadow-sm);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          background-color: var(--color-brand-soft);
+          color: var(--color-text-primary);
+        }
+
+        .btn-quick-note--active:hover {
+          background-color: var(--color-brand-soft);
+          filter: brightness(0.96);
         }
 
         .cash-input-field {
@@ -2910,7 +3077,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .cash-input-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
         }
 
         .cash-input-wrap {
@@ -2922,10 +3089,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .cash-prefix {
           position: absolute;
-          left: 0.75rem;
-          font-size: var(--font-size-xs);
+          left: 0.85rem;
+          font-size: var(--font-size-sm);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          pointer-events: none;
         }
 
         .cash-received-input {
@@ -2935,15 +3103,23 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           font-weight: 800;
           color: var(--color-text-primary);
           background-color: var(--color-bg-secondary);
-          border: 1.5px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-md);
           outline: none;
+          text-align: center;
           transition: all 0.2s ease;
+          -moz-appearance: textfield;
+        }
+
+        .cash-received-input::-webkit-outer-spin-button,
+        .cash-received-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
         }
 
         .cash-received-input:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.5px var(--color-text-primary);
         }
 
         .cash-change-badge {
@@ -2952,9 +3128,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           justify-content: space-between;
           padding: 0.75rem 1rem;
           border-radius: var(--radius-md);
-          background-color: var(--color-success-bg);
-          border: 1px solid var(--color-success);
-          color: var(--color-success);
+          background-color: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
         }
 
@@ -2963,12 +3140,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           gap: 0.5rem;
           font-weight: 700;
+          color: var(--color-text-primary);
+        }
+
+        .cash-change-left span {
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .cash-change-left svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .cash-change-left svg path,
+        .cash-change-left svg ellipse {
+          stroke: var(--color-text-primary) !important;
+          color: var(--color-text-primary) !important;
         }
 
         .cash-change-val {
           font-size: var(--font-size-base);
           font-weight: 800;
-          color: var(--color-success);
+          color: var(--color-text-primary);
         }
 
         /* Recibo de Pagamento */
@@ -3017,14 +3211,21 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           gap: 0.75rem;
         }
 
-        .payment-row-card {
-          padding: 0.85rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+        .comanda-payments-list {
           display: flex;
           flex-direction: column;
-          gap: 0.65rem;
+          gap: 12px;
+        }
+
+        .payment-row-card {
+          padding: 0.85rem 1rem;
+          border-radius: var(--radius-lg);
+          background-color: var(--color-bg-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
         }
 
         .payment-row-main {
@@ -3035,6 +3236,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .payment-method-select {
           flex: 1.2;
+          background-color: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border-radius: 12px;
+          font-weight: 700;
+          padding: 0.6rem 0.85rem;
+          color: var(--color-text-primary);
         }
 
         .payment-amount-input-wrapper {
@@ -3046,34 +3254,43 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
         .payment-amount-prefix {
           position: absolute;
-          left: 0.75rem;
+          left: 0.85rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          pointer-events: none;
         }
 
         .payment-amount-input {
           width: 100%;
-          padding: 0.6rem 0.75rem 0.6rem 2.2rem;
+          padding: 0.6rem 0.75rem 0.6rem 2rem;
           font-size: var(--font-size-sm);
-          font-weight: 700;
+          font-weight: 800;
           color: var(--color-text-primary);
           background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border-radius: 12px;
           outline: none;
+          text-align: center;
           transition: all 0.2s ease;
+          -moz-appearance: textfield;
+        }
+
+        .payment-amount-input::-webkit-outer-spin-button,
+        .payment-amount-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
         }
 
         .payment-amount-input:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.5px var(--color-text-primary);
         }
 
         .btn-remove-payment {
           background: transparent;
-          border: 1px solid transparent;
-          color: var(--color-text-secondary);
+          border: none;
+          color: var(--color-text-primary);
           cursor: pointer;
           padding: 0.4rem;
           border-radius: var(--radius-md);
@@ -3083,47 +3300,73 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           justify-content: center;
         }
 
+        .btn-remove-payment svg path {
+          stroke: var(--color-text-primary);
+        }
+
         .btn-remove-payment:hover {
           color: var(--color-error);
           background-color: var(--color-error-bg);
-          border-color: var(--color-error);
+        }
+
+        .btn-remove-payment:hover svg path {
+          stroke: var(--color-error);
         }
 
         .cash-change-calculator {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-top: 0.5rem;
-          border-top: 1px solid var(--color-border);
+          padding-top: 0.25rem;
+          border: none;
           font-size: var(--font-size-xs);
         }
 
         .cash-input-field-compact {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: 0.5rem;
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .cash-input-field-compact span {
+          color: var(--color-text-primary);
+          font-weight: 700;
         }
 
         .cash-received-input-compact {
-          width: 85px;
+          width: 90px;
           padding: 0.35rem 0.55rem;
           font-size: var(--font-size-xs);
-          font-weight: 700;
+          font-weight: 800;
           color: var(--color-text-primary);
           background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          border-radius: 8px;
+          text-align: center;
+          -moz-appearance: textfield;
+        }
+
+        .cash-received-input-compact::-webkit-outer-spin-button,
+        .cash-received-input-compact::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
         }
 
         .cash-change-badge-compact {
           display: flex;
           align-items: center;
           gap: 0.35rem;
-          color: var(--color-success);
+          color: var(--color-text-primary);
           font-weight: 700;
+        }
+
+        .cash-change-badge-compact strong {
+          color: var(--color-text-primary);
+          font-weight: 800;
         }
 
         .split-payments-footer {
@@ -3137,11 +3380,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.7rem 1rem;
-          border-radius: var(--radius-lg);
-          border: 1.5px dashed var(--color-brand-primary);
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
           font-weight: 700;
           cursor: pointer;
@@ -3150,9 +3394,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
+        .btn-add-split-line svg {
+          height: fit-content;
+          color: var(--color-text-primary);
+        }
+
+        .btn-add-split-line svg path {
+          stroke: var(--color-text-primary) !important;
+        }
+
+        .btn-add-split-line span {
+          color: var(--color-text-primary);
+        }
+
         .btn-add-split-line:hover {
-          background-color: var(--color-brand-soft);
-          color: white;
+          background-color: var(--color-brand-lightest);
+          filter: brightness(0.96);
           transform: translateY(-1px);
         }
 
@@ -3161,9 +3418,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           align-items: center;
           justify-content: space-between;
           padding: 0.75rem 1rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border-radius: 12px;
+          background-color: var(--color-brand-lightest);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           font-size: var(--font-size-xs);
           font-weight: 700;
         }
@@ -3171,35 +3429,55 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .split-summary-info {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          color: var(--color-text-secondary);
+          gap: 0.4rem;
+          color: var(--color-text-primary);
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+        }
+
+        .split-summary-info span {
+          color: var(--color-text-primary);
+          font-weight: 700;
         }
 
         .split-summary-info strong {
           color: var(--color-text-primary);
+          font-weight: 800;
+        }
+
+        .comanda-separator-bullet {
+          color: var(--color-text-primary);
+          margin: 0 0.15rem;
         }
 
         .split-missing-alert {
           color: var(--color-error);
           background-color: var(--color-error-bg);
-          padding: 0.2rem 0.55rem;
+          padding: 0.25rem 0.75rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-error);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-error);
+          font-weight: 700;
+          font-size: var(--font-size-xs);
         }
 
         .split-complete-alert {
-          color: var(--color-success);
-          background-color: var(--color-success-bg);
-          padding: 0.2rem 0.55rem;
+          color: var(--color-text-primary);
+          background-color: #E6F4EA;
+          padding: 0.25rem 0.75rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-success);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          font-weight: 700;
+          font-size: var(--font-size-xs);
         }
 
         /* Footer */
         .comanda-modal-footer {
           padding: 1.25rem 1.5rem;
-          border-top: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
+          border-top: 1px solid var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
           flex-shrink: 0;
         }
 
@@ -3221,25 +3499,31 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-btn-danger-outline {
           padding: 0.75rem 1.15rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-error, #ef4444);
+          border: 1px solid var(--color-error);
           background-color: transparent;
-          color: var(--color-error, #ef4444);
+          color: var(--color-error);
           font-size: var(--font-size-sm);
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
         }
 
         .comanda-btn-danger-outline:hover {
-          background-color: var(--color-error-bg, rgba(239, 68, 68, 0.08));
-          transform: translateY(-1px);
+          background-color: var(--color-error-bg);
+          border-color: var(--color-error);
+          color: var(--color-error);
+        }
+
+        .comanda-btn-danger-outline:active {
+          opacity: 0.8;
         }
 
         .comanda-btn-secondary {
           padding: 0.75rem 1.35rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          background-color: var(--color-brand-lightest);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 600;
@@ -3248,30 +3532,29 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         }
 
         .comanda-btn-secondary:hover {
-          background-color: var(--color-border);
+          filter: brightness(0.96);
           transform: translateY(-1px);
         }
 
         .comanda-btn-primary {
           padding: 0.75rem 1.65rem;
           border-radius: var(--radius-full);
-          border: none;
-          background-color: var(--color-brand-primary);
-          color: white;
+          border: 1px solid var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary);
+          background-color: var(--color-success-bg);
+          color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 700;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           gap: 0.65rem;
-          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.25);
           transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         .comanda-btn-primary:hover:not(:disabled) {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(217, 108, 0, 0.35);
+          filter: brightness(0.96);
+          transform: translateY(-1px);
         }
 
         .comanda-btn-primary:active:not(:disabled) {
@@ -3281,24 +3564,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         .comanda-btn-primary:disabled {
           background-color: var(--color-border);
           color: var(--color-text-secondary);
-          cursor: not-allowed;
+          border-color: var(--color-border);
           box-shadow: none;
+          cursor: not-allowed;
           transform: none;
         }
 
         .comanda-btn-amount-badge {
-          background-color: rgba(255, 255, 255, 0.22);
-          padding: 0.15rem 0.55rem;
+          background-color: transparent;
+          padding: 0.15rem 0.25rem;
           border-radius: var(--radius-full);
-          font-size: var(--font-size-xs);
+          font-size: var(--font-size-sm);
           font-weight: 800;
+          color: var(--color-text-primary);
         }
 
         .comanda-btn-spinner {
           width: 16px;
           height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: white;
+          border: 2px solid rgba(45, 35, 30, 0.3);
+          border-top-color: var(--color-text-primary);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
@@ -3371,7 +3656,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           }
 
           .comanda-modal-header {
-            padding: 1.15rem 1.25rem 0.85rem;
+            padding: 1.15rem 1.25rem var(--radius-xl);
           }
 
           .comanda-modal-body {
@@ -3398,6 +3683,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
           .comanda-modal-footer {
             padding: 1rem 1.25rem max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
+            background-color: var(--color-bg-secondary);
           }
 
           .comanda-footer-open-actions,

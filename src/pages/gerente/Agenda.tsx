@@ -1718,14 +1718,25 @@ export const Agenda: React.FC = () => {
     setIsNoShowModalOpen(true);
   };
 
-  const handleConfirmNoShow = async () => {
-    if (!noShowAppointment) return;
+  const handleConfirmNoShow = async (appToMark?: Appointment) => {
+    const target = appToMark || noShowAppointment;
+    if (!target) return;
+
+    if (!['pending', 'confirmed'].includes(target.status)) {
+      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
+      return;
+    }
+
+    if (new Date(target.start_time).getTime() > Date.now()) {
+      addToast('O atendimento ainda não começou.', 'warning');
+      return;
+    }
 
     try {
       const { data, error } = await supabase
         .from('appointments')
         .update({ status: 'no_show', updated_at: new Date().toISOString() })
-        .eq('id', noShowAppointment.id)
+        .eq('id', target.id)
         .eq('tenant_id', tenant.tenantId)
         .in('status', ['pending', 'confirmed'])
         .select('id')
@@ -1742,11 +1753,13 @@ export const Agenda: React.FC = () => {
 
       setAppointments((previous) =>
         previous.map((appointment) =>
-          appointment.id === noShowAppointment.id ? { ...appointment, status: 'no_show' } : appointment
+          appointment.id === target.id ? { ...appointment, status: 'no_show' } : appointment
         )
       );
       setIsNoShowModalOpen(false);
       setNoShowAppointment(null);
+      setIsCheckoutModalOpen(false);
+      setCheckoutAppointment(null);
       addToast('Atendimento marcado como não compareceu.', 'success');
       fetchAppointments();
     } catch (err: any) {
@@ -1975,8 +1988,64 @@ export const Agenda: React.FC = () => {
 
   const calculateAppointmentsLayout = (
     appointmentsList: Appointment[],
+    isWeekView = false,
   ): Map<string, CardLayout> => {
     const layoutMap = new Map<string, CardLayout>();
+
+    if (isWeekView) {
+      const sorted = [...appointmentsList].sort(
+        (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+      );
+
+      for (let i = 0; i < sorted.length; i++) {
+        const app = sorted[i];
+        const pos = calculateCardPosition(app.start_time, app.end_time);
+        const appStart = new Date(app.start_time).getTime();
+        const appEnd = new Date(app.end_time).getTime();
+
+        let hasOverlap = false;
+        let isSecondSlot = false;
+
+        for (let j = 0; j < sorted.length; j++) {
+          if (i !== j) {
+            const other = sorted[j];
+            const otherStart = new Date(other.start_time).getTime();
+            const otherEnd = new Date(other.end_time).getTime();
+
+            if (appStart < otherEnd && appEnd > otherStart) {
+              hasOverlap = true;
+              if (app.is_fitting && !other.is_fitting) {
+                isSecondSlot = true;
+              } else if (!app.is_fitting && other.is_fitting) {
+                isSecondSlot = false;
+              } else if (appStart > otherStart || (appStart === otherStart && i > j)) {
+                isSecondSlot = true;
+              }
+              break;
+            }
+          }
+        }
+
+        if (hasOverlap) {
+          layoutMap.set(app.id, {
+            topPx: pos.topPx,
+            heightPx: pos.heightPx,
+            left: isSecondSlot ? '239px' : '3px',
+            width: '231px',
+          });
+        } else {
+          layoutMap.set(app.id, {
+            topPx: pos.topPx,
+            heightPx: pos.heightPx,
+            left: '5px',
+            width: '463px',
+          });
+        }
+      }
+
+      return layoutMap;
+    }
+
     const horizontalLayout = calculateAgendaHorizontalLayout(
       appointmentsList.map((appointment) => ({
         id: appointment.id,
@@ -2537,7 +2606,7 @@ export const Agenda: React.FC = () => {
                       const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
                       return bDate === day.dateStr && selectedProfessionalIds.includes(b.professional_id);
                     });
-                    const layoutMap = calculateAppointmentsLayout(dayAppointments);
+                    const layoutMap = calculateAppointmentsLayout(dayAppointments, true);
 
                     const dayBh = getDayBusinessHours(day.dateStr, tenant.businessHours);
                     const isDayClosed = !dayBh.active;
@@ -2713,8 +2782,8 @@ export const Agenda: React.FC = () => {
                             const layout = layoutMap.get(app.id) || {
                               topPx: 4,
                               heightPx: 69,
-                              left: '4px',
-                              width: 'calc(100% - 8px)',
+                              left: '5px',
+                              width: '463px',
                             };
 
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
@@ -2869,7 +2938,7 @@ export const Agenda: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="anonymous-customer-note" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '0.5rem', border: '1px dashed rgba(255, 255, 255, 0.15)', fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', marginBottom: '1rem' }}>
+            <div className="anonymous-customer-note">
               <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
             </div>
           )}
@@ -3127,7 +3196,7 @@ export const Agenda: React.FC = () => {
             addToast('Atendimento reagendado com sucesso!', 'success');
             fetchAppointments();
           }}
-          onMarkNoShow={() => handleMarkNoShow(checkoutAppointment)}
+          onMarkNoShow={() => handleConfirmNoShow(checkoutAppointment)}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
             fetchAppointments();
@@ -3374,8 +3443,13 @@ export const Agenda: React.FC = () => {
         .agenda-page {
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0;
           width: 100%;
+          height: 100%;
+          max-height: 100%;
+          min-height: 0;
+          flex: 1;
+          overflow: hidden;
           font-family: var(--font-family-base);
         }
 
@@ -3388,7 +3462,8 @@ export const Agenda: React.FC = () => {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 1rem;
-          padding: 1.25rem 1.75rem;
+          padding: 1rem 1.5rem;
+          flex-shrink: 0;
           background-color: rgba(255, 255, 255, 0.65);
           backdrop-filter: blur(16px) saturate(120%);
           -webkit-backdrop-filter: blur(16px) saturate(120%);
@@ -3962,7 +4037,9 @@ export const Agenda: React.FC = () => {
         /* GRADE DA TIMELINE */
         .agenda-grid-wrapper {
           width: 100%;
-          max-height: calc(100dvh - 165px);
+          flex: 1;
+          min-height: 0;
+          max-height: none;
           overflow: auto;
           overscroll-behavior: contain;
           background-color: var(--color-bg-secondary, #FFFFFF);
@@ -3974,6 +4051,8 @@ export const Agenda: React.FC = () => {
           scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
           transition: scrollbar-color 0.2s ease;
           position: relative;
+          top: 0;
+          left: 0;
         }
 
         .agenda-grid-wrapper:hover {
@@ -4028,7 +4107,7 @@ export const Agenda: React.FC = () => {
         .agenda-timeline-board {
           display: flex;
           min-width: 100%;
-          width: 100%;
+          width: max-content;
           position: relative;
         }
 
@@ -4139,9 +4218,9 @@ export const Agenda: React.FC = () => {
         }
 
         .week-timeline-column {
-          flex: 1 1 0;
-          width: 100%;
-          min-width: clamp(140px, 12vw, 220px);
+          width: 473px;
+          min-width: 473px;
+          flex: 1;
         }
 
         .professional-timeline-column:last-child {
@@ -4731,20 +4810,27 @@ export const Agenda: React.FC = () => {
         .segmented-btn {
           flex: 1;
           border: none;
-          padding: 0.45rem;
+          padding: 0.5rem 0.6rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
           border-radius: var(--radius-sm);
           background: none;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          box-shadow: none;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          min-height: 40px;
         }
 
         .segmented-btn--active {
           background-color: var(--color-bg-secondary);
-          color: var(--color-brand-primary);
-          box-shadow: var(--shadow-sm);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px #000000, 0 1px 2px rgba(45, 35, 30, 0.06);
+          border: none;
         }
 
         .form-group {
@@ -4775,8 +4861,9 @@ export const Agenda: React.FC = () => {
           width: 100%;
           min-width: 0;
           max-width: 100%;
-          padding: 0.6rem 0.8rem;
-          border: 1px solid var(--color-border);
+          padding: 0.65rem 0.85rem;
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
@@ -4784,6 +4871,7 @@ export const Agenda: React.FC = () => {
           font-family: inherit;
           box-sizing: border-box;
           inline-size: 100%;
+          transition: box-shadow 0.15s ease;
         }
 
         #form-date,
@@ -4804,7 +4892,7 @@ export const Agenda: React.FC = () => {
         .input-select:focus,
         .input-textarea:focus {
           outline: none;
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
         }
 
         .service-meta-pill {
@@ -4812,19 +4900,40 @@ export const Agenda: React.FC = () => {
           align-items: center;
           gap: 0.4rem;
           margin-top: 0.25rem;
-          font-size: 0.72rem;
-          color: var(--color-text-secondary);
+          font-size: 0.75rem;
+          color: var(--color-text-primary);
+        }
+
+        .service-meta-pill span {
+          color: var(--color-text-primary);
         }
 
         .service-meta-pill strong {
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .anonymous-customer-note {
+          padding: 0.75rem 0.85rem;
+          background: rgba(0, 0, 0, 0.02);
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: 0.82rem;
+          line-height: 1.45;
+          color: var(--color-text-primary);
+          margin-bottom: 0.5rem;
+        }
+
+        .anonymous-customer-note span {
+          color: var(--color-text-primary);
         }
 
         .fitting-toggle-card {
           padding: 0.75rem 0.9rem;
           border-radius: var(--radius-md);
           background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
           align-items: center;
@@ -4835,8 +4944,8 @@ export const Agenda: React.FC = () => {
         }
 
         .fitting-toggle-card--active {
-          background-color: rgba(242, 178, 119, 0.15);
-          border-color: var(--color-brand-soft);
+          background-color: var(--color-bg-primary);
+          border-color: transparent;
         }
 
         .fitting-toggle-info {
@@ -4870,8 +4979,8 @@ export const Agenda: React.FC = () => {
         }
 
         .fitting-toggle-desc {
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
+          font-size: 0.72rem;
+          color: var(--color-text-primary);
         }
 
         .fitting-mode-switch {
@@ -4885,7 +4994,7 @@ export const Agenda: React.FC = () => {
         .fitting-mode-switch__label {
           font-size: 0.68rem;
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           transition: color 0.2s ease;
         }
 
@@ -4906,17 +5015,18 @@ export const Agenda: React.FC = () => {
           width: 2.55rem;
           height: 1.35rem;
           padding: 0.15rem;
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: 999px;
-          background: var(--color-border);
+          background: #D1D5DB;
           cursor: pointer;
-          transition: background-color 0.2s ease, border-color 0.2s ease;
+          transition: background-color 0.2s ease, box-shadow 0.2s ease;
           box-sizing: border-box;
         }
 
         .fitting-mode-switch__control--custom {
           background: var(--color-brand-primary);
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 0.8px var(--color-brand-primary);
         }
 
         .fitting-mode-switch__control:focus-visible {
@@ -4982,21 +5092,27 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-secondary {
-          background: none;
-          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           padding: 0.6rem 1.25rem;
           border-radius: var(--radius-md);
           font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-secondary);
+          font-weight: 700;
+          color: var(--color-text-primary);
           cursor: pointer;
           min-height: 44px;
           box-sizing: border-box;
+          transition: background-color 0.15s ease, opacity 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+          background-color: rgba(0, 0, 0, 0.04);
         }
 
         .btn-primary {
           background-color: var(--color-brand-primary);
-          color: white;
+          color: var(--color-bg-secondary);
           border: none;
           padding: 0.6rem 1.5rem;
           border-radius: var(--radius-md);
@@ -5005,6 +5121,7 @@ export const Agenda: React.FC = () => {
           cursor: pointer;
           min-height: 44px;
           box-sizing: border-box;
+          transition: background-color 0.15s ease, transform 0.15s ease;
         }
 
         .btn-primary:hover {
@@ -5178,8 +5295,12 @@ export const Agenda: React.FC = () => {
         .agenda-desktop-view {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 0.75rem;
           width: 100%;
+          height: 100%;
+          max-height: 100%;
+          min-height: 0;
+          flex: 1;
         }
 
         @media (max-width: 1024px) {
