@@ -126,7 +126,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     });
 
     // Clica no botão de Novo Barbeiro para abrir o Drawer
-    const btnNovo = screen.getByRole('button', { name: /Novo Barbeiro/i });
+    const btnNovo = screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i });
     fireEvent.click(btnNovo);
 
     expect(screen.getByRole('heading', { name: 'Novo Profissional' })).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     expect(screen.getByLabelText('Início do expediente de Terça-feira')).toHaveValue('10:00');
     expect(screen.getByLabelText('Fim do expediente de Terça-feira')).toHaveValue('16:00');
@@ -152,7 +152,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     const tuesdayStart = screen.getByLabelText('Início do expediente de Terça-feira');
     expect(tuesdayStart.tagName).toBe('SELECT');
@@ -169,7 +169,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     const breakStart = screen.getAllByLabelText('Início do Almoço')[0];
     const breakEnd = screen.getAllByLabelText('Fim do Almoço')[0];
@@ -188,7 +188,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     });
 
     // Abre o drawer para novo profissional
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     // Pelo estado inicial do formulário, a Segunda-feira (monday) está ativa por padrão.
     // Verificamos a presença dos inputs de horário de trabalho e de almoço.
@@ -208,7 +208,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     const startSelect = screen.getAllByLabelText(/Início do expediente/i)[0];
     const options = Array.from(startSelect.querySelectorAll('option')).map((option) => option.value);
@@ -226,7 +226,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
     });
 
     // Abre o drawer para cadastrar novo profissional
-    fireEvent.click(screen.getByRole('button', { name: /Novo Barbeiro/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
 
     // Preencher formulário de cadastro
     fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Lucas Barbeiro' } });

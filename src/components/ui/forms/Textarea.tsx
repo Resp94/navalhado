@@ -95,9 +95,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
           .ui-textarea-label {
             font-size: var(--font-size-xs, 0.75rem);
-            font-weight: 700;
+            font-weight: 800;
             color: var(--color-text-primary, #2D231E);
-            letter-spacing: 0.02em;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
             line-height: 1.2;
             user-select: none;
           }

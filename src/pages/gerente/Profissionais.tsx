@@ -17,6 +17,7 @@ import {
   Clock01Icon,
   Delete02Icon,
   PlusSignIcon,
+  PlusSignCircleIcon,
   Edit01Icon,
 } from '@hugeicons/core-free-icons';
 import {
@@ -25,6 +26,7 @@ import {
   Avatar,
   Badge,
   EmptyState,
+  Skeleton,
 } from '../../components/ui';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import {
@@ -83,6 +85,44 @@ const ScissorIcon = () => <HugeiconsIcon icon={HugeScissorIcon} size={15} />;
 const CheckIcon = () => <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} />;
 const AlertIcon = () => <HugeiconsIcon icon={AlertCircleIcon} size={13} />;
 const ClockIcon = () => <HugeiconsIcon icon={Clock01Icon} size={13} />;
+
+const ProfessionalCardSkeleton: React.FC = () => (
+  <div className="prof-card" aria-hidden="true">
+    <div className="prof-card-header">
+      <div className="prof-card-title-group">
+        <Skeleton shape="circle" width={40} height={40} />
+        <div className="prof-meta-wrap" style={{ gap: '0.45rem' }}>
+          <Skeleton shape="text" width={140} height={18} />
+          <Skeleton shape="text" width={100} height={14} />
+        </div>
+      </div>
+      <Skeleton shape="rect" width={96} height={26} style={{ borderRadius: 'var(--radius-full)' }} />
+    </div>
+    <div className="prof-card-schedule">
+      <Skeleton shape="text" width={120} height={14} style={{ marginBottom: '0.5rem' }} />
+      <div className="schedule-badges">
+        {[...Array(7)].map((_, i) => (
+          <Skeleton
+            key={i}
+            shape="rect"
+            height={52}
+            style={{ borderRadius: 'var(--radius-sm)', width: '100%' }}
+          />
+        ))}
+      </div>
+    </div>
+    <div className="prof-card-actions">
+      <div className="login-status">
+        <Skeleton shape="rect" width={100} height={24} style={{ borderRadius: 'var(--radius-sm)' }} />
+      </div>
+      <div className="action-buttons">
+        <Skeleton shape="rect" width={140} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
+        <Skeleton shape="rect" width={130} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
+        <Skeleton shape="rect" width={75} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
+      </div>
+    </div>
+  </div>
+);
 
 export const Profissionais: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -540,18 +580,20 @@ export const Profissionais: React.FC = () => {
           <div className="prof-header-actions">
             <Button
               type="button"
-              variant="primary"
+              variant="soft"
               onClick={handleOpenCreateDrawer}
-              icon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
+              icon={<HugeiconsIcon icon={PlusSignCircleIcon} size={18} />}
+              style={{ boxShadow: '0 0 0 1px var(--color-text-primary)' }}
+              aria-label="Novo Barbeiro"
             >
               Novo Barbeiro
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={() => navigate('/profissionais/cadastro-acesso')}
             >
-              Criar acesso do barbeiro
+              Criar acesso
             </Button>
           </div>
         </div>
@@ -562,7 +604,9 @@ export const Profissionais: React.FC = () => {
         <div className="list-header">
           <div className="list-header-left">
             <h3 id="prof-list-heading">Membros da equipe</h3>
-            {!loading && (
+            {loading ? (
+              <Skeleton width={80} height={20} style={{ borderRadius: 'var(--radius-full)' }} />
+            ) : (
               <span className="team-count-chip">
                 {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
               </span>
@@ -571,15 +615,11 @@ export const Profissionais: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="loading-state">
-            <div
-              className="spinner"
-              style={{
-                borderColor: 'var(--color-brand-primary)',
-                borderTopColor: 'transparent',
-              }}
-            />
-            <p>Carregando equipe...</p>
+          <div className="prof-list-container" role="status" aria-busy="true">
+            <span className="sr-only">Carregando equipe...</span>
+            <ProfessionalCardSkeleton />
+            <ProfessionalCardSkeleton />
+            <ProfessionalCardSkeleton />
           </div>
         ) : professionals.length === 0 ? (
           <EmptyState
@@ -683,30 +723,35 @@ export const Profissionais: React.FC = () => {
                   </div>
 
                   <div className="action-buttons">
-                    <button
+                    <Button
+                      size="sm"
+                      variant="soft"
                       onClick={() => handleOpenServicesModal(prof)}
-                      className="btn-action btn-action--services"
+                      icon={<ScissorIcon />}
                       title="Configurar serviços atendidos e tempo de corte deste barbeiro"
                     >
-                      <ScissorIcon /> Serviços e tempos
-                    </button>
-                    <button
+                      Serviços e tempos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="soft"
                       onClick={() => handleEdit(prof)}
-                      className="btn-action btn-action--edit"
+                      icon={<HugeiconsIcon icon={Edit01Icon} size={15} />}
                       title="Editar dados e escala deste barbeiro"
                     >
-                      <HugeiconsIcon icon={Edit01Icon} size={15} />
                       Editar Escala/Dados
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="soft"
                       onClick={() => setProfToDelete(prof)}
-                      className="btn-action btn-action--delete"
+                      icon={<HugeiconsIcon icon={Delete02Icon} size={15} />}
                       title="Excluir profissional (mantém histórico)"
                       aria-label={`Excluir profissional ${prof.name}`}
+                      className="btn-prof-delete"
                     >
-                      <HugeiconsIcon icon={Delete02Icon} size={15} />
                       Excluir
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -724,19 +769,9 @@ export const Profissionais: React.FC = () => {
           <div className="prof-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="prof-drawer-heading">
             <div className="prof-drawer-header">
               <div className="prof-drawer-header-info">
-                <div className="prof-drawer-icon-badge">
-                  <HugeiconsIcon icon={UserGroupIcon} size={20} />
-                </div>
-                <div>
-                  <h3 id="prof-drawer-heading" className="prof-drawer-title">
-                    {editingId ? 'Editar Profissional' : 'Novo Profissional'}
-                  </h3>
-                  <span className="prof-drawer-subtitle">
-                    {editingId
-                      ? 'Atualize os dados e os dias de atendimento do barbeiro'
-                      : 'Preencha os dados cadastrais do novo barbeiro da equipe'}
-                  </span>
-                </div>
+                <h3 id="prof-drawer-heading" className="prof-drawer-title">
+                  {editingId ? 'Editar Profissional' : 'Novo Profissional'}
+                </h3>
               </div>
               <IconButton
                 icon={<HugeiconsIcon icon={Cancel01Icon} size={20} />}
@@ -909,7 +944,7 @@ export const Profissionais: React.FC = () => {
               <div className="prof-drawer-footer">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleCloseDrawer}
                 >
                   Cancelar
@@ -997,9 +1032,18 @@ export const Profissionais: React.FC = () => {
               </div>
 
               {loadingProfServices ? (
-                <div className="loading-state py-4">
-                  <div className="spinner mb-2" />
-                  <p>Carregando catálogo de serviços...</p>
+                <div className="services-association-table-wrap" role="status" aria-busy="true">
+                  <span className="sr-only">Carregando catálogo de serviços...</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem' }}>
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <Skeleton shape="rect" width={20} height={20} style={{ borderRadius: 'var(--radius-xs, 4px)' }} />
+                        <Skeleton shape="text" width="40%" height={16} />
+                        <Skeleton shape="rect" width={100} height={32} style={{ borderRadius: 'var(--radius-sm)', marginLeft: 'auto' }} />
+                        <Skeleton shape="rect" width={100} height={32} style={{ borderRadius: 'var(--radius-sm)' }} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : profServicesList.length === 0 ? (
                 <div className="empty-state">
@@ -1146,6 +1190,10 @@ export const Profissionais: React.FC = () => {
           flex-wrap: wrap;
         }
 
+        .prof-header-actions .ui-btn:hover:not(:disabled) {
+          background-color: #f2b277 !important;
+        }
+
         .prof-header-intro h2 {
           font-size: var(--font-size-2xl);
           font-weight: 800;
@@ -1269,6 +1317,21 @@ export const Profissionais: React.FC = () => {
           flex-shrink: 0;
         }
 
+        .prof-drawer-footer .ui-btn--outline,
+        .prof-drawer-footer .ui-btn--secondary {
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
+        .prof-drawer-footer .ui-btn--primary {
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
         .section-title-wrap {
           margin-bottom: 1.25rem;
           display: flex;
@@ -1317,11 +1380,12 @@ export const Profissionais: React.FC = () => {
           align-items: center;
           padding: 2px 8px;
           background: var(--color-bg-primary);
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
           font-size: 11px;
           font-weight: 700;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .prof-form {
@@ -1354,7 +1418,7 @@ export const Profissionais: React.FC = () => {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1364,28 +1428,37 @@ export const Profissionais: React.FC = () => {
         .form-group input, .form-group select {
           padding: 0.65rem 0.85rem;
           min-height: 42px;
-          border: 1px solid var(--color-border);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           outline: none;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: box-shadow 0.2s ease, background-color 0.2s ease;
           width: 100%;
         }
 
         .form-group input:focus, .form-group select:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          border-color: transparent;
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
         }
 
         .form-group input::placeholder {
-          color: rgba(112, 98, 91, 0.6);
+          color: var(--color-text-secondary);
+          opacity: 0.65;
+        }
+
+        #prof-commission {
+          text-align: center;
         }
 
         .schedule-section {
           background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
           border-radius: var(--radius-md);
           padding: 1rem;
           display: flex;
@@ -1397,7 +1470,12 @@ export const Profissionais: React.FC = () => {
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
+        }
+
+        .schedule-section-header svg {
+          stroke: var(--color-text-primary);
+          color: var(--color-text-primary);
         }
 
         .schedule-title {
@@ -1405,7 +1483,7 @@ export const Profissionais: React.FC = () => {
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
         }
 
         .schedule-list {
@@ -1416,7 +1494,9 @@ export const Profissionais: React.FC = () => {
 
         .schedule-day-item {
           background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
           border-radius: var(--radius-md);
           padding: 0.65rem 0.85rem;
           display: flex;
@@ -1426,9 +1506,10 @@ export const Profissionais: React.FC = () => {
         }
 
         .schedule-day-item--active {
-          border-color: var(--color-brand-soft);
+          border: 0px solid transparent;
+          border-width: 0px;
           background: var(--color-bg-secondary);
-          box-shadow: 0 1px 3px rgba(217, 108, 0, 0.05);
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
         }
 
         .day-checkbox {
@@ -1470,7 +1551,7 @@ export const Profissionais: React.FC = () => {
         .schedule-row-label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           flex-shrink: 0;
@@ -1492,7 +1573,9 @@ export const Profissionais: React.FC = () => {
           max-width: 105px;
           height: 38px;
           padding: 0.35rem 0.4rem;
-          border: 1px solid var(--color-border);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-sm);
           font-size: var(--font-size-xs);
           font-weight: 700;
@@ -1501,17 +1584,17 @@ export const Profissionais: React.FC = () => {
           color: var(--color-text-primary);
           text-align: center;
           box-sizing: border-box;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: box-shadow 0.2s ease;
         }
 
         .day-times-input:focus {
-          border-color: var(--color-brand-primary);
+          border-color: transparent;
           outline: none;
-          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
         }
 
         .schedule-row-sep {
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-size: 11px;
           font-weight: 700;
           flex-shrink: 0;
@@ -1564,7 +1647,8 @@ export const Profissionais: React.FC = () => {
 
         .prof-card {
           background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
           border-radius: var(--radius-md);
           padding: 1.25rem;
           display: flex;
@@ -1574,8 +1658,7 @@ export const Profissionais: React.FC = () => {
         }
 
         .prof-card:hover {
-          border-color: var(--color-brand-soft);
-          box-shadow: var(--shadow-md);
+          box-shadow: 0 0 0 0.5px var(--color-text-primary), var(--shadow-md);
           transform: translateY(-1px);
         }
 
@@ -1625,21 +1708,26 @@ export const Profissionais: React.FC = () => {
 
         .prof-phone {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          font-weight: 700;
           font-variant-numeric: tabular-nums;
         }
 
         .prof-commission-badge {
           font-size: var(--font-size-xs);
           background: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
-          border: 1px solid rgba(217, 108, 0, 0.2);
+          color: var(--color-text-primary);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           padding: 0.35rem 0.65rem;
           border-radius: var(--radius-full);
           font-weight: 600;
           white-space: nowrap;
-          box-shadow: 0 1px 2px rgba(217, 108, 0, 0.05);
           flex-shrink: 0;
+        }
+
+        .prof-commission-badge span {
+          color: var(--color-text-primary);
         }
 
         .prof-card-schedule {
@@ -1653,7 +1741,7 @@ export const Profissionais: React.FC = () => {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           margin: 0;
           font-weight: 700;
         }
@@ -1668,7 +1756,8 @@ export const Profissionais: React.FC = () => {
 
         .badge-schedule-active {
           background: var(--color-brand-lightest);
-          border: 1px solid var(--color-brand-soft);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-sm);
           padding: 0.4rem 0.2rem;
           display: flex;
@@ -1680,11 +1769,11 @@ export const Profissionais: React.FC = () => {
           width: 100%;
           box-sizing: border-box;
           text-align: center;
-          transition: transform 0.2s ease, border-color 0.2s ease;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .badge-schedule-active:hover {
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 1.2px var(--color-text-primary);
           transform: translateY(-1px);
         }
 
@@ -1709,7 +1798,7 @@ export const Profissionais: React.FC = () => {
           font-size: clamp(9px, 2.4vw, 11px);
           font-weight: 700;
           text-transform: uppercase;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           line-height: 1;
         }
 
@@ -1717,7 +1806,7 @@ export const Profissionais: React.FC = () => {
           font-size: clamp(9px, 2.4vw, 11px);
           font-weight: 800;
           font-variant-numeric: tabular-nums;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
           line-height: 1.1;
           white-space: nowrap;
           overflow: hidden;
@@ -1752,8 +1841,9 @@ export const Profissionais: React.FC = () => {
 
         .status-badge--unlinked {
           background: var(--color-warning-bg);
-          color: var(--color-warning);
-          border: 1px solid rgba(217, 119, 6, 0.25);
+          color: var(--color-text-primary);
+          border: 0;
+          box-shadow: 0 0 0 1px var(--color-text-primary);
         }
 
         .action-buttons {
@@ -1823,6 +1913,19 @@ export const Profissionais: React.FC = () => {
           box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
         }
 
+        .action-buttons .btn-prof-delete:hover:not(:disabled),
+        .action-buttons button[aria-label^="Excluir profissional"]:hover:not(:disabled) {
+          background-color: #F05252 !important;
+          color: #ffffff !important;
+          box-shadow: 0 0 0 1px #F05252 !important;
+        }
+
+        .action-buttons .btn-prof-delete:hover:not(:disabled) svg,
+        .action-buttons button[aria-label^="Excluir profissional"]:hover:not(:disabled) svg {
+          stroke: #ffffff !important;
+          color: #ffffff !important;
+        }
+
         @media (max-width: 640px) {
           .card {
             padding: 1rem;
@@ -1879,7 +1982,7 @@ export const Profissionais: React.FC = () => {
             width: 100%;
           }
 
-          .btn-action {
+          .action-buttons .ui-btn {
             min-height: 44px;
             font-size: var(--font-size-xs);
             padding: 0.5rem 0.4rem;
@@ -1928,7 +2031,7 @@ export const Profissionais: React.FC = () => {
           text-transform: uppercase;
           letter-spacing: 0.1em;
           font-weight: 800;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
           display: block;
           margin-bottom: 0.2rem;
         }
@@ -1959,6 +2062,20 @@ export const Profissionais: React.FC = () => {
           flex-wrap: wrap;
         }
 
+        .modal-services-toolbar .ui-btn {
+          color: var(--color-text-primary);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
+        }
+
+        .modal-services-toolbar .ui-btn:hover:not(:disabled) {
+          background-color: var(--color-brand-soft);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary);
+        }
+
         .services-association-table-wrap {
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -1976,18 +2093,23 @@ export const Profissionais: React.FC = () => {
         }
 
         .services-association-table th {
-          background: var(--color-bg-primary);
+          background: #FDF3EA;
           padding: 0.75rem 1rem;
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          font-weight: 700;
-          color: var(--color-text-secondary);
+          font-weight: 800;
+          color: var(--color-text-primary);
           border-bottom: 1px solid var(--color-border);
           text-align: left;
           position: sticky;
           top: 0;
           z-index: 1;
+        }
+
+        .dark-theme .services-association-table th {
+          background: rgba(242, 178, 119, 0.1);
+          color: var(--color-text-primary);
         }
 
         .services-association-table td {
@@ -2030,29 +2152,39 @@ export const Profissionais: React.FC = () => {
         .input-suffix-wrapper input {
           padding-right: 2rem !important;
           min-height: 36px;
-          border: 1px solid var(--color-border);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-sm);
           font-size: var(--font-size-xs);
+          font-weight: 700;
           font-variant-numeric: tabular-nums;
           background: var(--color-bg-secondary);
           color: var(--color-text-primary);
           width: 100%;
           text-align: center;
+          transition: box-shadow 0.2s ease;
         }
 
         .input-suffix-wrapper input:focus {
-          border-color: var(--color-brand-primary);
+          border-color: transparent;
           outline: none;
-          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
+        }
+
+        .input-suffix-wrapper input:disabled {
+          opacity: 0.6;
+          box-shadow: 0 0 0 0.4px var(--color-border);
+          cursor: not-allowed;
         }
 
         .input-suffix {
           position: absolute;
           right: 0.6rem;
           font-size: 11px;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           pointer-events: none;
-          font-weight: 600;
+          font-weight: 700;
         }
 
         .modal-footer {
@@ -2062,6 +2194,43 @@ export const Profissionais: React.FC = () => {
           padding-top: 1.25rem;
           margin-top: 1rem;
           border-top: 1px solid var(--color-border);
+        }
+
+        .modal-footer .ui-btn--outline,
+        .modal-footer .ui-btn--secondary {
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
+        .modal-footer .ui-btn--outline:hover:not(:disabled),
+        .modal-footer .ui-btn--secondary:hover:not(:disabled) {
+          background-color: rgba(0, 0, 0, 0.04);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px var(--color-text-primary);
+        }
+
+        .modal-footer .ui-btn--primary {
+          background-color: var(--color-brand-soft) !important;
+          color: var(--color-text-primary) !important;
+          border: 0px solid transparent !important;
+          border-width: 0px !important;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary) !important;
+        }
+
+        .modal-footer .ui-btn--primary:hover:not(:disabled) {
+          background-color: #f2b277 !important;
+          color: var(--color-text-primary) !important;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
+        }
+
+        .modal-footer .ui-btn--primary .ui-btn__text {
+          color: var(--color-text-primary) !important;
+          font-weight: 800;
+        }
+
         .loading-state {
           display: flex;
           flex-direction: column;
@@ -2100,6 +2269,61 @@ export const Profissionais: React.FC = () => {
           }
         }
 
+        @media (max-width: 934px) {
+          .prof-drawer-icon-badge {
+            display: none !important;
+          }
+
+          .prof-drawer-subtitle {
+            display: none !important;
+          }
+
+          .prof-drawer-panel {
+            max-width: min(100%, 520px);
+          }
+
+          .modal-eyebrow {
+            color: var(--color-text-primary) !important;
+          }
+
+          .modal-services-toolbar .ui-btn {
+            color: var(--color-text-primary) !important;
+            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+          }
+
+          .services-association-table th {
+            color: var(--color-text-primary) !important;
+          }
+
+          .input-suffix-wrapper input {
+            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+          }
+
+          .modal-footer .ui-btn--outline,
+          .modal-footer .ui-btn--secondary {
+            color: var(--color-text-primary) !important;
+            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+          }
+
+          .modal-footer .ui-btn--primary {
+            background-color: var(--color-brand-soft) !important;
+            color: var(--color-text-primary) !important;
+            box-shadow: 0 0 0 0.3px var(--color-text-primary) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+          }
+
+          .modal-footer .ui-btn--primary .ui-btn__text {
+            color: var(--color-text-primary) !important;
+          }
+        }
+
         @media (max-width: 768px) {
           .prof-header-content {
             flex-direction: column;
@@ -2121,7 +2345,8 @@ export const Profissionais: React.FC = () => {
 
           .prof-drawer-panel {
             max-width: 100%;
-            height: 90vh;
+            height: 90dvh;
+            max-height: 90dvh;
             border-radius: 20px 20px 0 0;
             border-left: none;
             border-top: 1px solid var(--color-border);

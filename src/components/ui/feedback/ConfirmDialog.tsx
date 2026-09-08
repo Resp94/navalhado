@@ -159,20 +159,21 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          background-color: transparent;
         }
 
         .ui-confirm-icon-badge--danger {
-          background-color: var(--color-error-bg, #FDE8E8);
+          background-color: transparent;
           color: var(--color-error, #F05252);
         }
 
         .ui-confirm-icon-badge--warning {
-          background-color: var(--color-warning-bg, #FEF3C7);
+          background-color: transparent;
           color: var(--color-warning, #D97706);
         }
 
         .ui-confirm-icon-badge--info {
-          background-color: var(--color-info-bg, #EBF5FF);
+          background-color: transparent;
           color: var(--color-info, #3F83F8);
         }
 
@@ -190,18 +191,31 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
         .ui-confirm-desc {
           font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           line-height: 1.45;
           margin: 0;
         }
 
+        .ui-confirm-desc span,
+        .ui-confirm-desc strong {
+          color: var(--color-text-primary, #2D231E);
+        }
+
+        .dark-theme .ui-confirm-desc,
+        .dark-theme .ui-confirm-desc span,
+        .dark-theme .ui-confirm-desc strong {
+          color: var(--color-text-primary, #FFF1E6);
+        }
+
         .ui-confirm-warning-box {
           background-color: var(--color-brand-lightest, #FFF1E6);
-          border: 1px solid var(--color-brand-soft, #F2B277);
+          border: 0px solid transparent;
+          border-width: 0px;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 8px);
           padding: 0.85rem;
           font-size: 12px;
-          color: var(--color-brand-deep, #6A2E00);
+          color: var(--color-text-primary, #2D231E);
           text-align: left;
           line-height: 1.45;
           width: 100%;
@@ -210,6 +224,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
         .ui-confirm-warning-box p {
           margin: 0;
+          color: var(--color-text-primary, #2D231E);
+        }
+
+        .dark-theme .ui-confirm-warning-box {
+          background-color: rgba(217, 108, 0, 0.1);
+          box-shadow: 0 0 0 0.3px var(--color-text-primary, #FFF1E6);
+          color: var(--color-text-primary, #FFF1E6);
+        }
+
+        .dark-theme .ui-confirm-warning-box p {
+          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-confirm-actions {
@@ -217,6 +242,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           width: 100%;
           gap: 0.75rem;
           margin-top: 0.5rem;
+        }
+
+        .ui-confirm-actions .ui-btn--danger {
+          box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E);
+          border: 0px solid transparent;
+          border-width: 0px;
+          color: var(--color-bg-secondary, #FFFFFF);
+        }
+
+        .dark-theme .ui-confirm-actions .ui-btn--danger {
+          box-shadow: 0 0 0 0.3px var(--color-text-primary, #FFF1E6);
+          color: var(--color-bg-secondary, #FFFFFF);
         }
 
         @keyframes uiConfirmFadeIn {
@@ -227,6 +264,36 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         @keyframes uiConfirmSpring {
           from { opacity: 0; transform: scale(0.92) translateY(8px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @media (max-width: 934px) {
+          .ui-confirm-icon-badge {
+            background-color: transparent !important;
+            background-image: none !important;
+          }
+
+          .ui-confirm-desc,
+          .ui-confirm-desc span {
+            color: var(--color-text-primary, #2D231E) !important;
+          }
+
+          .ui-confirm-warning-box {
+            box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+            color: var(--color-text-primary, #2D231E) !important;
+          }
+
+          .ui-confirm-warning-box p {
+            color: var(--color-text-primary, #2D231E) !important;
+          }
+
+          .ui-confirm-actions .ui-btn--danger {
+            box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E) !important;
+            border-width: 0px !important;
+            border: 0 !important;
+            color: var(--color-bg-secondary, #FFFFFF) !important;
+          }
         }
 
         @media (max-width: 480px) {

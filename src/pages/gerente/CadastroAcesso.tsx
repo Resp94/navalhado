@@ -234,7 +234,7 @@ export const CadastroAcesso: React.FC = () => {
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1rem;
           animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -248,20 +248,22 @@ export const CadastroAcesso: React.FC = () => {
         .btn-back {
           background: none;
           border: none;
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 700;
           cursor: pointer;
-          padding: 0.35rem 0;
+          padding: 0.25rem 0;
+          min-height: 36px;
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
-          margin-bottom: 0.5rem;
-          transition: transform 0.2s ease, color 0.2s ease;
+          margin-bottom: 0.25rem;
+          transition: transform 0.2s ease, opacity 0.2s ease;
+          outline: none;
         }
 
         .btn-back:hover {
-          color: var(--color-brand-hover);
+          opacity: 0.8;
           transform: translateX(-3px);
         }
 
@@ -272,66 +274,76 @@ export const CadastroAcesso: React.FC = () => {
         }
 
         .access-header h2 {
-          font-size: var(--font-size-2xl);
+          font-size: clamp(1.25rem, 3.5vw, var(--font-size-2xl));
           font-weight: 800;
           color: var(--color-text-primary);
           letter-spacing: -0.02em;
           margin: 0;
+          line-height: 1.25;
         }
 
         .access-header p {
           font-size: var(--font-size-sm);
           color: var(--color-text-secondary);
-          line-height: 1.5;
+          line-height: 1.4;
           margin: 0;
         }
 
-        .card {
+        .access-container.card {
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
-          padding: 2rem;
+          padding: 1.25rem 1.5rem;
           box-shadow: var(--shadow-sm);
         }
 
         .access-form {
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0.85rem;
         }
 
         .form-group {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 0.25rem;
         }
 
         .form-group label {
           font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
+          font-weight: 800;
+          color: var(--color-text-primary);
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
 
         .form-group input,
         .form-group select {
-          padding: 0.75rem 1rem;
-          min-height: 44px;
-          border: 1px solid var(--color-border);
+          padding: 0.65rem 0.85rem;
+          min-height: 40px;
+          border: 0;
           border-radius: var(--radius-md);
-          background-color: var(--color-bg-primary);
+          background-color: var(--color-bg-secondary);
+          background-image: none;
           color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
+          font-size: 16px;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
           outline: none;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+          transition: box-shadow 0.2s ease, background-color 0.2s ease;
           width: 100%;
+          box-sizing: border-box;
+        }
+
+        @media (min-width: 640px) {
+          .form-group input,
+          .form-group select {
+            font-size: var(--font-size-sm);
+          }
         }
 
         .form-group input:focus,
         .form-group select:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
           background-color: var(--color-bg-secondary);
         }
 
@@ -348,22 +360,31 @@ export const CadastroAcesso: React.FC = () => {
         .btn-toggle-password {
           position: absolute;
           right: 0.25rem;
-          min-width: 44px;
-          min-height: 44px;
-          background: none;
+          min-width: 36px;
+          min-height: 36px;
+          background-color: var(--color-bg-secondary);
+          background-image: none;
           border: none;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-md);
           transition: color 0.2s ease, background-color 0.2s ease;
+          outline: none;
+        }
+
+        .btn-toggle-password svg {
+          stroke: var(--color-text-primary);
         }
 
         .btn-toggle-password:hover {
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
+          background-color: rgba(0, 0, 0, 0.04);
+        }
+
+        .dark-theme .btn-toggle-password:hover {
+          background-color: rgba(255, 255, 255, 0.08);
         }
 
         .btn-toggle-password:focus-visible {
@@ -372,35 +393,56 @@ export const CadastroAcesso: React.FC = () => {
         }
 
         .input-helper {
-          font-size: var(--font-size-xs);
+          font-size: 0.7rem;
           color: var(--color-text-secondary);
-          margin-top: 0.15rem;
-          line-height: 1.4;
+          margin-top: 0.1rem;
+          line-height: 1.35;
         }
 
         .security-notice {
           background-color: var(--color-brand-lightest);
-          border: 1px solid rgba(217, 108, 0, 0.25);
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
+          border: 0;
           border-radius: var(--radius-md);
-          padding: 0.875rem 1rem;
+          padding: 0.7rem 0.85rem;
           font-size: var(--font-size-xs);
-          color: var(--color-brand-deep);
-          line-height: 1.45;
+          color: var(--color-text-primary);
+          line-height: 1.4;
           display: flex;
           align-items: flex-start;
           gap: 0.65rem;
         }
 
+        .dark-theme .security-notice {
+          background-color: rgba(217, 108, 0, 0.12);
+        }
+
         .security-notice-icon {
           flex-shrink: 0;
           margin-top: 0.1rem;
-          color: var(--color-brand-deep);
+          color: var(--color-text-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .security-notice-icon svg {
+          stroke: var(--color-text-primary);
         }
 
         .security-notice-content {
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
+          gap: 0.1rem;
+        }
+
+        .security-notice strong {
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .security-notice span {
+          color: var(--color-text-primary);
         }
 
         .form-actions {
@@ -408,24 +450,58 @@ export const CadastroAcesso: React.FC = () => {
           justify-content: flex-end;
           gap: 0.75rem;
           border-top: 1px solid var(--color-border);
-          padding-top: 1.25rem;
-          margin-top: 0.5rem;
+          padding-top: 0.85rem;
+          margin-top: 0.25rem;
           flex-wrap: wrap;
         }
 
-        .btn--outline-secondary {
-          background-color: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          border-radius: var(--radius-md);
-          padding: 0.75rem 1.25rem;
-          font-weight: 600;
+        @media (max-width: 480px) {
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+          .form-actions .btn {
+            width: 100%;
+          }
         }
 
-        .btn--outline-secondary:hover {
-          background-color: var(--color-bg-primary);
+        .btn--outline-secondary {
+          background-color: var(--color-bg-secondary);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           color: var(--color-text-primary);
-          border-color: var(--color-brand-soft);
+          border-radius: var(--radius-md);
+          padding: 0.65rem 1.25rem;
+          font-weight: 700;
+          min-height: 40px;
+        }
+
+        .btn--outline-secondary:hover:not(:disabled) {
+          background-color: rgba(0, 0, 0, 0.03);
+          color: var(--color-text-primary);
+        }
+
+        .dark-theme .btn--outline-secondary:hover:not(:disabled) {
+          background-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .btn--primary {
+          background-color: var(--color-brand-primary);
+          color: #FFFFFF;
+          border: 0;
+          box-shadow: 0 0 0 0.8px rgb(45, 35, 30);
+          border-radius: var(--radius-md);
+          padding: 0.65rem 1.25rem;
+          font-weight: 700;
+          min-height: 40px;
+        }
+
+        .dark-theme .btn--primary {
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
+        .btn--primary:hover:not(:disabled) {
+          background-color: var(--color-brand-hover);
+          transform: translateY(-1px);
         }
 
         .loading-state,

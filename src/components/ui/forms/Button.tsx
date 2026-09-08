@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'danger-outline' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'danger-outline' | 'ghost' | 'warning' | 'soft';
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -197,6 +197,42 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           .dark-theme .ui-btn--ghost:hover:not(:disabled) {
             background-color: rgba(255, 255, 255, 0.06);
             color: #FFFFFF;
+          }
+
+          .ui-btn--warning {
+            background-color: var(--color-warning, #D97706);
+            color: var(--color-text-primary, #2D231E);
+            box-shadow: 0 0 0 1px var(--color-text-primary, #2D231E);
+          }
+
+          .ui-btn--warning:hover:not(:disabled) {
+            background-color: #B45309;
+            box-shadow: 0 0 0 1px var(--color-text-primary, #2D231E);
+            transform: translateY(-1px);
+          }
+
+          .ui-btn--soft {
+            background-color: var(--color-brand-lightest, #FFF1E6);
+            color: var(--color-text-primary, #2D231E);
+            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
+            border: none;
+          }
+
+          .ui-btn--soft:hover:not(:disabled) {
+            background-color: #f2b277;
+            box-shadow: 0 0 0 1px var(--color-text-primary, #2D231E);
+            transform: translateY(-1px);
+          }
+
+          .dark-theme .ui-btn--soft {
+            background-color: rgba(217, 108, 0, 0.15);
+            color: var(--color-text-primary, #FFF1E6);
+            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
+          }
+
+          .dark-theme .ui-btn--soft:hover:not(:disabled) {
+            background-color: rgba(217, 108, 0, 0.25);
+            box-shadow: 0 0 0 1px var(--color-text-primary, #FFF1E6);
           }
 
           /* ESTADO DESABILITADO */
