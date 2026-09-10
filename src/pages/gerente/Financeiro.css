@@ -321,10 +321,10 @@
 }
 
 .turn-status-badge--closed {
-  background: var(--color-warning-bg);
-  color: var(--color-text-primary);
+  background-color: var(--color-error);
+  color: var(--color-bg-secondary);
   border: none;
-  box-shadow: 0 0 0 0.5px var(--color-text-primary);
+  box-shadow: none;
 }
 
 .turn-banner-desc {
