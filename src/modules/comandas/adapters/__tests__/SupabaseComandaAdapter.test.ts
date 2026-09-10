@@ -116,4 +116,22 @@ describe('SupabaseComandaAdapter', () => {
       p_pagamentos: input.pagamentos,
     });
   });
+
+  it('reabre comanda por uma única RPC transacional', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValueOnce({
+      data: { id: 'comanda-1', status: 'aberta' },
+      error: null,
+    });
+
+    await expect(new SupabaseComandaAdapter().reabrirComanda('comanda-1', 'tenant-1')).resolves.toMatchObject({
+      id: 'comanda-1',
+      status: 'aberta',
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('reopen_comanda', {
+      p_comanda_id: 'comanda-1',
+      p_tenant_id: 'tenant-1',
+    });
+  });
 });
