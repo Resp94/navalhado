@@ -1,6 +1,6 @@
 # Snapshots e histórico financeiro confiável
 
-**Status:** in-progress — Ticket 08 implementado e validado; Tickets 09–16 pendentes
+**Status:** in-progress — Tickets 08 e 09 implementados e validados; Tickets 10–16 pendentes
 **Ordem:** 3 de 3
 **Ambiente inicial:** Supabase DEV
 **Dependências:** Specs 030 e 031 concluídas e validadas
