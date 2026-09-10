@@ -14,6 +14,18 @@ export interface ComandaItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  snapshot_quantity?: number | null;
+  snapshot_unit_price?: number | null;
+  snapshot_gross_amount?: number | null;
+  snapshot_discount_amount?: number | null;
+  snapshot_net_amount?: number | null;
+  snapshot_unit_cost?: number | null;
+  snapshot_commission_percentage?: number | null;
+  snapshot_commission_amount?: number | null;
+  snapshot_commission_rule?: 'professional_service' | 'service' | 'professional' | 'product' | 'none' | null;
+  snapshot_status?: 'confirmed' | 'reverted' | null;
+  snapshot_reverted_at?: string | null;
+  snapshot_reverted_by?: string | null;
   created_at?: string;
 }
 
