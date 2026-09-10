@@ -215,145 +215,23 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
   }
 
   async liquidarComanda(input: LiquidarComandaInput): Promise<Comanda> {
-    const { data: linkedAppointment, error: linkedAppointmentError } = await supabase
-      .from('comandas')
-      .select('appointment:appointments(status)')
-      .eq('id', input.comanda_id)
-      .maybeSingle();
-
-    if (linkedAppointmentError) {
-      throw new Error(`Erro ao validar atendimento da comanda: ${linkedAppointmentError.message}`);
-    }
-
-    const appointmentRelation = Array.isArray(linkedAppointment?.appointment)
-      ? linkedAppointment.appointment[0]
-      : linkedAppointment?.appointment;
-    if (appointmentRelation?.status === 'no_show' || appointmentRelation?.status === 'canceled') {
-      throw new Error('Não é possível liquidar uma comanda vinculada a um atendimento cancelado ou não comparecido.');
-    }
-
-    // 1. Sincronizar itens da comanda se fornecidos
-    if (input.itens && input.itens.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('comanda_itens')
-        .delete()
-        .eq('comanda_id', input.comanda_id);
-
-      if (deleteError) {
-        throw new Error(`Erro ao sincronizar itens da comanda: ${deleteError.message}`);
-      }
-
-      const itensPayload = input.itens.map((i) => ({
-        comanda_id: input.comanda_id,
-        tenant_id: input.tenant_id,
-        item_type: i.item_type,
-        service_id: i.service_id || null,
-        product_id: i.product_id || null,
-        professional_id: i.professional_id || null,
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        total_price: Number((i.quantity * i.unit_price).toFixed(2)),
-      }));
-
-      const { error: insertItensError } = await supabase
-        .from('comanda_itens')
-        .insert(itensPayload);
-
-      if (insertItensError) {
-        throw new Error(`Erro ao salvar itens atualizados da comanda: ${insertItensError.message}`);
-      }
-    }
-
-    const { data: comandaAtual, error: fetchError } = await supabase
-      .from('comandas')
-      .select('*, itens:comanda_itens(*)')
-      .eq('id', input.comanda_id)
-      .single();
-
-    if (fetchError || !comandaAtual) {
-      throw new Error(`Comanda não encontrada: ${fetchError?.message}`);
-    }
-
-    const subtotal = (comandaAtual.itens || []).reduce(
-      (acc: number, item: ComandaItem) => acc + item.total_price,
-      0
-    );
-    const discount = input.discount_amount || 0;
-    const tip = input.tip_amount || 0;
-    const totalLiquidado = Number((subtotal - discount + tip).toFixed(2));
-
-    // Registrar pagamentos
-    const pagamentosPayload = input.pagamentos.map((p) => {
-      const change = p.payment_method === 'cash' && p.received_cash && p.received_cash > p.amount
-        ? Number((p.received_cash - p.amount).toFixed(2))
-        : 0;
-
-      return {
-        comanda_id: input.comanda_id,
-        tenant_id: input.tenant_id,
-        cash_session_id: input.cash_session_id || null,
-        payment_method: p.payment_method,
-        amount: p.amount,
-        change_amount: change,
-      };
+    const { data, error } = await supabase.rpc('settle_comanda', {
+      p_comanda_id: input.comanda_id ?? null,
+      p_tenant_id: input.tenant_id,
+      p_appointment_id: input.appointment_id ?? null,
+      p_customer_id: input.customer_id ?? null,
+      p_discount_amount: input.discount_amount ?? 0,
+      p_tip_amount: input.tip_amount ?? 0,
+      p_cash_session_id: input.cash_session_id ?? null,
+      p_itens: input.itens ?? [],
+      p_pagamentos: input.pagamentos,
     });
 
-    const { error: pagamentosError } = await supabase
-      .from('comanda_pagamentos')
-      .insert(pagamentosPayload);
-
-    if (pagamentosError) {
-      throw new Error(`Erro ao registrar pagamentos: ${pagamentosError.message}`);
+    if (error || !data) {
+      throw new Error(`Erro ao finalizar comanda: ${error?.message || 'resposta vazia'}`);
     }
 
-    // Abater estoque de produtos consumidos
-    if (comandaAtual.itens && comandaAtual.itens.length > 0) {
-      for (const item of comandaAtual.itens) {
-        if (item.item_type === 'produto' && item.product_id) {
-          const { data: prod } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', item.product_id)
-            .single();
-
-          if (prod) {
-            const newStock = Math.max(0, prod.stock_quantity - item.quantity);
-            await supabase
-              .from('products')
-              .update({ stock_quantity: newStock })
-              .eq('id', item.product_id);
-          }
-        }
-      }
-    }
-
-    // Atualizar status da comanda para fechada
-    const { data: comandaFechada, error: closeError } = await supabase
-      .from('comandas')
-      .update({
-        status: 'fechada',
-        total_amount: totalLiquidado,
-        discount_amount: discount,
-        tip_amount: tip,
-        closed_at: new Date().toISOString(),
-      })
-      .eq('id', input.comanda_id)
-      .select('*, itens:comanda_itens(*), pagamentos:comanda_pagamentos(*)')
-      .single();
-
-    if (closeError || !comandaFechada) {
-      throw new Error(`Erro ao finalizar comanda: ${closeError?.message}`);
-    }
-
-    // Se a comanda estiver vinculada a um agendamento, transicionar o agendamento para completed
-    if (comandaFechada.appointment_id) {
-      await supabase
-        .from('appointments')
-        .update({ status: 'completed', payment_status: 'paid' })
-        .eq('id', comandaFechada.appointment_id);
-    }
-
-    return comandaFechada as Comanda;
+    return data as Comanda;
   }
 
   async reabrirComanda(comandaId: string, _tenantId: string): Promise<Comanda> {

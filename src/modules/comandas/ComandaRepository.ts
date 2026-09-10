@@ -116,14 +116,18 @@ export class ComandaRepository {
   }
 
   async settleComanda(input: LiquidarComandaInput): Promise<Comanda> {
-    if (!input.comanda_id || !input.comanda_id.trim()) {
-      throw new ComandaValidationError('ID da comanda é obrigatório.');
+    if (input.comanda_id !== undefined && input.comanda_id !== null && !input.comanda_id.trim()) {
+      throw new ComandaValidationError('ID da comanda inválido.');
     }
     if (!input.tenant_id || !input.tenant_id.trim()) {
       throw new ComandaValidationError('ID da barbearia é obrigatório.');
     }
     if (!input.pagamentos || input.pagamentos.length === 0) {
       throw new ComandaValidationError('Pelo menos uma forma de pagamento deve ser informada.');
+    }
+
+    if (!input.itens || input.itens.length === 0) {
+      throw new ComandaValidationError('A comanda deve conter pelo menos um item.');
     }
 
     const totalPago = input.pagamentos.reduce((acc, p) => acc + p.amount, 0);

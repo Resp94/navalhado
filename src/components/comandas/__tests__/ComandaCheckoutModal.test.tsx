@@ -140,7 +140,7 @@ describe('ComandaCheckoutModal', () => {
       pagamentos: [],
     }));
     vi.mocked(mockComandaAdapter.liquidarComanda).mockImplementation(async (input) => ({
-      id: input.comanda_id,
+      id: input.comanda_id || 'com-liquidada',
       tenant_id: input.tenant_id,
       appointment_id: null,
       customer_id: null,
@@ -153,7 +153,7 @@ describe('ComandaCheckoutModal', () => {
       closed_at: new Date().toISOString(),
       itens: (input.itens || []).map((it, idx) => ({
         id: `item-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         item_type: it.item_type,
         service_id: it.service_id || null,
@@ -165,7 +165,7 @@ describe('ComandaCheckoutModal', () => {
       })),
       pagamentos: input.pagamentos.map((p, idx) => ({
         id: `pag-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         cash_session_id: input.cash_session_id ?? null,
         payment_method: p.payment_method,
@@ -518,22 +518,6 @@ describe('ComandaCheckoutModal', () => {
       notes: null,
     });
 
-    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce({
-      id: 'com-balcao-1',
-      tenant_id: 't-1',
-      appointment_id: null,
-      customer_id: null,
-      status: 'aberta',
-      total_amount: 30.0,
-      discount_amount: 0,
-      tip_amount: 0,
-      notes: null,
-      created_at: new Date().toISOString(),
-      closed_at: null,
-      itens: [],
-      pagamentos: [],
-    });
-
     vi.mocked(mockComandaAdapter.liquidarComanda).mockResolvedValueOnce({
       id: 'com-balcao-1',
       tenant_id: 't-1',
@@ -577,12 +561,15 @@ describe('ComandaCheckoutModal', () => {
     fireEvent.click(btnFinalizar);
 
     await waitFor(() => {
-      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
         expect.objectContaining({
+          comanda_id: null,
           tenant_id: 't-1',
+          appointment_id: null,
           customer_id: null,
         })
       );
+      expect(mockComandaAdapter.criarComanda).not.toHaveBeenCalled();
     });
   });
 

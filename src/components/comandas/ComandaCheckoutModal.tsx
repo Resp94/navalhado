@@ -761,28 +761,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      let comandaEfetivaId = comandaId;
-
-      if (!comandaEfetivaId) {
-        const nova = await comRepo.createComanda({
-          tenant_id: tenantId,
-          appointment_id: appointmentId,
-          customer_id: customerId,
-          itens: itens.map((it) => ({
-            item_type: it.item_type,
-            service_id: it.service_id,
-            product_id: it.product_id,
-            professional_id: it.professional_id,
-            quantity: it.quantity,
-            unit_price: it.unit_price,
-          })),
-        });
-        comandaEfetivaId = nova.id;
-      }
-
       const comandaLiquidada = await comRepo.settleComanda({
-        comanda_id: comandaEfetivaId,
+        comanda_id: comandaId,
         tenant_id: tenantId,
+        appointment_id: appointmentId ?? null,
+        customer_id: customerId ?? null,
         discount_amount: discountAmount,
         tip_amount: tipValue,
         cash_session_id: sessao.id,
