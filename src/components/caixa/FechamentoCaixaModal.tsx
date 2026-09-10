@@ -68,8 +68,10 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
       if (suprimentos === 0 && sangrias === 0) {
         repo.getMovementsSummary(session.id)
           .then((movRes) => {
-            setCurrentSuprimentos(movRes.suprimentos);
-            setCurrentSangrias(movRes.sangrias);
+            if (movRes) {
+              setCurrentSuprimentos(movRes.suprimentos ?? 0);
+              setCurrentSangrias(movRes.sangrias ?? 0);
+            }
           })
           .catch((err) => console.error('Erro ao carregar movimentações no fechamento:', err));
       }
@@ -131,9 +133,6 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             <h3 id="modal-fechamento-caixa-title" className="caixa-modal-title">
               Fechamento e conferência de caixa
             </h3>
-            <p className="caixa-modal-subtitle">
-              Resumo financeiro do turno e conferência do dinheiro físico na gaveta.
-            </p>
           </div>
           <button
             onClick={onClose}
@@ -159,7 +158,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           <div className="caixa-turn-methods-grid">
             <div className="caixa-turn-method-badge">
               <span className="caixa-turn-method-label">Pix</span>
-              <span className="caixa-turn-method-val text-info">{formatCurrency(pixInTurn)}</span>
+              <span className="caixa-turn-method-val">{formatCurrency(pixInTurn)}</span>
             </div>
             <div className="caixa-turn-method-badge">
               <span className="caixa-turn-method-label">Cartões</span>
@@ -167,7 +166,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             </div>
             <div className="caixa-turn-method-badge">
               <span className="caixa-turn-method-label">Dinheiro</span>
-              <span className="caixa-turn-method-val text-success">{formatCurrency(cashInTurn)}</span>
+              <span className="caixa-turn-method-val">{formatCurrency(cashInTurn)}</span>
             </div>
           </div>
         </div>
@@ -186,18 +185,18 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             <span className="caixa-breakdown-label">(+) Entradas em dinheiro (espécie):</span>
             <span className="caixa-breakdown-val text-success">+{formatCurrency(cashInTurn)}</span>
           </div>
-          {suprimentos > 0 && (
+          {suprimentos > 0 ? (
             <div className="caixa-breakdown-item">
               <span className="caixa-breakdown-label">(+) Suprimentos (entradas avulsas):</span>
               <span className="caixa-breakdown-val text-success">+{formatCurrency(suprimentos)}</span>
             </div>
-          )}
-          {sangrias > 0 && (
+          ) : null}
+          {sangrias > 0 ? (
             <div className="caixa-breakdown-item">
               <span className="caixa-breakdown-label">(-) Sangrias (retiradas):</span>
               <span className="caixa-breakdown-val text-danger">-{formatCurrency(sangrias)}</span>
             </div>
-          )}
+          ) : null}
           <div className="caixa-breakdown-item expected">
             <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado na gaveta:</span>
             <span className="caixa-breakdown-val font-bold caixa-val-highlight">
@@ -320,6 +319,9 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           border-radius: var(--radius-lg, 1rem);
           width: 100%;
           max-width: 500px;
+          max-height: min(90dvh, 720px);
+          display: flex;
+          flex-direction: column;
           box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
           overflow: hidden;
           animation: caixaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -330,11 +332,12 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         }
         .caixa-modal-header {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          padding: 1.25rem 1.5rem;
+          padding: 1rem 1.5rem;
           border-bottom: 1px solid var(--color-border, #EADED6);
           background: var(--color-bg-secondary, #ffffff);
+          flex-shrink: 0;
         }
         .caixa-modal-title {
           font-size: 1.125rem;
@@ -342,16 +345,14 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           color: var(--color-text-primary, #2D231E);
           margin: 0;
           letter-spacing: -0.01em;
-        }
-        .caixa-modal-subtitle {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-          margin-top: 0.25rem;
-          line-height: 1.4;
+          line-height: 1.3;
         }
         .caixa-close-btn {
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           padding: 0.35rem;
+          min-width: 44px;
+          min-height: 44px;
+          margin-right: -0.35rem;
           border-radius: var(--radius-sm, 0.375rem);
           transition: all 0.2s ease;
           background: transparent;
@@ -364,15 +365,16 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         }
         .caixa-close-btn:hover {
           color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
+          background: rgba(45, 35, 30, 0.05);
         }
         .caixa-turn-revenue-card {
-          background: #ffffff;
+          background: var(--color-bg-secondary, #ffffff);
           border-bottom: 1px solid var(--color-border, #EADED6);
           padding: 1rem 1.5rem;
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          flex-shrink: 0;
         }
         .caixa-turn-revenue-header {
           display: flex;
@@ -399,8 +401,9 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           gap: 0.5rem;
         }
         .caixa-turn-method-badge {
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
+          background-color: transparent;
+          border: none;
+          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
           border-radius: 8px;
           padding: 0.4rem 0.6rem;
           display: flex;
@@ -412,7 +415,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         .caixa-turn-method-label {
           font-size: 0.6875rem;
           font-weight: 600;
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
         }
         .caixa-turn-method-val {
           font-size: 0.8125rem;
@@ -425,18 +428,23 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           gap: 0.35rem;
           font-size: 0.75rem;
           font-weight: 700;
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           text-transform: uppercase;
           letter-spacing: 0.03em;
           margin-bottom: 0.25rem;
         }
+        .caixa-breakdown-title svg {
+          stroke: var(--color-text-primary, #2D231E);
+          color: var(--color-text-primary, #2D231E);
+        }
         .caixa-breakdown-summary {
-          background: var(--color-bg-primary, #FFF1E6);
+          background-color: transparent;
           border-bottom: 1px solid var(--color-border, #EADED6);
           padding: 1rem 1.5rem;
           display: flex;
           flex-direction: column;
           gap: 0.45rem;
+          flex-shrink: 0;
         }
         .caixa-breakdown-item {
           display: flex;
@@ -445,7 +453,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           font-size: var(--font-size-xs, 0.8125rem);
         }
         .caixa-breakdown-label {
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           font-weight: 600;
         }
         .caixa-breakdown-val {
@@ -469,6 +477,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           flex-direction: column;
           gap: 1.15rem;
           background: var(--color-bg-secondary, #ffffff);
+          overflow-y: auto;
         }
         .caixa-field-group {
           display: flex;
@@ -490,14 +499,16 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         .caixa-input-prefix {
           position: absolute;
           left: 1.15rem;
-          color: var(--color-brand-primary, #D96C00);
+          color: var(--color-text-primary, #2D231E);
           font-weight: 800;
           font-size: 1.125rem;
+          pointer-events: none;
         }
         .caixa-input {
           width: 100%;
           background: var(--color-bg-secondary, #ffffff);
-          border: 1.5px solid var(--color-border, #EADED6);
+          border: none;
+          box-shadow: 0 0 0 2.11677px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 0.5rem);
           padding: 0.75rem 1rem 0.75rem 3.25rem;
           color: var(--color-text-primary, #2D231E);
@@ -508,8 +519,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           transition: all 0.2s ease;
         }
         .caixa-input:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.25);
         }
         .caixa-conferencia-badge {
           padding: 0.85rem 1rem;
@@ -524,30 +534,35 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           justify-content: center;
           flex-shrink: 0;
         }
+        .caixa-conferencia-icon svg {
+          height: fit-content;
+        }
+        .caixa-conferencia-icon svg path {
+          stroke: var(--color-text-primary, #2D231E);
+        }
         .caixa-conferencia-text {
           font-size: var(--font-size-xs, 0.8125rem);
           font-weight: 700;
           line-height: 1.35;
+          color: var(--color-text-primary, #2D231E);
         }
         .caixa-conferencia-badge.exact {
           background: var(--color-success-bg, rgba(14, 159, 110, 0.1));
           border: 1px solid rgba(14, 159, 110, 0.3);
-          color: var(--color-success, #0E9F6E);
         }
         .caixa-conferencia-badge.surplus {
           background: rgba(63, 131, 248, 0.1);
           border: 1px solid rgba(63, 131, 248, 0.3);
-          color: var(--color-info, #3F83F8);
         }
         .caixa-conferencia-badge.shortage {
           background: rgba(240, 82, 82, 0.1);
           border: 1px solid rgba(240, 82, 82, 0.3);
-          color: var(--color-error, #F05252);
         }
         .caixa-textarea {
           width: 100%;
           background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
+          border: none;
+          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 0.5rem);
           padding: 0.65rem 0.85rem;
           color: var(--color-text-primary, #2D231E);
@@ -557,8 +572,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           transition: all 0.2s ease;
         }
         .caixa-textarea:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 2px var(--color-brand-primary, #D96C00);
         }
         .caixa-error-banner {
           background: rgba(240, 82, 82, 0.1);
@@ -582,9 +596,11 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         }
         .caixa-cancel-action-btn {
           padding: 0.65rem 1.25rem;
+          min-height: 44px;
           color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
+          background-color: transparent;
+          border: none;
+          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 0.5rem);
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 700;
@@ -592,14 +608,15 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           transition: all 0.2s ease;
         }
         .caixa-cancel-action-btn:hover:not(:disabled) {
-          border-color: var(--color-brand-primary, #D96C00);
-          color: var(--color-brand-primary, #D96C00);
+          background-color: rgba(45, 35, 30, 0.04);
         }
         .caixa-submit-action-btn {
           padding: 0.65rem 1.35rem;
-          color: #ffffff;
-          background: var(--color-error, #F05252);
+          min-height: 44px;
+          color: var(--color-text-primary, #2D231E);
+          background-color: transparent;
           border: none;
+          box-shadow: 0 0 0 1.5px var(--color-error, #F05252), var(--shadow-sm, 0 1px 2px rgba(45, 35, 30, 0.06));
           border-radius: var(--radius-md, 0.5rem);
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 700;
@@ -607,13 +624,17 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        .caixa-submit-action-btn span {
+          color: var(--color-text-primary, #2D231E);
+        }
+        .caixa-submit-action-btn svg path {
+          stroke: var(--color-text-primary, #2D231E);
+        }
         .caixa-submit-action-btn:hover:not(:disabled) {
-          background: #D83A3A;
+          background-color: var(--color-error-bg, #FDE8E8);
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(240, 82, 82, 0.25);
         }
         .caixa-submit-action-btn:disabled {
           opacity: 0.5;

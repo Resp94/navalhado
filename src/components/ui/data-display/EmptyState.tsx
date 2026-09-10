@@ -5,6 +5,8 @@ export interface EmptyStateProps {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  illustration?: React.ReactNode;
+  children?: React.ReactNode;
   compact?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -15,6 +17,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
   action,
+  illustration,
+  children,
   compact = false,
   className = '',
   style,
@@ -25,6 +29,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {icon && <div className="ui-empty-state__icon">{icon}</div>}
         <h3 className="ui-empty-state__title">{title}</h3>
         {description && <p className="ui-empty-state__desc">{description}</p>}
+        {illustration && <div className="ui-empty-state__illustration">{illustration}</div>}
+        {children}
         {action && <div className="ui-empty-state__action">{action}</div>}
       </div>
 
@@ -86,6 +92,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           max-width: 380px;
           margin: 0;
           line-height: 1.45;
+        }
+
+        .ui-empty-state__illustration {
+          margin-top: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .ui-empty-state__action {

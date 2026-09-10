@@ -457,7 +457,7 @@ export const Servicos: React.FC = () => {
         </div>
         <Button
           type="button"
-          variant="primary"
+          variant="soft"
           onClick={handleOpenCreateDrawer}
           leftIcon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
         >
@@ -479,9 +479,6 @@ export const Servicos: React.FC = () => {
       <section className="services-list-wrapper card">
         <div className="list-section-header">
           <div className="list-title-row">
-            <div className="icon-badge">
-              <HugeiconsIcon icon={ScissorIcon} size={18} />
-            </div>
             <div>
               <h3>Ordem de exibição</h3>
               <p className="list-section-subtitle">Use as setas para definir a prioridade no agendamento público.</p>
@@ -763,7 +760,7 @@ export const Servicos: React.FC = () => {
           border-radius: var(--radius-full, 9999px);
           border: 1px solid var(--color-border);
           background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
@@ -772,28 +769,29 @@ export const Servicos: React.FC = () => {
         }
 
         .filter-pill:hover {
-          border-color: var(--color-brand-primary);
+          border-color: var(--color-text-primary);
           color: var(--color-text-primary);
         }
 
         .filter-pill--active {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 3px 10px rgba(217, 108, 0, 0.2);
+          background: var(--color-warning-bg);
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .filter-pill-count {
           font-size: 11px;
           padding: 1px 6px;
           border-radius: 10px;
-          background: rgba(0, 0, 0, 0.15);
+          background: rgba(45, 35, 30, 0.08);
+          color: var(--color-text-primary);
           font-weight: 700;
         }
 
         .filter-pill--active .filter-pill-count {
-          background: rgba(255, 255, 255, 0.25);
-          color: #ffffff;
+          background: rgba(45, 35, 30, 0.12);
+          color: var(--color-text-primary);
         }
 
         .services-stats-summary {
@@ -821,25 +819,13 @@ export const Servicos: React.FC = () => {
           align-items: center;
           justify-content: space-between;
           padding-bottom: 0.85rem;
-          border-bottom: 1px solid var(--color-border);
+          border-bottom: none;
         }
 
         .list-title-row {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-        }
-
-        .icon-badge {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-md);
-          background: rgba(217, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
         }
 
         .list-section-header h3 {
@@ -862,8 +848,9 @@ export const Servicos: React.FC = () => {
         }
 
         .service-item-card {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.3px var(--color-text-primary);
           border-radius: var(--radius-md);
           padding: 1rem 1.25rem;
           display: flex;
@@ -886,6 +873,17 @@ export const Servicos: React.FC = () => {
           gap: 0.5rem;
         }
 
+        .service-card-action-btns .ui-btn {
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
+          color: var(--color-text-primary);
+        }
+
+        .service-card-action-btns .ui-btn:hover:not(:disabled) {
+          background-color: rgba(45, 35, 30, 0.04);
+          color: var(--color-text-primary);
+        }
+
         .service-card-order-controls {
           display: flex;
           flex-direction: column;
@@ -900,18 +898,20 @@ export const Servicos: React.FC = () => {
           width: 28px;
           height: 28px;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
           background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          font-weight: 700;
           cursor: pointer;
           transition: all 0.15s ease;
           padding: 0;
         }
 
         .btn-order-arrow:hover:not(:disabled) {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
+          background: var(--color-brand-lightest);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .btn-order-arrow:disabled {
@@ -937,9 +937,10 @@ export const Servicos: React.FC = () => {
         .service-position-badge {
           font-size: 11px;
           font-weight: 800;
-          color: var(--color-brand-primary);
-          background: rgba(217, 108, 0, 0.1);
-          border: 1px solid rgba(217, 108, 0, 0.2);
+          color: var(--color-text-primary);
+          background: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           padding: 2px 6px;
           border-radius: var(--radius-sm);
           flex-shrink: 0;
@@ -948,9 +949,10 @@ export const Servicos: React.FC = () => {
         .service-category-badge {
           font-size: 11px;
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           padding: 1px 6px;
           border-radius: var(--radius-sm);
         }
@@ -983,23 +985,26 @@ export const Servicos: React.FC = () => {
           align-items: center;
           gap: 0.3rem;
           font-size: 11px;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           background: var(--color-bg-secondary);
           padding: 2px 7px;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
         }
 
         .meta-badge--retorno {
-          color: var(--color-brand-primary);
-          background: rgba(217, 108, 0, 0.08);
-          border-color: rgba(217, 108, 0, 0.2);
+          color: var(--color-text-primary);
+          background: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
         }
 
         .meta-badge--comm {
           color: var(--color-success);
           background: rgba(54, 179, 126, 0.08);
-          border-color: rgba(54, 179, 126, 0.2);
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
         }
 
         .service-card-price {
@@ -1023,7 +1028,7 @@ export const Servicos: React.FC = () => {
         .service-price-value {
           font-size: 1.1rem;
           font-weight: 800;
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
         }
 
         .service-card-actions {
@@ -1048,47 +1053,6 @@ export const Servicos: React.FC = () => {
 
         .status-switch-label--active {
           color: var(--color-success);
-        }
-
-        .btn-action-edit {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 6px 12px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-action-edit:hover {
-          border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
-        }
-
-        .btn-action-delete {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 6px 12px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-action-delete:hover {
-          border-color: #ef4444;
-          color: #ef4444;
-          background: rgba(239, 68, 68, 0.08);
         }
 
         /* MODAL DE EXCLUSÃO (SOFT DELETE) */
@@ -1447,8 +1411,7 @@ export const Servicos: React.FC = () => {
             gap: 0.35rem;
           }
 
-          .btn-action-edit,
-          .btn-action-delete {
+          .service-card-action-btns .ui-btn {
             padding: 3px 7px;
             font-size: 11px;
             height: 28px;

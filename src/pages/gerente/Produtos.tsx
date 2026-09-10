@@ -40,6 +40,7 @@ import {
   Button,
   IconButton,
   EmptyState,
+  EmptyBoxIllustration,
 } from '../../components/ui';
 
 // Ícones Oficiais Hugeicons
@@ -500,6 +501,7 @@ export const Produtos: React.FC = () => {
 
         <Button
           type="button"
+          variant="soft"
           onClick={() => handleOpenModal(null)}
           className="btn-add-product"
           icon={<PlusIcon />}
@@ -517,7 +519,8 @@ export const Produtos: React.FC = () => {
       ) : filteredProducts.length === 0 ? (
         <EmptyState
           title="Nenhum produto encontrado"
-          description="Nenhum produto encontrado para os filtros selecionados."
+          description={products.length > 0 ? "Nenhum produto encontrado para os filtros selecionados." : undefined}
+          illustration={products.length === 0 ? <EmptyBoxIllustration size={130} /> : undefined}
         />
       ) : (
         <Table className="shadow-glass">
@@ -632,9 +635,6 @@ export const Produtos: React.FC = () => {
           >
             <header className="modal-header">
               <div>
-                <span className="modal-eyebrow">
-                  {editingProduct ? 'Atualização de produto' : 'Novo item no catálogo'}
-                </span>
                 <h3 id="modal-product-title" className="modal-title">
                   {editingProduct ? `Editar: ${editingProduct.name}` : 'Cadastrar novo produto'}
                 </h3>
@@ -905,7 +905,7 @@ export const Produtos: React.FC = () => {
               <footer className="modal-footer">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => setIsModalOpen(false)}
                 >
                   Cancelar
@@ -1351,7 +1351,7 @@ export const Produtos: React.FC = () => {
           border: 1px solid var(--color-border);
           border-radius: var(--radius-xl);
           width: 100%;
-          max-height: 90vh;
+          max-height: 90dvh;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
@@ -1695,12 +1695,13 @@ export const Produtos: React.FC = () => {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
         }
 
         .form-section--card {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          background: transparent;
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-lg);
           padding: 1.25rem;
         }
@@ -1713,7 +1714,8 @@ export const Produtos: React.FC = () => {
 
         .type-card {
           background: var(--color-bg-secondary);
-          border: 1.5px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
           border-radius: var(--radius-lg);
           padding: 1rem;
           display: flex;
@@ -1725,14 +1727,46 @@ export const Produtos: React.FC = () => {
         }
 
         .type-card:hover {
-          border-color: var(--color-brand-soft);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary), 0 4px 12px rgba(45, 35, 30, 0.06);
           background: var(--color-brand-lightest);
+          transform: translateY(-2px);
+        }
+
+        .type-card:active {
+          transform: translateY(0);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
+        .type-card:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
         }
 
         .type-card--active {
-          border-color: var(--color-brand-primary);
+          background: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 1.5px var(--color-brand-hover);
+        }
+
+        .type-card--active:hover {
           background: var(--color-brand-lightest);
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 0 0 1.8px var(--color-brand-hover), 0 4px 14px rgba(217, 108, 0, 0.12);
+          transform: translateY(-2px);
+        }
+
+        .type-card--active:active {
+          transform: translateY(0);
+          box-shadow: 0 0 0 1.5px var(--color-brand-hover);
+        }
+
+        .dark-theme .type-card:hover {
+          background: rgba(255, 255, 255, 0.05);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark-theme .type-card--active:hover {
+          background: rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 1.8px var(--color-brand-hover), 0 4px 14px rgba(0, 0, 0, 0.4);
         }
 
         .type-card__icon {
@@ -1743,16 +1777,39 @@ export const Produtos: React.FC = () => {
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          background-color: transparent;
+          border: none;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
+          color: var(--color-text-primary);
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+        }
+
+        .type-card:hover .type-card__icon {
+          transform: scale(1.05);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
+        .type-card--active:hover .type-card__icon {
+          box-shadow: 0 0 0 1px var(--color-brand-hover);
+        }
+
+        .type-card__icon svg {
+          stroke: var(--color-text-primary);
+          height: fit-content;
+        }
+
+        .type-card__icon svg path {
+          stroke: var(--color-text-primary);
         }
 
         .type-card__icon--retail {
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary);
+          background-color: transparent;
+          color: var(--color-text-primary);
         }
 
         .type-card__icon--internal {
-          background: var(--color-success-bg);
-          color: var(--color-success);
+          background-color: transparent;
+          color: var(--color-text-primary);
         }
 
         .type-card__info {
@@ -1769,7 +1826,7 @@ export const Produtos: React.FC = () => {
 
         .type-card__desc {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           line-height: 1.35;
         }
 
@@ -1789,7 +1846,8 @@ export const Produtos: React.FC = () => {
           height: 42px;
           padding: 0 0.85rem;
           border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
@@ -1798,14 +1856,18 @@ export const Produtos: React.FC = () => {
         }
 
         .form-group .form-control:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.12);
+          box-shadow: 0 0 0 1.5px var(--color-text-primary);
         }
 
         .form-control--lg {
           height: 46px !important;
           font-size: var(--font-size-base) !important;
           font-weight: 500;
+          box-shadow: 0 0 0 1.2px var(--color-text-primary) !important;
+        }
+
+        .form-control--lg:focus {
+          box-shadow: 0 0 0 1.8px var(--color-text-primary) !important;
         }
 
         .form-group-row {
@@ -1826,7 +1888,7 @@ export const Produtos: React.FC = () => {
 
         .category-quick-hint {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
         }
 
         .quick-category-chips {
@@ -1837,26 +1899,35 @@ export const Produtos: React.FC = () => {
         }
 
         .chip-btn {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
+          background: var(--color-bg-secondary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-xs);
           font-weight: 600;
-          padding: 0.25rem 0.65rem;
+          padding: 0.35rem 0.75rem;
+          min-height: 32px;
           border-radius: var(--radius-full);
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .chip-btn:hover {
-          border-color: var(--color-brand-soft);
-          color: var(--color-brand-primary);
+          box-shadow: 0 0 0 1.2px var(--color-text-primary);
+          background: var(--color-brand-lightest);
+        }
+
+        .chip-btn:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
         }
 
         .chip-btn--active {
-          background: var(--color-brand-primary);
-          color: #FFF1E6;
-          border-color: var(--color-brand-primary);
+          background: var(--color-brand-soft);
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 1.5px var(--color-text-primary);
+          font-weight: 800;
         }
 
         .currency-input-wrapper {
@@ -1963,8 +2034,24 @@ export const Produtos: React.FC = () => {
           border-top: 1px solid var(--color-border);
         }
 
+        .modal-footer .ui-btn--outline {
+          color: var(--color-text-primary);
+          border: none;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
+        }
+
         .btn--save-product {
           min-width: 160px;
+          background-color: var(--color-brand-soft) !important;
+          color: var(--color-text-primary) !important;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
+          border: none !important;
+        }
+
+        .btn--save-product:hover:not(:disabled) {
+          background-color: var(--color-brand-primary) !important;
+          color: #ffffff !important;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
         }
 
         .current-stock-callout {
@@ -1979,7 +2066,16 @@ export const Produtos: React.FC = () => {
           font-size: var(--font-size-sm);
         }
 
-        .loading-state,
+        .loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 1rem;
+          gap: 0.75rem;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+        }
         /* Responsividade Mobile e Tablet */
         @media (max-width: 768px) {
           .products-controls-bar {

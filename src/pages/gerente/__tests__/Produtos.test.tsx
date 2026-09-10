@@ -138,4 +138,20 @@ describe('Página de Produtos (Produtos.tsx)', () => {
     expect(screen.getByText('Cadastrar novo produto')).toBeInTheDocument();
     expect(screen.getByLabelText(/Nome do produto \*/i)).toBeInTheDocument();
   });
+
+  it('deve exibir EmptyState com ilustração e sem descrição quando não houver produtos cadastrados', async () => {
+    mockListAll.mockResolvedValue([]);
+    render(<Produtos />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum produto encontrado')).toBeInTheDocument();
+    });
+
+    // A descrição do EmptyState não deve existir quando não há produtos
+    expect(screen.queryByText('Nenhum produto encontrado para os filtros selecionados.')).not.toBeInTheDocument();
+
+    // A ilustração SVG de caixa vazia deve estar presente
+    const illustration = document.querySelector('.empty-box-illustration');
+    expect(illustration).toBeInTheDocument();
+  });
 });

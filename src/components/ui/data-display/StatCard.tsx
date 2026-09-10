@@ -104,7 +104,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           line-height: 1.2;
         }
 
@@ -185,9 +185,12 @@ export const StatCard: React.FC<StatCardProps> = ({
           color: var(--color-error, #F05252);
         }
 
-        .ui-stat-card__trend-label,
-        .ui-stat-card__subtext {
+        .ui-stat-card__trend-label {
           color: var(--color-text-secondary, #70625B);
+        }
+
+        .ui-stat-card__subtext {
+          color: var(--color-text-primary, #2D231E);
         }
       `}</style>
     </>

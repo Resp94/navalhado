@@ -8,11 +8,8 @@ import { useGSAP } from '@gsap/react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   UserGroupIcon,
-  Invoice01Icon,
-  CheckmarkCircle02Icon,
   Coins01Icon,
   PlusSignIcon,
-  Clock01Icon,
 } from '@hugeicons/core-free-icons';
 import { LockIcon } from '../../components/Icons';
 import './Financeiro.css';
@@ -590,7 +587,6 @@ export const Financeiro: React.FC = () => {
             <h3 className="kpi-value kpi-value--profit">
               {formatCurrency(metrics?.net_revenue || 0)}
             </h3>
-            <p className="kpi-meta">Receita deduzindo comissões e custos de produtos</p>
           </div>
         </div>
       </section>
@@ -622,17 +618,6 @@ export const Financeiro: React.FC = () => {
           {/* Banner de Sessão Ativa */}
           <div className="turn-banner">
             <div className="turn-banner-info">
-              <div
-                className={`turn-banner-icon ${
-                  activeSession ? 'turn-banner-icon--active' : 'turn-banner-icon--closed'
-                }`}
-              >
-                {activeSession ? (
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={24} />
-                ) : (
-                  <LockIcon size={24} />
-                )}
-              </div>
               <div>
                 <div className="turn-banner-title-row">
                   <h3 className="turn-banner-title">
@@ -793,7 +778,6 @@ export const Financeiro: React.FC = () => {
               <div className="card-panel-header">
                 <div>
                   <h3 className="card-panel-title">
-                    <HugeiconsIcon icon={Invoice01Icon} size={18} />
                     Recebimentos por forma de pagamento
                   </h3>
                   <p className="card-panel-subtitle">Distribuição das entradas por meio de pagamento no período selecionado</p>
@@ -828,7 +812,6 @@ export const Financeiro: React.FC = () => {
               <div className="card-panel-header">
                 <div>
                   <h3 className="card-panel-title">
-                    <HugeiconsIcon icon={Clock01Icon} size={18} />
                     Histórico de caixas anteriores
                   </h3>
                   <p className="card-panel-subtitle">Histórico completo de turnos e conferências de gaveta</p>
@@ -864,7 +847,7 @@ export const Financeiro: React.FC = () => {
                         return (
                           <tr key={sess.id}>
                             <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
-                            <td style={{ color: 'var(--color-text-secondary)' }}>{formatDate(sess.closed_at)}</td>
+                            <td style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
                             <td style={{ fontWeight: 600 }}>
                               {sess.opened_by_name || sess.closed_by_name || 'Operador'}
                             </td>
@@ -909,7 +892,6 @@ export const Financeiro: React.FC = () => {
             <div className="card-panel-header">
               <div>
                 <h3 className="card-panel-title">
-                  <HugeiconsIcon icon={UserGroupIcon} size={18} />
                   Saldos de comissão por profissional
                 </h3>
                 <p className="card-panel-subtitle">
@@ -933,7 +915,7 @@ export const Financeiro: React.FC = () => {
                       <th>Comissão gerada</th>
                       <th>Já quitado</th>
                       <th>Saldo pendente</th>
-                      <th style={{ textAlign: 'right' }}>Ações</th>
+                      <th style={{ textAlign: 'center' }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -941,9 +923,6 @@ export const Financeiro: React.FC = () => {
                       <tr key={p.professional_id || p.professional_name}>
                         <td>
                           <div className="cell-prof-name">
-                            <span className="prof-avatar-badge">
-                              {p.professional_name.slice(0, 1).toUpperCase()}
-                            </span>
                             <span>{p.professional_name}</span>
                           </div>
                         </td>
@@ -962,7 +941,7 @@ export const Financeiro: React.FC = () => {
                         <td className="cell-pending-amount">
                           {formatCurrency(p.pending_sum || 0)}
                         </td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={{ textAlign: 'center' }}>
                           <div className="cell-actions-group">
                             <button
                               onClick={() => setSelectedProfForDetails({ id: p.professional_id, name: p.professional_name })}
@@ -994,7 +973,6 @@ export const Financeiro: React.FC = () => {
             <div className="card-panel-header">
               <div>
                 <h3 className="card-panel-title">
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} style={{ color: 'var(--color-success)' }} />
                   Histórico de quitações realizadas no período
                 </h3>
                 <p className="card-panel-subtitle">Registro detalhado de todos os pagamentos de comissão efetuados</p>

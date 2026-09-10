@@ -18,6 +18,7 @@ export * from './data-display/Badge';
 export * from './data-display/Avatar';
 export * from './data-display/StatCard';
 export * from './data-display/EmptyState';
+export * from './data-display/EmptyBoxIllustration';
 export * from './data-display/Skeleton';
 export * from './data-display/Tooltip';
 

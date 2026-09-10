@@ -47,7 +47,7 @@
 
 .financeiro-header-subtitle {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin-top: 0.25rem;
   line-height: 1.4;
 }
@@ -82,8 +82,8 @@
 }
 
 .period-tab-btn--active {
-  background: var(--color-brand-primary);
-  color: var(--color-brand-lightest) !important;
+  background: var(--color-warning-bg);
+  color: var(--color-text-primary) !important;
   box-shadow: var(--shadow-sm);
 }
 
@@ -108,7 +108,7 @@
   padding: 1.25rem 1.35rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -131,7 +131,7 @@
 .kpi-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -186,7 +186,7 @@
 
 .kpi-meta {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin-top: 0.25rem;
 }
 
@@ -229,7 +229,7 @@
 }
 
 .nav-tab-btn--active {
-  color: var(--color-brand-primary);
+  color: var(--color-text-primary);
   border-bottom-color: var(--color-brand-primary);
 }
 
@@ -283,8 +283,9 @@
 }
 
 .turn-banner-icon--active {
-  background: var(--color-success-bg);
+  background: var(--color-bg-secondary);
   color: var(--color-success);
+  box-shadow: 0 0 0 0.8px var(--color-text-primary);
 }
 
 .turn-banner-icon--closed {
@@ -314,20 +315,21 @@
 }
 
 .turn-status-badge--active {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid rgba(14, 159, 110, 0.3);
+  background: var(--color-success);
+  color: var(--color-bg-secondary);
+  border: none;
 }
 
 .turn-status-badge--closed {
-  background: rgba(217, 108, 0, 0.12);
-  color: var(--color-brand-deep);
-  border: 1px solid var(--color-brand-soft);
+  background: var(--color-warning-bg);
+  color: var(--color-text-primary);
+  border: none;
+  box-shadow: 0 0 0 0.5px var(--color-text-primary);
 }
 
 .turn-banner-desc {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin-top: 0.35rem;
   line-height: 1.4;
 }
@@ -337,6 +339,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem;
+  min-height: 44px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: 700;
@@ -359,15 +362,20 @@
 }
 
 .btn-turn-action--open {
-  background: var(--color-brand-primary);
-  color: var(--color-brand-lightest);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--color-brand-lightest);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 0 0.8px #000000;
 }
 
 .btn-turn-action--open:hover {
-  background: var(--color-brand-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
+  background-color: #D97706;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-turn-action--open svg {
+  stroke: var(--color-text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ==========================================================================
@@ -416,9 +424,14 @@
   color: var(--color-brand-primary);
 }
 
+#daily-financial-title svg {
+  color: var(--color-text-primary);
+  height: fit-content;
+}
+
 .card-panel-subtitle {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin-top: 0.2rem;
 }
 
@@ -455,7 +468,8 @@
 .payment-progress-track {
   width: 100%;
   height: 8px;
-  background: var(--color-bg-primary);
+  background: transparent;
+  box-shadow: 0 0 0 0.5px var(--color-text-primary);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -492,7 +506,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
@@ -516,8 +530,8 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-full);
-  background: rgba(217, 108, 0, 0.15);
-  color: var(--color-brand-deep);
+  background: transparent;
+  color: var(--color-text-primary);
   font-weight: 800;
   display: inline-flex;
   align-items: center;
@@ -530,6 +544,11 @@
   align-items: center;
   gap: 0.6rem;
   font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.cell-prof-name span {
+  color: var(--color-text-primary);
 }
 
 .cell-pending-amount {
@@ -547,7 +566,7 @@
 .cell-actions-group {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -560,29 +579,47 @@
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 0;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.btn-table-action:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 1px;
+}
+
 .btn-table-action--ghost {
-  background: var(--color-bg-primary);
+  background-color: transparent;
   color: var(--color-text-primary);
-  border-color: var(--color-border);
+  border: 0;
+  box-shadow: 0 0 0 0.5px var(--color-text-primary);
 }
 
 .btn-table-action--ghost:hover {
-  border-color: var(--color-brand-primary);
-  color: var(--color-brand-primary);
+  background-color: rgba(45, 35, 30, 0.05);
+  color: var(--color-text-primary);
+  box-shadow: 0 0 0 0.5px var(--color-text-primary);
 }
 
 .btn-table-action--primary {
-  background: var(--color-brand-primary);
-  color: var(--color-brand-lightest);
+  background-color: var(--color-success);
+  color: var(--color-bg-secondary);
+  border: 0;
+  box-shadow: none;
 }
 
 .btn-table-action--primary:hover {
-  background: var(--color-brand-hover);
-  box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
+  background-color: var(--color-success);
+  filter: brightness(0.92);
+  color: var(--color-bg-secondary);
+  box-shadow: none;
+}
+
+@media (pointer: coarse) {
+  .btn-table-action {
+    min-height: 38px;
+    padding: 0.5rem 0.85rem;
+  }
 }
 
 .table-empty-notice {
@@ -627,7 +664,11 @@
   gap: 0.3rem;
   font-size: var(--font-size-xs);
   font-weight: 700;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.daily-financial-filters label span {
+  color: var(--color-text-primary);
 }
 
 .daily-financial-filters input,
@@ -636,9 +677,10 @@
   max-width: 100%;
   min-height: 38px;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
+  border: none;
+  box-shadow: 0 0 0 0.888889px var(--color-text-primary);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-primary);
+  background-color: transparent;
   color: var(--color-text-primary);
   font: inherit;
   font-weight: 600;
@@ -661,13 +703,14 @@
   gap: 0.2rem;
   padding: 1rem;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
+  border: none;
+  box-shadow: 0 0 0 0.888889px var(--color-text-primary);
+  background-color: transparent;
 }
 
 .daily-financial-kpi span,
 .daily-financial-kpi small {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 

@@ -72,9 +72,6 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
             <h3 id="modal-caixa-title" className="caixa-modal-title">
               Abertura de caixa do turno
             </h3>
-            <p className="caixa-modal-subtitle">
-              Inicie os atendimentos com o controle de troco atualizado.
-            </p>
           </div>
           <button
             onClick={onClose}
@@ -175,6 +172,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         .caixa-modal-shell {
           width: 100%;
           max-width: 500px;
+          max-height: min(90dvh, 720px);
           background: var(--color-bg-secondary, #ffffff);
           border: 1px solid var(--color-border, #EADED6);
           border-radius: var(--radius-lg, 1rem);
@@ -193,11 +191,12 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
 
         .caixa-modal-header {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          padding: 1.25rem 1.5rem;
+          padding: 1rem 1.5rem;
           border-bottom: 1px solid var(--color-border, #EADED6);
           background: var(--color-bg-secondary, #ffffff);
+          flex-shrink: 0;
         }
 
         .caixa-modal-title {
@@ -206,20 +205,18 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           color: var(--color-text-primary, #2D231E);
           margin: 0;
           letter-spacing: -0.01em;
-        }
-
-        .caixa-modal-subtitle {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-          margin: 0.25rem 0 0 0;
+          line-height: 1.3;
         }
 
         .caixa-close-btn {
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           padding: 0.35rem;
+          min-width: 44px;
+          min-height: 44px;
+          margin-right: -0.35rem;
           border-radius: var(--radius-sm, 0.375rem);
           border: none;
-          background: transparent;
+          background-color: transparent;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -229,26 +226,33 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
 
         .caixa-close-btn:hover {
           color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
+          background-color: rgba(45, 35, 30, 0.05);
         }
 
         .caixa-info-alert {
-          padding: 0.85rem 1.25rem;
+          padding: 0.85rem 1.5rem;
           background-color: var(--color-bg-primary, #FFF1E6);
           border-bottom: 1px solid var(--color-border, #EADED6);
           display: flex;
           align-items: center;
           gap: 0.75rem;
+          flex-shrink: 0;
         }
 
         .caixa-alert-icon {
-          color: var(--color-brand-primary, #D96C00);
+          color: var(--color-text-primary, #2D231E);
+          stroke: var(--color-text-primary, #2D231E);
           flex-shrink: 0;
+        }
+
+        .caixa-alert-icon circle,
+        .caixa-alert-icon path {
+          stroke: var(--color-text-primary, #2D231E);
         }
 
         .caixa-alert-text {
           font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
+          color: var(--color-text-primary, #2D231E);
           line-height: 1.4;
           margin: 0;
         }
@@ -270,6 +274,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           flex-direction: column;
           gap: 1.15rem;
           background: var(--color-bg-secondary, #ffffff);
+          overflow-y: auto;
         }
 
         .caixa-form-group {
@@ -308,7 +313,8 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           font-weight: 800;
           color: var(--color-text-primary, #2D231E);
           background: var(--color-bg-secondary, #ffffff);
-          border: 1.5px solid var(--color-border, #EADED6);
+          border: none;
+          box-shadow: 0 0 0 3px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 0.5rem);
           outline: none;
           transition: all 0.2s ease;
@@ -316,8 +322,7 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         }
 
         .caixa-input-amount:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 3px var(--color-brand-primary, #D96C00);
         }
 
         .caixa-input-text {
@@ -326,15 +331,15 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           font-size: var(--font-size-sm, 0.875rem);
           color: var(--color-text-primary, #2D231E);
           background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
+          border: none;
+          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
           border-radius: var(--radius-md, 0.5rem);
           outline: none;
           transition: all 0.2s ease;
         }
 
         .caixa-input-text:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 2px var(--color-brand-primary, #D96C00);
         }
 
         .caixa-actions-footer {
@@ -349,9 +354,11 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
 
         .caixa-btn-secondary {
           padding: 0.65rem 1.25rem;
+          min-height: 44px;
           border-radius: var(--radius-md, 0.5rem);
-          border: 1px solid var(--color-border, #EADED6);
-          background: var(--color-bg-primary, #FFF1E6);
+          border: none;
+          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
+          background-color: transparent;
           color: var(--color-text-primary, #2D231E);
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 700;
@@ -360,16 +367,16 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
         }
 
         .caixa-btn-secondary:hover {
-          border-color: var(--color-brand-primary, #D96C00);
-          color: var(--color-brand-primary, #D96C00);
+          background-color: rgba(45, 35, 30, 0.04);
         }
 
         .caixa-btn-primary {
           padding: 0.65rem 1.35rem;
+          min-height: 44px;
           border-radius: var(--radius-md, 0.5rem);
           border: none;
-          background: var(--color-brand-primary, #D96C00);
-          color: var(--color-brand-lightest, #FFF1E6);
+          background-color: var(--color-bg-secondary, #ffffff);
+          color: var(--color-text-primary, #2D231E);
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 700;
           cursor: pointer;
@@ -377,14 +384,20 @@ export const AberturaAssistidaCaixaModal: React.FC<AberturaAssistidaCaixaModalPr
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        .caixa-btn-primary svg {
+          stroke: var(--color-text-primary, #2D231E);
+          color: var(--color-text-primary, #2D231E);
+        }
+
         .caixa-btn-primary:hover:not(:disabled) {
-          background: var(--color-brand-hover, #9C3F00);
+          background-color: var(--color-success, #0E9F6E);
+          color: var(--color-text-primary, #2D231E);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
         }
 
         .caixa-btn-primary:disabled {

@@ -7,6 +7,105 @@ import { Modal } from '../components/Modal';
 import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, LockIcon } from '../components/Icons';
 
+/* ─── Ondas SVG Orgânicas em Camadas ─── */
+const VerticalCloudWave: React.FC = () => (
+  <svg
+    className="login-wave-desktop"
+    viewBox="0 0 100 1000"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    {/* Camada 1: Brilho sutil âmbar/dourado */}
+    <path
+      d="M 100,0 L 45,0
+         C 15,35 15,95 42,130
+         C 10,175 10,235 40,270
+         C 12,320 12,380 44,415
+         C 8,465 8,525 40,560
+         C 15,610 15,670 42,705
+         C 10,755 10,815 40,850
+         C 15,900 18,960 45,1000
+         L 100,1000 Z"
+      fill="rgba(217, 108, 0, 0.22)"
+    />
+    {/* Camada 2: Névoa translúcida suave */}
+    <path
+      d="M 100,0 L 60,0
+         C 30,40 30,95 55,130
+         C 25,180 25,235 52,270
+         C 28,325 28,380 56,415
+         C 22,470 22,525 52,560
+         C 30,615 30,670 55,705
+         C 25,760 25,815 52,850
+         C 30,905 32,960 58,1000
+         L 100,1000 Z"
+      fill="rgba(255, 241, 230, 0.55)"
+    />
+    {/* Camada 3: Nuvem branca frontal recortada */}
+    <path
+      d="M 100,0 L 75,0
+         C 45,45 45,95 70,130
+         C 40,185 40,235 68,270
+         C 42,330 42,380 72,415
+         C 38,475 38,525 68,560
+         C 45,620 45,670 70,705
+         C 40,765 40,815 68,850
+         C 45,910 48,960 74,1000
+         L 100,1000 Z"
+      fill="#ffffff"
+    />
+  </svg>
+);
+
+const HorizontalCloudWave: React.FC = () => (
+  <svg
+    className="login-wave-mobile"
+    viewBox="0 0 1000 100"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    {/* Camada 1: Âmbar sutil */}
+    <path
+      d="M 0,100 L 0,45
+         C 35,15 95,15 130,42
+         C 175,10 235,10 270,40
+         C 320,12 380,12 415,44
+         C 465,8 525,8 560,40
+         C 610,15 670,15 705,42
+         C 755,10 815,10 850,40
+         C 900,15 960,18 1000,45
+         L 1000,100 Z"
+      fill="rgba(217, 108, 0, 0.22)"
+    />
+    {/* Camada 2: Névoa suave */}
+    <path
+      d="M 0,100 L 0,60
+         C 40,30 95,30 130,55
+         C 180,25 235,25 270,52
+         C 325,28 380,28 415,56
+         C 470,22 525,22 560,52
+         C 615,30 670,30 705,55
+         C 760,25 815,25 850,52
+         C 905,30 960,32 1000,58
+         L 1000,100 Z"
+      fill="rgba(255, 241, 230, 0.55)"
+    />
+    {/* Camada 3: Branco frontal */}
+    <path
+      d="M 0,100 L 0,75
+         C 45,45 95,45 130,70
+         C 185,40 235,40 270,68
+         C 330,42 380,42 415,72
+         C 475,38 525,38 560,68
+         C 620,45 670,45 705,70
+         C 765,40 815,40 850,68
+         C 910,45 960,48 1000,74
+         L 1000,100 Z"
+      fill="#ffffff"
+    />
+  </svg>
+);
+
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -153,32 +252,62 @@ export const Login: React.FC = () => {
 
   return (
     <>
-      {/* Noise/grain overlay — textura premium fixa */}
+      {/* Textura sutil de ruído/grain */}
       <div className="noise-overlay" />
 
-      <div className="login-page">
-        {/* Background gradient orbes */}
-        <div className="login-page__bg" />
+      <div className="login-replica-page">
+        {/* ─── PAINEL ESQUERDO: DESTAQUE INSTITUCIONAL COM ONDAS (DESKTOP) ─── */}
+        <div className="login-replica__hero" aria-label="Apresentação Navalhado">
+          <div className="login-replica__hero-inner">
+            <div className="login-replica__center-block">
+              <img
+                src="/simbolo.svg"
+                alt="Navalhado"
+                className="login-replica__logo"
+              />
+              <h1 className="login-replica__brand-title">Navalhado</h1>
+              <p className="login-replica__brand-description">
+                Gerencie sua barbearia com confiança. Agendamentos, comandas e métricas com precisão e sofisticação.
+              </p>
+            </div>
+          </div>
 
-        {/* ─── DOUBLE-BEZEL CARD ─── */}
-        {/* Outer shell: moldura sutil aquecida */}
-        <div className="login-card__shell">
-          {/* Inner core: card propriamente dito */}
-          <div className="login-card">
-            {/* HEADER */}
-            <div className="login-card__header">
-              <div className="login-card__logo">
-                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '56px', height: '56px', display: 'block' }} />
-              </div>
+          {/* Divisória vertical de nuvens/ondas orgânicas */}
+          <VerticalCloudWave />
+        </div>
 
-              <h1 className="login-card__title">Navalhado</h1>
-              <p className="login-card__subtitle">
-                Gerencie sua barbearia com confiança
+        {/* ─── BANNER SUPERIOR MOBILE COM ONDAS HORIZONTAIS (< 1024px) ─── */}
+        <div className="login-replica__hero-mobile" aria-label="Cabeçalho Navalhado">
+          <div className="login-replica__hero-mobile-inner">
+            <div className="login-replica__badge login-replica__badge--mobile">
+              <img
+                src="/simbolo.svg"
+                alt="Navalhado"
+                className="login-replica__logo login-replica__logo--mobile"
+              />
+            </div>
+            <h1 className="login-replica__brand-title login-replica__brand-title--mobile">Navalhado</h1>
+            <p className="login-replica__brand-description--mobile">
+              Gerencie sua barbearia com confiança
+            </p>
+          </div>
+
+          {/* Divisória horizontal de nuvens/ondas orgânicas */}
+          <HorizontalCloudWave />
+        </div>
+
+        {/* ─── PAINEL DIREITO: FORMULÁRIO DE LOGIN ─── */}
+        <div className="login-replica__form-panel">
+          <div className="login-replica__form-wrapper">
+            <div className="login-replica__form-header">
+              <h2 className="login-replica__form-title">Acesse sua conta</h2>
+              <p className="login-replica__form-subtitle">
+                Informe suas credenciais para continuar
               </p>
             </div>
 
-            {/* FORM */}
-            <form onSubmit={handleLogin} className="login-card__form">
+            {/* FORMULÁRIO */}
+            <form onSubmit={handleLogin} className="login-replica__form">
               <Input
                 label="E-mail"
                 type="email"
@@ -195,7 +324,7 @@ export const Login: React.FC = () => {
                 label="Senha"
                 type="password"
                 icon="lock"
-                placeholder="mín. 8 caracteres"
+                placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={passwordError}
@@ -203,8 +332,8 @@ export const Login: React.FC = () => {
                 required
               />
 
-              {/* Esqueci a senha — logo abaixo do campo de senha */}
-              <div className="login-card__forgot">
+              {/* Esqueci a senha */}
+              <div className="login-replica__forgot">
                 <button
                   type="button"
                   className="btn btn--ghost"
@@ -214,58 +343,59 @@ export const Login: React.FC = () => {
                 </button>
               </div>
 
-              {/* CTA — Button-in-Button pattern */}
+              {/* Botão CTA Pílula */}
               <button
                 type="submit"
-                className="btn btn--primary login-card__cta"
+                className="login-replica__cta-btn"
                 disabled={isSubmitDisabled}
               >
                 {loading ? (
                   <>
-                    <div className="spinner" />
+                    <div className="spinner spinner--sm" />
                     Entrando…
                   </>
                 ) : (
                   <>
-                    Acessar plataforma
+                    Acessar
                     <span className="btn__icon">
-                      <ArrowRightIcon size={16} />
+                      <ArrowRightIcon size={18} />
                     </span>
                   </>
                 )}
               </button>
 
-              {/* Criar conta — abaixo do CTA, separado visualmente */}
-              <div className="login-card__signup">
-                <span className="login-card__signup-text">
-                  Não tem conta?{' '}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn--link login-card__signup-btn"
-                  onClick={() => navigate('/signup')}
-                >
-                  Criar conta
-                </button>
-              </div>
+              {/* Rodapé: Criar conta & Links Legais com espaçamento refinado */}
+              <div className="login-card__footer">
+                <div className="login-card__signup">
+                  <span className="login-card__signup-text">
+                    Não tem conta?{' '}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn--link login-card__signup-btn"
+                    onClick={() => navigate('/signup')}
+                  >
+                    Criar conta
+                  </button>
+                </div>
 
-              {/* Rodapé Legal / LGPD */}
-              <div className="login-card__legal-footer" style={{ marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border-subtle, rgba(255,255,255,0.08))', display: 'flex', justifyContent: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-tertiary, #999)' }}>
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
-                  onClick={() => setLegalModalMode('terms')}
-                >
-                  Termos de uso
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
-                  onClick={() => setLegalModalMode('privacy')}
-                >
-                  Privacidade (LGPD)
-                </button>
+                <div className="login-card__legal-footer">
+                  <button
+                    type="button"
+                    className="login-card__legal-btn"
+                    onClick={() => setLegalModalMode('terms')}
+                  >
+                    Termos de uso
+                  </button>
+                  <span aria-hidden="true" className="login-card__legal-bullet">•</span>
+                  <button
+                    type="button"
+                    className="login-card__legal-btn"
+                    onClick={() => setLegalModalMode('privacy')}
+                  >
+                    Privacidade (LGPD)
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -292,7 +422,6 @@ export const Login: React.FC = () => {
         title="Redefinir senha"
       >
         <div className="modal-reset">
-          {/* Ícone decorativo */}
           <div className="modal-reset__icon">
             <LockIcon size={22} />
           </div>
@@ -332,128 +461,400 @@ export const Login: React.FC = () => {
         </div>
       </Modal>
 
-      {/* ─── PAGE-SPECIFIC STYLES ─── */}
+      {/* ─── ESTILOS DA PÁGINA (ISOLADOS & RESPONSIVOS) ─── */}
       <style>{`
-        .login-page {
+        .login-replica-page {
           min-height: 100vh;
           min-height: 100dvh;
+          background-color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          overflow-x: hidden;
+        }
+
+        @media (min-width: 1024px) {
+          .login-replica-page {
+            flex-direction: row;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+          }
+        }
+
+        /* ── Painel Esquerdo Desktop ── */
+        .login-replica__hero {
+          display: none;
+        }
+
+        @media (min-width: 1024px) {
+          .login-replica__hero {
+            display: flex;
+            flex: 0 0 46%;
+            width: 46%;
+            height: 100%;
+            background: linear-gradient(155deg, #1C1816 0%, #120F0E 100%);
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+            z-index: 1;
+          }
+
+          .login-replica__hero-inner {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            padding: 3.5rem 3rem;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            gap: 1.5rem;
+          }
+        }
+
+        .login-replica__eyebrow {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #ffffff;
+          letter-spacing: -0.01em;
+          text-transform: uppercase;
+          margin: 0;
+          line-height: 1.2;
+        }
+
+        .login-replica__center-block {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .login-replica__badge {
+          width: auto;
+          height: auto;
+          border-radius: 0;
+          background: transparent;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
-          position: relative;
-          overflow: hidden;
+          box-shadow: none;
+          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .login-page__bg {
-          position: absolute;
-          inset: 0;
-          background:
-            radial-gradient(ellipse 85% 55% at 45% 35%, rgba(217, 108, 0, 0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 55% 45% at 80% 80%, rgba(242, 178, 119, 0.08) 0%, transparent 55%);
-          pointer-events: none;
+        .login-replica__badge:hover {
+          transform: scale(1.06);
         }
 
-        /* ── Double-Bezel (Doppelrand) ── */
-        .login-card__shell {
-          width: 100%;
-          max-width: 420px;
-          padding: 6px;
-          border-radius: calc(var(--radius-xl) + 6px);
-          background: rgba(217, 108, 0, 0.04);
-          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
-          animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        .login-replica__logo {
+          width: 64px;
+          height: 64px;
+          display: block;
+          filter: drop-shadow(0 4px 16px rgba(217, 108, 0, 0.25));
         }
 
-        .login-card {
-          background-color: var(--color-bg-secondary);
-          border-radius: var(--radius-xl);
-          padding: 2.5rem 2rem 2rem;
-          width: 100%;
+        .login-replica__brand-title {
+          font-size: 2.25rem;
+          font-weight: 700;
+          color: #ffffff;
+          margin: 0;
+          letter-spacing: -0.02em;
+          line-height: 1.15;
           text-align: center;
+        }
+
+        .login-replica__brand-description {
+          font-size: 0.9375rem;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.72);
+          margin: 0;
+          max-width: 32ch;
+          text-align: center;
+          font-weight: 400;
+        }
+
+        /* Ondas Desktop */
+        .login-wave-desktop {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          right: -1px;
+          width: 100px;
+          height: 100%;
+          pointer-events: none;
+          z-index: 3;
+        }
+
+        /* ── Banner Superior Mobile (< 1024px) ── */
+        .login-replica__hero-mobile {
           display: flex;
           flex-direction: column;
-          gap: 1.75rem;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(160deg, #1C1816 0%, #120F0E 100%);
           position: relative;
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            0 1px 2px rgba(45, 35, 30, 0.04),
-            var(--shadow-lg);
+          padding: 2.5rem 1.5rem 4rem;
+          overflow: hidden;
+          z-index: 1;
         }
 
-        /* Staggered entry for card children */
-        .login-card__header {
+        @media (min-width: 1024px) {
+          .login-replica__hero-mobile {
+            display: none;
+          }
+        }
+
+        .login-replica__hero-mobile-inner {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.5rem;
-          animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.05s;
+          position: relative;
+          z-index: 2;
+          text-align: center;
         }
 
-        .login-card__logo {
+        .login-replica__badge--mobile {
+          width: auto;
+          height: auto;
+          box-shadow: none;
+          background: transparent;
+        }
+
+        .login-replica__logo--mobile {
+          width: 52px;
+          height: 52px;
+          filter: drop-shadow(0 4px 12px rgba(217, 108, 0, 0.25));
+        }
+
+        .login-replica__brand-title--mobile {
+          font-size: 1.625rem;
+          margin: 0;
+        }
+
+        .login-replica__brand-description--mobile {
+          font-size: 0.8125rem;
+          color: rgba(255, 255, 255, 0.7);
+          margin: 0;
+          line-height: 1.4;
+        }
+
+        /* Ondas Mobile */
+        .login-wave-mobile {
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          right: 0;
+          width: 100%;
+          height: 52px;
+          pointer-events: none;
+          z-index: 3;
+        }
+
+        /* ── Painel do Formulário ── */
+        .login-replica__form-panel {
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 0.25rem;
+          padding: 2rem 1.25rem max(3rem, env(safe-area-inset-bottom, 3rem));
+          box-sizing: border-box;
+          background-color: #ffffff;
+          z-index: 2;
         }
 
-        .login-card__title {
-          font-size: var(--font-size-3xl);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          letter-spacing: -0.03em;
-          margin: 0;
-          text-wrap: balance;
+        @media (min-width: 1024px) {
+          .login-replica__form-panel {
+            flex: 0 0 54%;
+            width: 54%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 3rem 2.5rem;
+          }
         }
 
-        .login-card__subtitle {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          margin: 0;
-          font-weight: 400;
-          letter-spacing: 0.01em;
-        }
-
-        .login-card__form {
+        .login-replica__form-wrapper {
+          width: 100%;
+          max-width: 390px;
+          margin: auto;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
-          animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.1s;
+          gap: 1.5rem;
+          box-sizing: border-box;
+          animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
-        .login-card__forgot {
+        .login-replica__form-header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 0.375rem;
+        }
+
+        .login-replica__form-title {
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: var(--color-text-primary, #2D231E);
+          letter-spacing: -0.025em;
+          margin: 0;
+        }
+
+        .login-replica__form-subtitle {
+          font-size: var(--font-size-sm, 0.875rem);
+          color: var(--color-text-secondary, #70625B);
+          margin: 0;
+        }
+
+        .login-replica__form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.125rem;
+          width: 100%;
+        }
+
+        .login-replica__form input {
+          border: 0 !important;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E) !important;
+        }
+
+        .login-replica__form input:focus {
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00) !important;
+        }
+
+        .login-replica__forgot {
           display: flex;
           justify-content: flex-end;
-          margin-top: -0.5rem;
+          margin-top: -0.375rem;
         }
 
-        .login-card__cta {
+        .login-replica__forgot .btn--ghost {
+          color: var(--color-text-primary, #2D231E) !important;
+          font-weight: 600;
+        }
+
+        /* Botão CTA Pílula */
+        .login-replica__cta-btn {
           width: 100%;
-          padding: 0.85rem 1.5rem;
-          font-size: var(--font-size-base);
+          min-height: 48px;
+          padding: 0.875rem 1.5rem;
+          border-radius: var(--radius-full, 9999px);
+          background: linear-gradient(135deg, #E67200 0%, #D96C00 100%);
+          color: #ffffff;
+          border: none;
+          font-weight: 600;
+          font-size: var(--font-size-base, 1rem);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          box-shadow: none;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .login-replica__cta-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: none;
+          background: linear-gradient(135deg, #EB7804 0%, #E06F00 100%);
+        }
+
+        .login-replica__cta-btn:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .login-replica__cta-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        /* ─── Footer com Cadastro & Links Legais ─── */
+        .login-card__footer {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+          margin-top: 0.25rem;
+          padding-top: 0.5rem;
+          width: 100%;
         }
 
         .login-card__signup {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.25rem;
-          padding-top: 0.75rem;
-          border-top: 1px solid var(--color-border);
-          margin-top: 0.5rem;
+          gap: 0.5rem;
+          padding: 0.25rem 0;
+          position: static !important;
+          top: auto !important;
+          left: auto !important;
+          transform: none !important;
         }
 
         .login-card__signup-text {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs, 0.8125rem);
+          color: var(--color-text-secondary, #70625B);
         }
 
         .login-card__signup-btn {
-          font-size: var(--font-size-xs) !important;
+          font-size: var(--font-size-xs, 0.8125rem) !important;
+          min-height: 36px;
+          display: inline-flex;
+          align-items: center;
+          padding: 0.25rem 0.5rem;
+          color: var(--color-text-primary, #2D231E) !important;
+          font-weight: 700 !important;
         }
 
+        .login-card__legal-footer {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.75rem;
+          color: var(--color-text-tertiary, #9C8E85);
+          position: static !important;
+          top: auto !important;
+          left: auto !important;
+          transform: none !important;
+        }
+
+        .login-card__legal-bullet {
+          color: var(--color-text-tertiary, #9C8E85);
+          opacity: 0.6;
+          user-select: none;
+        }
+
+        .login-card__legal-btn {
+          background: none;
+          border: none;
+          padding: 0.25rem 0.5rem;
+          color: var(--color-text-primary, #2D231E) !important;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          cursor: pointer;
+          font-size: 0.75rem;
+          min-height: 32px;
+          display: inline-flex;
+          align-items: center;
+          transition: opacity 0.15s ease;
+        }
+
+        .login-card__legal-btn:hover {
+          opacity: 0.75;
+        }
+
+        .btn--ghost {
+          min-height: 36px;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        /* ── Modal de Recuperação ── */
         .modal-reset {
           display: flex;
           flex-direction: column;
@@ -470,8 +871,8 @@ export const Login: React.FC = () => {
           width: 3rem;
           height: 3rem;
           border-radius: var(--radius-full);
-          background: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
+          background: var(--color-brand-lightest, #FFF1E6);
+          color: var(--color-brand-primary, #D96C00);
           box-shadow:
             inset 0 1px 1px rgba(255, 255, 255, 0.5),
             0 4px 12px rgba(217, 108, 0, 0.1);
@@ -479,8 +880,8 @@ export const Login: React.FC = () => {
         }
 
         .modal-reset__description {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm, 0.875rem);
+          color: var(--color-text-secondary, #70625B);
           line-height: 1.6;
           margin: 0;
           text-align: center;
@@ -497,35 +898,10 @@ export const Login: React.FC = () => {
 
         .modal-reset__btn {
           width: 100%;
+          min-height: 44px;
         }
 
-        /* Mobile refinements */
-        @media (max-width: 768px) {
-          .login-page {
-            padding: 1rem 0.875rem;
-            align-items: flex-start;
-            padding-top: max(1.5rem, env(safe-area-inset-top, 1.5rem));
-            padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-          .login-card__shell {
-            padding: 2px;
-            border-radius: var(--radius-xl);
-            margin: auto 0;
-          }
-          .login-card {
-            padding: 1.75rem 1.25rem 1.5rem;
-            border-radius: calc(var(--radius-xl) - 2px);
-            gap: 1.25rem;
-          }
-          .login-card__title {
-            font-size: var(--font-size-2xl);
-          }
-          .login-card__cta {
-            min-height: 48px;
-          }
-        }
+        /* Animações e Acessibilidade */
         @keyframes smoothFadeUp {
           from {
             opacity: 0;
@@ -536,7 +912,16 @@ export const Login: React.FC = () => {
             transform: translateY(0);
           }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          .login-replica__form-wrapper,
+          .modal-reset {
+            animation: none !important;
+          }
+        }
       `}</style>
     </>
   );
 };
+
+export default Login;
