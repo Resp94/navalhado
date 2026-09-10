@@ -1,6 +1,6 @@
 # Atomicidade operacional de comandas e caixa
 
-**Status:** in-progress
+**Status:** completed
 **Ordem:** 2 de 3
 **Ambiente inicial:** Supabase DEV
 **Dependências:** Spec 030 concluída e validada

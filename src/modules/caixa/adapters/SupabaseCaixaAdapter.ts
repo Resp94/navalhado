@@ -21,6 +21,8 @@ interface CashSessionJoinedRow {
   closed_at: string | null;
   initial_amount: number | string;
   closing_amount: number | string | null;
+  expected_amount: number | string | null;
+  difference_amount: number | string | null;
   status: 'open' | 'closed';
   notes: string | null;
   opened_user?: { name: string } | null;
@@ -64,18 +66,12 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
   }
 
   async fecharCaixa(input: FecharCaixaInput): Promise<CashSession> {
-    const { data, error } = await supabase
-      .from('cash_sessions')
-      .update({
-        closed_by: input.closed_by || null,
-        closing_amount: input.closing_amount,
-        status: 'closed',
-        closed_at: new Date().toISOString(),
-        notes: input.notes || null,
-      })
-      .eq('id', input.session_id)
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc('close_cash_session', {
+      p_session_id: input.session_id,
+      p_tenant_id: input.tenant_id,
+      p_closing_amount: input.closing_amount,
+      p_notes: input.notes ?? null,
+    });
 
     if (error || !data) {
       throw new Error(`Erro ao fechar sessão de caixa: ${error?.message}`);
@@ -143,6 +139,8 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
         closed_at: row.closed_at,
         initial_amount: Number(row.initial_amount) || 0,
         closing_amount: row.closing_amount !== null ? Number(row.closing_amount) : null,
+        expected_amount: row.expected_amount !== null ? Number(row.expected_amount) : null,
+        difference_amount: row.difference_amount !== null ? Number(row.difference_amount) : null,
         status: row.status,
         notes: row.notes,
         opened_by_name: row.opened_user?.name || undefined,

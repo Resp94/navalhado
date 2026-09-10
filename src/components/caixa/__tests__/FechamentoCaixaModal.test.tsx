@@ -106,6 +106,7 @@ describe('FechamentoCaixaModal', () => {
     await waitFor(() => {
       expect(mockAdapter.fecharCaixa).toHaveBeenCalledWith({
         session_id: 'sess-100',
+        tenant_id: 'tenant-123',
         closed_by: 'user-operator',
         closing_amount: 250.0,
         notes: 'Fechado sem problemas',

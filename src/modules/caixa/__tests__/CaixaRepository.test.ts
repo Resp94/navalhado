@@ -164,6 +164,7 @@ describe('CaixaRepository', () => {
     await expect(
       repository.closeSession({
         session_id: '',
+        tenant_id: 't-1',
         closing_amount: 100,
       })
     ).rejects.toThrow(CaixaValidationError);
@@ -172,6 +173,7 @@ describe('CaixaRepository', () => {
   it('delega fechamento válido preservando valor contado e observação', async () => {
     const input = {
       session_id: 'sess-1',
+      tenant_id: 't-1',
       closed_by: 'user-1',
       closing_amount: 370,
       notes: 'Conferência concluída',

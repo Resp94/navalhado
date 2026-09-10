@@ -46,6 +46,8 @@ export interface CashSession {
   closed_at: string | null;
   initial_amount: number;
   closing_amount: number | null;
+  expected_amount?: number | null;
+  difference_amount?: number | null;
   status: CaixaStatus;
   notes: string | null;
   created_at?: string;
@@ -64,6 +66,7 @@ export interface AbrirCaixaInput {
 
 export interface FecharCaixaInput {
   session_id: string;
+  tenant_id: string;
   closed_by?: string | null;
   closing_amount: number;
   notes?: string | null;
