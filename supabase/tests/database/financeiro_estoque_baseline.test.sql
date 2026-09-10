@@ -40,21 +40,6 @@ select ok(
 );
 
 select ok(
-  position('p_movement_type = ''entry''' in pg_get_functiondef('public.adjust_product_stock(uuid,text,integer,numeric,text,uuid)'::regprocedure)) > 0,
-  'stock adjustment function still exposes the legacy entry contract'
-);
-
-select ok(
-  position('p_movement_type = ''exit''' in pg_get_functiondef('public.adjust_product_stock(uuid,text,integer,numeric,text,uuid)'::regprocedure)) > 0,
-  'stock adjustment function still exposes the legacy exit contract'
-);
-
-select ok(
-  position('p_movement_type = ''sale''' in pg_get_functiondef('public.adjust_product_stock(uuid,text,integer,numeric,text,uuid)'::regprocedure)) > 0,
-  'stock adjustment function still exposes the legacy sale contract'
-);
-
-select ok(
   position('v_delta' in pg_get_functiondef('public.adjust_product_stock(uuid,text,integer,numeric,text,uuid)'::regprocedure)) > 0,
   'stock adjustment function derives a signed delta before persisting movement'
 );
@@ -144,12 +129,56 @@ where t.id in (
   limit 2
 );
 
+create temp table _financeiro_estoque_behavior (check_name text, observed text) on commit drop;
+grant insert, select on _financeiro_estoque_behavior to authenticated;
+
 select set_config(
   'request.jwt.claim.sub',
   (select u.id::text from public.users u where u.tenant_id is not null and u.is_active order by u.id limit 1),
   true
 );
 set local role authenticated;
+
+do $$
+declare
+  v_product uuid;
+  v_error text;
+  v_stock numeric;
+  v_movements bigint;
+begin
+  select id into v_product from public.products where name like '__financeiro_estoque_baseline__%' order by name limit 1;
+  begin
+    perform public.adjust_product_stock(v_product, 'entry_manual', 1, null, 'baseline', null);
+    insert into _financeiro_estoque_behavior values ('detailed_type_call', 'accepted');
+  exception when others then
+    get stacked diagnostics v_error = message_text;
+    insert into _financeiro_estoque_behavior values ('detailed_type_call', v_error);
+  end;
+  select stock_quantity, (select count(*) from public.product_movements where product_id = v_product)
+    into v_stock, v_movements
+  from public.products
+  where id = v_product;
+  insert into _financeiro_estoque_behavior values ('post_call_stock', coalesce(v_stock::text, 'null'));
+  insert into _financeiro_estoque_behavior values ('post_call_movements', v_movements::text);
+end $$;
+
+select is(
+  (select observed from _financeiro_estoque_behavior where check_name = 'detailed_type_call'),
+  'Tipo de movimentação inválido: entry_manual',
+  'current stock function rejects the detailed entry type'
+);
+
+select is(
+  (select observed from _financeiro_estoque_behavior where check_name = 'post_call_stock'),
+  '0',
+  'rejected stock adjustment leaves product balance unchanged'
+);
+
+select is(
+  (select observed from _financeiro_estoque_behavior where check_name = 'post_call_movements'),
+  '0',
+  'rejected stock adjustment leaves movement history unchanged'
+);
 
 select is(
   (select count(*) from public.products where name like '__financeiro_estoque_baseline__%'),

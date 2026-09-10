@@ -28,6 +28,7 @@ Não foram encontradas inconsistências agregadas nos dados existentes. A ausên
 - A constraint de quantidade persistida exige valor maior que zero.
 - O adapter atual envia os tipos detalhados e a quantidade absoluta.
 - A função remota `adjust_product_stock` ainda valida `entry`, `exit`, `sale` e `adjustment`, e persiste o delta assinado como quantidade.
+- Em uma chamada controlada via MCP, `entry_manual` foi rejeitado com `Tipo de movimentação inválido: entry_manual`; após a falha, o produto permaneceu com saldo 0 e sem movimento. O sentinel foi executado em transação e revertido com `ROLLBACK`.
 - As funções remotas de estoque e quitação possuem assinatura registrada no teste pgTAP de baseline.
 - As policies atuais estão tenant-scoped em produtos e movimentos, mas os helpers de autenticação não filtram `is_active`.
 - O papel `authenticated` possui privilégio direto de inserção em `commission_payouts`, além da função de quitação.
@@ -55,6 +56,8 @@ Executados com Vitest em uma worker:
 - Quitação de comissão: 2 testes aprovados.
 
 A execução agregada da suíte ficou sem progresso antes da coleta de testes no modo padrão e foi interrompida. Isso é registrado como limitação do runner; as mesmas suítes passaram isoladamente com uma worker.
+
+O teste pgTAP `supabase/tests/database/financeiro_estoque_baseline.test.sql` possui 21 asserções, incluindo a chamada comportamental controlada acima. O projeto DEV não possui a extensão pgTAP instalada, portanto sua execução não foi possível via MCP; a consulta comportamental e as consultas estruturais foram executadas separadamente, sempre sem persistência de dados.
 
 ## Critério de uso
 
