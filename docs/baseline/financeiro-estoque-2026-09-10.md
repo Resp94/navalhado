@@ -47,9 +47,9 @@ Executados com Vitest em uma worker:
 
 - Produtos: 4 testes aprovados.
 - Adapter de produtos: 7 testes aprovados.
-- Comandas: 8 testes aprovados.
+- Comandas: 9 testes aprovados.
 - Adapter de comandas: 2 testes aprovados.
-- Caixa: 13 testes aprovados.
+- Caixa: 15 testes aprovados.
 - Adapter de caixa: 1 teste aprovado.
 - Financeiro: 4 testes aprovados.
 - Quitação de comissão: 2 testes aprovados.

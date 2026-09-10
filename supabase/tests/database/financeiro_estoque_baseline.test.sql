@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(22);
 
 select has_table('public', 'products', 'products table exists');
 select has_table('public', 'product_movements', 'product movements table exists');
@@ -112,6 +112,71 @@ select ok(
   position('is_active' in pg_get_functiondef('private.is_saas_admin()'::regprocedure)) = 0,
   'baseline records that SaaS admin helper does not yet filter active users'
 );
+
+insert into public.products (
+  tenant_id,
+  name,
+  product_type,
+  unit_type,
+  price,
+  cost_price,
+  stock_quantity,
+  min_stock_alert,
+  is_active
+)
+select
+  t.id,
+  '__financeiro_estoque_baseline__' || t.id::text,
+  'retail',
+  'un',
+  0,
+  0,
+  0,
+  0,
+  true
+from public.tenants t
+where t.id in (
+  select u.tenant_id
+  from public.users u
+  where u.tenant_id is not null
+    and u.is_active
+  order by u.id
+  limit 2
+);
+
+select set_config(
+  'request.jwt.claim.sub',
+  (select u.id::text from public.users u where u.tenant_id is not null and u.is_active order by u.id limit 1),
+  true
+);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.products where name like '__financeiro_estoque_baseline__%'),
+  1::bigint,
+  'active tenant user sees only products from own tenant'
+);
+
+reset role;
+update public.users
+set is_active = false
+where id = (
+  select u.id
+  from public.users u
+  where u.tenant_id is not null
+    and u.is_active
+  order by u.id
+  limit 1
+);
+set local role authenticated;
+
+select is(
+  (select count(*) from public.products where name like '__financeiro_estoque_baseline__%'),
+  1::bigint,
+  'baseline records that inactive tenant user still sees own products'
+);
+
+reset role;
 
 select * from finish();
 rollback;
