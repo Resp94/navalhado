@@ -200,7 +200,7 @@ select is(
   'alterar o preco cadastral nao muda a receita historica'
 );
 select is(
-  (public.get_tenant_financial_metrics((select start_at from ticket09_context), (select end_at from ticket09_context), (select tenant_id from ticket09_context))->>'historical_data_quality',
+  public.get_tenant_financial_metrics((select start_at from ticket09_context), (select end_at from ticket09_context), (select tenant_id from ticket09_context))->>'historical_data_quality',
   'confirmed',
   'a qualidade historica permanece confirmada apos alteracoes cadastrais'
 );
