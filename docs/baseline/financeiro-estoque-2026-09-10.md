@@ -3,8 +3,8 @@
 **Ambiente:** Supabase DEV (`Navalhado-dev`)
 **Project ref:** `selvxobcjbkligxighlp`
 **Postgres:** 17.6
-**Migrations aplicadas:** 75
-**Última migration observada:** `20260902152205`
+**Migrations aplicadas:** 76
+**Última migration observada:** `20260910172540_enable_pgtap_database_tests`
 
 ## Estado observado
 
@@ -57,7 +57,7 @@ Executados com Vitest em uma worker:
 
 A execução agregada da suíte ficou sem progresso antes da coleta de testes no modo padrão e foi interrompida. Isso é registrado como limitação do runner; as mesmas suítes passaram isoladamente com uma worker.
 
-O teste pgTAP `supabase/tests/database/financeiro_estoque_baseline.test.sql` possui 21 asserções, incluindo a chamada comportamental controlada acima. O projeto DEV não possui a extensão pgTAP instalada, portanto sua execução não foi possível via MCP; a consulta comportamental e as consultas estruturais foram executadas separadamente, sempre sem persistência de dados.
+O teste pgTAP `supabase/tests/database/financeiro_estoque_baseline.test.sql` possui 21 asserções, incluindo a chamada comportamental controlada acima, e passou `21/21` via MCP após a instalação da extensão `pgtap` 1.3.3. O teste usa transação e `ROLLBACK`, sem persistir sentinelas.
 
 ## Critério de uso
 

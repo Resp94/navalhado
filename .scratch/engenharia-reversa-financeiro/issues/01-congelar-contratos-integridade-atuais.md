@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** in-progress — baseline implementado, pendente execução pgTAP e ampliação da matriz comportamental
+**Status:** in-progress — baseline pgTAP executado, pendente ampliação da matriz comportamental e suíte completa
 
 - [x] Consultar pelo MCP do Supabase o projeto DEV e registrar versão, migrations, funções, policies, grants, constraints e advisors relacionados ao escopo.
 - [x] Confirmar que nenhuma consulta ou alteração é executada em produção.
