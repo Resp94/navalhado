@@ -1,6 +1,6 @@
 # Estabilização e segurança do financeiro e estoque
 
-**Status:** ready-for-agent
+**Status:** in-progress — Tickets 02–04 implementados e validados no banco; baseline ampliado e suítes da aplicação pendentes
 **Ordem:** 1 de 3
 **Ambiente inicial:** Supabase DEV
 **Dependências:** nenhuma; esta spec prepara as Specs 031 e 032
