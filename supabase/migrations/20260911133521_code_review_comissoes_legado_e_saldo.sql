@@ -109,6 +109,7 @@ begin
         when ci.snapshot_status in ('confirmed', 'estimated')
          and ci.snapshot_commission_amount is not null
           then ci.snapshot_commission_amount
+        when ci.snapshot_status in ('unavailable', 'reverted') then 0
         when ci.item_type in ('servico', 'service') or ci.service_id is not null then
           round(ci.total_price * coalesce(ps.custom_commission_percentage, s.commission_percentage, prof.commission_percentage, 0) / 100, 2)
         when ci.item_type in ('produto', 'product') or ci.product_id is not null then
@@ -276,6 +277,7 @@ begin
         when ci.snapshot_status in ('confirmed', 'estimated')
          and ci.snapshot_commission_amount is not null
           then ci.snapshot_commission_amount
+        when ci.snapshot_status in ('unavailable', 'reverted') then 0
         else round(ci.total_price * case
         when ci.item_type in ('servico', 'service') or ci.service_id is not null then coalesce(ps.custom_commission_percentage, s.commission_percentage, prof.commission_percentage, 0)
         when ci.item_type in ('produto', 'product') or ci.product_id is not null then coalesce(prod.commission_percentage, 0)
@@ -362,6 +364,7 @@ begin
         when ci.snapshot_status in ('confirmed', 'estimated')
          and ci.snapshot_commission_amount is not null
           then ci.snapshot_commission_amount
+        when ci.snapshot_status in ('unavailable', 'reverted') then 0
         when ci.item_type in ('servico', 'service') or ci.service_id is not null then
           round(ci.total_price * coalesce(ps.custom_commission_percentage, s.commission_percentage, prof.commission_percentage, 0) / 100, 2)
         when ci.item_type in ('produto', 'product') or ci.product_id is not null then

@@ -136,7 +136,20 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       revenueMap.set(p.cash_session_id, cur);
     }
 
+    const { data: adjustmentsData } = await supabase
+      .from('cash_session_adjustments')
+      .select('cash_session_id')
+      .in('cash_session_id', sessionIds);
+    const adjustmentCountMap = new Map<string, number>();
+    for (const adjustment of (adjustmentsData || []) as Array<{ cash_session_id: string }>) {
+      adjustmentCountMap.set(
+        adjustment.cash_session_id,
+        (adjustmentCountMap.get(adjustment.cash_session_id) || 0) + 1
+      );
+    }
+
     return rows.map((row) => {
+      const adjustmentCount = adjustmentCountMap.get(row.id) || 0;
       const hasFinancialSnapshot = row.status === 'closed'
         && row.cash_received_amount != null
         && row.pix_received_amount != null
@@ -169,6 +182,10 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
         supplies_amount: row.supplies_amount != null ? Number(row.supplies_amount) : null,
         withdrawals_amount: row.withdrawals_amount != null ? Number(row.withdrawals_amount) : null,
         calculation_version: row.calculation_version ?? null,
+        adjustment_count: adjustmentCount,
+        financial_state: row.status === 'open'
+          ? 'open'
+          : adjustmentCount > 0 ? 'closed_with_adjustment' : 'closed',
         status: row.status,
         notes: row.notes,
         opened_by_name: row.opened_user?.name || undefined,

@@ -1,4 +1,5 @@
 export type CaixaStatus = 'open' | 'closed';
+export type CashSessionFinancialState = 'open' | 'closed' | 'closed_with_adjustment';
 
 export type PaymentMethod =
   | 'pix'
@@ -56,6 +57,8 @@ export interface CashSession {
   supplies_amount?: number | null;
   withdrawals_amount?: number | null;
   calculation_version?: string | null;
+  adjustment_count?: number;
+  financial_state?: CashSessionFinancialState;
   status: CaixaStatus;
   notes: string | null;
   created_at?: string;

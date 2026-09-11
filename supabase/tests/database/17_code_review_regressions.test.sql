@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(19);
 
 select has_function(
   'public',
@@ -90,6 +90,18 @@ select ok(
 select ok(
   position('p_operation_id' in pg_get_functiondef('public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb)'::regprocedure)) > 0,
   'checkout separa id da operacao do id da comanda'
+);
+
+select has_function(
+  'public',
+  'validate_closed_comanda_payment_total',
+  array[]::text[],
+  'fechamento rejeita divergencia de centavos'
+);
+
+select ok(
+  position('v_user_role = ''barbeiro''' in pg_get_functiondef('public.get_professional_commission_balance(uuid,timestamptz,timestamptz,uuid)'::regprocedure)) > 0,
+  'profissional pode consultar o proprio extrato'
 );
 
 select * from finish();
