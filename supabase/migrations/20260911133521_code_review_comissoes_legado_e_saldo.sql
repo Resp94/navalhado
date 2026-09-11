@@ -14,7 +14,7 @@ create or replace function public.register_commission_payout(
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid;
@@ -222,7 +222,7 @@ create or replace function public.get_professional_commission_balance(
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid := (select auth.uid());
@@ -330,7 +330,7 @@ create or replace function public.get_tenant_current_commission_balance(p_tenant
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid := (select auth.uid());
@@ -406,7 +406,7 @@ create or replace function public.get_tenant_financial_metrics(
 returns json
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid;
@@ -490,34 +490,25 @@ begin
       case
         when ci.snapshot_status in ('confirmed', 'estimated') and ci.snapshot_net_amount is not null
           then ci.snapshot_net_amount
-        else ci.total_price
+        else 0.00
       end as recognized_revenue,
       case
         when ci.snapshot_status in ('confirmed', 'estimated') and ci.snapshot_gross_amount is not null
           then ci.snapshot_gross_amount
-        else ci.total_price
+        else 0.00
       end as recognized_gross,
       case
         when ci.snapshot_status in ('confirmed', 'estimated') then coalesce(ci.snapshot_quantity, ci.quantity)
-        else ci.quantity
+        else 0
       end as recognized_quantity,
       case
         when ci.snapshot_status in ('confirmed', 'estimated') then coalesce(ci.snapshot_unit_cost, 0.00)
-        else coalesce(prod.cost_price, 0.00)
+        else 0.00
       end as recognized_unit_cost,
       case
         when ci.snapshot_status in ('confirmed', 'estimated') and ci.snapshot_commission_amount is not null
           then ci.snapshot_commission_amount
-        else round((ci.total_price * coalesce(
-          case
-            when ci.item_type in ('servico', 'service') or ci.service_id is not null then
-              coalesce(ps.custom_commission_percentage, s.commission_percentage, prof.commission_percentage, 0.0)
-            when ci.item_type in ('produto', 'product') or ci.product_id is not null then
-              coalesce(prod.commission_percentage, 0.0)
-            else 0.0
-          end,
-          0.0
-        ) / 100.0), 2)
+        else 0.00
       end as recognized_commission,
       ci.snapshot_status,
       case
@@ -536,13 +527,6 @@ begin
       end as snapshot_complete
     from public.comanda_itens ci
     join target_comandas tc on tc.id = ci.comanda_id
-    left join public.professionals prof on prof.id = ci.professional_id
-    left join public.services s on s.id = ci.service_id
-    left join public.professional_services ps
-      on ps.service_id = ci.service_id
-     and ps.professional_id = ci.professional_id
-     and ps.tenant_id = ci.tenant_id
-    left join public.products prod on prod.id = ci.product_id
   )
   select
     coalesce(sum(ib.recognized_revenue) filter (where ib.item_type in ('servico', 'service') or ib.service_id is not null), 0.00),
@@ -653,31 +637,15 @@ begin
       case
         when ci.snapshot_status in ('confirmed', 'estimated') and ci.snapshot_gross_amount is not null
           then ci.snapshot_gross_amount
-        else ci.total_price
+        else 0.00
       end as recognized_gross,
       case
         when ci.snapshot_status in ('confirmed', 'estimated') and ci.snapshot_commission_amount is not null
           then ci.snapshot_commission_amount
-        else round((ci.total_price * coalesce(
-          case
-            when ci.item_type in ('servico', 'service') or ci.service_id is not null then
-              coalesce(ps.custom_commission_percentage, s.commission_percentage, prof.commission_percentage, 0.0)
-            when ci.item_type in ('produto', 'product') or ci.product_id is not null then
-              coalesce(prod.commission_percentage, 0.0)
-            else 0.0
-          end,
-          0.0
-        ) / 100.0), 2)
+        else 0.00
       end as recognized_commission
     from public.comanda_itens ci
     join target_comandas tc on tc.id = ci.comanda_id
-    left join public.professionals prof on prof.id = ci.professional_id
-    left join public.services s on s.id = ci.service_id
-    left join public.professional_services ps
-      on ps.service_id = ci.service_id
-     and ps.professional_id = ci.professional_id
-     and ps.tenant_id = ci.tenant_id
-    left join public.products prod on prod.id = ci.product_id
   ), prof_payouts as (
     select professional_id, coalesce(sum(amount), 0.00) as paid_amount
     from public.commission_payouts

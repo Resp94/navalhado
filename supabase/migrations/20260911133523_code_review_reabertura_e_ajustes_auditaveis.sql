@@ -45,7 +45,7 @@ create or replace function public.reopen_comanda(
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid;
@@ -112,6 +112,18 @@ begin
     if v_appointment.status <> 'completed' or v_appointment.payment_status <> 'paid' then
       raise exception 'O agendamento ja possui outro estado e nao pode ser revertido com seguranca.' using errcode = 'P0001';
     end if;
+  end if;
+
+  if exists (
+    select 1
+    from public.comanda_pagamentos cp
+    join public.cash_sessions cs on cs.id = cp.cash_session_id
+    where cp.comanda_id = v_comanda.id
+      and cp.tenant_id = p_tenant_id
+      and cs.tenant_id = p_tenant_id
+      and cs.status = 'closed'
+  ) then
+    raise exception 'A comanda pertence a uma sessao de caixa fechada; estorne o caixa antes de reabrir.' using errcode = 'P0001';
   end if;
 
   if exists (
@@ -215,7 +227,7 @@ create or replace function public.register_cash_session_adjustment(
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_user_id uuid := (select auth.uid());

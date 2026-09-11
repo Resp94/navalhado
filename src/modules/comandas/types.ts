@@ -84,6 +84,7 @@ export interface ComandaItemInput {
 
 export interface LiquidarComandaInput {
   comanda_id?: string | null;
+  operation_id?: string | null;
   tenant_id: string;
   appointment_id?: string | null;
   customer_id?: string | null;

@@ -106,7 +106,7 @@ describe('SupabaseComandaAdapter', () => {
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledWith('settle_comanda_idempotent', {
       p_operation_id: expect.any(String),
-      p_comanda_id: expect.any(String),
+      p_comanda_id: null,
       p_tenant_id: 'tenant-1',
       p_appointment_id: 'appointment-1',
       p_customer_id: 'customer-1',

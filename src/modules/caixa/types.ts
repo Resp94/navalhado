@@ -48,13 +48,20 @@ export interface CashSession {
   closing_amount: number | null;
   expected_amount?: number | null;
   difference_amount?: number | null;
+  cash_received_amount?: number | null;
+  pix_received_amount?: number | null;
+  card_received_amount?: number | null;
+  other_received_amount?: number | null;
+  payment_count?: number | null;
+  supplies_amount?: number | null;
+  withdrawals_amount?: number | null;
+  calculation_version?: string | null;
   status: CaixaStatus;
   notes: string | null;
   created_at?: string;
   opened_by_name?: string;
   closed_by_name?: string;
   total_revenue?: number;
-  payment_count?: number;
 }
 
 export interface AbrirCaixaInput {

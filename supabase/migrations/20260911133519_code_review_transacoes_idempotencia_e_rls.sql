@@ -160,7 +160,7 @@ create or replace function public.validate_comanda_item_references()
 returns trigger
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_comanda_tenant uuid;
@@ -228,7 +228,7 @@ create or replace function public.settle_comanda_idempotent(
 returns jsonb
 language plpgsql
 security definer
-set search_path to 'public', 'extensions'
+set search_path = ''
 as $$
 declare
   v_comanda_id uuid := coalesce(p_comanda_id, p_operation_id);

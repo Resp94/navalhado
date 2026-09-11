@@ -23,6 +23,14 @@ interface CashSessionJoinedRow {
   closing_amount: number | string | null;
   expected_amount: number | string | null;
   difference_amount: number | string | null;
+  cash_received_amount: number | string | null;
+  pix_received_amount: number | string | null;
+  card_received_amount: number | string | null;
+  other_received_amount: number | string | null;
+  payment_count: number | null;
+  supplies_amount: number | string | null;
+  withdrawals_amount: number | string | null;
+  calculation_version: string | null;
   status: 'open' | 'closed';
   notes: string | null;
   opened_user?: { name: string } | null;
@@ -129,7 +137,19 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     }
 
     return rows.map((row) => {
-      const rev = revenueMap.get(row.id) || { total: 0, count: 0 };
+      const hasFinancialSnapshot = row.status === 'closed'
+        && row.cash_received_amount != null
+        && row.pix_received_amount != null
+        && row.card_received_amount != null
+        && row.other_received_amount != null
+        && row.payment_count != null;
+      const rev = hasFinancialSnapshot
+        ? {
+            total: Number(row.cash_received_amount) + Number(row.pix_received_amount)
+              + Number(row.card_received_amount) + Number(row.other_received_amount),
+            count: Number(row.payment_count),
+          }
+        : revenueMap.get(row.id) || { total: 0, count: 0 };
       return {
         id: row.id,
         tenant_id: row.tenant_id,
@@ -141,12 +161,19 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
         closing_amount: row.closing_amount !== null ? Number(row.closing_amount) : null,
         expected_amount: row.expected_amount !== null ? Number(row.expected_amount) : null,
         difference_amount: row.difference_amount !== null ? Number(row.difference_amount) : null,
+        cash_received_amount: row.cash_received_amount != null ? Number(row.cash_received_amount) : null,
+        pix_received_amount: row.pix_received_amount != null ? Number(row.pix_received_amount) : null,
+        card_received_amount: row.card_received_amount != null ? Number(row.card_received_amount) : null,
+        other_received_amount: row.other_received_amount != null ? Number(row.other_received_amount) : null,
+        payment_count: row.payment_count != null ? Number(row.payment_count) : rev.count,
+        supplies_amount: row.supplies_amount != null ? Number(row.supplies_amount) : null,
+        withdrawals_amount: row.withdrawals_amount != null ? Number(row.withdrawals_amount) : null,
+        calculation_version: row.calculation_version ?? null,
         status: row.status,
         notes: row.notes,
         opened_by_name: row.opened_user?.name || undefined,
         closed_by_name: row.closed_user?.name || undefined,
         total_revenue: rev.total,
-        payment_count: rev.count,
       };
     }) as CashSession[];
   }

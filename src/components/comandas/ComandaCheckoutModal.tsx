@@ -149,6 +149,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
 
   const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
+  const checkoutOperationIdRef = useRef<string | null>(null);
   const [loadedComanda, setLoadedComanda] = useState<Comanda | null>(null);
   const [itens, setItens] = useState<ItemLocal[]>([]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
@@ -349,6 +350,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     if (!isOpen) return;
 
     const operationComandaId = initialComandaId ?? (appointmentId ? null : globalThis.crypto.randomUUID());
+    checkoutOperationIdRef.current = globalThis.crypto.randomUUID();
 
     // Reset de estados
     setIsLoadingComanda(true);
@@ -765,8 +767,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const checkoutOperationId = checkoutOperationIdRef.current ?? globalThis.crypto.randomUUID();
+      checkoutOperationIdRef.current = checkoutOperationId;
       const comandaLiquidada = await comRepo.settleComanda({
         comanda_id: comandaId,
+        operation_id: checkoutOperationId,
         tenant_id: tenantId,
         appointment_id: appointmentId ?? null,
         customer_id: customerId ?? null,

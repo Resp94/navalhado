@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(17);
 
 select has_function(
   'public',
@@ -22,6 +22,22 @@ select is(
   'policies legadas permissivas foram removidas'
 );
 
+select is(
+  (select count(*) from pg_policies
+   where schemaname = 'public'
+     and policyname in ('cash_movements_select_policy', 'commission_payouts_select_policy')
+     and position('get_auth_role' in coalesce(qual, '')) > 0),
+  2::bigint,
+  'lancamentos financeiros exigem papel autorizado'
+);
+
+select ok(
+  position('SET search_path = ' in pg_get_functiondef(
+    'public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb)'::regprocedure
+  )) > 0,
+  'funcoes financeiras usam search_path vazio'
+);
+
 select ok(
   position('is_active = true' in pg_get_functiondef('public.get_tenant_financial_metrics(timestamptz,timestamptz,uuid)'::regprocedure)) > 0,
   'metricas rejeitam usuario inativo'
@@ -39,6 +55,11 @@ select ok(
 select ok(
   position('comanda_payment_reversals' in pg_get_functiondef('public.reopen_comanda(uuid,uuid)'::regprocedure)) > 0,
   'reabertura registra reversao de pagamento'
+);
+
+select ok(
+  position('cs.status = ''closed''' in pg_get_functiondef('public.reopen_comanda(uuid,uuid)'::regprocedure)) > 0,
+  'reabertura nao altera pagamentos de caixa fechado'
 );
 
 select ok(
@@ -64,6 +85,11 @@ select ok(
 select ok(
   position('legacy_allocated_amount' in pg_get_functiondef('public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid)'::regprocedure)) > 0,
   'quitacao registra a parcela legada de payout misto'
+);
+
+select ok(
+  position('p_operation_id' in pg_get_functiondef('public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb)'::regprocedure)) > 0,
+  'checkout separa id da operacao do id da comanda'
 );
 
 select * from finish();
