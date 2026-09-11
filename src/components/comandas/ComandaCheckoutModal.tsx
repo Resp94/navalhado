@@ -349,13 +349,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const operationComandaId = initialComandaId ?? (appointmentId ? null : globalThis.crypto.randomUUID());
+    const persistedComandaId = initialComandaId ?? null;
     checkoutOperationIdRef.current = globalThis.crypto.randomUUID();
 
     // Reset de estados
     setIsLoadingComanda(true);
     setLoadedComanda(null);
-    setComandaId(operationComandaId);
+    setComandaId(persistedComandaId);
     setDiscountValue(0);
     setTipValue(0);
     setIsSplitting(false);
@@ -424,7 +424,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             }
           }
         } else {
-          setComandaId(operationComandaId ?? globalThis.crypto.randomUUID());
+          setComandaId(null);
           setItens(mapInitialServices(initialServices));
         }
       })
@@ -809,28 +809,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
       const targetComandaId = comandaId || loadedComanda?.id;
 
-      if (targetAppointmentId) {
-        const { error: apptErr } = await supabase
-          .from('appointments')
-          .update({
-            status: 'canceled',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', targetAppointmentId);
-        if (apptErr) throw apptErr;
-      }
-
-      if (targetComandaId) {
-        const { error: cmdErr } = await supabase
-          .from('comandas')
-          .update({
-            status: 'cancelada',
-            closed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', targetComandaId);
-        if (cmdErr) throw cmdErr;
-      }
+      const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
+        p_comanda_id: targetComandaId || null,
+        p_appointment_id: targetAppointmentId || null,
+        p_tenant_id: tenantId,
+      });
+      if (cancelError) throw cancelError;
 
       if (onFinalizado && loadedComanda) {
         onFinalizado({ ...loadedComanda, status: 'cancelada' });

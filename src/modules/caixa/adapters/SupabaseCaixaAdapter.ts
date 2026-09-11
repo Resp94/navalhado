@@ -207,7 +207,7 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       .eq('tenant_id', tenantId);
 
     if (sessionId) {
-      query = query.or(`cash_session_id.eq.${sessionId},paid_at.gte.${sinceDate}`);
+      query = query.eq('cash_session_id', sessionId);
     } else if (sinceDate) {
       query = query.gte('paid_at', sinceDate);
     }

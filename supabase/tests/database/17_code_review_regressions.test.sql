@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(26);
 
 select has_function(
   'public',
@@ -32,7 +32,7 @@ select is(
 );
 
 select ok(
-  position('SET search_path = ' in pg_get_functiondef(
+  position('SET search_path TO ' in pg_get_functiondef(
     'public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb)'::regprocedure
   )) > 0,
   'funcoes financeiras usam search_path vazio'
@@ -102,6 +102,54 @@ select has_function(
 select ok(
   position('v_user_role = ''barbeiro''' in pg_get_functiondef('public.get_professional_commission_balance(uuid,timestamptz,timestamptz,uuid)'::regprocedure)) > 0,
   'profissional pode consultar o proprio extrato'
+);
+
+select ok(
+  position('snapshot_status = ''unavailable'' and ci.total_price is not null' in pg_get_functiondef('public.get_tenant_financial_metrics(timestamptz,timestamptz,uuid)'::regprocedure)) > 0,
+  'metricas preservam receita legada disponivel sem consultar cadastro atual'
+);
+
+select ok(
+  position('snapshot_status is distinct from ''reverted''' in pg_get_functiondef('public.reopen_comanda(uuid,uuid)'::regprocedure)) > 0,
+  'reabertura revoga snapshots estimados e indisponiveis'
+);
+
+select ok(
+  position('professional_service' in pg_get_functiondef('public.backfill_financial_history(uuid,integer)'::regprocedure)) > 0,
+  'backfill registra a origem efetiva da regra de comissao'
+);
+
+select ok(
+  position('cs.status = ''open''' in (
+    select with_check from pg_policies
+    where schemaname = 'public'
+      and tablename = 'cash_movements'
+      and policyname = 'cash_movements_insert_policy'
+  )) > 0,
+  'movimentacao manual exige sessao de caixa aberta'
+);
+
+select has_function(
+  'public',
+  'cancel_comanda_appointment',
+  array['uuid', 'uuid', 'uuid'],
+  'cancelamento administrativo possui comando transacional'
+);
+
+select ok(
+  position('status = ''cancelada''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid)'::regprocedure)) > 0
+  and position('status = ''canceled''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid)'::regprocedure)) > 0,
+  'cancelamento atomico atualiza comanda e agendamento no mesmo comando'
+);
+
+select ok(
+  position('get_auth_role' in (
+    select qual from pg_policies
+    where schemaname = 'public'
+      and tablename = 'comanda_payment_reversals'
+      and policyname = 'comanda_payment_reversals_select_financial'
+  )) > 0,
+  'trilha de reversoes usa helper de autenticacao otimizado'
 );
 
 select * from finish();

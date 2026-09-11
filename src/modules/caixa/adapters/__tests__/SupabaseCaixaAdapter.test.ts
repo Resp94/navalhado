@@ -1,13 +1,36 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SupabaseCaixaAdapter } from '../SupabaseCaixaAdapter';
 
-const { mockRpc } = vi.hoisted(() => ({ mockRpc: vi.fn() }));
+const { mockRpc, mockFrom, mockQuery } = vi.hoisted(() => ({
+  mockRpc: vi.fn(),
+  mockFrom: vi.fn(),
+  mockQuery: {
+    select: vi.fn(),
+    eq: vi.fn(),
+    gte: vi.fn(),
+    then: vi.fn(),
+  },
+}));
 
 vi.mock('../../../../lib/supabase', () => ({
-  supabase: { rpc: mockRpc },
+  supabase: { rpc: mockRpc, from: mockFrom },
 }));
 
 describe('SupabaseCaixaAdapter - resumo financeiro diário', () => {
+  it('restringe o resumo à sessão informada', async () => {
+    mockFrom.mockReturnValue(mockQuery);
+    mockQuery.select.mockReturnValue(mockQuery);
+    mockQuery.eq.mockReturnValue(mockQuery);
+    mockQuery.then.mockImplementation((resolve: (value: unknown) => unknown) =>
+      Promise.resolve({ data: [{ payment_method: 'pix', amount: 20 }], error: null }).then(resolve)
+    );
+
+    await new SupabaseCaixaAdapter().obterResumoTurno('tenant-1', '2026-08-28T10:00:00Z', 'session-1');
+
+    expect(mockQuery.eq).toHaveBeenCalledWith('cash_session_id', 'session-1');
+    expect(mockQuery.gte).not.toHaveBeenCalled();
+  });
+
   it('consulta a RPC com período, tenant, fuso e sessão', async () => {
     mockRpc.mockResolvedValueOnce({
       data: [
