@@ -23,7 +23,8 @@ export interface ComandaItem {
   snapshot_commission_percentage?: number | null;
   snapshot_commission_amount?: number | null;
   snapshot_commission_rule?: 'professional_service' | 'service' | 'professional' | 'product' | 'none' | null;
-  snapshot_status?: 'confirmed' | 'reverted' | null;
+  snapshot_status?: 'confirmed' | 'estimated' | 'unavailable' | 'reverted' | null;
+  snapshot_data_quality?: 'confirmed' | 'estimated' | 'unavailable' | null;
   snapshot_reverted_at?: string | null;
   snapshot_reverted_by?: string | null;
   created_at?: string;

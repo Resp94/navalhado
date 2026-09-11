@@ -215,8 +215,10 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
   }
 
   async liquidarComanda(input: LiquidarComandaInput): Promise<Comanda> {
-    const { data, error } = await supabase.rpc('settle_comanda', {
-      p_comanda_id: input.comanda_id ?? null,
+    const operationId = input.comanda_id ?? globalThis.crypto.randomUUID();
+    const { data, error } = await supabase.rpc('settle_comanda_idempotent', {
+      p_operation_id: operationId,
+      p_comanda_id: operationId,
       p_tenant_id: input.tenant_id,
       p_appointment_id: input.appointment_id ?? null,
       p_customer_id: input.customer_id ?? null,

@@ -348,9 +348,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    const operationComandaId = initialComandaId ?? (appointmentId ? null : globalThis.crypto.randomUUID());
+
     // Reset de estados
     setIsLoadingComanda(true);
     setLoadedComanda(null);
+    setComandaId(operationComandaId);
     setDiscountValue(0);
     setTipValue(0);
     setIsSplitting(false);
@@ -419,6 +422,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             }
           }
         } else {
+          setComandaId(operationComandaId ?? globalThis.crypto.randomUUID());
           setItens(mapInitialServices(initialServices));
         }
       })

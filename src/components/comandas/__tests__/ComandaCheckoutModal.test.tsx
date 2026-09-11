@@ -563,7 +563,7 @@ describe('ComandaCheckoutModal', () => {
     await waitFor(() => {
       expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
         expect.objectContaining({
-          comanda_id: null,
+          comanda_id: expect.any(String),
           tenant_id: 't-1',
           appointment_id: null,
           customer_id: null,
