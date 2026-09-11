@@ -65,6 +65,32 @@ describe('ComandaRepository', () => {
     ).rejects.toThrow(ComandaValidationError);
   });
 
+  it('delega liquidação válida preservando tenant, itens e pagamentos', async () => {
+    const fakeComanda = {
+      id: 'c-2',
+      tenant_id: 't-123',
+      appointment_id: null,
+      customer_id: null,
+      status: 'fechada' as const,
+      total_amount: 50,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+    };
+    const input = {
+      comanda_id: 'c-2',
+      tenant_id: 't-123',
+      itens: [{ item_type: 'servico' as const, service_id: 's-1', quantity: 1, unit_price: 50 }],
+      pagamentos: [{ payment_method: 'pix' as const, amount: 50 }],
+    };
+    vi.mocked(mockAdapter.liquidarComanda).mockResolvedValueOnce(fakeComanda);
+
+    const result = await repository.settleComanda(input);
+
+    expect(result).toEqual(fakeComanda);
+    expect(mockAdapter.liquidarComanda).toHaveBeenCalledWith(input);
+  });
+
   it('delega criação de comanda para o adapter quando válida', async () => {
     const fakeComanda = {
       id: 'c-1',

@@ -56,6 +56,9 @@ export class CaixaRepository {
     if (!input.session_id || !input.session_id.trim()) {
       throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
     }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
     if (input.closing_amount < 0) {
       throw new CaixaValidationError('O valor de fechamento não pode ser negativo.');
     }

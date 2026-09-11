@@ -1,0 +1,18 @@
+# 04 — Proteger a quitação de comissões
+
+**What to build:** O gerente registra pagamentos parciais ou totais de comissão por uma operação segura, enquanto excesso, concorrência, método inválido e profissional de outro tenant são rejeitados integralmente.
+
+**Blocked by:** 03 — Restringir operações financeiras e de estoque.
+
+**Status:** in-progress — migration aplicada no DEV e pgTAP validado; cenários concorrentes, adapters e suíte da aplicação pendentes
+
+- [x] Consultar pelo MCP a definição e os grants vigentes da função de quitação no DEV.
+- [x] Criar migration nova sem habilitar inserção direta irrestrita na tabela de quitações.
+- [x] Exigir usuário ativo com papel financeiro autorizado no tenant.
+- [x] Validar que o profissional existe e pertence ao mesmo tenant.
+- [x] Validar valor positivo e método pertencente ao conjunto canônico do sistema.
+- [x] Aceitar pagamento parcial e pagamento total exato.
+- [x] Rejeitar valor superior ao saldo pendente sem criar registro parcial.
+- [x] Preservar o retorno esperado pela experiência atual de quitação.
+- [x] Aplicar no DEV via MCP e validar função, RLS e grants.
+- [ ] Manter verdes os testes atuais do Financeiro e do modal de quitação.

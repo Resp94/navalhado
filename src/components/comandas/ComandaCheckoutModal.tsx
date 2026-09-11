@@ -149,6 +149,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
 
   const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
+  const checkoutOperationIdRef = useRef<string | null>(null);
   const [loadedComanda, setLoadedComanda] = useState<Comanda | null>(null);
   const [itens, setItens] = useState<ItemLocal[]>([]);
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
@@ -348,9 +349,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    const persistedComandaId = initialComandaId ?? null;
+    checkoutOperationIdRef.current = globalThis.crypto.randomUUID();
+
     // Reset de estados
     setIsLoadingComanda(true);
     setLoadedComanda(null);
+    setComandaId(persistedComandaId);
     setDiscountValue(0);
     setTipValue(0);
     setIsSplitting(false);
@@ -419,6 +424,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             }
           }
         } else {
+          setComandaId(null);
           setItens(mapInitialServices(initialServices));
         }
       })
@@ -761,28 +767,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      let comandaEfetivaId = comandaId;
-
-      if (!comandaEfetivaId) {
-        const nova = await comRepo.createComanda({
-          tenant_id: tenantId,
-          appointment_id: appointmentId,
-          customer_id: customerId,
-          itens: itens.map((it) => ({
-            item_type: it.item_type,
-            service_id: it.service_id,
-            product_id: it.product_id,
-            professional_id: it.professional_id,
-            quantity: it.quantity,
-            unit_price: it.unit_price,
-          })),
-        });
-        comandaEfetivaId = nova.id;
-      }
-
+      const checkoutOperationId = checkoutOperationIdRef.current ?? globalThis.crypto.randomUUID();
+      checkoutOperationIdRef.current = checkoutOperationId;
       const comandaLiquidada = await comRepo.settleComanda({
-        comanda_id: comandaEfetivaId,
+        comanda_id: comandaId,
+        operation_id: checkoutOperationId,
         tenant_id: tenantId,
+        appointment_id: appointmentId ?? null,
+        customer_id: customerId ?? null,
         discount_amount: discountAmount,
         tip_amount: tipValue,
         cash_session_id: sessao.id,
@@ -817,28 +809,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
       const targetComandaId = comandaId || loadedComanda?.id;
 
-      if (targetAppointmentId) {
-        const { error: apptErr } = await supabase
-          .from('appointments')
-          .update({
-            status: 'canceled',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', targetAppointmentId);
-        if (apptErr) throw apptErr;
-      }
-
-      if (targetComandaId) {
-        const { error: cmdErr } = await supabase
-          .from('comandas')
-          .update({
-            status: 'cancelada',
-            closed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', targetComandaId);
-        if (cmdErr) throw cmdErr;
-      }
+      const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
+        p_comanda_id: targetComandaId || null,
+        p_appointment_id: targetAppointmentId || null,
+        p_tenant_id: tenantId,
+      });
+      if (cancelError) throw cancelError;
 
       if (onFinalizado && loadedComanda) {
         onFinalizado({ ...loadedComanda, status: 'cancelada' });

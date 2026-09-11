@@ -14,6 +14,19 @@ export interface ComandaItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  snapshot_quantity?: number | null;
+  snapshot_unit_price?: number | null;
+  snapshot_gross_amount?: number | null;
+  snapshot_discount_amount?: number | null;
+  snapshot_net_amount?: number | null;
+  snapshot_unit_cost?: number | null;
+  snapshot_commission_percentage?: number | null;
+  snapshot_commission_amount?: number | null;
+  snapshot_commission_rule?: 'professional_service' | 'service' | 'professional' | 'product' | 'none' | null;
+  snapshot_status?: 'confirmed' | 'estimated' | 'unavailable' | 'reverted' | null;
+  snapshot_data_quality?: 'confirmed' | 'estimated' | 'unavailable' | null;
+  snapshot_reverted_at?: string | null;
+  snapshot_reverted_by?: string | null;
   created_at?: string;
 }
 
@@ -70,8 +83,11 @@ export interface ComandaItemInput {
 }
 
 export interface LiquidarComandaInput {
-  comanda_id: string;
+  comanda_id?: string | null;
+  operation_id?: string | null;
   tenant_id: string;
+  appointment_id?: string | null;
+  customer_id?: string | null;
   discount_amount?: number;
   tip_amount?: number;
   cash_session_id?: string | null;

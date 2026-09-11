@@ -106,6 +106,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
 
       const closedSession = await repo.closeSession({
         session_id: session.id,
+        tenant_id: session.tenant_id,
         closed_by: currentUserId,
         closing_amount: countedAmount,
         notes: notes.trim() || undefined,

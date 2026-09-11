@@ -73,6 +73,29 @@ describe('CaixaRepository', () => {
     ).rejects.toThrow(CaixaValidationError);
   });
 
+  it('delega abertura válida preservando o contrato da sessão', async () => {
+    const input = { tenant_id: 't-1', opened_by: 'user-1', initial_amount: 100, notes: 'Turno manhã' };
+    const session = {
+      id: 'sess-3',
+      tenant_id: 't-1',
+      opened_by: 'user-1',
+      closed_by: null,
+      opened_at: '2026-08-18T08:00:00Z',
+      closed_at: null,
+      initial_amount: 100,
+      closing_amount: null,
+      status: 'open' as const,
+      notes: 'Turno manhã',
+    };
+    vi.mocked(mockAdapter.obterSessaoAtiva).mockResolvedValueOnce(null);
+    vi.mocked(mockAdapter.abrirCaixa).mockResolvedValueOnce(session);
+
+    const result = await repository.openSession(input);
+
+    expect(result).toEqual(session);
+    expect(mockAdapter.abrirCaixa).toHaveBeenCalledWith(input);
+  });
+
     it('lista histórico de caixas com sucesso', async () => {
     const mockHistory = [
       {
@@ -141,9 +164,38 @@ describe('CaixaRepository', () => {
     await expect(
       repository.closeSession({
         session_id: '',
+        tenant_id: 't-1',
         closing_amount: 100,
       })
     ).rejects.toThrow(CaixaValidationError);
+  });
+
+  it('delega fechamento válido preservando valor contado e observação', async () => {
+    const input = {
+      session_id: 'sess-1',
+      tenant_id: 't-1',
+      closed_by: 'user-1',
+      closing_amount: 370,
+      notes: 'Conferência concluída',
+    };
+    const closedSession = {
+      id: 'sess-1',
+      tenant_id: 't-1',
+      opened_by: 'user-1',
+      closed_by: 'user-1',
+      opened_at: '2026-08-18T08:00:00Z',
+      closed_at: '2026-08-18T18:00:00Z',
+      initial_amount: 100,
+      closing_amount: 370,
+      status: 'closed' as const,
+      notes: 'Conferência concluída',
+    };
+    vi.mocked(mockAdapter.fecharCaixa).mockResolvedValueOnce(closedSession);
+
+    const result = await repository.closeSession(input);
+
+    expect(result).toEqual(closedSession);
+    expect(mockAdapter.fecharCaixa).toHaveBeenCalledWith(input);
   });
 
   describe('Movimentações (Sangrias e Suprimentos)', () => {

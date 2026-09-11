@@ -8,14 +8,21 @@ import type { IComandaAdapter } from '../../../modules/comandas/types';
 import type { ICaixaAdapter } from '../../../modules/caixa/types';
 import type { IProdutoAdapter } from '../../../modules/produtos/types';
 
-const mockSupabaseUpdate = vi.fn().mockReturnValue({
+const { mockSupabaseUpdate, mockSupabaseRpc } = vi.hoisted(() => ({
+  mockSupabaseUpdate: vi.fn(),
+  mockSupabaseRpc: vi.fn(),
+}));
+
+mockSupabaseUpdate.mockReturnValue({
   eq: vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
   }),
 });
+mockSupabaseRpc.mockResolvedValue({ data: null, error: null });
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
+    rpc: mockSupabaseRpc,
     from: vi.fn().mockImplementation((table: string) => {
       if (table === 'appointments') {
         return {
@@ -73,6 +80,12 @@ describe('ComandaCheckoutModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSupabaseUpdate.mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    });
+    mockSupabaseRpc.mockResolvedValue({ data: null, error: null });
     const defaultProducts = [
       {
         id: 'prod-1',
@@ -140,7 +153,7 @@ describe('ComandaCheckoutModal', () => {
       pagamentos: [],
     }));
     vi.mocked(mockComandaAdapter.liquidarComanda).mockImplementation(async (input) => ({
-      id: input.comanda_id,
+      id: input.comanda_id || 'com-liquidada',
       tenant_id: input.tenant_id,
       appointment_id: null,
       customer_id: null,
@@ -153,7 +166,7 @@ describe('ComandaCheckoutModal', () => {
       closed_at: new Date().toISOString(),
       itens: (input.itens || []).map((it, idx) => ({
         id: `item-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         item_type: it.item_type,
         service_id: it.service_id || null,
@@ -165,7 +178,7 @@ describe('ComandaCheckoutModal', () => {
       })),
       pagamentos: input.pagamentos.map((p, idx) => ({
         id: `pag-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         cash_session_id: input.cash_session_id ?? null,
         payment_method: p.payment_method,
@@ -518,22 +531,6 @@ describe('ComandaCheckoutModal', () => {
       notes: null,
     });
 
-    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce({
-      id: 'com-balcao-1',
-      tenant_id: 't-1',
-      appointment_id: null,
-      customer_id: null,
-      status: 'aberta',
-      total_amount: 30.0,
-      discount_amount: 0,
-      tip_amount: 0,
-      notes: null,
-      created_at: new Date().toISOString(),
-      closed_at: null,
-      itens: [],
-      pagamentos: [],
-    });
-
     vi.mocked(mockComandaAdapter.liquidarComanda).mockResolvedValueOnce({
       id: 'com-balcao-1',
       tenant_id: 't-1',
@@ -577,13 +574,61 @@ describe('ComandaCheckoutModal', () => {
     fireEvent.click(btnFinalizar);
 
     await waitFor(() => {
-      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
         expect.objectContaining({
+          comanda_id: null,
           tenant_id: 't-1',
+          appointment_id: null,
           customer_id: null,
         })
       );
+      expect(mockComandaAdapter.criarComanda).not.toHaveBeenCalled();
     });
+  });
+
+  it('cria a comanda antes de persistir o primeiro item de um checkout novo', async () => {
+    vi.mocked(mockCaixaAdapter.obterSessaoAtiva).mockResolvedValue({
+      id: 'sess-1',
+      tenant_id: 't-1',
+      opened_by: null,
+      closed_by: null,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_amount: 50,
+      closing_amount: null,
+      status: 'open',
+      notes: null,
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        availableServices={[{ id: 'srv-1', name: 'Corte', price: 40 }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText(/Nenhum item adicionado/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Serviço/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Selecionar serviço/i }), {
+      target: { value: 'srv-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/i }));
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: 't-1',
+          itens: [expect.objectContaining({ service_id: 'srv-1', unit_price: 40 })],
+        })
+      );
+    });
+    expect(mockComandaAdapter.adicionarItem).not.toHaveBeenCalled();
   });
 
   it('persiste imediatamente novo serviço ou produto adicionado em comanda aberta', async () => {
@@ -761,6 +806,9 @@ describe('ComandaCheckoutModal', () => {
     const timeInput = screen.getByLabelText(/Novo Horário:/i);
 
     fireEvent.change(dateInput, { target: { value: '2026-08-29' } });
+    await waitFor(() => {
+      expect(timeInput.querySelector('option[value="16:30"]')).not.toBeNull();
+    });
     fireEvent.change(timeInput, { target: { value: '16:30' } });
 
     // 3. Confirmar Reagendamento

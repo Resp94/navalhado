@@ -21,6 +21,16 @@ interface CashSessionJoinedRow {
   closed_at: string | null;
   initial_amount: number | string;
   closing_amount: number | string | null;
+  expected_amount: number | string | null;
+  difference_amount: number | string | null;
+  cash_received_amount: number | string | null;
+  pix_received_amount: number | string | null;
+  card_received_amount: number | string | null;
+  other_received_amount: number | string | null;
+  payment_count: number | null;
+  supplies_amount: number | string | null;
+  withdrawals_amount: number | string | null;
+  calculation_version: string | null;
   status: 'open' | 'closed';
   notes: string | null;
   opened_user?: { name: string } | null;
@@ -64,18 +74,12 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
   }
 
   async fecharCaixa(input: FecharCaixaInput): Promise<CashSession> {
-    const { data, error } = await supabase
-      .from('cash_sessions')
-      .update({
-        closed_by: input.closed_by || null,
-        closing_amount: input.closing_amount,
-        status: 'closed',
-        closed_at: new Date().toISOString(),
-        notes: input.notes || null,
-      })
-      .eq('id', input.session_id)
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc('close_cash_session', {
+      p_session_id: input.session_id,
+      p_tenant_id: input.tenant_id,
+      p_closing_amount: input.closing_amount,
+      p_notes: input.notes ?? null,
+    });
 
     if (error || !data) {
       throw new Error(`Erro ao fechar sessão de caixa: ${error?.message}`);
@@ -132,8 +136,33 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       revenueMap.set(p.cash_session_id, cur);
     }
 
+    const { data: adjustmentsData } = await supabase
+      .from('cash_session_adjustments')
+      .select('cash_session_id')
+      .in('cash_session_id', sessionIds);
+    const adjustmentCountMap = new Map<string, number>();
+    for (const adjustment of (adjustmentsData || []) as Array<{ cash_session_id: string }>) {
+      adjustmentCountMap.set(
+        adjustment.cash_session_id,
+        (adjustmentCountMap.get(adjustment.cash_session_id) || 0) + 1
+      );
+    }
+
     return rows.map((row) => {
-      const rev = revenueMap.get(row.id) || { total: 0, count: 0 };
+      const adjustmentCount = adjustmentCountMap.get(row.id) || 0;
+      const hasFinancialSnapshot = row.status === 'closed'
+        && row.cash_received_amount != null
+        && row.pix_received_amount != null
+        && row.card_received_amount != null
+        && row.other_received_amount != null
+        && row.payment_count != null;
+      const rev = hasFinancialSnapshot
+        ? {
+            total: Number(row.cash_received_amount) + Number(row.pix_received_amount)
+              + Number(row.card_received_amount) + Number(row.other_received_amount),
+            count: Number(row.payment_count),
+          }
+        : revenueMap.get(row.id) || { total: 0, count: 0 };
       return {
         id: row.id,
         tenant_id: row.tenant_id,
@@ -143,12 +172,25 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
         closed_at: row.closed_at,
         initial_amount: Number(row.initial_amount) || 0,
         closing_amount: row.closing_amount !== null ? Number(row.closing_amount) : null,
+        expected_amount: row.expected_amount !== null ? Number(row.expected_amount) : null,
+        difference_amount: row.difference_amount !== null ? Number(row.difference_amount) : null,
+        cash_received_amount: row.cash_received_amount != null ? Number(row.cash_received_amount) : null,
+        pix_received_amount: row.pix_received_amount != null ? Number(row.pix_received_amount) : null,
+        card_received_amount: row.card_received_amount != null ? Number(row.card_received_amount) : null,
+        other_received_amount: row.other_received_amount != null ? Number(row.other_received_amount) : null,
+        payment_count: row.payment_count != null ? Number(row.payment_count) : rev.count,
+        supplies_amount: row.supplies_amount != null ? Number(row.supplies_amount) : null,
+        withdrawals_amount: row.withdrawals_amount != null ? Number(row.withdrawals_amount) : null,
+        calculation_version: row.calculation_version ?? null,
+        adjustment_count: adjustmentCount,
+        financial_state: row.status === 'open'
+          ? 'open'
+          : adjustmentCount > 0 ? 'closed_with_adjustment' : 'closed',
         status: row.status,
         notes: row.notes,
         opened_by_name: row.opened_user?.name || undefined,
         closed_by_name: row.closed_user?.name || undefined,
         total_revenue: rev.total,
-        payment_count: rev.count,
       };
     }) as CashSession[];
   }
@@ -165,7 +207,7 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
       .eq('tenant_id', tenantId);
 
     if (sessionId) {
-      query = query.or(`cash_session_id.eq.${sessionId},paid_at.gte.${sinceDate}`);
+      query = query.eq('cash_session_id', sessionId);
     } else if (sinceDate) {
       query = query.gte('paid_at', sinceDate);
     }

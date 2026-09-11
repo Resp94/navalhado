@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SupabaseComandaAdapter } from '../SupabaseComandaAdapter';
 
-const { mockLimit, mockMaybeSingle } = vi.hoisted(() => ({
+const { mockLimit, mockRpc } = vi.hoisted(() => ({
   mockLimit: vi.fn(),
-  mockMaybeSingle: vi.fn(),
+  mockRpc: vi.fn(),
 }));
 
 vi.mock('../../../../lib/supabase', () => ({
   supabase: {
+    rpc: mockRpc,
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: mockLimit,
-      maybeSingle: mockMaybeSingle,
     })),
   },
 }));
@@ -82,18 +82,57 @@ describe('SupabaseComandaAdapter', () => {
     });
   });
 
-  it('faz preflight e bloqueia liquidação de comanda de no-show antes de alterar itens', async () => {
-    mockMaybeSingle.mockResolvedValueOnce({
-      data: { appointment: { status: 'no_show' } },
+  it('finaliza comanda por uma única RPC transacional', async () => {
+    const input = {
+      comanda_id: null,
+      tenant_id: 'tenant-1',
+      appointment_id: 'appointment-1',
+      customer_id: 'customer-1',
+      discount_amount: 5,
+      tip_amount: 2,
+      cash_session_id: 'session-1',
+      itens: [{ item_type: 'servico' as const, service_id: 'service-1', quantity: 1, unit_price: 50 }],
+      pagamentos: [{ payment_method: 'pix' as const, amount: 47 }],
+    };
+    mockRpc.mockResolvedValueOnce({
+      data: { id: 'comanda-1', status: 'fechada' },
       error: null,
     });
 
-    await expect(
-      new SupabaseComandaAdapter().liquidarComanda({
-        comanda_id: 'comanda-no-show',
-        tenant_id: 'tenant-1',
-        pagamentos: [{ payment_method: 'pix', amount: 40 }],
-      })
-    ).rejects.toThrow('não comparecido');
+    await expect(new SupabaseComandaAdapter().liquidarComanda(input)).resolves.toMatchObject({
+      id: 'comanda-1',
+      status: 'fechada',
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('settle_comanda_idempotent', {
+      p_operation_id: expect.any(String),
+      p_comanda_id: null,
+      p_tenant_id: 'tenant-1',
+      p_appointment_id: 'appointment-1',
+      p_customer_id: 'customer-1',
+      p_discount_amount: 5,
+      p_tip_amount: 2,
+      p_cash_session_id: 'session-1',
+      p_itens: input.itens,
+      p_pagamentos: input.pagamentos,
+    });
+  });
+
+  it('reabre comanda por uma única RPC transacional', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValueOnce({
+      data: { id: 'comanda-1', status: 'aberta' },
+      error: null,
+    });
+
+    await expect(new SupabaseComandaAdapter().reabrirComanda('comanda-1', 'tenant-1')).resolves.toMatchObject({
+      id: 'comanda-1',
+      status: 'aberta',
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('reopen_comanda', {
+      p_comanda_id: 'comanda-1',
+      p_tenant_id: 'tenant-1',
+    });
   });
 });
