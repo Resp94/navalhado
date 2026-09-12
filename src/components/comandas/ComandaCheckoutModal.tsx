@@ -29,6 +29,7 @@ import { openWhatsApp } from '../../lib/whatsapp';
 import { supabase } from '../../lib/supabase';
 import { localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
+import { GorjetaValorInput } from './GorjetaValorInput';
 import type {
   Comanda,
   MetodoPagamento,
@@ -1453,25 +1454,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="comanda-form-group">
-                        <label className="comanda-label">
-                          <HugeiconsIcon icon={Coins01Icon} size={14} className="label-icon" />
-                          <span>Gorjeta</span>
-                        </label>
-                        <div className="comanda-input-prefix-wrapper">
-                          <span className="comanda-input-prefix">R$</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={tipValue || ''}
-                            onChange={(e) => setTipValue(Math.max(0, parseFloat(e.target.value) || 0))}
-                            placeholder="0,00"
-                            className="comanda-input-num comanda-input-num--prefixed"
-                            aria-label="Valor da gorjeta"
-                          />
-                        </div>
-                      </div>
+                      <GorjetaValorInput value={tipValue} onChange={setTipValue} />
                     </div>
                   )}
 
