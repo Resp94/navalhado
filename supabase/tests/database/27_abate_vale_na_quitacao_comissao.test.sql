@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(48);
 
 -- Ticket 06 da spec 034: abate de vale (debito) na Quitacao de Comissao.
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
@@ -132,14 +132,17 @@ select is(
   'liquido sugerido e a comissao aberta (100) menos o vale aberto (35)'
 );
 
+-- Ticket 07 libera o parametro de credito de gorjeta: sem gorjeta lancada
+-- neste contexto, um credito nao-zero esbarra no saldo de gorjeta em aberto
+-- (zero), nao mais na recusa incondicional que existia antes do ticket 07.
 select throws_ok(
   $$select public.register_commission_payout(
-    (select professional_id from ticket27_context), 10, 'pix', 'tentativa com credito', now(),
+    (select professional_id from ticket27_context), 10, 'pix', 'tentativa com credito sem gorjeta', now(),
     (select tenant_id from ticket27_context), null, 0, 5
   )$$,
   'P0001',
-  'Pagamento de credito de gorjeta ainda nao esta disponivel.',
-  'recusa credito diferente de zero (ainda nao liberado -- ticket 07)'
+  'O valor do credito excede o saldo de gorjeta em aberto do profissional.',
+  'recusa credito quando nao ha gorjeta em aberto para o profissional'
 );
 
 select throws_ok(
@@ -276,6 +279,233 @@ select ok(
     )
   ),
   'ordem de lock fixa: alocacao de vales aparece depois da alocacao de obrigacoes no codigo da funcao'
+);
+
+reset role;
+
+-- Ticket 07 da spec 034: pagamento de gorjeta (credito) na Quitacao de Comissao.
+-- Contexto proprio para isolar o consumo FIFO de creditos de gorjeta do
+-- restante do cenario de vale acima.
+create temporary table ticket27c_context (
+  gerente_id uuid not null, tenant_id uuid not null,
+  professional_id uuid not null, service_id uuid not null, cash_session_id uuid not null,
+  comanda1_id uuid not null, comanda2_id uuid not null, comanda3_id uuid not null, comanda4_id uuid not null,
+  gorjeta_c_id uuid, gorjeta_d_id uuid, payout_id uuid
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket27c_ctx__', '__ticket27c_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket27c_gerente__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket27c', '11988880042', 20, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket27c', 400, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 0, 'open'
+  from t, au
+  returning id, tenant_id
+)
+insert into ticket27c_context (
+  gerente_id, tenant_id, professional_id, service_id, cash_session_id,
+  comanda1_id, comanda2_id, comanda3_id, comanda4_id
+)
+select au.id, t.id, prof.id, svc.id, cs.id, gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+from t, au, prof, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket27c_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket27c_context);
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda1_id, tenant_id, 'aberta', 0, 0, 0 from ticket27c_context
+union all
+select comanda2_id, tenant_id, 'aberta', 0, 0, 0 from ticket27c_context
+union all
+select comanda3_id, tenant_id, 'aberta', 0, 0, 0 from ticket27c_context
+union all
+select comanda4_id, tenant_id, 'aberta', 0, 0, 0 from ticket27c_context;
+
+grant select, update on ticket27c_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket27c_context), true);
+set local role authenticated;
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda1_id from ticket27c_context), (select tenant_id from ticket27c_context),
+    null, null, 0, 0, (select cash_session_id from ticket27c_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket27c_context),'professional_id',(select professional_id from ticket27c_context),'quantity',1,'unit_price',400)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',400))
+  )$$,
+  'fecha comanda base sem gorjeta e gera obrigacao de comissao de R$80'
+);
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda2_id from ticket27c_context), (select tenant_id from ticket27c_context),
+    null, null, 0, 12, (select cash_session_id from ticket27c_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket27c_context),'professional_id',(select professional_id from ticket27c_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',62)),
+    (select professional_id from ticket27c_context)
+  )$$,
+  'fecha comanda com gorjeta C (mais antiga) de R$12 para o profissional'
+);
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda3_id from ticket27c_context), (select tenant_id from ticket27c_context),
+    null, null, 0, 8, (select cash_session_id from ticket27c_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket27c_context),'professional_id',(select professional_id from ticket27c_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',58)),
+    (select professional_id from ticket27c_context)
+  )$$,
+  'fecha comanda com gorjeta D (mais nova) de R$8 para o profissional'
+);
+
+update ticket27c_context set
+  gorjeta_c_id = (select id from public.professional_account_entries where comanda_id = (select comanda2_id from ticket27c_context) and entry_type = 'gorjeta'),
+  gorjeta_d_id = (select id from public.professional_account_entries where comanda_id = (select comanda3_id from ticket27c_context) and entry_type = 'gorjeta');
+
+-- now() fica congelado no inicio da transacao: forca created_at distintos
+-- para garantir a ordem FIFO das gorjetas independente da ordem de insert.
+reset role;
+update public.professional_account_entries
+set created_at = created_at - interval '1 minute'
+where id = (select gorjeta_c_id from ticket27c_context);
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket27c_context), true);
+set local role authenticated;
+
+select is(
+  (public.get_professional_commission_balance(
+    (select professional_id from ticket27c_context), null, null, (select tenant_id from ticket27c_context)
+  )->>'credits_open_amount')::numeric,
+  20::numeric,
+  'saldo de gorjeta em aberto soma as duas gorjetas lancadas'
+);
+select is(
+  (public.get_professional_commission_balance(
+    (select professional_id from ticket27c_context), null, null, (select tenant_id from ticket27c_context)
+  )->>'suggested_net_amount')::numeric,
+  120::numeric,
+  'liquido sugerido soma a comissao aberta (100) e a gorjeta aberta (20)'
+);
+
+-- Quitacao unica que liquida toda a comissao (100) e toda a gorjeta (20) de
+-- uma vez: 120 em dinheiro, dos quais 20 sao credito de gorjeta.
+select lives_ok(
+  $$select public.register_commission_payout(
+    (select professional_id from ticket27c_context), 120, 'pix', 'quitacao com credito de gorjeta', now(),
+    (select tenant_id from ticket27c_context), null, 0, 20
+  )$$,
+  'aceita quitacao que liquida comissao e gorjeta juntas'
+);
+
+update ticket27c_context set payout_id = (
+  select id from public.commission_payouts where notes = 'quitacao com credito de gorjeta'
+);
+
+select is(
+  (select credit_amount from public.commission_payouts where id = (select payout_id from ticket27c_context)),
+  20::numeric,
+  'a quitacao registra o valor de credito de gorjeta pago para auditoria'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries
+   where id in ((select gorjeta_c_id from ticket27c_context), (select gorjeta_d_id from ticket27c_context))
+     and status = 'settled'),
+  2,
+  'as duas gorjetas ficam totalmente quitadas (FIFO consome ambas)'
+);
+select is(
+  (select sum(settled_amount) from public.professional_account_entries
+   where id in ((select gorjeta_c_id from ticket27c_context), (select gorjeta_d_id from ticket27c_context))),
+  20::numeric,
+  'o valor quitado das gorjetas reconcilia com o credito pago (12 + 8)'
+);
+select is(
+  (select count(*)::integer from public.professional_advance_allocations
+   where payout_id = (select payout_id from ticket27c_context)
+     and entry_id in ((select gorjeta_c_id from ticket27c_context), (select gorjeta_d_id from ticket27c_context))),
+  2,
+  'a quitacao gera rateio para as duas gorjetas tocadas'
+);
+select is(
+  (select sum(amount) from public.professional_advance_allocations
+   where payout_id = (select payout_id from ticket27c_context)
+     and entry_id in ((select gorjeta_c_id from ticket27c_context), (select gorjeta_d_id from ticket27c_context))),
+  20::numeric,
+  'o rateio das gorjetas soma exatamente o credito pago'
+);
+
+-- Nova obrigacao isolada, para testar o limite de credito de gorjeta sem
+-- esbarrar no limite generico de comissao pendente (mesmo raciocinio do
+-- ticket 06 para o abate de vale).
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda4_id from ticket27c_context), (select tenant_id from ticket27c_context),
+    null, null, 0, 0, (select cash_session_id from ticket27c_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket27c_context),'professional_id',(select professional_id from ticket27c_context),'quantity',1,'unit_price',30)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',30))
+  )$$,
+  'fecha uma quarta comanda e gera obrigacao independente de R$6'
+);
+
+select throws_ok(
+  $$select public.register_commission_payout(
+    (select professional_id from ticket27c_context), 5, 'pix', 'credito sem saldo de gorjeta', now(),
+    (select tenant_id from ticket27c_context), null, 0, 5
+  )$$,
+  'P0001',
+  'O valor do credito excede o saldo de gorjeta em aberto do profissional.',
+  'apos consumir toda a gorjeta, recusa novo credito mesmo com comissao pendente suficiente (6)'
+);
+
+-- Estorno devolve as gorjetas e a comissao ao estado aberto.
+select lives_ok(
+  $$select public.reverse_commission_payout(
+    (select payout_id from ticket27c_context), (select tenant_id from ticket27c_context), 'Quitacao com gorjeta lancada por engano'
+  )$$,
+  'estorna a quitacao com credito de gorjeta'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries
+   where id in ((select gorjeta_c_id from ticket27c_context), (select gorjeta_d_id from ticket27c_context))
+     and status = 'open' and settled_amount = 0),
+  2,
+  'estorno devolve as duas gorjetas ao estado aberto, sem valor quitado'
+);
+select is(
+  (select status from public.commission_obligations where comanda_id = (select comanda1_id from ticket27c_context)),
+  'open',
+  'estorno devolve a obrigacao base ao estado aberto'
+);
+
+-- Ordem de lock: o consumo de credito de gorjeta ocorre depois do consumo de
+-- vale no corpo da funcao, que por sua vez ja ocorre depois das obrigacoes
+-- (verificado no ticket 06) -- preserva a ordem completa: obrigacoes, vale, gorjeta.
+select ok(
+  position(
+    'e.entry_type = ''gorjeta''' in pg_get_functiondef(
+      'public.register_commission_payout(uuid,numeric,text,text,timestamp with time zone,uuid,uuid,numeric,numeric)'::regprocedure
+    )
+  ) > position(
+    'e.entry_type = ''vale''' in pg_get_functiondef(
+      'public.register_commission_payout(uuid,numeric,text,text,timestamp with time zone,uuid,uuid,numeric,numeric)'::regprocedure
+    )
+  ),
+  'ordem de lock: consumo de credito de gorjeta ocorre depois do consumo de vale no codigo da funcao'
 );
 
 reset role;
