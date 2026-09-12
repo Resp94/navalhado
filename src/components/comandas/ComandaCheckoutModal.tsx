@@ -746,7 +746,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
 
     const effectivePagamentos =
-      pagamentos.length <= 1 && !isSplitting
+      totalFinal === 0
+        ? []
+        : pagamentos.length <= 1 && !isSplitting
         ? [{ method: pagamentos[0]?.method || 'pix', amount: totalFinal, receivedCash: totalFinal }]
         : pagamentos;
     const effectiveTotalPago = effectivePagamentos.reduce((acc, p) => acc + (p.amount || 0), 0);
