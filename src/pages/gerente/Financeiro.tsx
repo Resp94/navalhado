@@ -26,6 +26,7 @@ import { formatCurrency } from '../../lib/currency';
 import { dateInZone } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
+import { ExtratoSessaoCaixaModal } from '../../components/caixa/ExtratoSessaoCaixaModal';
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
 import { DetalhesComissaoModal } from '../../components/financeiro/DetalhesComissaoModal';
 import { MobileCaixaView } from './mobile/MobileCaixaView';
@@ -110,6 +111,7 @@ export const Financeiro: React.FC = () => {
   const activeSessionOpenedAt = activeSession?.opened_at;
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
+  const [extratoSession, setExtratoSession] = useState<CashSession | null>(null);
 
   // Estados de Quitação e Detalhes de Comissão
   const [selectedProfForPayout, setSelectedProfForPayout] = useState<FinancialMetrics['commissions_by_professional'][0] | null>(null);
@@ -842,6 +844,7 @@ export const Financeiro: React.FC = () => {
                         <th>Valor fechado</th>
                         <th>Observações</th>
                         <th>Status</th>
+                        <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -878,6 +881,17 @@ export const Financeiro: React.FC = () => {
                               >
                                 {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
                               </span>
+                            </td>
+                            <td>
+                              {sess.status !== 'open' && (
+                                <button
+                                  type="button"
+                                  className="btn-table-action btn-table-action--ghost"
+                                  onClick={() => setExtratoSession(sess)}
+                                >
+                                  Extrato
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1058,6 +1072,16 @@ export const Financeiro: React.FC = () => {
           fetchFinancialData();
         }}
         onClose={() => setIsFechamentoModalOpen(false)}
+      />
+
+      {/* Extrato imprimível da Sessão de Caixa */}
+      <ExtratoSessaoCaixaModal
+        isOpen={!!extratoSession}
+        session={extratoSession}
+        tenantId={tenant?.tenantId || ''}
+        tenantName={tenant?.tenantName}
+        caixaRepo={caixaRepo}
+        onClose={() => setExtratoSession(null)}
       />
 
       {/* Modal 3: Quitação de Comissão */}
