@@ -38,10 +38,15 @@ describe('QuitacaoComissaoModal', () => {
   });
 
   it('renderiza com o valor pendente preenchido e permite submeter a quitação com sucesso', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: { success: true, payout_id: 'payout-1' },
-      error: null,
-    } as any);
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return Promise.resolve({
+          data: { current_open_balance: 300, generated_commission: 500, paid_commission: 200, advances_open_amount: 0 },
+          error: null,
+        }) as any;
+      }
+      return Promise.resolve({ data: { success: true, payout_id: 'payout-1' }, error: null }) as any;
+    });
 
     render(
       <QuitacaoComissaoModal
@@ -88,6 +93,11 @@ describe('QuitacaoComissaoModal', () => {
   });
 
   it('bloqueia quitação em dinheiro quando não há caixa aberto no turno', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: { current_open_balance: 300, generated_commission: 500, paid_commission: 200, advances_open_amount: 0 },
+      error: null,
+    } as any);
+
     render(
       <QuitacaoComissaoModal
         isOpen={true}
@@ -108,14 +118,19 @@ describe('QuitacaoComissaoModal', () => {
     await waitFor(() => {
       expect(screen.getByText(/Abra o caixa do turno antes de quitar comissão em dinheiro\./i)).toBeDefined();
     });
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalledWith('register_commission_payout', expect.anything());
   });
 
   it('encaminha a sessão de caixa ativa ao quitar em dinheiro', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: { success: true, payout_id: 'payout-2' },
-      error: null,
-    } as any);
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return Promise.resolve({
+          data: { current_open_balance: 300, generated_commission: 500, paid_commission: 200, advances_open_amount: 0 },
+          error: null,
+        }) as any;
+      }
+      return Promise.resolve({ data: { success: true, payout_id: 'payout-2' }, error: null }) as any;
+    });
 
     render(
       <QuitacaoComissaoModal
@@ -141,6 +156,56 @@ describe('QuitacaoComissaoModal', () => {
           p_payment_method: 'cash',
           p_cash_session_id: 'session-1',
         })
+      );
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+  });
+
+  it('exibe o vale em aberto e sugere o líquido a pagar após abater o vale', async () => {
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return Promise.resolve({
+          data: {
+            current_open_balance: 300,
+            generated_commission: 500,
+            paid_commission: 200,
+            advances_open_amount: 120,
+            suggested_net_amount: 180,
+          },
+          error: null,
+        }) as any;
+      }
+      return Promise.resolve({ data: { success: true, payout_id: 'payout-4' }, error: null }) as any;
+    });
+
+    render(
+      <QuitacaoComissaoModal
+        isOpen={true}
+        professional={fakeProfessional}
+        tenantId="tenant-abc"
+        onSuccess={mockOnSuccess}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Vale em aberto do profissional/i)).toBeDefined();
+    });
+
+    const amountInput = screen.getByLabelText(/Valor do repasse/i) as HTMLInputElement;
+    const advanceInput = screen.getByLabelText(/Abater vale em aberto/i) as HTMLInputElement;
+    await waitFor(() => {
+      expect(advanceInput.value).toBe('120,00');
+      expect(amountInput.value).toBe('180,00');
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'register_commission_payout',
+        expect.objectContaining({ p_amount: 180, p_advance_amount: 120 })
       );
       expect(mockOnSuccess).toHaveBeenCalled();
     });

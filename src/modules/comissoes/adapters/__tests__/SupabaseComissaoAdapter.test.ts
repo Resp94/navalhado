@@ -33,6 +33,8 @@ describe('SupabaseComissaoAdapter', () => {
       p_paid_at: '2026-09-11T12:00:00.000Z',
       p_tenant_id: 'tenant-1',
       p_cash_session_id: null,
+      p_advance_amount: 0,
+      p_credit_amount: 0,
     });
     expect(result.payout_id).toBe('payout-1');
   });
@@ -54,6 +56,26 @@ describe('SupabaseComissaoAdapter', () => {
     expect(mockRpc).toHaveBeenCalledWith(
       'register_commission_payout',
       expect.objectContaining({ p_cash_session_id: 'session-1' })
+    );
+  });
+
+  it('encaminha o abate de vale e o credito de gorjeta quando informados', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { success: true, payout_id: 'payout-3', amount: 20, professional_id: 'prof-1', advance_amount: 15 },
+      error: null,
+    });
+
+    await new SupabaseComissaoAdapter().registrarQuitacao({
+      professional_id: 'prof-1',
+      amount: 20,
+      payment_method: 'pix',
+      tenant_id: 'tenant-1',
+      advance_amount: 15,
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'register_commission_payout',
+      expect.objectContaining({ p_advance_amount: 15, p_credit_amount: 0 })
     );
   });
 

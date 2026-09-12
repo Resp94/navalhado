@@ -19,6 +19,8 @@ export class SupabaseComissaoAdapter implements IComissaoAdapter {
       p_paid_at: input.paid_at ?? new Date().toISOString(),
       p_tenant_id: input.tenant_id ?? null,
       p_cash_session_id: input.cash_session_id ?? null,
+      p_advance_amount: input.advance_amount ?? 0,
+      p_credit_amount: input.credit_amount ?? 0,
     });
 
     if (error) {

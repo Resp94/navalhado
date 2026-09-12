@@ -8,6 +8,10 @@ export interface RegistrarQuitacaoInput {
   paid_at?: string | null;
   tenant_id?: string | null;
   cash_session_id?: string | null;
+  /** Valor de vale em aberto a ser abatido nesta quitação (débito, não gera novo movimento de caixa). */
+  advance_amount?: number;
+  /** Valor de crédito de gorjeta a ser pago nesta quitação. Ainda não disponível (ticket 07). */
+  credit_amount?: number;
 }
 
 export interface QuitacaoRegistrada {
@@ -17,6 +21,8 @@ export interface QuitacaoRegistrada {
   professional_id: string;
   allocated_amount?: number;
   legacy_amount?: number;
+  advance_amount?: number;
+  advance_allocated_amount?: number;
   [key: string]: unknown;
 }
 
@@ -31,6 +37,9 @@ export interface SaldoComissaoProfissional {
   current_open_balance: number;
   generated_commission: number;
   paid_commission: number;
+  advances_open_amount?: number;
+  credits_open_amount?: number;
+  suggested_net_amount?: number;
   [key: string]: unknown;
 }
 

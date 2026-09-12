@@ -38,6 +38,12 @@ export class ComissaoRepository {
     if (input.payment_method !== 'cash' && input.cash_session_id) {
       throw new ComissaoValidationError('Sessão de caixa só pode ser informada para quitação em dinheiro.');
     }
+    if (input.advance_amount != null && input.advance_amount < 0) {
+      throw new ComissaoValidationError('O valor do abate não pode ser negativo.');
+    }
+    if (input.credit_amount != null && input.credit_amount < 0) {
+      throw new ComissaoValidationError('O valor do crédito não pode ser negativo.');
+    }
 
     return await this.adapter.registrarQuitacao(input);
   }
