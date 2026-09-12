@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(41);
 
 -- Ticket 04 da spec 034: Conta do Profissional com gorjeta como credito.
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
@@ -291,6 +291,155 @@ select throws_ok(
   '42501',
   'permission denied for table professional_account_entries',
   'gerente autenticado nao pode inserir diretamente na Conta do Profissional'
+);
+
+-- Ticket 05 da spec 034: vale de profissional como debito na Conta do Profissional.
+reset role;
+create temporary table ticket26v_context (
+  gerente_id uuid not null, tenant_id uuid not null,
+  professional_id uuid not null, cash_session_id uuid not null,
+  entry_id uuid
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket26v_ctx__', '__ticket26v_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26v_gerente__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket26 Vale', '11988880032', 30, true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 100, 'open'
+  from t, au
+  returning id, tenant_id
+)
+insert into ticket26v_context (gerente_id, tenant_id, professional_id, cash_session_id)
+select au.id, t.id, prof.id, cs.id
+from t, au, prof, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket26v_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket26v_context);
+
+grant select, update on ticket26v_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket26v_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 10, 'oi', 'cash',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  '22023',
+  'Informe um motivo com pelo menos cinco caracteres.',
+  'recusa vale com motivo curto demais'
+);
+
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 10, 'Adiantamento combinado', 'pix',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  '22023',
+  'Sessao de caixa so pode ser informada para vale em dinheiro.',
+  'recusa sessao de caixa informada para vale que nao seja em dinheiro'
+);
+
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 150, 'Adiantamento alto demais', 'cash',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  'P0001',
+  'O valor do vale em dinheiro excede o saldo disponivel na gaveta do turno.',
+  'recusa vale em dinheiro acima do saldo disponivel na gaveta'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where tenant_id = (select tenant_id from ticket26v_context)),
+  0,
+  'nenhuma das tentativas recusadas persiste lancamento'
+);
+
+select lives_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 30, 'Adiantamento para o corte de cabelo', 'cash',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  'aceita vale em dinheiro dentro do saldo disponivel'
+);
+select is(
+  (select entry_type from public.professional_account_entries where tenant_id = (select tenant_id from ticket26v_context)),
+  'vale',
+  'lancamento classificado como vale'
+);
+select is(
+  (select direction from public.professional_account_entries where tenant_id = (select tenant_id from ticket26v_context)),
+  'debit',
+  'lancamento de vale e um debito'
+);
+select is(
+  (select count(*)::integer from public.cash_movements where cash_session_id = (select cash_session_id from ticket26v_context) and type = 'vale_profissional'),
+  1,
+  'gera movimento de caixa do tipo vale_profissional'
+);
+select ok(
+  (select cash_movement_id is not null from public.professional_account_entries where tenant_id = (select tenant_id from ticket26v_context)),
+  'lancamento aponta para o movimento de caixa (vinculo bidirecional)'
+);
+select is(
+  (select professional_id from public.cash_movements where cash_session_id = (select cash_session_id from ticket26v_context) and type = 'vale_profissional'),
+  (select professional_id from ticket26v_context),
+  'movimento de caixa aponta para o profissional correto'
+);
+
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 71, 'Segundo adiantamento', 'cash',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  'P0001',
+  'O valor do vale em dinheiro excede o saldo disponivel na gaveta do turno.',
+  'considera o vale ja lancado ao validar novo vale em dinheiro'
+);
+
+update ticket26v_context set entry_id = (
+  select id from public.professional_account_entries where tenant_id = (select tenant_id from ticket26v_context) limit 1
+);
+
+select lives_ok(
+  $$select public.reverse_professional_advance(
+    (select entry_id from ticket26v_context), (select tenant_id from ticket26v_context), 'Lancado por engano'
+  )$$,
+  'estorna o vale com justificativa'
+);
+select is(
+  (select status from public.professional_account_entries where id = (select entry_id from ticket26v_context)),
+  'reversed',
+  'vale estornado muda de estado'
+);
+select ok(
+  (select reversed_at is not null and reversed_by is not null from public.professional_account_entries where id = (select entry_id from ticket26v_context)),
+  'registra autor e instante do estorno'
+);
+select ok(
+  (select reversed_at is not null from public.cash_movements where cash_session_id = (select cash_session_id from ticket26v_context) and type = 'vale_profissional'),
+  'estorna tambem o movimento de caixa vinculado'
+);
+
+select lives_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26v_context), 71, 'Terceiro adiantamento apos estorno', 'cash',
+    (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
+  )$$,
+  'vale estornado libera saldo para um novo vale'
 );
 
 reset role;
