@@ -30,6 +30,7 @@ import { ExtratoSessaoCaixaModal } from '../../components/caixa/ExtratoSessaoCai
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
 import { LancarValeModal } from '../../components/financeiro/LancarValeModal';
 import { DetalhesComissaoModal } from '../../components/financeiro/DetalhesComissaoModal';
+import { ExtratoContaProfissionalModal } from '../../components/financeiro/ExtratoContaProfissionalModal';
 import { MobileCaixaView } from './mobile/MobileCaixaView';
 
 export interface FinancialMetrics {
@@ -118,6 +119,7 @@ export const Financeiro: React.FC = () => {
   const [selectedProfForPayout, setSelectedProfForPayout] = useState<FinancialMetrics['commissions_by_professional'][0] | null>(null);
   const [selectedProfForVale, setSelectedProfForVale] = useState<{ id: string; name: string } | null>(null);
   const [selectedProfForDetails, setSelectedProfForDetails] = useState<{ id: string; name: string } | null>(null);
+  const [selectedProfForExtrato, setSelectedProfForExtrato] = useState<{ id: string; name: string } | null>(null);
   const [payoutsHistory, setPayoutsHistory] = useState<CommissionPayoutHistoryItem[]>([]);
 
   // 1. Cálculo de Período
@@ -981,6 +983,13 @@ export const Financeiro: React.FC = () => {
                               Vale
                             </button>
                             <button
+                              onClick={() => setSelectedProfForExtrato({ id: p.professional_id, name: p.professional_name })}
+                              type="button"
+                              className="btn-table-action btn-table-action--ghost"
+                            >
+                              Extrato
+                            </button>
+                            <button
                               onClick={() => setSelectedProfForPayout(p)}
                               type="button"
                               className="btn-table-action btn-table-action--primary"
@@ -1128,6 +1137,14 @@ export const Financeiro: React.FC = () => {
         endDate={dateEnd}
         tenantId={tenant?.tenantId}
         onClose={() => setSelectedProfForDetails(null)}
+      />
+
+      {/* Modal 5: Extrato cronológico da Conta do Profissional */}
+      <ExtratoContaProfissionalModal
+        isOpen={!!selectedProfForExtrato}
+        professional={selectedProfForExtrato}
+        tenantId={tenant?.tenantId}
+        onClose={() => setSelectedProfForExtrato(null)}
       />
     </div>
   );

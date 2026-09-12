@@ -10,7 +10,7 @@ export interface RegistrarQuitacaoInput {
   cash_session_id?: string | null;
   /** Valor de vale em aberto a ser abatido nesta quitação (débito, não gera novo movimento de caixa). */
   advance_amount?: number;
-  /** Valor de crédito de gorjeta a ser pago nesta quitação. Ainda não disponível (ticket 07). */
+  /** Valor de crédito de gorjeta a ser pago nesta quitação. */
   credit_amount?: number;
 }
 
@@ -55,8 +55,43 @@ export interface QuitacaoEstornada {
   [key: string]: unknown;
 }
 
+export interface ObterExtratoInput {
+  professional_id: string;
+  tenant_id?: string | null;
+}
+
+export type ProfessionalAccountEntryKind = 'vale' | 'gorjeta' | 'quitacao';
+
+export interface ProfessionalAccountStatementEntry {
+  kind: ProfessionalAccountEntryKind;
+  id: string;
+  amount: number;
+  /** Presente apenas em lançamentos de vale/gorjeta. */
+  settled_amount?: number;
+  direction: 'credit' | 'debit';
+  reason: string | null;
+  status: string;
+  comanda_id?: string | null;
+  created_at: string;
+  created_by: string | null;
+  reversed_at?: string | null;
+  reversed_by?: string | null;
+  reversal_reason?: string | null;
+  /** Presentes apenas em lançamentos de quitação. */
+  advance_amount?: number;
+  credit_amount?: number;
+  payment_method?: string;
+  [key: string]: unknown;
+}
+
+export interface ProfessionalAccountStatement {
+  entries: ProfessionalAccountStatementEntry[];
+  current_balance: SaldoComissaoProfissional;
+}
+
 export interface IComissaoAdapter {
   registrarQuitacao(input: RegistrarQuitacaoInput): Promise<QuitacaoRegistrada>;
   obterSaldoProfissional(input: ConsultarSaldoInput): Promise<SaldoComissaoProfissional>;
   estornarQuitacao(input: EstornarQuitacaoInput): Promise<QuitacaoEstornada>;
+  obterExtratoProfissional(input: ObterExtratoInput): Promise<ProfessionalAccountStatement>;
 }

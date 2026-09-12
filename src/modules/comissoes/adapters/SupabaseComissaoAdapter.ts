@@ -3,6 +3,8 @@ import type {
   ConsultarSaldoInput,
   EstornarQuitacaoInput,
   IComissaoAdapter,
+  ObterExtratoInput,
+  ProfessionalAccountStatement,
   QuitacaoEstornada,
   QuitacaoRegistrada,
   RegistrarQuitacaoInput,
@@ -57,5 +59,18 @@ export class SupabaseComissaoAdapter implements IComissaoAdapter {
     }
 
     return data as QuitacaoEstornada;
+  }
+
+  async obterExtratoProfissional(input: ObterExtratoInput): Promise<ProfessionalAccountStatement> {
+    const { data, error } = await supabase.rpc('get_professional_account_statement', {
+      p_professional_id: input.professional_id,
+      p_tenant_id: input.tenant_id ?? null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao consultar o extrato do profissional.');
+    }
+
+    return data as ProfessionalAccountStatement;
   }
 }

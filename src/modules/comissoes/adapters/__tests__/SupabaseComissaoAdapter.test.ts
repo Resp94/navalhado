@@ -160,4 +160,37 @@ describe('SupabaseComissaoAdapter', () => {
       })
     ).rejects.toThrow('Esta quitacao ja foi estornada.');
   });
+
+  it('consulta o extrato chamando get_professional_account_statement com o contrato atual', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        entries: [{ kind: 'vale', id: 'entry-1', amount: 30, direction: 'debit', reason: 'Adiantamento', status: 'open', created_at: '2026-09-01T00:00:00.000Z', created_by: 'user-1' }],
+        current_balance: { current_open_balance: 100, generated_commission: 100, paid_commission: 0 },
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseComissaoAdapter().obterExtratoProfissional({
+      professional_id: 'prof-1',
+      tenant_id: 'tenant-1',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_professional_account_statement', {
+      p_professional_id: 'prof-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(result.entries).toHaveLength(1);
+    expect(result.current_balance.current_open_balance).toBe(100);
+  });
+
+  it('traduz erro do banco em erro de domínio ao consultar o extrato', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Acesso negado para este extrato.' },
+    });
+
+    await expect(
+      new SupabaseComissaoAdapter().obterExtratoProfissional({ professional_id: 'prof-1' })
+    ).rejects.toThrow('Acesso negado para este extrato.');
+  });
 });

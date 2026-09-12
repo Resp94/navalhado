@@ -7,6 +7,7 @@ import { useGSAP } from '@gsap/react';
 import { ContaProfissionalRepository } from '../../modules/contaProfissional/ContaProfissionalRepository';
 import { SupabaseContaProfissionalAdapter } from '../../modules/contaProfissional/adapters/SupabaseContaProfissionalAdapter';
 import type { ProfessionalAccountEntry } from '../../modules/contaProfissional/types';
+import { ExtratoContaProfissionalModal } from '../../components/financeiro/ExtratoContaProfissionalModal';
 
 const contaProfissionalRepository = new ContaProfissionalRepository(new SupabaseContaProfissionalAdapter());
 
@@ -78,6 +79,8 @@ export const MinhasComissoes: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   // Vales em aberto (ticket 05 da spec 034): o profissional vê os próprios, não os dos colegas.
   const [openAdvances, setOpenAdvances] = useState<ProfessionalAccountEntry[]>([]);
+  // Extrato cronológico da própria conta (ticket 08 da spec 034).
+  const [showExtrato, setShowExtrato] = useState(false);
 
   // 1. Verificar autenticacao e buscar perfil do profissional
   useEffect(() => {
@@ -503,9 +506,24 @@ export const MinhasComissoes: React.FC = () => {
                 </ul>
               </section>
             )}
+
+            <button
+              type="button"
+              onClick={() => setShowExtrato(true)}
+              className="extrato-link-btn"
+            >
+              Ver extrato completo da conta (vales, gorjetas e quitações)
+            </button>
           </main>
         )}
       </div>
+
+      <ExtratoContaProfissionalModal
+        isOpen={showExtrato}
+        professional={professional ? { id: professional.id, name: professional.name } : null}
+        tenantId={professional?.tenant_id}
+        onClose={() => setShowExtrato(false)}
+      />
 
       {/* ESTILOS CSS — HIGH-END VISUAL DESIGN */}
       <style>{`
@@ -754,6 +772,23 @@ export const MinhasComissoes: React.FC = () => {
         /* =========================================
            VALES EM ABERTO (ticket 05 da spec 034)
            ========================================= */
+        .extrato-link-btn {
+          margin-top: 1.25rem;
+          width: 100%;
+          background: var(--color-bg-secondary);
+          border: 1px dashed var(--color-border);
+          border-radius: var(--radius-xl);
+          padding: 0.85rem 1.25rem;
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--color-brand-primary, #D96C00);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .extrato-link-btn:hover {
+          background: var(--color-bg-primary, #FFF1E6);
+          border-color: var(--color-brand-primary, #D96C00);
+        }
         .advances-bezel {
           background: var(--color-bg-secondary);
           border-radius: var(--radius-xl);

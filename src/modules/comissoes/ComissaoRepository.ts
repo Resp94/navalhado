@@ -2,6 +2,8 @@ import type {
   ConsultarSaldoInput,
   EstornarQuitacaoInput,
   IComissaoAdapter,
+  ObterExtratoInput,
+  ProfessionalAccountStatement,
   QuitacaoEstornada,
   QuitacaoRegistrada,
   RegistrarQuitacaoInput,
@@ -67,6 +69,14 @@ export class ComissaoRepository {
     return await this.adapter.estornarQuitacao(input);
   }
 
+  async getProfessionalStatement(input: ObterExtratoInput): Promise<ProfessionalAccountStatement> {
+    if (!input.professional_id || !input.professional_id.trim()) {
+      throw new ComissaoValidationError('ID do profissional é obrigatório.');
+    }
+
+    return await this.adapter.obterExtratoProfissional(input);
+  }
+
   // Aliases para compatibilidade (pt-BR e en)
   async registrarQuitacao(input: RegistrarQuitacaoInput): Promise<QuitacaoRegistrada> {
     return await this.registerPayout(input);
@@ -78,5 +88,9 @@ export class ComissaoRepository {
 
   async estornarQuitacao(input: EstornarQuitacaoInput): Promise<QuitacaoEstornada> {
     return await this.reversePayout(input);
+  }
+
+  async obterExtratoProfissional(input: ObterExtratoInput): Promise<ProfessionalAccountStatement> {
+    return await this.getProfessionalStatement(input);
   }
 }

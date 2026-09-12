@@ -7,6 +7,7 @@ describe('ComissaoRepository', () => {
     registrarQuitacao: vi.fn(),
     obterSaldoProfissional: vi.fn(),
     estornarQuitacao: vi.fn(),
+    obterExtratoProfissional: vi.fn(),
   };
 
   const repository = new ComissaoRepository(mockAdapter);
@@ -209,6 +210,43 @@ describe('ComissaoRepository', () => {
       await expect(
         repository.reversePayout({ payout_id: 'payout-1', reason: 'Tentativa duplicada' })
       ).rejects.toThrow('Esta quitacao ja foi estornada.');
+    });
+  });
+
+  describe('getProfessionalStatement', () => {
+    it('consulta o extrato repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.obterExtratoProfissional).mockResolvedValueOnce({
+        entries: [],
+        current_balance: { current_open_balance: 0, generated_commission: 0, paid_commission: 0 },
+      });
+
+      const result = await repository.getProfessionalStatement({
+        professional_id: 'prof-1',
+        tenant_id: 'tenant-1',
+      });
+
+      expect(result.entries).toEqual([]);
+      expect(mockAdapter.obterExtratoProfissional).toHaveBeenCalledWith({
+        professional_id: 'prof-1',
+        tenant_id: 'tenant-1',
+      });
+    });
+
+    it('rejeita consulta sem id do profissional', async () => {
+      await expect(
+        repository.getProfessionalStatement({ professional_id: '' })
+      ).rejects.toThrow(ComissaoValidationError);
+      expect(mockAdapter.obterExtratoProfissional).not.toHaveBeenCalled();
+    });
+
+    it('propaga erro de dominio traduzido pelo adaptador ao consultar o extrato', async () => {
+      vi.mocked(mockAdapter.obterExtratoProfissional).mockRejectedValueOnce(
+        new Error('Acesso negado para este extrato.')
+      );
+
+      await expect(
+        repository.getProfessionalStatement({ professional_id: 'prof-1' })
+      ).rejects.toThrow('Acesso negado para este extrato.');
     });
   });
 });
