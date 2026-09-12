@@ -4,9 +4,12 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
-import { supabase } from '../../lib/supabase';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
 import type { PaymentMethod } from '../../modules/caixa/types';
+import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
+import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
+
+const comissaoRepository = new ComissaoRepository(new SupabaseComissaoAdapter());
 
 interface QuitacaoComissaoModalProps {
   isOpen: boolean;
@@ -20,6 +23,8 @@ interface QuitacaoComissaoModalProps {
     paid_sum: number;
   } | null;
   tenantId?: string;
+  /** ID da sessão de caixa aberta no turno atual, se houver. */
+  activeCashSessionId?: string | null;
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -28,6 +33,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
   isOpen,
   professional,
   tenantId,
+  activeCashSessionId,
   onSuccess,
   onClose,
 }) => {
@@ -76,23 +82,26 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
       return;
     }
 
+    if (paymentMethod === 'cash' && !activeCashSessionId) {
+      setErrorMsg('Abra o caixa do turno antes de quitar comissão em dinheiro.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const dateTimestamp = paidAtDate
         ? new Date(`${paidAtDate}T12:00:00Z`).toISOString()
         : new Date().toISOString();
 
-      const { error } = await supabase.rpc('register_commission_payout', {
-        p_professional_id: profId,
-        p_amount: valorNumerico,
-        p_payment_method: paymentMethod,
-        p_notes: notes.trim() || null,
-        p_paid_at: dateTimestamp,
-        p_tenant_id: tenantId || null,
+      await comissaoRepository.registerPayout({
+        professional_id: profId,
+        amount: valorNumerico,
+        payment_method: paymentMethod,
+        notes: notes.trim() || null,
+        paid_at: dateTimestamp,
+        tenant_id: tenantId || null,
+        cash_session_id: paymentMethod === 'cash' ? activeCashSessionId : null,
       });
-
-      if (error) {
-        throw new Error(error.message || 'Erro ao registrar quitação de comissão.');
-      }
 
       onSuccess();
     } catch (err: any) {
@@ -190,7 +199,9 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
                 required
               >
                 <option value="pix">PIX (transferência instantânea)</option>
-                <option value="cash">Dinheiro em espécie (retirado da gaveta)</option>
+                <option value="cash" disabled={!activeCashSessionId}>
+                  Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+                </option>
                 <option value="transfer">Transferência bancária (TED ou DOC)</option>
                 <option value="other">Outra forma de pagamento</option>
               </select>

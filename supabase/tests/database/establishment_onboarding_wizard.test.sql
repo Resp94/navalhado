@@ -11,5 +11,5 @@ select has_column('public', 'tenants', 'base_cut_price', 'tenants possui coluna 
 select has_column('public', 'tenants', 'acquisition_channel', 'tenants possui coluna acquisition_channel');
 select has_column('public', 'tenants', 'onboarding_completed', 'tenants possui coluna onboarding_completed');
 
-select * from finish();
+select * from finish(true);
 rollback;

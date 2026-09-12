@@ -15,42 +15,41 @@ create temporary table ticket05_context (
   appointment_comanda_id uuid
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket05_ctx__', '__ticket05_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket05_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket05', '11988880005', 30, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket05', 30, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 0, 'open'
+  from t, au
+  returning id, tenant_id
+)
 insert into ticket05_context (
   user_id, tenant_id, cash_session_id, product_id, comanda_id, service_id, professional_id
 )
-select
-  u.id,
-  u.tenant_id,
-  cs.id,
-  gen_random_uuid(),
-  gen_random_uuid(),
-  service.id,
-  professional.id
-from public.users u
-join public.cash_sessions cs
-  on cs.tenant_id = u.tenant_id
- and cs.status = 'open'
-cross join lateral (
-  select s.id
-  from public.services s
-  where s.tenant_id = u.tenant_id
-    and coalesce(s.is_active, true) = true
-    and s.deleted_at is null
-  order by s.id
-  limit 1
-) service
-cross join lateral (
-  select p.id
-  from public.professionals p
-  where p.tenant_id = u.tenant_id
-    and coalesce(p.is_active, true) = true
-  order by p.id
-  limit 1
-) professional
-where u.is_active
-  and u.role = 'gerente'
-order by u.id
-limit 1;
+select au.id, t.id, cs.id, gen_random_uuid(), gen_random_uuid(), svc.id, prof.id
+from t, au, prof, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket05_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket05_context);
+
 grant select on ticket05_context to authenticated;
 
 select ok((select count(*) from ticket05_context) = 1, 'encontra gerente ativo com sessão aberta');
@@ -157,8 +156,8 @@ select
   null,
   professional_id,
   service_id,
-  timezone('utc'::text, now()) + interval '1 day',
-  timezone('utc'::text, now()) + interval '1 day 30 minutes',
+  (((case when extract(dow from current_date + 1) = 0 then current_date + 2 else current_date + 1 end) + time '10:00') at time zone 'America/Sao_Paulo'),
+  (((case when extract(dow from current_date + 1) = 0 then current_date + 2 else current_date + 1 end) + time '10:30') at time zone 'America/Sao_Paulo'),
   'confirmed',
   'pending'
 from ticket05_context;
@@ -276,5 +275,5 @@ select is(
 );
 
 reset role;
-select * from finish();
+select * from finish(true);
 rollback;

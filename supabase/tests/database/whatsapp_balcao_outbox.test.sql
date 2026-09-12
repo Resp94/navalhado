@@ -60,5 +60,5 @@ select ok(
   'claim function has an explicit empty search path'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

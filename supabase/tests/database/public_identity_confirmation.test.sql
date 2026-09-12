@@ -39,5 +39,5 @@ select is((select customer_name from public.confirm_public_booking('identity-tes
 select ok((select cadastro_completo from public.customers where id='67000000-0000-0000-0000-000000000032'),'provisional customer is promoted atomically');
 select is((select count(*)::integer from public.appointments where customer_id='67000000-0000-0000-0000-000000000032'),1,'completed provisional customer receives the appointment');
 
-select * from finish();
+select * from finish(true);
 rollback;

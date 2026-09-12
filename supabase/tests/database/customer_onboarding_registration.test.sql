@@ -83,5 +83,5 @@ select ok(has_function_privilege('authenticated',
 select ok(has_function_privilege('service_role',
   'public.get_customer_details_by_token(uuid)','execute'),'details service allowed');
 
-select * from finish();
+select * from finish(true);
 rollback;

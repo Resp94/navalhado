@@ -65,6 +65,60 @@ describe('ComandaRepository', () => {
     ).rejects.toThrow(ComandaValidationError);
   });
 
+  it('liquida comanda de cortesia (desconto integral, total zero) sem exigir pagamento', async () => {
+    const fakeComanda = {
+      id: 'c-cortesia',
+      tenant_id: 't-123',
+      appointment_id: null,
+      customer_id: null,
+      status: 'fechada' as const,
+      total_amount: 0,
+      discount_amount: 50,
+      tip_amount: 0,
+      notes: null,
+    };
+    const input = {
+      comanda_id: 'c-cortesia',
+      tenant_id: 't-123',
+      discount_amount: 50,
+      itens: [{ item_type: 'servico' as const, service_id: 's-1', quantity: 1, unit_price: 50 }],
+      pagamentos: [],
+    };
+    vi.mocked(mockAdapter.liquidarComanda).mockResolvedValueOnce(fakeComanda);
+
+    const result = await repository.settleComanda(input);
+
+    expect(result).toEqual(fakeComanda);
+    expect(mockAdapter.liquidarComanda).toHaveBeenCalledWith(input);
+  });
+
+  it('rejeita cortesia de total zero com forma de pagamento informada por engano', async () => {
+    vi.mocked(mockAdapter.liquidarComanda).mockClear();
+    await expect(
+      repository.settleComanda({
+        comanda_id: 'c-cortesia',
+        tenant_id: 't-123',
+        discount_amount: 50,
+        itens: [{ item_type: 'servico' as const, service_id: 's-1', quantity: 1, unit_price: 50 }],
+        pagamentos: [{ payment_method: 'pix', amount: 0.01 }],
+      })
+    ).rejects.toThrow(ComandaValidationError);
+    expect(mockAdapter.liquidarComanda).not.toHaveBeenCalled();
+  });
+
+  it('exige pagamento quando o total da comanda não é zero', async () => {
+    vi.mocked(mockAdapter.liquidarComanda).mockClear();
+    await expect(
+      repository.settleComanda({
+        comanda_id: 'c-123',
+        tenant_id: 't-123',
+        itens: [{ item_type: 'servico' as const, service_id: 's-1', quantity: 1, unit_price: 50 }],
+        pagamentos: [],
+      })
+    ).rejects.toThrow(ComandaValidationError);
+    expect(mockAdapter.liquidarComanda).not.toHaveBeenCalled();
+  });
+
   it('delega liquidação válida preservando tenant, itens e pagamentos', async () => {
     const fakeComanda = {
       id: 'c-2',

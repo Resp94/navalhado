@@ -9,20 +9,29 @@ create temporary table ticket07_context (
   comanda_id uuid not null
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket07_ctx__', '__ticket07_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket07_ctx__auth@teste.com')
+  returning id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 0, 'open'
+  from t, au
+  returning id, tenant_id
+)
 insert into ticket07_context (user_id, tenant_id, session_id, comanda_id)
-select
-  u.id,
-  u.tenant_id,
-  existing_session.id,
-  gen_random_uuid()
-from public.users u
-join public.cash_sessions existing_session
-  on existing_session.tenant_id = u.tenant_id
- and existing_session.status = 'open'
-where u.is_active
-  and u.role = 'gerente'
-order by u.id
-limit 1;
+select au.id, t.id, cs.id, gen_random_uuid()
+from t, au, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket07_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket07_context);
+
 grant select on ticket07_context to authenticated;
 
 select ok((select count(*) from ticket07_context) = 1, 'encontra gerente ativo com sessão aberta');
@@ -185,5 +194,5 @@ select is(
 );
 
 reset role;
-select * from finish();
+select * from finish(true);
 rollback;

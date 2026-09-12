@@ -144,5 +144,5 @@ select has_function(
   'a proteção de pagamento está isolada no schema privado'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

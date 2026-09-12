@@ -86,4 +86,63 @@ describe('QuitacaoComissaoModal', () => {
       expect(mockOnSuccess).toHaveBeenCalled();
     });
   });
+
+  it('bloqueia quitação em dinheiro quando não há caixa aberto no turno', async () => {
+    render(
+      <QuitacaoComissaoModal
+        isOpen={true}
+        professional={fakeProfessional}
+        tenantId="tenant-abc"
+        activeCashSessionId={null}
+        onSuccess={mockOnSuccess}
+        onClose={mockOnClose}
+      />
+    );
+
+    const methodSelect = screen.getByLabelText(/Forma de pagamento/i);
+    fireEvent.change(methodSelect, { target: { value: 'cash' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Abra o caixa do turno antes de quitar comissão em dinheiro\./i)).toBeDefined();
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('encaminha a sessão de caixa ativa ao quitar em dinheiro', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: { success: true, payout_id: 'payout-2' },
+      error: null,
+    } as any);
+
+    render(
+      <QuitacaoComissaoModal
+        isOpen={true}
+        professional={fakeProfessional}
+        tenantId="tenant-abc"
+        activeCashSessionId="session-1"
+        onSuccess={mockOnSuccess}
+        onClose={mockOnClose}
+      />
+    );
+
+    const methodSelect = screen.getByLabelText(/Forma de pagamento/i);
+    fireEvent.change(methodSelect, { target: { value: 'cash' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'register_commission_payout',
+        expect.objectContaining({
+          p_payment_method: 'cash',
+          p_cash_session_id: 'session-1',
+        })
+      );
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+  });
 });

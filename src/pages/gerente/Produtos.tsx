@@ -226,7 +226,7 @@ export const Produtos: React.FC = () => {
 
   // Classificadores de movimentações resilientes
   const isEntryMovement = useCallback((m: ProductMovement) => {
-    if (m.movement_type === 'entry_manual' || m.movement_type === 'entry_purchase') return true;
+    if (m.movement_type === 'entry_manual' || m.movement_type === 'entry_purchase' || m.movement_type === 'entry_reversal') return true;
     if (m.movement_type === 'adjustment') return false;
     return (m.quantity_change !== undefined && m.quantity_change > 0);
   }, []);
@@ -428,6 +428,8 @@ export const Produtos: React.FC = () => {
         return { label: 'Compra de fornecedor', category: 'entry', isPositive: true };
       case 'entry_manual':
         return { label: 'Entrada manual avulsa', category: 'entry', isPositive: true };
+      case 'entry_reversal':
+        return { label: 'Estorno de reabertura de comanda', category: 'entry', isPositive: true };
       case 'exit_sale_comanda':
         return { label: 'Venda em comanda', category: 'sale', isPositive: false };
       case 'exit_internal_use':

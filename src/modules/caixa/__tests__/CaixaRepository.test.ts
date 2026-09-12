@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CaixaRepository, CaixaValidationError } from '../CaixaRepository';
 import type { ICaixaAdapter } from '../types';
 
@@ -13,6 +13,9 @@ describe('CaixaRepository', () => {
     registrarMovimentacao: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    reabrirCaixa: vi.fn(),
+    registrarAjuste: vi.fn(),
+    obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
   };
 
@@ -256,6 +259,152 @@ describe('CaixaRepository', () => {
 
       const summary = await repository.getMovementsSummary('sess-1');
       expect(summary).toEqual({ suprimentos: 100, sangrias: 40 });
+    });
+  });
+
+  describe('reopenSession', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.reabrirCaixa).mockClear();
+    });
+
+    it('reabre a sessao de caixa repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.reabrirCaixa).mockResolvedValueOnce({
+        id: 'sess-1',
+        tenant_id: 't-1',
+        opened_by: 'user-1',
+        closed_by: null,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        initial_amount: 100,
+        closing_amount: null,
+        status: 'open',
+        notes: null,
+      });
+
+      const session = await repository.reopenSession({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        reason: 'Contagem incorreta na conferencia',
+      });
+
+      expect(session.status).toBe('open');
+      expect(mockAdapter.reabrirCaixa).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        reason: 'Contagem incorreta na conferencia',
+      });
+    });
+
+    it('rejeita reabertura sem sessao informada', async () => {
+      await expect(
+        repository.reopenSession({ session_id: '', tenant_id: 't-1', reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.reabrirCaixa).not.toHaveBeenCalled();
+    });
+
+    it('rejeita reabertura sem justificativa suficiente', async () => {
+      await expect(
+        repository.reopenSession({ session_id: 'sess-1', tenant_id: 't-1', reason: 'oi' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.reabrirCaixa).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('registerAdjustment', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.registrarAjuste).mockClear();
+    });
+
+    it('registra um ajuste posterior repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.registrarAjuste).mockResolvedValueOnce({
+        success: true,
+        adjustment_id: 'adj-1',
+        cash_session_id: 'sess-1',
+        original_expected_amount: 150,
+        original_closing_amount: 150,
+        original_difference_amount: 0,
+        previous_adjustment_amount: 0,
+        adjusted_closing_amount: 155,
+        adjusted_difference_amount: 5,
+      });
+
+      const result = await repository.registerAdjustment({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        adjustment_amount: 5,
+        reason: 'Diferenca encontrada na conferencia',
+      });
+
+      expect(result.adjustment_id).toBe('adj-1');
+      expect(mockAdapter.registrarAjuste).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        adjustment_amount: 5,
+        reason: 'Diferenca encontrada na conferencia',
+      });
+    });
+
+    it('rejeita ajuste sem sessao informada', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: '', tenant_id: 't-1', adjustment_amount: 5, reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+
+    it('rejeita ajuste com valor zero', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: 'sess-1', tenant_id: 't-1', adjustment_amount: 0, reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+
+    it('rejeita ajuste sem justificativa suficiente', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: 'sess-1', tenant_id: 't-1', adjustment_amount: 5, reason: 'oi' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSessionStatement', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.obterExtrato).mockClear();
+    });
+
+    it('consulta o extrato repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.obterExtrato).mockResolvedValueOnce({
+        session: {
+          id: 'sess-1',
+          tenant_id: 't-1',
+          opened_by: 'user-1',
+          closed_by: 'user-1',
+          opened_at: new Date().toISOString(),
+          closed_at: new Date().toISOString(),
+          initial_amount: 100,
+          closing_amount: 150,
+          status: 'closed',
+          notes: null,
+        },
+        adjustments: [],
+        adjusted_difference_amount: 0,
+        movements: [],
+        reopenings: [],
+      });
+
+      const statement = await repository.getSessionStatement('sess-1', 't-1');
+
+      expect(statement.session.id).toBe('sess-1');
+      expect(mockAdapter.obterExtrato).toHaveBeenCalledWith('sess-1', 't-1');
+    });
+
+    it('rejeita consulta sem sessao informada', async () => {
+      await expect(repository.getSessionStatement('', 't-1')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterExtrato).not.toHaveBeenCalled();
+    });
+
+    it('rejeita consulta sem tenant informado', async () => {
+      await expect(repository.getSessionStatement('sess-1', '')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterExtrato).not.toHaveBeenCalled();
     });
   });
 

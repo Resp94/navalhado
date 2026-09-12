@@ -49,5 +49,5 @@ end $$;
 select ok((select passed from confirmation_error),'availability failure aborts confirmation');
 select is((select count(*)::integer from public.customers where tenant_id='68000000-0000-0000-0000-000000000001' and telefone_normalizado=private.normalize_br_phone('92999990032')),0,'failed confirmation does not leave a partial customer');
 
-select * from finish();
+select * from finish(true);
 rollback;

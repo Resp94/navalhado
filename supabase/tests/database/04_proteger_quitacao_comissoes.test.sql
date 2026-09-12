@@ -2,33 +2,57 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(11);
 
-select set_config(
-  'request.jwt.claim.sub',
-  (
-    select u.id::text
-    from public.users u
-    join public.professionals p on p.tenant_id = u.tenant_id
-    where u.is_active
-      and u.role = 'gerente'
-      and p.is_active
-      and p.deleted_at is null
-      and exists (
-        select 1
-        from public.comanda_itens ci
-        join public.comandas c on c.id = ci.comanda_id
-        where ci.professional_id = p.id
-          and c.status in ('fechada', 'closed')
-      )
-    order by u.id
-    limit 1
-  ),
-  true
-);
+-- Contexto sintetico: tenant, gerente e um profissional com comissao legada
+-- (comanda fechada sem obrigacao registrada) para o calculo de saldo pendente.
+create temporary table ticket04_context (
+  user_id uuid not null, tenant_id uuid not null, professional_id uuid not null, comanda_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket04_ctx__', '__ticket04_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket04_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket04', '11988880004', 30, true
+  from t
+  returning id, tenant_id
+), com as (
+  insert into public.comandas (tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+  select t.id, 'fechada', 0, 0, 0, timezone('utc'::text, now())
+  from t
+  returning id, tenant_id
+)
+insert into ticket04_context (user_id, tenant_id, professional_id, comanda_id)
+select au.id, t.id, prof.id, com.id
+from t, au, prof, com;
+
+update public.users
+set tenant_id = (select tenant_id from ticket04_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket04_context);
+
+insert into public.comanda_itens (
+  comanda_id, tenant_id, item_type, professional_id, quantity, unit_price, total_price,
+  snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount,
+  snapshot_commission_rule, snapshot_status
+)
+select comanda_id, tenant_id, 'servico', professional_id, 1, 100, 100,
+  1, 100, 100, 0, 100, 30, 50, 'professional', 'confirmed'
+from ticket04_context;
+
+grant select on ticket04_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket04_context), true);
 set local role authenticated;
 
 select lives_ok(
   $$select public.register_commission_payout(
-    (select p.id from public.professionals p join public.users u on u.tenant_id = p.tenant_id where u.id = (select auth.uid()) and p.is_active and p.deleted_at is null and exists (select 1 from public.comanda_itens ci join public.comandas c on c.id = ci.comanda_id where ci.professional_id = p.id and c.status in ('fechada', 'closed')) order by p.id limit 1),
+    (select professional_id from ticket04_context),
     10,
     'pix',
     'ticket04 parcial',
@@ -50,7 +74,7 @@ select is(
 
 select lives_ok(
   $$select public.register_commission_payout(
-    (select p.id from public.professionals p join public.users u on u.tenant_id = p.tenant_id where u.id = (select auth.uid()) and p.is_active and p.deleted_at is null and exists (select 1 from public.comanda_itens ci join public.comandas c on c.id = ci.comanda_id where ci.professional_id = p.id and c.status in ('fechada', 'closed')) order by p.id limit 1),
+    (select professional_id from ticket04_context),
     coalesce((
       select (entry->>'pending_sum')::numeric
       from json_array_elements(
@@ -60,9 +84,9 @@ select lives_ok(
           (select tenant_id from public.users where id = (select auth.uid()))
         )->'commissions_by_professional'
       ) entry
-      where entry->>'professional_id' = (select p.id::text from public.professionals p join public.users u on u.tenant_id = p.tenant_id where u.id = (select auth.uid()) and p.is_active and p.deleted_at is null and exists (select 1 from public.comanda_itens ci join public.comandas c on c.id = ci.comanda_id where ci.professional_id = p.id and c.status in ('fechada', 'closed')) order by p.id limit 1)
+      where entry->>'professional_id' = (select professional_id::text from ticket04_context)
     ), 0),
-    'cash',
+    'transfer',
     'ticket04 total',
     timezone('utc', now()),
     (select tenant_id from public.users where id = (select auth.uid()))
@@ -77,7 +101,7 @@ select is(
 
 select throws_ok(
   $$select public.register_commission_payout(
-    (select p.id from public.professionals p join public.users u on u.tenant_id = p.tenant_id where u.id = (select auth.uid()) and p.is_active and p.deleted_at is null and exists (select 1 from public.comanda_itens ci join public.comandas c on c.id = ci.comanda_id where ci.professional_id = p.id and c.status in ('fechada', 'closed')) order by p.id limit 1),
+    (select professional_id from ticket04_context),
     0.01,
     'pix',
     'ticket04 excesso',
@@ -85,7 +109,7 @@ select throws_ok(
     (select tenant_id from public.users where id = (select auth.uid()))
   )$$,
   'P0001',
-  'O valor informado excede o saldo pendente de comissão.',
+  'O valor informado excede o saldo pendente de comissao.',
   'rejects a payout above the pending balance'
 );
 select is(
@@ -96,7 +120,7 @@ select is(
 
 select throws_ok(
   $$select public.register_commission_payout(
-    (select p.id from public.professionals p join public.users u on u.tenant_id = p.tenant_id where u.id = (select auth.uid()) and p.is_active and p.deleted_at is null and exists (select 1 from public.comanda_itens ci join public.comandas c on c.id = ci.comanda_id where ci.professional_id = p.id and c.status in ('fechada', 'closed')) order by p.id limit 1),
+    (select professional_id from ticket04_context),
     1,
     'invalid_method',
     'ticket04 método inválido',
@@ -104,7 +128,7 @@ select throws_ok(
     (select tenant_id from public.users where id = (select auth.uid()))
   )$$,
   'P0001',
-  'Método de pagamento inválido.',
+  'Metodo de pagamento invalido.',
   'rejects an unknown payment method'
 );
 select is(
@@ -136,7 +160,7 @@ select throws_ok(
     (select tenant_id from public.users where id = (select auth.uid()))
   )$$,
   'P0001',
-  'Profissional não encontrado ou inativo.',
+  'Profissional nao encontrado ou inativo.',
   'rejects payout for an inactive professional'
 );
 
@@ -147,5 +171,5 @@ select is(
   'inactive professional payout creates no record'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;
