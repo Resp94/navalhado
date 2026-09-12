@@ -26,30 +26,29 @@ O profissional passa a ver a própria conta: o que lhe é devido e o que ele dev
 4. Como gestor, quero que o extrato impresso mostre a sobra ou quebra apurada no Fechamento de Caixa com Conferência, para que a divergência fique registrada em papel no dia em que ocorreu.
 5. Como gestor, quero imprimir o extrato em largura de bobina térmica, para que eu use a impressora que já está na recepção em vez de depender de folha A4.
 6. Como gestor, quero imprimir o extrato de uma Sessão de Caixa que passou por ajuste posterior, para que o papel reflita o valor ajustado e não o original.
-7. Como gestor, quero ver no extrato as gorjetas do turno, para que eu saiba quanto da gaveta não é da casa.
-8. Como recepcionista, quero informar de quem é a gorjeta ao fechar uma Comanda com mais de um profissional, para que o valor chegue a quem o cliente quis agradar.
-9. Como recepcionista, quero que a gorjeta seja atribuída automaticamente quando a Comanda tem um único profissional, para que eu não responda uma pergunta cuja resposta é óbvia.
-10. Como gestor, quero que a gorjeta cobrada do cliente vire crédito na Conta do Profissional ao fechar a Comanda, para que o repasse deixe de depender da minha memória.
-11. Como gestor, quero que a gorjeta continue sem gerar comissão, para que o percentual do profissional siga incidindo apenas sobre o serviço prestado.
-12. Como gestor, quero que reabrir uma Comanda estorne o crédito de gorjeta, para que uma correção de comanda não pague gorjeta duas vezes.
-13. Como gestor, quero lançar um vale para um profissional, para que o adiantamento fique registrado como dívida dele em vez de virar prejuízo da casa.
-14. Como gestor, quero lançar o vale informando a forma de pagamento, para que um vale pago em PIX não seja confundido com uma saída da gaveta.
-15. Como gestor, quero que um vale pago em dinheiro gere a saída correspondente na Sessão de Caixa, para que o Fechamento de Caixa com Conferência bata com a gaveta física.
-16. Como gestor, quero ser impedido de lançar vale em dinheiro acima do saldo disponível na gaveta do turno, para que o fechamento não fique impossível de concluir.
-17. Como gestor, quero que o vale exija um motivo escrito, para que o extrato do profissional seja legível meses depois.
-18. Como gestor, quero estornar um vale lançado por engano informando a razão, para que a correção fique auditável em vez de apagar o histórico.
-19. Como gestor, quero ver na tela de Quitação de Comissão o líquido sugerido — comissão mais gorjetas menos vales —, para que eu pague o valor certo sem calcular à mão.
-20. Como gestor, quero poder ignorar a sugestão de abate e pagar outro valor, para que eu mantenha a decisão de quando cobrar o vale.
-21. Como gestor, quero que o abate parcial consuma os vales mais antigos primeiro, para que a dívida seja quitada na ordem em que foi assumida.
-22. Como gestor, quero que os lançamentos abatidos numa quitação fiquem vinculados a ela, para que eu reconstrua depois qual pagamento cobriu qual vale.
-23. Como gestor, quero que estornar uma Quitação de Comissão devolva os vales e gorjetas ao estado aberto, para que o estorno não deixe dívida ou crédito perdidos.
-24. Como gestor, quero ver o saldo da Conta do Profissional junto do saldo de comissão, para que eu enxergue a posição completa da equipe numa tela.
-25. Como gestor, quero ver o extrato completo de um profissional com vales, gorjetas e quitações em ordem cronológica, para que eu responda a qualquer contestação com dado.
-26. Como profissional, quero ver os meus vales em aberto, para que eu saiba quanto será descontado do meu próximo repasse.
-27. Como profissional, quero ver as gorjetas que me foram atribuídas, para que eu confirme que o que o cliente deixou chegou até mim.
-28. Como profissional, quero não ver a conta dos meus colegas, para que a informação financeira de cada um continue privada.
-29. Como proprietário, quero que toda operação na Conta do Profissional registre quem a fez e quando, para que o financeiro da equipe seja auditável.
-30. Como gestor, quero que gorjetas de Comandas antigas, fechadas antes desta mudança, apareçam identificadas como sem atribuição, para que eu entenda o histórico sem que o sistema invente uma dívida nova com a equipe.
+7. Como recepcionista, quero informar de quem é a gorjeta ao fechar uma Comanda com mais de um profissional, para que o valor chegue a quem o cliente quis agradar.
+8. Como recepcionista, quero que a gorjeta seja atribuída automaticamente quando a Comanda tem um único profissional, para que eu não responda uma pergunta cuja resposta é óbvia.
+9. Como gestor, quero que a gorjeta cobrada do cliente vire crédito na Conta do Profissional ao fechar a Comanda, para que o repasse deixe de depender da minha memória.
+10. Como gestor, quero que a gorjeta continue sem gerar comissão, para que o percentual do profissional siga incidindo apenas sobre o serviço prestado.
+11. Como gestor, quero que reabrir uma Comanda estorne o crédito de gorjeta, para que uma correção de comanda não pague gorjeta duas vezes.
+12. Como gestor, quero lançar um vale para um profissional, para que o adiantamento fique registrado como dívida dele em vez de virar prejuízo da casa.
+13. Como gestor, quero lançar o vale informando a forma de pagamento, para que um vale pago em PIX não seja confundido com uma saída da gaveta.
+14. Como gestor, quero que um vale pago em dinheiro gere a saída correspondente na Sessão de Caixa, para que o Fechamento de Caixa com Conferência bata com a gaveta física.
+15. Como gestor, quero ser impedido de lançar vale em dinheiro acima do saldo disponível na gaveta do turno, para que o fechamento não fique impossível de concluir.
+16. Como gestor, quero que o vale exija um motivo escrito, para que o extrato do profissional seja legível meses depois.
+17. Como gestor, quero estornar um vale lançado por engano informando a razão, para que a correção fique auditável em vez de apagar o histórico.
+18. Como gestor, quero ver na tela de Quitação de Comissão o líquido sugerido — comissão mais gorjetas menos vales —, para que eu pague o valor certo sem calcular à mão.
+19. Como gestor, quero poder ignorar a sugestão de abate e pagar outro valor, para que eu mantenha a decisão de quando cobrar o vale.
+20. Como gestor, quero que o abate parcial consuma os vales mais antigos primeiro, para que a dívida seja quitada na ordem em que foi assumida.
+21. Como gestor, quero que os lançamentos abatidos numa quitação fiquem vinculados a ela, para que eu reconstrua depois qual pagamento cobriu qual vale.
+22. Como gestor, quero que estornar uma Quitação de Comissão devolva os vales e gorjetas ao estado aberto, para que o estorno não deixe dívida ou crédito perdidos.
+23. Como gestor, quero ver o saldo da Conta do Profissional junto do saldo de comissão, para que eu enxergue a posição completa da equipe numa tela.
+24. Como gestor, quero ver o extrato completo de um profissional com vales, gorjetas e quitações em ordem cronológica, para que eu responda a qualquer contestação com dado.
+25. Como profissional, quero ver os meus vales em aberto, para que eu saiba quanto será descontado do meu próximo repasse.
+26. Como profissional, quero ver as gorjetas que me foram atribuídas, para que eu confirme que o que o cliente deixou chegou até mim.
+27. Como profissional, quero não ver a conta dos meus colegas, para que a informação financeira de cada um continue privada.
+28. Como proprietário, quero que toda operação na Conta do Profissional registre quem a fez e quando, para que o financeiro da equipe seja auditável.
+29. Como gestor, quero que gorjetas de Comandas antigas, fechadas antes desta mudança, apareçam identificadas como sem atribuição, para que eu entenda o histórico sem que o sistema invente uma dívida nova com a equipe.
 
 ## Implementation Decisions
 
@@ -67,8 +66,6 @@ O contrato de leitura do extrato do turno **já existe** no banco, com privilég
 
 A visão lê o estado efetivo da sessão, o que significa que uma sessão com ajuste posterior imprime os valores ajustados — o contrato existente já expõe a contagem de ajustes e o estado financeiro da sessão.
 
-A linha de gorjetas do turno (história 7) **não** faz parte desta entrega: o contrato atual agrega pagamentos por forma, e gorjeta não é forma de pagamento. Ela entra na Entrega 2, junto com a única alteração que o contrato de extrato recebe nesta spec.
-
 ### Entrega 2 — Gorjeta como crédito na Conta do Profissional
 
 **A gorjeta não passa pelo motor de comissão.** A ADR 018 decidiu que gorjeta não gera comissão e determinou que qualquer mudança no repasse fosse decisão registrada, não ajuste incidental na função de liquidação. Esta spec respeita as duas coisas: a gorjeta se torna crédito na Conta do Profissional, as obrigações de comissão e os snapshots de comissão ficam intocados, e uma **ADR 019** registra o repasse de gorjeta como decisão distinta de comissionar gorjeta.
@@ -80,8 +77,6 @@ O crédito nasce de um **trigger próprio** sobre a Comanda ao assumir o estado 
 Um índice único parcial impede crédito de gorjeta duplicado por Comanda, ignorando lançamentos já estornados — assim reabrir e fechar de novo gera o crédito correto sem colidir com o antigo.
 
 Comandas fechadas antes desta entrega não recebem backfill. A atribuição vale para Comandas novas; o histórico é apresentado como gorjeta sem atribuição, dado factual em vez de dívida retroativa inventada com a equipe.
-
-O contrato de extrato da Sessão de Caixa ganha uma linha de gorjetas do turno, discriminando o atribuído do não atribuído. É a única alteração de contrato de leitura do caixa nesta spec, e por isso a única que exige estender a cobertura de teste do extrato.
 
 ### Entrega 3 — Vale como débito e abate na Quitação de Comissão
 
@@ -152,7 +147,7 @@ Dois arquivos novos:
 
 **Interface.** A atribuição de gorjeta é coberta através do teste do modal de checkout de Comanda que já existe, e o extrato imprimível através do teste da página do Hub Financeiro. O bloco de atribuição de gorjeta é extraído em componente próprio por legibilidade — o modal de checkout já passa de três mil e setecentas linhas, e é onde entra um seletor condicional —, mas a extração não cria arquivo de teste próprio: a cobertura continua pela seam de cima.
 
-O extrato de Sessão de Caixa não recebe arquivo de teste novo: o contrato de leitura já é coberto por `22_extrato_sessao_caixa`, e o que a Entrega 1 adiciona é consumo. A linha de gorjetas do turno introduzida na Entrega 2 e a extensão do contrato de saldo do profissional entram como casos dentro dos arquivos que já cobrem esses contratos — `22_extrato_sessao_caixa` e a cobertura existente de saldo de comissão.
+O extrato de Sessão de Caixa não recebe arquivo de teste novo nem caso novo: o contrato de leitura já é coberto por `22_extrato_sessao_caixa` e não é alterado por esta spec — o que a Entrega 1 adiciona é consumo. A extensão do contrato de saldo do profissional entra como caso dentro da cobertura existente de saldo de comissão.
 
 ## Out of Scope
 
@@ -167,6 +162,7 @@ O extrato de Sessão de Caixa não recebe arquivo de teste novo: o contrato de l
 - **Comissão sobre pacotes e clubes de assinatura** — o produto não tem pacotes.
 - **Recálculo em lote de comissões** — o modelo é por obrigação individual, não recalculável em massa.
 - **Backfill de gorjetas históricas.** Comandas já fechadas com gorjeta não geram crédito retroativo.
+- **Linha de gorjetas no extrato do turno.** Gorjeta não é forma de pagamento: o valor é somado ao total da Comanda e pago pela forma que o cliente escolheu, logo já está dentro das linhas de dinheiro, PIX e cartão. Uma linha própria seria subconjunto e não categoria, e somada às demais faria o documento de conferência parecer não fechar. A pergunta que ela pareceria responder — quanto do dinheiro em espécie na gaveta não é da casa — não é calculável: numa Comanda com Divisão de Pagamento, nenhum fato registrado diz qual forma pagou a gorjeta. Gorjeta é respondida pelo extrato do profissional, com atribuição. Consequência: o contrato de leitura do extrato do turno **não é alterado** por esta spec.
 
 ## Further Notes
 

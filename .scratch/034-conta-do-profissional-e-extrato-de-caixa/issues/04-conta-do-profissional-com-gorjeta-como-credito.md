@@ -9,7 +9,7 @@ Hoje o valor é somado ao total da Comanda, entra na gaveta e a partir dali não
 que aquele dinheiro pertence a alguém.
 
 Este ticket cria a **Conta do Profissional**: extrato de créditos e débitos por profissional,
-separado da comissão automática de atendimentos. O vale (débito) chega no ticket 06.
+separado da comissão automática de atendimentos. O vale (débito) chega no ticket 05.
 
 **A gorjeta não passa pelo motor de comissão.** A ADR 018 decidiu que gorjeta não gera comissão e
 determinou que qualquer mudança no repasse fosse decisão registrada, não ajuste incidental na

@@ -1,4 +1,4 @@
-# 07: Abate de vale na Quitação de Comissão
+# 06: Abate de vale na Quitação de Comissão
 
 **What to build:** na tela de Quitação de Comissão, o gestor passa a ver o líquido sugerido —
 comissão menos vales em aberto — e paga o valor certo sem calcular à mão. Hoje, ou ele lembra do
@@ -13,17 +13,19 @@ O estorno pertence a este ticket, não a um seguinte: separá-los criaria uma ja
 uma quitação deixaria o vale liquidado indevidamente.
 
 **A assinatura da quitação ganha os dois parâmetros de uma vez** — débitos a abater e créditos a
-pagar —, mas o de crédito é recusado com erro explícito até o ticket 08 liberá-lo. Assim o custo
+pagar —, mas o de crédito é recusado com erro explícito até o ticket 07 liberá-lo. Assim o custo
 de derrubar a assinatura antiga e refazer os privilégios é pago uma única vez.
 
-**Blocked by:** 06 (vale como débito).
+**Blocked by:** 05 (vale como débito).
 
 **Status:** ready-for-agent
 
 - [ ] O contrato de leitura de saldo de comissão por profissional é **estendido**, não
       substituído, devolvendo também o saldo da Conta do Profissional discriminado em crédito e
       débito, mais o líquido sugerido. O líquido exibido e o líquido liquidado passam a vir da
-      mesma origem.
+      mesma origem. Verificado: o contrato devolve `jsonb`, então acrescentar chaves não altera
+      assinatura nem tipo de retorno — `create or replace` basta, sem drop e sem refazer
+      privilégios. O consumo no front é num único ponto, no adaptador Supabase de comissões.
 - [ ] A quitação aceita o total de débitos a abater, consumido em ordem cronológica crescente do
       lançamento, expressando abate parcial naturalmente.
 - [ ] O parâmetro de créditos existe na assinatura e é recusado com erro explícito quando

@@ -1,4 +1,4 @@
-# 06: Vale como débito na Conta do Profissional
+# 05: Vale como débito na Conta do Profissional
 
 **What to build:** o gestor lança um vale para um profissional e a dívida passa a existir no
 sistema, em vez de viver na memória dele. O lançamento exige motivo escrito, para que o extrato
@@ -12,7 +12,7 @@ pode ser estornado informando a razão, e a correção fica auditável em vez de
 
 O profissional vê os próprios vales em aberto e sabe quanto será descontado do próximo repasse.
 
-Este ticket **não** mexe na Quitação de Comissão. O abate é o ticket 07; aqui o vale é dívida
+Este ticket **não** mexe na Quitação de Comissão. O abate é o ticket 06; aqui o vale é dívida
 registrada e visível, que o gestor ainda abate por fora se quiser.
 
 Tabela própria, não reuso da tabela de obrigações de comissão: as obrigações exigem vínculo

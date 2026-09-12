@@ -3,7 +3,7 @@
 **What to build:** o sistema passa a reconhecer e subtrair corretamente um tipo novo de
 movimentação de caixa destinado a vale de profissional, **antes** de existir qualquer feature que
 o gere. Nenhum comportamento novo é oferecido ao usuário neste ticket; o que ele entrega é a
-garantia de que o vale do ticket 06 não vai furar o caixa.
+garantia de que o vale do ticket 05 não vai furar o caixa.
 
 Motivo: todas as fórmulas de saldo disponível e de valor esperado da gaveta filtram movimentos
 por tipo de forma nominal e explícita. Um tipo novo que não seja acrescentado a cada uma delas

@@ -11,7 +11,15 @@ recepção.
 
 O contrato de leitura do extrato do turno **já existe no banco, com privilégios corretos, e não é
 consumido por nenhuma superfície**. Esta entrega é de interface: nenhuma alteração de schema,
-nenhuma RPC nova. A linha de gorjetas do turno **não** faz parte deste ticket — ela é o ticket 05.
+nenhuma RPC nova.
+
+**Gorjeta não aparece no extrato, e isso é deliberado.** Gorjeta não é forma de pagamento: o
+valor é somado ao total da Comanda e pago pela forma que o cliente escolheu, então já está dentro
+das linhas de dinheiro, PIX e cartão. Uma linha de gorjeta seria subconjunto, não categoria, e
+somada às demais faria o extrato parecer não fechar. A pergunta que ela pareceria responder —
+"quanto destes R$ 500 em espécie não é meu?" — não é calculável: numa Comanda com pagamento
+dividido, nenhum fato no banco diz qual forma pagou a gorjeta. Quem responde por gorjeta é o
+extrato do profissional (ticket 08).
 
 **Blocked by:** None (can start immediately).
 

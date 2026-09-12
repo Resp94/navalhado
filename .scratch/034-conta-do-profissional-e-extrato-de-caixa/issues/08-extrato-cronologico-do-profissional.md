@@ -1,4 +1,4 @@
-# 09: Extrato cronológico do profissional
+# 08: Extrato cronológico do profissional
 
 **What to build:** gestor e profissional passam a ver a Conta do Profissional como extrato: vales,
 gorjetas e quitações numa sequência única em ordem cronológica. O gestor responde a qualquer
@@ -12,7 +12,7 @@ profissional do tenant, o profissional lê apenas a própria.
 Último ticket da spec 034 de propósito: o extrato só é útil quando os três tipos de lançamento
 existem — crédito de gorjeta, débito de vale e a quitação que os liquida.
 
-**Blocked by:** 08 (pagamento de gorjeta na quitação).
+**Blocked by:** 07 (pagamento de gorjeta na quitação).
 
 **Status:** ready-for-agent
 
