@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(23);
 
 create temporary table ticket07_context (
   user_id uuid not null,
@@ -191,6 +191,41 @@ select is(
   (select difference_amount from public.cash_sessions where id = (select session_id from ticket07_context)),
   (-10)::numeric,
   'persiste quebra negativa'
+);
+
+-- Ticket 03 da spec 034: vale de profissional (cash_movements.type = 'vale_profissional')
+-- reduz o valor esperado na gaveta da mesma forma que repasse de comissão, ou o fechamento
+-- ficaria com o valor esperado superestimado (reproduzindo o defeito corrigido para
+-- repasse_comissao pela migration 20260912060000).
+reset role;
+update public.cash_sessions
+set status = 'open', closed_by = null, closed_at = null,
+    closing_amount = null, expected_amount = null, difference_amount = null
+where id = (select session_id from ticket07_context);
+insert into public.cash_movements (
+  tenant_id, cash_session_id, type, amount, reason, performed_by
+)
+select tenant_id, session_id, 'vale_profissional', 40, 'Vale de teste (ticket 03)', user_id
+from ticket07_context;
+set local role authenticated;
+select lives_ok(
+  $$select public.close_cash_session(
+    (select session_id from ticket07_context),
+    (select tenant_id from ticket07_context),
+    330,
+    'Fechamento com vale de profissional'
+  )$$,
+  'aceita fechamento com vale de profissional registrado no turno'
+);
+select is(
+  (select expected_amount from public.cash_sessions where id = (select session_id from ticket07_context)),
+  330::numeric,
+  'vale de profissional reduz o valor esperado no mesmo montante do valor lançado'
+);
+select is(
+  (select difference_amount from public.cash_sessions where id = (select session_id from ticket07_context)),
+  0::numeric,
+  'fechamento bate exatamente quando o vale é considerado no cálculo do valor esperado'
 );
 
 reset role;

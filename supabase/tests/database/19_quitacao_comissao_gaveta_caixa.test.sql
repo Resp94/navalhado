@@ -166,12 +166,12 @@ select lives_ok(
   'fecha o turno apos o repasse em dinheiro'
 );
 select is(
-  (select expected_amount from public.cash_sessions where tenant_id = (select tenant_id from ticket19_context) and calculation_version = 'cash_expected_v2' order by closed_at desc limit 1),
+  (select expected_amount from public.cash_sessions where tenant_id = (select tenant_id from ticket19_context) and calculation_version = 'cash_expected_v3' order by closed_at desc limit 1),
   180::numeric,
   'valor esperado desconta o repasse de comissao em dinheiro'
 );
 select is(
-  (select difference_amount from public.cash_sessions where tenant_id = (select tenant_id from ticket19_context) and calculation_version = 'cash_expected_v2' order by closed_at desc limit 1),
+  (select difference_amount from public.cash_sessions where tenant_id = (select tenant_id from ticket19_context) and calculation_version = 'cash_expected_v3' order by closed_at desc limit 1),
   0::numeric,
   'a conferencia bate quando o repasse ja foi descontado'
 );

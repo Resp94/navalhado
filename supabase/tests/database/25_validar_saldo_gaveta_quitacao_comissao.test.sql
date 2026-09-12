@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(12);
 
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
 -- Reproduz o achado de QA manual: quitacao de comissao em dinheiro sem
@@ -121,6 +121,97 @@ select is(
   (select expected_amount from public.cash_sessions where id = (select cash_session_id from ticket25_context)),
   0::numeric,
   'valor esperado nao fica negativo (10 de fundo - 10 de repasse = 0)'
+);
+
+-- Ticket 03 da spec 034: vale de profissional (cash_movements.type = 'vale_profissional')
+-- ja lancado no turno tambem reduz o saldo disponivel para uma quitacao em dinheiro,
+-- pelo mesmo motivo que repasse_comissao reduz -- sem isso, o vale sairia da gaveta
+-- sem ser descontado do calculo de disponibilidade da quitacao seguinte.
+create temporary table ticket25b_context (
+  user_id uuid not null, tenant_id uuid not null, professional_id uuid not null,
+  comanda_id uuid not null, cash_session_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket25b_ctx__', '__ticket25b_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket25b_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket25b', '11988880026', 30, true
+  from t
+  returning id, tenant_id
+), com as (
+  insert into public.comandas (tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+  select t.id, 'fechada', 0, 0, 0, timezone('utc'::text, now())
+  from t
+  returning id, tenant_id
+), cs as (
+  -- Fundo de troco de R$20 e um vale de profissional de R$15 ja lancado no turno:
+  -- saldo disponivel na gaveta = R$5.
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 20, 'open'
+  from t, au
+  returning id, tenant_id
+)
+insert into ticket25b_context (user_id, tenant_id, professional_id, comanda_id, cash_session_id)
+select au.id, t.id, prof.id, com.id, cs.id
+from t, au, prof, com, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket25b_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket25b_context);
+
+insert into public.comanda_itens (
+  comanda_id, tenant_id, item_type, professional_id, quantity, unit_price, total_price,
+  snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount,
+  snapshot_commission_rule, snapshot_status
+)
+select comanda_id, tenant_id, 'servico', professional_id, 1, 500, 500,
+  1, 500, 500, 0, 500, 30, 150, 'professional', 'confirmed'
+from ticket25b_context;
+
+insert into public.cash_movements (
+  tenant_id, cash_session_id, type, amount, reason, performed_by
+)
+select tenant_id, cash_session_id, 'vale_profissional', 15, 'Vale ja lancado no turno', user_id
+from ticket25b_context;
+
+grant select on ticket25b_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket25b_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.register_commission_payout(
+    (select professional_id from ticket25b_context), 6, 'cash', 'excede a gaveta com vale considerado', now(),
+    (select tenant_id from ticket25b_context), (select cash_session_id from ticket25b_context)
+  )$$,
+  'P0001',
+  'O valor do repasse em dinheiro excede o saldo disponivel na gaveta do turno.',
+  'recusa repasse em dinheiro que ignora o vale ja descontado da gaveta'
+);
+select is(
+  (select count(*) from public.cash_movements where cash_session_id = (select cash_session_id from ticket25b_context) and type = 'repasse_comissao'),
+  0::bigint,
+  'repasse recusado nao gera movimentacao de caixa'
+);
+select lives_ok(
+  $$select public.register_commission_payout(
+    (select professional_id from ticket25b_context), 5, 'cash', 'exatamente o saldo apos o vale', now(),
+    (select tenant_id from ticket25b_context), (select cash_session_id from ticket25b_context)
+  )$$,
+  'aceita repasse em dinheiro igual ao saldo disponivel apos descontar o vale'
+);
+select is(
+  (select count(*) from public.cash_movements where cash_session_id = (select cash_session_id from ticket25b_context) and type = 'repasse_comissao'),
+  1::bigint,
+  'repasse aceito no limite correto gera a movimentacao de caixa'
 );
 
 reset role;
