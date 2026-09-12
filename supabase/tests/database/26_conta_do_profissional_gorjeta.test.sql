@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(57);
 
 -- Ticket 04 da spec 034: Conta do Profissional com gorjeta como credito.
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
@@ -440,6 +440,248 @@ select lives_ok(
     (select tenant_id from ticket26v_context), (select cash_session_id from ticket26v_context)
   )$$,
   'vale estornado libera saldo para um novo vale'
+);
+
+reset role;
+
+-- Ticket 08 da spec 034: extrato cronologico da Conta do Profissional.
+-- Contexto proprio com os tres tipos de lancamento (vale, gorjeta, quitacao)
+-- e dois profissionais, para cobrir tanto o conteudo do extrato quanto o
+-- isolamento de acesso entre gestor, dono da conta e colega.
+create temporary table ticket26e_context (
+  gerente_id uuid not null, tenant_id uuid not null,
+  service_id uuid not null, cash_session_id uuid not null,
+  professional_id uuid not null, professional_user_id uuid not null,
+  outro_professional_id uuid not null, outro_professional_user_id uuid not null,
+  comanda1_id uuid not null, comanda2_id uuid not null,
+  vale_entry_id uuid, gorjeta_entry_id uuid, payout_id uuid,
+  statement_gerente jsonb, statement_dono jsonb
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket26e_ctx__', '__ticket26e_ctx__@teste.com', '11999999999')
+  returning id
+), au_gerente as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26e_gerente__auth@teste.com')
+  returning id
+), au_dono as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26e_dono__auth@teste.com')
+  returning id
+), au_colega as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26e_colega__auth@teste.com')
+  returning id
+), dono as (
+  insert into public.professionals (tenant_id, user_id, name, phone, commission_percentage, is_active)
+  select t.id, au_dono.id, 'Profissional Extrato', '11988880050', 20, true
+  from t, au_dono
+  returning id, tenant_id
+), colega as (
+  insert into public.professionals (tenant_id, user_id, name, phone, commission_percentage, is_active)
+  select t.id, au_colega.id, 'Colega do Extrato', '11988880051', 20, true
+  from t, au_colega
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Extrato', 100, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au_gerente.id, 0, 'open'
+  from t, au_gerente
+  returning id, tenant_id
+)
+insert into ticket26e_context (
+  gerente_id, tenant_id, service_id, cash_session_id,
+  professional_id, professional_user_id, outro_professional_id, outro_professional_user_id,
+  comanda1_id, comanda2_id
+)
+select au_gerente.id, t.id, svc.id, cs.id,
+  dono.id, au_dono.id, colega.id, au_colega.id,
+  gen_random_uuid(), gen_random_uuid()
+from t, au_gerente, au_dono, au_colega, dono, colega, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket26e_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket26e_context);
+
+update public.users
+set tenant_id = (select tenant_id from ticket26e_context), role = 'barbeiro', is_active = true
+where id = (select professional_user_id from ticket26e_context);
+
+update public.users
+set tenant_id = (select tenant_id from ticket26e_context), role = 'barbeiro', is_active = true
+where id = (select outro_professional_user_id from ticket26e_context);
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda1_id, tenant_id, 'aberta', 0, 0, 0 from ticket26e_context
+union all
+select comanda2_id, tenant_id, 'aberta', 0, 0, 0 from ticket26e_context;
+
+grant select, update on ticket26e_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket26e_context), true);
+set local role authenticated;
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda1_id from ticket26e_context), (select tenant_id from ticket26e_context),
+    null, null, 0, 0, (select cash_session_id from ticket26e_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26e_context),'professional_id',(select professional_id from ticket26e_context),'quantity',1,'unit_price',100)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',100))
+  )$$,
+  'fecha comanda base e gera obrigacao de comissao de R$20'
+);
+
+select lives_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket26e_context), 5, 'Vale para o extrato', 'pix',
+    (select tenant_id from ticket26e_context)
+  )$$,
+  'lanca um vale para o profissional'
+);
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda2_id from ticket26e_context), (select tenant_id from ticket26e_context),
+    null, null, 0, 8, (select cash_session_id from ticket26e_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26e_context),'professional_id',(select professional_id from ticket26e_context),'quantity',1,'unit_price',100)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',108)),
+    (select professional_id from ticket26e_context)
+  )$$,
+  'fecha segunda comanda com gorjeta de R$8 para o profissional'
+);
+
+update ticket26e_context set
+  vale_entry_id = (select id from public.professional_account_entries where reason = 'Vale para o extrato'),
+  gorjeta_entry_id = (select id from public.professional_account_entries where comanda_id = (select comanda2_id from ticket26e_context));
+
+select lives_ok(
+  $$select public.reverse_professional_advance(
+    (select vale_entry_id from ticket26e_context), (select tenant_id from ticket26e_context), 'Vale lancado por engano'
+  )$$,
+  'estorna o vale (deve aparecer estornado no extrato, nao desaparecer)'
+);
+
+-- p_paid_at explicito e posterior: garante que a quitacao fica na frente na
+-- ordenacao cronologica (mais recente primeiro), sem depender de now()
+-- (congelado no inicio da transacao) para distinguir os tres lancamentos.
+select lives_ok(
+  $$select public.register_commission_payout(
+    (select professional_id from ticket26e_context), 28, 'pix', 'Quitacao do extrato',
+    now() + interval '2 minutes',
+    (select tenant_id from ticket26e_context), null, 0, 8
+  )$$,
+  'quita a comissao (20) junto com a gorjeta (8) em um unico repasse'
+);
+
+update ticket26e_context set payout_id = (
+  select id from public.commission_payouts where notes = 'Quitacao do extrato'
+);
+
+update ticket26e_context set statement_gerente = (
+  select public.get_professional_account_statement(
+    (select professional_id from ticket26e_context), (select tenant_id from ticket26e_context)
+  )
+);
+
+select is(
+  jsonb_array_length((select statement_gerente from ticket26e_context)->'entries'),
+  3,
+  'o extrato do gestor mostra os tres lancamentos: vale, gorjeta e quitacao'
+);
+select is(
+  (select statement_gerente from ticket26e_context)->'entries'->0->>'kind',
+  'quitacao',
+  'a quitacao (mais recente) aparece primeiro na ordenacao cronologica'
+);
+select is(
+  (
+    select entry->>'status'
+    from jsonb_array_elements((select statement_gerente from ticket26e_context)->'entries') entry
+    where entry->>'kind' = 'vale'
+  ),
+  'reversed',
+  'o vale estornado aparece como estornado, nao e removido do extrato'
+);
+select is(
+  (
+    select entry->>'reversal_reason'
+    from jsonb_array_elements((select statement_gerente from ticket26e_context)->'entries') entry
+    where entry->>'kind' = 'vale'
+  ),
+  'Vale lancado por engano',
+  'o extrato preserva a razao do estorno'
+);
+select ok(
+  (
+    select (entry->>'reversed_by') is not null
+    from jsonb_array_elements((select statement_gerente from ticket26e_context)->'entries') entry
+    where entry->>'kind' = 'vale'
+  ),
+  'o extrato preserva o autor do estorno'
+);
+select is(
+  (
+    select entry->>'status'
+    from jsonb_array_elements((select statement_gerente from ticket26e_context)->'entries') entry
+    where entry->>'kind' = 'gorjeta'
+  ),
+  'settled',
+  'a gorjeta liquidada pela quitacao aparece como liquidada'
+);
+select is(
+  (
+    (select entry from jsonb_array_elements((select statement_gerente from ticket26e_context)->'entries') entry
+     where entry->>'kind' = 'quitacao')->>'credit_amount'
+  )::numeric,
+  8::numeric,
+  'a linha de quitacao registra o credito de gorjeta pago'
+);
+select is(
+  ((select statement_gerente from ticket26e_context)->'current_balance'->>'advances_open_amount')::numeric,
+  0::numeric,
+  'saldo corrente do extrato reflete o vale estornado (aberto zero)'
+);
+select is(
+  ((select statement_gerente from ticket26e_context)->'current_balance'->>'credits_open_amount')::numeric,
+  0::numeric,
+  'saldo corrente do extrato reflete a gorjeta ja liquidada (aberto zero)'
+);
+
+-- O dono da conta le o proprio extrato com o mesmo conteudo do gestor.
+reset role;
+select set_config('request.jwt.claim.sub', (select professional_user_id::text from ticket26e_context), true);
+set local role authenticated;
+
+update ticket26e_context set statement_dono = (
+  select public.get_professional_account_statement(
+    (select professional_id from ticket26e_context), (select tenant_id from ticket26e_context)
+  )
+);
+
+select is(
+  jsonb_array_length((select statement_dono from ticket26e_context)->'entries'),
+  3,
+  'o profissional dono da conta ve o proprio extrato completo'
+);
+
+-- O colega nao pode ler a conta do outro profissional.
+reset role;
+select set_config('request.jwt.claim.sub', (select outro_professional_user_id::text from ticket26e_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.get_professional_account_statement(
+    (select professional_id from ticket26e_context), (select tenant_id from ticket26e_context)
+  )$$,
+  '42501',
+  'Acesso negado para este extrato.',
+  'o colega nao consegue ler o extrato de outro profissional'
 );
 
 reset role;
