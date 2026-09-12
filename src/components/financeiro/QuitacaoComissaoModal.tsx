@@ -4,9 +4,12 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
-import { supabase } from '../../lib/supabase';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
 import type { PaymentMethod } from '../../modules/caixa/types';
+import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
+import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
+
+const comissaoRepository = new ComissaoRepository(new SupabaseComissaoAdapter());
 
 interface QuitacaoComissaoModalProps {
   isOpen: boolean;
@@ -81,18 +84,14 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         ? new Date(`${paidAtDate}T12:00:00Z`).toISOString()
         : new Date().toISOString();
 
-      const { error } = await supabase.rpc('register_commission_payout', {
-        p_professional_id: profId,
-        p_amount: valorNumerico,
-        p_payment_method: paymentMethod,
-        p_notes: notes.trim() || null,
-        p_paid_at: dateTimestamp,
-        p_tenant_id: tenantId || null,
+      await comissaoRepository.registerPayout({
+        professional_id: profId,
+        amount: valorNumerico,
+        payment_method: paymentMethod,
+        notes: notes.trim() || null,
+        paid_at: dateTimestamp,
+        tenant_id: tenantId || null,
       });
-
-      if (error) {
-        throw new Error(error.message || 'Erro ao registrar quitação de comissão.');
-      }
 
       onSuccess();
     } catch (err: any) {
