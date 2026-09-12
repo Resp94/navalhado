@@ -82,6 +82,12 @@ export interface FecharCaixaInput {
   notes?: string | null;
 }
 
+export interface ReabrirCaixaInput {
+  session_id: string;
+  tenant_id: string;
+  reason: string;
+}
+
 export type CashMovementType = 'sangria' | 'suprimento';
 
 export interface CashMovement {
@@ -141,4 +147,5 @@ export interface ICaixaAdapter {
   registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement>;
   listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
   obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;
+  reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession>;
 }

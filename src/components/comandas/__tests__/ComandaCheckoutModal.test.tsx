@@ -60,6 +60,7 @@ describe('ComandaCheckoutModal', () => {
     registrarMovimentacao: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    reabrirCaixa: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
   };
 

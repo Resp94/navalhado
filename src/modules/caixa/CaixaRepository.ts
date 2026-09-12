@@ -6,6 +6,7 @@ import type {
   DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
+  ReabrirCaixaInput,
   RegistrarMovimentacaoInput,
   TurnPaymentsSummary,
 } from './types';
@@ -64,6 +65,20 @@ export class CaixaRepository {
     }
 
     return await this.adapter.fecharCaixa(input);
+  }
+
+  async reopenSession(input: ReabrirCaixaInput): Promise<CashSession> {
+    if (!input.session_id || !input.session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.reason || input.reason.trim().length < 5) {
+      throw new CaixaValidationError('Informe uma justificativa com pelo menos cinco caracteres.');
+    }
+
+    return await this.adapter.reabrirCaixa(input);
   }
 
   async listHistory(tenantId: string, limit = 20): Promise<CashSession[]> {
@@ -150,6 +165,10 @@ export class CaixaRepository {
 
   async fecharCaixa(input: FecharCaixaInput): Promise<CashSession> {
     return await this.closeSession(input);
+  }
+
+  async reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession> {
+    return await this.reopenSession(input);
   }
 
   async listarHistorico(tenantId: string, limit = 20): Promise<CashSession[]> {

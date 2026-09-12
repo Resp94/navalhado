@@ -8,6 +8,7 @@ import type {
   DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
+  ReabrirCaixaInput,
   RegistrarMovimentacaoInput,
   TurnPaymentsSummary,
 } from '../types';
@@ -83,6 +84,20 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
 
     if (error || !data) {
       throw new Error(`Erro ao fechar sessão de caixa: ${error?.message}`);
+    }
+
+    return data as CashSession;
+  }
+
+  async reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession> {
+    const { data, error } = await supabase.rpc('reopen_cash_session', {
+      p_session_id: input.session_id,
+      p_tenant_id: input.tenant_id,
+      p_reason: input.reason,
+    });
+
+    if (error || !data) {
+      throw new Error(`Erro ao reabrir sessão de caixa: ${error?.message}`);
     }
 
     return data as CashSession;

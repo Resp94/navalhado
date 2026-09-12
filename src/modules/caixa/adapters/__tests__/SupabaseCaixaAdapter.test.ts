@@ -105,4 +105,36 @@ describe('SupabaseCaixaAdapter - resumo financeiro diário', () => {
       p_notes: 'Conferência',
     });
   });
+
+  it('reabre a sessao de caixa chamando reopen_cash_session', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { id: 'session-1', status: 'open', closing_amount: null },
+      error: null,
+    });
+
+    await expect(new SupabaseCaixaAdapter().reabrirCaixa({
+      session_id: 'session-1',
+      tenant_id: 'tenant-1',
+      reason: 'Contagem incorreta na conferencia',
+    })).resolves.toMatchObject({ id: 'session-1', status: 'open' });
+
+    expect(mockRpc).toHaveBeenCalledWith('reopen_cash_session', {
+      p_session_id: 'session-1',
+      p_tenant_id: 'tenant-1',
+      p_reason: 'Contagem incorreta na conferencia',
+    });
+  });
+
+  it('traduz erro do banco em erro de dominio ao reabrir sessao de caixa', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Ja existe uma sessao de caixa aberta para esta unidade.' },
+    });
+
+    await expect(new SupabaseCaixaAdapter().reabrirCaixa({
+      session_id: 'session-1',
+      tenant_id: 'tenant-1',
+      reason: 'Contagem incorreta na conferencia',
+    })).rejects.toThrow(/Ja existe uma sessao de caixa aberta/);
+  });
 });

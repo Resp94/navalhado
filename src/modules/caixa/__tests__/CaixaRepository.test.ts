@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CaixaRepository, CaixaValidationError } from '../CaixaRepository';
 import type { ICaixaAdapter } from '../types';
 
@@ -13,6 +13,7 @@ describe('CaixaRepository', () => {
     registrarMovimentacao: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    reabrirCaixa: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
   };
 
@@ -256,6 +257,54 @@ describe('CaixaRepository', () => {
 
       const summary = await repository.getMovementsSummary('sess-1');
       expect(summary).toEqual({ suprimentos: 100, sangrias: 40 });
+    });
+  });
+
+  describe('reopenSession', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.reabrirCaixa).mockClear();
+    });
+
+    it('reabre a sessao de caixa repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.reabrirCaixa).mockResolvedValueOnce({
+        id: 'sess-1',
+        tenant_id: 't-1',
+        opened_by: 'user-1',
+        closed_by: null,
+        opened_at: new Date().toISOString(),
+        closed_at: null,
+        initial_amount: 100,
+        closing_amount: null,
+        status: 'open',
+        notes: null,
+      });
+
+      const session = await repository.reopenSession({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        reason: 'Contagem incorreta na conferencia',
+      });
+
+      expect(session.status).toBe('open');
+      expect(mockAdapter.reabrirCaixa).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        reason: 'Contagem incorreta na conferencia',
+      });
+    });
+
+    it('rejeita reabertura sem sessao informada', async () => {
+      await expect(
+        repository.reopenSession({ session_id: '', tenant_id: 't-1', reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.reabrirCaixa).not.toHaveBeenCalled();
+    });
+
+    it('rejeita reabertura sem justificativa suficiente', async () => {
+      await expect(
+        repository.reopenSession({ session_id: 'sess-1', tenant_id: 't-1', reason: 'oi' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.reabrirCaixa).not.toHaveBeenCalled();
     });
   });
 
