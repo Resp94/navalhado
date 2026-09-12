@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(19);
 
 create temporary table ticket06_context (
   user_id uuid not null,
@@ -162,14 +162,19 @@ select is(
   'preserva o movimento original da venda'
 );
 select is(
-  (select count(*) from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_manual'),
+  (select count(*) from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_reversal'),
   1::bigint,
   'registra um movimento de estorno rastreável'
 );
 select is(
-  (select quantity from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_manual' limit 1),
+  (select quantity from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_reversal' limit 1),
   2,
   'estorna a quantidade exata da baixa original'
+);
+select is(
+  (select reverses_movement_id from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_reversal' limit 1),
+  (select id from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'exit_sale_comanda' limit 1),
+  'vincula o estorno ao movimento original revertido'
 );
 
 select throws_ok(
@@ -182,7 +187,7 @@ select throws_ok(
   'rejeita segunda reabertura sem duplicar estorno'
 );
 select is(
-  (select count(*) from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_manual'),
+  (select count(*) from public.product_movements where comanda_id = (select comanda_id from ticket06_context) and movement_type = 'entry_reversal'),
   1::bigint,
   'segunda reabertura não duplica estorno'
 );

@@ -39,6 +39,7 @@ export type CriarProdutoInput = ProductInputData & {
 export type MovementType =
   | 'entry_manual'
   | 'entry_purchase'
+  | 'entry_reversal'
   | 'exit_manual'
   | 'exit_sale_comanda'
   | 'exit_internal_use'
