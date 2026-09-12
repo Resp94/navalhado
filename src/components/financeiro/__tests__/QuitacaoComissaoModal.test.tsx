@@ -210,4 +210,54 @@ describe('QuitacaoComissaoModal', () => {
       expect(mockOnSuccess).toHaveBeenCalled();
     });
   });
+
+  it('exibe a gorjeta em aberto e sugere o líquido somando comissão e gorjeta', async () => {
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return Promise.resolve({
+          data: {
+            current_open_balance: 300,
+            generated_commission: 500,
+            paid_commission: 200,
+            credits_open_amount: 40,
+            suggested_net_amount: 340,
+          },
+          error: null,
+        }) as any;
+      }
+      return Promise.resolve({ data: { success: true, payout_id: 'payout-5' }, error: null }) as any;
+    });
+
+    render(
+      <QuitacaoComissaoModal
+        isOpen={true}
+        professional={fakeProfessional}
+        tenantId="tenant-abc"
+        onSuccess={mockOnSuccess}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Gorjeta em aberto do profissional/i)).toBeDefined();
+    });
+
+    const amountInput = screen.getByLabelText(/Valor do repasse/i) as HTMLInputElement;
+    const creditInput = screen.getByLabelText(/Receber gorjeta em aberto/i) as HTMLInputElement;
+    await waitFor(() => {
+      expect(creditInput.value).toBe('40,00');
+      expect(amountInput.value).toBe('340,00');
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'register_commission_payout',
+        expect.objectContaining({ p_amount: 340, p_credit_amount: 40 })
+      );
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+  });
 });
