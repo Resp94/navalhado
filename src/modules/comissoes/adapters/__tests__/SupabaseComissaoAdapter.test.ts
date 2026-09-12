@@ -104,4 +104,38 @@ describe('SupabaseComissaoAdapter', () => {
       new SupabaseComissaoAdapter().obterSaldoProfissional({ professional_id: 'prof-1' })
     ).rejects.toThrow('Acesso negado para consultar comissoes.');
   });
+
+  it('estorna a quitação chamando reverse_commission_payout com o contrato atual', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { reversed: true, reversed_at: '2026-09-12T00:00:00.000Z' },
+      error: null,
+    });
+
+    const result = await new SupabaseComissaoAdapter().estornarQuitacao({
+      payout_id: 'payout-1',
+      tenant_id: 'tenant-1',
+      reason: 'Quitação registrada por engano',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('reverse_commission_payout', {
+      p_payout_id: 'payout-1',
+      p_tenant_id: 'tenant-1',
+      p_reason: 'Quitação registrada por engano',
+    });
+    expect(result.reversed).toBe(true);
+  });
+
+  it('traduz erro do banco em erro de domínio ao estornar quitação', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Esta quitacao ja foi estornada.' },
+    });
+
+    await expect(
+      new SupabaseComissaoAdapter().estornarQuitacao({
+        payout_id: 'payout-1',
+        reason: 'Tentativa duplicada',
+      })
+    ).rejects.toThrow('Esta quitacao ja foi estornada.');
+  });
 });

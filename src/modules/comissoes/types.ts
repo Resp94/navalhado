@@ -34,7 +34,20 @@ export interface SaldoComissaoProfissional {
   [key: string]: unknown;
 }
 
+export interface EstornarQuitacaoInput {
+  payout_id: string;
+  tenant_id?: string | null;
+  reason: string;
+}
+
+export interface QuitacaoEstornada {
+  reversed: boolean;
+  reversed_at?: string;
+  [key: string]: unknown;
+}
+
 export interface IComissaoAdapter {
   registrarQuitacao(input: RegistrarQuitacaoInput): Promise<QuitacaoRegistrada>;
   obterSaldoProfissional(input: ConsultarSaldoInput): Promise<SaldoComissaoProfissional>;
+  estornarQuitacao(input: EstornarQuitacaoInput): Promise<QuitacaoEstornada>;
 }

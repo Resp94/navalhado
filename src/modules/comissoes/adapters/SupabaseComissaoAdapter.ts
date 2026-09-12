@@ -1,7 +1,9 @@
 import { supabase } from '../../../lib/supabase';
 import type {
   ConsultarSaldoInput,
+  EstornarQuitacaoInput,
   IComissaoAdapter,
+  QuitacaoEstornada,
   QuitacaoRegistrada,
   RegistrarQuitacaoInput,
   SaldoComissaoProfissional,
@@ -39,5 +41,19 @@ export class SupabaseComissaoAdapter implements IComissaoAdapter {
     }
 
     return data as SaldoComissaoProfissional;
+  }
+
+  async estornarQuitacao(input: EstornarQuitacaoInput): Promise<QuitacaoEstornada> {
+    const { data, error } = await supabase.rpc('reverse_commission_payout', {
+      p_payout_id: input.payout_id,
+      p_tenant_id: input.tenant_id ?? null,
+      p_reason: input.reason,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao estornar quitação de comissão.');
+    }
+
+    return data as QuitacaoEstornada;
   }
 }

@@ -6,6 +6,7 @@ describe('ComissaoRepository', () => {
   const mockAdapter: IComissaoAdapter = {
     registrarQuitacao: vi.fn(),
     obterSaldoProfissional: vi.fn(),
+    estornarQuitacao: vi.fn(),
   };
 
   const repository = new ComissaoRepository(mockAdapter);
@@ -163,5 +164,51 @@ describe('ComissaoRepository', () => {
       repository.getProfessionalBalance({ professional_id: '' })
     ).rejects.toThrow(ComissaoValidationError);
     expect(mockAdapter.obterSaldoProfissional).not.toHaveBeenCalled();
+  });
+
+  describe('reversePayout', () => {
+    it('estorna uma quitação repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.estornarQuitacao).mockResolvedValueOnce({
+        reversed: true,
+        reversed_at: '2026-09-12T00:00:00.000Z',
+      });
+
+      const result = await repository.reversePayout({
+        payout_id: 'payout-1',
+        tenant_id: 'tenant-1',
+        reason: 'Quitação registrada por engano',
+      });
+
+      expect(result.reversed).toBe(true);
+      expect(mockAdapter.estornarQuitacao).toHaveBeenCalledWith({
+        payout_id: 'payout-1',
+        tenant_id: 'tenant-1',
+        reason: 'Quitação registrada por engano',
+      });
+    });
+
+    it('rejeita estorno sem id da quitação', async () => {
+      await expect(
+        repository.reversePayout({ payout_id: '', reason: 'Motivo valido' })
+      ).rejects.toThrow(ComissaoValidationError);
+      expect(mockAdapter.estornarQuitacao).not.toHaveBeenCalled();
+    });
+
+    it('rejeita estorno sem justificativa suficiente', async () => {
+      await expect(
+        repository.reversePayout({ payout_id: 'payout-1', reason: 'oi' })
+      ).rejects.toThrow(ComissaoValidationError);
+      expect(mockAdapter.estornarQuitacao).not.toHaveBeenCalled();
+    });
+
+    it('propaga erro de domínio traduzido pelo adaptador ao estornar', async () => {
+      vi.mocked(mockAdapter.estornarQuitacao).mockRejectedValueOnce(
+        new Error('Esta quitacao ja foi estornada.')
+      );
+
+      await expect(
+        repository.reversePayout({ payout_id: 'payout-1', reason: 'Tentativa duplicada' })
+      ).rejects.toThrow('Esta quitacao ja foi estornada.');
+    });
   });
 });
