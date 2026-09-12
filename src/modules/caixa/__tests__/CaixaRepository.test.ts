@@ -14,6 +14,8 @@ describe('CaixaRepository', () => {
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
     reabrirCaixa: vi.fn(),
+    registrarAjuste: vi.fn(),
+    obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
   };
 
@@ -305,6 +307,104 @@ describe('CaixaRepository', () => {
         repository.reopenSession({ session_id: 'sess-1', tenant_id: 't-1', reason: 'oi' })
       ).rejects.toThrow(CaixaValidationError);
       expect(mockAdapter.reabrirCaixa).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('registerAdjustment', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.registrarAjuste).mockClear();
+    });
+
+    it('registra um ajuste posterior repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.registrarAjuste).mockResolvedValueOnce({
+        success: true,
+        adjustment_id: 'adj-1',
+        cash_session_id: 'sess-1',
+        original_expected_amount: 150,
+        original_closing_amount: 150,
+        original_difference_amount: 0,
+        previous_adjustment_amount: 0,
+        adjusted_closing_amount: 155,
+        adjusted_difference_amount: 5,
+      });
+
+      const result = await repository.registerAdjustment({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        adjustment_amount: 5,
+        reason: 'Diferenca encontrada na conferencia',
+      });
+
+      expect(result.adjustment_id).toBe('adj-1');
+      expect(mockAdapter.registrarAjuste).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        adjustment_amount: 5,
+        reason: 'Diferenca encontrada na conferencia',
+      });
+    });
+
+    it('rejeita ajuste sem sessao informada', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: '', tenant_id: 't-1', adjustment_amount: 5, reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+
+    it('rejeita ajuste com valor zero', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: 'sess-1', tenant_id: 't-1', adjustment_amount: 0, reason: 'motivo valido' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+
+    it('rejeita ajuste sem justificativa suficiente', async () => {
+      await expect(
+        repository.registerAdjustment({ session_id: 'sess-1', tenant_id: 't-1', adjustment_amount: 5, reason: 'oi' })
+      ).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.registrarAjuste).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSessionStatement', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.obterExtrato).mockClear();
+    });
+
+    it('consulta o extrato repassando o contrato ao adaptador', async () => {
+      vi.mocked(mockAdapter.obterExtrato).mockResolvedValueOnce({
+        session: {
+          id: 'sess-1',
+          tenant_id: 't-1',
+          opened_by: 'user-1',
+          closed_by: 'user-1',
+          opened_at: new Date().toISOString(),
+          closed_at: new Date().toISOString(),
+          initial_amount: 100,
+          closing_amount: 150,
+          status: 'closed',
+          notes: null,
+        },
+        adjustments: [],
+        adjusted_difference_amount: 0,
+        movements: [],
+        reopenings: [],
+      });
+
+      const statement = await repository.getSessionStatement('sess-1', 't-1');
+
+      expect(statement.session.id).toBe('sess-1');
+      expect(mockAdapter.obterExtrato).toHaveBeenCalledWith('sess-1', 't-1');
+    });
+
+    it('rejeita consulta sem sessao informada', async () => {
+      await expect(repository.getSessionStatement('', 't-1')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterExtrato).not.toHaveBeenCalled();
+    });
+
+    it('rejeita consulta sem tenant informado', async () => {
+      await expect(repository.getSessionStatement('sess-1', '')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterExtrato).not.toHaveBeenCalled();
     });
   });
 

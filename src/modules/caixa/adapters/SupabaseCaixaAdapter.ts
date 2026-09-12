@@ -2,13 +2,16 @@ import { supabase } from '../../../lib/supabase';
 import { getPaymentCategory } from '../types';
 import type {
   AbrirCaixaInput,
+  AjusteCaixaRegistrado,
   CashMovement,
   CashSession,
+  CashSessionStatement,
   DailyFinancialSummary,
   DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
   ReabrirCaixaInput,
+  RegistrarAjusteCaixaInput,
   RegistrarMovimentacaoInput,
   TurnPaymentsSummary,
 } from '../types';
@@ -353,6 +356,34 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     }
 
     return { suprimentos, sangrias };
+  }
+
+  async registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    const { data, error } = await supabase.rpc('register_cash_session_adjustment', {
+      p_session_id: input.session_id,
+      p_tenant_id: input.tenant_id,
+      p_adjustment_amount: input.adjustment_amount,
+      p_reason: input.reason,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao registrar ajuste da sessão de caixa.');
+    }
+
+    return data as AjusteCaixaRegistrado;
+  }
+
+  async obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
+    const { data, error } = await supabase.rpc('get_cash_session_statement', {
+      p_session_id: sessionId,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao obter extrato da sessão de caixa.');
+    }
+
+    return data as CashSessionStatement;
   }
 }
 

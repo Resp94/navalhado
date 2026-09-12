@@ -1,12 +1,15 @@
 import type {
   AbrirCaixaInput,
+  AjusteCaixaRegistrado,
   CashMovement,
   CashSession,
+  CashSessionStatement,
   DailyFinancialSummary,
   DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
   ReabrirCaixaInput,
+  RegistrarAjusteCaixaInput,
   RegistrarMovimentacaoInput,
   TurnPaymentsSummary,
 } from './types';
@@ -154,6 +157,34 @@ export class CaixaRepository {
     return await this.adapter.obterResumoMovimentacoes(sessionId);
   }
 
+  async registerAdjustment(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    if (!input.session_id || !input.session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.adjustment_amount) {
+      throw new CaixaValidationError('O valor do ajuste deve ser diferente de zero.');
+    }
+    if (!input.reason || input.reason.trim().length < 5) {
+      throw new CaixaValidationError('Informe uma justificativa com pelo menos cinco caracteres.');
+    }
+
+    return await this.adapter.registrarAjuste(input);
+  }
+
+  async getSessionStatement(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
+    if (!sessionId || !sessionId.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+
+    return await this.adapter.obterExtrato(sessionId, tenantId);
+  }
+
   // Aliases para compatibilidade total (pt-BR e en)
   async obterSessaoAtiva(tenantId: string): Promise<CashSession | null> {
     return await this.getActiveSession(tenantId);
@@ -197,6 +228,14 @@ export class CaixaRepository {
 
   async obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]> {
     return await this.getDailyFinancialSummary(query);
+  }
+
+  async registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    return await this.registerAdjustment(input);
+  }
+
+  async obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
+    return await this.getSessionStatement(sessionId, tenantId);
   }
 }
 

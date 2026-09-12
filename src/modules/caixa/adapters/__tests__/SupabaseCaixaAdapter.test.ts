@@ -137,4 +137,81 @@ describe('SupabaseCaixaAdapter - resumo financeiro diário', () => {
       reason: 'Contagem incorreta na conferencia',
     })).rejects.toThrow(/Ja existe uma sessao de caixa aberta/);
   });
+
+  it('registra um ajuste posterior chamando register_cash_session_adjustment', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        adjustment_id: 'adj-1',
+        cash_session_id: 'session-1',
+        original_expected_amount: 150,
+        original_closing_amount: 150,
+        original_difference_amount: 0,
+        previous_adjustment_amount: 0,
+        adjusted_closing_amount: 155,
+        adjusted_difference_amount: 5,
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseCaixaAdapter().registrarAjuste({
+      session_id: 'session-1',
+      tenant_id: 'tenant-1',
+      adjustment_amount: 5,
+      reason: 'Diferenca encontrada na conferencia',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('register_cash_session_adjustment', {
+      p_session_id: 'session-1',
+      p_tenant_id: 'tenant-1',
+      p_adjustment_amount: 5,
+      p_reason: 'Diferenca encontrada na conferencia',
+    });
+    expect(result.adjustment_id).toBe('adj-1');
+  });
+
+  it('traduz erro do banco em erro de dominio ao registrar ajuste', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'A sessao de caixa precisa estar fechada.' },
+    });
+
+    await expect(new SupabaseCaixaAdapter().registrarAjuste({
+      session_id: 'session-1',
+      tenant_id: 'tenant-1',
+      adjustment_amount: 5,
+      reason: 'Diferenca encontrada na conferencia',
+    })).rejects.toThrow(/precisa estar fechada/);
+  });
+
+  it('consulta o extrato chamando get_cash_session_statement', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        session: { id: 'session-1', status: 'closed' },
+        adjustments: [],
+        adjusted_difference_amount: 0,
+        movements: [],
+        reopenings: [],
+      },
+      error: null,
+    });
+
+    const statement = await new SupabaseCaixaAdapter().obterExtrato('session-1', 'tenant-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('get_cash_session_statement', {
+      p_session_id: 'session-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(statement.session.id).toBe('session-1');
+  });
+
+  it('traduz erro do banco em erro de dominio ao consultar o extrato', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Acesso negado para a unidade solicitada.' },
+    });
+
+    await expect(new SupabaseCaixaAdapter().obterExtrato('session-1', 'tenant-1'))
+      .rejects.toThrow(/Acesso negado/);
+  });
 });

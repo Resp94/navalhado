@@ -136,6 +136,72 @@ export interface DailyFinancialSummary {
   payment_count: number;
 }
 
+export interface RegistrarAjusteCaixaInput {
+  session_id: string;
+  tenant_id: string;
+  adjustment_amount: number;
+  reason: string;
+}
+
+export interface AjusteCaixaRegistrado {
+  success: boolean;
+  adjustment_id: string;
+  cash_session_id: string;
+  original_expected_amount: number;
+  original_closing_amount: number;
+  original_difference_amount: number;
+  previous_adjustment_amount: number;
+  adjusted_closing_amount: number;
+  adjusted_difference_amount: number;
+}
+
+export interface CashSessionAdjustmentEntry {
+  id: string;
+  created_by: string | null;
+  reason: string;
+  adjustment_amount: number;
+  original_expected_amount: number;
+  original_closing_amount: number;
+  original_difference_amount: number;
+  adjusted_expected_amount: number;
+  adjusted_closing_amount: number;
+  adjusted_difference_amount: number;
+  created_at: string;
+}
+
+export interface CashSessionReopeningEntry {
+  id: string;
+  reopened_by: string | null;
+  reopened_at: string;
+  reason: string;
+  original_closing_amount: number | null;
+  original_expected_amount: number | null;
+  original_difference_amount: number | null;
+  original_closed_by: string | null;
+  original_closed_at: string | null;
+}
+
+export interface CashSessionMovementEntry {
+  id: string;
+  type: string;
+  amount: number;
+  reason: string | null;
+  performed_by: string | null;
+  payout_id: string | null;
+  created_at: string;
+  reversed_at: string | null;
+  reversed_by: string | null;
+  reversal_reason: string | null;
+}
+
+export interface CashSessionStatement {
+  session: CashSession;
+  adjustments: CashSessionAdjustmentEntry[];
+  adjusted_difference_amount: number;
+  movements: CashSessionMovementEntry[];
+  reopenings: CashSessionReopeningEntry[];
+}
+
 export interface ICaixaAdapter {
   obterSessaoAtiva(tenantId: string): Promise<CashSession | null>;
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
@@ -148,4 +214,6 @@ export interface ICaixaAdapter {
   listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
   obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;
   reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession>;
+  registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado>;
+  obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement>;
 }
