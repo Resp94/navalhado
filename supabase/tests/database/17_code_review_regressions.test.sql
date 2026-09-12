@@ -152,5 +152,5 @@ select ok(
   'trilha de reversoes usa helper de autenticacao otimizado'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

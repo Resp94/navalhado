@@ -15,28 +15,50 @@ create temporary table ticket12_context (
   paid_item_id uuid not null
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket12_ctx__', '__ticket12_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket12_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket12', '11988880012', 20, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket12', 50, 'corte', true
+  from t
+  returning id, tenant_id
+)
 insert into ticket12_context
-select u.id, u.tenant_id, p.id, s.id,
+select au.id, t.id, prof.id, svc.id,
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
-from public.users u
-join public.professionals p on p.tenant_id = u.tenant_id and p.is_active and p.deleted_at is null
-join public.services s on s.tenant_id = u.tenant_id and coalesce(s.is_active, true) and s.deleted_at is null
-where u.is_active and u.role = 'gerente'
-order by u.id, p.id, s.id
-limit 1;
+from t, au, prof, svc;
+
+update public.users
+set tenant_id = (select tenant_id from ticket12_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket12_context);
+
 grant select on ticket12_context to authenticated;
 
 select ok((select count(*) from ticket12_context) = 1, 'encontra contexto para estorno de obrigacoes');
 select has_function('public', 'reopen_comanda', array['uuid', 'uuid'], 'RPC de reabertura preserva a assinatura');
 
+-- Total zero evita o gatilho de consistencia entre total e soma dos pagamentos:
+-- o total da comanda nao e verificado por nenhuma asserção deste arquivo.
 reset role;
 insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
-select open_comanda_id, tenant_id, 'fechada', 50, 0, 0, timezone('utc'::text, now()) from ticket12_context
+select open_comanda_id, tenant_id, 'fechada', 0, 0, 0, timezone('utc'::text, now()) from ticket12_context
 union all
-select partial_comanda_id, tenant_id, 'fechada', 50, 0, 0, timezone('utc'::text, now()) from ticket12_context
+select partial_comanda_id, tenant_id, 'fechada', 0, 0, 0, timezone('utc'::text, now()) from ticket12_context
 union all
-select paid_comanda_id, tenant_id, 'fechada', 50, 0, 0, timezone('utc'::text, now()) from ticket12_context;
+select paid_comanda_id, tenant_id, 'fechada', 0, 0, 0, timezone('utc'::text, now()) from ticket12_context;
 insert into public.comanda_itens (
   id, comanda_id, tenant_id, item_type, service_id, professional_id, quantity, unit_price, total_price,
   snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount, snapshot_net_amount,
@@ -88,7 +110,7 @@ select is((select status from public.commission_obligations where comanda_id = (
 select throws_ok(
   $$select public.reopen_comanda((select open_comanda_id from ticket12_context), (select tenant_id from ticket12_context))$$,
   'P0001',
-  'A comanda nao esta fechada ou nao existe.',
+  'A comanda não está fechada ou não existe.',
   'repeticao nao duplica o estorno'
 );
 select is((select count(*) from public.commission_obligations where comanda_id = (select open_comanda_id from ticket12_context) and status = 'reversed'), 1::bigint, 'mantem um unico estorno auditavel');

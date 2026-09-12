@@ -22,5 +22,5 @@ select is((select count(*)::integer from public.get_public_schedule_by_slug('pro
 select is((select count(*)::integer from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121') where available),11,'grade explicita disponibiliza somente slots que comportam a duração');
 select ok((select available from public.get_public_schedule_by_slug('professional-grid-test','2040-01-02','59000000-0000-0000-0000-000000000111','59000000-0000-0000-0000-000000000121') where slot_time='09:10'),'inicio do profissional reinicia a grade visual');
 
-select * from finish();
+select * from finish(true);
 rollback;

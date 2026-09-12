@@ -38,5 +38,5 @@ values('59000000-0000-0000-0000-000000000001','59000000-0000-0000-0000-000000000
 select is((select count(*)::integer from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where available),2,'blocked interval changes availability without removing grid slots');
 select ok(not (select available from public.get_public_schedule_by_slug('schedule-test','2040-01-02','59000000-0000-0000-0000-000000000011',null) where slot_time='10:00'),'blocked slot remains visible as unavailable');
 
-select * from finish();
+select * from finish(true);
 rollback;

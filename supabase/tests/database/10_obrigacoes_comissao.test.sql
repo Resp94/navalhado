@@ -12,38 +12,41 @@ create temporary table ticket10_context (
   professional_id uuid not null
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket10_ctx__', '__ticket10_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket10_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket10', '11988880010', 0, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket10', 50, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 0, 'open'
+  from t, au
+  returning id, tenant_id
+)
 insert into ticket10_context (
   user_id, tenant_id, cash_session_id, product_id, comanda_id, service_id, professional_id
 )
-select
-  u.id,
-  u.tenant_id,
-  cs.id,
-  gen_random_uuid(),
-  gen_random_uuid(),
-  pair.service_id,
-  pair.professional_id
-from public.users u
-join public.cash_sessions cs
-  on cs.tenant_id = u.tenant_id
- and cs.status = 'open'
-cross join lateral (
-  select s.id as service_id, p.id as professional_id
-  from public.services s
-  join public.professionals p
-    on p.tenant_id = s.tenant_id
-   and p.is_active = true
-   and p.deleted_at is null
-  where s.tenant_id = u.tenant_id
-    and coalesce(s.is_active, true) = true
-    and s.deleted_at is null
-  order by s.id, p.id
-  limit 1
-) pair
-where u.is_active
-  and u.role = 'gerente'
-order by u.id
-limit 1;
+select au.id, t.id, cs.id, gen_random_uuid(), gen_random_uuid(), svc.id, prof.id
+from t, au, prof, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket10_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket10_context);
+
 grant select on ticket10_context to authenticated;
 
 select ok((select count(*) from ticket10_context) = 1, 'encontra contexto isolado para obrigacoes');

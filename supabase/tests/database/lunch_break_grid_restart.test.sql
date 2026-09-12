@@ -80,5 +80,5 @@ select is(
   'the configured minimum booking lead time still filters the restarted afternoon grid'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

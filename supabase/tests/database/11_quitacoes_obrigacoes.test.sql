@@ -12,16 +12,36 @@ create temporary table ticket11_context (
   item_two_id uuid not null
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket11_ctx__', '__ticket11_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket11_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket11', '11988880011', 20, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket11', 50, 'corte', true
+  from t
+  returning id, tenant_id
+)
 insert into ticket11_context (
   user_id, tenant_id, professional_id, service_id, comanda_id, item_one_id, item_two_id
 )
-select u.id, u.tenant_id, p.id, s.id, gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
-from public.users u
-join public.professionals p on p.tenant_id = u.tenant_id and p.is_active and p.deleted_at is null
-join public.services s on s.tenant_id = u.tenant_id and coalesce(s.is_active, true) and s.deleted_at is null
-where u.is_active and u.role = 'gerente'
-order by u.id, p.id, s.id
-limit 1;
+select au.id, t.id, prof.id, svc.id, gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+from t, au, prof, svc;
+
+update public.users
+set tenant_id = (select tenant_id from ticket11_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket11_context);
+
 grant select on ticket11_context to authenticated;
 
 select ok((select count(*) from ticket11_context) = 1, 'encontra contexto para quitacoes');
@@ -60,12 +80,14 @@ union all
 select item_two_id, comanda_id, tenant_id, 'servico', service_id, professional_id,
   1, 30, 30, 1, 30, 30, 0, 30, 20, 6, 'service', 'confirmed'
 from ticket11_context;
+-- Datas explicitas e distintas: garante que a alocacao por ordem de criacao
+-- (created_at, id) trate a primeira obrigacao antes da segunda de forma deterministica.
 insert into public.commission_obligations (
-  tenant_id, professional_id, comanda_id, comanda_item_id, amount, commission_rule, created_by
+  tenant_id, professional_id, comanda_id, comanda_item_id, amount, commission_rule, created_by, created_at
 )
-select tenant_id, professional_id, comanda_id, item_one_id, 10, 'service', user_id from ticket11_context
+select tenant_id, professional_id, comanda_id, item_one_id, 10, 'service', user_id, timezone('utc'::text, now()) - interval '2 minutes' from ticket11_context
 union all
-select tenant_id, professional_id, comanda_id, item_two_id, 6, 'service', user_id from ticket11_context;
+select tenant_id, professional_id, comanda_id, item_two_id, 6, 'service', user_id, timezone('utc'::text, now()) - interval '1 minute' from ticket11_context;
 
 select set_config('request.jwt.claim.sub', (select user_id::text from ticket11_context), false);
 set local role authenticated;

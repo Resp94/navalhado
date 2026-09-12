@@ -53,5 +53,5 @@ select isnt(
   'same phone isolated by tenant'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

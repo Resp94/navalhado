@@ -115,5 +115,5 @@ select is((
   )
 ), 12, 'public schedule contains only the professional grid for Wednesday');
 
-select * from finish();
+select * from finish(true);
 rollback;

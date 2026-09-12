@@ -95,5 +95,5 @@ select ok(not (select exists(select 1 from public.get_available_slots(
   '61000000-0000-0000-0000-000000000011',
   '2040-01-02', null) where slot_time='09:00')), 'disabled service link is unavailable for selected professional');
 
-select * from finish();
+select * from finish(true);
 rollback;

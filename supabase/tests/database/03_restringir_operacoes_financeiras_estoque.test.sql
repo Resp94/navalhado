@@ -37,6 +37,27 @@ select ok(
   'product movement history has no direct write policies'
 );
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+create temporary table ticket03_ctx (tenant_id uuid not null, user_id uuid not null) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket03_ctx__', '__ticket03_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket03_ctx__auth@teste.com')
+  returning id
+)
+insert into ticket03_ctx (tenant_id, user_id)
+select t.id, au.id from t, au;
+
+update public.users
+set tenant_id = (select tenant_id from ticket03_ctx), role = 'gerente', is_active = true
+where id = (select user_id from ticket03_ctx);
+
+grant select on ticket03_ctx to authenticated;
+
 insert into public.products (
   tenant_id,
   name,
@@ -48,36 +69,10 @@ insert into public.products (
   min_stock_alert,
   is_active
 )
-select
-  u.tenant_id,
-  '__ticket03_auth__',
-  'retail',
-  'un',
-  20,
-  10,
-  0,
-  2,
-  true
-from public.users u
-where u.tenant_id is not null
-  and u.is_active
-  and u.role = 'gerente'
-order by u.id
-limit 1;
+select tenant_id, '__ticket03_auth__', 'retail', 'un', 20, 10, 0, 2, true
+from ticket03_ctx;
 
-select set_config(
-  'request.jwt.claim.sub',
-  (
-    select u.id::text
-    from public.users u
-    where u.tenant_id is not null
-      and u.is_active
-      and u.role = 'gerente'
-    order by u.id
-    limit 1
-  ),
-  true
-);
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket03_ctx), true);
 set local role authenticated;
 
 select is(
@@ -89,15 +84,7 @@ select is(
 reset role;
 update public.users
 set is_active = false
-where id = (
-  select u.id
-  from public.users u
-  where u.tenant_id is not null
-    and u.is_active
-    and u.role = 'gerente'
-  order by u.id
-  limit 1
-);
+where id = (select user_id from ticket03_ctx);
 set local role authenticated;
 
 select is(
@@ -119,5 +106,5 @@ select is(
   'blocked inactive stock operation has no effect'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

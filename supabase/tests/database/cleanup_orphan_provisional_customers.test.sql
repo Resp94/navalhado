@@ -90,5 +90,5 @@ select is((select count(*)::integer from public.comandas where customer_id='6900
 select is((select count(*)::integer from public.waiting_list where customer_id='69000000-0000-0000-0000-000000000104'),1,'waiting-list reference remains intact');
 select is((select count(*)::integer from public.audit_logs where id='69000000-0000-0000-0000-000000000501'),1,'audit record remains intact');
 
-select * from finish();
+select * from finish(true);
 rollback;

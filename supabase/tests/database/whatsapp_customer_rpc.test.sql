@@ -14,5 +14,5 @@ select lives_ok(
   'find_or_create_whatsapp_customer creates a new customer without token ambiguity'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

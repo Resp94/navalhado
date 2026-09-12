@@ -55,5 +55,5 @@ select is(
   'gatilho de agendamento não deve ser executável por authenticated'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

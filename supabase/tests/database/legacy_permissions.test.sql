@@ -23,5 +23,5 @@ select ok(not has_function_privilege('authenticated','public.get_or_create_provi
 select ok(has_function_privilege('service_role','public.get_or_create_provisional_customer_by_slug(text,uuid)','EXECUTE'),'service role retains legacy cleanup compatibility');
 select ok(has_function_privilege('anon','public.get_available_slots_by_token(uuid,uuid,uuid,date,uuid)','EXECUTE'),'tokenized client schedule remains available for legacy client management');
 
-select * from finish();
+select * from finish(true);
 rollback;

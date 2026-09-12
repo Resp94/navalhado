@@ -54,6 +54,6 @@ select is(
   'appointment trigger remains installed for insert and update'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;
 

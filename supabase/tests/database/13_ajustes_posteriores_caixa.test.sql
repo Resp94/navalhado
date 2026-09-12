@@ -3,12 +3,25 @@ create extension if not exists pgtap with schema extensions;
 select plan(12);
 
 create temporary table ticket13_context (user_id uuid, tenant_id uuid, session_id uuid, original_closing numeric, original_expected numeric) on commit drop;
+
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket13_ctx__', '__ticket13_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket13_ctx__auth@teste.com')
+  returning id
+)
 insert into ticket13_context
-select u.id, u.tenant_id, gen_random_uuid(), 90, 100
-from public.users u
-where u.is_active and u.role = 'gerente'
-order by u.id
-limit 1;
+select au.id, t.id, gen_random_uuid(), 90, 100
+from t, au;
+
+update public.users
+set tenant_id = (select tenant_id from ticket13_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket13_context);
+
 grant select on ticket13_context to authenticated;
 
 select ok((select count(*) from ticket13_context) = 1, 'encontra sessao fechada com fotografia completa');

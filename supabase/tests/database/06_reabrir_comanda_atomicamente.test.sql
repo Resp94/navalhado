@@ -11,41 +11,77 @@ create temporary table ticket06_context (
   appointment_comanda_id uuid not null
 ) on commit drop;
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket06_ctx__', '__ticket06_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket06_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Ticket06', '11988880006', 30, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket06', 30, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 0, 'open'
+  from t, au
+  returning id, tenant_id
+)
 insert into ticket06_context (
   user_id, tenant_id, product_id, comanda_id, appointment_id, appointment_comanda_id
 )
+select au.id, t.id, gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+from t, au, prof, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket06_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket06_context);
+
+-- Fixture: um agendamento ja concluido e pago, com comanda fechada e sem itens de produto.
+insert into public.appointments (
+  id, tenant_id, customer_id, professional_id, service_id,
+  start_time, end_time, status, payment_status
+)
 select
-  u.id,
-  u.tenant_id,
-  gen_random_uuid(),
-  gen_random_uuid(),
-  fixture.appointment_id,
-  fixture.comanda_id
-from public.users u
-join public.cash_sessions cs
-  on cs.tenant_id = u.tenant_id
- and cs.status = 'open'
-cross join lateral (
-  select a.id as appointment_id, c.id as comanda_id
-  from public.appointments a
-  join public.comandas c on c.appointment_id = a.id
-  where a.tenant_id = u.tenant_id
-    and a.status = 'completed'
-    and a.payment_status = 'paid'
-    and c.status = 'fechada'
-    and not exists (
-      select 1
-      from public.comanda_itens ci
-      where ci.comanda_id = c.id
-        and ci.item_type = 'produto'
-    )
-  order by a.updated_at desc
+  appointment_id, tenant_id, null,
+  (select id from public.professionals where tenant_id = ticket06_context.tenant_id limit 1),
+  (select id from public.services where tenant_id = ticket06_context.tenant_id limit 1),
+  (((case when extract(dow from current_date + 1) = 0 then current_date + 2 else current_date + 1 end) + time '10:00') at time zone 'America/Sao_Paulo'),
+  (((case when extract(dow from current_date + 1) = 0 then current_date + 2 else current_date + 1 end) + time '10:30') at time zone 'America/Sao_Paulo'),
+  'confirmed', 'pending'
+from ticket06_context;
+
+update public.appointments
+set status = 'completed', payment_status = 'paid'
+where id = (select appointment_id from ticket06_context);
+
+update ticket06_context
+set appointment_comanda_id = (
+  select c.id from public.comandas c
+  where c.appointment_id = ticket06_context.appointment_id
   limit 1
-) fixture
-where u.is_active
-  and u.role = 'gerente'
-order by u.id
-limit 1;
+);
+
+-- A comanda auto-criada pelo agendamento ja tem o item de servico; paga-la
+-- integralmente antes de fecha-la para nao acionar o trigger de consistencia.
+insert into public.comanda_pagamentos (comanda_id, tenant_id, payment_method, amount, change_amount)
+select ticket06_context.appointment_comanda_id, ticket06_context.tenant_id, 'pix', c.total_amount, 0
+from ticket06_context
+join public.comandas c on c.id = ticket06_context.appointment_comanda_id;
+
+update public.comandas
+set status = 'fechada', closed_at = timezone('utc'::text, now())
+where id = (select appointment_comanda_id from ticket06_context);
+
 grant select on ticket06_context to authenticated;
 
 select ok((select count(*) from ticket06_context) = 1, 'encontra gerente e comanda fechada elegível');
@@ -62,7 +98,7 @@ select product_id, tenant_id, 'Ticket 06 Produto', 10, 4, 1, 'retail'
 from ticket06_context;
 
 insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
-select comanda_id, tenant_id, 'fechada', 20, 0, 0
+select comanda_id, tenant_id, 'aberta', 20, 0, 0
 from ticket06_context;
 
 insert into public.comanda_itens (
@@ -88,6 +124,12 @@ insert into public.product_movements (
 )
 select tenant_id, product_id, 'exit_manual', 1, 4, 'Movimento independente posterior'
 from ticket06_context;
+
+-- A comanda so transita para fechada apos os pagamentos ja persistidos,
+-- para nao acionar o trigger de consistencia entre total e soma dos pagamentos.
+update public.comandas
+set status = 'fechada', closed_at = timezone('utc'::text, now())
+where id = (select comanda_id from ticket06_context);
 
 select set_config('request.jwt.claim.sub', (select user_id::text from ticket06_context), true);
 set local role authenticated;
@@ -201,5 +243,5 @@ select is(
 );
 
 reset role;
-select * from finish();
+select * from finish(true);
 rollback;

@@ -340,5 +340,5 @@ select lives_ok($$insert into public.whatsapp_message_idempotency(
   3
 )$$, 'three completed attempts are allowed');
 
-select * from finish();
+select * from finish(true);
 rollback;

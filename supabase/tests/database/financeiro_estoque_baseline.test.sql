@@ -55,8 +55,8 @@ select ok(
 );
 
 select ok(
-  has_table_privilege('authenticated', 'public.commission_payouts', 'INSERT'),
-  'authenticated role currently has direct commission payout insert privilege'
+  not has_table_privilege('authenticated', 'public.commission_payouts', 'INSERT'),
+  'authenticated role no longer has direct commission payout insert privilege'
 );
 
 select ok(
@@ -72,81 +72,86 @@ select ok(
 );
 
 select ok(
-  exists(
+  not exists(
     select 1
     from pg_policies
     where schemaname = 'public'
       and tablename = 'product_movements'
-      and policyname = 'product_movements_insert_policy'
-      and with_check like '%users.tenant_id%'
+      and cmd = 'INSERT'
   ),
-  'product movement insert policy is tenant-scoped'
+  'product movements have no direct insert policy: writes only through the RPC contract'
 );
 
 select ok(
-  position('is_active' in pg_get_functiondef('private.get_auth_role()'::regprocedure)) = 0,
-  'baseline records that auth role helper does not yet filter active users'
+  position('is_active' in pg_get_functiondef('private.get_auth_role()'::regprocedure)) > 0,
+  'auth role helper filters inactive users'
 );
 
 select ok(
-  position('is_active' in pg_get_functiondef('private.get_auth_tenant_id()'::regprocedure)) = 0,
-  'baseline records that auth tenant helper does not yet filter active users'
+  position('is_active' in pg_get_functiondef('private.get_auth_tenant_id()'::regprocedure)) > 0,
+  'auth tenant helper filters inactive users'
 );
 
 select ok(
-  position('is_active' in pg_get_functiondef('private.is_saas_admin()'::regprocedure)) = 0,
-  'baseline records that SaaS admin helper does not yet filter active users'
+  position('is_active' in pg_get_functiondef('private.is_saas_admin()'::regprocedure)) > 0,
+  'saas admin helper filters inactive users'
 );
 
-insert into public.products (
-  tenant_id,
-  name,
-  product_type,
-  unit_type,
-  price,
-  cost_price,
-  stock_quantity,
-  min_stock_alert,
-  is_active
+-- Contexto sintetico: nenhuma dependencia de linhas preexistentes do DEV.
+create temp table _financeiro_estoque_ctx (
+  tenant_id uuid not null,
+  active_user_id uuid not null,
+  inactive_user_id uuid not null,
+  product_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__financeiro_estoque_baseline__ tenant', '__financeiro_estoque_baseline__@teste.com', '11999999999')
+  returning id
+), active_auth as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__financeiro_estoque_baseline__ativo_auth@teste.com')
+  returning id
+), inactive_auth as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__financeiro_estoque_baseline__inativo_auth@teste.com')
+  returning id
+), product as (
+  insert into public.products (
+    tenant_id, name, product_type, unit_type, price, cost_price, stock_quantity, min_stock_alert, is_active
+  )
+  select t.id, '__financeiro_estoque_baseline__' || t.id::text, 'retail', 'un', 0, 0, 0, 0, true
+  from t
+  returning id
 )
-select
-  t.id,
-  '__financeiro_estoque_baseline__' || t.id::text,
-  'retail',
-  'un',
-  0,
-  0,
-  0,
-  0,
-  true
-from public.tenants t
-where t.id in (
-  select u.tenant_id
-  from public.users u
-  where u.tenant_id is not null
-    and u.is_active
-  order by u.id
-  limit 2
-);
+insert into _financeiro_estoque_ctx (tenant_id, active_user_id, inactive_user_id, product_id)
+select t.id, active_auth.id, inactive_auth.id, product.id
+from t, active_auth, inactive_auth, product;
+
+update public.users
+set tenant_id = (select tenant_id from _financeiro_estoque_ctx), role = 'gerente', is_active = true
+where id = (select active_user_id from _financeiro_estoque_ctx);
+
+update public.users
+set tenant_id = (select tenant_id from _financeiro_estoque_ctx), role = 'gerente', is_active = false
+where id = (select inactive_user_id from _financeiro_estoque_ctx);
+
+grant select on _financeiro_estoque_ctx to authenticated;
 
 create temp table _financeiro_estoque_behavior (check_name text, observed text) on commit drop;
 grant insert, select on _financeiro_estoque_behavior to authenticated;
 
-select set_config(
-  'request.jwt.claim.sub',
-  (select u.id::text from public.users u where u.tenant_id is not null and u.is_active order by u.id limit 1),
-  true
-);
+select set_config('request.jwt.claim.sub', (select active_user_id::text from _financeiro_estoque_ctx), true);
 set local role authenticated;
 
 do $$
 declare
-  v_product uuid;
+  v_product uuid := (select product_id from _financeiro_estoque_ctx);
   v_error text;
   v_stock numeric;
   v_movements bigint;
 begin
-  select id into v_product from public.products where name like '__financeiro_estoque_baseline__%' order by name limit 1;
   begin
     perform public.adjust_product_stock(v_product, 'entry_manual', 1, null, 'baseline', null);
     insert into _financeiro_estoque_behavior values ('detailed_type_call', 'accepted');
@@ -164,20 +169,20 @@ end $$;
 
 select is(
   (select observed from _financeiro_estoque_behavior where check_name = 'detailed_type_call'),
-  'Tipo de movimentação inválido: entry_manual',
-  'current stock function rejects the detailed entry type'
+  'accepted',
+  'current stock function accepts the detailed entry type'
 );
 
 select is(
   (select observed from _financeiro_estoque_behavior where check_name = 'post_call_stock'),
-  '0',
-  'rejected stock adjustment leaves product balance unchanged'
+  '1',
+  'accepted stock adjustment increases product balance'
 );
 
 select is(
   (select observed from _financeiro_estoque_behavior where check_name = 'post_call_movements'),
-  '0',
-  'rejected stock adjustment leaves movement history unchanged'
+  '1',
+  'accepted stock adjustment records movement history'
 );
 
 select is(
@@ -187,25 +192,16 @@ select is(
 );
 
 reset role;
-update public.users
-set is_active = false
-where id = (
-  select u.id
-  from public.users u
-  where u.tenant_id is not null
-    and u.is_active
-  order by u.id
-  limit 1
-);
+select set_config('request.jwt.claim.sub', (select inactive_user_id::text from _financeiro_estoque_ctx), true);
 set local role authenticated;
 
 select is(
   (select count(*) from public.products where name like '__financeiro_estoque_baseline__%'),
-  1::bigint,
-  'baseline records that inactive tenant user still sees own products'
+  0::bigint,
+  'inactive tenant user no longer sees own products'
 );
 
 reset role;
 
-select * from finish();
+select * from finish(true);
 rollback;

@@ -72,5 +72,5 @@ select is(
   'missing slug returns no context'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

@@ -2,6 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(11);
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
 create temporary table ticket18_context (
   user_id uuid not null,
   tenant_id uuid not null,
@@ -22,50 +23,51 @@ create temporary table ticket18_context (
   mismatch_comanda_id uuid not null
 ) on commit drop;
 
-insert into ticket18_context
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket18_ctx__', '__ticket18_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket18_ctx__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Profissional Sintetico', '11988887777', 30, true
+  from t
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, commission_percentage, is_active)
+  select t.id, 'Servico Sintetico', 50, 'corte', null, true
+  from t
+  returning id, tenant_id
+)
+insert into ticket18_context (
+  user_id, tenant_id, service_id, professional_id,
+  unavailable_comanda_id, unavailable_item_id,
+  backfill_comanda_id, backfill_item_id,
+  reopen_comanda_id, reopen_estimated_item_id, reopen_unavailable_item_id,
+  closed_session_id, appointment_id, appointment_start_time, appointment_end_time,
+  cancel_comanda_id, mismatch_comanda_id
+)
 select
-  u.id,
-  u.tenant_id,
-  s.id,
-  p.id,
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  gen_random_uuid(),
-  a.start_time,
-  a.end_time,
-  gen_random_uuid(),
-  gen_random_uuid()
-from public.users u
-join public.services s
-  on s.tenant_id = u.tenant_id
- and coalesce(s.is_active, true)
- and s.deleted_at is null
-join public.professionals p
-  on p.tenant_id = u.tenant_id
- and p.is_active
- and p.deleted_at is null
-join lateral (
-  select a.start_time, a.end_time
-  from public.appointments a
-  where a.tenant_id = u.tenant_id
-    and a.professional_id = p.id
-    and a.service_id = s.id
-  order by a.start_time desc
-  limit 1
-) a on true
-where u.is_active
-  and u.role = 'gerente'
-order by u.id, s.id, p.id
-limit 1;
+  au.id, t.id, svc.id, prof.id,
+  gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
+  timezone('utc'::text, now()) - interval '3 hours',
+  timezone('utc'::text, now()) - interval '2 hours 20 minutes',
+  gen_random_uuid(), gen_random_uuid()
+from t, au, prof, svc;
+
+update public.users
+set tenant_id = (select tenant_id from ticket18_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket18_context);
+
 grant select on ticket18_context to authenticated;
 
-select is((select count(*) from ticket18_context), 1::bigint, 'encontra contexto real para os testes comportamentais');
+select is((select count(*) from ticket18_context), 1::bigint, 'cria contexto sintetico para os testes comportamentais');
 
 reset role;
 
@@ -224,5 +226,5 @@ select lives_ok(
 select is((select status from public.comandas where id = (select cancel_comanda_id from ticket18_context)), 'cancelada', 'cancelamento atualiza a comanda');
 select is((select status from public.appointments where id = (select appointment_id from ticket18_context)), 'canceled', 'cancelamento atualiza o agendamento');
 
-select * from finish();
+select * from finish(true);
 rollback;

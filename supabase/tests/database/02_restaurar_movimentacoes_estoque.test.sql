@@ -2,6 +2,27 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(17);
 
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+create temporary table ticket02_ctx (tenant_id uuid not null, user_id uuid not null) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket02_ctx__', '__ticket02_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket02_ctx__auth@teste.com')
+  returning id
+)
+insert into ticket02_ctx (tenant_id, user_id)
+select t.id, au.id from t, au;
+
+update public.users
+set tenant_id = (select tenant_id from ticket02_ctx), role = 'gerente', is_active = true
+where id = (select user_id from ticket02_ctx);
+
+grant select on ticket02_ctx to authenticated;
+
 insert into public.products (
   tenant_id,
   name,
@@ -14,7 +35,7 @@ insert into public.products (
   is_active
 )
 select
-  u.tenant_id,
+  tenant_id,
   '__ticket02_stock__',
   'retail',
   'un',
@@ -23,26 +44,9 @@ select
   10,
   2,
   true
-from public.users u
-where u.tenant_id is not null
-  and u.is_active
-  and u.role in ('gerente', 'proprietario')
-order by u.id
-limit 1;
+from ticket02_ctx;
 
-select set_config(
-  'request.jwt.claim.sub',
-  (
-    select u.id::text
-    from public.users u
-    where u.tenant_id is not null
-      and u.is_active
-      and u.role in ('gerente', 'proprietario')
-    order by u.id
-    limit 1
-  ),
-  true
-);
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket02_ctx), true);
 set local role authenticated;
 
 select lives_ok(
@@ -133,5 +137,5 @@ select is(
 );
 
 reset role;
-select * from finish();
+select * from finish(true);
 rollback;

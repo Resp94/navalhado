@@ -36,8 +36,12 @@ select has_index(
   'public', 'professionals', 'professionals_user_id_uidx',
   'one professional record per auth user'
 );
-select has_constraint(
-  'public', 'appointments', 'appointments_no_professional_overlap',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.appointments'::regclass
+      and conname = 'appointments_no_professional_overlap'
+  ),
   'overlapping active appointments are blocked'
 );
 select ok(
@@ -46,12 +50,16 @@ select ok(
       and policyname = 'appointments_select_policy')) > 0,
   'barber appointment reads are professional-scoped'
 );
+-- A tabela legada `payments` foi substituida por `comanda_pagamentos`.
+-- Achado pendente (fora do escopo desta suite): a policy atual de leitura
+-- ainda nao restringe barbeiro ao proprio atendimento, ao contrario da
+-- antiga payments_select_policy. Ver tarefa de follow-up.
 select ok(
-  position('is_own_appointment' in (select qual from pg_policies
-    where schemaname = 'public' and tablename = 'payments'
-      and policyname = 'payments_select_policy')) > 0,
+  position('is_own_appointment' in coalesce((select qual from pg_policies
+    where schemaname = 'public' and tablename = 'comanda_pagamentos'
+      and policyname = 'comanda_pagamentos_select_active'), '')) > 0,
   'barber payment reads are professional-scoped'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;
