@@ -31,6 +31,8 @@ import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComis
 import { LancarValeModal } from '../../components/financeiro/LancarValeModal';
 import { DetalhesComissaoModal } from '../../components/financeiro/DetalhesComissaoModal';
 import { ExtratoContaProfissionalModal } from '../../components/financeiro/ExtratoContaProfissionalModal';
+import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
+import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
 import { MobileCaixaView } from './mobile/MobileCaixaView';
 
 export interface FinancialMetrics {
@@ -70,6 +72,7 @@ export interface CommissionPayoutHistoryItem {
   payment_method: string;
   notes: string | null;
   paid_at: string;
+  reversed_at: string | null;
 }
 
 type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
@@ -96,6 +99,7 @@ export const Financeiro: React.FC = () => {
 
   // Estados de Caixa
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
+  const [comissaoRepo] = useState(() => new ComissaoRepository(new SupabaseComissaoAdapter()));
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
   const [activeSessionCashReceipts, setActiveSessionCashReceipts] = useState<number>(0);
   const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary>({ total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 });
@@ -121,6 +125,10 @@ export const Financeiro: React.FC = () => {
   const [selectedProfForDetails, setSelectedProfForDetails] = useState<{ id: string; name: string } | null>(null);
   const [selectedProfForExtrato, setSelectedProfForExtrato] = useState<{ id: string; name: string } | null>(null);
   const [payoutsHistory, setPayoutsHistory] = useState<CommissionPayoutHistoryItem[]>([]);
+  const [reversingPayoutId, setReversingPayoutId] = useState<string | null>(null);
+  const [payoutReversalReason, setPayoutReversalReason] = useState<string>('');
+  const [payoutReversalError, setPayoutReversalError] = useState<string | null>(null);
+  const [isReversingPayout, setIsReversingPayout] = useState(false);
 
   // 1. Cálculo de Período
   const calculateDates = useCallback(() => {
@@ -198,6 +206,7 @@ export const Financeiro: React.FC = () => {
           payment_method,
           notes,
           paid_at,
+          reversed_at,
           professional:professionals!professional_id(name)
         `)
         .eq('tenant_id', tenant.tenantId)
@@ -214,6 +223,7 @@ export const Financeiro: React.FC = () => {
           payment_method: string;
           notes: string | null;
           paid_at: string;
+          reversed_at: string | null;
           professional?: { name: string } | null;
         }
 
@@ -227,6 +237,7 @@ export const Financeiro: React.FC = () => {
             payment_method: p.payment_method,
             notes: p.notes,
             paid_at: p.paid_at,
+            reversed_at: p.reversed_at,
           }))
         );
       }
@@ -322,6 +333,30 @@ export const Financeiro: React.FC = () => {
       console.error('Erro ao registrar suprimento:', err);
       addToast(err?.message || 'Erro ao registrar suprimento.', 'error');
       throw err;
+    }
+  };
+
+  const handleConfirmPayoutReversal = async (payoutId: string) => {
+    setPayoutReversalError(null);
+    if (payoutReversalReason.trim().length < 5) {
+      setPayoutReversalError('Informe uma justificativa com pelo menos cinco caracteres.');
+      return;
+    }
+    setIsReversingPayout(true);
+    try {
+      await comissaoRepo.reversePayout({
+        payout_id: payoutId,
+        tenant_id: tenant?.tenantId || null,
+        reason: payoutReversalReason.trim(),
+      });
+      setReversingPayoutId(null);
+      setPayoutReversalReason('');
+      addToast('Quitação estornada com sucesso.', 'success');
+      await fetchFinancialData();
+    } catch (err: any) {
+      setPayoutReversalError(err?.message || 'Não foi possível estornar a quitação.');
+    } finally {
+      setIsReversingPayout(false);
     }
   };
 
@@ -1032,11 +1067,13 @@ export const Financeiro: React.FC = () => {
                       <th>Forma de pagamento</th>
                       <th>Valor pago</th>
                       <th>Observações</th>
+                      <th>Status</th>
+                      <th>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payoutsHistory.map((pay) => (
-                      <tr key={pay.id}>
+                      <tr key={pay.id} style={pay.reversed_at ? { opacity: 0.55 } : undefined}>
                         <td style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
                         <td style={{ fontWeight: 700 }}>{pay.professional_name}</td>
                         <td style={{ color: 'var(--color-text-secondary)' }}>
@@ -1048,10 +1085,71 @@ export const Financeiro: React.FC = () => {
                         <td style={{ color: 'var(--color-text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pay.notes || ''}>
                           {pay.notes || '-'}
                         </td>
+                        <td>
+                          {pay.reversed_at ? (
+                            <span className="payout-status-badge payout-status-badge--reversed">Estornado</span>
+                          ) : (
+                            <span className="payout-status-badge payout-status-badge--paid">Pago</span>
+                          )}
+                        </td>
+                        <td>
+                          {pay.reversed_at ? (
+                            '-'
+                          ) : reversingPayoutId === pay.id ? (
+                            <div className="payout-reversal-form">
+                              <input
+                                type="text"
+                                className="payout-reversal-input"
+                                placeholder="Motivo do estorno"
+                                value={payoutReversalReason}
+                                onChange={(e) => setPayoutReversalReason(e.target.value)}
+                                aria-label="Motivo do estorno da quitação"
+                                disabled={isReversingPayout}
+                              />
+                              <button
+                                type="button"
+                                className="payout-reversal-confirm-btn"
+                                onClick={() => handleConfirmPayoutReversal(pay.id)}
+                                disabled={isReversingPayout}
+                              >
+                                Confirmar
+                              </button>
+                              <button
+                                type="button"
+                                className="payout-reversal-cancel-btn"
+                                onClick={() => {
+                                  setReversingPayoutId(null);
+                                  setPayoutReversalReason('');
+                                  setPayoutReversalError(null);
+                                }}
+                                disabled={isReversingPayout}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-table-action btn-table-action--ghost"
+                              onClick={() => {
+                                setReversingPayoutId(pay.id);
+                                setPayoutReversalReason('');
+                                setPayoutReversalError(null);
+                              }}
+                            >
+                              Estornar
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {payoutReversalError && (
+                  <div className="table-empty-notice" role="alert" style={{ color: 'var(--color-error, #F05252)' }}>
+                    {payoutReversalError}
+                  </div>
+                )}
               </div>
             )}
           </div>
