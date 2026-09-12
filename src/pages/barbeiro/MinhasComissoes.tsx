@@ -4,6 +4,11 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { ContaProfissionalRepository } from '../../modules/contaProfissional/ContaProfissionalRepository';
+import { SupabaseContaProfissionalAdapter } from '../../modules/contaProfissional/adapters/SupabaseContaProfissionalAdapter';
+import type { ProfessionalAccountEntry } from '../../modules/contaProfissional/types';
+
+const contaProfissionalRepository = new ContaProfissionalRepository(new SupabaseContaProfissionalAdapter());
 
 // Interfaces
 interface ProfessionalProfile {
@@ -71,6 +76,8 @@ export const MinhasComissoes: React.FC = () => {
   const [totalCommission, setTotalCommission] = useState<number>(0);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  // Vales em aberto (ticket 05 da spec 034): o profissional vê os próprios, não os dos colegas.
+  const [openAdvances, setOpenAdvances] = useState<ProfessionalAccountEntry[]>([]);
 
   // 1. Verificar autenticacao e buscar perfil do profissional
   useEffect(() => {
@@ -116,6 +123,29 @@ export const MinhasComissoes: React.FC = () => {
       isMounted = false;
     };
   }, [navigate, addToast]);
+
+  // 1b. Carregar vales em aberto do profissional logado (ticket 05 da spec 034).
+  // A RLS já restringe a leitura à própria conta; esta chamada não depende disso
+  // para funcionar corretamente, mas a garantia é dupla.
+  useEffect(() => {
+    if (!professional) return;
+    let isMounted = true;
+
+    contaProfissionalRepository
+      .listEntries(professional.id, professional.tenant_id)
+      .then((entries) => {
+        if (isMounted) {
+          setOpenAdvances(entries.filter((e) => e.entry_type === 'vale' && e.status !== 'reversed'));
+        }
+      })
+      .catch(() => {
+        if (isMounted) setOpenAdvances([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [professional]);
 
   // 2. Buscar/Gerar dados de comissão com base no período selecionado
   useEffect(() => {
@@ -456,6 +486,23 @@ export const MinhasComissoes: React.FC = () => {
                 </div>
               </div>
             </section>
+
+            {openAdvances.length > 0 && (
+              <section className="advances-bezel" aria-labelledby="advances-section-title">
+                <div className="advances-header">
+                  <span id="advances-section-title" className="advances-eyebrow">Vales em aberto</span>
+                  <p className="advances-hint">Adiantamentos registrados pela gestão, ainda não quitados.</p>
+                </div>
+                <ul className="advances-list">
+                  {openAdvances.map((entry) => (
+                    <li key={entry.id} className="advances-item">
+                      <span className="advances-item-amount">{formatCurrency(entry.amount)}</span>
+                      <span className="advances-item-reason">{entry.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </main>
         )}
       </div>
@@ -702,6 +749,58 @@ export const MinhasComissoes: React.FC = () => {
         .stats-footnote strong {
           color: var(--color-brand-primary);
           font-weight: 700;
+        }
+
+        /* =========================================
+           VALES EM ABERTO (ticket 05 da spec 034)
+           ========================================= */
+        .advances-bezel {
+          background: var(--color-bg-secondary);
+          border-radius: var(--radius-xl);
+          padding: 1.25rem 1.5rem;
+          margin-top: 1.25rem;
+          box-shadow: 0 4px 16px rgba(45, 35, 30, 0.04);
+        }
+        .advances-header {
+          margin-bottom: 0.75rem;
+        }
+        .advances-eyebrow {
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+        }
+        .advances-hint {
+          font-size: 0.8rem;
+          color: var(--color-text-secondary);
+          margin: 0.2rem 0 0;
+        }
+        .advances-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .advances-item {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.4rem 0;
+          border-bottom: 1px dashed var(--color-border);
+        }
+        .advances-item-amount {
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          color: var(--color-brand-primary);
+        }
+        .advances-item-reason {
+          font-size: 0.8rem;
+          color: var(--color-text-secondary);
+          text-align: right;
         }
 
         /* =========================================

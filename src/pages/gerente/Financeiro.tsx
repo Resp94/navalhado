@@ -28,6 +28,7 @@ import { AberturaAssistidaCaixaModal } from '../../components/caixa/AberturaAssi
 import { FechamentoCaixaModal } from '../../components/caixa/FechamentoCaixaModal';
 import { ExtratoSessaoCaixaModal } from '../../components/caixa/ExtratoSessaoCaixaModal';
 import { QuitacaoComissaoModal } from '../../components/financeiro/QuitacaoComissaoModal';
+import { LancarValeModal } from '../../components/financeiro/LancarValeModal';
 import { DetalhesComissaoModal } from '../../components/financeiro/DetalhesComissaoModal';
 import { MobileCaixaView } from './mobile/MobileCaixaView';
 
@@ -115,6 +116,7 @@ export const Financeiro: React.FC = () => {
 
   // Estados de Quitação e Detalhes de Comissão
   const [selectedProfForPayout, setSelectedProfForPayout] = useState<FinancialMetrics['commissions_by_professional'][0] | null>(null);
+  const [selectedProfForVale, setSelectedProfForVale] = useState<{ id: string; name: string } | null>(null);
   const [selectedProfForDetails, setSelectedProfForDetails] = useState<{ id: string; name: string } | null>(null);
   const [payoutsHistory, setPayoutsHistory] = useState<CommissionPayoutHistoryItem[]>([]);
 
@@ -972,6 +974,13 @@ export const Financeiro: React.FC = () => {
                               Ver comandas
                             </button>
                             <button
+                              onClick={() => setSelectedProfForVale({ id: p.professional_id, name: p.professional_name })}
+                              type="button"
+                              className="btn-table-action btn-table-action--ghost"
+                            >
+                              Vale
+                            </button>
+                            <button
                               onClick={() => setSelectedProfForPayout(p)}
                               type="button"
                               className="btn-table-action btn-table-action--primary"
@@ -1096,6 +1105,19 @@ export const Financeiro: React.FC = () => {
           fetchFinancialData();
         }}
         onClose={() => setSelectedProfForPayout(null)}
+      />
+
+      {/* Vale de Profissional (ticket 05 da spec 034) */}
+      <LancarValeModal
+        isOpen={!!selectedProfForVale}
+        professional={selectedProfForVale}
+        tenantId={tenant?.tenantId}
+        activeCashSessionId={activeSession?.id ?? null}
+        onSuccess={() => {
+          addToast('Vale atualizado com sucesso!', 'success');
+          fetchFinancialData();
+        }}
+        onClose={() => setSelectedProfForVale(null)}
       />
 
       {/* Modal 4: Detalhes de Comandas do Profissional */}

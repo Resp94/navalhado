@@ -169,6 +169,75 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(screen.getByText('Pagar comissão')).toBeInTheDocument();
   });
 
+  it('deve permitir lançar vale de profissional a partir do Hub Financeiro (ticket 05)', async () => {
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'register_professional_advance') {
+        return Promise.resolve({
+          data: { success: true, entry_id: 'entry-1', professional_id: 'prof-1', amount: 50, cash_movement_id: null, cash_session_id: null },
+          error: null,
+        });
+      }
+      if (name === 'get_tenant_financial_metrics') {
+        return Promise.resolve({
+          data: {
+            total_revenue: 1000.0,
+            services_revenue: 800.0,
+            products_revenue: 200.0,
+            products_count: 4,
+            products_cost: 80.0,
+            total_commission: 300.0,
+            paid_commission: 100.0,
+            pending_commission: 200.0,
+            net_revenue: 620.0,
+            revenue_by_method: { pix: 1000.0 },
+            commissions_by_professional: [
+              {
+                professional_id: 'prof-1',
+                professional_name: 'Carlos Barbeiro',
+                commission_sum: 300.0,
+                paid_sum: 100.0,
+                pending_sum: 200.0,
+                appointments_count: 5,
+              },
+            ],
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    render(<Financeiro />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Caixa diário e turnos/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Repasses de comissões/i }));
+    expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Vale$/i }));
+
+    const amountInput = await screen.findByLabelText('Valor do vale (R$) *');
+    fireEvent.change(amountInput, { target: { value: '50,00' } });
+    const reasonInput = screen.getByLabelText('Motivo *');
+    fireEvent.change(reasonInput, { target: { value: 'Adiantamento para material de trabalho' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Lançar vale/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith(
+        'register_professional_advance',
+        expect.objectContaining({
+          p_professional_id: 'prof-1',
+          p_amount: 50,
+          p_reason: 'Adiantamento para material de trabalho',
+          p_payment_method: 'pix',
+        })
+      );
+    });
+  });
+
   it('deve permitir trocar o período de consulta (30 dias, 90 dias)', async () => {
     mockRpc.mockResolvedValue({
       data: {
