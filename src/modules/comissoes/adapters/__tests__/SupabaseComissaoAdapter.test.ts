@@ -32,8 +32,29 @@ describe('SupabaseComissaoAdapter', () => {
       p_notes: 'Quitação semanal',
       p_paid_at: '2026-09-11T12:00:00.000Z',
       p_tenant_id: 'tenant-1',
+      p_cash_session_id: null,
     });
     expect(result.payout_id).toBe('payout-1');
+  });
+
+  it('encaminha a sessao de caixa quando a quitacao e em dinheiro', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { success: true, payout_id: 'payout-2', amount: 30, professional_id: 'prof-1' },
+      error: null,
+    });
+
+    await new SupabaseComissaoAdapter().registrarQuitacao({
+      professional_id: 'prof-1',
+      amount: 30,
+      payment_method: 'cash',
+      tenant_id: 'tenant-1',
+      cash_session_id: 'session-1',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'register_commission_payout',
+      expect.objectContaining({ p_cash_session_id: 'session-1' })
+    );
   });
 
   it('traduz erro do banco em erro de domínio ao registrar quitação', async () => {

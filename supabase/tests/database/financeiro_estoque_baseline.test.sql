@@ -50,7 +50,7 @@ select ok(
 );
 
 select ok(
-  has_function_privilege('authenticated', 'public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid)', 'EXECUTE'),
+  has_function_privilege('authenticated', 'public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid,uuid)', 'EXECUTE'),
   'authenticated role can call the current commission payout function'
 );
 

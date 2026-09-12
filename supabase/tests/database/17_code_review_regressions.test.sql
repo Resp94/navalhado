@@ -83,7 +83,7 @@ select ok(
 );
 
 select ok(
-  position('legacy_allocated_amount' in pg_get_functiondef('public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid)'::regprocedure)) > 0,
+  position('legacy_allocated_amount' in pg_get_functiondef('public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid,uuid)'::regprocedure)) > 0,
   'quitacao registra a parcela legada de payout misto'
 );
 

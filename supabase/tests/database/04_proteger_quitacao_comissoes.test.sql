@@ -86,7 +86,7 @@ select lives_ok(
       ) entry
       where entry->>'professional_id' = (select professional_id::text from ticket04_context)
     ), 0),
-    'cash',
+    'transfer',
     'ticket04 total',
     timezone('utc', now()),
     (select tenant_id from public.users where id = (select auth.uid()))

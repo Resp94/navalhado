@@ -82,6 +82,49 @@ describe('ComissaoRepository', () => {
     expect(mockAdapter.registrarQuitacao).not.toHaveBeenCalled();
   });
 
+  it('rejeita quitação em dinheiro sem sessão de caixa informada', async () => {
+    await expect(
+      repository.registerPayout({
+        professional_id: 'prof-1',
+        amount: 50,
+        payment_method: 'cash',
+      })
+    ).rejects.toThrow(ComissaoValidationError);
+    expect(mockAdapter.registrarQuitacao).not.toHaveBeenCalled();
+  });
+
+  it('rejeita sessão de caixa informada para método diferente de dinheiro', async () => {
+    await expect(
+      repository.registerPayout({
+        professional_id: 'prof-1',
+        amount: 50,
+        payment_method: 'pix',
+        cash_session_id: 'session-1',
+      })
+    ).rejects.toThrow(ComissaoValidationError);
+    expect(mockAdapter.registrarQuitacao).not.toHaveBeenCalled();
+  });
+
+  it('registra quitação em dinheiro repassando a sessão de caixa ao adaptador', async () => {
+    vi.mocked(mockAdapter.registrarQuitacao).mockResolvedValueOnce({
+      success: true,
+      payout_id: 'payout-2',
+      amount: 30,
+      professional_id: 'prof-1',
+    });
+
+    await repository.registerPayout({
+      professional_id: 'prof-1',
+      amount: 30,
+      payment_method: 'cash',
+      cash_session_id: 'session-1',
+    });
+
+    expect(mockAdapter.registrarQuitacao).toHaveBeenCalledWith(
+      expect.objectContaining({ cash_session_id: 'session-1' })
+    );
+  });
+
   it('propaga erro de domínio traduzido pelo adaptador', async () => {
     vi.mocked(mockAdapter.registrarQuitacao).mockRejectedValueOnce(
       new Error('O valor informado excede o saldo pendente de comissao.')

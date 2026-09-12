@@ -30,6 +30,12 @@ export class ComissaoRepository {
     if (!input.payment_method) {
       throw new ComissaoValidationError('A forma de pagamento é obrigatória.');
     }
+    if (input.payment_method === 'cash' && !input.cash_session_id) {
+      throw new ComissaoValidationError('Informe a sessão de caixa para quitação em dinheiro.');
+    }
+    if (input.payment_method !== 'cash' && input.cash_session_id) {
+      throw new ComissaoValidationError('Sessão de caixa só pode ser informada para quitação em dinheiro.');
+    }
 
     return await this.adapter.registrarQuitacao(input);
   }

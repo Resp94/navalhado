@@ -49,7 +49,7 @@ select has_table('public', 'commission_payout_allocations', 'tabela de alocacoes
 select has_function(
   'public',
   'register_commission_payout',
-  array['uuid', 'numeric', 'text', 'text', 'timestamp with time zone', 'uuid'],
+  array['uuid', 'numeric', 'text', 'text', 'timestamp with time zone', 'uuid', 'uuid'],
   'RPC de quitacao preserva a assinatura atual'
 );
 select has_function(
@@ -59,7 +59,7 @@ select has_function(
   'contrato de saldo atual e periodos existe'
 );
 select ok(
-  pg_get_functiondef('public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid)'::regprocedure) like '%for update%',
+  pg_get_functiondef('public.register_commission_payout(uuid,numeric,text,text,timestamptz,uuid,uuid)'::regprocedure) like '%for update%',
   'RPC bloqueia as obrigacoes para evitar sobrequitacao concorrente'
 );
 

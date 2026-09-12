@@ -1065,6 +1065,7 @@ export const Financeiro: React.FC = () => {
         isOpen={!!selectedProfForPayout}
         professional={selectedProfForPayout}
         tenantId={tenant?.tenantId}
+        activeCashSessionId={activeSession?.id ?? null}
         onSuccess={() => {
           setSelectedProfForPayout(null);
           addToast('Quitação de comissão registrada com sucesso!', 'success');

@@ -23,6 +23,8 @@ interface QuitacaoComissaoModalProps {
     paid_sum: number;
   } | null;
   tenantId?: string;
+  /** ID da sessão de caixa aberta no turno atual, se houver. */
+  activeCashSessionId?: string | null;
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -31,6 +33,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
   isOpen,
   professional,
   tenantId,
+  activeCashSessionId,
   onSuccess,
   onClose,
 }) => {
@@ -79,6 +82,12 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
       return;
     }
 
+    if (paymentMethod === 'cash' && !activeCashSessionId) {
+      setErrorMsg('Abra o caixa do turno antes de quitar comissão em dinheiro.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const dateTimestamp = paidAtDate
         ? new Date(`${paidAtDate}T12:00:00Z`).toISOString()
@@ -91,6 +100,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         notes: notes.trim() || null,
         paid_at: dateTimestamp,
         tenant_id: tenantId || null,
+        cash_session_id: paymentMethod === 'cash' ? activeCashSessionId : null,
       });
 
       onSuccess();
@@ -189,7 +199,9 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
                 required
               >
                 <option value="pix">PIX (transferência instantânea)</option>
-                <option value="cash">Dinheiro em espécie (retirado da gaveta)</option>
+                <option value="cash" disabled={!activeCashSessionId}>
+                  Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+                </option>
                 <option value="transfer">Transferência bancária (TED ou DOC)</option>
                 <option value="other">Outra forma de pagamento</option>
               </select>
