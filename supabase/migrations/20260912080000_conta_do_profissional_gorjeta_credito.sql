@@ -1,10 +1,11 @@
 -- Ticket 04 da spec 034: Conta do Profissional, com gorjeta como credito.
 -- ADR 019 registra o repasse de gorjeta como decisao distinta de comissionar gorjeta
 -- (ADR 018 decidiu que gorjeta nao gera comissao). Esta migration NAO altera
--- settle_comanda/settle_comanda_idempotent nem create_commission_obligations_from_closed_comanda:
--- a atribuicao de gorjeta e persistida por escrita direta na comanda ainda aberta
--- (settle_comanda nao sobrescreve colunas fora do seu proprio SET), e o credito nasce
--- de um trigger proprio, separado do trigger de obrigacoes de comissao.
+-- create_commission_obligations_from_closed_comanda nem a base de calculo da
+-- comissao: o credito de gorjeta nasce de um trigger proprio, separado do trigger
+-- de obrigacoes de comissao. settle_comanda/settle_comanda_idempotent SAO
+-- redefinidas (secao 5) apenas para receber a atribuicao da gorjeta como
+-- parametro do proprio fechamento -- ver a secao 5 para o motivo.
 
 -- -----------------------------------------------------------------------------
 -- 1. Atribuicao de gorjeta persistida na Comanda

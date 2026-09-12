@@ -289,6 +289,7 @@ select throws_ok(
     'gorjeta', 'credit', 5, 'Tentativa direta'
   )$$,
   '42501',
+  'permission denied for table professional_account_entries',
   'gerente autenticado nao pode inserir diretamente na Conta do Profissional'
 );
 
