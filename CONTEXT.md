@@ -149,6 +149,10 @@ _Avoid_: Fechamento cego automático, zeramento de gaveta sem conferência
 Transação formal de liquidação e repasse de valores faturados por um profissional (`commission_payouts`), registrando o valor pago, a forma de liquidação (PIX, dinheiro da gaveta, transferência bancária), data do pagamento e observações contábeis.
 _Avoid_: Baixa verbal de comissão, anotação em papel, repasse não rastreado
 
+**Conta do Profissional**:
+Extrato de créditos e débitos por profissional (`professional_account_entries`), separado da comissão automática de atendimentos. Gorjeta entra como crédito ao fechar a Comanda; vale e adiantamento entram como débito. Discrimina a natureza do lançamento (`entry_type`) da aritmética do saldo (`direction`), para que a soma de créditos e débitos nunca dependa de conhecer todo tipo de lançamento existente.
+_Avoid_: Extensão de comissão, saldo avulso, planilha paralela
+
 
 
 

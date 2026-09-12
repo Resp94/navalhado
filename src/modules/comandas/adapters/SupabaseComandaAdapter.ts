@@ -227,6 +227,7 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       p_cash_session_id: input.cash_session_id ?? null,
       p_itens: input.itens ?? [],
       p_pagamentos: input.pagamentos,
+      p_tip_professional_id: input.tip_professional_id ?? null,
     });
 
     if (error || !data) {

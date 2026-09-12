@@ -156,6 +156,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [tipValue, setTipValue] = useState<number>(0);
+  const [tipProfessionalId, setTipProfessionalId] = useState<string>('');
   const [isSplitting, setIsSplitting] = useState(false);
   const [pagamentos, setPagamentos] = useState<PagamentoLinha[]>([
     { method: 'pix', amount: 0, receivedCash: 0 },
@@ -458,6 +459,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
     return Math.max(0, subtotal - discountAmount + (tipValue || 0));
   }, [subtotal, discountAmount, tipValue, isClosed, loadedComanda]);
+
+  // Profissionais distintos presentes nos itens da comanda (ticket 04 da spec 034).
+  // A gorjeta pergunta de quem é apenas quando há mais de um; com um só, resolve sozinha.
+  const tipProfessionalOptions = useMemo(() => {
+    const distinctIds = Array.from(
+      new Set(itens.map((it) => it.professional_id).filter((id): id is string => !!id))
+    );
+    return distinctIds
+      .map((id) => availableProfessionals.find((p) => p.id === id))
+      .filter((p): p is (typeof availableProfessionals)[number] => !!p);
+  }, [itens, availableProfessionals]);
+
+  const resolvedTipProfessionalId = useMemo(() => {
+    if (tipProfessionalOptions.length === 1) {
+      return tipProfessionalOptions[0].id;
+    }
+    if (tipProfessionalOptions.length > 1) {
+      return tipProfessionalId || null;
+    }
+    return null;
+  }, [tipProfessionalOptions, tipProfessionalId]);
 
   // Sincronizar valor padrão da primeira linha de pagamento com o totalFinal se não estiver dividindo
   useEffect(() => {
@@ -780,6 +802,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         customer_id: customerId ?? null,
         discount_amount: discountAmount,
         tip_amount: tipValue,
+        // Ticket 04 da spec 034: a atribuição de gorjeta é gravada no MESMO
+        // fechamento, não por escrita separada antes -- o fluxo mais comum
+        // (checkout de agendamento novo) só cria a linha da Comanda dentro do
+        // próprio settle_comanda_idempotent, quando comandaId ainda é nulo aqui.
+        tip_professional_id: tipValue > 0 ? resolvedTipProfessionalId : null,
         cash_session_id: sessao.id,
         itens: itens.map((it) => ({
           item_type: it.item_type,
@@ -1454,7 +1481,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </div>
                       </div>
 
-                      <GorjetaValorInput value={tipValue} onChange={setTipValue} />
+                      <GorjetaValorInput
+                        value={tipValue}
+                        onChange={setTipValue}
+                        professionalOptions={tipProfessionalOptions}
+                        selectedProfessionalId={resolvedTipProfessionalId}
+                        onProfessionalChange={setTipProfessionalId}
+                      />
                     </div>
                   )}
 

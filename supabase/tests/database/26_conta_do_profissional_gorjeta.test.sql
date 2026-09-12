@@ -1,0 +1,297 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(25);
+
+-- Ticket 04 da spec 034: Conta do Profissional com gorjeta como credito.
+-- Contexto sintetico: nao depende de linhas preexistentes do DEV.
+create temporary table ticket26_context (
+  gerente_id uuid not null,
+  tenant_id uuid not null,
+  cash_session_id uuid not null,
+  service_id uuid not null,
+  professional_id uuid not null,
+  professional_user_id uuid not null,
+  outro_professional_id uuid not null,
+  outro_professional_user_id uuid not null,
+  comanda_a_id uuid not null,
+  comanda_b_id uuid not null,
+  comanda_c_id uuid not null,
+  comanda_d_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket26_ctx__', '__ticket26_ctx__@teste.com', '11999999999')
+  returning id
+), au_gerente as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26_gerente__auth@teste.com')
+  returning id
+), au_prof as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26_prof__auth@teste.com')
+  returning id
+), au_outro as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket26_outro__auth@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, user_id, name, phone, commission_percentage, is_active)
+  select t.id, au_prof.id, 'Profissional Ticket26', '11988880026', 30, true
+  from t, au_prof
+  returning id, tenant_id
+), outro_prof as (
+  insert into public.professionals (tenant_id, user_id, name, phone, commission_percentage, is_active)
+  select t.id, au_outro.id, 'Outro Profissional Ticket26', '11988880027', 30, true
+  from t, au_outro
+  returning id, tenant_id
+), svc as (
+  insert into public.services (tenant_id, name, price, category, is_active)
+  select t.id, 'Servico Ticket26', 50, 'corte', true
+  from t
+  returning id, tenant_id
+), cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au_gerente.id, 0, 'open'
+  from t, au_gerente
+  returning id, tenant_id
+)
+insert into ticket26_context (
+  gerente_id, tenant_id, cash_session_id, service_id,
+  professional_id, professional_user_id, outro_professional_id, outro_professional_user_id,
+  comanda_a_id, comanda_b_id, comanda_c_id, comanda_d_id
+)
+select au_gerente.id, t.id, cs.id, svc.id,
+  prof.id, au_prof.id, outro_prof.id, au_outro.id,
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+from t, au_gerente, au_prof, au_outro, prof, outro_prof, svc, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket26_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket26_context);
+update public.users
+set tenant_id = (select tenant_id from ticket26_context), role = 'barbeiro', is_active = true
+where id = (select professional_user_id from ticket26_context);
+update public.users
+set tenant_id = (select tenant_id from ticket26_context), role = 'barbeiro', is_active = true
+where id = (select outro_professional_user_id from ticket26_context);
+
+grant select on ticket26_context to authenticated;
+
+select ok((select count(*) from ticket26_context) = 1, 'encontra contexto sintetico completo');
+select has_table('public', 'professional_account_entries', 'tabela da Conta do Profissional existe');
+
+reset role;
+
+-- Comanda A: fecha com gorjeta e profissional atribuido -> credito deve nascer.
+-- A atribuicao (ticket 04) e parametro do proprio settle_comanda, nao pre-escrita
+-- na comanda aberta: por isso as linhas abaixo nao tocam tip_professional_id.
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda_a_id, tenant_id, 'aberta', 0, 0, 0
+from ticket26_context;
+insert into public.comanda_itens (comanda_id, tenant_id, item_type, service_id, professional_id, quantity, unit_price, total_price)
+select comanda_a_id, tenant_id, 'servico', service_id, professional_id, 1, 50, 50
+from ticket26_context;
+
+-- Comanda B: gorjeta > 0 mas sem profissional atribuido -> nenhum credito (estado aceito, sem atribuicao).
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda_b_id, tenant_id, 'aberta', 0, 0, 0
+from ticket26_context;
+insert into public.comanda_itens (comanda_id, tenant_id, item_type, service_id, professional_id, quantity, unit_price, total_price)
+select comanda_b_id, tenant_id, 'servico', service_id, professional_id, 1, 50, 50
+from ticket26_context;
+
+-- Comanda C: profissional atribuido mas gorjeta zero -> nenhum credito.
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda_c_id, tenant_id, 'aberta', 0, 0, 0
+from ticket26_context;
+insert into public.comanda_itens (comanda_id, tenant_id, item_type, service_id, professional_id, quantity, unit_price, total_price)
+select comanda_c_id, tenant_id, 'servico', service_id, professional_id, 1, 50, 50
+from ticket26_context;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket26_context), true);
+set local role authenticated;
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_a_id from ticket26_context), (select tenant_id from ticket26_context),
+    null, null, 0, 15, (select cash_session_id from ticket26_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26_context),'professional_id',(select professional_id from ticket26_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',65)),
+    (select professional_id from ticket26_context)
+  )$$,
+  'fecha comanda A com gorjeta e profissional atribuido'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  1,
+  'gera exatamente um credito de gorjeta para a comanda A'
+);
+select is(
+  (select amount from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  15::numeric,
+  'credito registra o valor exato da gorjeta'
+);
+select is(
+  (select professional_id from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  (select professional_id from ticket26_context),
+  'credito atribuido ao profissional correto'
+);
+select is(
+  (select entry_type from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  'gorjeta',
+  'lancamento classificado como gorjeta'
+);
+select is(
+  (select direction from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  'credit',
+  'lancamento de gorjeta e um credito'
+);
+select is(
+  (select status from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  'open',
+  'credito nasce em aberto'
+);
+select is(
+  (select tip_professional_id from public.comandas where id = (select comanda_a_id from ticket26_context)),
+  (select professional_id from ticket26_context),
+  'settle_comanda persiste a atribuicao no proprio fechamento, nao por escrita separada'
+);
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_b_id from ticket26_context), (select tenant_id from ticket26_context),
+    null, null, 0, 10, (select cash_session_id from ticket26_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26_context),'professional_id',(select professional_id from ticket26_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',60)),
+    null
+  )$$,
+  'fecha comanda B com gorjeta sem profissional atribuido'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_b_id from ticket26_context)),
+  0,
+  'gorjeta sem atribuicao nao gera credito (estado aceito, sem backfill)'
+);
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_c_id from ticket26_context), (select tenant_id from ticket26_context),
+    null, null, 0, 0, (select cash_session_id from ticket26_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26_context),'professional_id',(select professional_id from ticket26_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',50)),
+    (select professional_id from ticket26_context)
+  )$$,
+  'fecha comanda C sem gorjeta'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_c_id from ticket26_context)),
+  0,
+  'gorjeta zero nao gera credito'
+);
+
+-- Reabertura da comanda A: credito em aberto deve ser estornado.
+select lives_ok(
+  $$select public.reopen_comanda((select comanda_a_id from ticket26_context), (select tenant_id from ticket26_context))$$,
+  'reabre a comanda A com credito de gorjeta ainda em aberto'
+);
+select is(
+  (select status from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context) and reversed_at is not null),
+  'reversed',
+  'reabertura estorna o credito de gorjeta em aberto'
+);
+
+-- Fechar de novo: novo credito nasce sem colidir com o antigo (dedup pelo indice parcial).
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_a_id from ticket26_context), (select tenant_id from ticket26_context),
+    null, null, 0, 20, (select cash_session_id from ticket26_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26_context),'professional_id',(select professional_id from ticket26_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',70)),
+    (select professional_id from ticket26_context)
+  )$$,
+  'fecha a comanda A novamente apos a reabertura'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context)),
+  2,
+  'existem duas linhas para a comanda A: a estornada e a nova'
+);
+select is(
+  (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context) and reversed_at is null),
+  1,
+  'apenas uma linha permanece em aberto (indice parcial nao colide)'
+);
+select is(
+  (select amount from public.professional_account_entries where comanda_id = (select comanda_a_id from ticket26_context) and reversed_at is null),
+  20::numeric,
+  'a linha nova reflete o valor do fechamento mais recente'
+);
+
+reset role;
+
+-- Comanda D: simula quitacao (ticket 07 ainda nao existe) marcando o credito como
+-- liquidado diretamente, para provar que reopen_comanda recusa reabrir gorjeta ja quitada.
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda_d_id, tenant_id, 'aberta', 0, 0, 0
+from ticket26_context;
+insert into public.comanda_itens (comanda_id, tenant_id, item_type, service_id, professional_id, quantity, unit_price, total_price)
+select comanda_d_id, tenant_id, 'servico', service_id, professional_id, 1, 50, 50
+from ticket26_context;
+
+set local role authenticated;
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_d_id from ticket26_context), (select tenant_id from ticket26_context),
+    null, null, 0, 12, (select cash_session_id from ticket26_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket26_context),'professional_id',(select professional_id from ticket26_context),'quantity',1,'unit_price',50)),
+    jsonb_build_array(jsonb_build_object('payment_method','pix','amount',62)),
+    (select professional_id from ticket26_context)
+  )$$,
+  'fecha a comanda D com gorjeta'
+);
+
+reset role;
+update public.professional_account_entries
+set settled_amount = amount, status = 'settled'
+where comanda_id = (select comanda_d_id from ticket26_context);
+
+set local role authenticated;
+select throws_ok(
+  $$select public.reopen_comanda((select comanda_d_id from ticket26_context), (select tenant_id from ticket26_context))$$,
+  'P0001',
+  'A comanda possui gorjeta ja quitada; estorne a quitacao antes de reabrir.',
+  'recusa reabrir comanda com gorjeta ja quitada na Conta do Profissional'
+);
+
+-- Isolamento de leitura: o profissional le a propria conta e nao a do colega.
+select set_config('request.jwt.claim.sub', (select professional_user_id::text from ticket26_context), true);
+select is(
+  (select count(*)::integer from public.professional_account_entries where tenant_id = (select tenant_id from ticket26_context)),
+  3,
+  'o profissional dono das gorjetas ve todas as suas linhas (comanda A: reabertura + relancamento, mais comanda D)'
+);
+
+select set_config('request.jwt.claim.sub', (select outro_professional_user_id::text from ticket26_context), true);
+select is(
+  (select count(*)::integer from public.professional_account_entries where tenant_id = (select tenant_id from ticket26_context)),
+  0,
+  'outro profissional nao ve as gorjetas do colega'
+);
+
+-- Escrita direta continua exclusiva de funcoes security definer.
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket26_context), true);
+select throws_ok(
+  $$insert into public.professional_account_entries (
+    tenant_id, professional_id, entry_type, direction, amount, reason
+  ) values (
+    (select tenant_id from ticket26_context), (select professional_id from ticket26_context),
+    'gorjeta', 'credit', 5, 'Tentativa direta'
+  )$$,
+  '42501',
+  'gerente autenticado nao pode inserir diretamente na Conta do Profissional'
+);
+
+reset role;
+select * from finish(true);
+rollback;

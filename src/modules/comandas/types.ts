@@ -51,6 +51,7 @@ export interface Comanda {
   total_amount: number;
   discount_amount: number;
   tip_amount: number;
+  tip_professional_id?: string | null;
   notes: string | null;
   created_at?: string;
   closed_at?: string | null;
@@ -90,6 +91,7 @@ export interface LiquidarComandaInput {
   customer_id?: string | null;
   discount_amount?: number;
   tip_amount?: number;
+  tip_professional_id?: string | null;
   cash_session_id?: string | null;
   itens?: ComandaItemInput[];
   pagamentos: Array<{

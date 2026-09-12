@@ -56,7 +56,7 @@ select ok((select count(*) from ticket05_context) = 1, 'encontra gerente ativo c
 select has_function(
   'public',
   'settle_comanda',
-  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb'],
+  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb', 'uuid'],
   'RPC transacional de finalização existe'
 );
 

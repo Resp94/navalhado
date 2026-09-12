@@ -115,6 +115,7 @@ describe('SupabaseComandaAdapter', () => {
       p_cash_session_id: 'session-1',
       p_itens: input.itens,
       p_pagamentos: input.pagamentos,
+      p_tip_professional_id: null,
     });
   });
 

@@ -5,7 +5,7 @@ select plan(14);
 select has_table('public', 'commission_obligations', 'livro de obrigacoes presente');
 select has_table('public', 'commission_payout_allocations', 'alocacoes de quitacao presentes');
 select has_table('public', 'cash_session_adjustments', 'ajustes de caixa presentes');
-select has_function('public', 'settle_comanda', array['uuid','uuid','uuid','uuid','numeric','numeric','uuid','jsonb','jsonb'], 'finalizacao atomica presente');
+select has_function('public', 'settle_comanda', array['uuid','uuid','uuid','uuid','numeric','numeric','uuid','jsonb','jsonb','uuid'], 'finalizacao atomica presente');
 select has_function('public', 'reopen_comanda', array['uuid','uuid'], 'reabertura atomica presente');
 select has_function('public', 'close_cash_session', array['uuid','uuid','numeric','text'], 'fechamento atomico presente');
 select has_function('public', 'register_commission_payout', array['uuid','numeric','text','text','timestamp with time zone','uuid','uuid'], 'quitacao protegida presente');
