@@ -28,8 +28,11 @@ with t as (
   from t
   returning id, tenant_id
 ), cs as (
+  -- Fundo de troco cobre as quitacoes em dinheiro deste teste (12 e depois
+  -- 16, apos o estorno da primeira liberar o valor): sem isso a validacao
+  -- de saldo de gaveta (correcao pos-QA) recusaria os repasses.
   insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
-  select t.id, au.id, 0, 'open'
+  select t.id, au.id, 20, 'open'
   from t, au
   returning id, tenant_id
 )
