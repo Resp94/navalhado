@@ -12,6 +12,17 @@ import type { SaldoComissaoProfissional } from '../../modules/comissoes/types';
 
 const comissaoRepository = new ComissaoRepository(new SupabaseComissaoAdapter());
 
+/**
+ * Maior abate de vale que ainda deixa pelo menos um centavo de repasse: o backend
+ * exige um valor de repasse maior que zero, então nunca sugerimos um abate que
+ * zere o campo sozinho (aconteceria sempre que o vale em aberto cobrisse o total
+ * devido ao profissional).
+ */
+function maxSafeAdvance(valeAberto: number, orcamentoDisponivel: number): number {
+  if (orcamentoDisponivel <= 0) return 0;
+  return Math.min(valeAberto, Math.max(0, orcamentoDisponivel - 0.01));
+}
+
 interface QuitacaoComissaoModalProps {
   isOpen: boolean;
   professional: {
@@ -82,11 +93,8 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         const creditoEmAberto = Math.max(0, saldo.credits_open_amount || 0);
         if (valeEmAberto > 0 || creditoEmAberto > 0) {
           const pendente = Math.max(0, professional.pending_sum || 0);
-          const abateSugerido = Math.min(valeEmAberto, pendente);
-          const liquidoSugerido = Math.max(
-            0,
-            saldo.suggested_net_amount ?? pendente - abateSugerido + creditoEmAberto
-          );
+          const abateSugerido = maxSafeAdvance(valeEmAberto, pendente + creditoEmAberto);
+          const liquidoSugerido = Math.max(0, pendente - abateSugerido + creditoEmAberto);
           setAdvanceAmount(formatCurrencyInput(abateSugerido));
           setCreditAmount(formatCurrencyInput(creditoEmAberto));
           setAmount(formatCurrencyInput(liquidoSugerido));
@@ -124,7 +132,7 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
   const handleAbaterValeTudo = () => {
     const totalPendente = Math.max(0, professional.pending_sum || 0);
     const credito = parseCurrencyInput(creditAmount);
-    const abate = Math.min(valeAberto, totalPendente);
+    const abate = maxSafeAdvance(valeAberto, totalPendente + credito);
     setAdvanceAmount(formatCurrencyInput(abate));
     setAmount(formatCurrencyInput(Math.max(0, totalPendente - abate + credito)));
   };

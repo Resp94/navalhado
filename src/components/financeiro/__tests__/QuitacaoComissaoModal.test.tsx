@@ -211,6 +211,67 @@ describe('QuitacaoComissaoModal', () => {
     });
   });
 
+  it('nunca sugere um repasse de R$0,00 quando o vale em aberto cobre toda a comissão pendente', async () => {
+    // Regressão: descoberta em teste manual no navegador (vale=20, pendente=16,60) — o
+    // abate sugerido não pode zerar o campo "valor do repasse", pois o backend exige
+    // um valor de repasse maior que zero mesmo quando o abate cobre tudo sozinho.
+    const professionalComValeMaiorQuePendencia = {
+      id: 'prof-vale-maior',
+      name: 'Erica Fernandes',
+      commission_sum: 64.0,
+      paid_sum: 0,
+      pending_sum: 16.6,
+    };
+
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return Promise.resolve({
+          data: {
+            current_open_balance: 16.6,
+            generated_commission: 16.6,
+            paid_commission: 0,
+            advances_open_amount: 20,
+            credits_open_amount: 0,
+            suggested_net_amount: 0,
+          },
+          error: null,
+        }) as any;
+      }
+      return Promise.resolve({ data: { success: true, payout_id: 'payout-6' }, error: null }) as any;
+    });
+
+    render(
+      <QuitacaoComissaoModal
+        isOpen={true}
+        professional={professionalComValeMaiorQuePendencia}
+        tenantId="tenant-abc"
+        onSuccess={mockOnSuccess}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Vale em aberto do profissional/i)).toBeDefined();
+    });
+
+    const amountInput = screen.getByLabelText(/Valor do repasse/i) as HTMLInputElement;
+    const advanceInput = screen.getByLabelText(/Abater vale em aberto/i) as HTMLInputElement;
+    await waitFor(() => {
+      expect(advanceInput.value).not.toBe('20,00');
+    });
+
+    const valorSugerido = Number(amountInput.value.replace('.', '').replace(',', '.'));
+    expect(valorSugerido).toBeGreaterThan(0);
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar quitação do repasse/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/deve ser maior que zero/i)).toBeNull();
+  });
+
   it('exibe a gorjeta em aberto e sugere o líquido somando comissão e gorjeta', async () => {
     vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
       if (fn === 'get_professional_commission_balance') {
