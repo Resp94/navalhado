@@ -839,6 +839,13 @@
   width: 100%;
 }
 
+/* O conteúdo da aba é irmão do cabeçalho do painel dentro de .financeiro-page (gap de 1.5rem).
+   A margem completa os 2rem que separavam a navegação do conteúdo quando os dois estavam
+   no mesmo .financeiro-desktop-view. */
+.financeiro-tab-content {
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 768px) {
   .financeiro-mobile-view {
     display: block;

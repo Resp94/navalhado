@@ -16,7 +16,7 @@ import type {
   DailyFinancialSummary,
   TurnPaymentsSummary,
 } from '../../../modules/caixa/types';
-import type { FinancialMetrics } from '../Financeiro';
+import type { FinancialMetrics } from '../financeiro/types';
 
 interface MobileCaixaViewProps {
   activeSession: CashSession | null;

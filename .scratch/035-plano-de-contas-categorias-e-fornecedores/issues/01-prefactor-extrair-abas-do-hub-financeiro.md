@@ -22,25 +22,51 @@ Financeiro em sub-rotas".
 
 **Status:** ready-for-agent
 
-- [ ] Cada aba do Hub Financeiro vive num componente próprio; a página mantém só o título, a
+- [x] Cada aba do Hub Financeiro vive num componente próprio; a página mantém só o título, a
       navegação entre abas, o filtro de período, os KPIs e o estado compartilhado.
-- [ ] Período, métricas, Sessão de Caixa ativa e função de atualização ficam na página e são
+- [x] Período, métricas, Sessão de Caixa ativa e função de atualização ficam na página e são
       entregues às duas abas.
-- [ ] Descem para a aba de Caixa o resumo do turno, os movimentos, o histórico de sessões, o resumo
+- [x] Descem para a aba de Caixa o resumo do turno, os movimentos, o histórico de sessões, o resumo
       por dia e os modais de abertura, fechamento e extrato.
-- [ ] Descem para a aba de Comissões o histórico de quitações, o estado de estorno de quitação e os
+- [x] Descem para a aba de Comissões o histórico de quitações, o estado de estorno de quitação e os
       modais de quitação, vale, detalhes e extrato do profissional.
-- [ ] A assinatura realtime continua cobrindo as mesmas quatro tabelas (comandas, pagamentos de
+- [x] A assinatura realtime continua cobrindo as mesmas quatro tabelas (comandas, pagamentos de
       comanda, sessões de caixa e movimentos de caixa) e continua atualizando tudo que a aba
       visível exibe.
-- [ ] O tipo das métricas financeiras, hoje exportado pela página e importado pela visão móvel de
+- [x] O tipo das métricas financeiras, hoje exportado pela página e importado pela visão móvel de
       caixa, passa a morar num arquivo de tipos do Hub, por expand-contract: primeiro o tipo novo,
       depois a visão móvel migrada, por fim nenhum reexport restante na página.
-- [ ] A folha de estilo do Hub continua única e compartilhada.
-- [ ] As abas continuam trocadas por estado de componente; nenhuma rota, URL ou posição de
+- [x] A folha de estilo do Hub continua única e compartilhada.
+- [x] As abas continuam trocadas por estado de componente; nenhuma rota, URL ou posição de
       navegação muda neste ticket.
-- [ ] Nenhuma correção de comportamento entra junto: filtro de período em data local do navegador,
+- [x] Nenhuma correção de comportamento entra junto: filtro de período em data local do navegador,
       prévia da gaveta que ignora repasses e vales e KPI "Lucro líquido livre" ficam como estão.
-- [ ] A suíte de testes da página do Hub Financeiro e a da visão móvel de caixa passam **sem
+- [x] A suíte de testes da página do Hub Financeiro e a da visão móvel de caixa passam **sem
       alteração nas asserções**.
-- [ ] `npm run test` verde.
+- [x] `npm run test` verde.
+
+## Notas da implementação
+
+**Arquivos.** `src/pages/gerente/financeiro/`: `CaixaTab.tsx`, `ComissoesTab.tsx`, `types.ts`
+(`FinancialMetrics`, `PainelFinanceiro`, `PainelTabProps`, `TabReload`) e `formatacao.ts`
+(`formatDate`, usado pelas duas abas). `Financeiro.tsx` continua no lugar, com o título, o filtro
+de período, os KPIs, a navegação, o realtime e o estado compartilhado. `Financeiro.css` continua
+único.
+
+**As duas abas ficam montadas; só a selecionada exibe o conteúdo de desktop** (`isActive`). É o que
+a página fazia antes, quando o `activeTab` só escolhia qual bloco de JSX renderizar. Montar apenas
+a aba selecionada foi tentado e revertido na revisão: zerava o estado da aba (o filtro do resumo
+por dia, um estorno em preenchimento), mostrava totais zerados até a nova busca e, com Comissões
+selecionada numa largura de celular, deixava a página em branco, porque a visão móvel de caixa vive
+na aba de Caixa. O ticket 02 monta a aba pela rota e aí o desmonte passa a ser o comportamento
+esperado.
+
+**Recarga.** Cada aba registra a sua recarga na página (`registerTabReload`), e o `refresh` da
+página recarrega métricas, Sessão de Caixa ativa e, em seguida, uma recarga de cada vez, como o
+`fetchFinancialData` original fazia numa função só. A primeira falha interrompe as seguintes e a
+página emite a única mensagem de erro, como antes. `realtimeVersion` existe para o resumo por dia,
+que só se recarregava por realtime e não junto das mutações.
+
+**Espaçamento.** O conteúdo da aba é irmão do cabeçalho do painel no DOM, porque a visão móvel de
+caixa precisa ficar fora do bloco de desktop. A regra `.financeiro-tab-content` repõe os 2rem que
+separavam a navegação do conteúdo. Nada muda na tela.
