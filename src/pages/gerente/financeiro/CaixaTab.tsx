@@ -54,7 +54,7 @@ export const CaixaTab: React.FC = () => {
   const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary>(EMPTY_TURN_SUMMARY);
   const [suprimentosTotal, setSuprimentosTotal] = useState<number>(0);
   const [sangriasTotal, setSangriasTotal] = useState<number>(0);
-  const [expectedDrawerAmount, setExpectedDrawerAmount] = useState<number>(0);
+  const [expectedDrawerAmount, setExpectedDrawerAmount] = useState<number | undefined>(undefined);
   const [repassesComissaoTotal, setRepassesComissaoTotal] = useState<number>(0);
   const [valesTotal, setValesTotal] = useState<number>(0);
   const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
@@ -107,8 +107,11 @@ export const CaixaTab: React.FC = () => {
             .reduce((sum, m) => sum + m.amount, 0)
         );
       } catch (error) {
+        // Deixa em `undefined`, nunca em zero: um R$ 0,00 falso pareceria um valor apurado e
+        // esconderia a falha numa tela de conferência de dinheiro físico. `undefined` é o mesmo
+        // sinal que o FechamentoCaixaModal já trata como "buscar de novo" (ticket 02/036).
         console.error('Erro ao apurar o valor esperado da gaveta:', error);
-        setExpectedDrawerAmount(0);
+        setExpectedDrawerAmount(undefined);
         setRepassesComissaoTotal(0);
         setValesTotal(0);
       }
@@ -329,7 +332,7 @@ export const CaixaTab: React.FC = () => {
                   </div>
                   <p className="turn-banner-desc">
                     {activeSession
-                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${formatCurrency(expectedDrawerAmount)}`
+                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${expectedDrawerAmount === undefined ? 'indisponível no momento' : formatCurrency(expectedDrawerAmount)}`
                       : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
                   </p>
                 </div>

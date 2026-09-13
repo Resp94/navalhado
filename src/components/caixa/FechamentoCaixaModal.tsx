@@ -58,6 +58,10 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const [contractExpectedAmount, setContractExpectedAmount] = useState<number | undefined>(expectedDrawerAmount);
   const [contractRepasses, setContractRepasses] = useState<number>(repassesComissaoTotal ?? 0);
   const [contractVales, setContractVales] = useState<number>(valesTotal ?? 0);
+  // Distingue "ainda buscando" de "falhou": nos dois casos `contractExpectedAmount` fica
+  // `undefined`, mas só o segundo precisa de aviso e opção de tentar de novo (achado de revisão:
+  // sem isso um R$ 0,00 por falha de rede parece um valor apurado numa tela de dinheiro físico).
+  const [expectedAmountFailed, setExpectedAmountFailed] = useState(false);
 
   const defaultRepo = useMemo(() => new CaixaRepository(new SupabaseCaixaAdapter()), []);
   const repo = caixaRepo || defaultRepo;
@@ -89,21 +93,31 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
       // repasses de comissão e vales em dinheiro (que descontam a gaveta junto com as sangrias)
       // vêm do mesmo detalhamento por tipo do contrato.
       if (expectedDrawerAmount === undefined) {
-        repo.getExpectedDrawerAmount(session.id, session.tenant_id)
-          .then((res) => {
-            setContractExpectedAmount(res?.expected_amount ?? 0);
-            const movements = res?.movements_by_type ?? [];
-            setContractRepasses(
-              movements.filter((m) => m.type === 'repasse_comissao').reduce((sum, m) => sum + m.amount, 0)
-            );
-            setContractVales(
-              movements.filter((m) => m.type === 'vale_profissional').reduce((sum, m) => sum + m.amount, 0)
-            );
-          })
-          .catch((err) => console.error('Erro ao carregar valor esperado da gaveta no fechamento:', err));
+        void fetchExpectedAmount(session);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, session, initialTurnSummary, expectedDrawerAmount, repo]);
+
+  const fetchExpectedAmount = async (currentSession: CashSession) => {
+    try {
+      const res = await repo.getExpectedDrawerAmount(currentSession.id, currentSession.tenant_id);
+      setContractExpectedAmount(res?.expected_amount ?? 0);
+      const movements = res?.movements_by_type ?? [];
+      setContractRepasses(
+        movements.filter((m) => m.type === 'repasse_comissao').reduce((sum, m) => sum + m.amount, 0)
+      );
+      setContractVales(
+        movements.filter((m) => m.type === 'vale_profissional').reduce((sum, m) => sum + m.amount, 0)
+      );
+      setExpectedAmountFailed(false);
+    } catch (err) {
+      // Nunca cai para 0: `contractExpectedAmount` permanece `undefined`, o que a tela trata como
+      // "indisponível", não como um valor apurado.
+      console.error('Erro ao carregar valor esperado da gaveta no fechamento:', err);
+      setExpectedAmountFailed(true);
+    }
+  };
 
   if (!isOpen || !session) return null;
 
@@ -240,9 +254,26 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           <div className="caixa-breakdown-item expected">
             <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado na gaveta:</span>
             <span className="caixa-breakdown-val font-bold caixa-val-highlight">
-              {formatCurrency(expectedAmount)}
+              {contractExpectedAmount === undefined
+                ? (expectedAmountFailed ? 'Indisponível' : 'Calculando…')
+                : formatCurrency(expectedAmount)}
             </span>
           </div>
+          {expectedAmountFailed ? (
+            <div className="caixa-breakdown-item" role="alert">
+              <span className="caixa-breakdown-label text-danger">
+                Não foi possível apurar o valor esperado da gaveta. A conferência abaixo fica
+                indisponível até a apuração ser refeita.
+              </span>
+              <button
+                type="button"
+                className="caixa-link-btn text-danger"
+                onClick={() => session && void fetchExpectedAmount(session)}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <form onSubmit={handleConfirm} className="caixa-modal-body">
@@ -265,33 +296,44 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             </div>
           </div>
 
-          <div
-            className={`caixa-conferencia-badge ${
-              Math.abs(difference) < 0.01
-                ? 'exact'
-                : difference > 0
-                ? 'surplus'
-                : 'shortage'
-            }`}
-          >
-            <span className="caixa-conferencia-icon">
-              <HugeiconsIcon
-                icon={
-                  Math.abs(difference) < 0.01
-                    ? CheckmarkCircle02Icon
-                    : AlertCircleIcon
-                }
-                size={18}
-              />
-            </span>
-            <span className="caixa-conferencia-text">
-              {Math.abs(difference) < 0.01
-                ? 'Conferência exata. O valor contado bate perfeitamente com o esperado.'
-                : difference > 0
-                ? `Sobra de caixa identificada (+${formatCurrency(difference)}). O valor físico é maior que o registrado.`
-                : `Divergência de caixa identificada (${formatCurrency(difference)}). O valor físico é menor que o esperado.`}
-            </span>
-          </div>
+          {contractExpectedAmount === undefined ? (
+            <div className="caixa-conferencia-badge">
+              <span className="caixa-conferencia-icon">
+                <HugeiconsIcon icon={AlertCircleIcon} size={18} />
+              </span>
+              <span className="caixa-conferencia-text">
+                Conferência indisponível: o valor esperado da gaveta ainda não foi apurado.
+              </span>
+            </div>
+          ) : (
+            <div
+              className={`caixa-conferencia-badge ${
+                Math.abs(difference) < 0.01
+                  ? 'exact'
+                  : difference > 0
+                  ? 'surplus'
+                  : 'shortage'
+              }`}
+            >
+              <span className="caixa-conferencia-icon">
+                <HugeiconsIcon
+                  icon={
+                    Math.abs(difference) < 0.01
+                      ? CheckmarkCircle02Icon
+                      : AlertCircleIcon
+                  }
+                  size={18}
+                />
+              </span>
+              <span className="caixa-conferencia-text">
+                {Math.abs(difference) < 0.01
+                  ? 'Conferência exata. O valor contado bate perfeitamente com o esperado.'
+                  : difference > 0
+                  ? `Sobra de caixa identificada (+${formatCurrency(difference)}). O valor físico é maior que o registrado.`
+                  : `Divergência de caixa identificada (${formatCurrency(difference)}). O valor físico é menor que o esperado.`}
+              </span>
+            </div>
+          )}
 
           <div className="caixa-field-group">
             <label htmlFor="fechamento-notes-input" className="caixa-label">

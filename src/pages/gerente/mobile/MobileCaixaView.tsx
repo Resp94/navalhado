@@ -55,7 +55,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   sangriasTotal = 0,
   repassesComissaoTotal = 0,
   valesTotal = 0,
-  expectedDrawerAmount = 0,
+  expectedDrawerAmount,
   metrics,
   historySessions,
   dailySummary = [],
@@ -288,7 +288,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         <div className="mobile-caixa__kpi-card">
           <span className="mobile-caixa__kpi-label">Dinheiro em gaveta</span>
           <span className="mobile-caixa__kpi-val">
-            {formatCurrency(totalCashInDrawer)}
+            {totalCashInDrawer === undefined ? 'indisponível' : formatCurrency(totalCashInDrawer)}
           </span>
         </div>
 
