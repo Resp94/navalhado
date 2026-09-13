@@ -18,7 +18,7 @@ import type { CashSession } from '../../modules/caixa/types';
 import { formatCurrency } from '../../lib/currency';
 import { CaixaTab } from './financeiro/CaixaTab';
 import { ComissoesTab } from './financeiro/ComissoesTab';
-import type { FinancialMetrics, PainelFinanceiro } from './financeiro/types';
+import type { FinancialMetrics, PainelFinanceiro, TabReload } from './financeiro/types';
 
 type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
 type TabType = 'caixa' | 'comissoes';
@@ -33,8 +33,16 @@ export const Financeiro: React.FC = () => {
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
-  const [painelVersion, setPainelVersion] = useState(0);
   const [realtimeVersion, setRealtimeVersion] = useState(0);
+  const tabReloadsRef = useRef(new Set<TabReload>());
+
+  const registerTabReload = useCallback((reload: TabReload) => {
+    const tabReloads = tabReloadsRef.current;
+    tabReloads.add(reload);
+    return () => {
+      tabReloads.delete(reload);
+    };
+  }, []);
 
   // 1. Cálculo de Período
   const calculateDates = useCallback(() => {
@@ -59,7 +67,7 @@ export const Financeiro: React.FC = () => {
     };
   }, [period]);
 
-  // 2. Busca de Métricas e Sessão de Caixa Ativa. Ao concluir, as abas recarregam o que exibem.
+  // 2. Busca de Métricas e Sessão de Caixa Ativa, seguida da recarga dos dados das abas
   const fetchPainel = useCallback(async () => {
     if (!tenant?.tenantId) return;
 
@@ -78,7 +86,11 @@ export const Financeiro: React.FC = () => {
 
       const session = await caixaRepo.getActiveSession(tenant.tenantId);
       setActiveSession(session);
-      setPainelVersion((version) => version + 1);
+
+      // Cada aba trata o próprio erro; a ordem de registro é a ordem de recarga
+      for (const reload of Array.from(tabReloadsRef.current)) {
+        await reload(session);
+      }
     } catch (error: any) {
       console.error('Erro ao carregar dados financeiros:', error);
       addToast('Não foi possível carregar os dados do painel financeiro.', 'error');
@@ -95,7 +107,7 @@ export const Financeiro: React.FC = () => {
     void fetchPainel();
   }, [fetchPainel]);
 
-  // Realtime: cada evento sinaliza as abas (realtimeVersion) e recarrega o painel (painelVersion)
+  // Realtime: cada evento recarrega o painel com as abas e sinaliza o que só recarrega por realtime
   useEffect(() => {
     if (!tenant?.tenantId || typeof supabase.channel !== 'function') return;
 
@@ -162,7 +174,7 @@ export const Financeiro: React.FC = () => {
     activeSession,
     setActiveSession,
     refresh: fetchPainel,
-    painelVersion,
+    registerTabReload,
     realtimeVersion,
   };
 
@@ -300,8 +312,9 @@ export const Financeiro: React.FC = () => {
       </nav>
       </div>
 
-      {/* 4. Conteúdo da aba ativa */}
-      {activeTab === 'caixa' ? <CaixaTab {...painel} /> : <ComissoesTab {...painel} />}
+      {/* 4. Abas: as duas ficam montadas, e só a selecionada exibe o conteúdo de desktop */}
+      <CaixaTab {...painel} isActive={activeTab === 'caixa'} />
+      <ComissoesTab {...painel} isActive={activeTab === 'comissoes'} />
     </div>
   );
 };

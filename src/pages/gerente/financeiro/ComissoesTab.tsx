@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useEffectEvent, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon } from '@hugeicons/core-free-icons';
@@ -14,7 +14,7 @@ import { PAYMENT_METHOD_LABELS } from '../../../modules/caixa/types';
 import { ComissaoRepository } from '../../../modules/comissoes/ComissaoRepository';
 import { SupabaseComissaoAdapter } from '../../../modules/comissoes/adapters/SupabaseComissaoAdapter';
 import { formatDate } from './formatacao';
-import type { FinancialMetrics, PainelFinanceiro } from './types';
+import type { FinancialMetrics, PainelTabProps } from './types';
 
 interface CommissionPayoutHistoryItem {
   id: string;
@@ -39,13 +39,14 @@ interface RawPayoutRow {
 }
 
 /** Aba "Repasses de comissões" do Hub Financeiro. */
-export const ComissoesTab: React.FC<PainelFinanceiro> = ({
+export const ComissoesTab: React.FC<PainelTabProps> = ({
   periodStart,
   periodEnd,
   metrics,
   activeSession,
   refresh,
-  painelVersion,
+  registerTabReload,
+  isActive,
 }) => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -105,15 +106,7 @@ export const ComissoesTab: React.FC<PainelFinanceiro> = ({
     }
   }, [tenant?.tenantId, periodStart, periodEnd, addToast]);
 
-  // Recarrega a cada carga do painel; a troca de período chega por ela, depois das métricas.
-  const loadPayoutsHistory = useEffectEvent(() => {
-    void fetchPayoutsHistory();
-  });
-
-  useEffect(() => {
-    if (painelVersion === 0) return;
-    loadPayoutsHistory();
-  }, [painelVersion]);
+  useEffect(() => registerTabReload(fetchPayoutsHistory), [registerTabReload, fetchPayoutsHistory]);
 
   const handleConfirmPayoutReversal = async (payoutId: string) => {
     setPayoutReversalError(null);
@@ -141,216 +134,218 @@ export const ComissoesTab: React.FC<PainelFinanceiro> = ({
 
   return (
     <>
-      <div className="financeiro-desktop-view financeiro-tab-content">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Tabela de Comissões por Barbeiro */}
-          <div className="card-panel">
-            <div className="card-panel-header">
-              <div>
-                <h3 className="card-panel-title">
-                  Saldos de comissão por profissional
-                </h3>
-                <p className="card-panel-subtitle">
-                  Acompanhe o faturamento de cada barbeiro e quite os repasses pendentes com clareza.
-                </p>
+      {isActive && (
+        <div className="financeiro-desktop-view financeiro-tab-content">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Tabela de Comissões por Barbeiro */}
+            <div className="card-panel">
+              <div className="card-panel-header">
+                <div>
+                  <h3 className="card-panel-title">
+                    Saldos de comissão por profissional
+                  </h3>
+                  <p className="card-panel-subtitle">
+                    Acompanhe o faturamento de cada barbeiro e quite os repasses pendentes com clareza.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {!metrics?.commissions_by_professional || metrics.commissions_by_professional.length === 0 ? (
-              <div className="table-empty-notice">
-                Nenhum atendimento ou comissão gerada no período selecionado.
-              </div>
-            ) : (
-              <div className="table-responsive-container">
-                <table className="financeiro-data-table">
-                  <thead>
-                    <tr>
-                      <th>Profissional</th>
-                      <th style={{ textAlign: 'center' }}>Atendimentos</th>
-                      <th>Total faturado</th>
-                      <th>Comissão gerada</th>
-                      <th>Já quitado</th>
-                      <th>Saldo pendente</th>
-                      <th style={{ textAlign: 'center' }}>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.commissions_by_professional.map((p) => (
-                      <tr key={p.professional_id || p.professional_name}>
-                        <td>
-                          <div className="cell-prof-name">
-                            <span>{p.professional_name}</span>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
-                          {p.appointments_count}
-                        </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                          {formatCurrency(p.gross_sum ?? p.commission_sum)}
-                        </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                          {formatCurrency(p.commission_sum)}
-                        </td>
-                        <td className="cell-paid-amount">
-                          {formatCurrency(p.paid_sum || 0)}
-                        </td>
-                        <td className="cell-pending-amount">
-                          {formatCurrency(p.pending_sum || 0)}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div className="cell-actions-group">
-                            <button
-                              onClick={() => setSelectedProfForDetails({ id: p.professional_id, name: p.professional_name })}
-                              type="button"
-                              className="btn-table-action btn-table-action--ghost"
-                            >
-                              Ver comandas
-                            </button>
-                            <button
-                              onClick={() => setSelectedProfForVale({ id: p.professional_id, name: p.professional_name })}
-                              type="button"
-                              className="btn-table-action btn-table-action--ghost"
-                            >
-                              Vale
-                            </button>
-                            <button
-                              onClick={() => setSelectedProfForExtrato({ id: p.professional_id, name: p.professional_name })}
-                              type="button"
-                              className="btn-table-action btn-table-action--ghost"
-                            >
-                              Extrato
-                            </button>
-                            <button
-                              onClick={() => setSelectedProfForPayout(p)}
-                              type="button"
-                              className="btn-table-action btn-table-action--primary"
-                            >
-                              <HugeiconsIcon icon={Coins01Icon} size={14} />
-                              Pagar comissão
-                            </button>
-                          </div>
-                        </td>
+              {!metrics?.commissions_by_professional || metrics.commissions_by_professional.length === 0 ? (
+                <div className="table-empty-notice">
+                  Nenhum atendimento ou comissão gerada no período selecionado.
+                </div>
+              ) : (
+                <div className="table-responsive-container">
+                  <table className="financeiro-data-table">
+                    <thead>
+                      <tr>
+                        <th>Profissional</th>
+                        <th style={{ textAlign: 'center' }}>Atendimentos</th>
+                        <th>Total faturado</th>
+                        <th>Comissão gerada</th>
+                        <th>Já quitado</th>
+                        <th>Saldo pendente</th>
+                        <th style={{ textAlign: 'center' }}>Ações</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Histórico de Repasses Quitados */}
-          <div className="card-panel">
-            <div className="card-panel-header">
-              <div>
-                <h3 className="card-panel-title">
-                  Histórico de quitações realizadas no período
-                </h3>
-                <p className="card-panel-subtitle">Registro detalhado de todos os pagamentos de comissão efetuados</p>
-              </div>
-            </div>
-
-            {payoutsHistory.length === 0 ? (
-              <div className="table-empty-notice">
-                Nenhum repasse de comissão foi realizado neste período.
-              </div>
-            ) : (
-              <div className="table-responsive-container">
-                <table className="financeiro-data-table">
-                  <thead>
-                    <tr>
-                      <th>Data do repasse</th>
-                      <th>Profissional</th>
-                      <th>Forma de pagamento</th>
-                      <th>Valor pago</th>
-                      <th>Observações</th>
-                      <th>Status</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payoutsHistory.map((pay) => (
-                      <tr key={pay.id} style={pay.reversed_at ? { opacity: 0.55 } : undefined}>
-                        <td style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
-                        <td style={{ fontWeight: 700 }}>{pay.professional_name}</td>
-                        <td style={{ color: 'var(--color-text-secondary)' }}>
-                          {PAYMENT_METHOD_LABELS[pay.payment_method] || pay.payment_method}
-                        </td>
-                        <td className="cell-paid-amount">
-                          {formatCurrency(pay.amount)}
-                        </td>
-                        <td style={{ color: 'var(--color-text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pay.notes || ''}>
-                          {pay.notes || '-'}
-                        </td>
-                        <td>
-                          {pay.reversed_at ? (
-                            <span className="payout-status-badge payout-status-badge--reversed">Estornado</span>
-                          ) : (
-                            <span className="payout-status-badge payout-status-badge--paid">Pago</span>
-                          )}
-                        </td>
-                        <td>
-                          {pay.reversed_at ? (
-                            '-'
-                          ) : reversingPayoutId === pay.id ? (
-                            <div className="payout-reversal-form">
-                              <input
-                                type="text"
-                                className="payout-reversal-input"
-                                placeholder="Motivo do estorno"
-                                value={payoutReversalReason}
-                                onChange={(e) => setPayoutReversalReason(e.target.value)}
-                                aria-label="Motivo do estorno da quitação"
-                                disabled={isReversingPayout}
-                              />
+                    </thead>
+                    <tbody>
+                      {metrics.commissions_by_professional.map((p) => (
+                        <tr key={p.professional_id || p.professional_name}>
+                          <td>
+                            <div className="cell-prof-name">
+                              <span>{p.professional_name}</span>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                            {p.appointments_count}
+                          </td>
+                          <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                            {formatCurrency(p.gross_sum ?? p.commission_sum)}
+                          </td>
+                          <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                            {formatCurrency(p.commission_sum)}
+                          </td>
+                          <td className="cell-paid-amount">
+                            {formatCurrency(p.paid_sum || 0)}
+                          </td>
+                          <td className="cell-pending-amount">
+                            {formatCurrency(p.pending_sum || 0)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="cell-actions-group">
                               <button
+                                onClick={() => setSelectedProfForDetails({ id: p.professional_id, name: p.professional_name })}
                                 type="button"
-                                className="payout-reversal-confirm-btn"
-                                onClick={() => handleConfirmPayoutReversal(pay.id)}
-                                disabled={isReversingPayout}
+                                className="btn-table-action btn-table-action--ghost"
                               >
-                                Confirmar
+                                Ver comandas
                               </button>
                               <button
+                                onClick={() => setSelectedProfForVale({ id: p.professional_id, name: p.professional_name })}
                                 type="button"
-                                className="payout-reversal-cancel-btn"
+                                className="btn-table-action btn-table-action--ghost"
+                              >
+                                Vale
+                              </button>
+                              <button
+                                onClick={() => setSelectedProfForExtrato({ id: p.professional_id, name: p.professional_name })}
+                                type="button"
+                                className="btn-table-action btn-table-action--ghost"
+                              >
+                                Extrato
+                              </button>
+                              <button
+                                onClick={() => setSelectedProfForPayout(p)}
+                                type="button"
+                                className="btn-table-action btn-table-action--primary"
+                              >
+                                <HugeiconsIcon icon={Coins01Icon} size={14} />
+                                Pagar comissão
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Histórico de Repasses Quitados */}
+            <div className="card-panel">
+              <div className="card-panel-header">
+                <div>
+                  <h3 className="card-panel-title">
+                    Histórico de quitações realizadas no período
+                  </h3>
+                  <p className="card-panel-subtitle">Registro detalhado de todos os pagamentos de comissão efetuados</p>
+                </div>
+              </div>
+
+              {payoutsHistory.length === 0 ? (
+                <div className="table-empty-notice">
+                  Nenhum repasse de comissão foi realizado neste período.
+                </div>
+              ) : (
+                <div className="table-responsive-container">
+                  <table className="financeiro-data-table">
+                    <thead>
+                      <tr>
+                        <th>Data do repasse</th>
+                        <th>Profissional</th>
+                        <th>Forma de pagamento</th>
+                        <th>Valor pago</th>
+                        <th>Observações</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payoutsHistory.map((pay) => (
+                        <tr key={pay.id} style={pay.reversed_at ? { opacity: 0.55 } : undefined}>
+                          <td style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
+                          <td style={{ fontWeight: 700 }}>{pay.professional_name}</td>
+                          <td style={{ color: 'var(--color-text-secondary)' }}>
+                            {PAYMENT_METHOD_LABELS[pay.payment_method] || pay.payment_method}
+                          </td>
+                          <td className="cell-paid-amount">
+                            {formatCurrency(pay.amount)}
+                          </td>
+                          <td style={{ color: 'var(--color-text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pay.notes || ''}>
+                            {pay.notes || '-'}
+                          </td>
+                          <td>
+                            {pay.reversed_at ? (
+                              <span className="payout-status-badge payout-status-badge--reversed">Estornado</span>
+                            ) : (
+                              <span className="payout-status-badge payout-status-badge--paid">Pago</span>
+                            )}
+                          </td>
+                          <td>
+                            {pay.reversed_at ? (
+                              '-'
+                            ) : reversingPayoutId === pay.id ? (
+                              <div className="payout-reversal-form">
+                                <input
+                                  type="text"
+                                  className="payout-reversal-input"
+                                  placeholder="Motivo do estorno"
+                                  value={payoutReversalReason}
+                                  onChange={(e) => setPayoutReversalReason(e.target.value)}
+                                  aria-label="Motivo do estorno da quitação"
+                                  disabled={isReversingPayout}
+                                />
+                                <button
+                                  type="button"
+                                  className="payout-reversal-confirm-btn"
+                                  onClick={() => handleConfirmPayoutReversal(pay.id)}
+                                  disabled={isReversingPayout}
+                                >
+                                  Confirmar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="payout-reversal-cancel-btn"
+                                  onClick={() => {
+                                    setReversingPayoutId(null);
+                                    setPayoutReversalReason('');
+                                    setPayoutReversalError(null);
+                                  }}
+                                  disabled={isReversingPayout}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn-table-action btn-table-action--ghost"
                                 onClick={() => {
-                                  setReversingPayoutId(null);
+                                  setReversingPayoutId(pay.id);
                                   setPayoutReversalReason('');
                                   setPayoutReversalError(null);
                                 }}
-                                disabled={isReversingPayout}
                               >
-                                Cancelar
+                                Estornar
                               </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn-table-action btn-table-action--ghost"
-                              onClick={() => {
-                                setReversingPayoutId(pay.id);
-                                setPayoutReversalReason('');
-                                setPayoutReversalError(null);
-                              }}
-                            >
-                              Estornar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {payoutReversalError && (
-                  <div className="table-empty-notice" role="alert" style={{ color: 'var(--color-error, #F05252)' }}>
-                    {payoutReversalError}
-                  </div>
-                )}
-              </div>
-            )}
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {payoutReversalError && (
+                    <div className="table-empty-notice" role="alert" style={{ color: 'var(--color-error, #F05252)' }}>
+                      {payoutReversalError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modal 3: Quitação de Comissão */}
       <QuitacaoComissaoModal

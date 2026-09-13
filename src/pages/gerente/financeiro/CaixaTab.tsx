@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
@@ -21,7 +21,7 @@ import type {
 } from '../../../modules/caixa/types';
 import { MobileCaixaView } from '../mobile/MobileCaixaView';
 import { formatDate } from './formatacao';
-import type { PainelFinanceiro } from './types';
+import type { PainelTabProps } from './types';
 
 const EMPTY_TURN_SUMMARY: TurnPaymentsSummary = { total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 };
 
@@ -35,13 +35,14 @@ function formatLocalDay(date: string, timeZone: string) {
 }
 
 /** Aba "Caixa diário e turnos" do Hub Financeiro: visão móvel de caixa e conteúdo de desktop. */
-export const CaixaTab: React.FC<PainelFinanceiro> = ({
+export const CaixaTab: React.FC<PainelTabProps> = ({
   metrics,
   activeSession,
   setActiveSession,
   refresh,
-  painelVersion,
+  registerTabReload,
   realtimeVersion,
+  isActive,
 }) => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
@@ -96,15 +97,7 @@ export const CaixaTab: React.FC<PainelFinanceiro> = ({
     }
   }, [tenant?.tenantId, caixaRepo, addToast]);
 
-  // Lê a Sessão de Caixa carregada junto com a versão do painel, sem reagir a trocas avulsas dela.
-  const loadCaixaData = useEffectEvent(() => {
-    void fetchCaixaData(activeSession);
-  });
-
-  useEffect(() => {
-    if (painelVersion === 0) return;
-    loadCaixaData();
-  }, [painelVersion]);
+  useEffect(() => registerTabReload(fetchCaixaData), [registerTabReload, fetchCaixaData]);
 
   useEffect(() => {
     if (!dailyRangeFollowsSession || !tenant?.timezone) return;
@@ -285,288 +278,290 @@ export const CaixaTab: React.FC<PainelFinanceiro> = ({
       </div>
 
       {/* ─── VISÃO DESKTOP (> 768px) ─── */}
-      <div className="financeiro-desktop-view financeiro-tab-content">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Banner de Sessão Ativa */}
-          <div className="turn-banner">
-            <div className="turn-banner-info">
-              <div>
-                <div className="turn-banner-title-row">
-                  <h3 className="turn-banner-title">
-                    {activeSession ? 'Caixa aberto no turno atual' : 'Caixa fechado no momento'}
-                  </h3>
-                  <span
-                    className={`turn-status-badge ${
-                      activeSession ? 'turn-status-badge--active' : 'turn-status-badge--closed'
-                    }`}
-                  >
-                    {activeSession ? 'Turno ativo' : 'Aguardando abertura'}
-                  </span>
-                </div>
-                <p className="turn-banner-desc">
-                  {activeSession
-                    ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(calculateExpectedDrawerCash(Number(activeSession.initial_amount), activeSessionCashReceipts, suprimentosTotal, sangriasTotal))}`
-                    : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Botões de Ação de Caixa */}
-            <div>
-              {activeSession ? (
-                <button
-                  onClick={() => setIsFechamentoModalOpen(true)}
-                  type="button"
-                  className="btn-turn-action btn-turn-action--close"
-                >
-                  <LockIcon size={16} />
-                  Fechar caixa do turno
-                </button>
-              ) : (
-                <button
-                  onClick={() => setIsAberturaModalOpen(true)}
-                  type="button"
-                  className="btn-turn-action btn-turn-action--open"
-                >
-                  <HugeiconsIcon icon={PlusSignIcon} size={16} />
-                  Abrir caixa do turno
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Resumo financeiro diário: faturamento realizado separado das entradas */}
-          <section className="daily-financial-panel" aria-labelledby="daily-financial-title">
-            <div className="daily-financial-header">
-              <div>
-                <h3 id="daily-financial-title" className="card-panel-title">
-                  <HugeiconsIcon icon={Coins01Icon} size={18} />
-                  Resumo por dia
-                </h3>
-                <p className="card-panel-subtitle">
-                  Faturamento realizado e valores recebidos, separados por data local da barbearia.
-                </p>
-              </div>
-              <div className="daily-financial-filters" aria-label="Filtros do resumo diário">
-                <label>
-                  <span>De</span>
-                  <input
-                    aria-label="Data inicial do resumo diário"
-                    type="date"
-                    value={dailyStartDate}
-                    onChange={(event) => {
-                      setDailyRangeFollowsSession(false);
-                      setDailyStartDate(event.target.value);
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>Até</span>
-                  <input
-                    aria-label="Data final do resumo diário"
-                    type="date"
-                    value={dailyEndDate}
-                    onChange={(event) => {
-                      setDailyRangeFollowsSession(false);
-                      setDailyEndDate(event.target.value);
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>Sessão</span>
-                  <select
-                    aria-label="Sessão do resumo diário"
-                    value={selectedDailySessionId || ''}
-                    onChange={(event) => handleDailySessionChange(event.target.value)}
-                  >
-                    <option value="">Todas as sessões</option>
-                    {historySessions.map((session) => (
-                      <option key={session.id} value={session.id}>
-                        {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="daily-financial-kpis">
-              <div className="daily-financial-kpi daily-financial-kpi--revenue">
-                <span>Faturamento realizado</span>
-                <strong>{formatCurrency(dailyTotals.realized)}</strong>
-                <small>{dailySummary.reduce((count, item) => count + item.closed_comandas_count, 0)} comandas fechadas</small>
-              </div>
-              <div className="daily-financial-kpi daily-financial-kpi--received">
-                <span>Entradas no caixa</span>
-                <strong>{formatCurrency(dailyTotals.received)}</strong>
-                <small>{dailySummary.reduce((count, item) => count + item.payment_count, 0)} pagamentos registrados</small>
-              </div>
-            </div>
-
-            {dailySummaryLoading ? (
-              <div className="table-empty-notice" role="status">Carregando resumo por dia...</div>
-            ) : dailySummaryError ? (
-              <div className="table-empty-notice daily-financial-error" role="alert">{dailySummaryError}</div>
-            ) : (
-              <div className="table-responsive-container">
-                <table className="financeiro-data-table daily-financial-table">
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Faturado</th>
-                      <th>Recebido</th>
-                      <th>Dinheiro</th>
-                      <th>PIX</th>
-                      <th>Cartão</th>
-                      <th>Outros</th>
-                      <th>Comandas</th>
-                      <th>Pagamentos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dailySummary.map((summary) => (
-                      <tr key={summary.date}>
-                        <td style={{ fontWeight: 700 }}>{formatLocalDay(summary.date, tenant.timezone)}</td>
-                        <td className="daily-financial-value">{formatCurrency(summary.realized_revenue)}</td>
-                        <td className="daily-financial-value">{formatCurrency(summary.received_total)}</td>
-                        <td>{formatCurrency(summary.by_method.dinheiro)}</td>
-                        <td>{formatCurrency(summary.by_method.pix)}</td>
-                        <td>{formatCurrency(summary.by_method.cartao)}</td>
-                        <td>{formatCurrency(summary.by_method.outros)}</td>
-                        <td>{summary.closed_comandas_count}</td>
-                        <td>{summary.payment_count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          {/* Grid Intermediário: Métodos de Pagamento e Histórico de Sessões */}
-          <div className="financeiro-split-grid">
-            {/* Métodos de Pagamento */}
-            <div className="card-panel">
-              <div className="card-panel-header">
+      {isActive && (
+        <div className="financeiro-desktop-view financeiro-tab-content">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Banner de Sessão Ativa */}
+            <div className="turn-banner">
+              <div className="turn-banner-info">
                 <div>
-                  <h3 className="card-panel-title">
-                    Recebimentos por forma de pagamento
-                  </h3>
-                  <p className="card-panel-subtitle">Distribuição das entradas por meio de pagamento no período selecionado</p>
+                  <div className="turn-banner-title-row">
+                    <h3 className="turn-banner-title">
+                      {activeSession ? 'Caixa aberto no turno atual' : 'Caixa fechado no momento'}
+                    </h3>
+                    <span
+                      className={`turn-status-badge ${
+                        activeSession ? 'turn-status-badge--active' : 'turn-status-badge--closed'
+                      }`}
+                    >
+                      {activeSession ? 'Turno ativo' : 'Aguardando abertura'}
+                    </span>
+                  </div>
+                  <p className="turn-banner-desc">
+                    {activeSession
+                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(calculateExpectedDrawerCash(Number(activeSession.initial_amount), activeSessionCashReceipts, suprimentosTotal, sangriasTotal))}`
+                      : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
+                  </p>
                 </div>
               </div>
 
-              <div className="payment-methods-list">
-                {methodsList.map((m) => {
-                  const pct = totalRevenueByMethods > 0 ? (m.val / totalRevenueByMethods) * 100 : 0;
-                  return (
-                    <div key={m.key} className="payment-method-item">
-                      <div className="payment-method-header">
-                        <span className="payment-method-name">{m.name}</span>
-                        <span className="payment-method-amount">
-                          {formatCurrency(m.val)} ({pct.toFixed(0)}%)
-                        </span>
-                      </div>
-                      <div className="payment-progress-track">
-                        <div
-                          className="payment-progress-bar"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Botões de Ação de Caixa */}
+              <div>
+                {activeSession ? (
+                  <button
+                    onClick={() => setIsFechamentoModalOpen(true)}
+                    type="button"
+                    className="btn-turn-action btn-turn-action--close"
+                  >
+                    <LockIcon size={16} />
+                    Fechar caixa do turno
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsAberturaModalOpen(true)}
+                    type="button"
+                    className="btn-turn-action btn-turn-action--open"
+                  >
+                    <HugeiconsIcon icon={PlusSignIcon} size={16} />
+                    Abrir caixa do turno
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Histórico de Sessões de Caixa */}
-            <div className="card-panel">
-              <div className="card-panel-header">
+            {/* Resumo financeiro diário: faturamento realizado separado das entradas */}
+            <section className="daily-financial-panel" aria-labelledby="daily-financial-title">
+              <div className="daily-financial-header">
                 <div>
-                  <h3 className="card-panel-title">
-                    Histórico de caixas anteriores
+                  <h3 id="daily-financial-title" className="card-panel-title">
+                    <HugeiconsIcon icon={Coins01Icon} size={18} />
+                    Resumo por dia
                   </h3>
-                  <p className="card-panel-subtitle">Histórico completo de turnos e conferências de gaveta</p>
+                  <p className="card-panel-subtitle">
+                    Faturamento realizado e valores recebidos, separados por data local da barbearia.
+                  </p>
+                </div>
+                <div className="daily-financial-filters" aria-label="Filtros do resumo diário">
+                  <label>
+                    <span>De</span>
+                    <input
+                      aria-label="Data inicial do resumo diário"
+                      type="date"
+                      value={dailyStartDate}
+                      onChange={(event) => {
+                        setDailyRangeFollowsSession(false);
+                        setDailyStartDate(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Até</span>
+                    <input
+                      aria-label="Data final do resumo diário"
+                      type="date"
+                      value={dailyEndDate}
+                      onChange={(event) => {
+                        setDailyRangeFollowsSession(false);
+                        setDailyEndDate(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <span>Sessão</span>
+                    <select
+                      aria-label="Sessão do resumo diário"
+                      value={selectedDailySessionId || ''}
+                      onChange={(event) => handleDailySessionChange(event.target.value)}
+                    >
+                      <option value="">Todas as sessões</option>
+                      {historySessions.map((session) => (
+                        <option key={session.id} value={session.id}>
+                          {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
 
-              {historySessions.length === 0 ? (
-                <div className="table-empty-notice">
-                  Nenhum fechamento de caixa registrado para o período.
+              <div className="daily-financial-kpis">
+                <div className="daily-financial-kpi daily-financial-kpi--revenue">
+                  <span>Faturamento realizado</span>
+                  <strong>{formatCurrency(dailyTotals.realized)}</strong>
+                  <small>{dailySummary.reduce((count, item) => count + item.closed_comandas_count, 0)} comandas fechadas</small>
                 </div>
+                <div className="daily-financial-kpi daily-financial-kpi--received">
+                  <span>Entradas no caixa</span>
+                  <strong>{formatCurrency(dailyTotals.received)}</strong>
+                  <small>{dailySummary.reduce((count, item) => count + item.payment_count, 0)} pagamentos registrados</small>
+                </div>
+              </div>
+
+              {dailySummaryLoading ? (
+                <div className="table-empty-notice" role="status">Carregando resumo por dia...</div>
+              ) : dailySummaryError ? (
+                <div className="table-empty-notice daily-financial-error" role="alert">{dailySummaryError}</div>
               ) : (
                 <div className="table-responsive-container">
-                  <table className="financeiro-data-table">
+                  <table className="financeiro-data-table daily-financial-table">
                     <thead>
                       <tr>
-                        <th>Abertura</th>
-                        <th>Fechamento</th>
-                        <th>Operador</th>
-                        <th>Arrecadado no turno</th>
-                        <th>Troco inicial</th>
-                        <th>Valor fechado</th>
-                        <th>Observações</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th>Data</th>
+                        <th>Faturado</th>
+                        <th>Recebido</th>
+                        <th>Dinheiro</th>
+                        <th>PIX</th>
+                        <th>Cartão</th>
+                        <th>Outros</th>
+                        <th>Comandas</th>
+                        <th>Pagamentos</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {historySessions.map((sess) => {
-                        const isCurrentActive = activeSession?.id === sess.id;
-                        const revenue = isCurrentActive
-                          ? (turnSummary?.total || sess.total_revenue || 0)
-                          : (sess.total_revenue || 0);
-
-                        return (
-                          <tr key={sess.id}>
-                            <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
-                            <td style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
-                            <td style={{ fontWeight: 600 }}>
-                              {sess.opened_by_name || sess.closed_by_name || 'Operador'}
-                            </td>
-                            <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: 'var(--color-brand-primary)' }}>
-                              {formatCurrency(revenue)}
-                            </td>
-                            <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
-                            <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
-                              {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
-                            </td>
-                            <td style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
-                              {sess.notes || '-'}
-                            </td>
-                            <td>
-                              <span
-                                className={`turn-status-badge ${
-                                  sess.status === 'open'
-                                    ? 'turn-status-badge--active'
-                                    : 'turn-status-badge--closed'
-                                }`}
-                              >
-                                {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
-                              </span>
-                            </td>
-                            <td>
-                              {sess.status !== 'open' && (
-                                <button
-                                  type="button"
-                                  className="btn-table-action btn-table-action--ghost"
-                                  onClick={() => setExtratoSession(sess)}
-                                >
-                                  Extrato
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {dailySummary.map((summary) => (
+                        <tr key={summary.date}>
+                          <td style={{ fontWeight: 700 }}>{formatLocalDay(summary.date, tenant.timezone)}</td>
+                          <td className="daily-financial-value">{formatCurrency(summary.realized_revenue)}</td>
+                          <td className="daily-financial-value">{formatCurrency(summary.received_total)}</td>
+                          <td>{formatCurrency(summary.by_method.dinheiro)}</td>
+                          <td>{formatCurrency(summary.by_method.pix)}</td>
+                          <td>{formatCurrency(summary.by_method.cartao)}</td>
+                          <td>{formatCurrency(summary.by_method.outros)}</td>
+                          <td>{summary.closed_comandas_count}</td>
+                          <td>{summary.payment_count}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               )}
+            </section>
+
+            {/* Grid Intermediário: Métodos de Pagamento e Histórico de Sessões */}
+            <div className="financeiro-split-grid">
+              {/* Métodos de Pagamento */}
+              <div className="card-panel">
+                <div className="card-panel-header">
+                  <div>
+                    <h3 className="card-panel-title">
+                      Recebimentos por forma de pagamento
+                    </h3>
+                    <p className="card-panel-subtitle">Distribuição das entradas por meio de pagamento no período selecionado</p>
+                  </div>
+                </div>
+
+                <div className="payment-methods-list">
+                  {methodsList.map((m) => {
+                    const pct = totalRevenueByMethods > 0 ? (m.val / totalRevenueByMethods) * 100 : 0;
+                    return (
+                      <div key={m.key} className="payment-method-item">
+                        <div className="payment-method-header">
+                          <span className="payment-method-name">{m.name}</span>
+                          <span className="payment-method-amount">
+                            {formatCurrency(m.val)} ({pct.toFixed(0)}%)
+                          </span>
+                        </div>
+                        <div className="payment-progress-track">
+                          <div
+                            className="payment-progress-bar"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Histórico de Sessões de Caixa */}
+              <div className="card-panel">
+                <div className="card-panel-header">
+                  <div>
+                    <h3 className="card-panel-title">
+                      Histórico de caixas anteriores
+                    </h3>
+                    <p className="card-panel-subtitle">Histórico completo de turnos e conferências de gaveta</p>
+                  </div>
+                </div>
+
+                {historySessions.length === 0 ? (
+                  <div className="table-empty-notice">
+                    Nenhum fechamento de caixa registrado para o período.
+                  </div>
+                ) : (
+                  <div className="table-responsive-container">
+                    <table className="financeiro-data-table">
+                      <thead>
+                        <tr>
+                          <th>Abertura</th>
+                          <th>Fechamento</th>
+                          <th>Operador</th>
+                          <th>Arrecadado no turno</th>
+                          <th>Troco inicial</th>
+                          <th>Valor fechado</th>
+                          <th>Observações</th>
+                          <th>Status</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historySessions.map((sess) => {
+                          const isCurrentActive = activeSession?.id === sess.id;
+                          const revenue = isCurrentActive
+                            ? (turnSummary?.total || sess.total_revenue || 0)
+                            : (sess.total_revenue || 0);
+
+                          return (
+                            <tr key={sess.id}>
+                              <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
+                              <td style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
+                              <td style={{ fontWeight: 600 }}>
+                                {sess.opened_by_name || sess.closed_by_name || 'Operador'}
+                              </td>
+                              <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: 'var(--color-brand-primary)' }}>
+                                {formatCurrency(revenue)}
+                              </td>
+                              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
+                              <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                                {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
+                              </td>
+                              <td style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
+                                {sess.notes || '-'}
+                              </td>
+                              <td>
+                                <span
+                                  className={`turn-status-badge ${
+                                    sess.status === 'open'
+                                      ? 'turn-status-badge--active'
+                                      : 'turn-status-badge--closed'
+                                  }`}
+                                >
+                                  {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
+                                </span>
+                              </td>
+                              <td>
+                                {sess.status !== 'open' && (
+                                  <button
+                                    type="button"
+                                    className="btn-table-action btn-table-action--ghost"
+                                    onClick={() => setExtratoSession(sess)}
+                                  >
+                                    Extrato
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modal 1: Abertura de Caixa */}
       <AberturaAssistidaCaixaModal

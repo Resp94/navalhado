@@ -30,6 +30,12 @@ export interface FinancialMetrics {
 }
 
 /**
+ * Recarga dos dados próprios de uma aba. O painel a chama depois de recarregar métricas e
+ * Sessão de Caixa ativa, passando a sessão recém-carregada.
+ */
+export type TabReload = (activeSession: CashSession | null) => Promise<void>;
+
+/**
  * Estado que as abas Caixa e Comissões do Hub Financeiro compartilham. Fica na página
  * (no ticket 02, no layout do painel) e desce para as abas; o que só uma aba usa fica nela.
  */
@@ -42,16 +48,26 @@ export interface PainelFinanceiro {
   /** Sessão de Caixa ativa. A Quitação de Comissão e o lançamento de vale também a recebem. */
   activeSession: CashSession | null;
   setActiveSession: (session: CashSession | null) => void;
-  /** Recarrega métricas e Sessão de Caixa ativa; ao concluir com sucesso, `painelVersion` muda. */
-  refresh: () => Promise<void>;
   /**
-   * Muda a cada carga bem-sucedida do painel (entrada, período, realtime ou `refresh`).
-   * Começa em 0, antes da primeira carga. As abas recarregam o que exibem quando ela muda.
+   * Recarrega métricas e Sessão de Caixa ativa e, em seguida, as recargas registradas pelas
+   * abas. Resolve quando tudo terminou. A página também a chama na entrada, na troca de
+   * período e a cada evento realtime.
    */
-  painelVersion: number;
+  refresh: () => Promise<void>;
+  /** Registra a recarga de uma aba; devolve a função que desfaz o registro. */
+  registerTabReload: (reload: TabReload) => () => void;
   /**
-   * Muda a cada evento realtime das tabelas do Hub, antes e independentemente da recarga do
-   * painel. Para o que só se recarrega por realtime, como o resumo por dia da aba de Caixa.
+   * Muda a cada evento realtime das tabelas do Hub, independentemente da recarga do painel.
+   * Serve ao que só se recarrega por realtime, como o resumo por dia da aba de Caixa.
    */
   realtimeVersion: number;
+}
+
+/** Propriedades de uma aba do painel. */
+export interface PainelTabProps extends PainelFinanceiro {
+  /**
+   * Se a aba está selecionada. As duas abas ficam montadas e só a selecionada exibe o conteúdo
+   * de desktop, como antes da extração; o ticket 02 troca isso pela montagem via rota.
+   */
+  isActive: boolean;
 }
