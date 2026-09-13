@@ -45,7 +45,10 @@ Fornecedores", item "Documento".
 - [x] Vetores cobertos no arquivo pgTAP do Plano de Contas (criando-o, se o ticket 03 ainda não o
       tiver criado) e no teste da função pura de domínio.
 - [x] Nenhuma tabela é criada ou alterada neste ticket.
-- [ ] `npm run test` e `npm run test:db` verdes.
+- [x] `npm run test` e `npm run test:db` verdes.
       (05: `npm run test` verde, 71 arquivos e 498 testes. `test:db` não foi rodado, porque usa a CLI
       supabase. O pgTAP 28 passou 25/25 via MCP, com a migration e o teste dentro de begin/rollback no
-      DEV, e a migration **não** foi aplicada.)
+      DEV, e a migration **não** foi aplicada.
+      Atualização no ticket 06: a suíte pgTAP 28 completa — incluindo os vetores de CPF/CNPJ deste
+      ticket 05 — foi revalidada via MCP com as 116 assertions do arquivo final, todas passando, numa
+      única transação begin/rollback; `npm run test` também verde com 78 arquivos e 615 testes.)
