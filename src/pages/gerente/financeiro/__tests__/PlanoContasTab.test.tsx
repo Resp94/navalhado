@@ -164,6 +164,42 @@ describe('PlanoContasTab (adaptador em memória)', () => {
     expect(screen.getAllByText('Ativa').length).toBeGreaterThan(0);
   });
 
+  it('ao renomear e colidir com categoria arquivada, não oferece reativar (a reativação não tem relação com a renomeação)', async () => {
+    // Achado de revisão pós-implementação: oferecer "Reativar" aqui reativaria um registro sem
+    // relação com o que está sendo editado, e o Drawer fecharia como se a renomeação tivesse sido
+    // salva — a spec restringe a oferta de reativar à criação (ticket 04/035).
+    const adapter = new InMemoryPlanoContasAdapter([
+      categoria({ id: 'cat-ativa', name: 'Marketing Digital' }),
+      categoria({
+        id: 'cat-antiga',
+        name: 'Antiga',
+        archived_at: '2026-02-01T00:00:00Z',
+        archived_by: 'user-1',
+      }),
+    ]);
+    const repository = new PlanoContasRepository(adapter);
+
+    renderTab(repository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Marketing Digital').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+    const nomeInput = await screen.findByLabelText('Nome da categoria');
+    fireEvent.change(nomeInput, { target: { value: 'antiga' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await screen.findByText(/Já existe uma categoria arquivada chamada "Antiga"/);
+    expect(screen.queryByRole('button', { name: /Reativar/ })).not.toBeInTheDocument();
+
+    // O Drawer continua aberto (nada foi salvo), e nenhuma das duas categorias mudou de estado.
+    expect(screen.getByLabelText('Nome da categoria')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.getAllByText('Marketing Digital').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Antiga')).not.toBeInTheDocument();
+  });
+
   it('arquiva categoria com confirmação pelo ConfirmDialog', async () => {
     const adapter = new InMemoryPlanoContasAdapter([categoria({ id: 'cat-1', name: 'Marketing' })]);
     const repository = new PlanoContasRepository(adapter);

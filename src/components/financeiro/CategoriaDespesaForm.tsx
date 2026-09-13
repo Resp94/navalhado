@@ -32,9 +32,13 @@ interface ConflitoState {
  * renomear, quando houver) e o repositório, e devolve o registro salvo.
  *
  * Quando a gravação esbarra num nome já existente, o formulário resolve o
- * conflito "ali mesmo": se a categoria existente está arquivada, oferece
- * reativá-la (o que também devolve o registro salvo via onSalvar); se está
- * ativa, apenas informa que já existe e qual é.
+ * conflito "ali mesmo" — só na criação: se a categoria existente está
+ * arquivada, oferece reativá-la (o que também devolve o registro salvo via
+ * onSalvar); se está ativa, apenas informa que já existe e qual é. Ao
+ * renomear, a oferta de reativar fica fora: reativar a categoria colidida
+ * não tem relação com a que está sendo renomeada, e o formulário trataria
+ * isso como se a renomeação tivesse sido salva — a tela só informa o
+ * conflito, arquivada ou ativa.
  */
 export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
   repository,
@@ -114,7 +118,11 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
               ? `Já existe uma categoria arquivada chamada "${conflito.existingName}".`
               : `Já existe uma categoria ativa chamada "${conflito.existingName}".`}
           </p>
-          {conflito.archived && (
+          {/* Oferecer reativar só na criação: reativar aqui reativaria um registro sem relação
+              com o que está sendo editado, e o formulário trataria isso como se a renomeação
+              tivesse sido salva (spec 035: "Conflito na criação... oferece reativá-la ali
+              mesmo" — escopo explícito de criação, não de renomeação). */}
+          {!isEdicao && conflito.archived && (
             <Button
               type="button"
               variant="secondary"
