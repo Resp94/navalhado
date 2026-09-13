@@ -127,6 +127,7 @@ select is(
 -- ja lancado no turno tambem reduz o saldo disponivel para uma quitacao em dinheiro,
 -- pelo mesmo motivo que repasse_comissao reduz -- sem isso, o vale sairia da gaveta
 -- sem ser descontado do calculo de disponibilidade da quitacao seguinte.
+reset role;
 create temporary table ticket25b_context (
   user_id uuid not null, tenant_id uuid not null, professional_id uuid not null,
   comanda_id uuid not null, cash_session_id uuid not null
