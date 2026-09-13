@@ -8,6 +8,19 @@ import type { CategoriaDespesa } from './types';
  * adaptador Supabase uma vez por montagem, e os testes passam o adaptador em
  * memória. Sem assinatura realtime (cadastro de baixa concorrência, alterado
  * pela própria tela que o exibe).
+ *
+ * Ticket 04: expõe as ações de escrita de Categoria de Despesa (criar,
+ * renomear, arquivar, reativar). Cada uma refaz a leitura depois de uma
+ * escrita bem-sucedida, para que a lista na tela nunca divirja do banco por
+ * causa de uma atualização otimista.
+ *
+ * `CategoriaDespesaForm` (criar/renomear) chama o repositório injetado
+ * diretamente, não estas ações — é um componente autônomo, independente da
+ * aba, que só recebe o repositório. A aba refaz a leitura com `reload()`
+ * depois que o Drawer fecha. As ações deste hook seguem expostas mesmo
+ * assim, porque a spec pede o contrato completo (criar, renomear, arquivar,
+ * reativar) e um futuro consumidor do hook sem formulário próprio — fora da
+ * aba, sem Drawer — usaria estas diretamente.
  */
 export function usePlanoContas(tenantId: string, repository: PlanoContasRepository) {
   const [categoriasDespesa, setCategoriasDespesa] = useState<CategoriaDespesa[]>([]);
@@ -33,10 +46,50 @@ export function usePlanoContas(tenantId: string, repository: PlanoContasReposito
     void loadCategoriasDespesa();
   }, [loadCategoriasDespesa]);
 
+  const criarCategoriaDespesa = useCallback(
+    async (name: string) => {
+      const categoria = await repository.criarCategoriaDespesa(tenantId, name);
+      await loadCategoriasDespesa();
+      return categoria;
+    },
+    [tenantId, repository, loadCategoriasDespesa]
+  );
+
+  const renomearCategoriaDespesa = useCallback(
+    async (categoriaId: string, name: string) => {
+      const categoria = await repository.renomearCategoriaDespesa(tenantId, categoriaId, name);
+      await loadCategoriasDespesa();
+      return categoria;
+    },
+    [tenantId, repository, loadCategoriasDespesa]
+  );
+
+  const arquivarCategoriaDespesa = useCallback(
+    async (categoriaId: string) => {
+      const categoria = await repository.arquivarCategoriaDespesa(tenantId, categoriaId);
+      await loadCategoriasDespesa();
+      return categoria;
+    },
+    [tenantId, repository, loadCategoriasDespesa]
+  );
+
+  const reativarCategoriaDespesa = useCallback(
+    async (categoriaId: string) => {
+      const categoria = await repository.reativarCategoriaDespesa(tenantId, categoriaId);
+      await loadCategoriasDespesa();
+      return categoria;
+    },
+    [tenantId, repository, loadCategoriasDespesa]
+  );
+
   return {
     categoriasDespesa,
     loading,
     error,
     reload: loadCategoriasDespesa,
+    criarCategoriaDespesa,
+    renomearCategoriaDespesa,
+    arquivarCategoriaDespesa,
+    reativarCategoriaDespesa,
   };
 }

@@ -1,5 +1,5 @@
 // Módulo Plano de Contas (spec 035). Ticket 03: só a leitura de Categorias de
-// Despesa. Criar, renomear, arquivar e reativar chegam no ticket 04.
+// Despesa. Ticket 04: criar, renomear, arquivar e reativar.
 
 /** Nesta spec (035) o domínio aceita só 'expense'. Receita alarga o domínio no futuro. */
 export type NaturezaCategoria = 'expense';
@@ -20,11 +20,22 @@ export interface CategoriaDespesa {
 }
 
 /**
- * Interface do adaptador do Plano de Contas, com métodos em português. Neste
- * ticket expõe só a listagem de Categorias de Despesa; criar, renomear,
- * arquivar e reativar chegam no ticket 04, e listar/gerenciar Fornecedores no
- * ticket 06.
+ * Interface do adaptador do Plano de Contas, com métodos em português. Este
+ * ticket (04) acrescenta criar, renomear, arquivar e reativar Categoria de
+ * Despesa; listar/gerenciar Fornecedores chega no ticket 06.
+ *
+ * O repositório normaliza o nome (pontas aparadas, espaços internos
+ * colapsados) antes de delegar: os adaptadores recebem o nome já normalizado.
+ * A RPC do Supabase normaliza de novo, como autoridade sob concorrência.
  */
 export interface IPlanoContasAdapter {
   listarCategoriasDespesa(tenantId: string): Promise<CategoriaDespesa[]>;
+  criarCategoriaDespesa(tenantId: string, name: string): Promise<CategoriaDespesa>;
+  renomearCategoriaDespesa(
+    tenantId: string,
+    categoriaId: string,
+    name: string
+  ): Promise<CategoriaDespesa>;
+  arquivarCategoriaDespesa(tenantId: string, categoriaId: string): Promise<CategoriaDespesa>;
+  reativarCategoriaDespesa(tenantId: string, categoriaId: string): Promise<CategoriaDespesa>;
 }

@@ -1,12 +1,13 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(80);
 
 -- Spec 035 (Plano de Contas): arquivo pgTAP do modulo.
 -- Ticket 05: validacao de CPF e CNPJ alfanumerico em
 -- private.is_valid_br_document. Ticket 03: tabela financial_categories,
--- semeadura das catorze categorias padrao e acesso por papel. O ticket 06
--- acrescenta aqui os testes de fornecedores e ajusta o plan().
+-- semeadura das catorze categorias padrao e acesso por papel. Ticket 04: RPCs
+-- de escrita de Categoria de Despesa (criar, renomear, arquivar, reativar).
+-- O ticket 06 acrescenta aqui os testes de fornecedores e ajusta o plan().
 
 -- ---------------------------------------------------------------------------
 -- Contrato da funcao
@@ -297,6 +298,297 @@ select ok(
   has_function_privilege('service_role', 'private.seed_default_expense_categories(uuid)', 'EXECUTE'),
   'service_role executa a funcao de semeadura'
 );
+
+-- ---------------------------------------------------------------------------
+-- Ticket 04: RPCs de escrita de Categoria de Despesa (criar, renomear,
+-- arquivar, reativar). Reusa o contexto (tenant_a_id, gerente_a_id,
+-- barbeiro_a_id, tenant_b_id, gerente_b_id) montado acima para o ticket 03.
+-- ---------------------------------------------------------------------------
+select has_function(
+  'public', 'create_expense_category', array['text', 'uuid'],
+  'public.create_expense_category(text, uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.create_expense_category(text, uuid)'::regprocedure),
+  'create_expense_category fixa search_path vazio'
+);
+select has_function(
+  'public', 'rename_expense_category', array['uuid', 'text', 'uuid'],
+  'public.rename_expense_category(uuid, text, uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.rename_expense_category(uuid, text, uuid)'::regprocedure),
+  'rename_expense_category fixa search_path vazio'
+);
+select has_function(
+  'public', 'archive_expense_category', array['uuid', 'uuid'],
+  'public.archive_expense_category(uuid, uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.archive_expense_category(uuid, uuid)'::regprocedure),
+  'archive_expense_category fixa search_path vazio'
+);
+select has_function(
+  'public', 'reactivate_expense_category', array['uuid', 'uuid'],
+  'public.reactivate_expense_category(uuid, uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.reactivate_expense_category(uuid, uuid)'::regprocedure),
+  'reactivate_expense_category fixa search_path vazio'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.create_expense_category(text, uuid)', 'EXECUTE'),
+  'anon nao executa create_expense_category'
+);
+select ok(
+  not has_function_privilege('anon', 'public.rename_expense_category(uuid, text, uuid)', 'EXECUTE'),
+  'anon nao executa rename_expense_category'
+);
+select ok(
+  not has_function_privilege('anon', 'public.archive_expense_category(uuid, uuid)', 'EXECUTE'),
+  'anon nao executa archive_expense_category'
+);
+select ok(
+  not has_function_privilege('anon', 'public.reactivate_expense_category(uuid, uuid)', 'EXECUTE'),
+  'anon nao executa reactivate_expense_category'
+);
+
+create temporary table ticket28d_created (
+  id uuid,
+  name text,
+  created_by uuid
+) on commit drop;
+
+create temporary table ticket28d_conflict_capture (
+  step text primary key,
+  existing_id uuid,
+  existing_name text,
+  archived boolean
+) on commit drop;
+
+-- Os testes a seguir escrevem nessas tabelas temporarias como authenticated
+-- (dentro do bloco de RPC ou do DO capturando a excecao): sem GRANT, a mesma
+-- lacuna que ticket28c_context ja precisou fechar acima.
+grant select, insert on ticket28d_created to authenticated;
+grant select, insert on ticket28d_conflict_capture to authenticated;
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket28c_context), true);
+set local role authenticated;
+
+-- Criar normaliza o nome (pontas aparadas, espacos internos colapsados) e
+-- registra autoria.
+insert into ticket28d_created (id, name, created_by)
+select id, name, created_by
+from public.create_expense_category('  Estacionamento   Coberto  ', (select tenant_a_id from ticket28c_context));
+
+select is(
+  (select name from ticket28d_created),
+  'Estacionamento Coberto',
+  'criar normaliza pontas e espacos internos repetidos'
+);
+select is(
+  (select created_by from ticket28d_created),
+  (select gerente_a_id from ticket28c_context),
+  'criar registra o autor'
+);
+
+-- Conflito na criacao: mesmo nome (sem diferenciar maiusculas) de categoria
+-- ativa. O conflito identifica o registro existente e informa que ele nao
+-- esta arquivado.
+do $$
+declare
+  v_detail text;
+  v_json jsonb;
+begin
+  begin
+    perform public.create_expense_category('estacionamento coberto', (select tenant_a_id from ticket28c_context));
+    raise exception 'ticket28d: esperava conflito de nome na criacao';
+  exception when sqlstate '23505' then
+    get stacked diagnostics v_detail = pg_exception_detail;
+    v_json := v_detail::jsonb;
+    insert into ticket28d_conflict_capture (step, existing_id, existing_name, archived)
+    values ('criar_ativa', (v_json->>'existing_id')::uuid, v_json->>'existing_name', (v_json->>'archived')::boolean);
+  end;
+end;
+$$;
+
+select ok(
+  exists (select 1 from ticket28d_conflict_capture where step = 'criar_ativa'),
+  'criar com nome existente levanta conflito (SQLSTATE 23505) com detalhe estruturado'
+);
+select is(
+  (select existing_id from ticket28d_conflict_capture where step = 'criar_ativa'),
+  (select id from ticket28d_created),
+  'o conflito identifica a categoria existente pelo id'
+);
+select is(
+  (select existing_name from ticket28d_conflict_capture where step = 'criar_ativa'),
+  'Estacionamento Coberto',
+  'o conflito informa o nome da categoria existente'
+);
+select is(
+  (select archived from ticket28d_conflict_capture where step = 'criar_ativa'),
+  false,
+  'o conflito informa que a categoria existente nao esta arquivada'
+);
+
+-- Conflito ao renomear para um nome ja usado por outra categoria (a
+-- 'Marketing' semeada).
+do $$
+declare
+  v_detail text;
+  v_json jsonb;
+begin
+  begin
+    perform public.rename_expense_category(
+      (select id from ticket28d_created), 'marketing',
+      (select tenant_a_id from ticket28c_context)
+    );
+    raise exception 'ticket28d: esperava conflito de nome ao renomear';
+  exception when sqlstate '23505' then
+    get stacked diagnostics v_detail = pg_exception_detail;
+    v_json := v_detail::jsonb;
+    insert into ticket28d_conflict_capture (step, existing_id, existing_name, archived)
+    values ('renomear_ativa', (v_json->>'existing_id')::uuid, v_json->>'existing_name', (v_json->>'archived')::boolean);
+  end;
+end;
+$$;
+
+select is(
+  (select existing_name from ticket28d_conflict_capture where step = 'renomear_ativa'),
+  'Marketing',
+  'renomear para nome existente identifica a categoria (Marketing)'
+);
+select is(
+  (select archived from ticket28d_conflict_capture where step = 'renomear_ativa'),
+  false,
+  'renomear para nome de categoria ativa informa que ela nao esta arquivada'
+);
+
+-- Arquivar: reversivel, registra autor e momento.
+select ok(
+  (select archived_at from public.archive_expense_category(
+    (select id from ticket28d_created), (select tenant_a_id from ticket28c_context)
+  )) is not null,
+  'arquivar preenche archived_at'
+);
+select is(
+  (select archived_by from public.financial_categories where id = (select id from ticket28d_created)),
+  (select gerente_a_id from ticket28c_context),
+  'arquivar registra quem arquivou'
+);
+
+-- Recusas de operacao invalida sobre a categoria ja arquivada, nunca em
+-- silencio.
+select throws_ok(
+  $$select public.rename_expense_category(
+      (select id from ticket28d_created), 'Novo nome',
+      (select tenant_a_id from ticket28c_context)
+    )$$,
+  'P0001',
+  'Categoria arquivada não pode ser renomeada. Reative-a antes.',
+  'renomear categoria arquivada e recusado'
+);
+select throws_ok(
+  $$select public.archive_expense_category(
+      (select id from ticket28d_created), (select tenant_a_id from ticket28c_context)
+    )$$,
+  'P0001',
+  'Esta categoria já está arquivada.',
+  'arquivar categoria ja arquivada e recusado'
+);
+
+-- Reativar: nunca colide (a unicidade vale tambem contra arquivada).
+select is(
+  (select archived_at from public.reactivate_expense_category(
+    (select id from ticket28d_created), (select tenant_a_id from ticket28c_context)
+  )),
+  null,
+  'reativar limpa archived_at'
+);
+select throws_ok(
+  $$select public.reactivate_expense_category(
+      (select id from ticket28d_created), (select tenant_a_id from ticket28c_context)
+    )$$,
+  'P0001',
+  'Esta categoria já está ativa.',
+  'reativar categoria ja ativa e recusado'
+);
+
+-- Conflito contra categoria ARQUIVADA: arquiva 'Marketing' e tenta criar
+-- 'marketing' de novo. A unicidade vale tambem contra arquivada, entao o
+-- conflito ocorre do mesmo jeito, e informa que a existente esta arquivada
+-- (para a tela oferecer reativar em vez de recriar).
+select public.archive_expense_category(
+  (select id from public.financial_categories
+   where tenant_id = (select tenant_a_id from ticket28c_context) and seed_key = 'marketing'),
+  (select tenant_a_id from ticket28c_context)
+);
+
+do $$
+declare
+  v_detail text;
+  v_json jsonb;
+begin
+  begin
+    perform public.create_expense_category('marketing', (select tenant_a_id from ticket28c_context));
+    raise exception 'ticket28d: esperava conflito contra categoria arquivada';
+  exception when sqlstate '23505' then
+    get stacked diagnostics v_detail = pg_exception_detail;
+    v_json := v_detail::jsonb;
+    insert into ticket28d_conflict_capture (step, existing_id, existing_name, archived)
+    values ('criar_arquivada', (v_json->>'existing_id')::uuid, v_json->>'existing_name', (v_json->>'archived')::boolean);
+  end;
+end;
+$$;
+
+select is(
+  (select existing_name from ticket28d_conflict_capture where step = 'criar_arquivada'),
+  'Marketing',
+  'conflito contra categoria arquivada identifica pelo nome (Marketing)'
+);
+select is(
+  (select archived from ticket28d_conflict_capture where step = 'criar_arquivada'),
+  true,
+  'conflito contra categoria arquivada informa que ela esta arquivada'
+);
+
+reset role;
+
+-- Profissional e recusado pela revalidacao de papel dentro da RPC.
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket28c_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.create_expense_category('Categoria do barbeiro', null)$$,
+  '42501',
+  'Acesso negado para gerenciar o Plano de Contas.',
+  'profissional e recusado ao tentar criar categoria de despesa'
+);
+
+reset role;
+
+-- Gestor de outro tenant nao alcanca a categoria do tenant A: a RPC resolve
+-- o tenant do proprio usuario (parametro ausente) e nao encontra a linha,
+-- sem vazar se ela existe em outro tenant.
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket28c_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.rename_expense_category(
+      (select id from ticket28d_created), 'Nome de outro tenant', null
+    )$$,
+  'P0001',
+  'Categoria de despesa não encontrada.',
+  'gestor de outro tenant nao renomeia categoria do tenant A'
+);
+
+reset role;
 
 select * from finish(true);
 rollback;
