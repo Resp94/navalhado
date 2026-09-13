@@ -15,6 +15,7 @@ import type {
   ReabrirCaixaInput,
   RegistrarAjusteCaixaInput,
   RegistrarMovimentacaoInput,
+  RegistrarMovimentoManualInput,
   TurnPaymentsSummary,
 } from '../types';
 
@@ -323,6 +324,30 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     return {
       ...(data as CashMovement),
       amount: Number(data.amount) || 0,
+    };
+  }
+
+  // Ticket 03 da spec 036: sangria e suprimento passam a ser lancados por RPC,
+  // com autor tirado da sessao autenticada no servidor e trava de saldo na
+  // gaveta (sangria acima do disponivel e recusada pela funcao). O metodo
+  // registrarMovimentacao acima (insert direto) continua existindo ate o
+  // ticket 04 revogar a politica de insercao direta.
+  async registrarMovimentoManual(input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    const { data, error } = await supabase.rpc('register_cash_movement', {
+      p_cash_session_id: input.cash_session_id,
+      p_tenant_id: input.tenant_id,
+      p_type: input.type,
+      p_amount: input.amount,
+      p_reason: input.reason,
+    });
+
+    if (error || !data) {
+      throw new Error(error?.message || `Erro ao registrar ${input.type}.`);
+    }
+
+    return {
+      ...(data as CashMovement),
+      amount: Number((data as CashMovement).amount) || 0,
     };
   }
 

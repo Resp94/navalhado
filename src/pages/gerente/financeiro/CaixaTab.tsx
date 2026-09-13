@@ -7,7 +7,6 @@ import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
 import { ExtratoSessaoCaixaModal } from '../../../components/caixa/ExtratoSessaoCaixaModal';
-import { supabase } from '../../../lib/supabase';
 import { formatCurrency } from '../../../lib/currency';
 import { dateInZone } from '../../../lib/timezone';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
@@ -173,14 +172,14 @@ export const CaixaTab: React.FC = () => {
   const handleSangria = async (amount: number, reason: string) => {
     if (!activeSession || !tenant.tenantId) return;
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      await caixaRepo.registerMovement({
+      // Ticket 03 da spec 036: sangria por RPC, sem enviar autor (a RPC tira
+      // o autor da sessao autenticada) e com trava de saldo no servidor.
+      await caixaRepo.registerManualMovement({
         tenant_id: tenant.tenantId,
         cash_session_id: activeSession.id,
         type: 'sangria',
         amount,
         reason,
-        performed_by: authData?.user?.id || null,
       });
       addToast(`Sangria de ${formatCurrency(amount)} registrada com sucesso.`, 'success');
       await refresh();
@@ -194,14 +193,13 @@ export const CaixaTab: React.FC = () => {
   const handleSuprimento = async (amount: number, reason: string) => {
     if (!activeSession || !tenant.tenantId) return;
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      await caixaRepo.registerMovement({
+      // Ticket 03 da spec 036: mesma RPC de movimento manual do suprimento.
+      await caixaRepo.registerManualMovement({
         tenant_id: tenant.tenantId,
         cash_session_id: activeSession.id,
         type: 'suprimento',
         amount,
         reason,
-        performed_by: authData?.user?.id || null,
       });
       addToast(`Suprimento de ${formatCurrency(amount)} registrado com sucesso.`, 'success');
       await refresh();

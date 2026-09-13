@@ -22,6 +22,7 @@ describe('FechamentoCaixaModal', () => {
     obterEntradasDinheiro: vi.fn(),
     obterResumoTurno: vi.fn(),
     registrarMovimentacao: vi.fn(),
+    registrarMovimentoManual: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
     reabrirCaixa: vi.fn(),

@@ -12,6 +12,7 @@ import type {
   ReabrirCaixaInput,
   RegistrarAjusteCaixaInput,
   RegistrarMovimentacaoInput,
+  RegistrarMovimentoManualInput,
   TurnPaymentsSummary,
 } from './types';
 
@@ -144,6 +145,27 @@ export class CaixaRepository {
     return await this.adapter.registrarMovimentacao(input);
   }
 
+  // Ticket 03 da spec 036: sangria e suprimento lancados por RPC, sem autor
+  // enviado pelo navegador (a RPC tira o autor da sessao autenticada) e com
+  // a trava de saldo da gaveta aplicada no servidor -- a validacao de saldo
+  // em si nao e duplicada aqui, so o formato basico do input.
+  async registerManualMovement(input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.cash_session_id || !input.cash_session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (input.amount <= 0) {
+      throw new CaixaValidationError('O valor da movimentação deve ser maior que zero.');
+    }
+    if (!input.reason || !input.reason.trim()) {
+      throw new CaixaValidationError('O motivo da movimentação é obrigatório.');
+    }
+
+    return await this.adapter.registrarMovimentoManual(input);
+  }
+
   async listMovements(sessionId: string): Promise<CashMovement[]> {
     if (!sessionId || !sessionId.trim()) {
       throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
@@ -233,6 +255,10 @@ export class CaixaRepository {
 
   async registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement> {
     return await this.registerMovement(input);
+  }
+
+  async registrarMovimentoManual(input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    return await this.registerManualMovement(input);
   }
 
   async listarMovimentacoes(sessionId: string): Promise<CashMovement[]> {

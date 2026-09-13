@@ -263,4 +263,58 @@ describe('SupabaseCaixaAdapter - resumo financeiro diário', () => {
     await expect(new SupabaseCaixaAdapter().obterValorEsperadoGaveta('session-1', 'tenant-1'))
       .rejects.toThrow(/não está aberta/);
   });
+
+  describe('registrarMovimentoManual (ticket 03/036)', () => {
+    it('chama register_cash_movement sem enviar autor', async () => {
+      mockRpc.mockResolvedValueOnce({
+        data: {
+          id: 'mov-1',
+          tenant_id: 'tenant-1',
+          cash_session_id: 'session-1',
+          type: 'sangria',
+          amount: 50,
+          reason: 'Pagamento de água',
+          performed_by: 'user-autenticado',
+          created_at: '2026-09-13T10:00:00Z',
+        },
+        error: null,
+      });
+
+      const result = await new SupabaseCaixaAdapter().registrarMovimentoManual({
+        tenant_id: 'tenant-1',
+        cash_session_id: 'session-1',
+        type: 'sangria',
+        amount: 50,
+        reason: 'Pagamento de água',
+      });
+
+      expect(mockRpc).toHaveBeenCalledWith('register_cash_movement', {
+        p_cash_session_id: 'session-1',
+        p_tenant_id: 'tenant-1',
+        p_type: 'sangria',
+        p_amount: 50,
+        p_reason: 'Pagamento de água',
+      });
+      // Autor nunca sai do navegador: nao existe p_performed_by nem
+      // qualquer chave de autor no payload enviado a RPC.
+      const payload = mockRpc.mock.calls[0][1];
+      expect(payload).not.toHaveProperty('p_performed_by');
+      expect(result).toMatchObject({ id: 'mov-1', type: 'sangria', amount: 50 });
+    });
+
+    it('traduz erro de saldo insuficiente em erro de dominio', async () => {
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'O valor da sangria excede o saldo disponível na gaveta do turno.' },
+      });
+
+      await expect(new SupabaseCaixaAdapter().registrarMovimentoManual({
+        tenant_id: 'tenant-1',
+        cash_session_id: 'session-1',
+        type: 'sangria',
+        amount: 999,
+        reason: 'Acima do saldo',
+      })).rejects.toThrow(/excede o saldo disponível na gaveta/);
+    });
+  });
 });
