@@ -15,11 +15,44 @@ interface ExtratoSessaoCaixaModalProps {
   caixaRepo?: CaixaRepository;
 }
 
-const MOVEMENT_LABELS: Record<string, string> = {
-  suprimento: 'Suprimento',
-  sangria: 'Sangria',
-  repasse_comissao: 'Repasse de comissão',
-};
+interface MovementSection {
+  type: string;
+  label: string;
+  title: string;
+  emptyLabel: string;
+}
+
+// Única fonte de verdade dos tipos com seção própria no extrato impresso: rótulo
+// e apresentação nascem do mesmo item, então um tipo não pode ganhar rótulo sem
+// ganhar seção (ou vice-versa) por engano. Um tipo fora desta lista (hoje ou no
+// futuro) não some da folha: cai na seção "Outras movimentações" com um rótulo
+// genérico pelo sentido (ticket 05 da spec 036).
+const MOVEMENT_SECTIONS: MovementSection[] = [
+  { type: 'suprimento', label: 'Suprimento', title: 'Suprimentos', emptyLabel: 'Nenhum suprimento no turno.' },
+  { type: 'sangria', label: 'Sangria', title: 'Sangrias', emptyLabel: 'Nenhuma sangria no turno.' },
+  {
+    type: 'repasse_comissao',
+    label: 'Repasse de comissão',
+    title: 'Repasses de comissão',
+    emptyLabel: 'Nenhum repasse no turno.',
+  },
+  {
+    type: 'vale_profissional',
+    label: 'Vale de profissional',
+    title: 'Vales de profissional',
+    emptyLabel: 'Nenhum vale no turno.',
+  },
+];
+
+const MOVEMENT_LABELS: Record<string, string> = Object.fromEntries(
+  MOVEMENT_SECTIONS.map((section) => [section.type, section.label])
+);
+
+const KNOWN_MOVEMENT_TYPES = new Set(MOVEMENT_SECTIONS.map((section) => section.type));
+
+function genericLabelByDirection(direction: string | undefined): string {
+  return direction === 'entrada' ? 'Outra entrada' : 'Outra saída';
+}
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '-';
@@ -90,9 +123,8 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
   if (!isOpen || !session) return null;
 
   const activeMovements = (statement?.movements ?? []).filter((m) => !m.reversed_at);
-  const suprimentos = activeMovements.filter((m) => m.type === 'suprimento');
-  const sangrias = activeMovements.filter((m) => m.type === 'sangria');
-  const repasses = activeMovements.filter((m) => m.type === 'repasse_comissao');
+  // Nenhum tipo futuro sem rótulo próprio some do papel em silêncio: cai aqui.
+  const outrasMovimentacoes = activeMovements.filter((m) => !KNOWN_MOVEMENT_TYPES.has(m.type));
 
   const hasAdjustment = (statement?.adjustments.length ?? 0) > 0;
   const adjustmentsSum = (statement?.adjustments ?? []).reduce((sum, a) => sum + a.adjustment_amount, 0);
@@ -179,53 +211,40 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
               </ul>
             </section>
 
-            <section className="extrato-caixa-section">
-              <h4>Suprimentos</h4>
-              {suprimentos.length === 0 ? (
-                <p className="extrato-caixa-empty">Nenhum suprimento no turno.</p>
-              ) : (
-                <ul className="extrato-caixa-list">
-                  {suprimentos.map((m) => (
-                    <li key={m.id}>
-                      <span>{m.reason || MOVEMENT_LABELS[m.type] || m.type}</span>
-                      <span>{formatCurrency(m.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {MOVEMENT_SECTIONS.map((section) => {
+              const items = activeMovements.filter((m) => m.type === section.type);
+              return (
+                <section className="extrato-caixa-section" key={section.type}>
+                  <h4>{section.title}</h4>
+                  {items.length === 0 ? (
+                    <p className="extrato-caixa-empty">{section.emptyLabel}</p>
+                  ) : (
+                    <ul className="extrato-caixa-list">
+                      {items.map((m) => (
+                        <li key={m.id}>
+                          <span>{m.reason || section.label}</span>
+                          <span>{formatCurrency(m.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
 
-            <section className="extrato-caixa-section">
-              <h4>Sangrias</h4>
-              {sangrias.length === 0 ? (
-                <p className="extrato-caixa-empty">Nenhuma sangria no turno.</p>
-              ) : (
+            {outrasMovimentacoes.length > 0 && (
+              <section className="extrato-caixa-section">
+                <h4>Outras movimentações</h4>
                 <ul className="extrato-caixa-list">
-                  {sangrias.map((m) => (
+                  {outrasMovimentacoes.map((m) => (
                     <li key={m.id}>
-                      <span>{m.reason || MOVEMENT_LABELS[m.type] || m.type}</span>
+                      <span>{m.reason || MOVEMENT_LABELS[m.type] || genericLabelByDirection(m.direction)}</span>
                       <span>{formatCurrency(m.amount)}</span>
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-
-            <section className="extrato-caixa-section">
-              <h4>Repasses de comissão</h4>
-              {repasses.length === 0 ? (
-                <p className="extrato-caixa-empty">Nenhum repasse no turno.</p>
-              ) : (
-                <ul className="extrato-caixa-list">
-                  {repasses.map((m) => (
-                    <li key={m.id}>
-                      <span>{m.reason || MOVEMENT_LABELS[m.type] || m.type}</span>
-                      <span>{formatCurrency(m.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+              </section>
+            )}
 
             <section className="extrato-caixa-section">
               <h4>Fechamento</h4>

@@ -1,10 +1,11 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(18);
 
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
 create temporary table ticket22_context (
-  user_id uuid not null, other_user_id uuid not null, tenant_id uuid not null, session_id uuid not null
+  user_id uuid not null, other_user_id uuid not null, tenant_id uuid not null, session_id uuid not null,
+  professional_id uuid not null
 ) on commit drop;
 
 with t as (
@@ -18,6 +19,11 @@ with t as (
 ), au2 as (
   insert into auth.users (id, email)
   values (gen_random_uuid(), '__ticket22_ctx__auth2@teste.com')
+  returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, '__ticket22_prof__', '11888888888', 50, true
+  from t
   returning id
 ), cs as (
   insert into public.cash_sessions (
@@ -33,9 +39,9 @@ with t as (
   from t, au
   returning id, tenant_id
 )
-insert into ticket22_context (user_id, other_user_id, tenant_id, session_id)
-select au.id, au2.id, t.id, cs.id
-from t, au, au2, cs;
+insert into ticket22_context (user_id, other_user_id, tenant_id, session_id, professional_id)
+select au.id, au2.id, t.id, cs.id, prof.id
+from t, au, au2, cs, prof;
 
 update public.users
 set tenant_id = (select tenant_id from ticket22_context), role = 'gerente', is_active = true
@@ -69,6 +75,11 @@ reset role;
 insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by)
 select tenant_id, session_id, 'repasse_comissao', 20, 'Repasse de comissao do turno', user_id
 from ticket22_context;
+-- Ticket 05 da spec 036: o vale de profissional passa a aparecer no extrato,
+-- com sentido e vinculo com o profissional.
+insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by, professional_id)
+select tenant_id, session_id, 'vale_profissional', 15, 'Vale para profissional', user_id, professional_id
+from ticket22_context;
 set local role authenticated;
 
 select is(
@@ -96,15 +107,44 @@ select is(
   (select jsonb_array_length(public.get_cash_session_statement(
     (select session_id from ticket22_context), (select tenant_id from ticket22_context)
   ) -> 'movements')),
-  1,
-  'lista as movimentacoes do turno, incluindo o repasse de comissao'
+  2,
+  'lista as movimentacoes do turno, incluindo o repasse de comissao e o vale'
 );
 select is(
-  (select (public.get_cash_session_statement(
-    (select session_id from ticket22_context), (select tenant_id from ticket22_context)
-  ) -> 'movements' -> 0 ->> 'type')),
-  'repasse_comissao',
-  'movimentacao de repasse de comissao aparece no extrato'
+  (select (m ->> 'direction') from jsonb_array_elements(
+    public.get_cash_session_statement(
+      (select session_id from ticket22_context), (select tenant_id from ticket22_context)
+    ) -> 'movements'
+  ) as m where m ->> 'type' = 'repasse_comissao'),
+  'saida',
+  'movimentacao de repasse de comissao aparece no extrato com o sentido materializado'
+);
+select is(
+  (select (m ->> 'type') from jsonb_array_elements(
+    public.get_cash_session_statement(
+      (select session_id from ticket22_context), (select tenant_id from ticket22_context)
+    ) -> 'movements'
+  ) as m where m ->> 'type' = 'vale_profissional'),
+  'vale_profissional',
+  'vale de profissional passa a aparecer no extrato, em vez de sumir do papel'
+);
+select is(
+  (select (m ->> 'direction') from jsonb_array_elements(
+    public.get_cash_session_statement(
+      (select session_id from ticket22_context), (select tenant_id from ticket22_context)
+    ) -> 'movements'
+  ) as m where m ->> 'type' = 'vale_profissional'),
+  'saida',
+  'sentido do vale aparece no extrato'
+);
+select is(
+  (select (m ->> 'professional_id') from jsonb_array_elements(
+    public.get_cash_session_statement(
+      (select session_id from ticket22_context), (select tenant_id from ticket22_context)
+    ) -> 'movements'
+  ) as m where m ->> 'type' = 'vale_profissional'),
+  (select professional_id::text from ticket22_context),
+  'vinculo do vale com o profissional aparece no extrato'
 );
 select is(
   (select jsonb_array_length(public.get_cash_session_statement(

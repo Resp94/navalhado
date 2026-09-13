@@ -17,14 +17,44 @@ gaveta" (extrato impresso).
 **Blocked by:** 01 — Expand: apuração única do valor esperado da gaveta no servidor;
 035/02 — Hub Financeiro em sub-rotas.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O contrato de leitura do extrato da Sessão de Caixa devolve, em cada movimento, o sentido e
+- [x] O contrato de leitura do extrato da Sessão de Caixa devolve, em cada movimento, o sentido e
       os vínculos já existentes na linha, com chaves aditivas e sem mudar assinatura.
-- [ ] O extrato impresso lista o vale de profissional com rótulo próprio.
-- [ ] Um movimento de tipo sem rótulo conhecido aparece com rótulo genérico de entrada ou saída,
+- [x] O extrato impresso lista o vale de profissional com rótulo próprio.
+- [x] Um movimento de tipo sem rótulo conhecido aparece com rótulo genérico de entrada ou saída,
       conforme o sentido, e nunca é omitido.
-- [ ] A soma das linhas impressas explica o valor esperado da sessão (história 5).
-- [ ] A suíte pgTAP `22_extrato_sessao_caixa` continua verde, cobrindo as chaves novas.
-- [ ] O teste de página existente do extrato ganha caso com vale.
-- [ ] `npm run test` e `npm run test:db` verdes.
+- [x] A soma das linhas impressas explica o valor esperado da sessão (história 5).
+- [x] A suíte pgTAP `22_extrato_sessao_caixa` continua verde, cobrindo as chaves novas — via MCP
+      (18/18 assertions).
+- [x] O teste de página existente do extrato ganha caso com vale.
+- [x] `npm run test` e `npm run test:db` verdes — `npm run test:db` cumprido via MCP (suíte 22).
+
+**Notas de implementação:**
+
+- `get_cash_session_statement` (migration
+  `supabase/migrations/20260913160000_extrato_sessao_caixa_sentido_e_vinculos.sql`) passa a
+  devolver, em cada item de `movements`, as chaves aditivas `direction`
+  (`'entrada' | 'saida'`, espelhando `cash_movements.direction` do ticket 01) e `professional_id`
+  (vínculo já existente na linha do vale). Nenhuma chave existente mudou; assinatura e
+  revoke/grant permanecem os mesmos.
+- `src/modules/caixa/types.ts`: `CashSessionMovementEntry` ganhou os campos `direction` (não
+  opcional, pois a coluna do banco é `not null`) e `professional_id`. Ninguém mais no módulo
+  precisou mudar — a leitura já passava o JSON adiante sem mapear campo a campo.
+- `src/components/caixa/ExtratoSessaoCaixaModal.tsx`: as quatro seções fixas (suprimento, sangria,
+  repasse de comissão, vale de profissional) agora nascem de uma única lista `MOVEMENT_SECTIONS`
+  (tipo, rótulo, título da seção, mensagem de vazio) — rótulo e apresentação vêm do mesmo item, de
+  propósito, para que um tipo novo não possa ganhar rótulo sem ganhar seção (ou vice-versa) por
+  descuido, o mesmo defeito que este ticket corrige para o vale. Um tipo fora dessa lista cai na
+  seção "Outras movimentações", com rótulo genérico `'Outra entrada'`/`'Outra saída'` pelo campo
+  `direction` quando não há `reason`. O ticket 15 (pagamento de conta) deve adicionar seu tipo a
+  `MOVEMENT_SECTIONS` para ganhar seção própria, ou aceitar o rótulo genérico até lá.
+- `supabase/tests/database/22_extrato_sessao_caixa.test.sql`: plano subiu de 15 para 18. O
+  contexto sintético ganhou um profissional e um segundo movimento (`vale_profissional`,
+  vinculado ao profissional) ao lado do repasse já existente. As nova asserções usam
+  `jsonb_array_elements(...) where m->>'type' = ...` em vez de índice fixo no array, porque os
+  dois movimentos são inseridos na mesma transação de teste e podem empatar em `created_at`
+  (timestamp de transação), o que tornaria um `movements->0` frágil.
+- `src/pages/gerente/__tests__/Financeiro.test.tsx`: o teste de impressão do extrato ganhou um
+  movimento de vale (rótulo próprio) e um tipo inventado (`ajuste_futuro`, sem `reason`) para
+  provar o rótulo genérico por sentido.

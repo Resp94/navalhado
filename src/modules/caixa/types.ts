@@ -184,10 +184,19 @@ export interface CashSessionReopeningEntry {
 export interface CashSessionMovementEntry {
   id: string;
   type: string;
+  /**
+   * Sentido do movimento na gaveta ('entrada' ou 'saida'), materializado pelo
+   * ticket 01 da spec 036 (cash_movements.direction). Chave aditiva: um tipo
+   * futuro sem rótulo conhecido ainda tem sentido, então o extrato cai num
+   * rótulo genérico em vez de omitir a linha.
+   */
+  direction: 'entrada' | 'saida';
   amount: number;
   reason: string | null;
   performed_by: string | null;
   payout_id: string | null;
+  /** Vínculo com o profissional, usado hoje pelo vale (ticket 05 da spec 034/036). */
+  professional_id: string | null;
   created_at: string;
   reversed_at: string | null;
   reversed_by: string | null;

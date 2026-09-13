@@ -377,9 +377,11 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
             adjustments: [],
             adjusted_difference_amount: 0,
             movements: [
-              { id: 'mov-1', type: 'suprimento', amount: 50, reason: 'Troco extra', performed_by: null, payout_id: null, created_at: '2026-09-01T10:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
-              { id: 'mov-2', type: 'sangria', amount: 30, reason: 'Retirada para o cofre', performed_by: null, payout_id: null, created_at: '2026-09-01T11:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
-              { id: 'mov-3', type: 'repasse_comissao', amount: 120, reason: 'Repasse Carlos', performed_by: null, payout_id: 'payout-1', created_at: '2026-09-01T12:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-1', type: 'suprimento', direction: 'entrada', amount: 50, reason: 'Troco extra', performed_by: null, payout_id: null, professional_id: null, created_at: '2026-09-01T10:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-2', type: 'sangria', direction: 'saida', amount: 30, reason: 'Retirada para o cofre', performed_by: null, payout_id: null, professional_id: null, created_at: '2026-09-01T11:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-3', type: 'repasse_comissao', direction: 'saida', amount: 120, reason: 'Repasse Carlos', performed_by: null, payout_id: 'payout-1', professional_id: null, created_at: '2026-09-01T12:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-4', type: 'vale_profissional', direction: 'saida', amount: 40, reason: 'Adiantamento Bruno', performed_by: null, payout_id: null, professional_id: 'prof-1', created_at: '2026-09-01T12:30:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-5', type: 'ajuste_futuro', direction: 'entrada', amount: 15, reason: null, performed_by: null, payout_id: null, professional_id: null, created_at: '2026-09-01T12:45:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
             ],
             reopenings: [],
           },
@@ -458,6 +460,11 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(await screen.findByText('Troco extra')).toBeInTheDocument();
     expect(screen.getByText('Retirada para o cofre')).toBeInTheDocument();
     expect(screen.getByText('Repasse Carlos')).toBeInTheDocument();
+    // Vale de profissional: ganha rótulo próprio e não some mais do extrato.
+    expect(screen.getByText('Adiantamento Bruno')).toBeInTheDocument();
+    // Tipo sem rótulo conhecido: cai num rótulo genérico pelo sentido, em vez
+    // de ser omitido da folha impressa.
+    expect(screen.getByText('Outra entrada')).toBeInTheDocument();
     expect(screen.getByText(/Sem diferença/)).toBeInTheDocument();
 
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
