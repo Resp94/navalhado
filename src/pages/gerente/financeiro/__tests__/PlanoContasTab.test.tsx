@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Outlet, useSearchParams } from 'react-router-dom';
 import { PlanoContasTab } from '../PlanoContasTab';
 import { PlanoContasRepository } from '../../../../modules/plano-contas/PlanoContasRepository';
 import { InMemoryPlanoContasAdapter } from '../../../../modules/plano-contas/adapters/InMemoryPlanoContasAdapter';
-import type { CategoriaDespesa } from '../../../../modules/plano-contas/types';
+import type { CategoriaDespesa, Fornecedor } from '../../../../modules/plano-contas/types';
 
 const TENANT_ID = 'tenant-plano-contas-1';
 
@@ -25,14 +25,50 @@ function categoria(overrides: Partial<CategoriaDespesa>): CategoriaDespesa {
   };
 }
 
-function renderTab(repository: PlanoContasRepository) {
+function fornecedor(overrides: Partial<Fornecedor>): Fornecedor {
+  return {
+    id: overrides.id || 'forn-id',
+    tenant_id: TENANT_ID,
+    name: 'Fornecedor',
+    document: null,
+    phone: null,
+    email: null,
+    notes: null,
+    default_category_id: null,
+    default_category: null,
+    archived_at: null,
+    archived_by: null,
+    created_at: '2026-01-01T00:00:00Z',
+    created_by: null,
+    updated_at: '2026-01-01T00:00:00Z',
+    updated_by: null,
+    ...overrides,
+  };
+}
+
+/** Só para o teste que confere o reflexo na URL: mostra a query string atual. */
+function LocationSearchProbe() {
+  const [params] = useSearchParams();
+  const search = params.toString();
+  return <span data-testid="location-search">{search ? `?${search}` : ''}</span>;
+}
+
+function renderTab(repository: PlanoContasRepository, initialPath = '/financeiro/cadastros') {
   return render(
-    <MemoryRouter initialEntries={['/financeiro/cadastros']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route
           element={<Outlet context={{ tenantId: TENANT_ID, tenantName: 'Barbearia Modelo', timezone: 'America/Sao_Paulo' }} />}
         >
-          <Route path="/financeiro/cadastros" element={<PlanoContasTab repository={repository} />} />
+          <Route
+            path="/financeiro/cadastros"
+            element={
+              <>
+                <PlanoContasTab repository={repository} />
+                <LocationSearchProbe />
+              </>
+            }
+          />
         </Route>
       </Routes>
     </MemoryRouter>
@@ -222,5 +258,140 @@ describe('PlanoContasTab (adaptador em memória)', () => {
       expect(screen.queryByText('Marketing')).not.toBeInTheDocument();
     });
     expect(screen.getByText('Nenhuma categoria de despesa ativa')).toBeInTheDocument();
+  });
+
+  it('alterna para a seção Fornecedores pelo controle segmentado e reflete na URL', async () => {
+    const repository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(repository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma categoria de despesa ativa')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('location-search')).toHaveTextContent('');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Fornecedores' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum fornecedor ativo')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?secao=fornecedores');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Categorias de Despesa' }));
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma categoria de despesa ativa')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('location-search')).toHaveTextContent('');
+  });
+
+  it('cria um novo fornecedor pelo Drawer', async () => {
+    const repository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(repository, '/financeiro/cadastros?secao=fornecedores');
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum fornecedor ativo')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Novo fornecedor' }));
+    const nomeInput = await screen.findByLabelText('Nome do fornecedor');
+    fireEvent.change(nomeInput, { target: { value: 'Distribuidora ABC' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar fornecedor' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Distribuidora ABC').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByLabelText('Nome do fornecedor')).not.toBeInTheDocument();
+  });
+
+  it('colide com fornecedor arquivado ao criar e oferece reativar ali mesmo', async () => {
+    const adapter = new InMemoryPlanoContasAdapter(
+      [],
+      [fornecedor({ id: 'forn-antigo', name: 'Antigo Fornecedor', archived_at: '2026-02-01T00:00:00Z', archived_by: 'user-1' })]
+    );
+    const repository = new PlanoContasRepository(adapter);
+
+    renderTab(repository, '/financeiro/cadastros?secao=fornecedores');
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum fornecedor ativo')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Novo fornecedor' }));
+    const nomeInput = await screen.findByLabelText('Nome do fornecedor');
+    fireEvent.change(nomeInput, { target: { value: 'antigo fornecedor' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar fornecedor' }));
+
+    const reativarButton = await screen.findByRole('button', { name: /Reativar.*Antigo Fornecedor/ });
+    fireEvent.click(reativarButton);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nome do fornecedor')).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Antigo Fornecedor').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ativo').length).toBeGreaterThan(0);
+  });
+
+  it('arquiva fornecedor com confirmação pelo ConfirmDialog', async () => {
+    const adapter = new InMemoryPlanoContasAdapter([], [fornecedor({ id: 'forn-1', name: 'Distribuidora ABC' })]);
+    const repository = new PlanoContasRepository(adapter);
+
+    renderTab(repository, '/financeiro/cadastros?secao=fornecedores');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Distribuidora ABC').length).toBeGreaterThan(0);
+    });
+
+    const table = screen.getByRole('table');
+    fireEvent.click(within(table).getByRole('button', { name: 'Arquivar' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Arquivar fornecedor' });
+    expect(within(dialog).getByText(/sai das opções de lançamento/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Arquivar' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Distribuidora ABC')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Nenhum fornecedor ativo')).toBeInTheDocument();
+  });
+
+  it('busca fornecedor por nome e por documento, com ou sem máscara', async () => {
+    const adapter = new InMemoryPlanoContasAdapter(
+      [],
+      [
+        fornecedor({ id: 'forn-1', name: 'Distribuidora ABC', document: '12345678909' }),
+        fornecedor({ id: 'forn-2', name: 'Materiais XYZ', document: null }),
+      ]
+    );
+    const repository = new PlanoContasRepository(adapter);
+
+    renderTab(repository, '/financeiro/cadastros?secao=fornecedores');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Distribuidora ABC').length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText('Materiais XYZ').length).toBeGreaterThan(0);
+
+    const busca = screen.getByLabelText('Buscar fornecedor por nome ou documento');
+
+    fireEvent.change(busca, { target: { value: 'materiais' } });
+    await waitFor(() => {
+      expect(screen.queryByText('Distribuidora ABC')).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Materiais XYZ').length).toBeGreaterThan(0);
+
+    // Documento COM máscara encontra o fornecedor pelo documento sem máscara salvo.
+    fireEvent.change(busca, { target: { value: '123.456.789-09' } });
+    await waitFor(() => {
+      expect(screen.getAllByText('Distribuidora ABC').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText('Materiais XYZ')).not.toBeInTheDocument();
+
+    // Documento SEM máscara encontra o mesmo fornecedor.
+    fireEvent.change(busca, { target: { value: '12345678909' } });
+    await waitFor(() => {
+      expect(screen.getAllByText('Distribuidora ABC').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText('Materiais XYZ')).not.toBeInTheDocument();
   });
 });

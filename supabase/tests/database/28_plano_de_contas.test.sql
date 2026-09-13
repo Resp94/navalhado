@@ -1,13 +1,15 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(80);
+select plan(116);
 
 -- Spec 035 (Plano de Contas): arquivo pgTAP do modulo.
 -- Ticket 05: validacao de CPF e CNPJ alfanumerico em
 -- private.is_valid_br_document. Ticket 03: tabela financial_categories,
 -- semeadura das catorze categorias padrao e acesso por papel. Ticket 04: RPCs
 -- de escrita de Categoria de Despesa (criar, renomear, arquivar, reativar).
--- O ticket 06 acrescenta aqui os testes de fornecedores e ajusta o plan().
+-- Ticket 06: tabela suppliers e RPCs de Fornecedor (criar, atualizar,
+-- arquivar, reativar), reusando o algoritmo de documento do ticket 05 e a
+-- categoria padrao do ticket 04.
 
 -- ---------------------------------------------------------------------------
 -- Contrato da funcao
@@ -588,6 +590,342 @@ select throws_ok(
   'gestor de outro tenant nao renomeia categoria do tenant A'
 );
 
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 06: tabela suppliers e RPCs de Fornecedor (criar, atualizar,
+-- arquivar, reativar). Reaproveita ticket28c_context (tenant_a_id,
+-- gerente_a_id, barbeiro_a_id, tenant_b_id, gerente_b_id). Categorias
+-- proprias, dedicadas a este bloco, para nao depender do estado mutado de
+-- ticket28d_created pelas secoes anteriores.
+-- ---------------------------------------------------------------------------
+select has_table('public', 'suppliers', 'tabela suppliers existe');
+
+select has_function(
+  'public', 'create_supplier', array['text', 'text', 'text', 'text', 'text', 'uuid', 'uuid'],
+  'public.create_supplier(...) existe'
+);
+select has_function(
+  'public', 'update_supplier', array['uuid', 'text', 'text', 'text', 'text', 'text', 'uuid', 'uuid'],
+  'public.update_supplier(...) existe'
+);
+select has_function(
+  'public', 'archive_supplier', array['uuid', 'uuid'], 'public.archive_supplier(uuid, uuid) existe'
+);
+select has_function(
+  'public', 'reactivate_supplier', array['uuid', 'uuid'], 'public.reactivate_supplier(uuid, uuid) existe'
+);
+
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.create_supplier(text,text,text,text,text,uuid,uuid)'::regprocedure),
+  'create_supplier fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.update_supplier(uuid,text,text,text,text,text,uuid,uuid)'::regprocedure),
+  'update_supplier fixa search_path vazio'
+);
+
+-- Privilegios: anon sem nada, authenticated sem escrita direta na tabela,
+-- service_role com execucao nas quatro RPCs.
+select ok(
+  not has_table_privilege('anon', 'public.suppliers', 'SELECT'),
+  'anon nao tem privilegio de SELECT em suppliers'
+);
+select ok(
+  not has_function_privilege('anon', 'public.create_supplier(text,text,text,text,text,uuid,uuid)', 'EXECUTE'),
+  'anon nao executa create_supplier'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.suppliers', 'INSERT'),
+  'authenticated nao tem privilegio de INSERT direto em suppliers'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.suppliers', 'UPDATE'),
+  'authenticated nao tem privilegio de UPDATE direto em suppliers'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.suppliers', 'DELETE'),
+  'authenticated nao tem privilegio de DELETE direto em suppliers'
+);
+select ok(
+  has_function_privilege('service_role', 'public.create_supplier(text,text,text,text,text,uuid,uuid)', 'EXECUTE'),
+  'service_role executa create_supplier'
+);
+
+-- Restricao de verificacao do documento: recusa documento invalido mesmo em
+-- escrita direta como superusuario (nao passa pela RPC).
+select throws_ok(
+  format(
+    $$insert into public.suppliers (tenant_id, name, document) values ('%s'::uuid, 'Fornecedor Doc Invalido', '11111111111')$$,
+    (select tenant_a_id from ticket28c_context)
+  ),
+  '23514',
+  null,
+  'restricao de verificacao recusa documento invalido em escrita direta como superusuario'
+);
+
+-- Categorias dedicadas a este bloco: uma ativa e DUAS ja arquivadas (a
+-- segunda serve para provar que trocar para uma categoria arquivada
+-- DIFERENTE da ja vinculada continua recusado -- so a MESMA e aceita).
+create temporary table ticket28f_context (
+  categoria_ativa_id uuid not null,
+  categoria_arquivada_id uuid not null,
+  categoria_arquivada_2_id uuid not null
+) on commit drop;
+
+with ca as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  values ((select tenant_a_id from ticket28c_context), 'expense', 'Ticket28f Ativa')
+  returning id
+), cb as (
+  insert into public.financial_categories (tenant_id, nature, name, archived_at, archived_by)
+  values ((select tenant_a_id from ticket28c_context), 'expense', 'Ticket28f Arquivada', now(), (select gerente_a_id from ticket28c_context))
+  returning id
+), cc as (
+  insert into public.financial_categories (tenant_id, nature, name, archived_at, archived_by)
+  values ((select tenant_a_id from ticket28c_context), 'expense', 'Ticket28f Arquivada 2', now(), (select gerente_a_id from ticket28c_context))
+  returning id
+)
+insert into ticket28f_context (categoria_ativa_id, categoria_arquivada_id, categoria_arquivada_2_id)
+select ca.id, cb.id, cc.id from ca, cb, cc;
+
+grant select on ticket28f_context to authenticated;
+
+-- Categoria padrao de outro tenant recusada pelo FK composto: a integridade
+-- fica no schema, nao so na RPC -- prova com INSERT direto como superusuario.
+create temporary table ticket28f_categoria_tenant_b (id uuid not null) on commit drop;
+insert into ticket28f_categoria_tenant_b (id)
+select id from public.financial_categories
+where tenant_id = (select tenant_b_id from ticket28c_context) and seed_key = 'marketing';
+
+select throws_ok(
+  format(
+    $$insert into public.suppliers (tenant_id, name, default_category_id)
+      values ('%s'::uuid, 'Fornecedor FK Composto', '%s'::uuid)$$,
+    (select tenant_a_id from ticket28c_context),
+    (select id from ticket28f_categoria_tenant_b)
+  ),
+  '23503',
+  null,
+  'categoria padrao de outro tenant e recusada pelo FK composto (tenant_id, default_category_id)'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket28c_context), true);
+set local role authenticated;
+
+-- Criar com categoria ativa: nome, documento, telefone e e-mail normalizados.
+create temporary table ticket28f_created (id uuid) on commit drop;
+insert into ticket28f_created (id)
+select id from public.create_supplier(
+  '  Distribuidora   ABC  ', '123.456.789-09', '(11) 98888-7777', 'Contato@Fornecedor.COM', '  obs  ',
+  (select categoria_ativa_id from ticket28f_context), (select tenant_a_id from ticket28c_context)
+);
+
+select is(
+  (select name from public.suppliers where id = (select id from ticket28f_created)),
+  'Distribuidora ABC',
+  'criar fornecedor normaliza o nome (pontas aparadas, espacos colapsados)'
+);
+select is(
+  (select document from public.suppliers where id = (select id from ticket28f_created)),
+  '12345678909',
+  'criar fornecedor normaliza o documento (sem mascara)'
+);
+select is(
+  (select phone from public.suppliers where id = (select id from ticket28f_created)),
+  '11988887777',
+  'criar fornecedor normaliza o telefone (so digitos)'
+);
+select is(
+  (select email from public.suppliers where id = (select id from ticket28f_created)),
+  'contato@fornecedor.com',
+  'criar fornecedor normaliza o e-mail (minusculas)'
+);
+select is(
+  (select default_category_id from public.suppliers where id = (select id from ticket28f_created)),
+  (select categoria_ativa_id from ticket28f_context),
+  'criar fornecedor aceita categoria padrao ativa'
+);
+
+-- Categoria padrao arquivada e recusada na criacao.
+select throws_ok(
+  format(
+    $$select public.create_supplier('Fornecedor Categoria Arquivada', null, null, null, null, '%s'::uuid, '%s'::uuid)$$,
+    (select categoria_arquivada_id from ticket28f_context),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  '22023',
+  'Categoria de despesa padrão informada não existe ou está arquivada.',
+  'criar fornecedor com categoria padrao arquivada e recusado'
+);
+
+-- Documento unico por tenant, inclusive contra arquivado.
+create temporary table ticket28f_conflict_capture (step text, existing_id uuid, existing_name text, archived boolean) on commit drop;
+
+do $$
+declare
+  v_detail text;
+  v_json jsonb;
+begin
+  begin
+    perform public.create_supplier('Outro Nome', '123.456.789-09', null, null, null, null, (select tenant_a_id from ticket28c_context));
+    raise exception 'ticket28f: esperava conflito de documento';
+  exception when sqlstate '23505' then
+    get stacked diagnostics v_detail = pg_exception_detail;
+    v_json := v_detail::jsonb;
+    insert into ticket28f_conflict_capture (step, existing_id, existing_name, archived)
+    values ('documento', (v_json->>'existing_id')::uuid, v_json->>'existing_name', (v_json->>'archived')::boolean);
+  end;
+end;
+$$;
+
+select is(
+  (select existing_id from ticket28f_conflict_capture where step = 'documento'),
+  (select id from ticket28f_created),
+  'conflito de documento identifica o fornecedor existente pelo id'
+);
+select is(
+  (select archived from ticket28f_conflict_capture where step = 'documento'),
+  false,
+  'conflito de documento informa que o fornecedor existente nao esta arquivado'
+);
+
+-- Nome unico sem diferenciar maiusculas.
+select throws_ok(
+  format(
+    $$select public.create_supplier('distribuidora abc', null, null, null, null, null, '%s'::uuid)$$,
+    (select tenant_a_id from ticket28c_context)
+  ),
+  '23505',
+  'Já existe um fornecedor com este nome.',
+  'nome de fornecedor e unico sem diferenciar maiusculas'
+);
+
+-- Atualizar: aceita categoria padrao ja arquivada quando NAO mudou.
+reset role;
+update public.suppliers
+set default_category_id = (select categoria_arquivada_id from ticket28f_context)
+where id = (select id from ticket28f_created);
+set local role authenticated;
+
+select lives_ok(
+  format(
+    $$select public.update_supplier('%s'::uuid, 'Distribuidora ABC', '123.456.789-09', null, null, null, '%s'::uuid, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select categoria_arquivada_id from ticket28f_context),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  'atualizar fornecedor aceita categoria padrao arquivada quando nao mudou'
+);
+
+-- Atualizar: recusa trocar para uma NOVA categoria arquivada (diferente da
+-- ja vinculada) -- so a mesma escapa da checagem de ativa.
+select throws_ok(
+  format(
+    $$select public.update_supplier('%s'::uuid, 'Distribuidora ABC', '123.456.789-09', null, null, null, '%s'::uuid, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select categoria_arquivada_2_id from ticket28f_context),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  '22023',
+  'Categoria de despesa padrão informada não existe ou está arquivada.',
+  'atualizar fornecedor trocando para uma NOVA categoria arquivada e recusado'
+);
+
+-- Atualizar removendo a categoria padrao (para null) nunca exige checagem de
+-- ativa, e funciona sem erro.
+select lives_ok(
+  format(
+    $$select public.update_supplier('%s'::uuid, 'Distribuidora ABC', '123.456.789-09', null, null, null, null, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  'atualizar fornecedor removendo a categoria padrao funciona sem checagem de ativa'
+);
+
+-- Arquivar, reativar e recusas de dupla operacao / atualizar arquivado.
+select ok(
+  (select archived_at from public.archive_supplier(
+    (select id from ticket28f_created), (select tenant_a_id from ticket28c_context)
+  )) is not null,
+  'arquivar fornecedor preenche archived_at'
+);
+select throws_ok(
+  format(
+    $$select public.update_supplier('%s'::uuid, 'Novo Nome', null, null, null, null, null, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  'P0001',
+  'Fornecedor arquivado não pode ser atualizado. Reative-o antes.',
+  'atualizar fornecedor arquivado e recusado'
+);
+select throws_ok(
+  format(
+    $$select public.archive_supplier('%s'::uuid, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  'P0001',
+  'Este fornecedor já está arquivado.',
+  'arquivar fornecedor ja arquivado e recusado'
+);
+select is(
+  (select archived_at from public.reactivate_supplier(
+    (select id from ticket28f_created), (select tenant_a_id from ticket28c_context)
+  )),
+  null,
+  'reativar fornecedor limpa archived_at'
+);
+select throws_ok(
+  format(
+    $$select public.reactivate_supplier('%s'::uuid, '%s'::uuid)$$,
+    (select id from ticket28f_created),
+    (select tenant_a_id from ticket28c_context)
+  ),
+  'P0001',
+  'Este fornecedor já está ativo.',
+  'reativar fornecedor ja ativo e recusado'
+);
+
+reset role;
+
+-- Profissional nao le nenhum fornecedor.
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket28c_context), true);
+set local role authenticated;
+select is(
+  (select count(*)::integer from public.suppliers where tenant_id = (select tenant_a_id from ticket28c_context)),
+  0,
+  'profissional nao le nenhum fornecedor'
+);
+select throws_ok(
+  $$select public.create_supplier('Fornecedor do barbeiro', null, null, null, null, null, null)$$,
+  '42501',
+  'Acesso negado para gerenciar o Plano de Contas.',
+  'profissional e recusado ao tentar criar fornecedor'
+);
+reset role;
+
+-- Gestor de outro tenant nao le fornecedores do tenant A, e nao escreve
+-- diretamente na tabela.
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket28c_context), true);
+set local role authenticated;
+select is(
+  (select count(*)::integer from public.suppliers where tenant_id = (select tenant_a_id from ticket28c_context)),
+  0,
+  'gestor de outro tenant nao le fornecedores do tenant A'
+);
+select throws_ok(
+  format(
+    $$insert into public.suppliers (tenant_id, name) values ('%s'::uuid, 'Insercao direta')$$,
+    (select tenant_a_id from ticket28c_context)
+  ),
+  '42501',
+  null,
+  'gestor autenticado nao insere diretamente em suppliers'
+);
 reset role;
 
 select * from finish(true);

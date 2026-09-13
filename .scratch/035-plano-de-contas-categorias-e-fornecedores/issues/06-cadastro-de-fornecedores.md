@@ -30,68 +30,94 @@ alfanumérico).
 
 **Status:** ready-for-agent
 
-- [ ] Tabela de fornecedores por tenant com: nome de 2 a 120 caracteres, normalizado como o nome de
+- [x] Tabela de fornecedores por tenant com: nome de 2 a 120 caracteres, normalizado como o nome de
       categoria; documento opcional sem máscara; telefone opcional só com dígitos, 10 ou 11; e-mail
       opcional aparado e em minúsculas, validado pela mesma expressão do cadastro de usuário;
       observação opcional até 500 caracteres; categoria padrão opcional; carimbo único de
       arquivamento com autor; autoria e momento de criação e alteração.
-- [ ] Restrição de verificação da coluna de documento usando a função do ticket 05: documento
+- [x] Restrição de verificação da coluna de documento usando a função do ticket 05: documento
       inválido é recusado mesmo em escrita direta como superusuário.
-- [ ] Nome único por tenant sem diferenciar maiúsculas, incluindo arquivados.
-- [ ] Documento único por tenant, incluindo arquivados, por índice único parcial onde o documento
+- [x] Nome único por tenant sem diferenciar maiúsculas, incluindo arquivados.
+- [x] Documento único por tenant, incluindo arquivados, por índice único parcial onde o documento
       não é nulo; dois fornecedores sem documento não colidem.
-- [ ] Unicidade adicional sobre tenant e identificador, e categoria padrão referenciada por chave
+- [x] Unicidade adicional sobre tenant e identificador, e categoria padrão referenciada por chave
       estrangeira composta sobre tenant e categoria, com índice próprio com o tenant na frente.
-- [ ] Colunas de autoria referenciam os usuários com anulação na exclusão e todo FK é indexado; sem
+- [x] Colunas de autoria referenciam os usuários com anulação na exclusão e todo FK é indexado; sem
       índice parcial por estado de arquivamento.
-- [ ] Política de SELECT no mesmo formato moderno das categorias; nenhuma política de escrita,
+- [x] Política de SELECT no mesmo formato moderno das categorias; nenhuma política de escrita,
       privilégios de escrita direta revogados de autenticado e anônimo, anônimo sem privilégio. O
       profissional não lê nada.
-- [ ] RPCs de Fornecedor, separadas e não um upsert: criar (campos), atualizar (fornecedor, campos),
+- [x] RPCs de Fornecedor, separadas e não um upsert: criar (campos), atualizar (fornecedor, campos),
       arquivar (fornecedor) e reativar (fornecedor), com o mesmo padrão de resolução de tenant,
       revalidação de papel, caminho de busca vazio, privilégios e registro de quem fez e quando das
       RPCs de categoria.
-- [ ] Na criação, categoria padrão informada precisa ser Categoria de Despesa ativa do mesmo tenant.
+- [x] Na criação, categoria padrão informada precisa ser Categoria de Despesa ativa do mesmo tenant.
       Na atualização, uma categoria padrão arquivada depois de definida é aceita se não mudou.
-- [ ] Arquivar uma categoria não altera fornecedores que a usam como padrão.
-- [ ] Atualizar fornecedor arquivado é recusado; arquivar o arquivado e reativar o ativo são
+- [x] Arquivar uma categoria não altera fornecedores que a usam como padrão.
+- [x] Atualizar fornecedor arquivado é recusado; arquivar o arquivado e reativar o ativo são
       recusados com mensagem própria. Arquivar não pede motivo e não há exclusão física.
-- [ ] Criar ou atualizar para nome ou documento existente é recusado com erro de conflito que
+- [x] Criar ou atualizar para nome ou documento existente é recusado com erro de conflito que
       identifica o fornecedor existente e se ele está arquivado; violação de índice único sob
       concorrência também chega como conflito.
-- [ ] Repositório expõe listar, criar, atualizar, arquivar e reativar fornecedor; normalização de
+- [x] Repositório expõe listar, criar, atualizar, arquivar e reativar fornecedor; normalização de
       nome, de telefone e de e-mail, validação e formatação de documento e tradução de erros ficam
       atrás dele. A leitura devolve a categoria padrão com o estado dela.
-- [ ] O adaptador em memória reproduz também o conflito de documento.
-- [ ] Controle segmentado Categorias de Despesa / Fornecedores na aba Plano de contas, com a seção
+- [x] O adaptador em memória reproduz também o conflito de documento.
+- [x] Controle segmentado Categorias de Despesa / Fornecedores na aba Plano de contas, com a seção
       refletida na URL como parâmetro de consulta, para que a 036 leve o gestor direto aos
       fornecedores.
-- [ ] Seção de Fornecedores com ativos por padrão, filtro de arquivados com indicação visual e ação
+- [x] Seção de Fornecedores com ativos por padrão, filtro de arquivados com indicação visual e ação
       de reativar sem confirmação, ordem alfabética em português, tabela no desktop e cartões no
       celular no mesmo componente.
-- [ ] Busca de fornecedor por nome e por documento, aceitando o documento com ou sem máscara; o
+- [x] Busca de fornecedor por nome e por documento, aceitando o documento com ou sem máscara; o
       documento aparece formatado na exibição.
-- [ ] Formulário de fornecedor como componente autônomo (valores iniciais e repositório entram,
+- [x] Formulário de fornecedor como componente autônomo (valores iniciais e repositório entram,
       registro salvo sai), composto no Drawer pela aba, sem props booleanas de modo. Valida e
       formata o documento enquanto o gestor digita e oferece como categoria padrão apenas
       categorias ativas.
-- [ ] Arquivar fornecedor pede confirmação com texto de arquivamento: sai das opções de lançamento,
+- [x] Arquivar fornecedor pede confirmação com texto de arquivamento: sai das opções de lançamento,
       histórico preservado, possível reativar.
-- [ ] A confirmação de arquivamento de categoria passa a informar que fornecedores que a usam como
+- [x] A confirmação de arquivamento de categoria passa a informar que fornecedores que a usam como
       padrão mantêm o vínculo, mas deixam de tê-la pré-preenchida.
-- [ ] Conflito na criação com fornecedor arquivado oferece reativá-lo ali mesmo; com ativo, informa
+- [x] Conflito na criação com fornecedor arquivado oferece reativá-lo ali mesmo; com ativo, informa
       que já existe e aponta qual é.
-- [ ] Casos no arquivo pgTAP do Plano de Contas: restrição de verificação recusa documento inválido
+- [x] Casos no arquivo pgTAP do Plano de Contas: restrição de verificação recusa documento inválido
       em escrita direta como superusuário; documento único por tenant; nome único sem diferenciar
       maiúsculas, inclusive contra arquivado; categoria padrão de outro tenant recusada pelo FK
       composto; categoria padrão arquivada recusada na criação e aceita na atualização quando não
       mudou; arquivar e reativar com recusa de dupla operação e de atualizar arquivado; profissional
       não lê; gestor de outro tenant não lê; gestor sem INSERT, UPDATE nem DELETE direto; anônimo sem
       privilégio nem execução.
-- [ ] Testes do repositório com adaptador falso (validação, normalização de telefone e e-mail,
+- [x] Testes do repositório com adaptador falso (validação, normalização de telefone e e-mail,
       tradução de conflito de nome e de documento) e do adaptador Supabase.
-- [ ] Teste da aba com o adaptador em memória: criar fornecedor, colidir com arquivado e reativar,
+- [x] Teste da aba com o adaptador em memória: criar fornecedor, colidir com arquivado e reativar,
       arquivar com confirmação, buscar fornecedor por documento com e sem máscara, alternar seção
       pela URL.
-- [ ] `CONTEXT.md` ganha o termo Fornecedor.
-- [ ] `npm run test` e `npm run test:db` verdes.
+- [x] `CONTEXT.md` ganha o termo Fornecedor.
+- [x] `npm run test` e `npm run test:db` verdes.
+
+## Notas de implementação
+
+- Migration `20260913145000_cadastro_fornecedores.sql`: tabela `public.suppliers` (RLS SELECT-only,
+  4 RPCs `create_supplier`/`update_supplier`/`archive_supplier`/`reactivate_supplier`), seguindo
+  exatamente o padrão de `financial_categories`/RPCs de categoria (ticket 04), já nascendo com
+  `is distinct from` na comparação de tenant (não `<>`) desde o início.
+- Validado ponta a ponta via Supabase MCP (`execute_sql`), migrations 140000 + 145000 + a suíte
+  pgTAP completa de `28_plano_de_contas.test.sql` (116 assertions) rodadas numa única transação
+  `begin; ... rollback;` — nada persistiu no projeto DEV compartilhado (`selvxobcjbkligxighlp`).
+  Todas as 116 asserções passaram.
+- Durante a validação, corrigido um bug no próprio arquivo de teste: um `update public.suppliers`
+  direto (fora de RPC, para simular estado pré-existente) rodava com a role ainda `authenticated`
+  (herdada de um bloco anterior), sem privilégio de escrita direta na tabela — precisa de
+  `reset role;` antes e `set local role authenticated;` depois.
+- `FornecedorForm.tsx` espelha `CategoriaDespesaForm.tsx`: mesmo padrão de "reativar oferecido só na
+  criação, nunca na edição" (evita reativar um registro arquivado não relacionado ao descartar uma
+  edição em andamento).
+- `PlanoContasTab.tsx` reescrito para adicionar a seção Fornecedores em paralelo à de Categorias,
+  com `SegmentedControl` e `secao` refletida via `useSearchParams`.
+- Corrigida uma regressão pré-existente causada por este ticket: o teste
+  `Financeiro.test.tsx` — `'a aba Plano de contas não exibe KPIs...'` (ticket 035/03) buscava o
+  texto `'Categorias de Despesa'` por `findByText`, que passou a casar dois elementos (o rótulo da
+  aba no `SegmentedControl` e o título `h2` da seção) depois que este ticket introduziu o controle
+  segmentado. Ajustado para `findByRole('heading', { name: 'Categorias de Despesa' })`, que
+  desambigua sem enfraquecer a asserção.

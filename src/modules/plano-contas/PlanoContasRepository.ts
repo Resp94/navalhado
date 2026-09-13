@@ -1,8 +1,14 @@
 import { normalizarNome } from './nome';
-import type { CategoriaDespesa, IPlanoContasAdapter } from './types';
+import { documentoValido, normalizarDocumento } from './documento';
+import type { CategoriaDespesa, DadosFornecedor, Fornecedor, IPlanoContasAdapter } from './types';
 
 const NOME_MIN = 2;
 const NOME_MAX = 60;
+
+const NOME_FORNECEDOR_MIN = 2;
+const NOME_FORNECEDOR_MAX = 120;
+const NOTES_MAX = 500;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class PlanoContasValidationError extends Error {
   constructor(message: string) {
@@ -79,6 +85,41 @@ export class PlanoContasRepository {
     return this.adapter.reativarCategoriaDespesa(tenantId, categoriaId);
   }
 
+  async listarFornecedores(tenantId: string): Promise<Fornecedor[]> {
+    this.validarTenantId(tenantId);
+    const fornecedores = await this.adapter.listarFornecedores(tenantId);
+    return [...fornecedores].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  async criarFornecedor(tenantId: string, dados: DadosFornecedor): Promise<Fornecedor> {
+    this.validarTenantId(tenantId);
+    const normalizado = this.normalizarDadosFornecedor(dados);
+    return this.adapter.criarFornecedor(tenantId, normalizado);
+  }
+
+  async atualizarFornecedor(
+    tenantId: string,
+    fornecedorId: string,
+    dados: DadosFornecedor
+  ): Promise<Fornecedor> {
+    this.validarTenantId(tenantId);
+    this.validarFornecedorId(fornecedorId);
+    const normalizado = this.normalizarDadosFornecedor(dados);
+    return this.adapter.atualizarFornecedor(tenantId, fornecedorId, normalizado);
+  }
+
+  async arquivarFornecedor(tenantId: string, fornecedorId: string): Promise<Fornecedor> {
+    this.validarTenantId(tenantId);
+    this.validarFornecedorId(fornecedorId);
+    return this.adapter.arquivarFornecedor(tenantId, fornecedorId);
+  }
+
+  async reativarFornecedor(tenantId: string, fornecedorId: string): Promise<Fornecedor> {
+    this.validarTenantId(tenantId);
+    this.validarFornecedorId(fornecedorId);
+    return this.adapter.reativarFornecedor(tenantId, fornecedorId);
+  }
+
   private validarTenantId(tenantId: string): void {
     if (!tenantId || !tenantId.trim()) {
       throw new PlanoContasValidationError('ID da barbearia (tenant) é obrigatório.');
@@ -99,5 +140,68 @@ export class PlanoContasRepository {
       );
     }
     return nomeNormalizado;
+  }
+
+  private validarFornecedorId(fornecedorId: string): void {
+    if (!fornecedorId || !fornecedorId.trim()) {
+      throw new PlanoContasValidationError('Fornecedor é obrigatório.');
+    }
+  }
+
+  /**
+   * Normaliza e valida os dados de Fornecedor antes de delegar ao adaptador.
+   * Campos opcionais (documento, telefone, e-mail, observação, categoria
+   * padrão) viram `null` quando vazios -- o adaptador nunca recebe string
+   * vazia, só valor real ou `null`.
+   */
+  private normalizarDadosFornecedor(dados: DadosFornecedor): DadosFornecedor {
+    const nome = normalizarNome(dados.name);
+    if (nome.length < NOME_FORNECEDOR_MIN || nome.length > NOME_FORNECEDOR_MAX) {
+      throw new PlanoContasValidationError(
+        `O nome do fornecedor deve ter entre ${NOME_FORNECEDOR_MIN} e ${NOME_FORNECEDOR_MAX} caracteres.`
+      );
+    }
+
+    const documentoBruto = (dados.document || '').trim();
+    let documento: string | null = null;
+    if (documentoBruto) {
+      documento = normalizarDocumento(documentoBruto);
+      if (!documentoValido(documento)) {
+        throw new PlanoContasValidationError('CPF ou CNPJ inválido.');
+      }
+    }
+
+    const telefoneBruto = (dados.phone || '').replace(/\D/g, '');
+    let telefone: string | null = null;
+    if (telefoneBruto) {
+      if (telefoneBruto.length !== 10 && telefoneBruto.length !== 11) {
+        throw new PlanoContasValidationError('Telefone deve ter 10 ou 11 dígitos.');
+      }
+      telefone = telefoneBruto;
+    }
+
+    const emailBruto = (dados.email || '').trim().toLowerCase();
+    let email: string | null = null;
+    if (emailBruto) {
+      if (!EMAIL_REGEX.test(emailBruto)) {
+        throw new PlanoContasValidationError('E-mail inválido.');
+      }
+      email = emailBruto;
+    }
+
+    const notesBruto = (dados.notes || '').trim();
+    if (notesBruto.length > NOTES_MAX) {
+      throw new PlanoContasValidationError(`Observação deve ter no máximo ${NOTES_MAX} caracteres.`);
+    }
+    const notes = notesBruto || null;
+
+    return {
+      name: nome,
+      document: documento,
+      phone: telefone,
+      email,
+      notes,
+      defaultCategoryId: dados.defaultCategoryId || null,
+    };
   }
 }

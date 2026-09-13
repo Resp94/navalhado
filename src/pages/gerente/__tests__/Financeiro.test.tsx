@@ -550,6 +550,6 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(screen.queryByText('Lucro líquido livre')).not.toBeInTheDocument();
     expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(0);
 
-    expect(await screen.findByText('Categorias de Despesa')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Categorias de Despesa' })).toBeInTheDocument();
   });
 });
