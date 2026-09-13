@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(18);
 
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
 -- Reproduz o achado de QA manual: quitacao de comissao em dinheiro sem
@@ -213,6 +213,58 @@ select is(
   (select count(*) from public.cash_movements where cash_session_id = (select cash_session_id from ticket25b_context) and type = 'repasse_comissao'),
   1::bigint,
   'repasse aceito no limite correto gera a movimentacao de caixa'
+);
+
+-- Ticket 01 da spec 036: com a apuracao unica da gaveta, o disponivel visto
+-- pelo vale continua descontando repasses e vales, e so os nao estornados.
+-- Gaveta agora: fundo 20 - vale 15 - repasse 5 = 0.
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket25b_context), 0.01, 'Vale com a gaveta esgotada', 'cash',
+    (select tenant_id from ticket25b_context), (select cash_session_id from ticket25b_context)
+  )$$,
+  'P0001',
+  'O valor do vale em dinheiro excede o saldo disponivel na gaveta do turno.',
+  'vale em dinheiro ve o disponivel descontando o repasse e o vale ja lancados'
+);
+
+-- Estornar o repasse de 5 devolve o valor a gaveta: disponivel = 20 - 15 = 5.
+select lives_ok(
+  $$select public.reverse_commission_payout(
+    (select id from public.commission_payouts where tenant_id = (select tenant_id from ticket25b_context) and reversed_at is null limit 1),
+    (select tenant_id from ticket25b_context), 'Repasse estornado para liberar a gaveta'
+  )$$,
+  'estorna o repasse em dinheiro com o turno aberto'
+);
+select throws_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket25b_context), 5.01, 'Vale acima do disponivel', 'cash',
+    (select tenant_id from ticket25b_context), (select cash_session_id from ticket25b_context)
+  )$$,
+  'P0001',
+  'O valor do vale em dinheiro excede o saldo disponivel na gaveta do turno.',
+  'vale em dinheiro continua descontando o vale ja lancado depois do estorno do repasse'
+);
+select lives_ok(
+  $$select public.register_professional_advance(
+    (select professional_id from ticket25b_context), 5, 'Vale no limite do disponivel', 'cash',
+    (select tenant_id from ticket25b_context), (select cash_session_id from ticket25b_context)
+  )$$,
+  'vale em dinheiro aceito no limite, sem descontar o repasse estornado'
+);
+select lives_ok(
+  $$select public.close_cash_session(
+    (select cash_session_id from ticket25b_context),
+    (select tenant_id from ticket25b_context),
+    0,
+    'Fechamento com repasse estornado e vales ativos'
+  )$$,
+  'fecha o turno depois do vale no limite do disponivel'
+);
+select is(
+  (select expected_amount from public.cash_sessions where id = (select cash_session_id from ticket25b_context)),
+  0::numeric,
+  'valor esperado zero: 20 de fundo - 15 de vale - 5 de vale, repasse estornado nao conta'
 );
 
 reset role;
