@@ -87,7 +87,7 @@ export const Financeiro: React.FC = () => {
       const session = await caixaRepo.getActiveSession(tenant.tenantId);
       setActiveSession(session);
 
-      // Cada aba trata o próprio erro; a ordem de registro é a ordem de recarga
+      // Uma recarga de cada vez, e a primeira falha interrompe as seguintes, como antes
       for (const reload of Array.from(tabReloadsRef.current)) {
         await reload(session);
       }

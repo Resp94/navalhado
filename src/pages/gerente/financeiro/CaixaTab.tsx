@@ -66,36 +66,32 @@ export const CaixaTab: React.FC<PainelTabProps> = ({
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
   const [extratoSession, setExtratoSession] = useState<CashSession | null>(null);
 
-  // Resumo do turno, movimentos e histórico de sessões, apurados a partir da Sessão de Caixa ativa
+  // Resumo do turno, movimentos e histórico de sessões, apurados a partir da Sessão de Caixa ativa.
+  // Quem chama é o painel, que trata o erro com uma única mensagem para a carga inteira.
   const fetchCaixaData = useCallback(async (session: CashSession | null) => {
     if (!tenant?.tenantId) return;
 
-    try {
-      if (session) {
-        // Apurar recebimentos em dinheiro exclusivamente do turno ativo via repositório
-        const totalCash = await caixaRepo.getCashReceiptsSince(tenant.tenantId, session.opened_at, session.id);
-        setActiveSessionCashReceipts(totalCash);
+    if (session) {
+      // Apurar recebimentos em dinheiro exclusivamente do turno ativo via repositório
+      const totalCash = await caixaRepo.getCashReceiptsSince(tenant.tenantId, session.opened_at, session.id);
+      setActiveSessionCashReceipts(totalCash);
 
-        const turnPayments = await caixaRepo.getTurnPaymentsSummary(tenant.tenantId, session.opened_at, session.id);
-        setTurnSummary(turnPayments);
+      const turnPayments = await caixaRepo.getTurnPaymentsSummary(tenant.tenantId, session.opened_at, session.id);
+      setTurnSummary(turnPayments);
 
-        const movSummary = await caixaRepo.getMovementsSummary(session.id);
-        setSuprimentosTotal(movSummary.suprimentos);
-        setSangriasTotal(movSummary.sangrias);
-      } else {
-        setActiveSessionCashReceipts(0);
-        setTurnSummary(EMPTY_TURN_SUMMARY);
-        setSuprimentosTotal(0);
-        setSangriasTotal(0);
-      }
-
-      const history = await caixaRepo.listHistory(tenant.tenantId, 15);
-      setHistorySessions(history || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados financeiros:', error);
-      addToast('Não foi possível carregar os dados do painel financeiro.', 'error');
+      const movSummary = await caixaRepo.getMovementsSummary(session.id);
+      setSuprimentosTotal(movSummary.suprimentos);
+      setSangriasTotal(movSummary.sangrias);
+    } else {
+      setActiveSessionCashReceipts(0);
+      setTurnSummary(EMPTY_TURN_SUMMARY);
+      setSuprimentosTotal(0);
+      setSangriasTotal(0);
     }
-  }, [tenant?.tenantId, caixaRepo, addToast]);
+
+    const history = await caixaRepo.listHistory(tenant.tenantId, 15);
+    setHistorySessions(history || []);
+  }, [tenant?.tenantId, caixaRepo]);
 
   useEffect(() => registerTabReload(fetchCaixaData), [registerTabReload, fetchCaixaData]);
 

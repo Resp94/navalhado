@@ -62,49 +62,44 @@ export const ComissoesTab: React.FC<PainelTabProps> = ({
   const [payoutReversalError, setPayoutReversalError] = useState<string | null>(null);
   const [isReversingPayout, setIsReversingPayout] = useState(false);
 
-  // Histórico de quitações do período
+  // Histórico de quitações do período. Quem chama é o painel, que trata o erro da carga inteira.
   const fetchPayoutsHistory = useCallback(async () => {
     if (!tenant?.tenantId) return;
 
-    try {
-      const { data: payoutsData, error: payoutsError } = await supabase
-        .from('commission_payouts')
-        .select(`
-          id,
-          professional_id,
-          amount,
-          payment_method,
-          notes,
-          paid_at,
-          reversed_at,
-          professional:professionals!professional_id(name)
-        `)
-        .eq('tenant_id', tenant.tenantId)
-        .gte('paid_at', periodStart)
-        .lte('paid_at', periodEnd)
-        .order('paid_at', { ascending: false })
-        .limit(20);
+    const { data: payoutsData, error: payoutsError } = await supabase
+      .from('commission_payouts')
+      .select(`
+        id,
+        professional_id,
+        amount,
+        payment_method,
+        notes,
+        paid_at,
+        reversed_at,
+        professional:professionals!professional_id(name)
+      `)
+      .eq('tenant_id', tenant.tenantId)
+      .gte('paid_at', periodStart)
+      .lte('paid_at', periodEnd)
+      .order('paid_at', { ascending: false })
+      .limit(20);
 
-      if (!payoutsError && payoutsData) {
-        const payoutRows = payoutsData as unknown as RawPayoutRow[];
-        setPayoutsHistory(
-          payoutRows.map((p) => ({
-            id: p.id,
-            professional_id: p.professional_id,
-            professional_name: p.professional?.name || 'Profissional',
-            amount: Number(p.amount) || 0,
-            payment_method: p.payment_method,
-            notes: p.notes,
-            paid_at: p.paid_at,
-            reversed_at: p.reversed_at,
-          }))
-        );
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados financeiros:', error);
-      addToast('Não foi possível carregar os dados do painel financeiro.', 'error');
+    if (!payoutsError && payoutsData) {
+      const payoutRows = payoutsData as unknown as RawPayoutRow[];
+      setPayoutsHistory(
+        payoutRows.map((p) => ({
+          id: p.id,
+          professional_id: p.professional_id,
+          professional_name: p.professional?.name || 'Profissional',
+          amount: Number(p.amount) || 0,
+          payment_method: p.payment_method,
+          notes: p.notes,
+          paid_at: p.paid_at,
+          reversed_at: p.reversed_at,
+        }))
+      );
     }
-  }, [tenant?.tenantId, periodStart, periodEnd, addToast]);
+  }, [tenant?.tenantId, periodStart, periodEnd]);
 
   useEffect(() => registerTabReload(fetchPayoutsHistory), [registerTabReload, fetchPayoutsHistory]);
 
