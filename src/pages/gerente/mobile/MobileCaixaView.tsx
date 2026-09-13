@@ -10,7 +10,6 @@ import { LockIcon } from '../../../components/Icons';
 import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet';
 import { formatCurrency } from '../../../lib/currency';
 import { useToast } from '../../../components/Toast';
-import { calculateExpectedDrawerCash } from '../../../modules/caixa/CaixaRepository';
 import type {
   CashSession,
   DailyFinancialSummary,
@@ -24,6 +23,12 @@ interface MobileCaixaViewProps {
   turnSummary?: TurnPaymentsSummary;
   suprimentosTotal?: number;
   sangriasTotal?: number;
+  /** Repasses de comissão e vales pagos em dinheiro no turno, lidos do contrato do banco
+   * (ticket 02/036): descontam a gaveta junto com as sangrias. */
+  repassesComissaoTotal?: number;
+  valesTotal?: number;
+  /** Valor esperado da gaveta, lido do contrato de apuração do banco (ticket 02/036). */
+  expectedDrawerAmount?: number;
   metrics: FinancialMetrics | null;
   historySessions: CashSession[];
   dailySummary?: DailyFinancialSummary[];
@@ -48,6 +53,9 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   turnSummary,
   suprimentosTotal = 0,
   sangriasTotal = 0,
+  repassesComissaoTotal = 0,
+  valesTotal = 0,
+  expectedDrawerAmount = 0,
   metrics,
   historySessions,
   dailySummary = [],
@@ -84,7 +92,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   );
   
   const initialAmount = Number(activeSession?.initial_amount) || 0;
-  const totalCashInDrawer = calculateExpectedDrawerCash(initialAmount, activeSessionCashReceipts, suprimentosTotal, sangriasTotal);
+  const totalCashInDrawer = expectedDrawerAmount;
 
   const dailyTotals = useMemo(() => {
     return dailySummary.reduce(
@@ -197,6 +205,22 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
                   <span className="mobile-caixa__amount-label">Sangrias</span>
                   <span className="mobile-caixa__amount-val text-danger">
                     -{formatCurrency(sangriasTotal)}
+                  </span>
+                </div>
+              )}
+              {repassesComissaoTotal > 0 && (
+                <div>
+                  <span className="mobile-caixa__amount-label">Repasses de comissão</span>
+                  <span className="mobile-caixa__amount-val text-danger">
+                    -{formatCurrency(repassesComissaoTotal)}
+                  </span>
+                </div>
+              )}
+              {valesTotal > 0 && (
+                <div>
+                  <span className="mobile-caixa__amount-label">Vales</span>
+                  <span className="mobile-caixa__amount-val text-danger">
+                    -{formatCurrency(valesTotal)}
                   </span>
                 </div>
               )}

@@ -4,7 +4,9 @@ import type {
   AbrirCaixaInput,
   AjusteCaixaRegistrado,
   CashMovement,
+  CashMovementDirection,
   CashSession,
+  CashSessionExpectedAmount,
   CashSessionStatement,
   DailyFinancialSummary,
   DailyFinancialSummaryQuery,
@@ -384,6 +386,43 @@ export class SupabaseCaixaAdapter implements ICaixaAdapter {
     }
 
     return data as CashSessionStatement;
+  }
+
+  async obterValorEsperadoGaveta(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount> {
+    const { data, error } = await supabase.rpc('get_cash_session_expected_amount', {
+      p_session_id: sessionId,
+      p_tenant_id: tenantId,
+    });
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Erro ao apurar o valor esperado da gaveta.');
+    }
+
+    const raw = data as {
+      session_id: string;
+      tenant_id: string;
+      initial_amount: number | string;
+      cash_received: number | string;
+      inflow_amount: number | string;
+      outflow_amount: number | string;
+      expected_amount: number | string;
+      movements_by_type?: Array<{ type: string; direction: CashMovementDirection; amount: number | string }>;
+    };
+
+    return {
+      session_id: raw.session_id,
+      tenant_id: raw.tenant_id,
+      initial_amount: Number(raw.initial_amount) || 0,
+      cash_received: Number(raw.cash_received) || 0,
+      inflow_amount: Number(raw.inflow_amount) || 0,
+      outflow_amount: Number(raw.outflow_amount) || 0,
+      expected_amount: Number(raw.expected_amount) || 0,
+      movements_by_type: (raw.movements_by_type || []).map((m) => ({
+        type: m.type,
+        direction: m.direction,
+        amount: Number(m.amount) || 0,
+      })),
+    };
   }
 }
 

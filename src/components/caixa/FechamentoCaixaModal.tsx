@@ -8,7 +8,7 @@ import {
   Invoice01Icon,
 } from '@hugeicons/core-free-icons';
 import { supabase } from '../../lib/supabase';
-import { CaixaRepository, calculateExpectedDrawerCash } from '../../modules/caixa/CaixaRepository';
+import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import type { CashSession, TurnPaymentsSummary } from '../../modules/caixa/types';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
@@ -20,6 +20,17 @@ interface FechamentoCaixaModalProps {
   turnSummary?: TurnPaymentsSummary;
   suprimentos?: number;
   sangrias?: number;
+  /** Repasses de comissão e vales pagos em dinheiro no turno: descontam a gaveta junto com as
+   * sangrias. Vêm do mesmo contrato que `expectedDrawerAmount` (ticket 02/036). */
+  repassesComissaoTotal?: number;
+  valesTotal?: number;
+  /**
+   * Valor esperado da gaveta, lido do contrato de apuração do banco (ticket 02/036). Quando
+   * omitido, o modal busca via `caixaRepo.getExpectedDrawerAmount`, como faz com `turnSummary` e
+   * as movimentações. Nunca é recomposto no navegador: a diferença mostrada aqui é a que o
+   * fechamento persiste.
+   */
+  expectedDrawerAmount?: number;
   onCaixaFechado: (closedSession: CashSession) => void;
   onClose: () => void;
   caixaRepo?: CaixaRepository;
@@ -32,6 +43,9 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   turnSummary: initialTurnSummary,
   suprimentos = 0,
   sangrias = 0,
+  repassesComissaoTotal,
+  valesTotal,
+  expectedDrawerAmount,
   onCaixaFechado,
   onClose,
   caixaRepo,
@@ -41,19 +55,24 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary | undefined>(initialTurnSummary);
-  const [currentSuprimentos, setCurrentSuprimentos] = useState<number>(suprimentos);
-  const [currentSangrias, setCurrentSangrias] = useState<number>(sangrias);
+  const [contractExpectedAmount, setContractExpectedAmount] = useState<number | undefined>(expectedDrawerAmount);
+  const [contractRepasses, setContractRepasses] = useState<number>(repassesComissaoTotal ?? 0);
+  const [contractVales, setContractVales] = useState<number>(valesTotal ?? 0);
 
   const defaultRepo = useMemo(() => new CaixaRepository(new SupabaseCaixaAdapter()), []);
   const repo = caixaRepo || defaultRepo;
 
   useEffect(() => {
-    setCurrentSuprimentos(suprimentos);
-  }, [suprimentos]);
+    setContractExpectedAmount(expectedDrawerAmount);
+  }, [expectedDrawerAmount]);
 
   useEffect(() => {
-    setCurrentSangrias(sangrias);
-  }, [sangrias]);
+    setContractRepasses(repassesComissaoTotal ?? 0);
+  }, [repassesComissaoTotal]);
+
+  useEffect(() => {
+    setContractVales(valesTotal ?? 0);
+  }, [valesTotal]);
 
   useEffect(() => {
     if (isOpen && session) {
@@ -65,18 +84,26 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           .catch((err) => console.error('Erro ao carregar resumo de pagamentos no fechamento:', err));
       }
 
-      if (suprimentos === 0 && sangrias === 0) {
-        repo.getMovementsSummary(session.id)
-          .then((movRes) => {
-            if (movRes) {
-              setCurrentSuprimentos(movRes.suprimentos ?? 0);
-              setCurrentSangrias(movRes.sangrias ?? 0);
-            }
+      // Valor esperado da gaveta pelo contrato único de apuração do banco (ticket 02/036): sem
+      // formula local, para que a diferença mostrada aqui seja a que o fechamento persiste. Os
+      // repasses de comissão e vales em dinheiro (que descontam a gaveta junto com as sangrias)
+      // vêm do mesmo detalhamento por tipo do contrato.
+      if (expectedDrawerAmount === undefined) {
+        repo.getExpectedDrawerAmount(session.id, session.tenant_id)
+          .then((res) => {
+            setContractExpectedAmount(res?.expected_amount ?? 0);
+            const movements = res?.movements_by_type ?? [];
+            setContractRepasses(
+              movements.filter((m) => m.type === 'repasse_comissao').reduce((sum, m) => sum + m.amount, 0)
+            );
+            setContractVales(
+              movements.filter((m) => m.type === 'vale_profissional').reduce((sum, m) => sum + m.amount, 0)
+            );
           })
-          .catch((err) => console.error('Erro ao carregar movimentações no fechamento:', err));
+          .catch((err) => console.error('Erro ao carregar valor esperado da gaveta no fechamento:', err));
       }
     }
-  }, [isOpen, session, initialTurnSummary, suprimentos, sangrias, repo]);
+  }, [isOpen, session, initialTurnSummary, expectedDrawerAmount, repo]);
 
   if (!isOpen || !session) return null;
 
@@ -86,7 +113,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
   const cardInTurn = turnSummary?.cartao ?? 0;
 
   const initialAmount = Number(session.initial_amount) || 0;
-  const expectedAmount = calculateExpectedDrawerCash(initialAmount, cashInTurn, currentSuprimentos, currentSangrias);
+  const expectedAmount = contractExpectedAmount ?? 0;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setClosingAmount(formatCurrencyInput(e.target.value));
@@ -196,6 +223,18 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             <div className="caixa-breakdown-item">
               <span className="caixa-breakdown-label">(-) Sangrias (retiradas):</span>
               <span className="caixa-breakdown-val text-danger">-{formatCurrency(sangrias)}</span>
+            </div>
+          ) : null}
+          {contractRepasses > 0 ? (
+            <div className="caixa-breakdown-item">
+              <span className="caixa-breakdown-label">(-) Repasses de comissão em dinheiro:</span>
+              <span className="caixa-breakdown-val text-danger">-{formatCurrency(contractRepasses)}</span>
+            </div>
+          ) : null}
+          {contractVales > 0 ? (
+            <div className="caixa-breakdown-item">
+              <span className="caixa-breakdown-label">(-) Vales em dinheiro:</span>
+              <span className="caixa-breakdown-val text-danger">-{formatCurrency(contractVales)}</span>
             </div>
           ) : null}
           <div className="caixa-breakdown-item expected">

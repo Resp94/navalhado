@@ -10,7 +10,7 @@ import { ExtratoSessaoCaixaModal } from '../../../components/caixa/ExtratoSessao
 import { supabase } from '../../../lib/supabase';
 import { formatCurrency } from '../../../lib/currency';
 import { dateInZone } from '../../../lib/timezone';
-import { CaixaRepository, calculateExpectedDrawerCash } from '../../../modules/caixa/CaixaRepository';
+import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { PAYMENT_METHOD_LABELS } from '../../../modules/caixa/types';
 import type {
@@ -55,6 +55,9 @@ export const CaixaTab: React.FC = () => {
   const [turnSummary, setTurnSummary] = useState<TurnPaymentsSummary>(EMPTY_TURN_SUMMARY);
   const [suprimentosTotal, setSuprimentosTotal] = useState<number>(0);
   const [sangriasTotal, setSangriasTotal] = useState<number>(0);
+  const [expectedDrawerAmount, setExpectedDrawerAmount] = useState<number>(0);
+  const [repassesComissaoTotal, setRepassesComissaoTotal] = useState<number>(0);
+  const [valesTotal, setValesTotal] = useState<number>(0);
   const [historySessions, setHistorySessions] = useState<CashSession[]>([]);
   const [dailySummary, setDailySummary] = useState<DailyFinancialSummary[]>([]);
   const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
@@ -85,11 +88,39 @@ export const CaixaTab: React.FC = () => {
       const movSummary = await caixaRepo.getMovementsSummary(session.id);
       setSuprimentosTotal(movSummary.suprimentos);
       setSangriasTotal(movSummary.sangrias);
+
+      // Prévia da gaveta lida do contrato único de apuração do banco (ticket 02/036): nada é
+      // recomposto no navegador, então a diferença exibida aqui já é a que o fechamento persiste.
+      // Isolado num try/catch próprio porque a RPC só aceita sessão ABERTA: se a sessão fechar
+      // entre o `getActiveSession` do painel e esta chamada, o erro não deve derrubar a carga do
+      // resto da aba (recebimentos, resumo do turno e histórico já apurados acima).
+      try {
+        const expected = await caixaRepo.getExpectedDrawerAmount(session.id, tenant.tenantId);
+        setExpectedDrawerAmount(expected.expected_amount);
+        setRepassesComissaoTotal(
+          expected.movements_by_type
+            .filter((m) => m.type === 'repasse_comissao')
+            .reduce((sum, m) => sum + m.amount, 0)
+        );
+        setValesTotal(
+          expected.movements_by_type
+            .filter((m) => m.type === 'vale_profissional')
+            .reduce((sum, m) => sum + m.amount, 0)
+        );
+      } catch (error) {
+        console.error('Erro ao apurar o valor esperado da gaveta:', error);
+        setExpectedDrawerAmount(0);
+        setRepassesComissaoTotal(0);
+        setValesTotal(0);
+      }
     } else {
       setActiveSessionCashReceipts(0);
       setTurnSummary(EMPTY_TURN_SUMMARY);
       setSuprimentosTotal(0);
       setSangriasTotal(0);
+      setExpectedDrawerAmount(0);
+      setRepassesComissaoTotal(0);
+      setValesTotal(0);
     }
 
     const history = await caixaRepo.listHistory(tenant.tenantId, 15);
@@ -251,6 +282,9 @@ export const CaixaTab: React.FC = () => {
           turnSummary={turnSummary}
           suprimentosTotal={suprimentosTotal}
           sangriasTotal={sangriasTotal}
+          repassesComissaoTotal={repassesComissaoTotal}
+          valesTotal={valesTotal}
+          expectedDrawerAmount={expectedDrawerAmount}
           metrics={metrics}
           historySessions={historySessions}
           dailySummary={dailySummary}
@@ -297,7 +331,7 @@ export const CaixaTab: React.FC = () => {
                   </div>
                   <p className="turn-banner-desc">
                     {activeSession
-                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''} • Total na Gaveta: ${formatCurrency(calculateExpectedDrawerCash(Number(activeSession.initial_amount), activeSessionCashReceipts, suprimentosTotal, sangriasTotal))}`
+                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${formatCurrency(expectedDrawerAmount)}`
                       : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
                   </p>
                 </div>
@@ -582,6 +616,9 @@ export const CaixaTab: React.FC = () => {
         turnSummary={turnSummary}
         suprimentos={suprimentosTotal}
         sangrias={sangriasTotal}
+        repassesComissaoTotal={repassesComissaoTotal}
+        valesTotal={valesTotal}
+        expectedDrawerAmount={expectedDrawerAmount}
         caixaRepo={caixaRepo}
         onCaixaFechado={(_closedSession) => {
           setActiveSession(null);

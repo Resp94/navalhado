@@ -211,6 +211,30 @@ export interface CashSessionStatement {
   reopenings: CashSessionReopeningEntry[];
 }
 
+export type CashMovementDirection = 'entrada' | 'saida';
+
+export interface CashSessionMovementTypeAmount {
+  type: string;
+  direction: CashMovementDirection;
+  amount: number;
+}
+
+/**
+ * Prévia do valor esperado da gaveta, lida do contrato único de apuração do banco
+ * (`public.get_cash_session_expected_amount`, ticket 01/036). Só existe para sessão ABERTA:
+ * sessão fechada mostra a fotografia persistida no fechamento, não este contrato.
+ */
+export interface CashSessionExpectedAmount {
+  session_id: string;
+  tenant_id: string;
+  initial_amount: number;
+  cash_received: number;
+  inflow_amount: number;
+  outflow_amount: number;
+  expected_amount: number;
+  movements_by_type: CashSessionMovementTypeAmount[];
+}
+
 export interface ICaixaAdapter {
   obterSessaoAtiva(tenantId: string): Promise<CashSession | null>;
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
@@ -225,4 +249,5 @@ export interface ICaixaAdapter {
   reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession>;
   registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado>;
   obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement>;
+  obterValorEsperadoGaveta(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount>;
 }
