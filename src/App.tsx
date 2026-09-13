@@ -12,7 +12,10 @@ import { MinhaAgenda } from './pages/barbeiro/MinhaAgenda';
 import { MinhasComissoes } from './pages/barbeiro/MinhasComissoes';
 import { Agenda as GerenteAgenda } from './pages/gerente/Agenda';
 import { Comandas as GerenteComandas } from './pages/gerente/Comandas';
-import { Financeiro as GerenteFinanceiro } from './pages/gerente/Financeiro';
+import { FinanceiroHub } from './pages/gerente/financeiro/HubLayout';
+import { FinanceiroPainel } from './pages/gerente/financeiro/PainelLayout';
+import { CaixaTab } from './pages/gerente/financeiro/CaixaTab';
+import { ComissoesTab } from './pages/gerente/financeiro/ComissoesTab';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -47,7 +50,20 @@ function App() {
             <Route path="/agenda" element={<GerenteAgenda />} />
             <Route path="/comandas" element={<GerenteComandas />} />
             <Route path="/dashboard" element={<Navigate to="/agenda" replace />} />
-            <Route path="/financeiro" element={<GerenteFinanceiro />} />
+
+            {/* Hub Financeiro: rota-pai com layout próprio (título + navegação entre abas).
+                Caixa e Comissões partilham o layout do painel (período + KPIs), sem segmento de
+                URL. Sem sub-rota ou com sub-rota desconhecida, redireciona para caixa com
+                substituição de histórico, para o botão voltar não cair num laço. */}
+            <Route path="/financeiro" element={<FinanceiroHub />}>
+              <Route index element={<Navigate to="/financeiro/caixa" replace />} />
+              <Route element={<FinanceiroPainel />}>
+                <Route path="caixa" element={<CaixaTab />} />
+                <Route path="comissoes" element={<ComissoesTab />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/financeiro/caixa" replace />} />
+            </Route>
+
             <Route path="/profissionais" element={<GerenteProfissionais />} />
             <Route path="/profissionais/cadastro-acesso" element={<GerenteCadastroAcesso />} />
             <Route path="/servicos/cadastro" element={<GerenteServicos />} />

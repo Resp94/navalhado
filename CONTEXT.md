@@ -134,8 +134,8 @@ Quantidade mínima estipulada (`min_stock_alert`) que dispara avisos visuais no 
 _Avoid_: Estoque zerado surpresa, contagem cega
 
 **Hub Financeiro (Rota /financeiro)**:
-Superfície central de gestão financeira operacional do Gerente no Navalhado, organizada em duas abas especializadas: Caixa Diário & Turnos (ciclo de abertura com fundo de troco, conferência e fechamento de sessões físicas de caixa) e Repasses de Comissões (gestão de saldos acumulados da equipe, detalhamento de atendimentos e quitação formal de pagamentos aos barbeiros). Relatórios profundos de BI e DRE estendido são delegados à futura rota de relatórios.
-_Avoid_: Tela de relatórios analíticos, gráficos de BI soltos, dashboard contábil genérico
+Superfície central de gestão financeira operacional do Gerente no Navalhado, organizada em abas endereçáveis por sub-rota (`/financeiro/caixa`, `/financeiro/comissoes`), cada uma com link próprio, favoritável e alcançável pelo botão voltar do navegador. `/financeiro` sem sub-rota, ou com sub-rota desconhecida, redireciona para a aba Caixa Diário & Turnos (ciclo de abertura com fundo de troco, conferência e fechamento de sessões físicas de caixa). A outra aba hoje é Repasses de Comissões (gestão de saldos acumulados da equipe, detalhamento de atendimentos e quitação formal de pagamentos aos barbeiros). Um layout intermediário, sem segmento de URL, guarda o filtro de período e os KPIs consolidados só para essas duas abas operacionais; abas futuras (Plano de Contas, Contas a Pagar, Fluxo de Caixa) são sub-rotas irmãs, fora desse filtro. Relatórios profundos de BI e DRE estendido são delegados à futura rota de relatórios.
+_Avoid_: Tela de relatórios analíticos, gráficos de BI soltos, dashboard contábil genérico, filtro de período como cabeçalho global do Hub
 
 **Abertura de Caixa do Turno**:
 Registro formal do início da operação física de frente de caixa (`cash_sessions`), no qual o operador declara o montante em dinheiro mantido na gaveta como Fundo de Troco Inicial para subsidiar trocos aos primeiros atendimentos.

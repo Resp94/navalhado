@@ -1,4 +1,5 @@
 import type { CashSession } from '../../../modules/caixa/types';
+import type { TenantContextType } from '../../../components/GerenteLayout';
 
 export interface FinancialMetrics {
   total_revenue: number;
@@ -36,8 +37,8 @@ export interface FinancialMetrics {
 export type TabReload = (activeSession: CashSession | null) => Promise<void>;
 
 /**
- * Estado que as abas Caixa e Comissões do Hub Financeiro compartilham. Fica na página
- * (no ticket 02, no layout do painel) e desce para as abas; o que só uma aba usa fica nela.
+ * Estado que as abas Caixa e Comissões do Hub Financeiro compartilham. Fica no layout do painel
+ * (`PainelLayout`) e desce para as abas via contexto de rota; o que só uma aba usa fica nela.
  */
 export interface PainelFinanceiro {
   /** Início do período selecionado, em ISO. */
@@ -63,11 +64,10 @@ export interface PainelFinanceiro {
   realtimeVersion: number;
 }
 
-/** Propriedades de uma aba do painel. */
-export interface PainelTabProps extends PainelFinanceiro {
-  /**
-   * Se a aba está selecionada. As duas abas ficam montadas e só a selecionada exibe o conteúdo
-   * de desktop, como antes da extração; o ticket 02 troca isso pela montagem via rota.
-   */
-  isActive: boolean;
-}
+/**
+ * Contexto de rota que o layout do painel (sem segmento de URL, sob `/financeiro`) entrega às
+ * abas Caixa e Comissões via `useOutletContext`: o contexto do tenant que ele recebeu do layout
+ * do Hub, estendido com o estado compartilhado do painel. Cada aba é montada pela própria rota
+ * (`/financeiro/caixa`, `/financeiro/comissoes`), então só a aba selecionada existe no DOM.
+ */
+export interface PainelContext extends TenantContextType, PainelFinanceiro {}

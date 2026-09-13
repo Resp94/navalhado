@@ -1,35 +1,34 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import type { TenantContextType } from '../../components/GerenteLayout';
-import { supabase } from '../../lib/supabase';
-import { useToast } from '../../components/Toast';
+import { Outlet, useOutletContext } from 'react-router-dom';
+import type { TenantContextType } from '../../../components/GerenteLayout';
+import { supabase } from '../../../lib/supabase';
+import { useToast } from '../../../components/Toast';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  UserGroupIcon,
-  Coins01Icon,
-} from '@hugeicons/core-free-icons';
-import './Financeiro.css';
-
-import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
-import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
-import type { CashSession } from '../../modules/caixa/types';
-import { formatCurrency } from '../../lib/currency';
-import { CaixaTab } from './financeiro/CaixaTab';
-import { ComissoesTab } from './financeiro/ComissoesTab';
-import type { FinancialMetrics, PainelFinanceiro, TabReload } from './financeiro/types';
+import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
+import { SupabaseCaixaAdapter } from '../../../modules/caixa/adapters/SupabaseCaixaAdapter';
+import type { CashSession } from '../../../modules/caixa/types';
+import { formatCurrency } from '../../../lib/currency';
+import type { FinancialMetrics, PainelContext, TabReload } from './types';
 
 type PeriodType = 'this_month' | 'last_30_days' | 'last_90_days';
-type TabType = 'caixa' | 'comissoes';
 
-export const Financeiro: React.FC = () => {
+/**
+ * Layout intermediário do painel do Hub Financeiro, sem segmento de URL, que envolve só as rotas
+ * `caixa` e `comissoes`. Guarda o período, busca as métricas e a Sessão de Caixa ativa e entrega
+ * esses dados às duas abas via `Outlet`, estendendo o contexto do tenant recebido do layout do
+ * Hub em vez de substituí-lo.
+ *
+ * Como este layout continua montado ao alternar entre as duas rotas-filhas, trocar de Caixa para
+ * Comissões preserva o período e não refaz a busca de métricas. Sair para outra aba do Hub (fora
+ * de Caixa e Comissões) desmonta este layout, e o período volta ao padrão "Este mês" ao retornar.
+ */
+export const FinanceiroPainel: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const { addToast } = useToast();
 
   // Estado compartilhado pelas abas: período, métricas, Sessão de Caixa ativa e atualização
   const [period, setPeriod] = useState<PeriodType>('this_month');
-  const [activeTab, setActiveTab] = useState<TabType>('caixa');
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
@@ -167,7 +166,8 @@ export const Financeiro: React.FC = () => {
 
   const { start: periodStart, end: periodEnd } = calculateDates();
 
-  const painel: PainelFinanceiro = {
+  const outletContext: PainelContext = {
+    ...tenant,
     periodStart,
     periodEnd,
     metrics,
@@ -179,20 +179,8 @@ export const Financeiro: React.FC = () => {
   };
 
   return (
-    <div className="financeiro-page">
-      {/* ─── VISÃO DESKTOP (> 768px): cabeçalho do painel. A visão mobile vem da aba de Caixa. ─── */}
-      <div className="financeiro-desktop-view">
-        {/* 1. Header do Hub Financeiro */}
-        <header className="financeiro-header">
-          <div>
-            <h1 className="financeiro-header-title">
-              Hub financeiro
-            </h1>
-            <p className="financeiro-header-subtitle">
-              Acompanhe o faturamento em tempo real, controle o caixa diário e realize os repasses da sua equipe.
-            </p>
-          </div>
-
+    <>
+      <div className="financeiro-desktop-view financeiro-panel-header">
         {/* Filtro de Período */}
         <div className="financeiro-period-tabs">
           <button
@@ -217,104 +205,83 @@ export const Financeiro: React.FC = () => {
             Últimos 90 dias
           </button>
         </div>
-      </header>
 
-      {/* 2. Top Bento Grid: 5 Cards de KPIs Consolidados */}
-      <section className="kpi-cards-grid" aria-label="Indicadores consolidados">
-        {/* Card 1: Faturamento Bruto */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-label">Faturamento bruto</span>
+        {/* Bento Grid: 5 Cards de KPIs Consolidados */}
+        <section className="kpi-cards-grid" aria-label="Indicadores consolidados">
+          {/* Card 1: Faturamento Bruto */}
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Faturamento bruto</span>
+            </div>
+            <div>
+              <h3 className="kpi-value">
+                {formatCurrency(metrics?.total_revenue || 0)}
+              </h3>
+              <p className="kpi-meta">Comandas fechadas no período</p>
+            </div>
           </div>
-          <div>
-            <h3 className="kpi-value">
-              {formatCurrency(metrics?.total_revenue || 0)}
-            </h3>
-            <p className="kpi-meta">Comandas fechadas no período</p>
-          </div>
-        </div>
 
-        {/* Card 2: Serviços Prestados */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-label">Serviços prestados</span>
+          {/* Card 2: Serviços Prestados */}
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Serviços prestados</span>
+            </div>
+            <div>
+              <h3 className="kpi-value">
+                {formatCurrency(metrics?.services_revenue || 0)}
+              </h3>
+              <p className="kpi-meta">Cortes, barbas e procedimentos</p>
+            </div>
           </div>
-          <div>
-            <h3 className="kpi-value">
-              {formatCurrency(metrics?.services_revenue || 0)}
-            </h3>
-            <p className="kpi-meta">Cortes, barbas e procedimentos</p>
-          </div>
-        </div>
 
-        {/* Card 3: Venda de Produtos */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-label">Venda de produtos</span>
+          {/* Card 3: Venda de Produtos */}
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Venda de produtos</span>
+            </div>
+            <div>
+              <h3 className="kpi-value">
+                {formatCurrency(metrics?.products_revenue || 0)}
+              </h3>
+              <p className="kpi-meta">
+                {metrics?.products_count || 0} itens vendidos • Custo: {formatCurrency(metrics?.products_cost || 0)}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="kpi-value">
-              {formatCurrency(metrics?.products_revenue || 0)}
-            </h3>
-            <p className="kpi-meta">
-              {metrics?.products_count || 0} itens vendidos • Custo: {formatCurrency(metrics?.products_cost || 0)}
-            </p>
-          </div>
-        </div>
 
-        {/* Card 4: Comissões da Equipe */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-label">Comissões da equipe</span>
+          {/* Card 4: Comissões da Equipe */}
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Comissões da equipe</span>
+            </div>
+            <div>
+              <h3 className="kpi-value">
+                {formatCurrency(metrics?.total_commission || 0)}
+              </h3>
+              <p className="kpi-meta kpi-meta--pending">
+                Pendente: {formatCurrency(metrics?.pending_commission || 0)}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="kpi-value">
-              {formatCurrency(metrics?.total_commission || 0)}
-            </h3>
-            <p className="kpi-meta kpi-meta--pending">
-              Pendente: {formatCurrency(metrics?.pending_commission || 0)}
-            </p>
-          </div>
-        </div>
 
-        {/* Card 5: Lucro Líquido */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-label">Lucro líquido livre</span>
+          {/* Card 5: Lucro Líquido */}
+          <div className="kpi-card">
+            <div className="kpi-header">
+              <span className="kpi-label">Lucro líquido livre</span>
+            </div>
+            <div>
+              <h3 className="kpi-value kpi-value--profit">
+                {formatCurrency(metrics?.net_revenue || 0)}
+              </h3>
+            </div>
           </div>
-          <div>
-            <h3 className="kpi-value kpi-value--profit">
-              {formatCurrency(metrics?.net_revenue || 0)}
-            </h3>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Seletor de Abas de Navegação */}
-      <nav className="financeiro-nav-tabs" aria-label="Abas financeiras">
-        <button
-          onClick={() => setActiveTab('caixa')}
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'caixa' ? 'nav-tab-btn--active' : ''}`}
-        >
-          <HugeiconsIcon icon={Coins01Icon} size={18} />
-          Caixa diário e turnos
-        </button>
-
-        <button
-          onClick={() => setActiveTab('comissoes')}
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'comissoes' ? 'nav-tab-btn--active' : ''}`}
-        >
-          <HugeiconsIcon icon={UserGroupIcon} size={18} />
-          Repasses de comissões
-        </button>
-      </nav>
+        </section>
       </div>
 
-      {/* 4. Abas: as duas ficam montadas, e só a selecionada exibe o conteúdo de desktop */}
-      <CaixaTab {...painel} isActive={activeTab === 'caixa'} />
-      <ComissoesTab {...painel} isActive={activeTab === 'comissoes'} />
-    </div>
+      {/* Conteúdo da aba: irmão do cabeçalho do painel, fora de `.financeiro-desktop-view`,
+          porque a visão móvel de Caixa e o conteúdo (já rolável) de Comissões precisam ficar
+          visíveis no celular. */}
+      <Outlet context={outletContext} />
+    </>
   );
 };

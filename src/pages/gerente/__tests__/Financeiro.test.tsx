@@ -1,6 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Financeiro } from '../Financeiro';
+import { MemoryRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { FinanceiroHub } from '../financeiro/HubLayout';
+import { FinanceiroPainel } from '../financeiro/PainelLayout';
+import { CaixaTab } from '../financeiro/CaixaTab';
+import { ComissoesTab } from '../financeiro/ComissoesTab';
 
 // Mocks do GSAP para testes unitários
 vi.mock('gsap', () => ({
@@ -38,13 +42,39 @@ vi.mock('../../../components/Toast', () => ({
   }),
 }));
 
-vi.mock('react-router-dom', () => ({
-  useOutletContext: () => ({
-    tenantId: 'test-tenant-123',
-    tenantName: 'Barbearia Modelo',
-    timezone: 'America/Sao_Paulo',
-  }),
-}));
+// Substitui o GerenteLayout real: entrega o contexto do tenant como a rota de gerente entrega,
+// sem os efeitos colaterais de autenticação e carga de tenant que ele faz.
+function FakeGerenteLayout() {
+  return (
+    <Outlet
+      context={{
+        tenantId: 'test-tenant-123',
+        tenantName: 'Barbearia Modelo',
+        timezone: 'America/Sao_Paulo',
+      }}
+    />
+  );
+}
+
+/** Monta a mesma árvore de rotas de `/financeiro` que o App.tsx declara, num roteador em memória. */
+function renderHub(initialPath = '/financeiro') {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route element={<FakeGerenteLayout />}>
+          <Route path="/financeiro" element={<FinanceiroHub />}>
+            <Route index element={<Navigate to="/financeiro/caixa" replace />} />
+            <Route element={<FinanceiroPainel />}>
+              <Route path="caixa" element={<CaixaTab />} />
+              <Route path="comissoes" element={<ComissoesTab />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/financeiro/caixa" replace />} />
+          </Route>
+        </Route>
+      </Routes>
+    </MemoryRouter>
+  );
+}
 
 describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
   beforeEach(() => {
@@ -96,7 +126,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       error: null,
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(screen.getByText('Hub financeiro')).toBeInTheDocument();
@@ -126,7 +156,29 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(screen.getAllByText('Resumo por dia')).toHaveLength(2);
   });
 
-  it('deve alternar entre as abas Caixa diário e Repasses de comissões', async () => {
+  it('deve abrir a aba Caixa quando a URL é /financeiro, sem sub-rota', async () => {
+    renderHub('/financeiro');
+
+    await waitFor(() => {
+      expect(screen.getByText('Recebimentos por forma de pagamento')).toBeInTheDocument();
+    });
+
+    const caixaLink = screen.getByRole('link', { name: /Caixa diário e turnos/i });
+    expect(caixaLink).toHaveClass('nav-tab-btn--active');
+  });
+
+  it('deve redirecionar uma sub-rota desconhecida de /financeiro para a aba Caixa', async () => {
+    renderHub('/financeiro/relatorios-inexistentes');
+
+    await waitFor(() => {
+      expect(screen.getByText('Recebimentos por forma de pagamento')).toBeInTheDocument();
+    });
+
+    const caixaLink = screen.getByRole('link', { name: /Caixa diário e turnos/i });
+    expect(caixaLink).toHaveClass('nav-tab-btn--active');
+  });
+
+  it('deve alternar entre as abas Caixa diário e Repasses de comissões por navegação de link', async () => {
     mockRpc.mockResolvedValue({
       data: {
         total_revenue: 1000.0,
@@ -153,20 +205,62 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       error: null,
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(screen.getByText(/Caixa diário e turnos/i)).toBeInTheDocument();
     });
 
-    // Clicar na aba Repasses de comissões
-    const comissoesTab = screen.getByRole('button', { name: /Repasses de comissões/i });
-    fireEvent.click(comissoesTab);
+    // Navegar para a aba Repasses de comissões é navegação por link, não clique em botão
+    const comissoesLink = screen.getByRole('link', { name: /Repasses de comissões/i });
+    fireEvent.click(comissoesLink);
 
     // Deve exibir tabela de comissões
-    expect(screen.getByText('Saldos de comissão por profissional')).toBeInTheDocument();
+    expect(await screen.findByText('Saldos de comissão por profissional')).toBeInTheDocument();
     expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
     expect(screen.getByText('Pagar comissão')).toBeInTheDocument();
+    expect(comissoesLink).toHaveClass('nav-tab-btn--active');
+  });
+
+  it('deve preservar o período ao alternar entre Caixa e Comissões, sem nova busca de métricas', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        total_revenue: 3000,
+        services_revenue: 2500,
+        products_revenue: 500,
+        products_count: 5,
+        products_cost: 200,
+        total_commission: 1200,
+        paid_commission: 400,
+        pending_commission: 800,
+        net_revenue: 1600,
+        revenue_by_method: { pix: 3000 },
+        commissions_by_professional: [],
+      },
+      error: null,
+    });
+
+    renderHub('/financeiro/caixa');
+
+    await waitFor(() => {
+      expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Últimos 30 dias/i }));
+
+    await waitFor(() => {
+      expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getByRole('link', { name: /Repasses de comissões/i }));
+    await screen.findByText('Saldos de comissão por profissional');
+
+    fireEvent.click(screen.getByRole('link', { name: /Caixa diário e turnos/i }));
+    await screen.findByText('Recebimentos por forma de pagamento');
+
+    // O período selecionado (30 dias) permanece, e nenhuma nova busca de métricas ocorreu
+    expect(screen.getByRole('button', { name: /Últimos 30 dias/i })).toHaveClass('period-tab-btn--active');
+    expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
   });
 
   it('deve permitir lançar vale de profissional a partir do Hub Financeiro (ticket 05)', async () => {
@@ -207,14 +301,14 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       return Promise.resolve({ data: null, error: null });
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(screen.getByText(/Caixa diário e turnos/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Repasses de comissões/i }));
-    expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: /Repasses de comissões/i }));
+    expect(await screen.findByText('Carlos Barbeiro')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^Vale$/i }));
 
@@ -256,7 +350,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       error: null,
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
@@ -345,7 +439,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       return defaultTableChain();
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(screen.getByText(/Caixa diário e turnos/i)).toBeInTheDocument();
@@ -379,7 +473,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       error: { message: 'Acesso negado' },
     });
 
-    render(<Financeiro />);
+    renderHub('/financeiro/caixa');
 
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith(

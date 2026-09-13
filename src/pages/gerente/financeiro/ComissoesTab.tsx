@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon } from '@hugeicons/core-free-icons';
-import type { TenantContextType } from '../../../components/GerenteLayout';
 import { useToast } from '../../../components/Toast';
 import { QuitacaoComissaoModal } from '../../../components/financeiro/QuitacaoComissaoModal';
 import { LancarValeModal } from '../../../components/financeiro/LancarValeModal';
@@ -14,7 +13,7 @@ import { PAYMENT_METHOD_LABELS } from '../../../modules/caixa/types';
 import { ComissaoRepository } from '../../../modules/comissoes/ComissaoRepository';
 import { SupabaseComissaoAdapter } from '../../../modules/comissoes/adapters/SupabaseComissaoAdapter';
 import { formatDate } from './formatacao';
-import type { FinancialMetrics, PainelTabProps } from './types';
+import type { FinancialMetrics, PainelContext } from './types';
 
 interface CommissionPayoutHistoryItem {
   id: string;
@@ -38,17 +37,21 @@ interface RawPayoutRow {
   professional?: { name: string } | null;
 }
 
-/** Aba "Repasses de comissões" do Hub Financeiro. */
-export const ComissoesTab: React.FC<PainelTabProps> = ({
-  periodStart,
-  periodEnd,
-  metrics,
-  activeSession,
-  refresh,
-  registerTabReload,
-  isActive,
-}) => {
-  const tenant = useOutletContext<TenantContextType>();
+/**
+ * Aba "Repasses de comissões" do Hub Financeiro, montada pela rota `/financeiro/comissoes`. Lê o
+ * tenant e o estado compartilhado do painel (período, métricas, Sessão de Caixa ativa) do
+ * contexto entregue pelo layout do painel.
+ */
+export const ComissoesTab: React.FC = () => {
+  const {
+    periodStart,
+    periodEnd,
+    metrics,
+    activeSession,
+    refresh,
+    registerTabReload,
+    ...tenant
+  } = useOutletContext<PainelContext>();
   const { addToast } = useToast();
 
   const [comissaoRepo] = useState(() => new ComissaoRepository(new SupabaseComissaoAdapter()));
@@ -129,9 +132,9 @@ export const ComissoesTab: React.FC<PainelTabProps> = ({
 
   return (
     <>
-      {isActive && (
-        <div className="financeiro-desktop-view financeiro-tab-content">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Sem visão móvel dedicada: no celular, exibida com as tabelas roláveis que já tem. */}
+      <div className="financeiro-tab-content">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Tabela de Comissões por Barbeiro */}
             <div className="card-panel">
               <div className="card-panel-header">
@@ -340,7 +343,6 @@ export const ComissoesTab: React.FC<PainelTabProps> = ({
             </div>
           </div>
         </div>
-      )}
 
       {/* Modal 3: Quitação de Comissão */}
       <QuitacaoComissaoModal
