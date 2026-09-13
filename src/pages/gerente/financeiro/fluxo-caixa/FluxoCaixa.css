@@ -1,0 +1,211 @@
+/* ==========================================================================
+   Fluxo de Caixa Projetado (spec 037, ticket 01)
+   ========================================================================== */
+
+.fluxo-caixa-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fluxo-caixa-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.fluxo-caixa-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fluxo-caixa-refresh-btn:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+
+.fluxo-caixa-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fluxo-caixa-error {
+  color: var(--color-danger, #c0392b);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Filtros
+   -------------------------------------------------------------------------- */
+.fluxo-caixa-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.fluxo-caixa-datas {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fluxo-caixa-data-campo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.fluxo-caixa-data-btn {
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.fluxo-caixa-granularidade {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.fluxo-caixa-granularidade select {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.fluxo-caixa-granularidade select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Tabela: uma linha por agrupamento, cartões abaixo de 768px
+   -------------------------------------------------------------------------- */
+.fluxo-caixa-tabela-panel {
+  overflow-x: auto;
+}
+
+.fluxo-caixa-tabela-mensagem {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary, var(--color-text-primary));
+  padding: 1rem 0;
+}
+
+.fluxo-caixa-tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fluxo-caixa-tabela th,
+.fluxo-caixa-tabela td {
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fluxo-caixa-tabela th {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.fluxo-caixa-kind--past {
+  background: rgba(120, 120, 120, 0.15);
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-kind--current {
+  background: var(--color-warning-bg, rgba(217, 119, 6, 0.15));
+  color: var(--color-warning, #b45309);
+}
+
+.fluxo-caixa-kind--future {
+  background: rgba(63, 131, 248, 0.12);
+  color: var(--color-info, #3f83f8);
+}
+
+/* Tabela vira lista de cartões abaixo de 768px, mesma composição de DOM:
+   cada <tr> passa a se comportar como um cartão e cada <td> exibe o rótulo
+   da coluna via `data-label`, sem uma visão móvel separada. */
+@media (max-width: 767px) {
+  .fluxo-caixa-tabela thead {
+    display: none;
+  }
+
+  .fluxo-caixa-tabela,
+  .fluxo-caixa-tabela tbody,
+  .fluxo-caixa-tabela tr,
+  .fluxo-caixa-tabela td {
+    display: block;
+    width: 100%;
+  }
+
+  .fluxo-caixa-tabela tr {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .fluxo-caixa-tabela td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: none;
+    padding: 0.35rem 0;
+  }
+
+  .fluxo-caixa-tabela td::before {
+    content: attr(data-label);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary, var(--color-text-primary));
+    margin-right: 1rem;
+  }
+}

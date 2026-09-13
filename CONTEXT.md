@@ -153,6 +153,10 @@ _Avoid_: Baixa verbal de comissão, anotação em papel, repasse não rastreado
 Extrato de créditos e débitos por profissional (`professional_account_entries`), separado da comissão automática de atendimentos. Gorjeta entra como crédito ao fechar a Comanda; vale e adiantamento entram como débito. Discrimina a natureza do lançamento (`entry_type`) da aritmética do saldo (`direction`), para que a soma de créditos e débitos nunca dependa de conhecer todo tipo de lançamento existente.
 _Avoid_: Extensão de comissão, saldo avulso, planilha paralela
 
+**Fluxo de Caixa Projetado (Rota /financeiro/fluxo-de-caixa)**:
+Aba do Hub Financeiro, rota-filha direta de `/financeiro` e fora do filtro de período do painel de Caixa e Comissões, que mostra por dia, semana ou mês o que entrou e saiu de fato e o que deve entrar e sair até o fim do período. O contrato de leitura (`get_projected_cash_flow`) lê cada fato financeiro no livro onde ele nasce e nunca `cash_movements` (espelho ou transferência interna, como sangria e suprimento, que não são receita nem despesa), devolve `timezone` e `business_today` do banco -- a tela nunca decide sozinha qual é o dia de hoje -- e classifica cada agrupamento como passado, atual ou futuro. Esta fatia (ticket 01) cobre só entradas realizadas: pagamentos de Comanda fechada, líquidos de estorno, no dia de negócio do pagamento no fuso do tenant.
+_Avoid_: Ler cash_movements para receita ou despesa, faturamento (a aba sempre diz "recebido"), data local do navegador como "hoje"
+
 
 
 

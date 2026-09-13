@@ -16,6 +16,7 @@ import { FinanceiroHub } from './pages/gerente/financeiro/HubLayout';
 import { FinanceiroPainel } from './pages/gerente/financeiro/PainelLayout';
 import { CaixaTab } from './pages/gerente/financeiro/CaixaTab';
 import { ComissoesTab } from './pages/gerente/financeiro/ComissoesTab';
+import { FluxoCaixaTab } from './pages/gerente/financeiro/FluxoCaixaTab';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -61,6 +62,9 @@ function App() {
                 <Route path="caixa" element={<CaixaTab />} />
                 <Route path="comissoes" element={<ComissoesTab />} />
               </Route>
+              {/* Fluxo de Caixa Projetado (spec 037): filtro de período próprio,
+                  fora do layout do painel de Caixa e Comissões. */}
+              <Route path="fluxo-de-caixa" element={<FluxoCaixaTab />} />
               <Route path="*" element={<Navigate to="/financeiro/caixa" replace />} />
             </Route>
 

@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   UserGroupIcon,
   Coins01Icon,
+  ChartLineData01Icon,
 } from '@hugeicons/core-free-icons';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import '../Financeiro.css';
@@ -52,6 +53,14 @@ export const FinanceiroHub: React.FC = () => {
         >
           <HugeiconsIcon icon={UserGroupIcon} size={18} />
           Repasses de comissões
+        </NavLink>
+
+        <NavLink
+          to="/financeiro/fluxo-de-caixa"
+          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
+        >
+          <HugeiconsIcon icon={ChartLineData01Icon} size={18} />
+          Fluxo de Caixa Projetado
         </NavLink>
       </nav>
 
