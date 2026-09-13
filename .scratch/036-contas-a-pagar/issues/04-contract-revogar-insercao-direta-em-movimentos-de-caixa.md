@@ -20,7 +20,11 @@ gaveta" (brecha de inserção direta; expand e contract).
 **Blocked by:** 03 — Sangria e suprimento por RPC com trava de saldo (com o frontend já publicado
 em produção).
 
-**Status:** ready-for-agent
+**Status:** blocked-external-deploy
+
+> Adiado nesta sessão: este ticket só pode ser aplicado depois que o frontend do ticket 03 estiver
+> publicado em produção — uma pré-condição de deploy que esta sessão não tem como verificar nem
+> satisfazer. Retomar quando o deploy do 03 for confirmado.
 
 - [ ] Pré-condição verificada antes de aplicar a migração: o frontend do ticket 03 está em
       produção e nenhum chamador vivo insere direto em movimentos de caixa.
