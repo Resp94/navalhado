@@ -28,6 +28,7 @@ describe('FechamentoCaixaModal', () => {
     registrarAjuste: vi.fn(),
     obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const mockRepo = new CaixaRepository(mockAdapter);
@@ -116,5 +117,44 @@ describe('FechamentoCaixaModal', () => {
       });
       expect(mockOnCaixaFechado).toHaveBeenCalledWith(closedSession);
     });
+  });
+
+  it('mostra o valor esperado apurado pelo contrato do banco, não recomposto no navegador (ticket 02/036)', async () => {
+    // Repasse de comissão e vale em dinheiro não chegam como suprimento/sangria: só o contrato do
+    // banco os desconta. Se o modal ainda recompusesse a fórmula com initial+cashReceipts, o
+    // valor exibido seria 100 + 300 = 400, não os 150 apurados pelo contrato.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce({
+      session_id: 'sess-100',
+      tenant_id: 'tenant-123',
+      initial_amount: 100,
+      cash_received: 300,
+      inflow_amount: 0,
+      outflow_amount: 250,
+      expected_amount: 150,
+      movements_by_type: [
+        { type: 'repasse_comissao', direction: 'saida', amount: 200 },
+        { type: 'vale_profissional', direction: 'saida', amount: 50 },
+      ],
+    });
+
+    render(
+      <FechamentoCaixaModal
+        isOpen={true}
+        session={fakeActiveSession}
+        cashReceipts={300}
+        onCaixaFechado={mockOnCaixaFechado}
+        onClose={mockOnClose}
+        caixaRepo={mockRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockAdapter.obterValorEsperadoGaveta).toHaveBeenCalledWith('sess-100', 'tenant-123');
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector('.caixa-val-highlight')).toHaveTextContent(/R\$\s*150,00/);
+    });
+    expect(screen.queryByText(/R\$\s*400,00/)).not.toBeInTheDocument();
   });
 });

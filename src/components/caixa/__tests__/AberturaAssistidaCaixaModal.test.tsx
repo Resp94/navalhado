@@ -19,6 +19,7 @@ describe('AberturaAssistidaCaixaModal', () => {
     registrarAjuste: vi.fn(),
     obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const mockRepo = new CaixaRepository(mockAdapter);

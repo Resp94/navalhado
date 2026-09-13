@@ -3,6 +3,7 @@ import type {
   AjusteCaixaRegistrado,
   CashMovement,
   CashSession,
+  CashSessionExpectedAmount,
   CashSessionStatement,
   DailyFinancialSummary,
   DailyFinancialSummaryQuery,
@@ -185,6 +186,22 @@ export class CaixaRepository {
     return await this.adapter.obterExtrato(sessionId, tenantId);
   }
 
+  /**
+   * Prévia do valor esperado da gaveta, lida do contrato único de apuração do banco (ticket
+   * 01/036). Só existe para sessão ABERTA. Substitui a antiga função de domínio
+   * `calculateExpectedDrawerCash`, removida por não descontar repasses de comissão nem vales.
+   */
+  async getExpectedDrawerAmount(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount> {
+    if (!sessionId || !sessionId.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+
+    return await this.adapter.obterValorEsperadoGaveta(sessionId, tenantId);
+  }
+
   // Aliases para compatibilidade total (pt-BR e en)
   async obterSessaoAtiva(tenantId: string): Promise<CashSession | null> {
     return await this.getActiveSession(tenantId);
@@ -237,17 +254,9 @@ export class CaixaRepository {
   async obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
     return await this.getSessionStatement(sessionId, tenantId);
   }
-}
 
-/**
- * Função de domínio pura para calcular o saldo esperado em gaveta física de dinheiro.
- */
-export function calculateExpectedDrawerCash(
-  initialAmount: number,
-  cashReceipts: number,
-  suprimentos: number = 0,
-  sangrias: number = 0
-): number {
-  return Number(initialAmount || 0) + Number(cashReceipts || 0) + Number(suprimentos || 0) - Number(sangrias || 0);
+  async obterValorEsperadoGaveta(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount> {
+    return await this.getExpectedDrawerAmount(sessionId, tenantId);
+  }
 }
 

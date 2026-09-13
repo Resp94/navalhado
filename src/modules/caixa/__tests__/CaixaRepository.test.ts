@@ -17,6 +17,7 @@ describe('CaixaRepository', () => {
     registrarAjuste: vi.fn(),
     obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const repository = new CaixaRepository(mockAdapter);
@@ -408,17 +409,64 @@ describe('CaixaRepository', () => {
     });
   });
 
-  describe('calculateExpectedDrawerCash', () => {
-    it('calcula o saldo esperado com troco inicial, entradas, suprimentos e sangrias', async () => {
-      const { calculateExpectedDrawerCash } = await import('../CaixaRepository');
-      const total = calculateExpectedDrawerCash(100, 250, 50, 30);
-      expect(total).toBe(370); // 100 + 250 + 50 - 30
+  describe('getExpectedDrawerAmount', () => {
+    beforeEach(() => {
+      vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockClear();
     });
 
-    it('trata valores zerados ou indefinidos com segurança', async () => {
-      const { calculateExpectedDrawerCash } = await import('../CaixaRepository');
-      const total = calculateExpectedDrawerCash(0, 0);
-      expect(total).toBe(0);
+    it('delega ao adaptador e repassa o valor apurado pelo contrato do banco', async () => {
+      const expected = {
+        session_id: 'sess-1',
+        tenant_id: 't-1',
+        initial_amount: 100,
+        cash_received: 250,
+        inflow_amount: 50,
+        outflow_amount: 30,
+        expected_amount: 370,
+        movements_by_type: [
+          { type: 'suprimento', direction: 'entrada' as const, amount: 50 },
+          { type: 'sangria', direction: 'saida' as const, amount: 30 },
+        ],
+      };
+      vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce(expected);
+
+      const result = await repository.getExpectedDrawerAmount('sess-1', 't-1');
+
+      expect(result).toEqual(expected);
+      expect(mockAdapter.obterValorEsperadoGaveta).toHaveBeenCalledWith('sess-1', 't-1');
+    });
+
+    it('inclui repasses de comissao e vales no valor apurado, sem recompor a formula no navegador', async () => {
+      // A antiga calculateExpectedDrawerCash so contava suprimento e sangria; o contrato do
+      // banco tambem desconta repasse_comissao e vale_profissional em outflow_amount.
+      const expected = {
+        session_id: 'sess-2',
+        tenant_id: 't-1',
+        initial_amount: 100,
+        cash_received: 200,
+        inflow_amount: 0,
+        outflow_amount: 80,
+        expected_amount: 220,
+        movements_by_type: [
+          { type: 'repasse_comissao', direction: 'saida' as const, amount: 50 },
+          { type: 'vale_profissional', direction: 'saida' as const, amount: 30 },
+        ],
+      };
+      vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce(expected);
+
+      const result = await repository.getExpectedDrawerAmount('sess-2', 't-1');
+
+      expect(result.expected_amount).toBe(220);
+    });
+
+    it('rejeita consulta sem sessao informada', async () => {
+      await expect(repository.getExpectedDrawerAmount('', 't-1')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterValorEsperadoGaveta).not.toHaveBeenCalled();
+    });
+
+    it('rejeita consulta sem tenant informado', async () => {
+      await expect(repository.getExpectedDrawerAmount('sess-1', '')).rejects.toThrow(CaixaValidationError);
+      expect(mockAdapter.obterValorEsperadoGaveta).not.toHaveBeenCalled();
     });
   });
 });

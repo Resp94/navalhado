@@ -64,6 +64,7 @@ describe('ComandaCheckoutModal', () => {
     registrarAjuste: vi.fn(),
     obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const mockProdutoAdapter: IProdutoAdapter = {

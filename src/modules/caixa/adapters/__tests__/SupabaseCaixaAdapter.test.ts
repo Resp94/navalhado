@@ -214,4 +214,53 @@ describe('SupabaseCaixaAdapter - resumo financeiro diário', () => {
     await expect(new SupabaseCaixaAdapter().obterExtrato('session-1', 'tenant-1'))
       .rejects.toThrow(/Acesso negado/);
   });
+
+  it('apura o valor esperado da gaveta chamando get_cash_session_expected_amount', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        session_id: 'session-1',
+        tenant_id: 'tenant-1',
+        initial_amount: '100.00',
+        cash_received: '250.00',
+        inflow_amount: '0.00',
+        outflow_amount: '80.00',
+        expected_amount: '270.00',
+        movements_by_type: [
+          { type: 'repasse_comissao', direction: 'saida', amount: '50.00' },
+          { type: 'vale_profissional', direction: 'saida', amount: '30.00' },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseCaixaAdapter().obterValorEsperadoGaveta('session-1', 'tenant-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('get_cash_session_expected_amount', {
+      p_session_id: 'session-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(result).toEqual({
+      session_id: 'session-1',
+      tenant_id: 'tenant-1',
+      initial_amount: 100,
+      cash_received: 250,
+      inflow_amount: 0,
+      outflow_amount: 80,
+      expected_amount: 270,
+      movements_by_type: [
+        { type: 'repasse_comissao', direction: 'saida', amount: 50 },
+        { type: 'vale_profissional', direction: 'saida', amount: 30 },
+      ],
+    });
+  });
+
+  it('traduz erro do banco em erro de dominio ao apurar o valor esperado da gaveta', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'A sessão de caixa não está aberta ou não existe.' },
+    });
+
+    await expect(new SupabaseCaixaAdapter().obterValorEsperadoGaveta('session-1', 'tenant-1'))
+      .rejects.toThrow(/não está aberta/);
+  });
 });
