@@ -11,6 +11,33 @@
   flex-wrap: wrap;
 }
 
+.plano-contas-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.plano-contas-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.plano-contas-card .plano-contas-row-actions {
+  margin-top: 0.75rem;
+}
+
+.plano-contas-action-error {
+  background-color: var(--color-error-bg, #FDE8E8);
+  color: var(--color-error, #F05252);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.65rem 0.85rem;
+  font-size: var(--font-size-sm, 0.875rem);
+  margin-bottom: 1rem;
+}
+
 .plano-contas-section-title {
   margin: 0;
   font-size: 1.1rem;
