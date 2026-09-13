@@ -78,4 +78,15 @@ describe('GlassSidebar Component', () => {
 
     expect(localStorage.getItem('navalhado_sidebar_open')).toBe('false');
   });
+
+  it('mantém o item Financeiro ativo em qualquer sub-rota de /financeiro', () => {
+    mockLocation.pathname = '/financeiro/comissoes';
+
+    render(<GlassSidebar {...defaultProps} />);
+
+    const financeiroBtn = screen.getByRole('button', { name: /Financeiro/i });
+    expect(financeiroBtn.className).toContain('glass-sidebar__button--active');
+
+    mockLocation.pathname = '/agenda';
+  });
 });

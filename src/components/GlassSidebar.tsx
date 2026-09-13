@@ -574,7 +574,8 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
           {NAV_ITEMS.map((item) => {
             const isActive =
               location.pathname === item.path ||
-              (item.path === '/profissionais' && location.pathname.startsWith('/profissionais/'));
+              ((item.path === '/profissionais' || item.path === '/financeiro') &&
+                location.pathname.startsWith(`${item.path}/`));
 
             return (
               <NavItemRow

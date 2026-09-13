@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
-import type { TenantContextType } from '../../../components/GerenteLayout';
 import { useToast } from '../../../components/Toast';
 import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
@@ -21,7 +20,7 @@ import type {
 } from '../../../modules/caixa/types';
 import { MobileCaixaView } from '../mobile/MobileCaixaView';
 import { formatDate } from './formatacao';
-import type { PainelTabProps } from './types';
+import type { PainelContext } from './types';
 
 const EMPTY_TURN_SUMMARY: TurnPaymentsSummary = { total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 };
 
@@ -34,17 +33,21 @@ function formatLocalDay(date: string, timeZone: string) {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
-/** Aba "Caixa diário e turnos" do Hub Financeiro: visão móvel de caixa e conteúdo de desktop. */
-export const CaixaTab: React.FC<PainelTabProps> = ({
-  metrics,
-  activeSession,
-  setActiveSession,
-  refresh,
-  registerTabReload,
-  realtimeVersion,
-  isActive,
-}) => {
-  const tenant = useOutletContext<TenantContextType>();
+/**
+ * Aba "Caixa diário e turnos" do Hub Financeiro, montada pela rota `/financeiro/caixa`: visão
+ * móvel de caixa e conteúdo de desktop. Lê o tenant e o estado compartilhado do painel (período,
+ * métricas, Sessão de Caixa ativa) do contexto entregue pelo layout do painel.
+ */
+export const CaixaTab: React.FC = () => {
+  const {
+    metrics,
+    activeSession,
+    setActiveSession,
+    refresh,
+    registerTabReload,
+    realtimeVersion,
+    ...tenant
+  } = useOutletContext<PainelContext>();
   const { addToast } = useToast();
 
   const [caixaRepo] = useState(() => new CaixaRepository(new SupabaseCaixaAdapter()));
@@ -274,9 +277,8 @@ export const CaixaTab: React.FC<PainelTabProps> = ({
       </div>
 
       {/* ─── VISÃO DESKTOP (> 768px) ─── */}
-      {isActive && (
-        <div className="financeiro-desktop-view financeiro-tab-content">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="financeiro-desktop-view financeiro-tab-content">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Banner de Sessão Ativa */}
             <div className="turn-banner">
               <div className="turn-banner-info">
@@ -557,7 +559,6 @@ export const CaixaTab: React.FC<PainelTabProps> = ({
             </div>
           </div>
         </div>
-      )}
 
       {/* Modal 1: Abertura de Caixa */}
       <AberturaAssistidaCaixaModal
