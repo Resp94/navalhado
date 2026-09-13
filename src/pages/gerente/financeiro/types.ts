@@ -1,3 +1,5 @@
+import type { CashSession } from '../../../modules/caixa/types';
+
 export interface FinancialMetrics {
   total_revenue: number;
   services_revenue: number;
@@ -25,4 +27,31 @@ export interface FinancialMetrics {
     pending_sum: number;
     appointments_count: number;
   }>;
+}
+
+/**
+ * Estado que as abas Caixa e Comissões do Hub Financeiro compartilham. Fica na página
+ * (no ticket 02, no layout do painel) e desce para as abas; o que só uma aba usa fica nela.
+ */
+export interface PainelFinanceiro {
+  /** Início do período selecionado, em ISO. */
+  periodStart: string;
+  /** Fim do período selecionado, em ISO. */
+  periodEnd: string;
+  metrics: FinancialMetrics | null;
+  /** Sessão de Caixa ativa. A Quitação de Comissão e o lançamento de vale também a recebem. */
+  activeSession: CashSession | null;
+  setActiveSession: (session: CashSession | null) => void;
+  /** Recarrega métricas e Sessão de Caixa ativa; ao concluir com sucesso, `painelVersion` muda. */
+  refresh: () => Promise<void>;
+  /**
+   * Muda a cada carga bem-sucedida do painel (entrada, período, realtime ou `refresh`).
+   * Começa em 0, antes da primeira carga. As abas recarregam o que exibem quando ela muda.
+   */
+  painelVersion: number;
+  /**
+   * Muda a cada evento realtime das tabelas do Hub, antes e independentemente da recarga do
+   * painel. Para o que só se recarrega por realtime, como o resumo por dia da aba de Caixa.
+   */
+  realtimeVersion: number;
 }
