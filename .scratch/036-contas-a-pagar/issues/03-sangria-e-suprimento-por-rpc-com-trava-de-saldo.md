@@ -47,3 +47,37 @@ gaveta" (brecha de inserção direta).
       `main`/humano responsável precisa publicar e só então liberar o ticket 04.
 - [x] `npm run test` e `npm run test:db` verdes (`test:db` cumprido via MCP do Supabase, sem
       persistir nada no projeto DEV — ver notas de implementação).
+
+**Notas de implementação:**
+
+- Migration `supabase/migrations/20260913150000_sangria_suprimento_rpc_trava_de_saldo.sql`,
+  faixa de timestamp `20260913150000`–`20260913159999`, ainda não aplicada no DEV.
+- Nome do contrato novo consumido pelo frontend: `public.register_cash_movement(p_cash_session_id
+  uuid, p_tenant_id uuid, p_type text, p_amount numeric, p_reason text) returns jsonb`. Devolve o
+  movimento gravado (`id, tenant_id, cash_session_id, type, amount, reason, performed_by,
+  created_at`), no mesmo formato de `CashMovement`. `p_type` aceita só `'sangria'` e
+  `'suprimento'` (case/trim insensível); qualquer outro valor é recusado com `P0001`. Mensagem de
+  recusa de saldo: `'O valor da sangria excede o saldo disponível na gaveta do turno.'` — mesmo
+  padrão de `register_commission_payout`/`register_professional_advance`.
+- Ordem de lock dentro da RPC: valida entrada (papel/tenant/tipo/valor/motivo) primeiro, só então
+  trava a sessão (`for update`) e valida estado aberto + tenant, e só então (para sangria) consulta
+  `private.compute_cash_session_expected_amount` para o saldo — mesma ordem das demais escritas
+  financeiras da gaveta.
+- Módulo `src/modules/caixa`: tipo novo `RegistrarMovimentoManualInput` (sem `performed_by`),
+  método novo `registrarMovimentoManual`/`registerManualMovement` em `ICaixaAdapter` /
+  `SupabaseCaixaAdapter` / `CaixaRepository`, chamando a RPC acima. O método antigo
+  `registrarMovimentacao`/`registerMovement` (insert direto) foi **mantido intacto**, sem uso pelo
+  frontend a partir de agora — ele só deixa de existir quando o ticket 04 revogar a política de
+  inserção direta.
+- `CaixaTab.tsx`: `handleSangria`/`handleSuprimento` passam a chamar
+  `caixaRepo.registerManualMovement(...)` sem `performed_by` e sem `supabase.auth.getUser()`
+  (import de `supabase` removido do arquivo, não usado em mais nada ali). Nenhuma mudança na
+  leitura/exibição da prévia da gaveta (`activeSession`, `expectedAmount` etc.) — território do
+  ticket 036/02.
+- pgTAP: `20_reabertura_sessao_caixa` troca o insert direto de sangria pós-reabertura pela RPC
+  (mesmo `plan(15)`, sem novo caso). `25_validar_saldo_gaveta_quitacao_comissao` ganha um bloco
+  novo e isolado (`ticket36_03_context`, tenant próprio) com a regressão pedida pelo ticket:
+  sangria acima do disponível recusada, sangria no limite aceita, e fechamento do turno com
+  `expected_amount = 0` (`plan(24)`, antes `plan(18)`).
+- A política `cash_movements_insert_policy` e as permissões de insert direto em `cash_movements`
+  **não foram tocadas** — seguem valendo até o ticket 04.
