@@ -52,7 +52,7 @@ begin
     raise exception 'Sessão e unidade são obrigatórias.' using errcode = '22023';
   end if;
 
-  if v_user_role <> 'proprietario' and v_user_tenant <> p_tenant_id then
+  if v_user_role <> 'proprietario' and v_user_tenant is distinct from p_tenant_id then
     raise exception 'Acesso negado para a unidade solicitada.' using errcode = '42501';
   end if;
 

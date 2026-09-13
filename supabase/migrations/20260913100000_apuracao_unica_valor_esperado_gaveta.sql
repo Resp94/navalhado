@@ -180,7 +180,7 @@ begin
   if p_closing_amount is null or p_closing_amount < 0 then
     raise exception 'O valor de fechamento não pode ser negativo.' using errcode = '22023';
   end if;
-  if v_user_role <> 'proprietario' and v_user_tenant <> p_tenant_id then
+  if v_user_role <> 'proprietario' and v_user_tenant is distinct from p_tenant_id then
     raise exception 'Acesso negado para a unidade solicitada.' using errcode = '42501';
   end if;
 
@@ -332,7 +332,7 @@ begin
   end if;
 
   if p_tenant_id is not null then
-    if v_user_role <> 'proprietario' and v_user_tenant <> p_tenant_id then
+    if v_user_role <> 'proprietario' and v_user_tenant is distinct from p_tenant_id then
       raise exception 'Acesso negado para esta unidade.' using errcode = '42501';
     end if;
     v_target_tenant := p_tenant_id;
@@ -693,7 +693,7 @@ begin
   end if;
 
   if p_tenant_id is not null then
-    if v_user_role <> 'proprietario' and v_user_tenant <> p_tenant_id then
+    if v_user_role <> 'proprietario' and v_user_tenant is distinct from p_tenant_id then
       raise exception 'Acesso negado para esta unidade.' using errcode = '42501';
     end if;
     v_target_tenant := p_tenant_id;
