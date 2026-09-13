@@ -11,6 +11,7 @@ describe('CaixaRepository', () => {
     obterEntradasDinheiro: vi.fn(),
     obterResumoTurno: vi.fn(),
     registrarMovimentacao: vi.fn(),
+    registrarMovimentoManual: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
     reabrirCaixa: vi.fn(),
@@ -249,6 +250,95 @@ describe('CaixaRepository', () => {
           reason: '   ',
         })
       ).rejects.toThrow(CaixaValidationError);
+    });
+
+    it('registra movimento manual por RPC sem enviar autor', async () => {
+      const mockMovement = {
+        id: 'mov-2',
+        tenant_id: 't-1',
+        cash_session_id: 'sess-1',
+        type: 'sangria' as const,
+        amount: 30,
+        reason: 'Troco para o motoboy',
+        performed_by: 'user-autenticado',
+        created_at: new Date().toISOString(),
+      };
+      vi.mocked(mockAdapter.registrarMovimentoManual).mockResolvedValueOnce(mockMovement);
+
+      const input = {
+        tenant_id: 't-1',
+        cash_session_id: 'sess-1',
+        type: 'sangria' as const,
+        amount: 30,
+        reason: 'Troco para o motoboy',
+      };
+      const result = await repository.registerManualMovement(input);
+
+      expect(result).toEqual(mockMovement);
+      expect(mockAdapter.registrarMovimentoManual).toHaveBeenCalledWith(input);
+      // O input nao carrega performed_by: o autor vem da sessao autenticada no servidor.
+      expect(input).not.toHaveProperty('performed_by');
+    });
+
+    it('valida tenant, sessao, valor e motivo no movimento manual antes de chamar o adaptador', async () => {
+      vi.mocked(mockAdapter.registrarMovimentoManual).mockClear();
+      await expect(
+        repository.registerManualMovement({
+          tenant_id: '',
+          cash_session_id: 'sess-1',
+          type: 'sangria',
+          amount: 30,
+          reason: 'motivo valido',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+
+      await expect(
+        repository.registerManualMovement({
+          tenant_id: 't-1',
+          cash_session_id: '',
+          type: 'sangria',
+          amount: 30,
+          reason: 'motivo valido',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+
+      await expect(
+        repository.registerManualMovement({
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          type: 'sangria',
+          amount: 0,
+          reason: 'motivo valido',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+
+      await expect(
+        repository.registerManualMovement({
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          type: 'suprimento',
+          amount: 30,
+          reason: '   ',
+        })
+      ).rejects.toThrow(CaixaValidationError);
+
+      expect(mockAdapter.registrarMovimentoManual).not.toHaveBeenCalled();
+    });
+
+    it('propaga erro de saldo insuficiente vindo do adaptador (recusa de sangria acima do disponivel)', async () => {
+      vi.mocked(mockAdapter.registrarMovimentoManual).mockRejectedValueOnce(
+        new Error('O valor da sangria excede o saldo disponível na gaveta do turno.')
+      );
+
+      await expect(
+        repository.registerManualMovement({
+          tenant_id: 't-1',
+          cash_session_id: 'sess-1',
+          type: 'sangria',
+          amount: 9999,
+          reason: 'acima do saldo',
+        })
+      ).rejects.toThrow(/excede o saldo disponível na gaveta/);
     });
 
     it('obtém resumo de suprimentos e sangrias corretamente', async () => {

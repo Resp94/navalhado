@@ -110,6 +110,19 @@ export interface RegistrarMovimentacaoInput {
   performed_by?: string | null;
 }
 
+// Ticket 03 da spec 036: movimento manual (sangria/suprimento) por RPC, com
+// trava de saldo na gaveta e autor tirado da sessao autenticada no servidor
+// -- por isso este input, ao contrario de RegistrarMovimentacaoInput, nao tem
+// performed_by. A insercao direta em cash_movements (registrarMovimentacao
+// acima) continua existindo ate o ticket 04 revogar a politica.
+export interface RegistrarMovimentoManualInput {
+  tenant_id: string;
+  cash_session_id: string;
+  type: CashMovementType;
+  amount: number;
+  reason: string;
+}
+
 export interface TurnPaymentsSummary {
   total: number;
   dinheiro: number;
@@ -211,6 +224,7 @@ export interface ICaixaAdapter {
   obterResumoTurno(tenantId: string, sinceDate: string, sessionId?: string): Promise<TurnPaymentsSummary>;
   obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]>;
   registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement>;
+  registrarMovimentoManual(input: RegistrarMovimentoManualInput): Promise<CashMovement>;
   listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
   obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;
   reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession>;

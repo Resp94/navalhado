@@ -89,10 +89,13 @@ select ok(
   'registra autor e instante da reabertura'
 );
 
--- Sangria/suprimento voltam a ser aceitos no turno reaberto.
+-- Sangria/suprimento voltam a ser aceitos no turno reaberto, agora lancados
+-- pela RPC do ticket 03/036 (sem autor informado pelo cliente).
 select lives_ok(
-  $$insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by)
-    select tenant_id, closed_session_id, 'sangria', 10, 'teste pos-reabertura', user_id from ticket20_context$$,
+  $$select public.register_cash_movement(
+    (select closed_session_id from ticket20_context), (select tenant_id from ticket20_context),
+    'sangria', 10, 'teste pos-reabertura'
+  )$$,
   'aceita nova movimentacao no turno reaberto'
 );
 
