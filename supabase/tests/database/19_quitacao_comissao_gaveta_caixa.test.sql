@@ -54,7 +54,7 @@ grant select on ticket19_context to authenticated;
 
 select has_function(
   'public', 'register_commission_payout',
-  array['uuid','numeric','text','text','timestamp with time zone','uuid','uuid'],
+  array['uuid','numeric','text','text','timestamp with time zone','uuid','uuid','numeric','numeric'],
   'RPC de quitacao aceita sessao de caixa'
 );
 
