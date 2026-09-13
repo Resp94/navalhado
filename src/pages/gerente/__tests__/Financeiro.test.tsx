@@ -5,6 +5,9 @@ import { FinanceiroHub } from '../financeiro/HubLayout';
 import { FinanceiroPainel } from '../financeiro/PainelLayout';
 import { CaixaTab } from '../financeiro/CaixaTab';
 import { ComissoesTab } from '../financeiro/ComissoesTab';
+import { PlanoContasTab } from '../financeiro/PlanoContasTab';
+import { PlanoContasRepository } from '../../../modules/plano-contas/PlanoContasRepository';
+import { InMemoryPlanoContasAdapter } from '../../../modules/plano-contas/adapters/InMemoryPlanoContasAdapter';
 
 // Mocks do GSAP para testes unitários
 vi.mock('gsap', () => ({
@@ -68,6 +71,10 @@ function renderHub(initialPath = '/financeiro') {
               <Route path="caixa" element={<CaixaTab />} />
               <Route path="comissoes" element={<ComissoesTab />} />
             </Route>
+            <Route
+              path="cadastros"
+              element={<PlanoContasTab repository={new PlanoContasRepository(new InMemoryPlanoContasAdapter([]))} />}
+            />
             <Route path="*" element={<Navigate to="/financeiro/caixa" replace />} />
           </Route>
         </Route>
@@ -481,5 +488,20 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
         'error'
       );
     });
+  });
+
+  it('a aba Plano de contas não exibe KPIs nem dispara a busca de métricas (ticket 035/03)', async () => {
+    renderHub('/financeiro/cadastros');
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /Plano de contas/i });
+      expect(link).toHaveClass('nav-tab-btn--active');
+    });
+
+    expect(screen.queryByText('Faturamento bruto')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lucro líquido livre')).not.toBeInTheDocument();
+    expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(0);
+
+    expect(await screen.findByText('Categorias de Despesa')).toBeInTheDocument();
   });
 });

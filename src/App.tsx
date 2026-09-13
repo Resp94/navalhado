@@ -16,6 +16,7 @@ import { FinanceiroHub } from './pages/gerente/financeiro/HubLayout';
 import { FinanceiroPainel } from './pages/gerente/financeiro/PainelLayout';
 import { CaixaTab } from './pages/gerente/financeiro/CaixaTab';
 import { ComissoesTab } from './pages/gerente/financeiro/ComissoesTab';
+import { PlanoContasTab } from './pages/gerente/financeiro/PlanoContasTab';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -37,9 +38,9 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/signup" element={<CadastroBarbearia />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          
+
           {/* Rotas Administrativas e do Staff */}
-          <Route 
+          <Route
             element={
               <AuthGuard allowedRole="gerente">
                 <GerenteLayout />
@@ -53,14 +54,16 @@ function App() {
 
             {/* Hub Financeiro: rota-pai com layout próprio (título + navegação entre abas).
                 Caixa e Comissões partilham o layout do painel (período + KPIs), sem segmento de
-                URL. Sem sub-rota ou com sub-rota desconhecida, redireciona para caixa com
-                substituição de histórico, para o botão voltar não cair num laço. */}
+                URL. Plano de contas (035) não tem período: rota-filha direta do Hub, fora do
+                layout do painel. Sem sub-rota ou com sub-rota desconhecida, redireciona para
+                caixa com substituição de histórico, para o botão voltar não cair num laço. */}
             <Route path="/financeiro" element={<FinanceiroHub />}>
               <Route index element={<Navigate to="/financeiro/caixa" replace />} />
               <Route element={<FinanceiroPainel />}>
                 <Route path="caixa" element={<CaixaTab />} />
                 <Route path="comissoes" element={<ComissoesTab />} />
               </Route>
+              <Route path="cadastros" element={<PlanoContasTab />} />
               <Route path="*" element={<Navigate to="/financeiro/caixa" replace />} />
             </Route>
 
@@ -74,7 +77,7 @@ function App() {
           </Route>
 
           {/* Rotas do Barbeiro (Colaborador) */}
-          <Route 
+          <Route
             element={
               <AuthGuard allowedRole="barbeiro">
                 <BarbeiroLayout />
@@ -84,25 +87,25 @@ function App() {
             <Route path="/minha-agenda" element={<MinhaAgenda />} />
             <Route path="/minhas-comissoes" element={<MinhasComissoes />} />
           </Route>
-          
+
           {/* Rotas do Proprietário (SaaS Admin) */}
-          <Route 
-            path="/admin/dashboard" 
+          <Route
+            path="/admin/dashboard"
             element={
               <AuthGuard allowedRole="proprietario">
                 <AdminDashboard />
               </AuthGuard>
-            } 
+            }
           />
-          <Route 
-            path="/admin/tenants" 
+          <Route
+            path="/admin/tenants"
             element={
               <AuthGuard allowedRole="proprietario">
                 <AdminTenants />
               </AuthGuard>
-            } 
+            }
           />
-          
+
           {/* Rotas do Canal do Cliente */}
           <Route path="/cliente/acesso-expirado" element={<AcessoExpirado />} />
           <Route path="/cliente/menu" element={<MenuCliente />} />

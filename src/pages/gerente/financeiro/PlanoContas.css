@@ -1,0 +1,55 @@
+.plano-contas-tab {
+  width: 100%;
+}
+
+.plano-contas-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.plano-contas-section-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--color-text-primary, #2D231E);
+}
+
+.dark-theme .plano-contas-section-title {
+  color: var(--color-text-primary, #FFF1E6);
+}
+
+.plano-contas-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plano-contas-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plano-contas-card {
+  padding: 1rem;
+}
+
+.plano-contas-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.plano-contas-card-name {
+  font-weight: 700;
+  color: var(--color-text-primary, #2D231E);
+}
+
+.dark-theme .plano-contas-card-name {
+  color: var(--color-text-primary, #FFF1E6);
+}

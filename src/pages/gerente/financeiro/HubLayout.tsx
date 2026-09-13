@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import {
   UserGroupIcon,
   Coins01Icon,
+  Invoice01Icon,
 } from '@hugeicons/core-free-icons';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import '../Financeiro.css';
@@ -16,7 +17,8 @@ import '../Financeiro.css';
  *
  * Repassa o contexto do tenant, recebido do `GerenteLayout`, às rotas-filhas por `Outlet`. O
  * layout do painel (sem segmento de URL) o estende com o estado compartilhado de Caixa e
- * Comissões em vez de substituí-lo.
+ * Comissões em vez de substituí-lo. A aba Plano de contas (035) não tem período: é rota-filha
+ * direta desta, fora do layout do painel, e lê só o contexto do tenant.
  */
 export const FinanceiroHub: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -52,6 +54,14 @@ export const FinanceiroHub: React.FC = () => {
         >
           <HugeiconsIcon icon={UserGroupIcon} size={18} />
           Repasses de comissões
+        </NavLink>
+
+        <NavLink
+          to="/financeiro/cadastros"
+          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
+        >
+          <HugeiconsIcon icon={Invoice01Icon} size={18} />
+          Plano de contas
         </NavLink>
       </nav>
 
