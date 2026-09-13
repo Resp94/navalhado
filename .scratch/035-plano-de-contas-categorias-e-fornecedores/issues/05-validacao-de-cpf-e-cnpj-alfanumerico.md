@@ -23,26 +23,29 @@ Fornecedores", item "Documento".
 
 **Status:** ready-for-agent
 
-- [ ] Função privada e imutável no banco que valida documento normalizado, apta a ser usada em
+- [x] Função privada e imutável no banco que valida documento normalizado, apta a ser usada em
       restrição de verificação de coluna, sem execução concedida a anônimo.
-- [ ] Função pura de domínio no módulo do Plano de Contas com o mesmo algoritmo.
-- [ ] Normalização da entrada com máscara: pontos, barras, hífens e espaços descartados, letras
+- [x] Função pura de domínio no módulo do Plano de Contas com o mesmo algoritmo.
+- [x] Normalização da entrada com máscara: pontos, barras, hífens e espaços descartados, letras
       convertidas para maiúsculas. O documento é gravado sem máscara.
-- [ ] Onze caracteres são CPF: somente dígitos, com os dois dígitos verificadores do algoritmo
+- [x] Onze caracteres são CPF: somente dígitos, com os dois dígitos verificadores do algoritmo
       oficial.
-- [ ] Catorze caracteres são CNPJ: doze posições de dígito ou letra maiúscula seguidas de dois dígitos
+- [x] Catorze caracteres são CNPJ: doze posições de dígito ou letra maiúscula seguidas de dois dígitos
       verificadores numéricos, calculados com o valor de cada caractere igual ao seu código ASCII
       menos 48 e os mesmos pesos do CNPJ numérico. Um CNPJ só com dígitos se comporta exatamente como
       o antigo.
-- [ ] Qualquer outro comprimento é inválido. Sequência de um único caractere repetido é inválida,
+- [x] Qualquer outro comprimento é inválido. Sequência de um único caractere repetido é inválida,
       embora passe no cálculo.
-- [ ] O tipo (CPF ou CNPJ) é derivado do comprimento e não é armazenado.
-- [ ] Função pura de formatação para exibição, com a máscara de CPF ou de CNPJ conforme o
+- [x] O tipo (CPF ou CNPJ) é derivado do comprimento e não é armazenado.
+- [x] Função pura de formatação para exibição, com a máscara de CPF ou de CNPJ conforme o
       comprimento.
-- [ ] Conjunto único de vetores, idêntico nas duas suítes: CPF válido, CNPJ numérico válido, CNPJ
+- [x] Conjunto único de vetores, idêntico nas duas suítes: CPF válido, CNPJ numérico válido, CNPJ
       alfanumérico válido, dígito verificador errado, sequência repetida, comprimento inválido e
       letra em CPF.
-- [ ] Vetores cobertos no arquivo pgTAP do Plano de Contas (criando-o, se o ticket 03 ainda não o
+- [x] Vetores cobertos no arquivo pgTAP do Plano de Contas (criando-o, se o ticket 03 ainda não o
       tiver criado) e no teste da função pura de domínio.
-- [ ] Nenhuma tabela é criada ou alterada neste ticket.
+- [x] Nenhuma tabela é criada ou alterada neste ticket.
 - [ ] `npm run test` e `npm run test:db` verdes.
+      (05: `npm run test` verde, 71 arquivos e 498 testes. `test:db` não foi rodado, porque usa a CLI
+      supabase. O pgTAP 28 passou 25/25 via MCP, com a migration e o teste dentro de begin/rollback no
+      DEV, e a migration **não** foi aplicada.)
