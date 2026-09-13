@@ -34,10 +34,26 @@ export const FinanceiroPainel: React.FC = () => {
   const [activeSession, setActiveSession] = useState<CashSession | null>(null);
   const [realtimeVersion, setRealtimeVersion] = useState(0);
   const tabReloadsRef = useRef(new Set<TabReload>());
+  const activeSessionRef = useRef<CashSession | null>(null);
+  // Fica `true` depois que `fetchPainel` completa pela primeira vez. Só a partir daí um registro
+  // novo em `registerTabReload` dispara sua própria recarga: Caixa e Comissões são rotas-filhas
+  // (ticket 02/035), e sair de uma para a outra e voltar remonta o componente do zero, descartando
+  // o estado local. Sem isso, a aba remontada ficaria com os dados zerados/vazios até o próximo
+  // evento de tempo real ou troca de período (achado de revisão pós-merge). Antes da primeira
+  // carga, `fetchPainel` já chama todo reload registrado, então disparar de novo aqui duplicaria a
+  // busca inicial.
+  const hasLoadedOnceRef = useRef(false);
+
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
 
   const registerTabReload = useCallback((reload: TabReload) => {
     const tabReloads = tabReloadsRef.current;
     tabReloads.add(reload);
+    if (hasLoadedOnceRef.current) {
+      void reload(activeSessionRef.current);
+    }
     return () => {
       tabReloads.delete(reload);
     };
@@ -90,6 +106,7 @@ export const FinanceiroPainel: React.FC = () => {
       for (const reload of Array.from(tabReloadsRef.current)) {
         await reload(session);
       }
+      hasLoadedOnceRef.current = true;
     } catch (error: any) {
       console.error('Erro ao carregar dados financeiros:', error);
       addToast('Não foi possível carregar os dados do painel financeiro.', 'error');

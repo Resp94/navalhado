@@ -263,6 +263,47 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
   });
 
+  it('deve recarregar os próprios dados de cada aba ao remontar por troca de rota (achado de revisão pós-merge)', async () => {
+    // Caixa e Comissões são rotas-filhas (ticket 02/035): sair e voltar remonta o componente,
+    // descartando o histórico local. `registerTabReload` só é chamado pela próxima busca do
+    // painel (montagem, período ou tempo real) — sem busca própria no montagem da aba, o
+    // histórico de quitações ficaria vazio até isso acontecer.
+    mockRpc.mockResolvedValue({
+      data: {
+        total_revenue: 500,
+        services_revenue: 400,
+        products_revenue: 100,
+        products_count: 1,
+        products_cost: 20,
+        total_commission: 100,
+        paid_commission: 50,
+        pending_commission: 50,
+        net_revenue: 380,
+        revenue_by_method: { pix: 500 },
+        commissions_by_professional: [],
+      },
+      error: null,
+    });
+
+    renderHub('/financeiro/comissoes');
+    await screen.findByText('Saldos de comissão por profissional');
+
+    await waitFor(() => {
+      expect(mockFrom.mock.calls.filter(([table]) => table === 'commission_payouts')).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByRole('link', { name: /Caixa diário e turnos/i }));
+    await screen.findByText('Recebimentos por forma de pagamento');
+
+    fireEvent.click(screen.getByRole('link', { name: /Repasses de comissões/i }));
+    await screen.findByText('Saldos de comissão por profissional');
+
+    // O remonte da aba Comissões refaz a própria busca, não só a que o painel dispara
+    await waitFor(() => {
+      expect(mockFrom.mock.calls.filter(([table]) => table === 'commission_payouts')).toHaveLength(2);
+    });
+  });
+
   it('deve permitir lançar vale de profissional a partir do Hub Financeiro (ticket 05)', async () => {
     mockRpc.mockImplementation((name: string) => {
       if (name === 'register_professional_advance') {

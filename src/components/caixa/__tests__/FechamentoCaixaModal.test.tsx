@@ -87,6 +87,7 @@ describe('FechamentoCaixaModal', () => {
         isOpen={true}
         session={fakeActiveSession}
         cashReceipts={150.0}
+        expectedDrawerAmount={150.0}
         onCaixaFechado={mockOnCaixaFechado}
         onClose={mockOnClose}
         caixaRepo={mockRepo}
@@ -157,5 +158,52 @@ describe('FechamentoCaixaModal', () => {
       expect(document.querySelector('.caixa-val-highlight')).toHaveTextContent(/R\$\s*150,00/);
     });
     expect(screen.queryByText(/R\$\s*400,00/)).not.toBeInTheDocument();
+  });
+
+  it('bloqueia o fechamento quando a apuração do valor esperado falha (achado de revisão pós-merge)', async () => {
+    // Um R$ 0,00 falso numa tela de conferência de dinheiro físico é o defeito que este teste
+    // impede de voltar: sem apuração confiável, "Encerrar turno e fechar caixa" fica desabilitado.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockRejectedValueOnce(
+      new Error('Erro ao apurar valor esperado da gaveta: falha de rede.')
+    );
+
+    render(
+      <FechamentoCaixaModal
+        isOpen={true}
+        session={fakeActiveSession}
+        cashReceipts={150.0}
+        onCaixaFechado={mockOnCaixaFechado}
+        onClose={mockOnClose}
+        caixaRepo={mockRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível apurar o valor esperado da gaveta/i)).toBeDefined();
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Encerrar turno e fechar caixa/i });
+    expect(submitBtn).toBeDisabled();
+
+    fireEvent.click(submitBtn);
+    expect(mockAdapter.fecharCaixa).not.toHaveBeenCalled();
+
+    // Tentar de novo com sucesso libera o fechamento.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce({
+      session_id: 'sess-100',
+      tenant_id: 'tenant-123',
+      initial_amount: 100,
+      cash_received: 50,
+      inflow_amount: 0,
+      outflow_amount: 0,
+      expected_amount: 150,
+      movements_by_type: [],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Tentar novamente/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Encerrar turno e fechar caixa/i })).not.toBeDisabled();
+    });
   });
 });

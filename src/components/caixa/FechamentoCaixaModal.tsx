@@ -368,7 +368,12 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             <button
               type="submit"
               className="caixa-submit-action-btn"
-              disabled={isSubmitting}
+              disabled={isSubmitting || contractExpectedAmount === undefined}
+              title={
+                contractExpectedAmount === undefined
+                  ? 'Aguarde a apuração do valor esperado da gaveta para fechar o caixa.'
+                  : undefined
+              }
             >
               {isSubmitting ? (
                 'Encerrando turno...'
