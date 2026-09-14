@@ -331,8 +331,8 @@ select is(
 );
 select is(
   (select calculation_version from public.cash_sessions where id = (select session_id from ticket07_context)),
-  'cash_expected_v3',
-  'versão de cálculo gravada no fechamento permanece a atual'
+  'cash_expected_v4',
+  'versão de cálculo gravada no fechamento é a atual (ticket 15/036: pagamentos de conta pela gaveta)'
 );
 select throws_ok(
   $$select public.get_cash_session_expected_amount(

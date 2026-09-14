@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(26);
 
 -- Contexto sintetico: nao depende de linhas preexistentes do DEV.
 -- Reproduz o achado de QA manual: quitacao de comissao em dinheiro sem
@@ -348,6 +348,76 @@ select is(
   (select expected_amount from public.cash_sessions where id = (select cash_session_id from ticket36_03_context)),
   0::numeric,
   'valor esperado zero: 30 de fundo - 30 de sangria'
+);
+
+reset role;
+
+-- Ticket 15 da spec 036: pagamento de conta pela gaveta e um movimento de
+-- saida como qualquer outro para a apuracao unica do ticket 01/036 -- reduz o
+-- disponivel visto por sangria e vale, sem nenhuma mudanca nessas RPCs.
+create temporary table ticket36_15_context (
+  user_id uuid not null, tenant_id uuid not null, categoria_id uuid not null,
+  cash_session_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket36_15_ctx__', '__ticket36_15_ctx__@teste.com', '11999999999')
+  returning id
+), au as (
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket36_15_ctx__auth@teste.com')
+  returning id
+), cat as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select t.id, 'expense', 'Ticket36_15 Categoria' from t returning id
+), cs as (
+  -- Fundo de troco de R$50: saldo disponivel inicial = R$50.
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select t.id, au.id, 50, 'open'
+  from t, au
+  returning id
+)
+insert into ticket36_15_context (user_id, tenant_id, categoria_id, cash_session_id)
+select au.id, t.id, cat.id, cs.id
+from t, au, cat, cs;
+
+update public.users
+set tenant_id = (select tenant_id from ticket36_15_context), role = 'gerente', is_active = true
+where id = (select user_id from ticket36_15_context);
+
+grant select on ticket36_15_context to authenticated;
+
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket36_15_context), true);
+set local role authenticated;
+
+-- Baixa de conta pela gaveta consome 20 do fundo: disponivel passa a 30.
+create temporary table ticket36_15_payable (id uuid) on commit drop;
+grant select, insert on ticket36_15_payable to authenticated;
+insert into ticket36_15_payable (id)
+select id from public.create_payable(
+  'Ticket36_15 Entregador', (select categoria_id from ticket36_15_context), 20, current_date
+);
+select public.settle_payable(
+  (select id from ticket36_15_payable), 20, null, 'cash', 0, 0, 'gaveta',
+  (select cash_session_id from ticket36_15_context)
+);
+
+select throws_ok(
+  $$select public.register_cash_movement(
+    (select cash_session_id from ticket36_15_context), (select tenant_id from ticket36_15_context),
+    'sangria', 30.01, 'sangria acima do disponivel apos pagamento de conta'
+  )$$,
+  'P0001',
+  'O valor da sangria excede o saldo disponível na gaveta do turno.',
+  'pagamento de conta pela gaveta reduz o disponivel visto pela sangria'
+);
+select lives_ok(
+  $$select public.register_cash_movement(
+    (select cash_session_id from ticket36_15_context), (select tenant_id from ticket36_15_context),
+    'sangria', 30, 'sangria exatamente no disponivel apos pagamento de conta'
+  )$$,
+  'aceita sangria igual ao disponivel apos descontar o pagamento de conta pela gaveta (50 - 20 - 30 = 0)'
 );
 
 reset role;

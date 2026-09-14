@@ -8,6 +8,8 @@ import { useContasPagarAlerta } from '../../../modules/contas-pagar/useContasPag
 import { PlanoContasRepository } from '../../../modules/plano-contas/PlanoContasRepository';
 import { SupabasePlanoContasAdapter } from '../../../modules/plano-contas/adapters/SupabasePlanoContasAdapter';
 import { usePlanoContas } from '../../../modules/plano-contas/usePlanoContas';
+import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
+import { SupabaseCaixaAdapter } from '../../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import type { ContaPagarListada, TotaisContasPagar } from '../../../modules/contas-pagar/types';
 import type { FinanceiroHubContextType } from './HubLayout';
 import { ContaPagarForm } from '../../../components/financeiro/ContaPagarForm';
@@ -26,6 +28,8 @@ export interface ContasPagarTabProps {
   repository?: ContasPagarRepository;
   /** Repositório do Plano de Contas injetado para teste (categorias e fornecedores do formulário). */
   planoContasRepository?: PlanoContasRepository;
+  /** Repositório de Caixa injetado para teste (ticket 15/036: Baixa pela gaveta). */
+  caixaRepository?: CaixaRepository;
 }
 
 const ROTULO_SITUACAO: Record<string, { label: string; variant: 'neutral' | 'success' | 'warning' | 'error' }> = {
@@ -54,6 +58,7 @@ function formatarData(iso: string): string {
 export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   repository: repositoryProp,
   planoContasRepository: planoContasRepositoryProp,
+  caixaRepository: caixaRepositoryProp,
 }) => {
   const tenant = useOutletContext<FinanceiroHubContextType>();
   const tenantId = tenant?.tenantId || '';
@@ -69,6 +74,9 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     []
   );
   const planoContasRepository = planoContasRepositoryProp || defaultPlanoContasRepository;
+
+  const defaultCaixaRepository = useMemo(() => new CaixaRepository(new SupabaseCaixaAdapter()), []);
+  const caixaRepository = caixaRepositoryProp || defaultCaixaRepository;
 
   const { contas, totalCount, page, setPage, pageSize, loading, error, filtro, mudarFiltro, reload } =
     useContasPagar(tenantId, repository);
@@ -353,6 +361,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
         <ContaPagarDetalheDrawer
           isOpen={!!contaSelecionadaId}
           repository={repository}
+          caixaRepository={caixaRepository}
           tenantId={tenantId}
           payableId={contaSelecionadaId}
           categoriasAtivas={categoriasAtivas}

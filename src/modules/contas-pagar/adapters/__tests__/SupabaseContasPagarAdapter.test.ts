@@ -316,7 +316,7 @@ describe('SupabaseContasPagarAdapter — darBaixa', () => {
     const supabase = novoSupabaseMock();
     supabase.rpc.mockResolvedValueOnce({
       data: null,
-      error: { code: '22023', message: 'Baixa pela gaveta ainda não está disponível.' },
+      error: { code: 'P0001', message: 'O valor pago excede o saldo disponível na gaveta do turno.' },
     });
     const adapter = new SupabaseContasPagarAdapter(supabase);
 
@@ -326,8 +326,38 @@ describe('SupabaseContasPagarAdapter — darBaixa', () => {
         paymentDate: '2026-09-14',
         paymentMethod: 'cash',
         source: 'gaveta',
+        cashSessionId: 'sessao-1',
       })
     ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('chama settle_payable com a origem gaveta e a sessão de caixa (ticket 15/036)', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: { ...BAIXA_ROW_BASE, source: 'gaveta' }, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.darBaixa('tenant-1', 'conta-1', {
+      principal: 60,
+      interestAmount: 0,
+      discountAmount: 0,
+      paymentDate: '2026-09-14',
+      paymentMethod: 'cash',
+      source: 'gaveta',
+      cashSessionId: 'sessao-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('settle_payable', {
+      p_payable_id: 'conta-1',
+      p_principal: 60,
+      p_payment_date: '2026-09-14',
+      p_payment_method: 'cash',
+      p_interest_amount: 0,
+      p_discount_amount: 0,
+      p_source: 'gaveta',
+      p_cash_session_id: 'sessao-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado.source).toBe('gaveta');
   });
 });
 

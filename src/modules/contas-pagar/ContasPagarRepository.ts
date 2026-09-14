@@ -185,27 +185,33 @@ export class ContasPagarRepository {
       throw new ContasPagarValidationError('O desconto não pode exceder o principal mais os juros.');
     }
 
-    if (!dados.paymentDate) {
-      throw new ContasPagarValidationError('Data do pagamento é obrigatória.');
-    }
-
     if (!FORMAS_PAGAMENTO_BAIXA.includes(dados.paymentMethod)) {
       throw new ContasPagarValidationError('Forma de pagamento inválida.');
     }
 
     const source = dados.source ?? 'fora_do_caixa';
+
     if (source === 'gaveta') {
-      throw new ContasPagarValidationError('Baixa pela gaveta ainda não está disponível.');
+      if (!dados.cashSessionId) {
+        throw new ContasPagarValidationError('Sessão de caixa é obrigatória para Baixa pela gaveta.');
+      }
+      if (dados.paymentMethod !== 'cash') {
+        throw new ContasPagarValidationError('Baixa pela gaveta só aceita a forma de pagamento dinheiro.');
+      }
+    } else if (!dados.paymentDate) {
+      throw new ContasPagarValidationError('Data do pagamento é obrigatória.');
     }
 
     return this.adapter.darBaixa(tenantId, payableId, {
       principal: Math.round(dados.principal * 100) / 100,
-      paymentDate: dados.paymentDate,
+      // Pela gaveta, o servidor sempre define a data como o dia de negócio
+      // corrente do tenant — o valor aqui é ignorado nesse caso.
+      paymentDate: dados.paymentDate || new Date().toISOString().slice(0, 10),
       paymentMethod: dados.paymentMethod,
       interestAmount: Math.round(interestAmount * 100) / 100,
       discountAmount: Math.round(discountAmount * 100) / 100,
       source,
-      cashSessionId: dados.cashSessionId ?? null,
+      cashSessionId: source === 'gaveta' ? dados.cashSessionId ?? null : null,
     });
   }
 

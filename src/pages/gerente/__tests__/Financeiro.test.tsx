@@ -430,6 +430,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
               { id: 'mov-3', type: 'repasse_comissao', direction: 'saida', amount: 120, reason: 'Repasse Carlos', performed_by: null, payout_id: 'payout-1', professional_id: null, created_at: '2026-09-01T12:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
               { id: 'mov-4', type: 'vale_profissional', direction: 'saida', amount: 40, reason: 'Adiantamento Bruno', performed_by: null, payout_id: null, professional_id: 'prof-1', created_at: '2026-09-01T12:30:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
               { id: 'mov-5', type: 'ajuste_futuro', direction: 'entrada', amount: 15, reason: null, performed_by: null, payout_id: null, professional_id: null, created_at: '2026-09-01T12:45:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
+              { id: 'mov-6', type: 'baixa_conta_pagar', direction: 'saida', amount: 80, reason: 'Baixa de conta a pagar: Entregador do turno', performed_by: null, payout_id: null, professional_id: null, payable_settlement_id: 'settlement-1', payable_description: 'Entregador do turno', created_at: '2026-09-01T13:00:00Z', reversed_at: null, reversed_by: null, reversal_reason: null },
             ],
             reopenings: [],
           },
@@ -513,6 +514,9 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     // Tipo sem rótulo conhecido: cai num rótulo genérico pelo sentido, em vez
     // de ser omitido da folha impressa.
     expect(screen.getByText('Outra entrada')).toBeInTheDocument();
+    // Pagamento de conta pela gaveta (ticket 15/036): rótulo próprio com a
+    // descrição da Conta a Pagar.
+    expect(screen.getByText('Pagamento de conta: Entregador do turno')).toBeInTheDocument();
     expect(screen.getByText(/Sem diferença/)).toBeInTheDocument();
 
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});

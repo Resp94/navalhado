@@ -10,6 +10,7 @@ import { EditarContaDialog } from './EditarContaDialog';
 import { CancelarContaDialog } from './CancelarContaDialog';
 import { EstenderSerieDialog } from './EstenderSerieDialog';
 import { ContasPagarRepository } from '../../modules/contas-pagar/ContasPagarRepository';
+import type { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import type {
   Baixa,
   ContaPagarDetalhe,
@@ -22,6 +23,8 @@ import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/ty
 export interface ContaPagarDetalheDrawerProps {
   isOpen: boolean;
   repository: ContasPagarRepository;
+  /** Repositório de Caixa (ticket 15/036): detecta a sessão aberta para a Baixa oferecer a origem gaveta. */
+  caixaRepository: CaixaRepository;
   tenantId: string;
   payableId: string;
   categoriasAtivas: CategoriaDespesa[];
@@ -80,6 +83,7 @@ function formatarData(iso: string): string {
 export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = ({
   isOpen,
   repository,
+  caixaRepository,
   tenantId,
   payableId,
   categoriasAtivas,
@@ -322,6 +326,7 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         <BaixaDialog
           isOpen={baixaDialogAberto}
           repository={repository}
+          caixaRepository={caixaRepository}
           tenantId={tenantId}
           payableId={payableId}
           saldoRestante={conta.remaining_amount}

@@ -502,7 +502,7 @@ describe('ContasPagarRepository — darBaixa', () => {
     ).rejects.toThrow(ContasPagarValidationError);
   });
 
-  it('recusa origem gaveta (ainda não disponível)', async () => {
+  it('recusa origem gaveta sem sessão de caixa informada (ticket 15/036)', async () => {
     const adapter = novoAdapter();
     const repository = new ContasPagarRepository(adapter);
 
@@ -513,8 +513,49 @@ describe('ContasPagarRepository — darBaixa', () => {
         paymentMethod: 'cash',
         source: 'gaveta',
       })
-    ).rejects.toThrow('Baixa pela gaveta ainda não está disponível.');
+    ).rejects.toThrow('Sessão de caixa é obrigatória para Baixa pela gaveta.');
     expect(adapter.darBaixa).not.toHaveBeenCalled();
+  });
+
+  it('recusa origem gaveta com forma diferente de dinheiro (ticket 15/036)', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.darBaixa('tenant-1', 'conta-1', {
+        principal: 100,
+        paymentDate: '2026-09-13',
+        paymentMethod: 'pix',
+        source: 'gaveta',
+        cashSessionId: 'sessao-1',
+      })
+    ).rejects.toThrow('Baixa pela gaveta só aceita a forma de pagamento dinheiro.');
+    expect(adapter.darBaixa).not.toHaveBeenCalled();
+  });
+
+  it('delega Baixa pela gaveta ao adaptador com a sessão de caixa (ticket 15/036)', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.darBaixa).mockResolvedValueOnce(baixa({ source: 'gaveta' }));
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.darBaixa('tenant-1', 'conta-1', {
+      principal: 60,
+      paymentDate: '',
+      paymentMethod: 'cash',
+      source: 'gaveta',
+      cashSessionId: 'sessao-1',
+    });
+
+    expect(adapter.darBaixa).toHaveBeenCalledWith(
+      'tenant-1',
+      'conta-1',
+      expect.objectContaining({
+        principal: 60,
+        paymentMethod: 'cash',
+        source: 'gaveta',
+        cashSessionId: 'sessao-1',
+      })
+    );
   });
 
   it('aceita valor pago zero fora do caixa (desconto cobre principal e juros)', async () => {

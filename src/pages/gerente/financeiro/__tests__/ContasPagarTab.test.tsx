@@ -29,8 +29,123 @@ import type {
   TipoSerie,
   TotaisContasPagar,
 } from '../../../../modules/contas-pagar/types';
+import { CaixaRepository } from '../../../../modules/caixa/CaixaRepository';
+import type {
+  AbrirCaixaInput,
+  AjusteCaixaRegistrado,
+  CashMovement,
+  CashSession,
+  CashSessionExpectedAmount,
+  CashSessionStatement,
+  DailyFinancialSummary,
+  DailyFinancialSummaryQuery,
+  FecharCaixaInput,
+  ICaixaAdapter,
+  ReabrirCaixaInput,
+  RegistrarAjusteCaixaInput,
+  RegistrarMovimentacaoInput,
+  RegistrarMovimentoManualInput,
+  TurnPaymentsSummary,
+} from '../../../../modules/caixa/types';
 
 const TENANT_ID = 'tenant-contas-pagar-1';
+
+/**
+ * Adaptador de Caixa simulado, só para este teste (ticket 15/036: a Baixa
+ * pela gaveta detecta a sessão aberta). Por padrão não há sessão aberta —
+ * os testes que precisam da origem gaveta constroem sua própria sessão.
+ */
+class FakeCaixaAdapter implements ICaixaAdapter {
+  private sessaoAtiva: CashSession | null;
+
+  constructor(sessaoAtiva: CashSession | null = null) {
+    this.sessaoAtiva = sessaoAtiva;
+  }
+
+  async obterSessaoAtiva(_tenantId: string): Promise<CashSession | null> {
+    return this.sessaoAtiva;
+  }
+
+  async obterValorEsperadoGaveta(
+    _sessionId: string,
+    _tenantId: string
+  ): Promise<CashSessionExpectedAmount> {
+    return {
+      session_id: this.sessaoAtiva?.id || '',
+      tenant_id: TENANT_ID,
+      initial_amount: this.sessaoAtiva?.initial_amount ?? 0,
+      cash_received: 0,
+      inflow_amount: 0,
+      outflow_amount: 0,
+      expected_amount: this.sessaoAtiva?.initial_amount ?? 0,
+      movements_by_type: [],
+    };
+  }
+
+  async abrirCaixa(_input: AbrirCaixaInput): Promise<CashSession> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async fecharCaixa(_input: FecharCaixaInput): Promise<CashSession> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async listarHistorico(_tenantId: string, _limit?: number): Promise<CashSession[]> {
+    return [];
+  }
+
+  async obterEntradasDinheiro(
+    _tenantId: string,
+    _sinceDate: string,
+    _sessionId?: string
+  ): Promise<number> {
+    return 0;
+  }
+
+  async obterResumoTurno(
+    _tenantId: string,
+    _sinceDate: string,
+    _sessionId?: string
+  ): Promise<TurnPaymentsSummary> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async obterResumoFinanceiroDiario(
+    _query: DailyFinancialSummaryQuery
+  ): Promise<DailyFinancialSummary[]> {
+    return [];
+  }
+
+  async registrarMovimentacao(_input: RegistrarMovimentacaoInput): Promise<CashMovement> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async registrarMovimentoManual(_input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async listarMovimentacoes(_sessionId: string): Promise<CashMovement[]> {
+    return [];
+  }
+
+  async obterResumoMovimentacoes(
+    _sessionId: string
+  ): Promise<{ suprimentos: number; sangrias: number }> {
+    return { suprimentos: 0, sangrias: 0 };
+  }
+
+  async reabrirCaixa(_input: ReabrirCaixaInput): Promise<CashSession> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async registrarAjuste(_input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    throw new Error('não implementado neste teste');
+  }
+
+  async obterExtrato(_sessionId: string, _tenantId: string): Promise<CashSessionStatement> {
+    throw new Error('não implementado neste teste');
+  }
+}
 
 function categoria(overrides: Partial<CategoriaDespesa>): CategoriaDespesa {
   return {
@@ -790,7 +905,8 @@ function computeDueDateFake(anchorIso: string, periodicity: PeriodicidadeSerie, 
 
 function renderTab(
   contasPagarRepository: ContasPagarRepository,
-  planoContasRepository: PlanoContasRepository
+  planoContasRepository: PlanoContasRepository,
+  caixaRepository: CaixaRepository = new CaixaRepository(new FakeCaixaAdapter())
 ) {
   return render(
     <MemoryRouter initialEntries={['/financeiro/contas-a-pagar']}>
@@ -808,6 +924,7 @@ function renderTab(
               <ContasPagarTab
                 repository={contasPagarRepository}
                 planoContasRepository={planoContasRepository}
+                caixaRepository={caixaRepository}
               />
             }
           />
@@ -984,6 +1101,93 @@ describe('ContasPagarTab (adaptador simulado)', () => {
       target: { value: '2026-09-14' },
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Baixa' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Paga').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('não oferece a origem gaveta quando não há sessão de caixa aberta (ticket 15/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Aluguel de setembro',
+          amount: 100,
+          paid_amount: 0,
+          remaining_amount: 100,
+          status: 'open',
+          situation: 'open',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel de setembro').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel de setembro')[0]);
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar Baixa' }));
+
+    await screen.findByLabelText('Principal');
+    expect(screen.queryByLabelText('Origem do dinheiro')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Data do pagamento')).toBeInTheDocument();
+  });
+
+  it('dá Baixa pela gaveta quando há sessão de caixa aberta, com forma travada em dinheiro (ticket 15/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Entregador do turno',
+          amount: 60,
+          paid_amount: 0,
+          remaining_amount: 60,
+          status: 'open',
+          situation: 'open',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+    const sessaoAberta: CashSession = {
+      id: 'sessao-1',
+      tenant_id: TENANT_ID,
+      opened_by: 'user-1',
+      closed_by: null,
+      opened_at: '2026-09-14T08:00:00Z',
+      closed_at: null,
+      initial_amount: 100,
+      closing_amount: null,
+      status: 'open',
+      notes: null,
+    };
+    const caixaRepository = new CaixaRepository(new FakeCaixaAdapter(sessaoAberta));
+
+    renderTab(contasPagarRepository, planoContasRepository, caixaRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Entregador do turno').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Entregador do turno')[0]);
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar Baixa' }));
+
+    await screen.findByLabelText('Principal');
+    await screen.findByRole('tablist', { name: 'Origem do dinheiro' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Pela gaveta' }));
+
+    await screen.findByText(/Disponível na gaveta/);
+    expect(screen.queryByLabelText('Data do pagamento')).not.toBeInTheDocument();
+    expect((screen.getByLabelText('Forma de pagamento') as HTMLInputElement).value).toBe('Dinheiro');
+
+    fireEvent.change(screen.getByLabelText('Principal'), { target: { value: '60' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar Baixa' }));
 
     await waitFor(() => {
@@ -1506,7 +1710,7 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Cancelar conta' })).not.toBeInTheDocument();
     });
-  });
+  }, 30000);
 
   it('mostra o aviso de fim próximo e estende a Recorrência (ticket 14/036)', async () => {
     const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
@@ -1570,5 +1774,5 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Aluguel curto').length).toBeGreaterThanOrEqual(4);
     });
-  }, 20000);
+  }, 30000);
 });

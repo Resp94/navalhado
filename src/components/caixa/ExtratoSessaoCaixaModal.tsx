@@ -42,6 +42,12 @@ const MOVEMENT_SECTIONS: MovementSection[] = [
     title: 'Vales de profissional',
     emptyLabel: 'Nenhum vale no turno.',
   },
+  {
+    type: 'baixa_conta_pagar',
+    label: 'Pagamento de conta',
+    title: 'Pagamentos de conta',
+    emptyLabel: 'Nenhum pagamento de conta no turno.',
+  },
 ];
 
 const MOVEMENT_LABELS: Record<string, string> = Object.fromEntries(
@@ -222,7 +228,11 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
                     <ul className="extrato-caixa-list">
                       {items.map((m) => (
                         <li key={m.id}>
-                          <span>{m.reason || section.label}</span>
+                          <span>
+                            {section.type === 'baixa_conta_pagar' && m.payable_description
+                              ? `${section.label}: ${m.payable_description}`
+                              : m.reason || section.label}
+                          </span>
                           <span>{formatCurrency(m.amount)}</span>
                         </li>
                       ))}

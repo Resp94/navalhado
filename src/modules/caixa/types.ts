@@ -210,6 +210,10 @@ export interface CashSessionMovementEntry {
   payout_id: string | null;
   /** Vínculo com o profissional, usado hoje pelo vale (ticket 05 da spec 034/036). */
   professional_id: string | null;
+  /** Vínculo com a Baixa de Conta a Pagar pela gaveta (ticket 15/036). */
+  payable_settlement_id: string | null;
+  /** Descrição da Conta a Pagar, para o extrato mostrar rótulo próprio no pagamento pela gaveta (ticket 15/036). */
+  payable_description: string | null;
   created_at: string;
   reversed_at: string | null;
   reversed_by: string | null;
