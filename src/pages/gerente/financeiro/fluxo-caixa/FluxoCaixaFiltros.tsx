@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SegmentedControl } from '../../../../components/ui/navigation/SegmentedControl';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
+import { formatCurrencyInput } from '../../../../lib/currency';
 import type { FluxoCaixaGranularity } from '../../../../modules/fluxo-caixa/types';
 import type { FluxoCaixaPeriodShortcutId } from '../../../../modules/fluxo-caixa/periodo';
 
@@ -30,6 +31,16 @@ export interface FluxoCaixaFiltrosProps {
   onGranularityChange: (granularity: FluxoCaixaGranularity) => void;
   timezone: string;
   isCustom: boolean;
+  /**
+   * Texto digitado do saldo (ticket 04), formatado como moeda. Estado só de
+   * tela: nunca gravado, nunca enviado ao banco, nunca posto na URL nem em
+   * armazenamento do navegador -- mora no componente pai e desaparece ao
+   * recarregar a página.
+   */
+  saldoInformadoInput: string;
+  onSaldoInformadoInputChange: (value: string) => void;
+  /** Falso num período inteiramente passado: não há o que projetar. */
+  mostrarCampoSaldo: boolean;
 }
 
 function formatDisplayDate(isoDate: string): string {
@@ -53,6 +64,9 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
   onGranularityChange,
   timezone,
   isCustom,
+  saldoInformadoInput,
+  onSaldoInformadoInputChange,
+  mostrarCampoSaldo,
 }) => {
   const [openPicker, setOpenPicker] = useState<'start' | 'end' | null>(null);
 
@@ -131,6 +145,20 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
           ))}
         </select>
       </label>
+
+      {mostrarCampoSaldo && (
+        <label className="fluxo-caixa-saldo-campo">
+          <span>Saldo disponível hoje (opcional)</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label="Saldo disponível hoje, opcional"
+            placeholder="R$ 0,00"
+            value={saldoInformadoInput}
+            onChange={(event) => onSaldoInformadoInputChange(formatCurrencyInput(event.target.value))}
+          />
+        </label>
+      )}
     </section>
   );
 };

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FluxoCaixaTab } from '../FluxoCaixaTab';
 import { FluxoCaixaRepository } from '../../../../modules/fluxo-caixa/FluxoCaixaRepository';
@@ -97,5 +97,51 @@ describe('FluxoCaixaTab (adaptador simulado)', () => {
       expect(screen.getAllByText('Histórico insuficiente para estimar entradas').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('histórico insuficiente').length).toBeGreaterThan(0);
+  });
+
+  it('o campo de saldo troca o rótulo da curva de Resultado Acumulado para Saldo Projetado e volta (ticket 04/037)', async () => {
+    const resposta = respostaBase({
+      buckets: [
+        {
+          start_date: '2026-06-10',
+          end_date: '2026-06-10',
+          kind: 'current',
+          inflow_realized: 100,
+          inflow_estimated: 0,
+          outflow_realized: 20,
+          pending_flow: 30,
+          detail: {
+            inflow_by_method: { dinheiro: 0, pix: 100, cartao: 0, outros: 0 },
+            payouts_by_professional: [],
+            advances_by_professional: [],
+            estimated_days: 0,
+            closed_days: 0,
+          },
+        },
+      ],
+    });
+
+    const repository = new FluxoCaixaRepository(new FakeFluxoCaixaAdapter(resposta));
+    render(<FluxoCaixaTab repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Resultado acumulado/i).length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(/Saldo projetado/i)).not.toBeInTheDocument();
+
+    const campoSaldo = screen.getByLabelText('Saldo disponível hoje, opcional');
+    fireEvent.change(campoSaldo, { target: { value: '10000' } });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Saldo projetado/i).length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(/Resultado acumulado/i)).not.toBeInTheDocument();
+
+    fireEvent.change(campoSaldo, { target: { value: '' } });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Resultado acumulado/i).length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(/Saldo projetado/i)).not.toBeInTheDocument();
   });
 });

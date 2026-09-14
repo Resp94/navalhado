@@ -7,12 +7,14 @@ import { dateInZone } from '../../../lib/timezone';
 import { FluxoCaixaRepository } from '../../../modules/fluxo-caixa/FluxoCaixaRepository';
 import { SupabaseFluxoCaixaAdapter } from '../../../modules/fluxo-caixa/adapters/SupabaseFluxoCaixaAdapter';
 import { useFluxoCaixa } from '../../../modules/fluxo-caixa/useFluxoCaixa';
+import { computeFluxoCaixaCurva } from '../../../modules/fluxo-caixa/curva';
 import {
   getFluxoCaixaPeriodShortcutRange,
   isGranularityWithinLimits,
   suggestFluxoCaixaGranularity,
   type FluxoCaixaPeriodShortcutId,
 } from '../../../modules/fluxo-caixa/periodo';
+import { parseCurrencyInput } from '../../../lib/currency';
 import type { FluxoCaixaGranularity } from '../../../modules/fluxo-caixa/types';
 import { FluxoCaixaFiltros } from './fluxo-caixa/FluxoCaixaFiltros';
 import { FluxoCaixaResumo } from './fluxo-caixa/FluxoCaixaResumo';
@@ -54,6 +56,11 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
   const [granularity, setGranularity] = useState<FluxoCaixaGranularity>(initialRange.granularity);
+
+  // Saldo informado (ticket 04): estado só de tela, nunca gravado, nunca
+  // enviado ao banco, nunca posto na URL nem em armazenamento do navegador.
+  // Zero é lido como "não informado".
+  const [saldoInformadoInput, setSaldoInformadoInput] = useState('');
 
   const [defaultRepository] = useState(() => new FluxoCaixaRepository(new SupabaseFluxoCaixaAdapter()));
   const repository = injectedRepository || defaultRepository;
@@ -99,6 +106,13 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
   const buckets = data?.buckets || [];
   const estimate = data?.estimate || null;
 
+  // Período inteiramente passado: não há o que projetar, o campo de saldo
+  // some da tela (mas o valor digitado, se houver, é preservado em memória
+  // até o gestor mudar o período de novo).
+  const mostrarCampoSaldo = buckets.length === 0 || buckets.some((bucket) => bucket.kind !== 'past');
+  const saldoInformado = mostrarCampoSaldo ? parseCurrencyInput(saldoInformadoInput) : 0;
+  const curva = buckets.length > 0 ? computeFluxoCaixaCurva(buckets, saldoInformado) : null;
+
   return (
     <div className="fluxo-caixa-tab">
       <header className="fluxo-caixa-header">
@@ -132,6 +146,9 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
         onGranularityChange={setGranularity}
         timezone={timezone}
         isCustom={shortcut === 'custom'}
+        saldoInformadoInput={saldoInformadoInput}
+        onSaldoInformadoInputChange={setSaldoInformadoInput}
+        mostrarCampoSaldo={mostrarCampoSaldo}
       />
 
       {error && (
@@ -140,9 +157,9 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
         </p>
       )}
 
-      <FluxoCaixaResumo buckets={buckets} estimate={estimate} loading={loading} />
+      <FluxoCaixaResumo buckets={buckets} estimate={estimate} curva={curva} loading={loading} />
 
-      <FluxoCaixaTabela buckets={buckets} loading={loading} />
+      <FluxoCaixaTabela buckets={buckets} curva={curva} loading={loading} />
     </div>
   );
 };

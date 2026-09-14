@@ -1,10 +1,12 @@
 import React from 'react';
 import { formatCurrency } from '../../../../lib/currency';
 import type { FluxoCaixaBucket, FluxoCaixaBucketKind } from '../../../../modules/fluxo-caixa/types';
+import type { FluxoCaixaCurva } from '../../../../modules/fluxo-caixa/curva';
 import { FluxoCaixaValorEstimado } from './FluxoCaixaValorEstimado';
 
 export interface FluxoCaixaTabelaProps {
   buckets: FluxoCaixaBucket[];
+  curva: FluxoCaixaCurva | null;
   loading: boolean;
 }
 
@@ -14,7 +16,7 @@ const KIND_LABELS: Record<FluxoCaixaBucketKind, string> = {
   future: 'Futuro',
 };
 
-function formatBucketDate(dateStr: string): string {
+export function formatBucketDate(dateStr: string): string {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   const [, month, day] = parts;
@@ -32,7 +34,7 @@ function formatBucketRange(bucket: FluxoCaixaBucket): string {
  * celular vira lista de cartões pela mesma composição responsiva (CSS em
  * FluxoCaixa.css), sem "MobileView" separada.
  */
-export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loading }) => {
+export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, curva, loading }) => {
   return (
     <section className="card-panel fluxo-caixa-tabela-panel" aria-label="Agrupamentos do fluxo de caixa projetado">
       <h3 className="card-panel-title">Agrupamentos do período</h3>
@@ -42,7 +44,10 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
       ) : buckets.length === 0 ? (
         <p className="fluxo-caixa-tabela-mensagem">Nenhum agrupamento para o período selecionado.</p>
       ) : (
-        <table className="fluxo-caixa-tabela" aria-label="Uma linha por agrupamento do período, com o recebido, a saída realizada e a entrada estimada">
+        <table
+          className="fluxo-caixa-tabela"
+          aria-label="Uma linha por agrupamento do período, com o recebido, a saída realizada, a entrada estimada e a curva"
+        >
           <thead>
             <tr>
               <th scope="col">Período</th>
@@ -50,24 +55,38 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
               <th scope="col">Recebido</th>
               <th scope="col">Saída realizada</th>
               <th scope="col">Estimado</th>
+              <th scope="col">{curva?.rotulo || 'Resultado acumulado'}</th>
             </tr>
           </thead>
           <tbody>
-            {buckets.map((bucket) => (
-              <tr key={`${bucket.start_date}-${bucket.end_date}`}>
-                <td data-label="Período">{formatBucketRange(bucket)}</td>
-                <td data-label="Classificação">
-                  <span className={`fluxo-caixa-kind fluxo-caixa-kind--${bucket.kind}`}>
-                    {KIND_LABELS[bucket.kind]}
-                  </span>
-                </td>
-                <td data-label="Recebido">{formatCurrency(bucket.inflow_realized)}</td>
-                <td data-label="Saída realizada">{formatCurrency(bucket.outflow_realized)}</td>
-                <td data-label="Estimado">
-                  {bucket.kind === 'past' ? '—' : <FluxoCaixaValorEstimado value={bucket.inflow_estimated} />}
-                </td>
-              </tr>
-            ))}
+            {buckets.map((bucket, index) => {
+              const saldo = curva?.pontos[index]?.saldo ?? null;
+              const negativo = curva?.primeiroNegativoIndex !== null && (curva?.primeiroNegativoIndex ?? -1) <= index;
+              return (
+                <tr key={`${bucket.start_date}-${bucket.end_date}`}>
+                  <td data-label="Período">{formatBucketRange(bucket)}</td>
+                  <td data-label="Classificação">
+                    <span className={`fluxo-caixa-kind fluxo-caixa-kind--${bucket.kind}`}>
+                      {KIND_LABELS[bucket.kind]}
+                    </span>
+                  </td>
+                  <td data-label="Recebido">{formatCurrency(bucket.inflow_realized)}</td>
+                  <td data-label="Saída realizada">{formatCurrency(bucket.outflow_realized)}</td>
+                  <td data-label="Estimado">
+                    {bucket.kind === 'past' ? '—' : <FluxoCaixaValorEstimado value={bucket.inflow_estimated} />}
+                  </td>
+                  <td data-label={curva?.rotulo || 'Resultado acumulado'}>
+                    {saldo === null ? (
+                      '—'
+                    ) : (
+                      <span className={negativo ? 'fluxo-caixa-saldo-negativo' : undefined}>
+                        {formatCurrency(saldo)}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

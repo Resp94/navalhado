@@ -24,35 +24,66 @@ projetado" e "Linguagem e documentação".
 
 **Blocked by:** 01 (realizado de Comandas ponta a ponta).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Função pura de curva calcula o resultado de cada agrupamento como entradas realizadas +
+- [x] Função pura de curva calcula o resultado de cada agrupamento como entradas realizadas +
       entradas estimadas − saídas realizadas − saídas previstas − vencidas, tratando campos ainda
       ausentes como zero.
-- [ ] Sem saldo informado (zero, o padrão), a curva se chama Resultado Acumulado e é a soma corrida
+- [x] Sem saldo informado (zero, o padrão), a curva se chama Resultado Acumulado e é a soma corrida
       dos resultados desde o primeiro agrupamento do período.
-- [ ] Com saldo maior que zero, a curva se chama Saldo Projetado, começa no agrupamento atual com
+- [x] Com saldo maior que zero, a curva se chama Saldo Projetado, começa no agrupamento atual com
       saldo informado + fluxo pendente desse agrupamento e soma o fluxo pendente de cada agrupamento
       seguinte.
-- [ ] Agrupamentos passados não têm saldo projetado.
-- [ ] O realizado de hoje não é somado ao saldo informado.
-- [ ] A função devolve o primeiro agrupamento com curva negativa.
-- [ ] O rótulo troca entre Resultado Acumulado e Saldo Projetado quando o saldo passa de zero para um
+- [x] Agrupamentos passados não têm saldo projetado.
+- [x] O realizado de hoje não é somado ao saldo informado.
+- [x] A função devolve o primeiro agrupamento com curva negativa.
+- [x] O rótulo troca entre Resultado Acumulado e Saldo Projetado quando o saldo passa de zero para um
       valor informado e volta.
-- [ ] Campo "Saldo disponível hoje (opcional)" nos filtros aceita valor maior ou igual a zero, lido
+- [x] Campo "Saldo disponível hoje (opcional)" nos filtros aceita valor maior ou igual a zero, lido
       pelo mesmo parser de moeda do projeto, e não aparece num período inteiramente passado.
-- [ ] O saldo informado não é gravado, não é enviado ao banco, não vai para a URL e não é guardado em
+- [x] O saldo informado não é gravado, não é enviado ao banco, não vai para a URL e não é guardado em
       armazenamento do navegador.
-- [ ] Destaque do primeiro período negativo com texto adequado ao rótulo: "saldo projetado negativo a
+- [x] Destaque do primeiro período negativo com texto adequado ao rótulo: "saldo projetado negativo a
       partir de..." ou "resultado acumulado negativo a partir de...".
-- [ ] Resumo ganha o cartão de valor ao fim do período, e a tabela e os cartões de celular mostram a
+- [x] Resumo ganha o cartão de valor ao fim do período, e a tabela e os cartões de celular mostram a
       curva por agrupamento.
-- [ ] Testes de módulo da função de curva: acumulado sem saldo, saldo projetado começando no
+- [x] Testes de módulo da função de curva: acumulado sem saldo, saldo projetado começando no
       agrupamento atual, agrupamentos passados sem saldo, realizado de hoje não somado ao saldo,
       primeiro agrupamento negativo e troca de rótulo entre zero e valor informado.
-- [ ] Teste da aba com repositório falso injetado cobre o campo de saldo trocando o rótulo da curva.
-- [ ] ADR 021 escrita, registrando três decisões: o fluxo lê livros de origem e nunca movimentos de
+- [x] Teste da aba com repositório falso injetado cobre o campo de saldo trocando o rótulo da curva.
+- [x] ADR 021 escrita, registrando três decisões: o fluxo lê livros de origem e nunca movimentos de
       caixa; a entrada futura é estimada pela média por dia da semana, sem persistência; o saldo
       inicial é só de tela.
-- [ ] `CONTEXT.md` ganha os termos Resultado Acumulado e Saldo Projetado.
-- [ ] `npm run test` verde.
+- [x] `CONTEXT.md` ganha os termos Resultado Acumulado e Saldo Projetado.
+- [x] `npm run test` verde.
+
+**Notas de implementação:**
+
+- **Sem migration:** ticket só de módulo e tela, como previsto -- `resultado` e `saldo` são
+  compostos no navegador a partir de campos que o contrato (`get_projected_cash_flow`) já devolve
+  (`inflow_realized`, `inflow_estimated`, `outflow_realized`, `pending_flow`). Rodou em paralelo
+  conceitual com os tickets 02/03 (a função já era verificável com só o realizado do ticket 01), mas
+  nesta sessão foi implementado depois deles, já se beneficiando de `inflow_estimated`.
+- **`src/modules/fluxo-caixa/curva.ts`:** `computeFluxoCaixaCurva(buckets, saldoInformado)`. Campos
+  de saída prevista/vencida (`outflow_forecast`, `outflow_overdue`) ainda não existem no tipo
+  `FluxoCaixaBucket` (chegam nos tickets 05/07) -- lidos via um tipo local
+  `FluxoCaixaBucketComPrevisao` com os dois campos opcionais, fallback a zero, para a função já ficar
+  correta hoje e nunca precisar de mudança de assinatura quando os tickets seguintes adicionarem os
+  campos de verdade ao contrato.
+- **Testes de módulo:** `src/modules/fluxo-caixa/__tests__/curva.test.ts`, 8 casos cobrindo todo o
+  checklist (helper `bucket(...)` para não repetir os quinze campos obrigatórios em cada teste).
+- **Frontend:** `FluxoCaixaFiltros` ganha o campo "Saldo disponível hoje (opcional)" (texto
+  controlado formatado por `formatCurrencyInput`, só visível quando `mostrarCampoSaldo`);
+  `FluxoCaixaTab` guarda `saldoInformadoInput` em `useState` puro (nunca em URL, nunca em
+  `localStorage`) e calcula `mostrarCampoSaldo` como `buckets.some(b => b.kind !== 'past')`;
+  `FluxoCaixaResumo` ganha o quarto cartão ("Resultado acumulado"/"Saldo projetado" ao fim do
+  período) e o parágrafo de destaque do primeiro negativo; `FluxoCaixaTabela` ganha a última coluna
+  com o valor da curva por agrupamento (célula com `—` em agrupamento sem saldo, ex.: passado com
+  saldo informado). `formatBucketDate` foi exportado de `FluxoCaixaTabela.tsx` para reuso no texto de
+  destaque do Resumo, em vez de duplicar o helper.
+- **Teste de aba:** terceiro caso em `FluxoCaixaTab.test.tsx`, usando `fireEvent.change` (não
+  `@testing-library/user-event`, que não é dependência do projeto) para digitar e limpar o campo de
+  saldo e conferir a troca de rótulo nos dois sentidos.
+- **ADR 021:** `docs/adr/021_fluxo_de_caixa_projetado.md`, registrando as três decisões da spec
+  inteira (livros de origem, estimativa sem persistência, saldo só de tela) -- não só deste ticket,
+  porque é só com este ticket que as três decisões já estavam todas no código.
