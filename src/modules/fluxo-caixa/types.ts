@@ -88,6 +88,20 @@ export interface FluxoCaixaBucket {
 }
 
 /**
+ * Compromissos sem Data (spec 037, ticket 05): quanto a barbearia deve hoje
+ * à equipe entre comissões e gorjetas em aberto, já descontados os vales a
+ * abater, com piso zero por profissional. Calculado no momento da consulta
+ * -- nunca entra em nenhum agrupamento, no `pending_flow` nem na curva,
+ * porque distribuí-lo exigiria inventar uma data de quitação.
+ */
+export interface FluxoCaixaUndatedCommitments {
+  commission_open: number;
+  tips_open: number;
+  advances_open: number;
+  net_due: number;
+}
+
+/**
  * Contrato de leitura do Fluxo de Caixa Projetado (`get_projected_cash_flow`,
  * spec 037). `timezone` e `business_today` vêm do banco: a tela nunca decide
  * sozinha qual é o dia de hoje.
@@ -96,6 +110,7 @@ export interface FluxoCaixaProjetado {
   timezone: string;
   business_today: string;
   estimate: FluxoCaixaEstimate;
+  undated_commitments: FluxoCaixaUndatedCommitments;
   buckets: FluxoCaixaBucket[];
 }
 

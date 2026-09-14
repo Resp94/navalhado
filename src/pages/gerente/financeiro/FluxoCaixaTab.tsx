@@ -105,6 +105,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
 
   const buckets = data?.buckets || [];
   const estimate = data?.estimate || null;
+  const undatedCommitments = data?.undated_commitments || null;
 
   // Período inteiramente passado: não há o que projetar, o campo de saldo
   // some da tela (mas o valor digitado, se houver, é preservado em memória
@@ -157,7 +158,13 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
         </p>
       )}
 
-      <FluxoCaixaResumo buckets={buckets} estimate={estimate} curva={curva} loading={loading} />
+      <FluxoCaixaResumo
+        buckets={buckets}
+        estimate={estimate}
+        undatedCommitments={undatedCommitments}
+        curva={curva}
+        loading={loading}
+      />
 
       <FluxoCaixaTabela buckets={buckets} curva={curva} loading={loading} />
     </div>

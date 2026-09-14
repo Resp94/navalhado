@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FluxoCaixaTab } from '../FluxoCaixaTab';
@@ -14,6 +15,11 @@ vi.mock('react-router-dom', () => ({
     tenantName: 'Barbearia Estilo',
     timezone: 'America/Sao_Paulo',
   }),
+  Link: ({ children, to, ...rest }: React.PropsWithChildren<{ to: string }>) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 class FakeFluxoCaixaAdapter implements IFluxoCaixaAdapter {
@@ -29,6 +35,7 @@ function respostaBase(overrides: Partial<FluxoCaixaProjetado> = {}): FluxoCaixaP
     timezone: 'America/Sao_Paulo',
     business_today: '2026-06-10',
     estimate: { status: 'ok', weeks_used: 8, weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 } },
+    undated_commitments: { commission_open: 0, tips_open: 0, advances_open: 0, net_due: 0 },
     buckets: [],
     ...overrides,
   };

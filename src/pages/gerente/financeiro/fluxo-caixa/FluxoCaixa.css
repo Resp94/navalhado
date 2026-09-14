@@ -180,6 +180,50 @@
 }
 
 /* --------------------------------------------------------------------------
+   Compromissos sem Data (ticket 05): linha propria, fora dos agrupamentos.
+   -------------------------------------------------------------------------- */
+.fluxo-caixa-compromissos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.fluxo-caixa-compromissos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.fluxo-caixa-compromissos-link {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-primary, #3f83f8);
+  text-decoration: none;
+}
+
+.fluxo-caixa-compromissos-link:hover {
+  text-decoration: underline;
+}
+
+.fluxo-caixa-compromissos-valores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.fluxo-caixa-compromissos-valores > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fluxo-caixa-compromissos-valores strong {
+  font-size: var(--font-size-md, 1rem);
+}
+
+/* --------------------------------------------------------------------------
    Tabela: uma linha por agrupamento, cartões abaixo de 768px
    -------------------------------------------------------------------------- */
 .fluxo-caixa-tabela-panel {

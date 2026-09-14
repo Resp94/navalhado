@@ -4,6 +4,7 @@ import {
   type FluxoCaixaBucket,
   type FluxoCaixaEstimate,
   type FluxoCaixaProjetado,
+  type FluxoCaixaUndatedCommitments,
   type FluxoCaixaValorPorProfissional,
   type FluxoCaixaWeekdayAverages,
   type IFluxoCaixaAdapter,
@@ -35,6 +36,16 @@ function toEstimate(value: unknown): FluxoCaixaEstimate {
     status: raw.status === 'ok' ? 'ok' : 'insufficient_history',
     weeks_used: toNumber(raw.weeks_used),
     weekday_averages: toWeekdayAverages(raw.weekday_averages),
+  };
+}
+
+function toUndatedCommitments(value: unknown): FluxoCaixaUndatedCommitments {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    commission_open: toNumber(raw.commission_open),
+    tips_open: toNumber(raw.tips_open),
+    advances_open: toNumber(raw.advances_open),
+    net_due: toNumber(raw.net_due),
   };
 }
 
@@ -73,6 +84,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
       timezone?: string;
       business_today?: string;
       estimate?: unknown;
+      undated_commitments?: unknown;
       buckets?: Array<Record<string, any>>;
     };
 
@@ -113,6 +125,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
       timezone: raw.timezone || 'America/Sao_Paulo',
       business_today: raw.business_today ? String(raw.business_today) : '',
       estimate: toEstimate(raw.estimate),
+      undated_commitments: toUndatedCommitments(raw.undated_commitments),
       buckets,
     };
   }

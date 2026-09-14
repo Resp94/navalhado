@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(40);
 
 -- Spec 037 (Fluxo de Caixa Projetado), ticket 01: Realizado de Comandas
 -- ponta a ponta. Cobre o contrato de leitura (public.get_projected_cash_flow),
@@ -646,6 +646,90 @@ select is(
   ),
   0.00,
   'um periodo inteiramente passado (sem dia futuro no agrupamento) devolve entrada estimada zero, mesmo com historico insuficiente -- nao ha o que estimar, entao zero e o valor correto, diferente do caso de dia futuro sem historico'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 05 da spec 037: Compromissos sem Data. Tenant proprio (nao reusa
+-- tenant_a_id): get_professional_commission_balance nao filtra por
+-- reversed_at ao somar vale/gorjeta em aberto (so por status), entao um
+-- vale estornado de outro ticket que ainda tem status 'open' (proposital,
+-- so para o teste do ticket 02) contaminaria a soma se reusasse o mesmo
+-- tenant. Tres profissionais: um com comissao em aberto, um com vale maior
+-- que o devido (piso zero, nao reduz os colegas) e um inativo com comissao
+-- em aberto (deve ser incluido, para nao sumir divida com ex-profissional).
+-- ---------------------------------------------------------------------------
+create temporary table ticket35_context (
+  tenant_id uuid not null,
+  gerente_id uuid not null,
+  prof_com_saldo_id uuid not null,
+  prof_vale_maior_id uuid not null,
+  prof_inativo_id uuid not null
+) on commit drop;
+with t as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket35_tenant__', '__ticket35_tenant__@teste.com', '11999991035', 'America/Sao_Paulo')
+  returning id
+), au as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket35_gerente__@teste.com') returning id
+), pa as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Com Saldo Ticket35', '11977775035', 30, true from t
+  returning id
+), pb as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Vale Maior Ticket35', '11977775036', 30, true from t
+  returning id
+), pc as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Inativo Ticket35', '11977775037', 30, false from t
+  returning id
+)
+insert into ticket35_context (tenant_id, gerente_id, prof_com_saldo_id, prof_vale_maior_id, prof_inativo_id)
+select t.id, au.id, pa.id, pb.id, pc.id from t, au, pa, pb, pc;
+
+update public.users set tenant_id = (select tenant_id from ticket35_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket35_context);
+
+create temporary table ticket35_comanda_context (comanda_id uuid not null) on commit drop;
+insert into ticket35_comanda_context (comanda_id) values (gen_random_uuid());
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select comanda_id, (select tenant_id from ticket35_context), 'fechada', 300, 0, 0
+from ticket35_comanda_context;
+
+insert into public.commission_obligations (tenant_id, professional_id, comanda_id, amount, settled_amount, status, commission_rule)
+select tenant_id, prof_com_saldo_id, (select comanda_id from ticket35_comanda_context), 120, 0, 'open', 'professional_service'
+from ticket35_context;
+
+insert into public.commission_obligations (tenant_id, professional_id, comanda_id, amount, settled_amount, status, commission_rule)
+select tenant_id, prof_inativo_id, (select comanda_id from ticket35_comanda_context), 40, 0, 'open', 'professional_service'
+from ticket35_context;
+
+insert into public.professional_account_entries (tenant_id, professional_id, entry_type, direction, amount, settled_amount, status, reason)
+select tenant_id, prof_vale_maior_id, 'vale', 'debit', 80, 0, 'open', 'Vale ticket35, maior que o devido'
+from ticket35_context;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket35_context), true);
+select is(
+  (
+    private.get_projected_cash_flow_core(
+      (select tenant_id from ticket35_context), '2026-08-01'::date, '2026-08-01'::date, 'day', '2026-08-01'::date, 'America/Sao_Paulo'
+    ) -> 'undated_commitments'
+  ),
+  jsonb_build_object('commission_open', 160.00, 'tips_open', 0.00, 'advances_open', 80.00, 'net_due', 160.00),
+  'Compromissos sem Data soma o liquido sugerido por profissional (ativo e inativo), com piso zero por profissional -- o vale maior que o devido nao reduz o que a casa deve aos colegas'
+);
+
+select is(
+  (
+    select jsonb_build_object('outflow_realized', bucket ->> 'outflow_realized', 'pending_flow', bucket ->> 'pending_flow')
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket35_context), '2026-08-01'::date, '2026-08-01'::date, 'day', '2026-08-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_object('outflow_realized', '0.00', 'pending_flow', '0.00'),
+  'Compromissos sem Data nao entram em nenhum agrupamento nem no fluxo pendente: a comissao/vale em aberto lancados nesta secao nao alteram outflow_realized nem pending_flow do dia'
 );
 
 select * from finish(true);

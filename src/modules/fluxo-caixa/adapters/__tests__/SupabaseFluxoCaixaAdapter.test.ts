@@ -20,6 +20,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
           weeks_used: 8,
           weekday_averages: { mon: '10.00', tue: '20.00', wed: '0.00', thu: '0.00', fri: '0.00', sat: '50.00', sun: '0.00' },
         },
+        undated_commitments: {
+          commission_open: '150.00',
+          tips_open: '20.00',
+          advances_open: '10.00',
+          net_due: '160.00',
+        },
         buckets: [
           {
             start_date: '2026-06-10',
@@ -67,6 +73,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       weeks_used: 8,
       weekday_averages: { mon: 10, tue: 20, wed: 0, thu: 0, fri: 0, sat: 50, sun: 0 },
     });
+    expect(result.undated_commitments).toEqual({
+      commission_open: 150,
+      tips_open: 20,
+      advances_open: 10,
+      net_due: 160,
+    });
     expect(result.buckets).toHaveLength(1);
     expect(result.buckets[0]).toEqual({
       start_date: '2026-06-10',
@@ -108,6 +120,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       weeks_used: 0,
       weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
     });
+    expect(result.undated_commitments).toEqual({
+      commission_open: 0,
+      tips_open: 0,
+      advances_open: 0,
+      net_due: 0,
+    });
     expect(result.buckets[0]).toEqual({
       start_date: '2026-06-10',
       end_date: '2026-06-10',
@@ -143,6 +161,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
         status: 'insufficient_history',
         weeks_used: 0,
         weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+      },
+      undated_commitments: {
+        commission_open: 0,
+        tips_open: 0,
+        advances_open: 0,
+        net_due: 0,
       },
       buckets: [],
     });
