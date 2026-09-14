@@ -66,6 +66,8 @@ function novoAdapter(): IContasPagarAdapter {
     listarBaixas: vi.fn(),
     editarConta: vi.fn(),
     cancelarConta: vi.fn(),
+    obterTotais: vi.fn(),
+    obterAlerta: vi.fn(),
   };
 }
 
@@ -301,6 +303,8 @@ describe('ContasPagarRepository — listarContas', () => {
       status: 'not_cancelled',
       page: 1,
       pageSize: 20,
+      categoryId: null,
+      supplierId: null,
     });
   });
 
@@ -323,6 +327,8 @@ describe('ContasPagarRepository — listarContas', () => {
       status: 'overdue',
       page: 2,
       pageSize: 10,
+      categoryId: null,
+      supplierId: null,
     });
   });
 
@@ -829,5 +835,106 @@ describe('ContasPagarRepository — cancelarConta', () => {
     const resultado = await repository.cancelarConta('tenant-1', 'conta-1', 'motivo valido');
 
     expect(resultado).toBe(cancelada);
+  });
+});
+
+describe('ContasPagarRepository — listarContas (filtro de categoria e fornecedor)', () => {
+  it('repassa categoria e fornecedor do filtro', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.listarContas).mockResolvedValueOnce({ contas: [], totalCount: 0 });
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.listarContas('tenant-1', { categoryId: 'cat-1', supplierId: 'sup-1' });
+
+    expect(adapter.listarContas).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ categoryId: 'cat-1', supplierId: 'sup-1' })
+    );
+  });
+
+  it('categoria e fornecedor ausentes viram null', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.listarContas).mockResolvedValueOnce({ contas: [], totalCount: 0 });
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.listarContas('tenant-1');
+
+    expect(adapter.listarContas).toHaveBeenCalledWith(
+      'tenant-1',
+      expect.objectContaining({ categoryId: null, supplierId: null })
+    );
+  });
+});
+
+describe('ContasPagarRepository — obterTotais', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.obterTotais('')).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.obterTotais).not.toHaveBeenCalled();
+  });
+
+  it('aplica valores padrão nulos ao filtro', async () => {
+    const adapter = novoAdapter();
+    const totais = { openBalance: 100, overdueBalance: 40, paidInPeriod: 60 };
+    vi.mocked(adapter.obterTotais).mockResolvedValueOnce(totais);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.obterTotais('tenant-1');
+
+    expect(adapter.obterTotais).toHaveBeenCalledWith('tenant-1', {
+      dueDateFrom: null,
+      dueDateTo: null,
+      categoryId: null,
+      supplierId: null,
+    });
+    expect(resultado).toBe(totais);
+  });
+
+  it('repassa período, categoria e fornecedor informados', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.obterTotais).mockResolvedValueOnce({
+      openBalance: 0,
+      overdueBalance: 0,
+      paidInPeriod: 0,
+    });
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.obterTotais('tenant-1', {
+      dueDateFrom: '2026-09-01',
+      dueDateTo: '2026-09-30',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+    });
+
+    expect(adapter.obterTotais).toHaveBeenCalledWith('tenant-1', {
+      dueDateFrom: '2026-09-01',
+      dueDateTo: '2026-09-30',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+    });
+  });
+});
+
+describe('ContasPagarRepository — obterAlerta', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.obterAlerta('')).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.obterAlerta).not.toHaveBeenCalled();
+  });
+
+  it('delega ao adaptador e devolve o resultado', async () => {
+    const adapter = novoAdapter();
+    const alerta = { overdueCount: 2, overdueBalance: 300, dueTodayCount: 1, dueTodayBalance: 50 };
+    vi.mocked(adapter.obterAlerta).mockResolvedValueOnce(alerta);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.obterAlerta('tenant-1');
+
+    expect(adapter.obterAlerta).toHaveBeenCalledWith('tenant-1');
+    expect(resultado).toBe(alerta);
   });
 });

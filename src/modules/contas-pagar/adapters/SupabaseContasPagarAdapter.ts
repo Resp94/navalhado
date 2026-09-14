@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ContasPagarValidationError } from '../ContasPagarRepository';
 import type {
+  AlertaContasPagar,
   Baixa,
   ContaPagar,
   ContaPagarDetalhe,
@@ -9,8 +10,10 @@ import type {
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
   FiltroListaContasPagar,
+  FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  TotaisContasPagar,
 } from '../types';
 
 interface ErroPostgrest {
@@ -143,6 +146,38 @@ function mapearBaixa(row: BaixaRow): Baixa {
   };
 }
 
+/** Linha bruta devolvida por `get_payables_totals`. */
+interface TotaisRow {
+  open_balance: number | string;
+  overdue_balance: number | string;
+  paid_in_period: number | string;
+}
+
+function mapearTotais(row: TotaisRow): TotaisContasPagar {
+  return {
+    openBalance: Number(row.open_balance) || 0,
+    overdueBalance: Number(row.overdue_balance) || 0,
+    paidInPeriod: Number(row.paid_in_period) || 0,
+  };
+}
+
+/** Linha bruta devolvida por `get_payables_alert`. */
+interface AlertaRow {
+  overdue_count: number | string;
+  overdue_balance: number | string;
+  due_today_count: number | string;
+  due_today_balance: number | string;
+}
+
+function mapearAlerta(row: AlertaRow): AlertaContasPagar {
+  return {
+    overdueCount: Number(row.overdue_count) || 0,
+    overdueBalance: Number(row.overdue_balance) || 0,
+    dueTodayCount: Number(row.due_today_count) || 0,
+    dueTodayBalance: Number(row.due_today_balance) || 0,
+  };
+}
+
 export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
   private supabase: SupabaseClient;
 
@@ -178,6 +213,8 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
       p_page: filtro.page ?? 1,
       p_page_size: filtro.pageSize ?? 20,
       p_tenant_id: tenantId,
+      p_category_id: filtro.categoryId ?? null,
+      p_supplier_id: filtro.supplierId ?? null,
     });
 
     if (error) throw traduzirErro(error);
@@ -271,5 +308,34 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
 
     if (error) throw traduzirErro(error);
     return data as ContaPagar;
+  }
+
+  async obterTotais(
+    tenantId: string,
+    filtro: FiltroTotaisContasPagar
+  ): Promise<TotaisContasPagar> {
+    const { data, error } = await this.supabase.rpc('get_payables_totals', {
+      p_due_date_from: filtro.dueDateFrom ?? null,
+      p_due_date_to: filtro.dueDateTo ?? null,
+      p_category_id: filtro.categoryId ?? null,
+      p_supplier_id: filtro.supplierId ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    const linhas = (data as TotaisRow[]) || [];
+    return mapearTotais(linhas[0] || { open_balance: 0, overdue_balance: 0, paid_in_period: 0 });
+  }
+
+  async obterAlerta(tenantId: string): Promise<AlertaContasPagar> {
+    const { data, error } = await this.supabase.rpc('get_payables_alert', {
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    const linhas = (data as AlertaRow[]) || [];
+    return mapearAlerta(
+      linhas[0] || { overdue_count: 0, overdue_balance: 0, due_today_count: 0, due_today_balance: 0 }
+    );
   }
 }

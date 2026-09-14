@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(110);
+select plan(128);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
@@ -10,6 +10,9 @@ select plan(110);
 -- migration 20260914090000_baixa_fora_do_caixa_e_estorno.sql. Ticket 08:
 -- update_payable (edicao limitada pelo estado) e cancel_payable (terminal,
 -- sem Baixa ativa), migration 20260914100000_editar_e_cancelar_conta_a_pagar.sql.
+-- Ticket 09: filtro de categoria/fornecedor em list_payables,
+-- get_payables_totals e get_payables_alert, migration
+-- 20260914110000_filtros_totais_e_alerta_de_vencidas.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -1173,6 +1176,217 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao cancela conta informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 09/036: filtros completos, totais do filtro e alerta de vencidas.
+-- Contexto proprio (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id,
+-- gerente_b_id, categoria_1_id, categoria_2_id), para nao depender do estado
+-- mutado de ticket29_context pelas secoes anteriores.
+-- ---------------------------------------------------------------------------
+create temporary table ticket29i_context (
+  tenant_a_id uuid not null,
+  tenant_b_id uuid not null,
+  gerente_a_id uuid not null,
+  barbeiro_a_id uuid not null,
+  gerente_b_id uuid not null,
+  categoria_1_id uuid not null,
+  categoria_2_id uuid not null
+) on commit drop;
+
+with ta as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29i_tenant_a__', '__ticket29i_tenant_a__@teste.com', '11999998901', 'America/Sao_Paulo')
+  returning id
+), tb as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29i_tenant_b__', '__ticket29i_tenant_b__@teste.com', '11999998902', 'America/Sao_Paulo')
+  returning id
+), au_gerente_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29i_gerente_a__@teste.com') returning id
+), au_barbeiro_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29i_barbeiro_a__@teste.com') returning id
+), au_gerente_b as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29i_gerente_b__@teste.com') returning id
+), cat1 as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29i Categoria Um' from ta returning id
+), cat2 as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29i Categoria Dois' from ta returning id
+)
+insert into ticket29i_context (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id, gerente_b_id, categoria_1_id, categoria_2_id)
+select ta.id, tb.id, au_gerente_a.id, au_barbeiro_a.id, au_gerente_b.id, cat1.id, cat2.id
+from ta, tb, au_gerente_a, au_barbeiro_a, au_gerente_b, cat1, cat2;
+
+update public.users set tenant_id = (select tenant_a_id from ticket29i_context), role = 'gerente', is_active = true where id = (select gerente_a_id from ticket29i_context);
+update public.users set tenant_id = (select tenant_a_id from ticket29i_context), role = 'barbeiro', is_active = true where id = (select barbeiro_a_id from ticket29i_context);
+update public.users set tenant_id = (select tenant_b_id from ticket29i_context), role = 'gerente', is_active = true where id = (select gerente_b_id from ticket29i_context);
+grant select on ticket29i_context to authenticated;
+
+select has_function(
+  'public', 'get_payables_totals', array['date', 'date', 'uuid', 'uuid', 'uuid'],
+  'public.get_payables_totals(...) existe'
+);
+select has_function(
+  'public', 'get_payables_alert', array['uuid'],
+  'public.get_payables_alert(uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.get_payables_totals(date,date,uuid,uuid,uuid)'::regprocedure),
+  'get_payables_totals fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.get_payables_alert(uuid)'::regprocedure),
+  'get_payables_alert fixa search_path vazio'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29i_context), true);
+set local role authenticated;
+
+create temporary table ticket29i_contas (nome text, id uuid) on commit drop;
+grant select, insert on ticket29i_contas to authenticated;
+
+insert into ticket29i_contas (nome, id)
+select 'aberta_cat1', id from public.create_payable('Ticket29i Aberta Cat1', (select categoria_1_id from ticket29i_context), 100, '2026-12-15');
+insert into ticket29i_contas (nome, id)
+select 'aberta_cat2', id from public.create_payable('Ticket29i Aberta Cat2', (select categoria_2_id from ticket29i_context), 200, '2026-12-20');
+insert into ticket29i_contas (nome, id)
+select 'cancelada', id from public.create_payable('Ticket29i Cancelada', (select categoria_1_id from ticket29i_context), 150, '2026-12-18');
+select public.cancel_payable((select id from ticket29i_contas where nome = 'cancelada'), 'motivo do cancelamento');
+
+-- Filtro de categoria em list_payables (ticket 09/036).
+select is(
+  (select count(*)::integer from public.list_payables(
+    '2026-12-01', '2026-12-31', 'not_cancelled', 1, 100, null, (select categoria_1_id from ticket29i_context)
+  )),
+  1,
+  'list_payables filtra por categoria'
+);
+
+-- Totais em aberto: soma as nao canceladas do periodo, ignorando a cancelada.
+select is(
+  (select open_balance from public.get_payables_totals('2026-12-01', '2026-12-31')),
+  300::numeric,
+  'totais em aberto somam as contas nao canceladas do periodo (100+200), ignorando a cancelada'
+);
+
+-- Pago no periodo: pela data de pagamento da Baixa, nao pelo vencimento da conta.
+select public.settle_payable((select id from ticket29i_contas where nome = 'aberta_cat1'), 40, '2026-09-14', 'pix');
+select is(
+  (select paid_in_period from public.get_payables_totals('2026-12-01', '2026-12-31')),
+  0::numeric,
+  'Baixa com data de pagamento fora do periodo nao conta no pago no periodo'
+);
+select is(
+  (select paid_in_period from public.get_payables_totals('2026-09-01', '2026-09-30')),
+  40::numeric,
+  'pago no periodo soma o valor pago das Baixas ativas pela data de pagamento (nao pelo vencimento da conta)'
+);
+
+-- Totais ignoram o filtro de estado (nao existe parametro de estado nesta
+-- RPC): o saldo restante da conta parcialmente paga continua somado ao aberto.
+select is(
+  (select open_balance from public.get_payables_totals('2026-12-01', '2026-12-31')),
+  260::numeric,
+  'totais em aberto refletem o saldo restante apos a Baixa parcial (100-40=60, mais 200)'
+);
+
+select is(
+  (select open_balance from public.get_payables_totals(
+    '2026-12-01', '2026-12-31', (select categoria_2_id from ticket29i_context)
+  )),
+  200::numeric,
+  'totais obedecem ao filtro de categoria'
+);
+
+reset role;
+
+-- Alerta: sem filtro de periodo (a RPC nem tem esse parametro). Uma conta
+-- vencida ontem e uma vencendo hoje, no dia de negocio do tenant.
+do $$
+declare
+  v_today date;
+begin
+  select (now() at time zone 'America/Sao_Paulo')::date into v_today;
+  insert into public.payables (tenant_id, description, category_id, amount, due_date, competence_date)
+  select (select tenant_a_id from ticket29i_context), 'Ticket29i Vencida Alerta',
+         (select categoria_1_id from ticket29i_context), 100, v_today - 1, v_today - 1;
+  insert into public.payables (tenant_id, description, category_id, amount, due_date, competence_date)
+  select (select tenant_a_id from ticket29i_context), 'Ticket29i Vence Hoje Alerta',
+         (select categoria_1_id from ticket29i_context), 50, v_today, v_today;
+end;
+$$;
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29i_context), true);
+set local role authenticated;
+
+select is(
+  (select overdue_count from public.get_payables_alert()),
+  1,
+  'alerta conta uma conta vencida'
+);
+select is(
+  (select overdue_balance from public.get_payables_alert()),
+  100::numeric,
+  'alerta soma o saldo das vencidas'
+);
+select is(
+  (select due_today_count from public.get_payables_alert()),
+  1,
+  'alerta conta uma conta vencendo hoje'
+);
+select is(
+  (select due_today_balance from public.get_payables_alert()),
+  50::numeric,
+  'alerta soma o saldo das que vencem hoje'
+);
+
+reset role;
+
+-- Profissional e gestor de outro tenant nao leem totais nem alerta.
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29i_context), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.get_payables_totals()$$,
+  '42501',
+  'Acesso negado para consultar Contas a Pagar.',
+  'profissional e recusado ao consultar totais'
+);
+select throws_ok(
+  $$select public.get_payables_alert()$$,
+  '42501',
+  'Acesso negado para consultar Contas a Pagar.',
+  'profissional e recusado ao consultar alerta'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29i_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select public.get_payables_totals(null, null, null, null, '%s'::uuid)$$,
+    (select tenant_a_id from ticket29i_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao consulta totais informando o tenant A explicitamente'
+);
+select throws_ok(
+  format(
+    $$select public.get_payables_alert('%s'::uuid)$$,
+    (select tenant_a_id from ticket29i_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao consulta alerta informando o tenant A explicitamente'
 );
 
 reset role;

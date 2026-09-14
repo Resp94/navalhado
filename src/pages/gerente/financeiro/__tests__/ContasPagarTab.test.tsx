@@ -7,6 +7,7 @@ import { PlanoContasRepository } from '../../../../modules/plano-contas/PlanoCon
 import { InMemoryPlanoContasAdapter } from '../../../../modules/plano-contas/adapters/InMemoryPlanoContasAdapter';
 import type { CategoriaDespesa, Fornecedor } from '../../../../modules/plano-contas/types';
 import type {
+  AlertaContasPagar,
   Baixa,
   ContaPagar,
   ContaPagarDetalhe,
@@ -17,6 +18,7 @@ import type {
   FiltroListaContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  TotaisContasPagar,
 } from '../../../../modules/contas-pagar/types';
 
 const TENANT_ID = 'tenant-contas-pagar-1';
@@ -344,6 +346,28 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       cancelled_at: '2026-09-14T12:00:00Z',
       cancelled_by: 'user-1',
       cancellation_reason: motivo,
+    };
+  }
+
+  async obterTotais(): Promise<TotaisContasPagar> {
+    const ativas = this.contas.filter((conta) => conta.status !== 'cancelled');
+    return {
+      openBalance: ativas.reduce((soma, conta) => soma + conta.remaining_amount, 0),
+      overdueBalance: ativas
+        .filter((conta) => conta.situation === 'overdue')
+        .reduce((soma, conta) => soma + conta.remaining_amount, 0),
+      paidInPeriod: this.contas.reduce((soma, conta) => soma + conta.paid_amount, 0),
+    };
+  }
+
+  async obterAlerta(): Promise<AlertaContasPagar> {
+    const vencidas = this.contas.filter((conta) => conta.situation === 'overdue');
+    const venceHoje = this.contas.filter((conta) => conta.highlight === 'due_today');
+    return {
+      overdueCount: vencidas.length,
+      overdueBalance: vencidas.reduce((soma, conta) => soma + conta.remaining_amount, 0),
+      dueTodayCount: venceHoje.length,
+      dueTodayBalance: venceHoje.reduce((soma, conta) => soma + conta.remaining_amount, 0),
     };
   }
 }
@@ -680,5 +704,54 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     await waitFor(() => {
       expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
     });
+  });
+
+  it('mostra a faixa de alerta com contas vencidas e vencendo hoje (ticket 09/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Conta vencida',
+          amount: 100,
+          remaining_amount: 100,
+          status: 'open',
+          situation: 'overdue',
+          highlight: 'overdue',
+        }),
+        contaListada({
+          id: 'conta-2',
+          description: 'Conta vence hoje',
+          amount: 50,
+          remaining_amount: 50,
+          status: 'open',
+          situation: 'open',
+          highlight: 'due_today',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 conta vencida/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/1 conta vence hoje/)).toBeInTheDocument();
+  });
+
+  it('não mostra a faixa de alerta quando não há contas vencidas nem vencendo hoje', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({ id: 'conta-1', description: 'Conta em dia', situation: 'open', highlight: null }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Conta em dia').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

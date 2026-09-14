@@ -1,4 +1,5 @@
 import type {
+  AlertaContasPagar,
   Baixa,
   ContaPagar,
   ContaPagarDetalhe,
@@ -6,8 +7,10 @@ import type {
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
   FiltroListaContasPagar,
+  FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  TotaisContasPagar,
 } from './types';
 
 /** Erro de validação de entrada do módulo Contas a Pagar, com mensagem em português. */
@@ -130,6 +133,8 @@ export class ContasPagarRepository {
       status: filtro.status || 'not_cancelled',
       page,
       pageSize,
+      categoryId: filtro.categoryId || null,
+      supplierId: filtro.supplierId || null,
     });
   }
 
@@ -264,5 +269,29 @@ export class ContasPagarRepository {
     }
 
     return this.adapter.cancelarConta(tenantId, payableId, motivoNormalizado);
+  }
+
+  async obterTotais(
+    tenantId: string,
+    filtro: FiltroTotaisContasPagar = {}
+  ): Promise<TotaisContasPagar> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    return this.adapter.obterTotais(tenantId, {
+      dueDateFrom: filtro.dueDateFrom || null,
+      dueDateTo: filtro.dueDateTo || null,
+      categoryId: filtro.categoryId || null,
+      supplierId: filtro.supplierId || null,
+    });
+  }
+
+  async obterAlerta(tenantId: string): Promise<AlertaContasPagar> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    return this.adapter.obterAlerta(tenantId);
   }
 }

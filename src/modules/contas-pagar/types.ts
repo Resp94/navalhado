@@ -146,6 +146,38 @@ export interface FiltroListaContasPagar {
   status?: FiltroEstadoContaPagar;
   page?: number;
   pageSize?: number;
+  categoryId?: string | null;
+  supplierId?: string | null;
+}
+
+/** Filtro de totais (ticket 09/036): período, categoria e fornecedor — ignora o estado. */
+export interface FiltroTotaisContasPagar {
+  dueDateFrom?: string | null;
+  dueDateTo?: string | null;
+  categoryId?: string | null;
+  supplierId?: string | null;
+}
+
+/**
+ * Totais do filtro (ticket 09/036): saldo em aberto (destacando o vencido) e
+ * pago no período. Ignora o filtro de estado — senão o pago zeraria ao
+ * filtrar vencidas.
+ */
+export interface TotaisContasPagar {
+  openBalance: number;
+  overdueBalance: number;
+  paidInPeriod: number;
+}
+
+/**
+ * Alerta de vencidas (ticket 09/036): quantidade e saldo das contas vencidas
+ * e das que vencem hoje, sem filtro de período.
+ */
+export interface AlertaContasPagar {
+  overdueCount: number;
+  overdueBalance: number;
+  dueTodayCount: number;
+  dueTodayBalance: number;
 }
 
 export interface DadosContaPagarAvulsa {
@@ -177,4 +209,6 @@ export interface IContasPagarAdapter {
   listarBaixas(tenantId: string, payableId: string): Promise<Baixa[]>;
   editarConta(tenantId: string, payableId: string, dados: DadosEdicaoContaPagar): Promise<ContaPagar>;
   cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar>;
+  obterTotais(tenantId: string, filtro: FiltroTotaisContasPagar): Promise<TotaisContasPagar>;
+  obterAlerta(tenantId: string): Promise<AlertaContasPagar>;
 }

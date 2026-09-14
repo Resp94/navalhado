@@ -6,12 +6,16 @@ export interface FiltroPeriodoContasPagar {
   dueDateFrom: string | null;
   dueDateTo: string | null;
   status: FiltroEstadoContaPagar;
+  categoryId: string | null;
+  supplierId: string | null;
 }
 
 const FILTRO_PADRAO: FiltroPeriodoContasPagar = {
   dueDateFrom: null,
   dueDateTo: null,
   status: 'not_cancelled',
+  categoryId: null,
+  supplierId: null,
 };
 
 const PAGE_SIZE = 20;
@@ -41,6 +45,8 @@ export function useContasPagar(tenantId: string, repository: ContasPagarReposito
         status: filtro.status,
         page,
         pageSize: PAGE_SIZE,
+        categoryId: filtro.categoryId,
+        supplierId: filtro.supplierId,
       });
       setContas(resultado.contas);
       setTotalCount(resultado.totalCount);

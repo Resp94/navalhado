@@ -1,17 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { ContasPagarRepository } from '../../../modules/contas-pagar/ContasPagarRepository';
 import { SupabaseContasPagarAdapter } from '../../../modules/contas-pagar/adapters/SupabaseContasPagarAdapter';
 import { useContasPagar } from '../../../modules/contas-pagar/useContasPagar';
+import { useContasPagarAlerta } from '../../../modules/contas-pagar/useContasPagarAlerta';
 import { PlanoContasRepository } from '../../../modules/plano-contas/PlanoContasRepository';
 import { SupabasePlanoContasAdapter } from '../../../modules/plano-contas/adapters/SupabasePlanoContasAdapter';
 import { usePlanoContas } from '../../../modules/plano-contas/usePlanoContas';
-import type { ContaPagarListada } from '../../../modules/contas-pagar/types';
-import type { TenantContextType } from '../../../components/GerenteLayout';
+import type { ContaPagarListada, TotaisContasPagar } from '../../../modules/contas-pagar/types';
+import type { FinanceiroHubContextType } from './HubLayout';
 import { ContaPagarForm } from '../../../components/financeiro/ContaPagarForm';
 import { ContaPagarDetalheDrawer } from '../../../components/financeiro/ContaPagarDetalheDrawer';
-import { Badge, Card, EmptyState, Skeleton } from '../../../components/ui';
+import { Badge, Card, EmptyState, Skeleton, StatCard } from '../../../components/ui';
 import { Button } from '../../../components/ui/forms/Button';
 import { Select } from '../../../components/ui/forms/Select';
 import { Drawer } from '../../../components/ui/feedback/Drawer';
@@ -54,7 +55,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   repository: repositoryProp,
   planoContasRepository: planoContasRepositoryProp,
 }) => {
-  const tenant = useOutletContext<TenantContextType>();
+  const tenant = useOutletContext<FinanceiroHubContextType>();
   const tenantId = tenant?.tenantId || '';
 
   const defaultRepository = useMemo(
@@ -71,6 +72,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
 
   const { contas, totalCount, page, setPage, pageSize, loading, error, filtro, mudarFiltro, reload } =
     useContasPagar(tenantId, repository);
+  const { alerta, reload: recarregarAlertaLocal } = useContasPagarAlerta(tenantId, repository);
 
   const { categoriasDespesa, fornecedores } = usePlanoContas(tenantId, planoContasRepository);
   const categoriasAtivas = categoriasDespesa.filter((categoria) => categoria.archived_at === null);
@@ -78,6 +80,42 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contaSelecionadaId, setContaSelecionadaId] = useState<string | null>(null);
+  const [totais, setTotais] = useState<TotaisContasPagar | null>(null);
+  const [totaisCarregando, setTotaisCarregando] = useState(true);
+
+  // Notifica o selo de alerta na navegação do Hub sempre que algo é escrito
+  // aqui (história 34) — o selo em si vive no HubLayout, que passa esta
+  // função pelo contexto da rota, não como propriedade nova no componente de
+  // abas.
+  const notificarAlteracao = () => {
+    void recarregarAlertaLocal();
+    tenant?.onContasPagarAlteradas?.();
+  };
+
+  useEffect(() => {
+    let cancelado = false;
+    if (!tenantId) return;
+    setTotaisCarregando(true);
+    repository
+      .obterTotais(tenantId, {
+        dueDateFrom: filtro.dueDateFrom,
+        dueDateTo: filtro.dueDateTo,
+        categoryId: filtro.categoryId,
+        supplierId: filtro.supplierId,
+      })
+      .then((resultado) => {
+        if (!cancelado) setTotais(resultado);
+      })
+      .catch(() => {
+        if (!cancelado) setTotais(null);
+      })
+      .finally(() => {
+        if (!cancelado) setTotaisCarregando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [tenantId, repository, filtro.dueDateFrom, filtro.dueDateTo, filtro.categoryId, filtro.supplierId]);
 
   const abrirCriar = () => setDrawerOpen(true);
   const fecharDrawer = () => setDrawerOpen(false);
@@ -85,10 +123,16 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   const handleSalvar = async () => {
     setDrawerOpen(false);
     await reload();
+    notificarAlteracao();
   };
 
   const abrirDetalhe = (payableId: string) => setContaSelecionadaId(payableId);
   const fecharDetalhe = () => setContaSelecionadaId(null);
+
+  const handleAtualizadoNoDetalhe = async () => {
+    await reload();
+    notificarAlteracao();
+  };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -105,6 +149,37 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
           Nova conta
         </Button>
       </header>
+
+      {alerta && (alerta.overdueCount > 0 || alerta.dueTodayCount > 0) && (
+        <div className="contas-pagar-alerta" role="status">
+          {alerta.overdueCount > 0 && (
+            <span>
+              {alerta.overdueCount} conta{alerta.overdueCount > 1 ? 's' : ''} vencida
+              {alerta.overdueCount > 1 ? 's' : ''} ({formatarMoeda(alerta.overdueBalance)})
+            </span>
+          )}
+          {alerta.dueTodayCount > 0 && (
+            <span>
+              {alerta.dueTodayCount} conta{alerta.dueTodayCount > 1 ? 's' : ''} vence
+              {alerta.dueTodayCount > 1 ? 'm' : ''} hoje ({formatarMoeda(alerta.dueTodayBalance)})
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="contas-pagar-totais">
+        <StatCard title="Em aberto" value={formatarMoeda(totais?.openBalance || 0)} loading={totaisCarregando} />
+        <StatCard
+          title="Vencido"
+          value={formatarMoeda(totais?.overdueBalance || 0)}
+          loading={totaisCarregando}
+        />
+        <StatCard
+          title="Pago no período"
+          value={formatarMoeda(totais?.paidInPeriod || 0)}
+          loading={totaisCarregando}
+        />
+      </div>
 
       <div className="contas-pagar-filtros">
         <label className="contas-pagar-filtro-campo">
@@ -135,6 +210,24 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
             { value: 'overdue', label: 'Vencidas' },
             { value: 'paid', label: 'Pagas' },
             { value: 'cancelled', label: 'Canceladas' },
+          ]}
+        />
+        <Select
+          label="Categoria"
+          value={filtro.categoryId || ''}
+          onChange={(event) => mudarFiltro({ categoryId: event.target.value || null })}
+          options={[
+            { value: '', label: 'Todas as categorias' },
+            ...categoriasDespesa.map((categoria) => ({ value: categoria.id, label: categoria.name })),
+          ]}
+        />
+        <Select
+          label="Fornecedor"
+          value={filtro.supplierId || ''}
+          onChange={(event) => mudarFiltro({ supplierId: event.target.value || null })}
+          options={[
+            { value: '', label: 'Todos os fornecedores' },
+            ...fornecedores.map((fornecedor) => ({ value: fornecedor.id, label: fornecedor.name })),
           ]}
         />
       </div>
@@ -257,7 +350,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
           categoriasAtivas={categoriasAtivas}
           fornecedoresAtivos={fornecedoresAtivos}
           onClose={fecharDetalhe}
-          onAtualizado={reload}
+          onAtualizado={handleAtualizadoNoDetalhe}
         />
       )}
     </div>

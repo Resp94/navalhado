@@ -110,6 +110,8 @@ describe('SupabaseContasPagarAdapter — listarContas', () => {
       p_page: 2,
       p_page_size: 10,
       p_tenant_id: 'tenant-1',
+      p_category_id: null,
+      p_supplier_id: null,
     });
   });
 
@@ -488,5 +490,115 @@ describe('SupabaseContasPagarAdapter — cancelarConta', () => {
     await expect(adapter.cancelarConta('tenant-1', 'conta-1', 'motivo valido')).rejects.toThrow(
       ContasPagarValidationError
     );
+  });
+});
+
+describe('SupabaseContasPagarAdapter — listarContas (filtro de categoria e fornecedor)', () => {
+  it('chama list_payables com p_category_id e p_supplier_id', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await adapter.listarContas('tenant-1', { categoryId: 'cat-1', supplierId: 'sup-1' });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'list_payables',
+      expect.objectContaining({ p_category_id: 'cat-1', p_supplier_id: 'sup-1' })
+    );
+  });
+});
+
+describe('SupabaseContasPagarAdapter — obterTotais', () => {
+  it('chama get_payables_totals com os parâmetros mapeados e devolve os totais mapeados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [{ open_balance: '100.00', overdue_balance: '40.00', paid_in_period: '60.00' }],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.obterTotais('tenant-1', {
+      dueDateFrom: '2026-09-01',
+      dueDateTo: '2026-09-30',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_payables_totals', {
+      p_due_date_from: '2026-09-01',
+      p_due_date_to: '2026-09-30',
+      p_category_id: 'cat-1',
+      p_supplier_id: 'sup-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toEqual({ openBalance: 100, overdueBalance: 40, paidInPeriod: 60 });
+  });
+
+  it('devolve zeros quando a RPC não devolve linha', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.obterTotais('tenant-1', {});
+
+    expect(resultado).toEqual({ openBalance: 0, overdueBalance: 0, paidInPeriod: 0 });
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '42501', message: 'Acesso negado.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.obterTotais('tenant-1', {})).rejects.toThrow(ContasPagarValidationError);
+  });
+});
+
+describe('SupabaseContasPagarAdapter — obterAlerta', () => {
+  it('chama get_payables_alert e devolve o alerta mapeado', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [{ overdue_count: '2', overdue_balance: '300.00', due_today_count: '1', due_today_balance: '50.00' }],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.obterAlerta('tenant-1');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_payables_alert', { p_tenant_id: 'tenant-1' });
+    expect(resultado).toEqual({
+      overdueCount: 2,
+      overdueBalance: 300,
+      dueTodayCount: 1,
+      dueTodayBalance: 50,
+    });
+  });
+
+  it('devolve zeros quando a RPC não devolve linha', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.obterAlerta('tenant-1');
+
+    expect(resultado).toEqual({
+      overdueCount: 0,
+      overdueBalance: 0,
+      dueTodayCount: 0,
+      dueTodayBalance: 0,
+    });
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '42501', message: 'Acesso negado.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.obterAlerta('tenant-1')).rejects.toThrow(ContasPagarValidationError);
   });
 });
