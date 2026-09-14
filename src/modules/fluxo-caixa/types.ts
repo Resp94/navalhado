@@ -8,13 +8,23 @@ export interface FluxoCaixaInflowByMethod {
   outros: number;
 }
 
+/** Total de Quitação de Comissão ou de vale de um profissional num agrupamento. */
+export interface FluxoCaixaValorPorProfissional {
+  professional_id: string;
+  professional_name: string;
+  amount: number;
+}
+
 /**
- * Detalhamento de um agrupamento. Nesta fatia (ticket 01 da spec 037), só
- * entradas por forma de pagamento. Os tickets seguintes (02 a 08) acrescentam
- * aqui categorias de despesa, profissionais e Contas a Pagar previstas.
+ * Detalhamento de um agrupamento. Ticket 01: entradas por forma de
+ * pagamento. Ticket 02: Quitações de Comissão e vales por profissional. Os
+ * tickets seguintes (03 a 08) acrescentam aqui categorias de despesa e
+ * Contas a Pagar previstas.
  */
 export interface FluxoCaixaBucketDetail {
   inflow_by_method: FluxoCaixaInflowByMethod;
+  payouts_by_professional: FluxoCaixaValorPorProfissional[];
+  advances_by_professional: FluxoCaixaValorPorProfissional[];
 }
 
 /**
@@ -29,9 +39,16 @@ export interface FluxoCaixaBucket {
   kind: FluxoCaixaBucketKind;
   inflow_realized: number;
   /**
-   * O que, dentro deste agrupamento, ainda não está no saldo de hoje: nesta
-   * fatia, só o realizado com data posterior a `business_today`. Os tickets
-   * seguintes somam aqui entradas estimadas, saídas previstas e vencidas.
+   * Saída realizada: Quitações de Comissão (líquidas do abate de vale) e
+   * vales dados no agrupamento, excluindo estornos (ticket 02). Os tickets
+   * seguintes somam aqui Baixas de Contas a Pagar.
+   */
+  outflow_realized: number;
+  /**
+   * O que, dentro deste agrupamento, ainda não está no saldo de hoje: soma
+   * o realizado com data posterior a `business_today` (entradas futuras
+   * somam, saídas futuras subtraem). Os tickets seguintes somam aqui
+   * entradas estimadas, saídas previstas e vencidas.
    */
   pending_flow: number;
   detail: FluxoCaixaBucketDetail;

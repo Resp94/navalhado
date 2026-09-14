@@ -2,6 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import type {
   FluxoCaixaBucket,
   FluxoCaixaProjetado,
+  FluxoCaixaValorPorProfissional,
   IFluxoCaixaAdapter,
   ObterFluxoCaixaInput,
 } from '../types';
@@ -9,6 +10,18 @@ import type {
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toValoresPorProfissional(value: unknown): FluxoCaixaValorPorProfissional[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      professional_id: raw.professional_id ? String(raw.professional_id) : '',
+      professional_name: raw.professional_name ? String(raw.professional_name) : '',
+      amount: toNumber(raw.amount),
+    };
+  });
 }
 
 /**
@@ -37,7 +50,11 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
     };
 
     const buckets: FluxoCaixaBucket[] = (Array.isArray(raw.buckets) ? raw.buckets : []).map((bucket) => {
-      const detail = (bucket?.detail || {}) as { inflow_by_method?: Record<string, unknown> };
+      const detail = (bucket?.detail || {}) as {
+        inflow_by_method?: Record<string, unknown>;
+        payouts_by_professional?: unknown;
+        advances_by_professional?: unknown;
+      };
       const byMethod = detail.inflow_by_method || {};
 
       return {
@@ -45,6 +62,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         end_date: bucket?.end_date ? String(bucket.end_date) : '',
         kind: (bucket?.kind as FluxoCaixaBucket['kind']) || 'current',
         inflow_realized: toNumber(bucket?.inflow_realized),
+        outflow_realized: toNumber(bucket?.outflow_realized),
         pending_flow: toNumber(bucket?.pending_flow),
         detail: {
           inflow_by_method: {
@@ -53,6 +71,8 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
             cartao: toNumber(byMethod.cartao),
             outros: toNumber(byMethod.outros),
           },
+          payouts_by_professional: toValoresPorProfissional(detail.payouts_by_professional),
+          advances_by_professional: toValoresPorProfissional(detail.advances_by_professional),
         },
       };
     });

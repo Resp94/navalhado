@@ -26,9 +26,10 @@ function formatBucketRange(bucket: FluxoCaixaBucket): string {
 }
 
 /**
- * Tabela da aba Fluxo de Caixa Projetado (spec 037, ticket 01): uma linha
- * por agrupamento. Em largura de celular vira lista de cartões pela mesma
- * composição responsiva (CSS em FluxoCaixa.css), sem "MobileView" separada.
+ * Tabela da aba Fluxo de Caixa Projetado (spec 037): uma linha por
+ * agrupamento, com o recebido e a saída realizada (ticket 02). Em largura de
+ * celular vira lista de cartões pela mesma composição responsiva (CSS em
+ * FluxoCaixa.css), sem "MobileView" separada.
  */
 export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loading }) => {
   return (
@@ -40,12 +41,13 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
       ) : buckets.length === 0 ? (
         <p className="fluxo-caixa-tabela-mensagem">Nenhum agrupamento para o período selecionado.</p>
       ) : (
-        <table className="fluxo-caixa-tabela" aria-label="Uma linha por agrupamento do período, com o recebido">
+        <table className="fluxo-caixa-tabela" aria-label="Uma linha por agrupamento do período, com o recebido e a saída realizada">
           <thead>
             <tr>
               <th scope="col">Período</th>
               <th scope="col">Classificação</th>
               <th scope="col">Recebido</th>
+              <th scope="col">Saída realizada</th>
             </tr>
           </thead>
           <tbody>
@@ -58,6 +60,7 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
                   </span>
                 </td>
                 <td data-label="Recebido">{formatCurrency(bucket.inflow_realized)}</td>
+                <td data-label="Saída realizada">{formatCurrency(bucket.outflow_realized)}</td>
               </tr>
             ))}
           </tbody>

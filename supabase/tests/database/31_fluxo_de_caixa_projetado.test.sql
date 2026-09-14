@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(34);
 
 -- Spec 037 (Fluxo de Caixa Projetado), ticket 01: Realizado de Comandas
 -- ponta a ponta. Cobre o contrato de leitura (public.get_projected_cash_flow),
@@ -402,6 +402,126 @@ select throws_ok(
 select throws_ok(
   $$select private.get_projected_cash_flow_core('00000000-0000-0000-0000-000000000001'::uuid, '2026-01-01'::date, '2026-06-15'::date, 'day', '2026-06-15'::date, 'America/Sao_Paulo')$$,
   '22023', 'A granularidade diária só é permitida em períodos de até 92 dias.', 'granularidade diaria acima de 92 dias e recusada'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 02 da spec 037: Quitacoes de Comissao e vales como saida realizada.
+-- Contexto proprio (tenant_a_id de ticket31_context, mes de julho/2026 para
+-- nao colidir com as datas de junho ja usadas acima). "Hoje" fixo em
+-- 2026-07-10, via nucleo.
+-- ---------------------------------------------------------------------------
+create temporary table ticket32_context (prof_ana_id uuid not null, prof_bruno_id uuid not null) on commit drop;
+with pa as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select tenant_a_id, 'Ana Ticket32', '11977770032', 35, true from ticket31_context
+  returning id
+), pb as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select tenant_a_id, 'Bruno Ticket32', '11977770033', 35, true from ticket31_context
+  returning id
+)
+insert into ticket32_context (prof_ana_id, prof_bruno_id) select pa.id, pb.id from pa, pb;
+
+-- Quitacao de Ana em 07-05 (passado): amount=200, ja liquido do abate de um
+-- vale de 40 (advance_amount so registra o abate, nunca e somado na leitura).
+insert into public.commission_payouts (tenant_id, professional_id, amount, payment_method, paid_at, advance_amount)
+select tenant_a_id, prof_ana_id, 200, 'pix', '2026-07-05 10:00:00-03'::timestamptz, 40
+from ticket31_context, ticket32_context;
+
+-- Vale de Ana em 07-03 (passado), o mesmo vale abatido acima: settled_amount
+-- = amount, mas a leitura conta o vale inteiro quando foi dado, nao o saldo.
+insert into public.professional_account_entries (tenant_id, professional_id, entry_type, direction, amount, settled_amount, status, reason, created_at)
+select tenant_a_id, prof_ana_id, 'vale', 'debit', 40, 40, 'settled', 'Vale ticket32 (abatido)', '2026-07-03 09:00:00-03'::timestamptz
+from ticket31_context, ticket32_context;
+
+-- Quitacao futura de Ana (07-15, depois de "hoje" 07-10): entra no bucket e
+-- no fluxo pendente.
+insert into public.commission_payouts (tenant_id, professional_id, amount, payment_method, paid_at)
+select tenant_a_id, prof_ana_id, 80, 'pix', '2026-07-15 10:00:00-03'::timestamptz
+from ticket31_context, ticket32_context;
+
+-- Quitacao de Bruno, legada (sem commission_payout_allocations), em 07-06.
+insert into public.commission_payouts (tenant_id, professional_id, amount, payment_method, paid_at)
+select tenant_a_id, prof_bruno_id, 150, 'pix', '2026-07-06 10:00:00-03'::timestamptz
+from ticket31_context, ticket32_context;
+
+-- Quitacao estornada de Bruno (nao deve contar).
+insert into public.commission_payouts (tenant_id, professional_id, amount, payment_method, paid_at, reversed_at)
+select tenant_a_id, prof_bruno_id, 999, 'pix', '2026-07-05 11:00:00-03'::timestamptz, now()
+from ticket31_context, ticket32_context;
+
+-- Vale estornado de Bruno (nao deve contar).
+insert into public.professional_account_entries (tenant_id, professional_id, entry_type, direction, amount, settled_amount, status, reason, created_at, reversed_at)
+select tenant_a_id, prof_bruno_id, 'vale', 'debit', 888, 0, 'open', 'Vale estornado ticket32', '2026-07-04 09:00:00-03'::timestamptz, now()
+from ticket31_context, ticket32_context;
+
+select has_index(
+  'public', 'commission_payouts', 'commission_payouts_tenant_paid_at_idx',
+  'indice parcial de quitacoes por unidade e data de pagamento existe'
+);
+
+-- Um unico agrupamento mensal cobre julho inteiro. outflow_realized soma
+-- 200 (Ana, passado) + 80 (Ana, futuro) + 150 (Bruno, legada) + 40 (vale de
+-- Ana), sem os 999/888 estornados e sem somar advance_amount de novo.
+-- pending_flow = -80 (so a quitacao futura de Ana, unico realizado com data
+-- posterior a "hoje").
+select is(
+  (
+    select jsonb_build_object(
+      'outflow_realized', bucket ->> 'outflow_realized',
+      'pending_flow', bucket ->> 'pending_flow',
+      'payouts_by_professional', bucket -> 'detail' -> 'payouts_by_professional',
+      'advances_by_professional', bucket -> 'detail' -> 'advances_by_professional'
+    )
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_a_id from ticket31_context), '2026-07-01'::date, '2026-07-31'::date, 'month', '2026-07-10'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_object(
+    'outflow_realized', '470.00',
+    'pending_flow', '-80.00',
+    'payouts_by_professional', jsonb_build_array(
+      jsonb_build_object('professional_id', (select prof_ana_id from ticket32_context), 'professional_name', 'Ana Ticket32', 'amount', 280.00),
+      jsonb_build_object('professional_id', (select prof_bruno_id from ticket32_context), 'professional_name', 'Bruno Ticket32', 'amount', 150.00)
+    ),
+    'advances_by_professional', jsonb_build_array(
+      jsonb_build_object('professional_id', (select prof_ana_id from ticket32_context), 'professional_name', 'Ana Ticket32', 'amount', 40.00)
+    )
+  ),
+  'saida realizada soma quitacoes (liquidas do abate) e vales, exclui estornos, classifica quitacao futura como pendente, e detalha por profissional'
+);
+
+-- Sangria e suprimento no mesmo periodo (gaveta aberta): nao alteram nenhum
+-- numero do contrato, porque o fluxo nunca le cash_movements.
+create temporary table ticket32_cash_context (cash_session_id uuid not null) on commit drop;
+with cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select tenant_a_id, gerente_a_id, 500, 'open' from ticket31_context
+  returning id
+)
+insert into ticket32_cash_context (cash_session_id) select id from cs;
+
+insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by, created_at)
+select tenant_a_id, cash_session_id, 'sangria', 100, 'Sangria ticket32', gerente_a_id, '2026-07-08 10:00:00-03'::timestamptz
+from ticket31_context, ticket32_cash_context;
+
+insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by, created_at)
+select tenant_a_id, cash_session_id, 'suprimento', 60, 'Suprimento ticket32', gerente_a_id, '2026-07-08 11:00:00-03'::timestamptz
+from ticket31_context, ticket32_cash_context;
+
+select is(
+  (
+    select jsonb_build_object('outflow_realized', bucket ->> 'outflow_realized', 'pending_flow', bucket ->> 'pending_flow')
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_a_id from ticket31_context), '2026-07-01'::date, '2026-07-31'::date, 'month', '2026-07-10'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_object('outflow_realized', '470.00', 'pending_flow', '-80.00'),
+  'sangria e suprimento registrados no periodo nao alteram nenhum numero do contrato'
 );
 
 select * from finish(true);

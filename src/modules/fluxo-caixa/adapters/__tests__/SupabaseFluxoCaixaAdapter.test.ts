@@ -21,9 +21,16 @@ describe('SupabaseFluxoCaixaAdapter', () => {
             end_date: '2026-06-10',
             kind: 'current',
             inflow_realized: '150.50',
+            outflow_realized: '90.00',
             pending_flow: '0.00',
             detail: {
               inflow_by_method: { dinheiro: '30.00', pix: '100.50', cartao: '20.00', outros: '0.00' },
+              payouts_by_professional: [
+                { professional_id: 'prof-1', professional_name: 'Ana', amount: '60.00' },
+              ],
+              advances_by_professional: [
+                { professional_id: 'prof-2', professional_name: 'Bruno', amount: '30.00' },
+              ],
             },
           },
         ],
@@ -53,9 +60,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       end_date: '2026-06-10',
       kind: 'current',
       inflow_realized: 150.5,
+      outflow_realized: 90,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 30, pix: 100.5, cartao: 20, outros: 0 },
+        payouts_by_professional: [{ professional_id: 'prof-1', professional_name: 'Ana', amount: 60 }],
+        advances_by_professional: [{ professional_id: 'prof-2', professional_name: 'Bruno', amount: 30 }],
       },
     });
   });
@@ -82,9 +92,12 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       end_date: '2026-06-10',
       kind: 'current',
       inflow_realized: 0,
+      outflow_realized: 0,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 0, pix: 0, cartao: 0, outros: 0 },
+        payouts_by_professional: [],
+        advances_by_professional: [],
       },
     });
   });
