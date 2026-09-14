@@ -818,3 +818,142 @@ describe('SupabaseContasPagarAdapter — criarParcelamento', () => {
     ).rejects.toThrow(ContasPagarValidationError);
   });
 });
+
+describe('SupabaseContasPagarAdapter — editarSerie', () => {
+  it('chama update_payable_series com os parâmetros mapeados e traduz a resposta', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        { id: 'conta-1', series_position: 1, status: 'open', ignored: false, ignore_reason: null },
+        {
+          id: 'conta-2',
+          series_position: 2,
+          status: 'paid',
+          ignored: true,
+          ignore_reason: 'Conta paga não é alterada em lote.',
+        },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.editarSerie('tenant-1', 'conta-1', {
+      description: 'Aluguel reajustado',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+      notes: 'obs',
+      amount: 600,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('update_payable_series', {
+      p_payable_id: 'conta-1',
+      p_description: 'Aluguel reajustado',
+      p_category_id: 'cat-1',
+      p_supplier_id: 'sup-1',
+      p_notes: 'obs',
+      p_amount: 600,
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toEqual([
+      { id: 'conta-1', seriesPosition: 1, status: 'open', ignored: false, ignoreReason: null },
+      {
+        id: 'conta-2',
+        seriesPosition: 2,
+        status: 'paid',
+        ignored: true,
+        ignoreReason: 'Conta paga não é alterada em lote.',
+      },
+    ]);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.editarSerie('tenant-1', 'conta-1', {
+      description: 'Aluguel reajustado',
+      categoryId: 'cat-1',
+    });
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Valor em lote não é aceito em Parcelamento.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.editarSerie('tenant-1', 'conta-1', {
+        description: 'Aluguel reajustado',
+        categoryId: 'cat-1',
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});
+
+describe('SupabaseContasPagarAdapter — cancelarSerie', () => {
+  it('chama cancel_payable_series com os parâmetros mapeados e traduz a resposta', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        { id: 'conta-4', series_position: 4, status: 'cancelled', ignored: false, ignore_reason: null },
+        {
+          id: 'conta-2',
+          series_position: 2,
+          status: 'partially_paid',
+          ignored: true,
+          ignore_reason: 'Conta parcialmente paga não é cancelada em lote.',
+        },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.cancelarSerie('tenant-1', 'conta-4', 'Contrato encerrado');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('cancel_payable_series', {
+      p_payable_id: 'conta-4',
+      p_reason: 'Contrato encerrado',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toEqual([
+      { id: 'conta-4', seriesPosition: 4, status: 'cancelled', ignored: false, ignoreReason: null },
+      {
+        id: 'conta-2',
+        seriesPosition: 2,
+        status: 'partially_paid',
+        ignored: true,
+        ignoreReason: 'Conta parcialmente paga não é cancelada em lote.',
+      },
+    ]);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.cancelarSerie('tenant-1', 'conta-1', 'Contrato encerrado');
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Informe um motivo com pelo menos cinco caracteres.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.cancelarSerie('tenant-1', 'conta-1', 'oi')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});

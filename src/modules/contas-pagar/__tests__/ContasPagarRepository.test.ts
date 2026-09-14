@@ -71,6 +71,8 @@ function novoAdapter(): IContasPagarAdapter {
     visualizarPreviaSerie: vi.fn(),
     criarRecorrencia: vi.fn(),
     criarParcelamento: vi.fn(),
+    editarSerie: vi.fn(),
+    cancelarSerie: vi.fn(),
   };
 }
 
@@ -1289,5 +1291,196 @@ describe('ContasPagarRepository — criarParcelamento', () => {
     });
 
     expect(resultado).toBe(criadas);
+  });
+});
+
+describe('ContasPagarRepository — editarSerie', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.editarSerie('', 'conta-1', {
+        description: 'Aluguel reajustado',
+        categoryId: 'cat-1',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.editarSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa conta ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.editarSerie('tenant-1', '', {
+        description: 'Aluguel reajustado',
+        categoryId: 'cat-1',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.editarSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa descrição inválida', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.editarSerie('tenant-1', 'conta-1', {
+        description: 'a',
+        categoryId: 'cat-1',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa categoria ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.editarSerie('tenant-1', 'conta-1', {
+        description: 'Aluguel reajustado',
+        categoryId: '',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa valor zero ou negativo quando informado', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.editarSerie('tenant-1', 'conta-1', {
+        description: 'Aluguel reajustado',
+        categoryId: 'cat-1',
+        amount: 0,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('normaliza a descrição, arredonda o valor e delega ao adaptador', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.editarSerie).mockResolvedValueOnce([]);
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.editarSerie('tenant-1', 'conta-1', {
+      description: '  Aluguel   reajustado  ',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+      notes: 'obs',
+      amount: 599.999,
+    });
+
+    expect(adapter.editarSerie).toHaveBeenCalledWith('tenant-1', 'conta-1', {
+      description: 'Aluguel reajustado',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+      notes: 'obs',
+      amount: 600,
+    });
+  });
+
+  it('delega valor nulo quando não informado (Parcelamento não aceita valor em lote)', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.editarSerie).mockResolvedValueOnce([]);
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.editarSerie('tenant-1', 'conta-1', {
+      description: 'Parcela renomeada',
+      categoryId: 'cat-1',
+    });
+
+    expect(adapter.editarSerie).toHaveBeenCalledWith('tenant-1', 'conta-1', {
+      description: 'Parcela renomeada',
+      categoryId: 'cat-1',
+      supplierId: null,
+      notes: null,
+      amount: null,
+    });
+  });
+
+  it('devolve as ocorrências atingidas pelo adaptador', async () => {
+    const adapter = novoAdapter();
+    const atingidas = [
+      { id: 'conta-1', seriesPosition: 1, status: 'open' as const, ignored: false, ignoreReason: null },
+      {
+        id: 'conta-2',
+        seriesPosition: 2,
+        status: 'paid' as const,
+        ignored: true,
+        ignoreReason: 'Conta paga não é alterada em lote.',
+      },
+    ];
+    vi.mocked(adapter.editarSerie).mockResolvedValueOnce(atingidas);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.editarSerie('tenant-1', 'conta-1', {
+      description: 'Aluguel reajustado',
+      categoryId: 'cat-1',
+    });
+
+    expect(resultado).toBe(atingidas);
+  });
+});
+
+describe('ContasPagarRepository — cancelarSerie', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.cancelarSerie('', 'conta-1', 'motivo valido')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.cancelarSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa conta ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.cancelarSerie('tenant-1', '', 'motivo valido')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.cancelarSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa motivo com menos de cinco caracteres', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.cancelarSerie('tenant-1', 'conta-1', 'oi')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.cancelarSerie).not.toHaveBeenCalled();
+  });
+
+  it('normaliza o motivo e delega ao adaptador', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.cancelarSerie).mockResolvedValueOnce([]);
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.cancelarSerie('tenant-1', 'conta-1', '  contrato encerrado  ');
+
+    expect(adapter.cancelarSerie).toHaveBeenCalledWith('tenant-1', 'conta-1', 'contrato encerrado');
+  });
+
+  it('devolve as ocorrências atingidas pelo adaptador', async () => {
+    const adapter = novoAdapter();
+    const atingidas = [
+      { id: 'conta-4', seriesPosition: 4, status: 'cancelled' as const, ignored: false, ignoreReason: null },
+      {
+        id: 'conta-2',
+        seriesPosition: 2,
+        status: 'partially_paid' as const,
+        ignored: true,
+        ignoreReason: 'Conta parcialmente paga não é cancelada em lote.',
+      },
+    ];
+    vi.mocked(adapter.cancelarSerie).mockResolvedValueOnce(atingidas);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.cancelarSerie('tenant-1', 'conta-4', 'contrato encerrado');
+
+    expect(resultado).toBe(atingidas);
   });
 });

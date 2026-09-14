@@ -15,14 +15,17 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosEdicaoSerie,
   DadosParcelamento,
   DadosRecorrencia,
   FiltroListaContasPagar,
   FiltroPreviaSerie,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaAtingidaSerie,
   OcorrenciaPreviaSerie,
   PeriodicidadeSerie,
+  TipoSerie,
   TotaisContasPagar,
 } from '../../../../modules/contas-pagar/types';
 
@@ -105,6 +108,7 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
   private categorias: CategoriaDespesa[];
   private fornecedores: Fornecedor[];
   private baixasPorConta: Record<string, Baixa[]> = {};
+  private seriesInfo: Record<string, { type: TipoSerie; periodicity: PeriodicidadeSerie }> = {};
   private proximoId = 1;
   private proximoIdBaixa = 1;
 
@@ -190,6 +194,10 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
     if (!conta) {
       throw new Error('Conta a pagar não encontrada.');
     }
+    const serie = conta.series_id ? this.seriesInfo[conta.series_id] : undefined;
+    const seriesOccurrencesCount = conta.series_id
+      ? this.contas.filter((item) => item.series_id === conta.series_id).length
+      : null;
     return {
       ...conta,
       createdAt: '2026-09-13T10:00:00Z',
@@ -202,9 +210,9 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       cancelledBy: null,
       cancelledByName: null,
       cancellationReason: null,
-      seriesType: null,
-      seriesPeriodicity: null,
-      seriesOccurrencesCount: null,
+      seriesType: serie?.type ?? null,
+      seriesPeriodicity: serie?.periodicity ?? null,
+      seriesOccurrencesCount,
     };
   }
 
@@ -404,6 +412,7 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       ? this.fornecedores.find((item) => item.id === dados.supplierId)
       : undefined;
     const seriesId = `serie-${this.proximoId}`;
+    this.seriesInfo[seriesId] = { type: 'recurring', periodicity: dados.periodicity };
     const criadas: ContaPagar[] = [];
 
     for (let position = 1; position <= dados.occurrences; position++) {
@@ -466,6 +475,7 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       ? this.fornecedores.find((item) => item.id === dados.supplierId)
       : undefined;
     const seriesId = `serie-${this.proximoId}`;
+    this.seriesInfo[seriesId] = { type: 'installment', periodicity: dados.periodicity };
     const competenceDate = dados.competenceDate || dados.anchorDate;
     const share = Math.trunc(dados.totalAmount * 100 / dados.occurrences) / 100;
     const lastShare = Math.round((dados.totalAmount - share * (dados.occurrences - 1)) * 100) / 100;
@@ -524,6 +534,112 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
     }
 
     return criadas;
+  }
+
+  async editarSerie(
+    _tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoSerie
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    const ancora = this.contas.find((item) => item.id === payableId);
+    if (!ancora || !ancora.series_id) {
+      throw new Error('Esta conta não pertence a uma Série.');
+    }
+    const categoria = this.categorias.find((item) => item.id === dados.categoryId);
+    const fornecedor = dados.supplierId
+      ? this.fornecedores.find((item) => item.id === dados.supplierId)
+      : undefined;
+
+    const atingidas = this.contas
+      .filter(
+        (item) =>
+          item.series_id === ancora.series_id &&
+          (item.series_position ?? 0) >= (ancora.series_position ?? 0)
+      )
+      .sort((a, b) => (a.series_position ?? 0) - (b.series_position ?? 0));
+
+    return atingidas.map((conta) => {
+      if (conta.status === 'open') {
+        conta.description = dados.description;
+        conta.category_id = dados.categoryId;
+        conta.category_name = categoria?.name || conta.category_name;
+        conta.supplier_id = dados.supplierId || null;
+        conta.supplier_name = fornecedor?.name || null;
+        conta.notes = dados.notes || null;
+        if (dados.amount != null) {
+          conta.amount = dados.amount;
+          conta.remaining_amount = dados.amount - conta.paid_amount;
+        }
+        return {
+          id: conta.id,
+          seriesPosition: conta.series_position ?? 0,
+          status: 'open' as const,
+          ignored: false,
+          ignoreReason: null,
+        };
+      }
+
+      const ignoreReason =
+        conta.status === 'partially_paid'
+          ? 'Conta parcialmente paga não é alterada em lote.'
+          : conta.status === 'paid'
+            ? 'Conta paga não é alterada em lote.'
+            : 'Conta cancelada não é alterada em lote.';
+      return {
+        id: conta.id,
+        seriesPosition: conta.series_position ?? 0,
+        status: conta.status,
+        ignored: true,
+        ignoreReason,
+      };
+    });
+  }
+
+  async cancelarSerie(
+    _tenantId: string,
+    payableId: string,
+    _motivo: string
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    const ancora = this.contas.find((item) => item.id === payableId);
+    if (!ancora || !ancora.series_id) {
+      throw new Error('Esta conta não pertence a uma Série.');
+    }
+
+    const atingidas = this.contas
+      .filter(
+        (item) =>
+          item.series_id === ancora.series_id &&
+          (item.series_position ?? 0) >= (ancora.series_position ?? 0)
+      )
+      .sort((a, b) => (a.series_position ?? 0) - (b.series_position ?? 0));
+
+    return atingidas.map((conta) => {
+      if (conta.status === 'open') {
+        conta.status = 'cancelled';
+        conta.situation = 'cancelled';
+        return {
+          id: conta.id,
+          seriesPosition: conta.series_position ?? 0,
+          status: 'cancelled' as const,
+          ignored: false,
+          ignoreReason: null,
+        };
+      }
+
+      const ignoreReason =
+        conta.status === 'partially_paid'
+          ? 'Conta parcialmente paga não é cancelada em lote.'
+          : conta.status === 'paid'
+            ? 'Conta paga não é cancelada em lote.'
+            : 'Conta já estava cancelada.';
+      return {
+        id: conta.id,
+        seriesPosition: conta.series_position ?? 0,
+        status: conta.status,
+        ignored: true,
+        ignoreReason,
+      };
+    });
   }
 }
 
@@ -1155,5 +1271,116 @@ describe('ContasPagarTab (adaptador simulado)', () => {
       expect(screen.getAllByText('Compra de forno').length).toBeGreaterThan(0);
     });
     expect(screen.queryByLabelText('Descrição')).not.toBeInTheDocument();
+  });
+
+  it('edita "esta e as seguintes em aberto" de uma Série a partir do detalhe (ticket 13/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel mensal' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira ocorrência'), {
+      target: { value: '2026-10-05' },
+    });
+    fireEvent.change(screen.getByLabelText('Periodicidade'), { target: { value: 'monthly' } });
+    fireEvent.change(screen.getByLabelText('Quantidade de ocorrências'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Recorrência' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel mensal').length).toBeGreaterThan(0);
+    });
+
+    // Abre o detalhe da primeira ocorrência (posição 1, primeira linha da lista).
+    fireEvent.click(screen.getAllByText('Aluguel mensal')[0]);
+    await screen.findByText('Detalhe da conta a pagar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await screen.findByRole('tab', { name: 'Esta e as seguintes em aberto' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Esta e as seguintes em aberto' }));
+
+    // Vencimento/documento/competência somem da edição em lote; descrição, categoria e valor continuam.
+    expect(screen.queryByLabelText('Vencimento')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Competência')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Valor')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel reajustado' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await screen.findByText('3 ocorrências atualizadas.');
+    fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel reajustado').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('cancela "esta e as seguintes em aberto" de uma Série a partir do detalhe, ignorando pagas (ticket 13/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Assinatura mensal' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira ocorrência'), {
+      target: { value: '2026-10-05' },
+    });
+    fireEvent.change(screen.getByLabelText('Periodicidade'), { target: { value: 'monthly' } });
+    fireEvent.change(screen.getByLabelText('Quantidade de ocorrências'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Recorrência' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Assinatura mensal').length).toBeGreaterThan(0);
+    });
+
+    // Abre o detalhe da primeira ocorrência e cancela "esta e as seguintes".
+    fireEvent.click(screen.getAllByText('Assinatura mensal')[0]);
+    await screen.findByText('Detalhe da conta a pagar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar conta' }));
+    await screen.findByRole('tab', { name: 'Esta e as seguintes em aberto' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Esta e as seguintes em aberto' }));
+    fireEvent.change(screen.getByLabelText('Motivo do cancelamento'), {
+      target: { value: 'Assinatura cancelada pelo fornecedor' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar em Série' }));
+
+    await screen.findByText('2 ocorrências canceladas.');
+    fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    // A conta em foco no detalhe recarrega como cancelada: some o botão de cancelar novamente.
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Cancelar conta' })).not.toBeInTheDocument();
+    });
   });
 });

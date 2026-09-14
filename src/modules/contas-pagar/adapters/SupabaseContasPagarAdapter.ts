@@ -9,13 +9,16 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosEdicaoSerie,
   DadosParcelamento,
   DadosRecorrencia,
+  EstadoContaPagar,
   FiltroListaContasPagar,
   FiltroPreviaSerie,
   FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaAtingidaSerie,
   OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from '../types';
@@ -200,6 +203,25 @@ function mapearPreviaSerie(row: PreviaSerieRow): OcorrenciaPreviaSerie {
     position: row.series_position,
     dueDate: row.due_date,
     amount: Number(row.amount) || 0,
+  };
+}
+
+/** Linha bruta devolvida por `update_payable_series`/`cancel_payable_series` (ticket 13/036). */
+interface OcorrenciaAtingidaSerieRow {
+  id: string;
+  series_position: number;
+  status: EstadoContaPagar;
+  ignored: boolean;
+  ignore_reason: string | null;
+}
+
+function mapearOcorrenciaAtingidaSerie(row: OcorrenciaAtingidaSerieRow): OcorrenciaAtingidaSerie {
+  return {
+    id: row.id,
+    seriesPosition: row.series_position,
+    status: row.status,
+    ignored: row.ignored,
+    ignoreReason: row.ignore_reason,
   };
 }
 
@@ -416,5 +438,39 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
 
     if (error) throw traduzirErro(error);
     return (data as ContaPagar[]) || [];
+  }
+
+  async editarSerie(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoSerie
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    const { data, error } = await this.supabase.rpc('update_payable_series', {
+      p_payable_id: payableId,
+      p_description: dados.description,
+      p_category_id: dados.categoryId,
+      p_supplier_id: dados.supplierId ?? null,
+      p_notes: dados.notes ?? null,
+      p_amount: dados.amount ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return ((data as OcorrenciaAtingidaSerieRow[]) || []).map(mapearOcorrenciaAtingidaSerie);
+  }
+
+  async cancelarSerie(
+    tenantId: string,
+    payableId: string,
+    motivo: string
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    const { data, error } = await this.supabase.rpc('cancel_payable_series', {
+      p_payable_id: payableId,
+      p_reason: motivo,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return ((data as OcorrenciaAtingidaSerieRow[]) || []).map(mapearOcorrenciaAtingidaSerie);
   }
 }

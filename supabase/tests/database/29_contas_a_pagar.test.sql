@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(172);
+select plan(194);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
@@ -19,7 +19,10 @@ select plan(172);
 -- 20260914120000_recorrencia_com_calendario_ancorado_e_previa.sql. Ticket 12:
 -- create_installment_payable_series (Parcelamento, residuo na ultima
 -- parcela), migration
--- 20260914130000_parcelamento_com_residuo_na_ultima_parcela.sql.
+-- 20260914130000_parcelamento_com_residuo_na_ultima_parcela.sql. Ticket 13:
+-- update_payable_series e cancel_payable_series ("esta e as seguintes em
+-- aberto"), migration 20260914140000_edicao_e_cancelamento_em_serie.sql
+-- (e o fix 20260914140001, id ambiguo por causa do returns table).
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -1802,6 +1805,246 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao cria Parcelamento informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 13/036: edicao e cancelamento em serie ("esta e as seguintes em
+-- aberto"). Contexto proprio (ticket29l_context).
+-- ---------------------------------------------------------------------------
+create temporary table ticket29l_context (
+  tenant_a_id uuid not null,
+  tenant_b_id uuid not null,
+  gerente_a_id uuid not null,
+  barbeiro_a_id uuid not null,
+  gerente_b_id uuid not null,
+  categoria_id uuid not null,
+  categoria2_id uuid not null
+) on commit drop;
+
+with ta as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29l_tenant_a__', '__ticket29l_tenant_a__@teste.com', '11999998901', 'America/Sao_Paulo')
+  returning id
+), tb as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29l_tenant_b__', '__ticket29l_tenant_b__@teste.com', '11999998902', 'America/Sao_Paulo')
+  returning id
+), au_gerente_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29l_gerente_a__@teste.com') returning id
+), au_barbeiro_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29l_barbeiro_a__@teste.com') returning id
+), au_gerente_b as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29l_gerente_b__@teste.com') returning id
+), cat as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29l Categoria' from ta returning id
+), cat2 as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29l Categoria 2' from ta returning id
+)
+insert into ticket29l_context (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id, gerente_b_id, categoria_id, categoria2_id)
+select ta.id, tb.id, au_gerente_a.id, au_barbeiro_a.id, au_gerente_b.id, cat.id, cat2.id
+from ta, tb, au_gerente_a, au_barbeiro_a, au_gerente_b, cat, cat2;
+
+update public.users set tenant_id = (select tenant_a_id from ticket29l_context), role = 'gerente', is_active = true where id = (select gerente_a_id from ticket29l_context);
+update public.users set tenant_id = (select tenant_a_id from ticket29l_context), role = 'barbeiro', is_active = true where id = (select barbeiro_a_id from ticket29l_context);
+update public.users set tenant_id = (select tenant_b_id from ticket29l_context), role = 'gerente', is_active = true where id = (select gerente_b_id from ticket29l_context);
+grant select on ticket29l_context to authenticated;
+
+select has_function(
+  'public', 'update_payable_series',
+  array['uuid', 'text', 'uuid', 'uuid', 'text', 'numeric', 'uuid'],
+  'public.update_payable_series(...) existe'
+);
+select has_function(
+  'public', 'cancel_payable_series',
+  array['uuid', 'text', 'uuid'],
+  'public.cancel_payable_series(...) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.update_payable_series(uuid,text,uuid,uuid,text,numeric,uuid)'::regprocedure),
+  'update_payable_series fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.cancel_payable_series(uuid,text,uuid)'::regprocedure),
+  'cancel_payable_series fixa search_path vazio'
+);
+select ok(
+  has_function_privilege('service_role', 'public.update_payable_series(uuid,text,uuid,uuid,text,numeric,uuid)', 'EXECUTE'),
+  'service_role executa update_payable_series'
+);
+select ok(
+  has_function_privilege('service_role', 'public.cancel_payable_series(uuid,text,uuid)', 'EXECUTE'),
+  'service_role executa cancel_payable_series'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29l_context), true);
+set local role authenticated;
+
+-- Recorrencia de 5 ocorrencias mensais de 500, para exercitar edicao/cancelamento em lote.
+create temporary table ticket29l_ocorrencias (id uuid, series_position integer) on commit drop;
+grant select, insert on ticket29l_ocorrencias to authenticated;
+insert into ticket29l_ocorrencias (id, series_position)
+select id, series_position from public.create_recurring_payable_series(
+  'Ticket29l Recorrencia', (select categoria_id from ticket29l_context), 'monthly', '2026-01-31', 5, 500
+);
+
+-- Da baixa total na ocorrencia 2 (fica paga) e baixa parcial na ocorrencia 3.
+select public.settle_payable(
+  (select id from ticket29l_ocorrencias where series_position = 2),
+  500, '2026-02-01', 'pix'
+);
+select public.settle_payable(
+  (select id from ticket29l_ocorrencias where series_position = 3),
+  200, '2026-03-01', 'pix'
+);
+
+-- Edicao em lote a partir da ocorrencia 1: atinge 1,4,5 (abertas); ignora 2 (paga) e 3 (parcial).
+create temporary table ticket29l_edicao (id uuid, series_position integer, status text, ignored boolean, ignore_reason text) on commit drop;
+grant select, insert on ticket29l_edicao to authenticated;
+insert into ticket29l_edicao (id, series_position, status, ignored, ignore_reason)
+select id, series_position, status, ignored, ignore_reason from public.update_payable_series(
+  (select id from ticket29l_ocorrencias where series_position = 1),
+  'Aluguel reajustado', (select categoria2_id from ticket29l_context), null, 'reajuste',
+  600
+);
+
+select is(
+  (select count(*)::integer from ticket29l_edicao), 5,
+  'update_payable_series devolve uma linha por ocorrencia atingida (posicao >= 1)'
+);
+select is(
+  (select count(*)::integer from ticket29l_edicao where ignored), 2,
+  'update_payable_series ignora as duas ocorrencias nao abertas (paga e parcial)'
+);
+select is(
+  (select array_agg(series_position order by series_position) from ticket29l_edicao where ignored),
+  array[2, 3],
+  'as ocorrencias ignoradas sao exatamente a paga (2) e a parcial (3)'
+);
+select is(
+  (select amount from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 1)),
+  600::numeric,
+  'ocorrencia aberta atingida recebe o novo valor'
+);
+select is(
+  (select amount from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 2)),
+  500::numeric,
+  'ocorrencia paga mantem o valor original, mesmo dentro do alcance'
+);
+select is(
+  (select description from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 5)),
+  'Aluguel reajustado',
+  'ocorrencia aberta atingida recebe a nova descricao'
+);
+select is(
+  (select category_id from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 3)),
+  (select categoria_id from ticket29l_context),
+  'ocorrencia parcialmente paga mantem a categoria original'
+);
+
+-- Valor em lote recusado em Parcelamento.
+create temporary table ticket29l_parcelas (id uuid, series_position integer) on commit drop;
+grant select, insert on ticket29l_parcelas to authenticated;
+insert into ticket29l_parcelas (id, series_position)
+select id, series_position from public.create_installment_payable_series(
+  'Ticket29l Parcelamento', (select categoria_id from ticket29l_context), 'monthly', '2026-01-31', 3, 300
+);
+select throws_ok(
+  format(
+    $$select * from public.update_payable_series('%s'::uuid, 'Nova descricao', '%s'::uuid, null, null, 100)$$,
+    (select id from ticket29l_parcelas where series_position = 1),
+    (select categoria_id from ticket29l_context)
+  ),
+  '22023',
+  'Valor em lote não é aceito em Parcelamento.',
+  'edicao em lote recusa valor num Parcelamento'
+);
+
+-- Cancelamento em lote a partir da ocorrencia 4 da Recorrencia (ambas abertas).
+create temporary table ticket29l_cancelamento (id uuid, series_position integer, status text, ignored boolean, ignore_reason text) on commit drop;
+grant select, insert on ticket29l_cancelamento to authenticated;
+insert into ticket29l_cancelamento (id, series_position, status, ignored, ignore_reason)
+select id, series_position, status, ignored, ignore_reason from public.cancel_payable_series(
+  (select id from ticket29l_ocorrencias where series_position = 4),
+  'Contrato encerrado'
+);
+select is(
+  (select count(*)::integer from ticket29l_cancelamento), 2,
+  'cancel_payable_series devolve uma linha por ocorrencia atingida (posicao >= 4)'
+);
+select is(
+  (select count(*)::integer from ticket29l_cancelamento where not ignored), 2,
+  'ambas as ocorrencias 4 e 5 sao canceladas (estavam abertas)'
+);
+select is(
+  (select cancellation_reason from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 5)),
+  'Contrato encerrado',
+  'cada ocorrencia cancelada recebe o mesmo motivo'
+);
+select is(
+  (select cancelled_by from public.payables where id = (select id from ticket29l_ocorrencias where series_position = 4)),
+  (select gerente_a_id from ticket29l_context),
+  'cada ocorrencia cancelada recebe o mesmo autor'
+);
+
+-- Cancelamento em lote a partir da ocorrencia 2 (paga): ignora 2 e 3, cancela nada mais (4 e 5 ja canceladas).
+create temporary table ticket29l_cancelamento2 (id uuid, series_position integer, status text, ignored boolean, ignore_reason text) on commit drop;
+grant select, insert on ticket29l_cancelamento2 to authenticated;
+insert into ticket29l_cancelamento2 (id, series_position, status, ignored, ignore_reason)
+select id, series_position, status, ignored, ignore_reason from public.cancel_payable_series(
+  (select id from ticket29l_ocorrencias where series_position = 2),
+  'Segunda tentativa'
+);
+select is(
+  (select count(*)::integer from ticket29l_cancelamento2 where ignored), 4,
+  'cancel_payable_series ignora paga, parcial e as ja canceladas'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29l_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select * from public.update_payable_series('%s'::uuid, 'Tentativa', '%s'::uuid)$$,
+    (select id from ticket29l_ocorrencias where series_position = 1),
+    (select categoria_id from ticket29l_context)
+  ),
+  '42501',
+  'Acesso negado para editar Contas a Pagar.',
+  'profissional e recusado ao tentar editar em serie'
+);
+select throws_ok(
+  format(
+    $$select * from public.cancel_payable_series('%s'::uuid, 'Tentativa motivo')$$,
+    (select id from ticket29l_ocorrencias where series_position = 1)
+  ),
+  '42501',
+  'Acesso negado para cancelar Contas a Pagar.',
+  'profissional e recusado ao tentar cancelar em serie'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29l_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select * from public.update_payable_series('%s'::uuid, 'Tentativa', '%s'::uuid, null, null, null, '%s'::uuid)$$,
+    (select id from ticket29l_ocorrencias where series_position = 1),
+    (select categoria_id from ticket29l_context),
+    (select tenant_a_id from ticket29l_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao edita em serie informando o tenant A explicitamente'
 );
 
 reset role;

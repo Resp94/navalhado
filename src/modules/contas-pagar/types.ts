@@ -197,6 +197,36 @@ export interface DadosEdicaoContaPagar {
   notes?: string | null;
 }
 
+/** Alcance de uma edição ou cancelamento em Série (ticket 13/036). */
+export type AlcanceOperacaoSerie = 'apenas_esta' | 'esta_e_seguintes';
+
+/**
+ * Dados de edição em lote de uma Série (ticket 13/036), a partir de uma
+ * ocorrência escolhida: "esta e as seguintes em aberto". Vencimento,
+ * documento e competência não se editam em lote -- só individualmente
+ * (ticket 08/036). Valor só se aplica na Recorrência: a RPC recusa quando a
+ * Série é um Parcelamento.
+ */
+export interface DadosEdicaoSerie {
+  description: string;
+  categoryId: string;
+  supplierId?: string | null;
+  notes?: string | null;
+  amount?: number | null;
+}
+
+/**
+ * Uma ocorrência atingida por uma operação em Série (ticket 13/036): paga,
+ * parcialmente paga e já cancelada são sempre ignoradas, nunca alteradas.
+ */
+export interface OcorrenciaAtingidaSerie {
+  id: string;
+  seriesPosition: number;
+  status: EstadoContaPagar;
+  ignored: boolean;
+  ignoreReason: string | null;
+}
+
 export interface FiltroListaContasPagar {
   dueDateFrom?: string | null;
   dueDateTo?: string | null;
@@ -271,4 +301,10 @@ export interface IContasPagarAdapter {
   visualizarPreviaSerie(tenantId: string, filtro: FiltroPreviaSerie): Promise<OcorrenciaPreviaSerie[]>;
   criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]>;
   criarParcelamento(tenantId: string, dados: DadosParcelamento): Promise<ContaPagar[]>;
+  editarSerie(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoSerie
+  ): Promise<OcorrenciaAtingidaSerie[]>;
+  cancelarSerie(tenantId: string, payableId: string, motivo: string): Promise<OcorrenciaAtingidaSerie[]>;
 }

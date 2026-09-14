@@ -329,6 +329,7 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           categoriasAtivas={categoriasAtivas}
           fornecedoresAtivos={fornecedoresAtivos}
           onSalvar={handleEdicaoSalva}
+          onSerieEditada={handleEdicaoSalva}
           onCancelar={() => setEditarAberto(false)}
         />
       )}
@@ -338,7 +339,9 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         repository={repository}
         tenantId={tenantId}
         payableId={payableId}
+        pertenceASerie={!!conta?.seriesType}
         onCancelado={handleCancelamentoConcluido}
+        onSerieCancelada={handleCancelamentoConcluido}
         onFechar={() => setCancelarAberto(false)}
       />
 

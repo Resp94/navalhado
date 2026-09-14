@@ -4,11 +4,17 @@ import { Textarea } from '../ui/forms/Textarea';
 import { Select } from '../ui/forms/Select';
 import { Button } from '../ui/forms/Button';
 import { Drawer } from '../ui/feedback/Drawer';
+import { SegmentedControl } from '../ui/navigation/SegmentedControl';
 import {
   ContasPagarRepository,
   ContasPagarValidationError,
 } from '../../modules/contas-pagar/ContasPagarRepository';
-import type { ContaPagar, ContaPagarDetalhe } from '../../modules/contas-pagar/types';
+import type {
+  AlcanceOperacaoSerie,
+  ContaPagar,
+  ContaPagarDetalhe,
+  OcorrenciaAtingidaSerie,
+} from '../../modules/contas-pagar/types';
 import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
 
 export interface EditarContaDialogProps {
@@ -19,7 +25,16 @@ export interface EditarContaDialogProps {
   categoriasAtivas: CategoriaDespesa[];
   fornecedoresAtivos: Fornecedor[];
   onSalvar: (conta: ContaPagar) => void;
+  /** Chamado depois que o gestor fecha o resumo de uma edição em Série, para a tela recarregar. */
+  onSerieEditada?: () => void;
   onCancelar: () => void;
+}
+
+function rotuloIgnorada(status: string): string {
+  if (status === 'partially_paid') return 'parcialmente paga';
+  if (status === 'paid') return 'paga';
+  if (status === 'cancelled') return 'cancelada';
+  return status;
 }
 
 /**
@@ -27,6 +42,13 @@ export interface EditarContaDialogProps {
  * estado permite travar (valor a partir de parcialmente paga, vencimento a
  * partir de paga) — este formulário não desabilita campos por estado, só
  * mostra a mensagem que a RPC devolver.
+ *
+ * Ticket 13/036: quando a conta pertence a uma Série, um controle segmentado
+ * escolhe o alcance -- "apenas esta" segue as regras acima; "esta e as
+ * seguintes em aberto" esconde vencimento/documento/competência (não se
+ * editam em lote) e só mostra valor na Recorrência (Parcelamento recusa
+ * valor em lote). O resultado exibe quantas ocorrências foram ignoradas e
+ * por quê, antes de fechar.
  */
 export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
   isOpen,
@@ -36,8 +58,10 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
   categoriasAtivas,
   fornecedoresAtivos,
   onSalvar,
+  onSerieEditada,
   onCancelar,
 }) => {
+  const [alcance, setAlcance] = useState<AlcanceOperacaoSerie>('apenas_esta');
   const [description, setDescription] = useState(conta.description);
   const [categoryId, setCategoryId] = useState(conta.category_id);
   const [supplierId, setSupplierId] = useState(conta.supplier_id || '');
@@ -48,6 +72,7 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
   const [notes, setNotes] = useState(conta.notes || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resultadoSerie, setResultadoSerie] = useState<OcorrenciaAtingidaSerie[] | null>(null);
 
   const categoriaOptions = [
     ...(!categoriasAtivas.some((item) => item.id === conta.category_id)
@@ -63,11 +88,26 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
     ...fornecedoresAtivos.map((fornecedor) => ({ value: fornecedor.id, label: fornecedor.name })),
   ];
 
+  const alcanceLote = alcance === 'esta_e_seguintes';
+  const valorEmLoteAceito = conta.seriesType === 'recurring';
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
     setSaving(true);
     try {
+      if (alcanceLote) {
+        const atingidas = await repository.editarSerie(tenantId, conta.id, {
+          description,
+          categoryId,
+          supplierId: supplierId || null,
+          notes: notes || null,
+          amount: valorEmLoteAceito ? Number(amount.replace(',', '.')) : null,
+        });
+        setResultadoSerie(atingidas);
+        return;
+      }
+
       const salva = await repository.editarConta(tenantId, conta.id, {
         description,
         categoryId,
@@ -90,9 +130,96 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
     }
   };
 
+  const handleFecharResultado = () => {
+    setResultadoSerie(null);
+    onSerieEditada?.();
+  };
+
+  if (resultadoSerie) {
+    const ignoradas = resultadoSerie.filter((item) => item.ignored);
+    const atualizadas = resultadoSerie.length - ignoradas.length;
+    return (
+      <Drawer isOpen={isOpen} onClose={handleFecharResultado} title="Edição em Série concluída">
+        <div className="conta-pagar-form">
+          <p>
+            {atualizadas} {atualizadas === 1 ? 'ocorrência atualizada' : 'ocorrências atualizadas'}
+            {ignoradas.length > 0 &&
+              `, ${ignoradas.length} ${ignoradas.length === 1 ? 'ignorada' : 'ignoradas'}`}
+            .
+          </p>
+          {ignoradas.length > 0 && (
+            <ul aria-label="Ocorrências ignoradas" className="conta-pagar-form-previa">
+              {ignoradas.map((item) => (
+                <li key={item.id}>
+                  <span>{item.seriesPosition}ª ocorrência</span>
+                  <span>{item.ignoreReason || `Está ${rotuloIgnorada(item.status)}.`}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="conta-pagar-form-actions">
+            <Button type="button" variant="primary" onClick={handleFecharResultado}>
+              Concluir
+            </Button>
+          </div>
+        </div>
+        <style>{`
+          .conta-pagar-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .conta-pagar-form-previa {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+          }
+
+          .conta-pagar-form-previa li {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: var(--font-size-sm, 0.875rem);
+            color: var(--color-text-primary, #2D231E);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm, 6px);
+            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
+          }
+
+          .dark-theme .conta-pagar-form-previa li {
+            color: var(--color-text-primary, #FFF1E6);
+            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
+          }
+
+          .conta-pagar-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+          }
+        `}</style>
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer isOpen={isOpen} onClose={onCancelar} title="Editar conta a pagar">
       <form className="conta-pagar-form" onSubmit={handleSubmit}>
+        {conta.seriesType && (
+          <SegmentedControl
+            value={alcance}
+            onChange={setAlcance}
+            aria-label="Alcance da edição"
+            options={[
+              { id: 'apenas_esta', label: 'Apenas esta' },
+              { id: 'esta_e_seguintes', label: 'Esta e as seguintes em aberto' },
+            ]}
+          />
+        )}
+
         <Input
           label="Descrição"
           value={description}
@@ -118,38 +245,44 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
           disabled={saving}
         />
 
-        <Input
-          label="Valor"
-          type="text"
-          inputMode="decimal"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          disabled={saving}
-        />
+        {(!alcanceLote || valorEmLoteAceito) && (
+          <Input
+            label="Valor"
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            disabled={saving}
+          />
+        )}
 
-        <Input
-          label="Vencimento"
-          type="date"
-          value={dueDate}
-          onChange={(event) => setDueDate(event.target.value)}
-          disabled={saving}
-        />
+        {!alcanceLote && (
+          <>
+            <Input
+              label="Vencimento"
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              disabled={saving}
+            />
 
-        <Input
-          label="Competência"
-          type="date"
-          value={competenceDate}
-          onChange={(event) => setCompetenceDate(event.target.value)}
-          disabled={saving}
-        />
+            <Input
+              label="Competência"
+              type="date"
+              value={competenceDate}
+              onChange={(event) => setCompetenceDate(event.target.value)}
+              disabled={saving}
+            />
 
-        <Input
-          label="Número do documento (opcional)"
-          value={documentNumber}
-          onChange={(event) => setDocumentNumber(event.target.value)}
-          maxLength={60}
-          disabled={saving}
-        />
+            <Input
+              label="Número do documento (opcional)"
+              value={documentNumber}
+              onChange={(event) => setDocumentNumber(event.target.value)}
+              maxLength={60}
+              disabled={saving}
+            />
+          </>
+        )}
 
         <Textarea
           label="Observação (opcional)"

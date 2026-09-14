@@ -6,6 +6,7 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosEdicaoSerie,
   DadosParcelamento,
   DadosRecorrencia,
   FiltroListaContasPagar,
@@ -13,6 +14,7 @@ import type {
   FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaAtingidaSerie,
   OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from './types';
@@ -440,5 +442,68 @@ export class ContasPagarRepository {
       documentNumber: documentNumber || null,
       notes: notes || null,
     });
+  }
+
+  async editarSerie(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoSerie
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    const description = (dados.description || '').replace(/\s+/g, ' ').trim();
+    if (description.length < DESCRICAO_MIN || description.length > DESCRICAO_MAX) {
+      throw new ContasPagarValidationError(
+        `A descrição deve ter entre ${DESCRICAO_MIN} e ${DESCRICAO_MAX} caracteres.`
+      );
+    }
+
+    if (!dados.categoryId) {
+      throw new ContasPagarValidationError('Categoria de despesa é obrigatória.');
+    }
+
+    if (dados.amount != null && (Number.isNaN(dados.amount) || dados.amount <= 0)) {
+      throw new ContasPagarValidationError('O valor deve ser maior que zero.');
+    }
+
+    const notes = (dados.notes || '').trim();
+    if (notes.length > NOTES_MAX) {
+      throw new ContasPagarValidationError(`Observação deve ter no máximo ${NOTES_MAX} caracteres.`);
+    }
+
+    return this.adapter.editarSerie(tenantId, payableId, {
+      description,
+      categoryId: dados.categoryId,
+      supplierId: dados.supplierId || null,
+      notes: notes || null,
+      amount: dados.amount != null ? Math.round(dados.amount * 100) / 100 : null,
+    });
+  }
+
+  async cancelarSerie(
+    tenantId: string,
+    payableId: string,
+    motivo: string
+  ): Promise<OcorrenciaAtingidaSerie[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    const motivoNormalizado = (motivo || '').trim();
+    if (motivoNormalizado.length < MOTIVO_MIN) {
+      throw new ContasPagarValidationError(
+        `Informe um motivo com pelo menos ${MOTIVO_MIN} caracteres.`
+      );
+    }
+
+    return this.adapter.cancelarSerie(tenantId, payableId, motivoNormalizado);
   }
 }
