@@ -29,34 +29,78 @@ semana".
 
 **Blocked by:** 02 (Quitações de Comissão e vales como saída realizada).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contrato devolve o estado da estimativa (ok ou histórico insuficiente), o número de semanas
+- [x] Contrato devolve o estado da estimativa (ok ou histórico insuficiente), o número de semanas
       usadas e as sete médias por dia da semana, para que a tela rotule sem recalcular.
-- [ ] Média com 8 semanas: soma do recebido do dia da semana na janela dividida por 8, arredondada a
+- [x] Média com 8 semanas: soma do recebido do dia da semana na janela dividida por 8, arredondada a
       duas casas.
-- [ ] Média com N entre 4 e 7 usa N semanas e devolve o número de semanas usadas correto.
-- [ ] Com N abaixo de 4 o estado é histórico insuficiente e as entradas estimadas futuras ficam
+- [x] Média com N entre 4 e 7 usa N semanas e devolve o número de semanas usadas correto.
+- [x] Com N abaixo de 4 o estado é histórico insuficiente e as entradas estimadas futuras ficam
       vazias, e não zeradas.
-- [ ] N é contado a partir do primeiro dia de negócio com pagamento de Comanda vivo no tenant, e não
+- [x] N é contado a partir do primeiro dia de negócio com pagamento de Comanda vivo no tenant, e não
       da criação do tenant.
-- [ ] Dias sem recebimento dentro da janela contam como zero na média.
-- [ ] Dia marcado como inativo, ou ausente, no horário de funcionamento do tenant tem estimativa zero.
-- [ ] Hoje fica fora da janela e não recebe estimativa; a estimativa começa amanhã.
-- [ ] Agrupamentos somam a entrada estimada dos seus dias futuros, e o detalhamento devolve dias
+- [x] Dias sem recebimento dentro da janela contam como zero na média.
+- [x] Dia marcado como inativo, ou ausente, no horário de funcionamento do tenant tem estimativa zero.
+- [x] Hoje fica fora da janela e não recebe estimativa; a estimativa começa amanhã.
+- [x] Agrupamentos somam a entrada estimada dos seus dias futuros, e o detalhamento devolve dias
       estimados e dias fechados.
-- [ ] Entradas estimadas entram no fluxo pendente do agrupamento.
-- [ ] Um período inteiramente passado não devolve estimativa.
-- [ ] Na aba, todo número estimado leva o rótulo textual "estimado" e é uma variante explícita de
+- [x] Entradas estimadas entram no fluxo pendente do agrupamento.
+- [x] Um período inteiramente passado não devolve estimativa.
+- [x] Na aba, todo número estimado leva o rótulo textual "estimado" e é uma variante explícita de
       exibição, não um atributo booleano espalhado; a distinção nunca depende só de cor.
-- [ ] Cartão de entradas estimadas no resumo e coluna estimada na tabela e nos cartões de celular.
-- [ ] Avisos: "histórico insuficiente para estimar entradas" ou "estimativa baseada em N semanas";
+- [x] Cartão de entradas estimadas no resumo e coluna estimada na tabela e nos cartões de celular.
+- [x] Avisos: "histórico insuficiente para estimar entradas" ou "estimativa baseada em N semanas";
       "a estimativa de entradas não desconta comissões que essa receita vai gerar"; "hoje mostra
       apenas o realizado".
-- [ ] Teste da aba com repositório falso injetado cobre o rótulo de estimativa visível e o aviso de
+- [x] Teste da aba com repositório falso injetado cobre o rótulo de estimativa visível e o aviso de
       histórico insuficiente.
-- [ ] Adaptador Supabase converte o objeto de estimativa e os campos novos.
-- [ ] `CONTEXT.md` ganha o termo Entrada Estimada.
-- [ ] Casos de estimativa adicionados ao arquivo pgTAP do fluxo de caixa projetado, usando o núcleo
+- [x] Adaptador Supabase converte o objeto de estimativa e os campos novos.
+- [x] `CONTEXT.md` ganha o termo Entrada Estimada.
+- [x] Casos de estimativa adicionados ao arquivo pgTAP do fluxo de caixa projetado, usando o núcleo
       com relógio injetado.
-- [ ] `npm run test` e `npm run test:db` verdes.
+- [x] `npm run test` e `npm run test:db` verdes.
+
+**Notas de implementação:**
+
+- **Migration:** `supabase/migrations/20260914180000_fluxo_de_caixa_projetado_entradas_estimadas.sql`
+  — `create or replace` das duas funções (mesma assinatura dos tickets 01/02). Sem índice novo:
+  a consulta de histórico já usa `comanda_pagamentos_tenant_paid_at_idx` (ticket 01).
+- **Achado corrigido antes de aplicar no DEV (não estava no plano original):** o ticket 01 nunca tinha
+  sido de fato aplicado no DEV (só testado via MCP em rollback em sessão anterior), então a migration
+  do ticket 03 (que já assume as funções do ticket 01/02 existentes) foi aplicada só depois de aplicar
+  as duas anteriores nesta mesma sessão, na ordem correta.
+- **N (semanas usadas):** `floor((hoje − primeiro pagamento de Comanda do tenant) / 7)`, capado em 8,
+  lido de `comanda_pagamentos` sem filtro de período (independe de `p_start_date`/`p_end_date`).
+  Abaixo de 4, `status = 'insufficient_history'`.
+- **Janela das médias:** `[hoje − N×7, hoje − 1]`, hoje sempre fora. Sete médias (`v_avg_mon`..`v_avg_sun`)
+  calculadas com `extract(dow from ...)` (0=domingo) e `filter` por dia da semana, cada uma
+  `sum(...) / N` arredondada a 2 casas -- dia sem recebimento já soma zero por causa do `coalesce`.
+- **Horário de funcionamento:** `tenants.business_hours` (chaves em português: `segunda`..`domingo`,
+  campo `active`); dia ausente ou sem `active` lido como fechado via `coalesce(..., false)`, mesma
+  leitura que a agenda já faz.
+- **`inflow_estimated` nulo vs. zero:** `case when v_status <> 'ok' and estimated_days > 0 then null
+  else round(inflow_estimated_raw, 2) end` -- nulo só quando o histórico é insuficiente E há pelo
+  menos um dia futuro ativo no agrupamento (haveria o que estimar, mas não dá pra confiar); zero
+  quando não há dia futuro ativo nenhum (agrupamento todo passado, ou só dias fechados), porque aí não
+  há mesmo nada a estimar. `estimated_days`/`closed_days` sempre contam a partir do horário de
+  funcionamento, independente do status.
+- **Cartesian product (mesmo padrão do ticket 02):** `daily_estimate` virou mais uma fonte "many rows
+  per bucket", agregada em sua própria CTE `bucket_estimate` antes de juntar às demais por
+  `bucket_start`/`bucket_end` -- confirmado por smoke test via MCP antes de escrever o pgTAP.
+- **pgTAP:** casos novos no mesmo arquivo dos tickets 01/02
+  (`supabase/tests/database/31_fluxo_de_caixa_projetado.test.sql`), plano 34 → 38. Dois tenants novos
+  de contexto (`ticket33_context` com 8 semanas de histórico e horário próprio; `ticket33_insuf_context`
+  com 2 semanas). **Atenção:** o contrato exige `p_start_date <= p_today` sempre -- para testar um
+  agrupamento futuro é preciso incluir "hoje" no início do período pedido (não só o agrupamento futuro
+  isolado), e filtrar o bucket específico por `start_date` quando o período gerar mais de um
+  agrupamento (achado ao rodar o smoke test: `throws_ok` "A data inicial não pode ser posterior a
+  hoje." e depois "more than one row returned by a subquery" até ajustar as datas).
+- **Frontend:** `FluxoCaixaBucket.inflow_estimated` (`number | null`), `FluxoCaixaEstimate` (`status`,
+  `weeks_used`, `weekday_averages`) e `detail.estimated_days`/`closed_days` novos em `types.ts`;
+  `SupabaseFluxoCaixaAdapter` converte com `toNullableNumber`/`toWeekdayAverages`/`toEstimate`;
+  `FluxoCaixaValorEstimado.tsx` (novo) é o componente compartilhado que sempre mostra o rótulo textual
+  "estimado" ao lado do valor (nunca só cor), usado no cartão de resumo e na coluna da tabela;
+  `FluxoCaixaResumo` ganha o cartão "Entradas estimadas" e os avisos; `FluxoCaixaTab` ganha suporte a
+  repositório injetado (`repository?: FluxoCaixaRepository`, como os demais componentes de aba) para o
+  teste com adaptador falso.

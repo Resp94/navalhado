@@ -46,6 +46,40 @@
   font-weight: 600;
 }
 
+.fluxo-caixa-aviso {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary, var(--color-text-primary));
+  margin: -0.5rem 0 0;
+}
+
+/* Entrada estimada: sempre com o rótulo textual "estimado" ao lado do
+   valor, nunca só uma cor diferente -- a distinção nunca some se o daltonismo
+   ou o modo de alto contraste apagar a cor. */
+.fluxo-caixa-estimado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.fluxo-caixa-estimado-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(63, 131, 248, 0.12);
+  color: var(--color-info, #3f83f8);
+}
+
+.fluxo-caixa-estimado-vazio {
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
 /* --------------------------------------------------------------------------
    Filtros
    -------------------------------------------------------------------------- */

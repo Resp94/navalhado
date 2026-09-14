@@ -39,7 +39,12 @@ const DEFAULT_SHORTCUT: FluxoCaixaPeriodShortcutId = 'next_30_days';
  * contrato -- não o `today` calculado aqui, que só serve para os atalhos e
  * para a validação do repositório antes da ida à rede.
  */
-export const FluxoCaixaTab: React.FC = () => {
+export interface FluxoCaixaTabProps {
+  /** Injetado nos testes; produção usa o repositório padrão com o adaptador Supabase. */
+  repository?: FluxoCaixaRepository;
+}
+
+export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: injectedRepository }) => {
   const tenant = useOutletContext<TenantContextType>();
   const timezone = tenant?.timezone || 'America/Sao_Paulo';
   const today = useMemo(() => dateInZone(new Date(), timezone), [timezone]);
@@ -50,7 +55,8 @@ export const FluxoCaixaTab: React.FC = () => {
   const [endDate, setEndDate] = useState(initialRange.endDate);
   const [granularity, setGranularity] = useState<FluxoCaixaGranularity>(initialRange.granularity);
 
-  const [repository] = useState(() => new FluxoCaixaRepository(new SupabaseFluxoCaixaAdapter()));
+  const [defaultRepository] = useState(() => new FluxoCaixaRepository(new SupabaseFluxoCaixaAdapter()));
+  const repository = injectedRepository || defaultRepository;
 
   const handleShortcutChange = useCallback(
     (id: ShortcutOrCustom) => {
@@ -91,6 +97,7 @@ export const FluxoCaixaTab: React.FC = () => {
   });
 
   const buckets = data?.buckets || [];
+  const estimate = data?.estimate || null;
 
   return (
     <div className="fluxo-caixa-tab">
@@ -133,7 +140,7 @@ export const FluxoCaixaTab: React.FC = () => {
         </p>
       )}
 
-      <FluxoCaixaResumo buckets={buckets} loading={loading} />
+      <FluxoCaixaResumo buckets={buckets} estimate={estimate} loading={loading} />
 
       <FluxoCaixaTabela buckets={buckets} loading={loading} />
     </div>

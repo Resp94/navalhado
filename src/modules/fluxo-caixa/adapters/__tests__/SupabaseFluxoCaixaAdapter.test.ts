@@ -15,12 +15,18 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       data: {
         timezone: 'America/Sao_Paulo',
         business_today: '2026-06-10',
+        estimate: {
+          status: 'ok',
+          weeks_used: 8,
+          weekday_averages: { mon: '10.00', tue: '20.00', wed: '0.00', thu: '0.00', fri: '0.00', sat: '50.00', sun: '0.00' },
+        },
         buckets: [
           {
             start_date: '2026-06-10',
             end_date: '2026-06-10',
             kind: 'current',
             inflow_realized: '150.50',
+            inflow_estimated: '25.00',
             outflow_realized: '90.00',
             pending_flow: '0.00',
             detail: {
@@ -31,6 +37,8 @@ describe('SupabaseFluxoCaixaAdapter', () => {
               advances_by_professional: [
                 { professional_id: 'prof-2', professional_name: 'Bruno', amount: '30.00' },
               ],
+              estimated_days: 5,
+              closed_days: 2,
             },
           },
         ],
@@ -54,18 +62,26 @@ describe('SupabaseFluxoCaixaAdapter', () => {
 
     expect(result.timezone).toBe('America/Sao_Paulo');
     expect(result.business_today).toBe('2026-06-10');
+    expect(result.estimate).toEqual({
+      status: 'ok',
+      weeks_used: 8,
+      weekday_averages: { mon: 10, tue: 20, wed: 0, thu: 0, fri: 0, sat: 50, sun: 0 },
+    });
     expect(result.buckets).toHaveLength(1);
     expect(result.buckets[0]).toEqual({
       start_date: '2026-06-10',
       end_date: '2026-06-10',
       kind: 'current',
       inflow_realized: 150.5,
+      inflow_estimated: 25,
       outflow_realized: 90,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 30, pix: 100.5, cartao: 20, outros: 0 },
         payouts_by_professional: [{ professional_id: 'prof-1', professional_name: 'Ana', amount: 60 }],
         advances_by_professional: [{ professional_id: 'prof-2', professional_name: 'Bruno', amount: 30 }],
+        estimated_days: 5,
+        closed_days: 2,
       },
     });
   });
@@ -87,17 +103,25 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       granularity: 'day',
     });
 
+    expect(result.estimate).toEqual({
+      status: 'insufficient_history',
+      weeks_used: 0,
+      weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+    });
     expect(result.buckets[0]).toEqual({
       start_date: '2026-06-10',
       end_date: '2026-06-10',
       kind: 'current',
       inflow_realized: 0,
+      inflow_estimated: null,
       outflow_realized: 0,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 0, pix: 0, cartao: 0, outros: 0 },
         payouts_by_professional: [],
         advances_by_professional: [],
+        estimated_days: 0,
+        closed_days: 0,
       },
     });
   });
@@ -115,6 +139,11 @@ describe('SupabaseFluxoCaixaAdapter', () => {
     expect(result).toEqual({
       timezone: 'America/Sao_Paulo',
       business_today: '',
+      estimate: {
+        status: 'insufficient_history',
+        weeks_used: 0,
+        weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+      },
       buckets: [],
     });
   });

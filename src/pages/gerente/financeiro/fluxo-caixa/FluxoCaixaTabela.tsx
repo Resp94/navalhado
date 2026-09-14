@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatCurrency } from '../../../../lib/currency';
 import type { FluxoCaixaBucket, FluxoCaixaBucketKind } from '../../../../modules/fluxo-caixa/types';
+import { FluxoCaixaValorEstimado } from './FluxoCaixaValorEstimado';
 
 export interface FluxoCaixaTabelaProps {
   buckets: FluxoCaixaBucket[];
@@ -41,13 +42,14 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
       ) : buckets.length === 0 ? (
         <p className="fluxo-caixa-tabela-mensagem">Nenhum agrupamento para o período selecionado.</p>
       ) : (
-        <table className="fluxo-caixa-tabela" aria-label="Uma linha por agrupamento do período, com o recebido e a saída realizada">
+        <table className="fluxo-caixa-tabela" aria-label="Uma linha por agrupamento do período, com o recebido, a saída realizada e a entrada estimada">
           <thead>
             <tr>
               <th scope="col">Período</th>
               <th scope="col">Classificação</th>
               <th scope="col">Recebido</th>
               <th scope="col">Saída realizada</th>
+              <th scope="col">Estimado</th>
             </tr>
           </thead>
           <tbody>
@@ -61,6 +63,9 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, loa
                 </td>
                 <td data-label="Recebido">{formatCurrency(bucket.inflow_realized)}</td>
                 <td data-label="Saída realizada">{formatCurrency(bucket.outflow_realized)}</td>
+                <td data-label="Estimado">
+                  {bucket.kind === 'past' ? '—' : <FluxoCaixaValorEstimado value={bucket.inflow_estimated} />}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -1,15 +1,41 @@
 import { supabase } from '../../../lib/supabase';
-import type {
-  FluxoCaixaBucket,
-  FluxoCaixaProjetado,
-  FluxoCaixaValorPorProfissional,
-  IFluxoCaixaAdapter,
-  ObterFluxoCaixaInput,
+import {
+  FLUXO_CAIXA_WEEKDAY_KEYS,
+  type FluxoCaixaBucket,
+  type FluxoCaixaEstimate,
+  type FluxoCaixaProjetado,
+  type FluxoCaixaValorPorProfissional,
+  type FluxoCaixaWeekdayAverages,
+  type IFluxoCaixaAdapter,
+  type ObterFluxoCaixaInput,
 } from '../types';
 
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toWeekdayAverages(value: unknown): FluxoCaixaWeekdayAverages {
+  const raw = (value || {}) as Record<string, unknown>;
+  return FLUXO_CAIXA_WEEKDAY_KEYS.reduce((acc, key) => {
+    acc[key] = toNumber(raw[key]);
+    return acc;
+  }, {} as FluxoCaixaWeekdayAverages);
+}
+
+function toEstimate(value: unknown): FluxoCaixaEstimate {
+  const raw = (value || {}) as { status?: unknown; weeks_used?: unknown; weekday_averages?: unknown };
+  return {
+    status: raw.status === 'ok' ? 'ok' : 'insufficient_history',
+    weeks_used: toNumber(raw.weeks_used),
+    weekday_averages: toWeekdayAverages(raw.weekday_averages),
+  };
 }
 
 function toValoresPorProfissional(value: unknown): FluxoCaixaValorPorProfissional[] {
@@ -46,6 +72,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
     const raw = (data || {}) as {
       timezone?: string;
       business_today?: string;
+      estimate?: unknown;
       buckets?: Array<Record<string, any>>;
     };
 
@@ -54,6 +81,8 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         inflow_by_method?: Record<string, unknown>;
         payouts_by_professional?: unknown;
         advances_by_professional?: unknown;
+        estimated_days?: unknown;
+        closed_days?: unknown;
       };
       const byMethod = detail.inflow_by_method || {};
 
@@ -62,6 +91,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         end_date: bucket?.end_date ? String(bucket.end_date) : '',
         kind: (bucket?.kind as FluxoCaixaBucket['kind']) || 'current',
         inflow_realized: toNumber(bucket?.inflow_realized),
+        inflow_estimated: toNullableNumber(bucket?.inflow_estimated),
         outflow_realized: toNumber(bucket?.outflow_realized),
         pending_flow: toNumber(bucket?.pending_flow),
         detail: {
@@ -73,6 +103,8 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
           },
           payouts_by_professional: toValoresPorProfissional(detail.payouts_by_professional),
           advances_by_professional: toValoresPorProfissional(detail.advances_by_professional),
+          estimated_days: toNumber(detail.estimated_days),
+          closed_days: toNumber(detail.closed_days),
         },
       };
     });
@@ -80,6 +112,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
     return {
       timezone: raw.timezone || 'America/Sao_Paulo',
       business_today: raw.business_today ? String(raw.business_today) : '',
+      estimate: toEstimate(raw.estimate),
       buckets,
     };
   }

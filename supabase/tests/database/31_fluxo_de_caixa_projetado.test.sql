@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(38);
 
 -- Spec 037 (Fluxo de Caixa Projetado), ticket 01: Realizado de Comandas
 -- ponta a ponta. Cobre o contrato de leitura (public.get_projected_cash_flow),
@@ -522,6 +522,130 @@ select is(
   ),
   jsonb_build_object('outflow_realized', '470.00', 'pending_flow', '-80.00'),
   'sangria e suprimento registrados no periodo nao alteram nenhum numero do contrato'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 03 da spec 037: Entradas estimadas por dia da semana. Tenant novo
+-- com horario de funcionamento proprio: segunda explicitamente fechada,
+-- domingo AUSENTE da configuracao (deve ser lido como fechado, mesmo
+-- tratamento). 8 tercas seguidas de R$80 nas 8 semanas imediatamente
+-- anteriores a "hoje" (2026-06-30), "hoje" fora da janela.
+-- ---------------------------------------------------------------------------
+create temporary table ticket33_context (tenant_id uuid not null) on commit drop;
+with t as (
+  insert into public.tenants (name, email, phone, timezone, business_hours)
+  values (
+    '__ticket33_tenant__', '__ticket33_tenant__@teste.com', '11999991033', 'America/Sao_Paulo',
+    '{"segunda":{"active":false},"terca":{"active":true},"quarta":{"active":true},"quinta":{"active":true},"sexta":{"active":true},"sabado":{"active":true}}'::jsonb
+  )
+  returning id
+)
+insert into ticket33_context (tenant_id) select id from t;
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select gen_random_uuid(), tenant_id, 'fechada', 80, 0, 0
+from ticket33_context, generate_series('2026-05-05'::date, '2026-06-23'::date, interval '7 days') d;
+
+insert into public.comanda_pagamentos (comanda_id, tenant_id, payment_method, amount, change_amount, paid_at)
+select c.id, ticket33_context.tenant_id, 'pix', 80, 0, (d.d + time '10:00:00') at time zone 'America/Sao_Paulo'
+from ticket33_context,
+  generate_series('2026-05-05'::date, '2026-06-23'::date, interval '7 days') d,
+  lateral (
+    select id from public.comandas
+    where tenant_id = ticket33_context.tenant_id
+    order by created_at
+    offset (extract(days from d.d - '2026-05-05'::date)::int / 7)
+    limit 1
+  ) c;
+
+select is(
+  (
+    select private.get_projected_cash_flow_core(
+      (select tenant_id from ticket33_context), '2026-06-30'::date, '2026-07-12'::date, 'week', '2026-06-30'::date, 'America/Sao_Paulo'
+    ) -> 'estimate'
+  ),
+  jsonb_build_object(
+    'status', 'ok',
+    'weeks_used', 8,
+    'weekday_averages', jsonb_build_object('mon', 0.00, 'tue', 80.00, 'wed', 0.00, 'thu', 0.00, 'fri', 0.00, 'sat', 0.00, 'sun', 0.00)
+  ),
+  'com 8 semanas de historico, media de terca = 80.00 (8 recebimentos de 80 / 8 semanas), demais dias sem recebimento contam como zero na media, e N nao vem da criacao do tenant (criado agora, mas o primeiro pagamento simulado e de 2026-05-05)'
+);
+
+select is(
+  (
+    select jsonb_build_object(
+      'inflow_estimated', bucket ->> 'inflow_estimated',
+      'pending_flow', bucket ->> 'pending_flow',
+      'estimated_days', bucket -> 'detail' ->> 'estimated_days',
+      'closed_days', bucket -> 'detail' ->> 'closed_days'
+    )
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket33_context), '2026-06-30'::date, '2026-07-12'::date, 'week', '2026-06-30'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-07-06'
+  ),
+  jsonb_build_object('inflow_estimated', '80.00', 'pending_flow', '80.00', 'estimated_days', '5', 'closed_days', '2'),
+  'agrupamento futuro soma a estimativa dos seus dias (so terca contribui), segunda fechada e domingo ausente da configuracao contam como fechado (2 dias), os outros 5 dias ativos entram no detalhamento como estimados, e a estimativa soma ao fluxo pendente'
+);
+
+-- ---------------------------------------------------------------------------
+-- Historico insuficiente: 2 semanas de historico (N < 4). O estado vira
+-- "insufficient_history" e a entrada estimada de um agrupamento futuro com
+-- dia ativo fica vazia (null), nao zerada.
+-- ---------------------------------------------------------------------------
+create temporary table ticket33_insuf_context (tenant_id uuid not null) on commit drop;
+with t as (
+  insert into public.tenants (name, email, phone, timezone, business_hours)
+  values (
+    '__ticket33_insuf_tenant__', '__ticket33_insuf_tenant__@teste.com', '11999991034', 'America/Sao_Paulo',
+    '{"segunda":{"active":true},"terca":{"active":true},"quarta":{"active":true},"quinta":{"active":true},"sexta":{"active":true},"sabado":{"active":true},"domingo":{"active":true}}'::jsonb
+  )
+  returning id
+)
+insert into ticket33_insuf_context (tenant_id) select id from t;
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
+select gen_random_uuid(), tenant_id, 'fechada', 50, 0, 0
+from ticket33_insuf_context;
+
+insert into public.comanda_pagamentos (comanda_id, tenant_id, payment_method, amount, change_amount, paid_at)
+select c.id, ticket33_insuf_context.tenant_id, 'pix', 50, 0, '2026-07-25 10:00:00-03'::timestamptz
+from ticket33_insuf_context, (select id from public.comandas where tenant_id = (select tenant_id from ticket33_insuf_context) limit 1) c;
+
+select is(
+  (
+    select jsonb_build_object(
+      'status', private.get_projected_cash_flow_core(
+        (select tenant_id from ticket33_insuf_context), '2026-08-08'::date, '2026-08-09'::date, 'week', '2026-08-08'::date, 'America/Sao_Paulo'
+      ) -> 'estimate' ->> 'status',
+      'inflow_estimated', (
+        select bucket ->> 'inflow_estimated'
+        from jsonb_array_elements(
+          private.get_projected_cash_flow_core(
+            (select tenant_id from ticket33_insuf_context), '2026-08-08'::date, '2026-08-09'::date, 'week', '2026-08-08'::date, 'America/Sao_Paulo'
+          ) -> 'buckets'
+        ) as bucket
+      )
+    )
+  ),
+  jsonb_build_object('status', 'insufficient_history', 'inflow_estimated', null),
+  'com menos de 4 semanas de historico, o estado e historico insuficiente e a entrada estimada de um agrupamento futuro com dia ativo (2026-08-09, domingo, ativo) fica vazia (null), nao zerada'
+);
+
+select is(
+  (
+    select (bucket ->> 'inflow_estimated')::numeric
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket33_insuf_context), '2026-07-06'::date, '2026-07-12'::date, 'week', '2026-08-08'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  0.00,
+  'um periodo inteiramente passado (sem dia futuro no agrupamento) devolve entrada estimada zero, mesmo com historico insuficiente -- nao ha o que estimar, entao zero e o valor correto, diferente do caso de dia futuro sem historico'
 );
 
 select * from finish(true);
