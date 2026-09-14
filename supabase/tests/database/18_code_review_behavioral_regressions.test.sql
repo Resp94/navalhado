@@ -179,7 +179,7 @@ select throws_ok(
     select tenant_id, closed_session_id, 'suprimento', 10, 'teste', user_id from ticket18_context$$,
   '42501',
   null,
-  'policy rejeita movimentacao em caixa fechado'
+  'ticket 04/036: inserção direta em caixa (aberto ou fechado) segue recusada, agora por falta de permissão em vez de política'
 );
 
 reset role;

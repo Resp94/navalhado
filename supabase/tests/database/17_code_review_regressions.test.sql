@@ -119,15 +119,53 @@ select ok(
   'backfill registra a origem efetiva da regra de comissao'
 );
 
-select ok(
-  position('cs.status = ''open''' in (
-    select with_check from pg_policies
-    where schemaname = 'public'
-      and tablename = 'cash_movements'
-      and policyname = 'cash_movements_insert_policy'
-  )) > 0,
-  'movimentacao manual exige sessao de caixa aberta'
+-- Ticket 04/036 (contract): a politica de insercao direta foi removida e a
+-- permissao de INSERT revogada de authenticated (ver 03_restringir_operacoes_
+-- financeiras_estoque); a garantia de "so em sessao aberta" agora vive
+-- exclusivamente na RPC register_cash_movement, provada aqui em comportamento.
+do $$
+declare
+  v_tenant_id uuid;
+  v_user_id uuid;
+  v_session_id uuid;
+begin
+  insert into public.tenants (name, email, phone)
+  values ('__ticket17_ctx__', '__ticket17_ctx__@teste.com', '11999999999')
+  returning id into v_tenant_id;
+
+  insert into auth.users (id, email)
+  values (gen_random_uuid(), '__ticket17_ctx__auth@teste.com')
+  returning id into v_user_id;
+
+  update public.users
+  set tenant_id = v_tenant_id, role = 'gerente', is_active = true
+  where id = v_user_id;
+
+  insert into public.cash_sessions (tenant_id, opened_by, closed_by, initial_amount, status, closed_at)
+  values (v_tenant_id, v_user_id, v_user_id, 0, 'closed', timezone('utc'::text, now()))
+  returning id into v_session_id;
+
+  create temporary table ticket17_movimento_fechado_ctx (tenant_id uuid, user_id uuid, session_id uuid) on commit drop;
+  insert into ticket17_movimento_fechado_ctx values (v_tenant_id, v_user_id, v_session_id);
+  grant select on ticket17_movimento_fechado_ctx to authenticated;
+end;
+$$;
+
+select set_config('request.jwt.claim.sub', (select user_id::text from ticket17_movimento_fechado_ctx), true);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.register_cash_movement(
+    (select session_id from ticket17_movimento_fechado_ctx),
+    (select tenant_id from ticket17_movimento_fechado_ctx),
+    'sangria', 10, 'movimentacao em sessao fechada'
+  )$$,
+  'P0001',
+  'A sessão de caixa não está aberta ou não existe.',
+  'movimentacao manual exige sessao de caixa aberta (garantida pela RPC, nao mais pela politica)'
 );
+
+reset role;
 
 select has_function(
   'public',

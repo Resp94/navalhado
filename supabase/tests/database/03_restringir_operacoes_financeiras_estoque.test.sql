@@ -19,8 +19,8 @@ select ok(
   'authenticated cannot insert product movement history directly'
 );
 select ok(
-  has_table_privilege('authenticated', 'public.cash_movements', 'INSERT'),
-  'authenticated retains cash movement insertion used by the active cash flow'
+  not has_table_privilege('authenticated', 'public.cash_movements', 'INSERT'),
+  'ticket 04/036: authenticated no longer inserts cash movements directly; writes go through register_cash_movement/register_commission_payout/register_professional_advance'
 );
 select ok(
   not has_table_privilege('authenticated', 'public.commission_payouts', 'INSERT'),
