@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanoContasConflictError, PlanoContasValidationError } from '../PlanoContasRepository';
 import type { CategoriaDespesa, DadosFornecedor, Fornecedor, IPlanoContasAdapter } from '../types';
 
-/** Forma da linha devolvida pelo select com join à categoria padrão. */
-interface FornecedorRow {
+/** Forma bruta da linha de `suppliers` (sem a categoria padrão resolvida). */
+interface FornecedorRowBase {
   id: string;
   tenant_id: string;
   name: string;
@@ -18,7 +18,24 @@ interface FornecedorRow {
   created_by: string | null;
   updated_at: string;
   updated_by: string | null;
-  default_category: { id: string; name: string; archived_at: string | null } | null;
+}
+
+type CategoriaResumo = { id: string; name: string; archived_at: string | null };
+
+/** Linha de `suppliers` com a categoria padrão já resolvida à parte (nunca via embed do PostgREST -- ver `listarFornecedores`). */
+interface FornecedorRow extends FornecedorRowBase {
+  default_category: CategoriaResumo | null;
+}
+
+/**
+ * As RPCs de escrita de fornecedor (`create_supplier` e as demais) devolvem
+ * `public.suppliers%rowtype` puro, sem a categoria padrão resolvida -- só
+ * `listarFornecedores` resolve isso à parte. A aba sempre recarrega a lista
+ * depois de cada escrita bem-sucedida, então `default_category: null` aqui
+ * nunca chega a aparecer na tela.
+ */
+function mapearFornecedorSemCategoria(row: FornecedorRowBase): Fornecedor {
+  return mapearFornecedor({ ...row, default_category: null });
 }
 
 function mapearFornecedor(row: FornecedorRow): Fornecedor {
@@ -168,14 +185,41 @@ export class SupabasePlanoContasAdapter implements IPlanoContasAdapter {
   }
 
   async listarFornecedores(tenantId: string): Promise<Fornecedor[]> {
+    // Sem embed do PostgREST: o FK de categoria padrão é composto
+    // (tenant_id, default_category_id) -> (tenant_id, id), decisão da spec
+    // 035 para isolar entre tenants no próprio schema. O PostgREST não
+    // resolve embed por FK composta (erro PGRST200, "no relationship
+    // found"), então a categoria é buscada à parte e resolvida no cliente.
     const { data, error } = await this.supabase
       .from('suppliers')
-      .select('*, default_category:financial_categories!default_category_id(id, name, archived_at)')
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('name');
 
     if (error) throw error;
-    return ((data as unknown as FornecedorRow[]) || []).map(mapearFornecedor);
+    const rows = (data as unknown as FornecedorRowBase[]) || [];
+
+    const categoriaIds = [...new Set(rows.map((row) => row.default_category_id).filter((id): id is string => id !== null))];
+    const categoriasPorId = new Map<string, CategoriaResumo>();
+    if (categoriaIds.length > 0) {
+      const { data: categorias, error: categoriasError } = await this.supabase
+        .from('financial_categories')
+        .select('id, name, archived_at')
+        .eq('tenant_id', tenantId)
+        .in('id', categoriaIds);
+
+      if (categoriasError) throw categoriasError;
+      for (const categoria of (categorias as CategoriaResumo[]) || []) {
+        categoriasPorId.set(categoria.id, categoria);
+      }
+    }
+
+    return rows.map((row) =>
+      mapearFornecedor({
+        ...row,
+        default_category: row.default_category_id ? categoriasPorId.get(row.default_category_id) ?? null : null,
+      })
+    );
   }
 
   async criarFornecedor(tenantId: string, dados: DadosFornecedor): Promise<Fornecedor> {
@@ -190,7 +234,7 @@ export class SupabasePlanoContasAdapter implements IPlanoContasAdapter {
     });
 
     if (error) throw traduzirErro(error);
-    return mapearFornecedor(data as unknown as FornecedorRow);
+    return mapearFornecedorSemCategoria(data as unknown as FornecedorRowBase);
   }
 
   async atualizarFornecedor(
@@ -210,7 +254,7 @@ export class SupabasePlanoContasAdapter implements IPlanoContasAdapter {
     });
 
     if (error) throw traduzirErro(error);
-    return mapearFornecedor(data as unknown as FornecedorRow);
+    return mapearFornecedorSemCategoria(data as unknown as FornecedorRowBase);
   }
 
   async arquivarFornecedor(tenantId: string, fornecedorId: string): Promise<Fornecedor> {
@@ -220,7 +264,7 @@ export class SupabasePlanoContasAdapter implements IPlanoContasAdapter {
     });
 
     if (error) throw traduzirErro(error);
-    return mapearFornecedor(data as unknown as FornecedorRow);
+    return mapearFornecedorSemCategoria(data as unknown as FornecedorRowBase);
   }
 
   async reativarFornecedor(tenantId: string, fornecedorId: string): Promise<Fornecedor> {
@@ -230,6 +274,6 @@ export class SupabasePlanoContasAdapter implements IPlanoContasAdapter {
     });
 
     if (error) throw traduzirErro(error);
-    return mapearFornecedor(data as unknown as FornecedorRow);
+    return mapearFornecedorSemCategoria(data as unknown as FornecedorRowBase);
   }
 }

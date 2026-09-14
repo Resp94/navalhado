@@ -16,13 +16,42 @@ function buildRpcMock(result: { data: unknown; error: unknown }) {
   return { supabase: { rpc } as any, rpc };
 }
 
-/** Mock do select com join à categoria padrão (`listarFornecedores`): um só `.eq()`, não dois. */
-function buildFornecedorSelectMock(result: { data: unknown; error: unknown }) {
-  const order = vi.fn().mockResolvedValue(result);
-  const eqTenant = vi.fn().mockReturnValue({ order });
-  const select = vi.fn().mockReturnValue({ eq: eqTenant });
-  const from = vi.fn().mockReturnValue({ select });
-  return { supabase: { from } as any, from, select, eqTenant, order };
+/**
+ * Mock de `listarFornecedores`: duas consultas separadas, nunca um embed do
+ * PostgREST. O FK da categoria padrão é composto (tenant_id,
+ * default_category_id), e o PostgREST não resolve embed por FK composta
+ * (erro real PGRST200 encontrado em teste manual contra o Supabase de
+ * verdade, que os testes com mock não pegavam) -- por isso a categoria é
+ * buscada à parte, por `id in (...)`, e resolvida no cliente.
+ */
+function buildFornecedorListMock(
+  fornecedoresResult: { data: unknown; error: unknown },
+  categoriasResult: { data: unknown; error: unknown } = { data: [], error: null }
+) {
+  const fornecedoresOrder = vi.fn().mockResolvedValue(fornecedoresResult);
+  const fornecedoresEq = vi.fn().mockReturnValue({ order: fornecedoresOrder });
+  const fornecedoresSelect = vi.fn().mockReturnValue({ eq: fornecedoresEq });
+
+  const categoriasIn = vi.fn().mockResolvedValue(categoriasResult);
+  const categoriasEq = vi.fn().mockReturnValue({ in: categoriasIn });
+  const categoriasSelect = vi.fn().mockReturnValue({ eq: categoriasEq });
+
+  const from = vi.fn((table: string) => {
+    if (table === 'suppliers') return { select: fornecedoresSelect };
+    if (table === 'financial_categories') return { select: categoriasSelect };
+    throw new Error(`tabela inesperada em from(): ${table}`);
+  });
+
+  return {
+    supabase: { from } as any,
+    from,
+    fornecedoresSelect,
+    fornecedoresEq,
+    fornecedoresOrder,
+    categoriasSelect,
+    categoriasEq,
+    categoriasIn,
+  };
 }
 
 describe('SupabasePlanoContasAdapter', () => {
@@ -182,7 +211,7 @@ describe('SupabasePlanoContasAdapter', () => {
     expect(erro.message).toBe('Acesso negado para gerenciar o Plano de Contas.');
   });
 
-  it('lista Fornecedores com a categoria padrão e o estado dela, via join', async () => {
+  it('lista Fornecedores e resolve a categoria padrão em consulta separada (nunca por embed do PostgREST)', async () => {
     const fornecedorRow = {
       id: 'forn-1',
       tenant_id: 'tenant-1',
@@ -198,22 +227,31 @@ describe('SupabasePlanoContasAdapter', () => {
       created_by: 'user-1',
       updated_at: '2026-01-01T00:00:00Z',
       updated_by: null,
-      default_category: { id: 'cat-1', name: 'Produtos para revenda', archived_at: null },
     };
-    const { supabase, from, select, eqTenant, order } = buildFornecedorSelectMock({
-      data: [fornecedorRow],
-      error: null,
-    });
+    const categoriaRow = { id: 'cat-1', name: 'Produtos para revenda', archived_at: null };
+    const {
+      supabase,
+      from,
+      fornecedoresSelect,
+      fornecedoresEq,
+      fornecedoresOrder,
+      categoriasSelect,
+      categoriasEq,
+      categoriasIn,
+    } = buildFornecedorListMock({ data: [fornecedorRow], error: null }, { data: [categoriaRow], error: null });
 
     const adapter = new SupabasePlanoContasAdapter(supabase);
     const result = await adapter.listarFornecedores('tenant-1');
 
     expect(from).toHaveBeenCalledWith('suppliers');
-    expect(select).toHaveBeenCalledWith(
-      '*, default_category:financial_categories!default_category_id(id, name, archived_at)'
-    );
-    expect(eqTenant).toHaveBeenCalledWith('tenant_id', 'tenant-1');
-    expect(order).toHaveBeenCalledWith('name');
+    expect(from).toHaveBeenCalledWith('financial_categories');
+    // Select de suppliers nunca embute a categoria: FK composta, PostgREST nao resolve embed por ela.
+    expect(fornecedoresSelect).toHaveBeenCalledWith('*');
+    expect(fornecedoresEq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    expect(fornecedoresOrder).toHaveBeenCalledWith('name');
+    expect(categoriasSelect).toHaveBeenCalledWith('id, name, archived_at');
+    expect(categoriasEq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    expect(categoriasIn).toHaveBeenCalledWith('id', ['cat-1']);
     expect(result).toEqual([
       {
         id: 'forn-1',
@@ -235,6 +273,32 @@ describe('SupabasePlanoContasAdapter', () => {
     ]);
   });
 
+  it('não consulta financial_categories quando nenhum fornecedor tem categoria padrão', async () => {
+    const fornecedorRow = {
+      id: 'forn-1',
+      tenant_id: 'tenant-1',
+      name: 'Distribuidora ABC',
+      document: null,
+      phone: null,
+      email: null,
+      notes: null,
+      default_category_id: null,
+      archived_at: null,
+      archived_by: null,
+      created_at: '2026-01-01T00:00:00Z',
+      created_by: null,
+      updated_at: '2026-01-01T00:00:00Z',
+      updated_by: null,
+    };
+    const { supabase, from } = buildFornecedorListMock({ data: [fornecedorRow], error: null });
+    const adapter = new SupabasePlanoContasAdapter(supabase);
+
+    const [result] = await adapter.listarFornecedores('tenant-1');
+
+    expect(from).not.toHaveBeenCalledWith('financial_categories');
+    expect(result.default_category).toBeNull();
+  });
+
   it('mapeia categoria padrão arquivada como archived: true', async () => {
     const fornecedorRow = {
       id: 'forn-1',
@@ -251,9 +315,12 @@ describe('SupabasePlanoContasAdapter', () => {
       created_by: null,
       updated_at: '2026-01-01T00:00:00Z',
       updated_by: null,
-      default_category: { id: 'cat-1', name: 'Descontinuada', archived_at: '2026-02-01T00:00:00Z' },
     };
-    const { supabase } = buildFornecedorSelectMock({ data: [fornecedorRow], error: null });
+    const categoriaRow = { id: 'cat-1', name: 'Descontinuada', archived_at: '2026-02-01T00:00:00Z' };
+    const { supabase } = buildFornecedorListMock(
+      { data: [fornecedorRow], error: null },
+      { data: [categoriaRow], error: null }
+    );
     const adapter = new SupabasePlanoContasAdapter(supabase);
 
     const [result] = await adapter.listarFornecedores('tenant-1');
@@ -276,9 +343,8 @@ describe('SupabasePlanoContasAdapter', () => {
       created_by: null,
       updated_at: '2026-01-01T00:00:00Z',
       updated_by: null,
-      default_category: null,
     };
-    const { supabase } = buildFornecedorSelectMock({ data: [fornecedorRow], error: null });
+    const { supabase } = buildFornecedorListMock({ data: [fornecedorRow], error: null });
     const adapter = new SupabasePlanoContasAdapter(supabase);
 
     const [result] = await adapter.listarFornecedores('tenant-1');
