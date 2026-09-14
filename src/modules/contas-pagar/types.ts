@@ -128,6 +128,18 @@ export interface DadosBaixa {
   cashSessionId?: string | null;
 }
 
+/** Dados de edição individual (ticket 08/036): mesmos campos do lançamento avulso. */
+export interface DadosEdicaoContaPagar {
+  description: string;
+  categoryId: string;
+  amount: number;
+  dueDate: string;
+  supplierId?: string | null;
+  competenceDate?: string | null;
+  documentNumber?: string | null;
+  notes?: string | null;
+}
+
 export interface FiltroListaContasPagar {
   dueDateFrom?: string | null;
   dueDateTo?: string | null;
@@ -163,4 +175,6 @@ export interface IContasPagarAdapter {
   darBaixa(tenantId: string, payableId: string, dados: DadosBaixa): Promise<Baixa>;
   estornarBaixa(tenantId: string, settlementId: string, motivo: string): Promise<Baixa>;
   listarBaixas(tenantId: string, payableId: string): Promise<Baixa[]>;
+  editarConta(tenantId: string, payableId: string, dados: DadosEdicaoContaPagar): Promise<ContaPagar>;
+  cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar>;
 }

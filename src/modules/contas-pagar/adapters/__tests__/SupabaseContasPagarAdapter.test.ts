@@ -407,3 +407,86 @@ describe('SupabaseContasPagarAdapter — listarBaixas', () => {
     );
   });
 });
+
+describe('SupabaseContasPagarAdapter — editarConta', () => {
+  it('chama update_payable com os parâmetros mapeados e devolve a conta editada', async () => {
+    const supabase = novoSupabaseMock();
+    const conta = { id: 'conta-1', description: 'Aluguel Editado' };
+    supabase.rpc.mockResolvedValueOnce({ data: conta, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.editarConta('tenant-1', 'conta-1', {
+      description: 'Aluguel Editado',
+      categoryId: 'cat-1',
+      amount: 1200,
+      dueDate: '2026-10-30',
+      supplierId: 'sup-1',
+      competenceDate: '2026-10-30',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('update_payable', {
+      p_payable_id: 'conta-1',
+      p_description: 'Aluguel Editado',
+      p_category_id: 'cat-1',
+      p_amount: 1200,
+      p_due_date: '2026-10-30',
+      p_supplier_id: 'sup-1',
+      p_competence_date: '2026-10-30',
+      p_document_number: 'NF-1',
+      p_notes: 'obs',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toBe(conta);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'O valor não pode ser alterado numa conta parcialmente paga ou paga.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.editarConta('tenant-1', 'conta-1', {
+        description: 'Aluguel',
+        categoryId: 'cat-1',
+        amount: 999,
+        dueDate: '2026-10-30',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});
+
+describe('SupabaseContasPagarAdapter — cancelarConta', () => {
+  it('chama cancel_payable com os parâmetros mapeados e devolve a conta cancelada', async () => {
+    const supabase = novoSupabaseMock();
+    const conta = { id: 'conta-1', status: 'cancelled' };
+    supabase.rpc.mockResolvedValueOnce({ data: conta, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.cancelarConta('tenant-1', 'conta-1', 'lançada em duplicidade');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('cancel_payable', {
+      p_payable_id: 'conta-1',
+      p_reason: 'lançada em duplicidade',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toBe(conta);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'Não é possível cancelar uma conta com Baixa ativa.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.cancelarConta('tenant-1', 'conta-1', 'motivo valido')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});

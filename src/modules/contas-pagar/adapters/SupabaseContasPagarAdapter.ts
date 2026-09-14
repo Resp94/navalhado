@@ -7,6 +7,7 @@ import type {
   ContaPagarListada,
   DadosBaixa,
   DadosContaPagarAvulsa,
+  DadosEdicaoContaPagar,
   FiltroListaContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
@@ -237,5 +238,38 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
 
     if (error) throw traduzirErro(error);
     return ((data as BaixaRow[]) || []).map(mapearBaixa);
+  }
+
+  async editarConta(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoContaPagar
+  ): Promise<ContaPagar> {
+    const { data, error } = await this.supabase.rpc('update_payable', {
+      p_payable_id: payableId,
+      p_description: dados.description,
+      p_category_id: dados.categoryId,
+      p_amount: dados.amount,
+      p_due_date: dados.dueDate,
+      p_supplier_id: dados.supplierId ?? null,
+      p_competence_date: dados.competenceDate ?? null,
+      p_document_number: dados.documentNumber ?? null,
+      p_notes: dados.notes ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return data as ContaPagar;
+  }
+
+  async cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar> {
+    const { data, error } = await this.supabase.rpc('cancel_payable', {
+      p_payable_id: payableId,
+      p_reason: motivo,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return data as ContaPagar;
   }
 }

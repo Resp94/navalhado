@@ -4,6 +4,7 @@ import type {
   ContaPagarDetalhe,
   DadosBaixa,
   DadosContaPagarAvulsa,
+  DadosEdicaoContaPagar,
   FiltroListaContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
@@ -50,11 +51,8 @@ export class ContasPagarRepository {
     this.adapter = adapter;
   }
 
-  async criarContaAvulsa(tenantId: string, dados: DadosContaPagarAvulsa): Promise<ContaPagar> {
-    if (!tenantId) {
-      throw new ContasPagarValidationError('Unidade é obrigatória.');
-    }
-
+  /** Validação comum a lançamento avulso e edição: descrição, categoria, valor, vencimento, documento e observação. */
+  private validarCamposComuns(dados: DadosContaPagarAvulsa | DadosEdicaoContaPagar) {
     const description = (dados.description || '').replace(/\s+/g, ' ').trim();
     if (description.length < DESCRICAO_MIN || description.length > DESCRICAO_MAX) {
       throw new ContasPagarValidationError(
@@ -86,15 +84,30 @@ export class ContasPagarRepository {
       throw new ContasPagarValidationError(`Observação deve ter no máximo ${NOTES_MAX} caracteres.`);
     }
 
+    return {
+      description,
+      amount: Math.round(dados.amount * 100) / 100,
+      documentNumber: documentNumber || null,
+      notes: notes || null,
+    };
+  }
+
+  async criarContaAvulsa(tenantId: string, dados: DadosContaPagarAvulsa): Promise<ContaPagar> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    const { description, amount, documentNumber, notes } = this.validarCamposComuns(dados);
+
     return this.adapter.criarContaAvulsa(tenantId, {
       description,
       categoryId: dados.categoryId,
-      amount: Math.round(dados.amount * 100) / 100,
+      amount,
       dueDate: dados.dueDate,
       supplierId: dados.supplierId || null,
       competenceDate: dados.competenceDate || null,
-      documentNumber: documentNumber || null,
-      notes: notes || null,
+      documentNumber,
+      notes,
     });
   }
 
@@ -207,5 +220,49 @@ export class ContasPagarRepository {
     }
 
     return this.adapter.listarBaixas(tenantId, payableId);
+  }
+
+  async editarConta(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoContaPagar
+  ): Promise<ContaPagar> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    const { description, amount, documentNumber, notes } = this.validarCamposComuns(dados);
+
+    return this.adapter.editarConta(tenantId, payableId, {
+      description,
+      categoryId: dados.categoryId,
+      amount,
+      dueDate: dados.dueDate,
+      supplierId: dados.supplierId || null,
+      competenceDate: dados.competenceDate || null,
+      documentNumber,
+      notes,
+    });
+  }
+
+  async cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    const motivoNormalizado = (motivo || '').trim();
+    if (motivoNormalizado.length < MOTIVO_MIN) {
+      throw new ContasPagarValidationError(
+        `Informe um motivo com pelo menos ${MOTIVO_MIN} caracteres.`
+      );
+    }
+
+    return this.adapter.cancelarConta(tenantId, payableId, motivoNormalizado);
   }
 }

@@ -1,13 +1,15 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(83);
+select plan(110);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
 -- 20260913180000_livro_de_contas_a_pagar.sql. Ticket 07: tabela
 -- public.payable_settlements (Baixa) e RPCs settle_payable,
 -- reverse_payable_settlement, get_payable, list_payable_settlements,
--- migration 20260914090000_baixa_fora_do_caixa_e_estorno.sql.
+-- migration 20260914090000_baixa_fora_do_caixa_e_estorno.sql. Ticket 08:
+-- update_payable (edicao limitada pelo estado) e cancel_payable (terminal,
+-- sem Baixa ativa), migration 20260914100000_editar_e_cancelar_conta_a_pagar.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -876,6 +878,301 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao estorna Baixa informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 08/036: editar e cancelar Conta a Pagar. Reaproveita ticket29_context.
+-- ---------------------------------------------------------------------------
+select has_function(
+  'public', 'update_payable',
+  array['uuid', 'text', 'uuid', 'numeric', 'date', 'uuid', 'date', 'text', 'text', 'uuid'],
+  'public.update_payable(...) existe'
+);
+select has_function(
+  'public', 'cancel_payable', array['uuid', 'text', 'uuid'],
+  'public.cancel_payable(uuid, text, uuid) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.update_payable(uuid,text,uuid,numeric,date,uuid,date,text,text,uuid)'::regprocedure),
+  'update_payable fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.cancel_payable(uuid,text,uuid)'::regprocedure),
+  'cancel_payable fixa search_path vazio'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29_context), true);
+set local role authenticated;
+
+-- Edicao aberta: tudo editavel.
+create temporary table ticket29h_categoria_2 (id uuid) on commit drop;
+insert into ticket29h_categoria_2 (id) values ((
+  select id from public.create_expense_category('Ticket29h Categoria Dois', (select tenant_a_id from ticket29_context))
+));
+
+create temporary table ticket29h_conta_aberta (id uuid) on commit drop;
+insert into ticket29h_conta_aberta (id)
+select id from public.create_payable(
+  'Ticket29h Aberta', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+
+select ok(
+  (select amount from public.update_payable(
+    (select id from ticket29h_conta_aberta), 'Ticket29h Aberta Editada',
+    (select id from ticket29h_categoria_2), 200, '2026-10-15'
+  )) = 200,
+  'conta aberta aceita mudar o valor'
+);
+select is(
+  (select description from public.payables where id = (select id from ticket29h_conta_aberta)),
+  'Ticket29h Aberta Editada',
+  'edicao normaliza e grava a nova descricao'
+);
+select is(
+  (select category_id from public.payables where id = (select id from ticket29h_conta_aberta)),
+  (select id from ticket29h_categoria_2),
+  'conta aberta aceita mudar a categoria (nova categoria ativa)'
+);
+select ok(
+  (select updated_by from public.payables where id = (select id from ticket29h_conta_aberta))
+    = (select gerente_a_id from ticket29_context),
+  'edicao grava o autor da ultima alteracao'
+);
+
+-- Categoria arquivada aceita quando ja estava na conta (nao mudou), recusada
+-- quando e uma NOVA categoria arquivada.
+create temporary table ticket29h_categoria_arquivavel (id uuid) on commit drop;
+insert into ticket29h_categoria_arquivavel (id) values ((
+  select id from public.create_expense_category('Ticket29h Arquivavel', (select tenant_a_id from ticket29_context))
+));
+create temporary table ticket29h_conta_categoria_arquivavel (id uuid) on commit drop;
+insert into ticket29h_conta_categoria_arquivavel (id)
+select id from public.create_payable(
+  'Ticket29h Categoria Vai Arquivar', (select id from ticket29h_categoria_arquivavel), 100, '2026-09-30'
+);
+select public.archive_expense_category(
+  (select id from ticket29h_categoria_arquivavel), (select tenant_a_id from ticket29_context)
+);
+select lives_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Descricao Nova', '%s'::uuid, 100, '2026-09-30')$$,
+    (select id from ticket29h_conta_categoria_arquivavel),
+    (select id from ticket29h_categoria_arquivavel)
+  ),
+  'manter a categoria arquivada que ja estava na conta e permitido'
+);
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Nova Categoria Arquivada', '%s'::uuid, 100, '2026-09-30')$$,
+    (select id from ticket29h_conta_categoria_arquivavel),
+    (select categoria_arquivada_id from ticket29_context)
+  ),
+  '22023',
+  'Categoria de despesa informada não existe ou está arquivada.',
+  'trocar para uma NOVA categoria arquivada e recusado'
+);
+
+-- Edicao parcialmente paga: valor travado, resto editavel.
+create temporary table ticket29h_conta_parcial (id uuid) on commit drop;
+insert into ticket29h_conta_parcial (id)
+select id from public.create_payable(
+  'Ticket29h Parcial', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select public.settle_payable((select id from ticket29h_conta_parcial), 40, '2026-09-14', 'pix');
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Parcial', '%s'::uuid, 999, '2026-09-30')$$,
+    (select id from ticket29h_conta_parcial),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  'P0001',
+  'O valor não pode ser alterado numa conta parcialmente paga ou paga.',
+  'conta parcialmente paga recusa mudar o valor'
+);
+select lives_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Parcial Vencimento Novo', '%s'::uuid, 100, '2026-11-01')$$,
+    (select id from ticket29h_conta_parcial),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  'conta parcialmente paga aceita mudar o vencimento'
+);
+
+-- Edicao paga: valor e vencimento travados, resto editavel.
+create temporary table ticket29h_conta_paga (id uuid) on commit drop;
+insert into ticket29h_conta_paga (id)
+select id from public.create_payable(
+  'Ticket29h Paga', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select public.settle_payable((select id from ticket29h_conta_paga), 100, '2026-09-14', 'pix');
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Paga', '%s'::uuid, 100, '2026-12-01')$$,
+    (select id from ticket29h_conta_paga),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  'P0001',
+  'O vencimento não pode ser alterado numa conta paga.',
+  'conta paga recusa mudar o vencimento'
+);
+select lives_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Ticket29h Paga Descricao Nova', '%s'::uuid, 100, '2026-09-30', null, '2026-08-15')$$,
+    (select id from ticket29h_conta_paga),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  'conta paga aceita mudar descricao e competencia'
+);
+
+-- Edicao cancelada: nada editavel.
+create temporary table ticket29h_conta_cancelada (id uuid) on commit drop;
+insert into ticket29h_conta_cancelada (id)
+select id from public.create_payable(
+  'Ticket29h Cancelada', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select public.cancel_payable((select id from ticket29h_conta_cancelada), 'motivo do cancelamento');
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Nova Descricao', '%s'::uuid, 100, '2026-09-30')$$,
+    (select id from ticket29h_conta_cancelada),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  'P0001',
+  'Conta cancelada não pode ser editada.',
+  'conta cancelada recusa qualquer edicao'
+);
+
+-- Cancelamento: motivo curto, com Baixa ativa, sucesso, e dupla operacao.
+create temporary table ticket29h_conta_cancelar (id uuid) on commit drop;
+insert into ticket29h_conta_cancelar (id)
+select id from public.create_payable(
+  'Ticket29h A Cancelar', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select throws_ok(
+  format(
+    $$select public.cancel_payable('%s'::uuid, 'oi')$$,
+    (select id from ticket29h_conta_cancelar)
+  ),
+  '22023',
+  'Informe um motivo com pelo menos cinco caracteres.',
+  'cancelamento recusa motivo com menos de cinco caracteres'
+);
+
+create temporary table ticket29h_conta_cancelar_com_baixa (id uuid) on commit drop;
+insert into ticket29h_conta_cancelar_com_baixa (id)
+select id from public.create_payable(
+  'Ticket29h Com Baixa', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select public.settle_payable((select id from ticket29h_conta_cancelar_com_baixa), 40, '2026-09-14', 'pix');
+select throws_ok(
+  format(
+    $$select public.cancel_payable('%s'::uuid, 'motivo valido')$$,
+    (select id from ticket29h_conta_cancelar_com_baixa)
+  ),
+  'P0001',
+  'Não é possível cancelar uma conta com Baixa ativa.',
+  'cancelamento com Baixa ativa e recusado'
+);
+
+select ok(
+  (select cancelled_at from public.cancel_payable(
+    (select id from ticket29h_conta_cancelar), 'lancada em duplicidade'
+  )) is not null,
+  'cancelamento preenche cancelled_at'
+);
+select is(
+  (select status from public.payables where id = (select id from ticket29h_conta_cancelar)),
+  'cancelled',
+  'cancelamento muda o estado para cancelled'
+);
+select throws_ok(
+  format(
+    $$select public.cancel_payable('%s'::uuid, 'tentando de novo')$$,
+    (select id from ticket29h_conta_cancelar)
+  ),
+  'P0001',
+  'Esta conta já está cancelada.',
+  'cancelar conta ja cancelada e recusado'
+);
+
+-- Conta cancelada some do filtro padrao ("todas exceto canceladas") mas
+-- continua acessivel pelo detalhe, com nome de categoria preservado mesmo
+-- que a categoria (arquivavel) tenha sido arquivada depois.
+select ok(
+  not exists (
+    select 1 from public.list_payables(null, null, 'not_cancelled', 1, 100)
+    where id = (select id from ticket29h_conta_cancelar)
+  ),
+  'conta cancelada nao aparece no filtro padrao (todas exceto canceladas)'
+);
+select ok(
+  exists (
+    select 1 from public.list_payables(null, null, 'cancelled', 1, 100)
+    where id = (select id from ticket29h_conta_cancelar)
+  ),
+  'conta cancelada aparece ao filtrar explicitamente por canceladas'
+);
+select is(
+  (select category_name from public.get_payable((select id from ticket29h_conta_categoria_arquivavel))),
+  'Ticket29h Arquivavel',
+  'get_payable exibe o nome da categoria mesmo depois de arquivada'
+);
+
+reset role;
+
+-- Profissional e gestor de outro tenant nao editam nem cancelam.
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Tentativa', '%s'::uuid, 100, '2026-09-30')$$,
+    (select id from ticket29h_conta_aberta),
+    (select categoria_ativa_id from ticket29_context)
+  ),
+  '42501',
+  'Acesso negado para editar Contas a Pagar.',
+  'profissional e recusado ao tentar editar conta a pagar'
+);
+select throws_ok(
+  format(
+    $$select public.cancel_payable('%s'::uuid, 'motivo valido')$$,
+    (select id from ticket29h_conta_aberta)
+  ),
+  '42501',
+  'Acesso negado para cancelar Contas a Pagar.',
+  'profissional e recusado ao tentar cancelar conta a pagar'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select public.update_payable('%s'::uuid, 'Tentativa', '%s'::uuid, 100, '2026-09-30', null, null, null, null, '%s'::uuid)$$,
+    (select id from ticket29h_conta_aberta),
+    (select categoria_ativa_id from ticket29_context),
+    (select tenant_a_id from ticket29_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao edita conta informando o tenant A explicitamente'
+);
+select throws_ok(
+  format(
+    $$select public.cancel_payable('%s'::uuid, 'motivo valido', '%s'::uuid)$$,
+    (select id from ticket29h_conta_aberta),
+    (select tenant_a_id from ticket29_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao cancela conta informando o tenant A explicitamente'
 );
 
 reset role;

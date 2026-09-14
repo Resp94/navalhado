@@ -13,6 +13,7 @@ import type {
   ContaPagarListada,
   DadosBaixa,
   DadosContaPagarAvulsa,
+  DadosEdicaoContaPagar,
   FiltroListaContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
@@ -260,6 +261,90 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
 
   async listarBaixas(_tenantId: string, payableId: string): Promise<Baixa[]> {
     return this.baixasPorConta[payableId] || [];
+  }
+
+  async editarConta(
+    tenantId: string,
+    payableId: string,
+    dados: DadosEdicaoContaPagar
+  ): Promise<ContaPagar> {
+    const conta = this.contas.find((item) => item.id === payableId);
+    if (!conta) {
+      throw new Error('Conta a pagar não encontrada.');
+    }
+    const categoria = this.categorias.find((item) => item.id === dados.categoryId);
+    const fornecedor = dados.supplierId
+      ? this.fornecedores.find((item) => item.id === dados.supplierId)
+      : undefined;
+
+    conta.description = dados.description;
+    conta.category_id = dados.categoryId;
+    conta.category_name = categoria?.name || conta.category_name;
+    conta.supplier_id = dados.supplierId || null;
+    conta.supplier_name = fornecedor?.name || null;
+    conta.amount = dados.amount;
+    conta.remaining_amount = dados.amount - conta.paid_amount;
+    conta.due_date = dados.dueDate;
+    conta.competence_date = dados.competenceDate || dados.dueDate;
+    conta.document_number = dados.documentNumber || null;
+    conta.notes = dados.notes || null;
+
+    return {
+      id: conta.id,
+      tenant_id: tenantId,
+      description: conta.description,
+      category_id: conta.category_id,
+      supplier_id: conta.supplier_id,
+      amount: conta.amount,
+      paid_amount: conta.paid_amount,
+      status: conta.status,
+      due_date: conta.due_date,
+      competence_date: conta.competence_date,
+      document_number: conta.document_number,
+      notes: conta.notes,
+      series_id: null,
+      series_position: null,
+      created_at: '2026-09-13T10:00:00Z',
+      created_by: 'user-1',
+      updated_at: '2026-09-14T12:00:00Z',
+      updated_by: 'user-1',
+      cancelled_at: null,
+      cancelled_by: null,
+      cancellation_reason: null,
+    };
+  }
+
+  async cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar> {
+    const conta = this.contas.find((item) => item.id === payableId);
+    if (!conta) {
+      throw new Error('Conta a pagar não encontrada.');
+    }
+    conta.status = 'cancelled';
+    conta.situation = 'cancelled';
+
+    return {
+      id: conta.id,
+      tenant_id: tenantId,
+      description: conta.description,
+      category_id: conta.category_id,
+      supplier_id: conta.supplier_id,
+      amount: conta.amount,
+      paid_amount: conta.paid_amount,
+      status: 'cancelled',
+      due_date: conta.due_date,
+      competence_date: conta.competence_date,
+      document_number: conta.document_number,
+      notes: conta.notes,
+      series_id: null,
+      series_position: null,
+      created_at: '2026-09-13T10:00:00Z',
+      created_by: 'user-1',
+      updated_at: '2026-09-14T12:00:00Z',
+      updated_by: 'user-1',
+      cancelled_at: '2026-09-14T12:00:00Z',
+      cancelled_by: 'user-1',
+      cancellation_reason: motivo,
+    };
   }
 }
 
@@ -513,5 +598,87 @@ describe('ContasPagarTab (adaptador simulado)', () => {
       expect(screen.getAllByText('Estornada').length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Em aberto').length).toBeGreaterThan(0);
+  });
+
+  it('edita uma conta pelo detalhe e a lista reflete a mudança (ticket 08/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const categoriaOutra = categoria({ id: 'cat-2', name: 'Marketing' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter(
+        [
+          contaListada({
+            id: 'conta-1',
+            description: 'Aluguel de setembro',
+            category_id: 'cat-1',
+            category_name: 'Aluguel e condomínio',
+            amount: 100,
+            remaining_amount: 100,
+            status: 'open',
+            situation: 'open',
+          }),
+        ],
+        [categoriaAluguel, categoriaOutra]
+      )
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel, categoriaOutra], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel de setembro').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel de setembro')[0]);
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    const descricaoInput = await screen.findByLabelText('Descrição');
+    fireEvent.change(descricaoInput, { target: { value: 'Aluguel corrigido' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-2' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel corrigido').length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText('Marketing').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Descrição')).not.toBeInTheDocument();
+  });
+
+  it('cancela uma conta pelo detalhe informando o motivo e ela some da lista padrão (ticket 08/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Aluguel de setembro',
+          amount: 100,
+          remaining_amount: 100,
+          status: 'open',
+          situation: 'open',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel de setembro').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel de setembro')[0]);
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar conta' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cancelar conta a pagar' });
+    const motivoInput = await within(dialog).findByLabelText('Motivo do cancelamento');
+    fireEvent.change(motivoInput, { target: { value: 'lançada em duplicidade' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar conta' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
   });
 });

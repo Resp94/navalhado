@@ -6,16 +6,21 @@ import { Skeleton } from '../ui/data-display/Skeleton';
 import { EmptyState } from '../ui/data-display/EmptyState';
 import { BaixaDialog } from './BaixaDialog';
 import { EstornoBaixaDialog } from './EstornoBaixaDialog';
+import { EditarContaDialog } from './EditarContaDialog';
+import { CancelarContaDialog } from './CancelarContaDialog';
 import { ContasPagarRepository } from '../../modules/contas-pagar/ContasPagarRepository';
 import type { Baixa, ContaPagarDetalhe, FormaPagamentoBaixa } from '../../modules/contas-pagar/types';
+import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
 
 export interface ContaPagarDetalheDrawerProps {
   isOpen: boolean;
   repository: ContasPagarRepository;
   tenantId: string;
   payableId: string;
+  categoriasAtivas: CategoriaDespesa[];
+  fornecedoresAtivos: Fornecedor[];
   onClose: () => void;
-  /** Chamado depois de qualquer Baixa ou estorno, para a lista por trás recarregar. */
+  /** Chamado depois de qualquer Baixa, estorno, edição ou cancelamento, para a lista por trás recarregar. */
   onAtualizado: () => void;
 }
 
@@ -58,6 +63,8 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
   repository,
   tenantId,
   payableId,
+  categoriasAtivas,
+  fornecedoresAtivos,
   onClose,
   onAtualizado,
 }) => {
@@ -67,6 +74,8 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
   const [error, setError] = useState<string | null>(null);
   const [baixaDialogAberto, setBaixaDialogAberto] = useState(false);
   const [estornoAlvo, setEstornoAlvo] = useState<Baixa | null>(null);
+  const [editarAberto, setEditarAberto] = useState(false);
+  const [cancelarAberto, setCancelarAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!isOpen || !payableId) return;
@@ -102,8 +111,22 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
     onAtualizado();
   };
 
+  const handleEdicaoSalva = async () => {
+    setEditarAberto(false);
+    await carregar();
+    onAtualizado();
+  };
+
+  const handleCancelamentoConcluido = async () => {
+    setCancelarAberto(false);
+    await carregar();
+    onAtualizado();
+  };
+
   const situacao = conta ? ROTULO_SITUACAO[conta.situation] || ROTULO_SITUACAO.open : null;
   const podeReceberBaixa = conta ? conta.status === 'open' || conta.status === 'partially_paid' : false;
+  const podeEditar = conta ? conta.status !== 'cancelled' : false;
+  const podeCancelar = conta ? conta.status === 'open' : false;
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="Detalhe da conta a pagar" width="min(92vw, 560px)">
@@ -167,13 +190,35 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
                 <dd>{conta.createdByName}</dd>
               </div>
             )}
+            {conta.status === 'cancelled' && conta.cancelledAt && (
+              <div>
+                <dt>Cancelada</dt>
+                <dd>
+                  {formatarData(conta.cancelledAt.slice(0, 10))}
+                  {conta.cancelledByName && ` por ${conta.cancelledByName}`}
+                  {conta.cancellationReason && `: ${conta.cancellationReason}`}
+                </dd>
+              </div>
+            )}
           </dl>
 
-          {podeReceberBaixa && (
-            <Button variant="primary" size="sm" onClick={() => setBaixaDialogAberto(true)}>
-              Dar Baixa
-            </Button>
-          )}
+          <div className="conta-pagar-detalhe-acoes">
+            {podeReceberBaixa && (
+              <Button variant="primary" size="sm" onClick={() => setBaixaDialogAberto(true)}>
+                Dar Baixa
+              </Button>
+            )}
+            {podeEditar && (
+              <Button variant="secondary" size="sm" onClick={() => setEditarAberto(true)}>
+                Editar
+              </Button>
+            )}
+            {podeCancelar && (
+              <Button variant="secondary" size="sm" onClick={() => setCancelarAberto(true)}>
+                Cancelar conta
+              </Button>
+            )}
+          </div>
 
           <h4 className="conta-pagar-detalhe-subtitulo">Baixas</h4>
 
@@ -245,6 +290,28 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         />
       )}
 
+      {conta && (
+        <EditarContaDialog
+          isOpen={editarAberto}
+          repository={repository}
+          tenantId={tenantId}
+          conta={conta}
+          categoriasAtivas={categoriasAtivas}
+          fornecedoresAtivos={fornecedoresAtivos}
+          onSalvar={handleEdicaoSalva}
+          onCancelar={() => setEditarAberto(false)}
+        />
+      )}
+
+      <CancelarContaDialog
+        isOpen={cancelarAberto}
+        repository={repository}
+        tenantId={tenantId}
+        payableId={payableId}
+        onCancelado={handleCancelamentoConcluido}
+        onFechar={() => setCancelarAberto(false)}
+      />
+
       <style>{`
         .conta-pagar-detalhe-skeleton {
           display: flex;
@@ -296,6 +363,12 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
 
         .dark-theme .conta-pagar-detalhe-info dd {
           color: var(--color-text-primary, #FFF1E6);
+        }
+
+        .conta-pagar-detalhe-acoes {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
         }
 
         .conta-pagar-detalhe-subtitulo {

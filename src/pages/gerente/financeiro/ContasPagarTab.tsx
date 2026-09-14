@@ -254,6 +254,8 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
           repository={repository}
           tenantId={tenantId}
           payableId={contaSelecionadaId}
+          categoriasAtivas={categoriasAtivas}
+          fornecedoresAtivos={fornecedoresAtivos}
           onClose={fecharDetalhe}
           onAtualizado={reload}
         />
