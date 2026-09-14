@@ -224,6 +224,122 @@
 }
 
 /* --------------------------------------------------------------------------
+   Gráfico (ticket 06): SVG feito à mão, rolagem horizontal só dentro do
+   próprio contêiner (nunca da página), inclusive no celular.
+   -------------------------------------------------------------------------- */
+.fluxo-caixa-grafico-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.fluxo-caixa-legenda-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: var(--radius-sm, 3px);
+}
+
+.fluxo-caixa-legenda-swatch--entrada {
+  background: var(--color-success, #2f9e44);
+}
+
+.fluxo-caixa-legenda-swatch--estimado {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-info, #3f83f8) 0,
+    var(--color-info, #3f83f8) 1.5px,
+    transparent 1.5px,
+    transparent 4px
+  );
+  background-color: rgba(63, 131, 248, 0.22);
+}
+
+.fluxo-caixa-legenda-swatch--saida {
+  background: var(--color-danger, #c0392b);
+  opacity: 0.75;
+}
+
+.fluxo-caixa-legenda-linha {
+  display: inline-block;
+  width: 1.1rem;
+  height: 2px;
+  background: var(--color-text-primary);
+}
+
+.fluxo-caixa-grafico-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.fluxo-caixa-grafico-grupo:focus-visible {
+  outline: 2px solid var(--color-info, #3f83f8);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Detalhamento do agrupamento (ticket 06): gaveta lateral.
+   -------------------------------------------------------------------------- */
+.fluxo-caixa-detalhe {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fluxo-caixa-detalhe-subtitulo {
+  margin: 0 0 0.5rem;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.fluxo-caixa-detalhe-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.fluxo-caixa-detalhe-lista > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: var(--font-size-sm);
+}
+
+.fluxo-caixa-detalhe-lista dt {
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-detalhe-lista dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.fluxo-caixa-detalhe-vazio {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-detalhe-meta {
+  margin: 0.35rem 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+/* --------------------------------------------------------------------------
    Tabela: uma linha por agrupamento, cartões abaixo de 768px
    -------------------------------------------------------------------------- */
 .fluxo-caixa-tabela-panel {
@@ -254,6 +370,19 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.fluxo-caixa-tabela-linha-clicavel {
+  cursor: pointer;
+}
+
+.fluxo-caixa-tabela-linha-clicavel:hover {
+  background: var(--color-bg-primary);
+}
+
+.fluxo-caixa-tabela-linha-clicavel:focus-visible {
+  outline: 2px solid var(--color-info, #3f83f8);
+  outline-offset: -2px;
 }
 
 .fluxo-caixa-kind {

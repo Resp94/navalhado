@@ -151,4 +151,43 @@ describe('FluxoCaixaTab (adaptador simulado)', () => {
     });
     expect(screen.queryByText(/Saldo projetado/i)).not.toBeInTheDocument();
   });
+
+  it('tocar num agrupamento na tabela abre o detalhamento em gaveta lateral (ticket 06/037)', async () => {
+    const resposta = respostaBase({
+      buckets: [
+        {
+          start_date: '2026-06-16',
+          end_date: '2026-06-16',
+          kind: 'future',
+          inflow_realized: 120,
+          inflow_estimated: 30,
+          outflow_realized: 40,
+          pending_flow: 110,
+          detail: {
+            inflow_by_method: { dinheiro: 20, pix: 100, cartao: 0, outros: 0 },
+            payouts_by_professional: [{ professional_id: 'p1', professional_name: 'Ana', amount: 40 }],
+            advances_by_professional: [],
+            estimated_days: 1,
+            closed_days: 0,
+          },
+        },
+      ],
+    });
+
+    const repository = new FluxoCaixaRepository(new FakeFluxoCaixaAdapter(resposta));
+    render(<FluxoCaixaTab repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /Ver detalhamento de 16\/06/i }).length).toBeGreaterThan(0);
+    });
+
+    expect(screen.queryByText('Quitações de Comissão por profissional')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Ver detalhamento de 16\/06/i })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Quitações de Comissão por profissional')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+  });
 });

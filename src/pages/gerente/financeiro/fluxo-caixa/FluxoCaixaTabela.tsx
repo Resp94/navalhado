@@ -8,6 +8,7 @@ export interface FluxoCaixaTabelaProps {
   buckets: FluxoCaixaBucket[];
   curva: FluxoCaixaCurva | null;
   loading: boolean;
+  onSelecionarBucket: (index: number) => void;
 }
 
 const KIND_LABELS: Record<FluxoCaixaBucketKind, string> = {
@@ -34,7 +35,7 @@ function formatBucketRange(bucket: FluxoCaixaBucket): string {
  * celular vira lista de cartões pela mesma composição responsiva (CSS em
  * FluxoCaixa.css), sem "MobileView" separada.
  */
-export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, curva, loading }) => {
+export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, curva, loading, onSelecionarBucket }) => {
   return (
     <section className="card-panel fluxo-caixa-tabela-panel" aria-label="Agrupamentos do fluxo de caixa projetado">
       <h3 className="card-panel-title">Agrupamentos do período</h3>
@@ -63,7 +64,20 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, cur
               const saldo = curva?.pontos[index]?.saldo ?? null;
               const negativo = curva?.primeiroNegativoIndex !== null && (curva?.primeiroNegativoIndex ?? -1) <= index;
               return (
-                <tr key={`${bucket.start_date}-${bucket.end_date}`}>
+                <tr
+                  key={`${bucket.start_date}-${bucket.end_date}`}
+                  className="fluxo-caixa-tabela-linha-clicavel"
+                  onClick={() => onSelecionarBucket(index)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Ver detalhamento de ${formatBucketRange(bucket)}`}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelecionarBucket(index);
+                    }
+                  }}
+                >
                   <td data-label="Período">{formatBucketRange(bucket)}</td>
                   <td data-label="Classificação">
                     <span className={`fluxo-caixa-kind fluxo-caixa-kind--${bucket.kind}`}>

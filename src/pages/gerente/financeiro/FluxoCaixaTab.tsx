@@ -18,7 +18,9 @@ import { parseCurrencyInput } from '../../../lib/currency';
 import type { FluxoCaixaGranularity } from '../../../modules/fluxo-caixa/types';
 import { FluxoCaixaFiltros } from './fluxo-caixa/FluxoCaixaFiltros';
 import { FluxoCaixaResumo } from './fluxo-caixa/FluxoCaixaResumo';
+import { FluxoCaixaGrafico } from './fluxo-caixa/FluxoCaixaGrafico';
 import { FluxoCaixaTabela } from './fluxo-caixa/FluxoCaixaTabela';
+import { FluxoCaixaDetalheDrawer } from './fluxo-caixa/FluxoCaixaDetalheDrawer';
 import './fluxo-caixa/FluxoCaixa.css';
 
 type ShortcutOrCustom = FluxoCaixaPeriodShortcutId | 'custom';
@@ -61,6 +63,11 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
   // enviado ao banco, nunca posto na URL nem em armazenamento do navegador.
   // Zero é lido como "não informado".
   const [saldoInformadoInput, setSaldoInformadoInput] = useState('');
+
+  // Índice do agrupamento aberto no detalhamento (ticket 06): a gaveta lê
+  // direto do bucket já carregado, sem repositório próprio nem nova ida à
+  // rede. `null` fecha a gaveta.
+  const [bucketSelecionadoIndex, setBucketSelecionadoIndex] = useState<number | null>(null);
 
   const [defaultRepository] = useState(() => new FluxoCaixaRepository(new SupabaseFluxoCaixaAdapter()));
   const repository = injectedRepository || defaultRepository;
@@ -166,7 +173,19 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
         loading={loading}
       />
 
-      <FluxoCaixaTabela buckets={buckets} curva={curva} loading={loading} />
+      <FluxoCaixaGrafico buckets={buckets} curva={curva} onSelecionarBucket={setBucketSelecionadoIndex} />
+
+      <FluxoCaixaTabela
+        buckets={buckets}
+        curva={curva}
+        loading={loading}
+        onSelecionarBucket={setBucketSelecionadoIndex}
+      />
+
+      <FluxoCaixaDetalheDrawer
+        bucket={bucketSelecionadoIndex !== null ? buckets[bucketSelecionadoIndex] || null : null}
+        onClose={() => setBucketSelecionadoIndex(null)}
+      />
     </div>
   );
 };
