@@ -6,6 +6,7 @@ import {
   Coins01Icon,
   ChartLineData01Icon,
   Invoice01Icon,
+  CreditCardIcon,
 } from '@hugeicons/core-free-icons';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import '../Financeiro.css';
@@ -63,6 +64,14 @@ export const FinanceiroHub: React.FC = () => {
         >
           <HugeiconsIcon icon={Invoice01Icon} size={18} />
           Plano de contas
+        </NavLink>
+
+        <NavLink
+          to="/financeiro/contas-a-pagar"
+          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
+        >
+          <HugeiconsIcon icon={CreditCardIcon} size={18} />
+          Contas a pagar
         </NavLink>
 
         <NavLink

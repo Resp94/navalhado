@@ -30,71 +30,97 @@ Contas a Pagar", "Interface" e "ADR e vocabulário".
 
 **Blocked by:** 035/06 — Cadastro de Fornecedores.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Tabela de Conta a Pagar separada dos movimentos de caixa, com: descrição; Categoria de
+- [x] Tabela de Conta a Pagar separada dos movimentos de caixa, com: descrição; Categoria de
       Despesa obrigatória e Fornecedor opcional, ambos por chave estrangeira composta sobre tenant
       e identificador; valor com duas casas e maior que zero; valor baixado entre zero e o valor;
       estado (`open`, `partially_paid`, `paid`, `cancelled`); vencimento; competência; número do
       documento; observação; Série e posição na Série (ambas nulas ou ambas preenchidas, sem chave
       estrangeira até o ticket 11); autor e momento de criação, da última edição e do cancelamento
       com motivo.
-- [ ] Restrição amarra estado e valor baixado: `open` sem nada baixado; `partially_paid` com
+- [x] Restrição amarra estado e valor baixado: `open` sem nada baixado; `partially_paid` com
       valor baixado entre zero e o valor; `paid` com valor baixado igual ao valor; `cancelled` sem
       nada baixado. A trilha de cancelamento é preenchida se e somente se o estado é cancelado.
-- [ ] RPC de criação de conta avulsa exige Categoria de Despesa ativa e aceita Fornecedor ativo
+- [x] RPC de criação de conta avulsa exige Categoria de Despesa ativa e aceita Fornecedor ativo
       opcional, valida valores arredondados a duas casas com recusa de valor não numérico, grava
       competência igual ao vencimento quando não informada e registra autor e momento (histórias
       6, 7, 10 e 38).
-- [ ] Contrato de leitura da lista paginada no servidor: filtro por período de vencimento e estado
+- [x] Contrato de leitura da lista paginada no servidor: filtro por período de vencimento e estado
       padrão "todas exceto canceladas"; ordenação por vencimento e identificador; tamanho de página
       limitado no servidor; total de linhas na resposta; cada linha traz situação derivada, faixa
       de destaque, saldo restante, nomes de categoria e fornecedor e posição na Série.
-- [ ] O dia de negócio corrente é calculado no servidor a partir do fuso do tenant; nenhum
+- [x] O dia de negócio corrente é calculado no servidor a partir do fuso do tenant; nenhum
       contrato aceita "hoje" vindo do navegador (histórias 32 e 33).
-- [ ] Índices: todo FK indexado na criação (categoria, fornecedor, Série, autores); índice
+- [x] Índices: todo FK indexado na criação (categoria, fornecedor, Série, autores); índice
       composto por tenant e vencimento; índice parcial pelo mesmo par restrito a contas em aberto e
       parcialmente pagas (história 37).
-- [ ] Acesso: leitura só para administrador do SaaS ou gerente e proprietário do tenant, com
+- [x] Acesso: leitura só para administrador do SaaS ou gerente e proprietário do tenant, com
       contexto de autenticação em subconsulta; nenhuma política nem permissão de escrita direta;
       na tabela, tudo revogado de público, anônimo e autenticado e só leitura concedida ao
       autenticado (sem permissão de truncar); RPCs `security definer` com `search_path` vazio,
       revalidando papel e tenant, execução revogada de público e anônimo e concedida a autenticado
       e serviço. O proprietário recebe o mesmo tratamento das RPCs financeiras existentes.
-- [ ] Módulo de Contas a Pagar no padrão existente: interface de adaptador com métodos em
+- [x] Módulo de Contas a Pagar no padrão existente: interface de adaptador com métodos em
       português; repositório que valida entrada e devolve erro de validação próprio com mensagem
       em português; adaptador Supabase; hook que recebe o repositório por injeção e só instancia o
       padrão quando nada é injetado. Sem adaptador em memória.
-- [ ] Aba `/financeiro/contas-a-pagar` montada na estrutura de abas da 035, com barra de filtro de
+- [x] Aba `/financeiro/contas-a-pagar` montada na estrutura de abas da 035, com barra de filtro de
       período de vencimento própria (no calendário do fuso do tenant, e não o filtro do painel de
       Caixa e Comissões) e lista paginada.
-- [ ] A lista usa tabela em telas largas e cartões em largura de celular, no mesmo componente,
+- [x] A lista usa tabela em telas largas e cartões em largura de celular, no mesmo componente,
       escolhidos por ponto de quebra; a aba é alcançável no celular pela navegação de abas da 035
       (história 36).
-- [ ] As contas vencidas, as que vencem hoje e as que vencem nos próximos sete dias aparecem
+- [x] As contas vencidas, as que vencem hoje e as que vencem nos próximos sete dias aparecem
       destacadas (história 31).
-- [ ] Formulário de Conta a Pagar com casca de campos comuns e variante explícita de conta
+- [x] Formulário de Conta a Pagar com casca de campos comuns e variante explícita de conta
       avulsa, escolhida por controle segmentado, sem flags booleanas de modo.
-- [ ] Ao escolher Fornecedor, a categoria padrão dele preenche a Categoria de Despesa só se
+- [x] Ao escolher Fornecedor, a categoria padrão dele preenche a Categoria de Despesa só se
       estiver ativa e só se o gestor ainda não tiver escolhido categoria (história 8).
-- [ ] Profissional não vê a aba nem lê a tabela (história 39).
-- [ ] Criada a suíte pgTAP `29_contas_a_pagar`, cobrindo:
-  - [ ] categoria arquivada recusada no lançamento;
-  - [ ] a restrição de estado e valor baixado recusa gravação incoerente, mesmo como superusuário;
-  - [ ] situação vencida e faixas de destaque na fronteira do dia de negócio de um tenant com fuso
+- [x] Profissional não vê a aba nem lê a tabela (história 39).
+- [x] Criada a suíte pgTAP `29_contas_a_pagar`, cobrindo:
+  - [x] categoria arquivada recusada no lançamento;
+  - [x] a restrição de estado e valor baixado recusa gravação incoerente, mesmo como superusuário;
+  - [x] situação vencida e faixas de destaque na fronteira do dia de negócio de um tenant com fuso
         diferente de UTC;
-  - [ ] paginação estável;
-  - [ ] profissional não lê a tabela nem executa a escrita; gerente de outro tenant não lê nem
+  - [x] paginação estável;
+  - [x] profissional não lê a tabela nem executa a escrita; gerente de outro tenant não lê nem
         escreve.
-- [ ] Testes de repositório com adaptador simulado (validação e mensagens) e de adaptador
+- [x] Testes de repositório com adaptador simulado (validação e mensagens) e de adaptador
       simulando o cliente Supabase (mapeamento de parâmetros e resposta), no padrão dos módulos de
       Caixa e Comissões.
-- [ ] Teste próprio no nível da aba, com repositório injetado, cobrindo lançamento avulso e a
+- [x] Teste próprio no nível da aba, com repositório injetado, cobrindo lançamento avulso e a
       lista; componentes internos da aba não ganham arquivo de teste próprio.
-- [ ] ADR 020 escrita, registrando: Contas a Pagar como livro separado dos movimentos de caixa;
+- [x] ADR 020 escrita, registrando: Contas a Pagar como livro separado dos movimentos de caixa;
       Baixa pela gaveta como movimento de caixa vinculado à Baixa; apuração única do valor
       esperado da gaveta com sentido materializado no movimento; movimento de caixa escrito
       exclusivamente por RPC.
-- [ ] Glossário do projeto atualizado com Conta a Pagar, Conta a Pagar Vencida e data de
+- [x] Glossário do projeto atualizado com Conta a Pagar, Conta a Pagar Vencida e data de
       competência.
-- [ ] `npm run test` e `npm run test:db` verdes.
+- [x] `npm run test` e `npm run test:db` verdes.
+
+## Notas de implementação
+
+- Migration `supabase/migrations/20260913180000_livro_de_contas_a_pagar.sql` aplicada em três
+  partes no DEV via MCP `apply_migration` (tabela, `create_payable`, `list_payables`), verificada
+  ao vivo por `to_regclass`/`to_regprocedure` e commitada em `865c115`.
+- Módulo `src/modules/contas-pagar/` (types, repositório, adaptador Supabase, hook), formulário
+  `src/components/financeiro/ContaPagarForm.tsx`, aba `src/pages/gerente/financeiro/ContasPagarTab.tsx`
+  e rota/nav-link em `App.tsx`/`HubLayout.tsx` no mesmo padrão do Plano de Contas (035). Sem
+  adaptador em memória, por decisão já registrada em `src/modules/contas-pagar/types.ts`: as
+  regras que dariam profundidade a um adaptador falso vivem no banco.
+- Suíte pgTAP `supabase/tests/database/29_contas_a_pagar.test.sql` (42 asserções) validada ao vivo
+  no DEV via MCP `execute_sql` em transação `begin; ... rollback;` (técnica de empacotamento em
+  tabela temporária `__test_results`, por o MCP só devolver o resultado do último `select`), com
+  as 42 passando. O teste de fronteira do dia de negócio usa um tenant com fuso `America/Sao_Paulo`
+  (diferente de UTC) e calcula o dia de negócio esperado com a mesma fórmula da função, para não
+  depender de congelar o relógio.
+- Testes de front: `ContasPagarRepository.test.ts` (20 casos, adaptador `vi.fn()` simulado),
+  `SupabaseContasPagarAdapter.test.ts` (7 casos, cliente Supabase simulado) e
+  `ContasPagarTab.test.tsx` (5 casos, com um adaptador `IContasPagarAdapter` simulado escrito só
+  para este arquivo de teste — a mesma decisão de "sem adaptador em memória" do módulo, aplicada
+  também ao teste de tela). `npx tsc -b` e `npx oxlint` limpos nos arquivos novos e alterados.
+- Verificação visual em navegador não foi feita nesta sessão: não há `.claude/launch.json`
+  configurado para o servidor de desenvolvimento, e montar login autenticado de gerente para teste
+  manual ficou fora do escopo de tempo desta sessão. A cobertura de correção depende de
+  `tsc`/`oxlint`/`vitest`/pgTAP, não de teste manual em navegador.

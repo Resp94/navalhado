@@ -18,6 +18,7 @@ import { CaixaTab } from './pages/gerente/financeiro/CaixaTab';
 import { ComissoesTab } from './pages/gerente/financeiro/ComissoesTab';
 import { PlanoContasTab } from './pages/gerente/financeiro/PlanoContasTab';
 import { FluxoCaixaTab } from './pages/gerente/financeiro/FluxoCaixaTab';
+import { ContasPagarTab } from './pages/gerente/financeiro/ContasPagarTab';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -65,6 +66,9 @@ function App() {
                 <Route path="comissoes" element={<ComissoesTab />} />
               </Route>
               <Route path="cadastros" element={<PlanoContasTab />} />
+              {/* Contas a Pagar (spec 036, ticket 06): filtro de vencimento próprio,
+                  fora do layout do painel de Caixa e Comissões, como Plano de Contas. */}
+              <Route path="contas-a-pagar" element={<ContasPagarTab />} />
               {/* Fluxo de Caixa Projetado (spec 037): filtro de período próprio,
                   fora do layout do painel de Caixa e Comissões. */}
               <Route path="fluxo-de-caixa" element={<FluxoCaixaTab />} />
