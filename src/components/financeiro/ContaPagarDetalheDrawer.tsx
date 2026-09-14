@@ -8,6 +8,7 @@ import { BaixaDialog } from './BaixaDialog';
 import { EstornoBaixaDialog } from './EstornoBaixaDialog';
 import { EditarContaDialog } from './EditarContaDialog';
 import { CancelarContaDialog } from './CancelarContaDialog';
+import { EstenderSerieDialog } from './EstenderSerieDialog';
 import { ContasPagarRepository } from '../../modules/contas-pagar/ContasPagarRepository';
 import type {
   Baixa,
@@ -94,6 +95,7 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
   const [estornoAlvo, setEstornoAlvo] = useState<Baixa | null>(null);
   const [editarAberto, setEditarAberto] = useState(false);
   const [cancelarAberto, setCancelarAberto] = useState(false);
+  const [estenderAberto, setEstenderAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!isOpen || !payableId) return;
@@ -137,6 +139,12 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
 
   const handleCancelamentoConcluido = async () => {
     setCancelarAberto(false);
+    await carregar();
+    onAtualizado();
+  };
+
+  const handleExtensaoConcluida = async () => {
+    setEstenderAberto(false);
     await carregar();
     onAtualizado();
   };
@@ -231,6 +239,19 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
               </div>
             )}
           </dl>
+
+          {conta.seriesEndingSoon && conta.series_id && (
+            <div className="conta-pagar-detalhe-aviso-serie" role="status">
+              <p>
+                Esta Recorrência está perto de acabar
+                {conta.seriesLastDueDate && ` — última ocorrência vence em ${formatarData(conta.seriesLastDueDate)}`}
+                .
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => setEstenderAberto(true)}>
+                Estender Série
+              </Button>
+            </div>
+          )}
 
           <div className="conta-pagar-detalhe-acoes">
             {podeReceberBaixa && (
@@ -345,6 +366,17 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         onFechar={() => setCancelarAberto(false)}
       />
 
+      {conta?.series_id && (
+        <EstenderSerieDialog
+          isOpen={estenderAberto}
+          repository={repository}
+          tenantId={tenantId}
+          seriesId={conta.series_id}
+          onEstendida={handleExtensaoConcluida}
+          onFechar={() => setEstenderAberto(false)}
+        />
+      )}
+
       <style>{`
         .conta-pagar-detalhe-skeleton {
           display: flex;
@@ -395,6 +427,33 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         }
 
         .dark-theme .conta-pagar-detalhe-info dd {
+          color: var(--color-text-primary, #FFF1E6);
+        }
+
+        .conta-pagar-detalhe-aviso-serie {
+          background-color: var(--color-brand-lightest, #FFF1E6);
+          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
+          border-radius: var(--radius-md, 8px);
+          padding: 0.85rem;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+
+        .conta-pagar-detalhe-aviso-serie p {
+          margin: 0;
+          font-size: var(--font-size-sm, 0.875rem);
+          color: var(--color-text-primary, #2D231E);
+        }
+
+        .dark-theme .conta-pagar-detalhe-aviso-serie {
+          background-color: rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
+        }
+
+        .dark-theme .conta-pagar-detalhe-aviso-serie p {
           color: var(--color-text-primary, #FFF1E6);
         }
 

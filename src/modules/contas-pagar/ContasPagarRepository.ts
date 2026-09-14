@@ -15,6 +15,7 @@ import type {
   IContasPagarAdapter,
   ListaContasPagarResultado,
   OcorrenciaAtingidaSerie,
+  OcorrenciaPreviaExtensaoSerie,
   OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from './types';
@@ -505,5 +506,46 @@ export class ContasPagarRepository {
     }
 
     return this.adapter.cancelarSerie(tenantId, payableId, motivoNormalizado);
+  }
+
+  private validarAlcanceExtensao(seriesId: string, occurrences: number) {
+    if (!seriesId) {
+      throw new ContasPagarValidationError('Série é obrigatória.');
+    }
+    if (
+      !Number.isInteger(occurrences) ||
+      occurrences < OCORRENCIAS_MIN_RECORRENCIA ||
+      occurrences > OCORRENCIAS_MAX
+    ) {
+      throw new ContasPagarValidationError(
+        `A quantidade deve estar entre ${OCORRENCIAS_MIN_RECORRENCIA} e ${OCORRENCIAS_MAX}.`
+      );
+    }
+  }
+
+  async visualizarPreviaExtensaoSerie(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<OcorrenciaPreviaExtensaoSerie[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    this.validarAlcanceExtensao(seriesId, occurrences);
+
+    return this.adapter.visualizarPreviaExtensaoSerie(tenantId, seriesId, occurrences);
+  }
+
+  async estenderRecorrencia(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<ContaPagar[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    this.validarAlcanceExtensao(seriesId, occurrences);
+
+    return this.adapter.estenderRecorrencia(tenantId, seriesId, occurrences);
   }
 }

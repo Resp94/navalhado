@@ -73,6 +73,8 @@ function novoAdapter(): IContasPagarAdapter {
     criarParcelamento: vi.fn(),
     editarSerie: vi.fn(),
     cancelarSerie: vi.fn(),
+    visualizarPreviaExtensaoSerie: vi.fn(),
+    estenderRecorrencia: vi.fn(),
   };
 }
 
@@ -402,7 +404,7 @@ describe('ContasPagarRepository — obterConta', () => {
 
   it('delega ao adaptador e devolve o resultado', async () => {
     const adapter = novoAdapter();
-    const detalhe = { ...contaListada(), createdAt: '2026-09-13T10:00:00Z', createdBy: null, createdByName: null, updatedAt: '2026-09-13T10:00:00Z', updatedBy: null, updatedByName: null, cancelledAt: null, cancelledBy: null, cancelledByName: null, cancellationReason: null, seriesType: null, seriesPeriodicity: null, seriesOccurrencesCount: null };
+    const detalhe = { ...contaListada(), createdAt: '2026-09-13T10:00:00Z', createdBy: null, createdByName: null, updatedAt: '2026-09-13T10:00:00Z', updatedBy: null, updatedByName: null, cancelledAt: null, cancelledBy: null, cancelledByName: null, cancellationReason: null, seriesType: null, seriesPeriodicity: null, seriesOccurrencesCount: null, seriesEndingSoon: null, seriesLastDueDate: null };
     vi.mocked(adapter.obterConta).mockResolvedValueOnce(detalhe);
     const repository = new ContasPagarRepository(adapter);
 
@@ -1482,5 +1484,93 @@ describe('ContasPagarRepository — cancelarSerie', () => {
     const resultado = await repository.cancelarSerie('tenant-1', 'conta-4', 'contrato encerrado');
 
     expect(resultado).toBe(atingidas);
+  });
+});
+
+describe('ContasPagarRepository — visualizarPreviaExtensaoSerie', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.visualizarPreviaExtensaoSerie('', 'serie-1', 3)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.visualizarPreviaExtensaoSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa série ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.visualizarPreviaExtensaoSerie('tenant-1', '', 3)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.visualizarPreviaExtensaoSerie).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 61])('recusa quantidade fora de 1 a 60: %s', async (occurrences) => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaExtensaoSerie('tenant-1', 'serie-1', occurrences)
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.visualizarPreviaExtensaoSerie).not.toHaveBeenCalled();
+  });
+
+  it('delega ao adaptador', async () => {
+    const adapter = novoAdapter();
+    const previa = [{ seriesPosition: 3, dueDate: '2026-11-30', amount: 500 }];
+    vi.mocked(adapter.visualizarPreviaExtensaoSerie).mockResolvedValueOnce(previa);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.visualizarPreviaExtensaoSerie('tenant-1', 'serie-1', 3);
+
+    expect(adapter.visualizarPreviaExtensaoSerie).toHaveBeenCalledWith('tenant-1', 'serie-1', 3);
+    expect(resultado).toBe(previa);
+  });
+});
+
+describe('ContasPagarRepository — estenderRecorrencia', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.estenderRecorrencia('', 'serie-1', 3)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.estenderRecorrencia).not.toHaveBeenCalled();
+  });
+
+  it('recusa série ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.estenderRecorrencia('tenant-1', '', 3)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.estenderRecorrencia).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 61])('recusa quantidade fora de 1 a 60: %s', async (occurrences) => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(repository.estenderRecorrencia('tenant-1', 'serie-1', occurrences)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+    expect(adapter.estenderRecorrencia).not.toHaveBeenCalled();
+  });
+
+  it('delega ao adaptador e devolve as contas criadas', async () => {
+    const adapter = novoAdapter();
+    const criadas = [contaPagar({ id: 'conta-3' })];
+    vi.mocked(adapter.estenderRecorrencia).mockResolvedValueOnce(criadas);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.estenderRecorrencia('tenant-1', 'serie-1', 3);
+
+    expect(adapter.estenderRecorrencia).toHaveBeenCalledWith('tenant-1', 'serie-1', 3);
+    expect(resultado).toBe(criadas);
   });
 });

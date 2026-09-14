@@ -957,3 +957,93 @@ describe('SupabaseContasPagarAdapter — cancelarSerie', () => {
     );
   });
 });
+
+describe('SupabaseContasPagarAdapter — visualizarPreviaExtensaoSerie', () => {
+  it('chama preview_extend_recurring_payable_series com os parâmetros mapeados e traduz a resposta', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        { series_position: 3, due_date: '2026-11-30', amount: 500 },
+        { series_position: 4, due_date: '2026-12-30', amount: 500 },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.visualizarPreviaExtensaoSerie('tenant-1', 'serie-1', 2);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('preview_extend_recurring_payable_series', {
+      p_series_id: 'serie-1',
+      p_occurrences: 2,
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toEqual([
+      { seriesPosition: 3, dueDate: '2026-11-30', amount: 500 },
+      { seriesPosition: 4, dueDate: '2026-12-30', amount: 500 },
+    ]);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.visualizarPreviaExtensaoSerie('tenant-1', 'serie-1', 2);
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Parcelamento não pode ser estendido.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.visualizarPreviaExtensaoSerie('tenant-1', 'serie-1', 2)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});
+
+describe('SupabaseContasPagarAdapter — estenderRecorrencia', () => {
+  it('chama extend_recurring_payable_series com os parâmetros mapeados', async () => {
+    const supabase = novoSupabaseMock();
+    const contas = [{ id: 'conta-3' }, { id: 'conta-4' }];
+    supabase.rpc.mockResolvedValueOnce({ data: contas, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.estenderRecorrencia('tenant-1', 'serie-1', 2);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('extend_recurring_payable_series', {
+      p_series_id: 'serie-1',
+      p_occurrences: 2,
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toBe(contas);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.estenderRecorrencia('tenant-1', 'serie-1', 2);
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Parcelamento não pode ser estendido.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.estenderRecorrencia('tenant-1', 'serie-1', 2)).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});

@@ -88,6 +88,14 @@ export interface ContaPagarDetalhe extends ContaPagarListada {
   seriesType: TipoSerie | null;
   seriesPeriodicity: PeriodicidadeSerie | null;
   seriesOccurrencesCount: number | null;
+  /**
+   * Aviso de fim próximo (ticket 14/036): true quando a Série é uma
+   * Recorrência cuja última ocorrência não está cancelada e vence em até 60
+   * dias do dia de negócio do tenant. Sempre null/false num Parcelamento ou
+   * fora de uma Série.
+   */
+  seriesEndingSoon: boolean | null;
+  seriesLastDueDate: string | null;
 }
 
 /** Tipo de Série (ticket 11/036): Recorrência aqui, Parcelamento chega no ticket 12/036. */
@@ -227,6 +235,16 @@ export interface OcorrenciaAtingidaSerie {
   ignoreReason: string | null;
 }
 
+/**
+ * Uma linha da prévia de extensão de uma Recorrência (ticket 14/036): mesmo
+ * cálculo da extensão de fato, nunca replicado no navegador.
+ */
+export interface OcorrenciaPreviaExtensaoSerie {
+  seriesPosition: number;
+  dueDate: string;
+  amount: number;
+}
+
 export interface FiltroListaContasPagar {
   dueDateFrom?: string | null;
   dueDateTo?: string | null;
@@ -307,4 +325,14 @@ export interface IContasPagarAdapter {
     dados: DadosEdicaoSerie
   ): Promise<OcorrenciaAtingidaSerie[]>;
   cancelarSerie(tenantId: string, payableId: string, motivo: string): Promise<OcorrenciaAtingidaSerie[]>;
+  visualizarPreviaExtensaoSerie(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<OcorrenciaPreviaExtensaoSerie[]>;
+  estenderRecorrencia(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<ContaPagar[]>;
 }

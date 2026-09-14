@@ -19,6 +19,7 @@ import type {
   IContasPagarAdapter,
   ListaContasPagarResultado,
   OcorrenciaAtingidaSerie,
+  OcorrenciaPreviaExtensaoSerie,
   OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from '../types';
@@ -99,6 +100,8 @@ interface ContaPagarDetalheRow extends ListaContasPagarRow {
   series_type: ContaPagarDetalhe['seriesType'];
   series_periodicity: ContaPagarDetalhe['seriesPeriodicity'];
   series_occurrences_count: number | null;
+  series_ending_soon: boolean | null;
+  series_last_due_date: string | null;
 }
 
 function mapearLinhaDetalhe(row: ContaPagarDetalheRow): ContaPagarDetalhe {
@@ -117,6 +120,8 @@ function mapearLinhaDetalhe(row: ContaPagarDetalheRow): ContaPagarDetalhe {
     seriesType: row.series_type,
     seriesPeriodicity: row.series_periodicity,
     seriesOccurrencesCount: row.series_occurrences_count,
+    seriesEndingSoon: row.series_ending_soon,
+    seriesLastDueDate: row.series_last_due_date,
   };
 }
 
@@ -201,6 +206,15 @@ interface PreviaSerieRow {
 function mapearPreviaSerie(row: PreviaSerieRow): OcorrenciaPreviaSerie {
   return {
     position: row.series_position,
+    dueDate: row.due_date,
+    amount: Number(row.amount) || 0,
+  };
+}
+
+/** `preview_extend_recurring_payable_series` (ticket 14/036) devolve as mesmas colunas de `preview_payable_series`. */
+function mapearPreviaExtensaoSerie(row: PreviaSerieRow): OcorrenciaPreviaExtensaoSerie {
+  return {
+    seriesPosition: row.series_position,
     dueDate: row.due_date,
     amount: Number(row.amount) || 0,
   };
@@ -472,5 +486,35 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
 
     if (error) throw traduzirErro(error);
     return ((data as OcorrenciaAtingidaSerieRow[]) || []).map(mapearOcorrenciaAtingidaSerie);
+  }
+
+  async visualizarPreviaExtensaoSerie(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<OcorrenciaPreviaExtensaoSerie[]> {
+    const { data, error } = await this.supabase.rpc('preview_extend_recurring_payable_series', {
+      p_series_id: seriesId,
+      p_occurrences: occurrences,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return ((data as PreviaSerieRow[]) || []).map(mapearPreviaExtensaoSerie);
+  }
+
+  async estenderRecorrencia(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<ContaPagar[]> {
+    const { data, error } = await this.supabase.rpc('extend_recurring_payable_series', {
+      p_series_id: seriesId,
+      p_occurrences: occurrences,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return (data as ContaPagar[]) || [];
   }
 }

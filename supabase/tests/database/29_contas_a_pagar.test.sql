@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(194);
+select plan(216);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
@@ -22,7 +22,10 @@ select plan(194);
 -- 20260914130000_parcelamento_com_residuo_na_ultima_parcela.sql. Ticket 13:
 -- update_payable_series e cancel_payable_series ("esta e as seguintes em
 -- aberto"), migration 20260914140000_edicao_e_cancelamento_em_serie.sql
--- (e o fix 20260914140001, id ambiguo por causa do returns table).
+-- (e o fix 20260914140001, id ambiguo por causa do returns table). Ticket 14:
+-- aviso de fim proximo (get_payable com series_ending_soon/series_last_due_date)
+-- e extend_recurring_payable_series/preview_extend_recurring_payable_series,
+-- migration 20260914150000_aviso_de_fim_proximo_e_extensao_da_recorrencia.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -2045,6 +2048,252 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao edita em serie informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 14/036: aviso de fim proximo e extensao da Recorrencia. Contexto
+-- proprio (ticket29m_context).
+-- ---------------------------------------------------------------------------
+create temporary table ticket29m_context (
+  tenant_a_id uuid not null,
+  tenant_b_id uuid not null,
+  gerente_a_id uuid not null,
+  barbeiro_a_id uuid not null,
+  gerente_b_id uuid not null,
+  categoria_id uuid not null
+) on commit drop;
+
+with ta as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29m_tenant_a__', '__ticket29m_tenant_a__@teste.com', '11999999201', 'America/Sao_Paulo')
+  returning id
+), tb as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29m_tenant_b__', '__ticket29m_tenant_b__@teste.com', '11999999202', 'America/Sao_Paulo')
+  returning id
+), au_gerente_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29m_gerente_a__@teste.com') returning id
+), au_barbeiro_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29m_barbeiro_a__@teste.com') returning id
+), au_gerente_b as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29m_gerente_b__@teste.com') returning id
+), cat as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29m Categoria' from ta returning id
+)
+insert into ticket29m_context (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id, gerente_b_id, categoria_id)
+select ta.id, tb.id, au_gerente_a.id, au_barbeiro_a.id, au_gerente_b.id, cat.id
+from ta, tb, au_gerente_a, au_barbeiro_a, au_gerente_b, cat;
+
+update public.users set tenant_id = (select tenant_a_id from ticket29m_context), role = 'gerente', is_active = true where id = (select gerente_a_id from ticket29m_context);
+update public.users set tenant_id = (select tenant_a_id from ticket29m_context), role = 'barbeiro', is_active = true where id = (select barbeiro_a_id from ticket29m_context);
+update public.users set tenant_id = (select tenant_b_id from ticket29m_context), role = 'gerente', is_active = true where id = (select gerente_b_id from ticket29m_context);
+grant select on ticket29m_context to authenticated;
+
+select has_function(
+  'public', 'extend_recurring_payable_series', array['uuid', 'integer', 'uuid'],
+  'public.extend_recurring_payable_series(...) existe'
+);
+select has_function(
+  'public', 'preview_extend_recurring_payable_series', array['uuid', 'integer', 'uuid'],
+  'public.preview_extend_recurring_payable_series(...) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.extend_recurring_payable_series(uuid,integer,uuid)'::regprocedure),
+  'extend_recurring_payable_series fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.preview_extend_recurring_payable_series(uuid,integer,uuid)'::regprocedure),
+  'preview_extend_recurring_payable_series fixa search_path vazio'
+);
+select ok(
+  has_function_privilege('service_role', 'public.extend_recurring_payable_series(uuid,integer,uuid)', 'EXECUTE'),
+  'service_role executa extend_recurring_payable_series'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29m_context), true);
+set local role authenticated;
+
+-- Recorrencia ancorada perto de hoje: a ultima ocorrencia (2a) vence dentro de 60 dias.
+create temporary table ticket29m_ocorrencias (id uuid, series_position integer, series_id uuid) on commit drop;
+grant select, insert on ticket29m_ocorrencias to authenticated;
+insert into ticket29m_ocorrencias (id, series_position, series_id)
+select id, series_position, series_id from public.create_recurring_payable_series(
+  'Ticket29m Aluguel', (select categoria_id from ticket29m_context), 'monthly', (current_date + 10)::date, 2, 500
+);
+
+select is(
+  (select series_ending_soon from public.get_payable((select id from ticket29m_ocorrencias where series_position = 1))),
+  true,
+  'Serie com ultima ocorrencia nao cancelada vencendo em ate 60 dias mostra aviso de fim proximo'
+);
+
+-- Edita "esta e as seguintes" a partir da posicao 1: reajusta valor e descricao.
+select public.update_payable_series(
+  (select id from ticket29m_ocorrencias where series_position = 1),
+  'Ticket29m Aluguel Reajustado', (select categoria_id from ticket29m_context), null, null, 700
+);
+
+-- Previa da extensao: 3 ocorrencias novas, posicoes 3, 4 e 5, valor herdado do reajuste.
+create temporary table ticket29m_previa (position integer, due_date date, amount numeric) on commit drop;
+grant select, insert on ticket29m_previa to authenticated;
+insert into ticket29m_previa (position, due_date, amount)
+select series_position, due_date, amount from public.preview_extend_recurring_payable_series(
+  (select series_id from ticket29m_ocorrencias limit 1), 3
+);
+
+select is(
+  (select array_agg(position order by position) from ticket29m_previa), array[3, 4, 5],
+  'a previa da extensao continua as posicoes a partir da maior ja existente'
+);
+select is(
+  (select array_agg(amount order by position) from ticket29m_previa), array[700, 700, 700]::numeric[],
+  'a previa da extensao herda o valor reajustado da ultima ocorrencia nao cancelada'
+);
+
+create temporary table ticket29m_estendidas (id uuid, series_position integer, due_date date, amount numeric, description text, category_id uuid) on commit drop;
+grant select, insert on ticket29m_estendidas to authenticated;
+insert into ticket29m_estendidas (id, series_position, due_date, amount, description, category_id)
+select id, series_position, due_date, amount, description, category_id from public.extend_recurring_payable_series(
+  (select series_id from ticket29m_ocorrencias limit 1), 3
+);
+
+select is(
+  (select count(*)::integer from ticket29m_estendidas), 3,
+  'extend_recurring_payable_series gera a quantidade pedida de ocorrencias novas'
+);
+select is(
+  (select array_agg(due_date order by position) from ticket29m_previa),
+  (select array_agg(due_date order by series_position) from ticket29m_estendidas),
+  'a previa da extensao devolve as mesmas datas das ocorrencias efetivamente criadas'
+);
+select is(
+  (select array_agg(amount order by series_position) from ticket29m_estendidas), array[700, 700, 700]::numeric[],
+  'todas as ocorrencias estendidas herdam o valor reajustado'
+);
+select is(
+  (select count(distinct description)::integer from ticket29m_estendidas), 1,
+  'todas as ocorrencias estendidas herdam a mesma descricao reajustada'
+);
+select is(
+  (select description from ticket29m_estendidas limit 1), 'Ticket29m Aluguel Reajustado',
+  'a descricao herdada e a da ultima ocorrencia nao cancelada'
+);
+
+-- Cancela a ultima ocorrencia (posicao 5): a Serie deixa de mostrar aviso mesmo perto do fim.
+select public.cancel_payable_series(
+  (select id from ticket29m_estendidas where series_position = 5), 'Cancelamento de teste'
+);
+select is(
+  (select series_ending_soon from public.get_payable((select id from ticket29m_ocorrencias where series_position = 1))),
+  false,
+  'Serie com a ultima ocorrencia cancelada nao mostra aviso de fim proximo'
+);
+
+-- Fronteira de 60 dias: ancora aos 61 dias nao mostra aviso; aos 60 dias mostra.
+create temporary table ticket29m_fronteira_longe (id uuid) on commit drop;
+grant select, insert on ticket29m_fronteira_longe to authenticated;
+insert into ticket29m_fronteira_longe (id)
+select id from public.create_recurring_payable_series(
+  'Ticket29m Fronteira Longe', (select categoria_id from ticket29m_context), 'monthly', (current_date + 61)::date, 1, 500
+);
+select is(
+  (select series_ending_soon from public.get_payable((select id from ticket29m_fronteira_longe limit 1))),
+  false,
+  'Serie de ocorrencia unica vencendo em 61 dias nao mostra aviso'
+);
+
+create temporary table ticket29m_fronteira_perto (id uuid) on commit drop;
+grant select, insert on ticket29m_fronteira_perto to authenticated;
+insert into ticket29m_fronteira_perto (id)
+select id from public.create_recurring_payable_series(
+  'Ticket29m Fronteira Perto', (select categoria_id from ticket29m_context), 'monthly', (current_date + 60)::date, 1, 500
+);
+select is(
+  (select series_ending_soon from public.get_payable((select id from ticket29m_fronteira_perto limit 1))),
+  true,
+  'Serie de ocorrencia unica vencendo em exatamente 60 dias mostra aviso'
+);
+
+-- Extensao de Parcelamento e recusada, previa e criacao.
+create temporary table ticket29m_parcelas (id uuid, series_id uuid) on commit drop;
+grant select, insert on ticket29m_parcelas to authenticated;
+insert into ticket29m_parcelas (id, series_id)
+select id, series_id from public.create_installment_payable_series(
+  'Ticket29m Parcelamento', (select categoria_id from ticket29m_context), 'monthly', current_date, 2, 100
+);
+select throws_ok(
+  format(
+    $$select * from public.extend_recurring_payable_series('%s'::uuid, 2)$$,
+    (select series_id from ticket29m_parcelas limit 1)
+  ),
+  '22023',
+  'Parcelamento não pode ser estendido.',
+  'extensao de Parcelamento e recusada'
+);
+select throws_ok(
+  format(
+    $$select * from public.preview_extend_recurring_payable_series('%s'::uuid, 2)$$,
+    (select series_id from ticket29m_parcelas limit 1)
+  ),
+  '22023',
+  'Parcelamento não pode ser estendido.',
+  'previa de extensao de Parcelamento e recusada'
+);
+
+-- Quantidade fora de 1 a 60 recusada.
+select throws_ok(
+  format(
+    $$select * from public.extend_recurring_payable_series('%s'::uuid, 0)$$,
+    (select series_id from ticket29m_ocorrencias limit 1)
+  ),
+  '22023',
+  'A quantidade deve estar entre 1 e 60.',
+  'extensao recusa quantidade zero'
+);
+select throws_ok(
+  format(
+    $$select * from public.extend_recurring_payable_series('%s'::uuid, 61)$$,
+    (select series_id from ticket29m_ocorrencias limit 1)
+  ),
+  '22023',
+  'A quantidade deve estar entre 1 e 60.',
+  'extensao recusa quantidade acima de 60'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29m_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select * from public.extend_recurring_payable_series('%s'::uuid, 2)$$,
+    (select series_id from ticket29m_ocorrencias limit 1)
+  ),
+  '42501',
+  'Acesso negado para gerenciar Contas a Pagar.',
+  'profissional e recusado ao tentar estender'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29m_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select * from public.extend_recurring_payable_series('%s'::uuid, 2, '%s'::uuid)$$,
+    (select series_id from ticket29m_ocorrencias limit 1),
+    (select tenant_a_id from ticket29m_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao estende Serie informando o tenant A explicitamente'
 );
 
 reset role;

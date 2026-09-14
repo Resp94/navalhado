@@ -23,6 +23,7 @@ import type {
   IContasPagarAdapter,
   ListaContasPagarResultado,
   OcorrenciaAtingidaSerie,
+  OcorrenciaPreviaExtensaoSerie,
   OcorrenciaPreviaSerie,
   PeriodicidadeSerie,
   TipoSerie,
@@ -108,7 +109,10 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
   private categorias: CategoriaDespesa[];
   private fornecedores: Fornecedor[];
   private baixasPorConta: Record<string, Baixa[]> = {};
-  private seriesInfo: Record<string, { type: TipoSerie; periodicity: PeriodicidadeSerie }> = {};
+  private seriesInfo: Record<
+    string,
+    { type: TipoSerie; periodicity: PeriodicidadeSerie; anchorDate: string }
+  > = {};
   private proximoId = 1;
   private proximoIdBaixa = 1;
 
@@ -195,8 +199,20 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       throw new Error('Conta a pagar não encontrada.');
     }
     const serie = conta.series_id ? this.seriesInfo[conta.series_id] : undefined;
-    const seriesOccurrencesCount = conta.series_id
-      ? this.contas.filter((item) => item.series_id === conta.series_id).length
+    const ocorrenciasDaSerie = conta.series_id
+      ? this.contas.filter((item) => item.series_id === conta.series_id)
+      : [];
+    const seriesOccurrencesCount = conta.series_id ? ocorrenciasDaSerie.length : null;
+    const ultimaOcorrencia = ocorrenciasDaSerie.length
+      ? [...ocorrenciasDaSerie].sort((a, b) => (b.series_position ?? 0) - (a.series_position ?? 0))[0]
+      : undefined;
+    const hojeMaisSessentaDias = new Date();
+    hojeMaisSessentaDias.setDate(hojeMaisSessentaDias.getDate() + 60);
+    const seriesEndingSoon = conta.series_id
+      ? serie?.type === 'recurring' &&
+        !!ultimaOcorrencia &&
+        ultimaOcorrencia.status !== 'cancelled' &&
+        ultimaOcorrencia.due_date <= hojeMaisSessentaDias.toISOString().slice(0, 10)
       : null;
     return {
       ...conta,
@@ -213,6 +229,8 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       seriesType: serie?.type ?? null,
       seriesPeriodicity: serie?.periodicity ?? null,
       seriesOccurrencesCount,
+      seriesEndingSoon,
+      seriesLastDueDate: ultimaOcorrencia?.due_date ?? null,
     };
   }
 
@@ -412,7 +430,11 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       ? this.fornecedores.find((item) => item.id === dados.supplierId)
       : undefined;
     const seriesId = `serie-${this.proximoId}`;
-    this.seriesInfo[seriesId] = { type: 'recurring', periodicity: dados.periodicity };
+    this.seriesInfo[seriesId] = {
+      type: 'recurring',
+      periodicity: dados.periodicity,
+      anchorDate: dados.anchorDate,
+    };
     const criadas: ContaPagar[] = [];
 
     for (let position = 1; position <= dados.occurrences; position++) {
@@ -475,7 +497,11 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       ? this.fornecedores.find((item) => item.id === dados.supplierId)
       : undefined;
     const seriesId = `serie-${this.proximoId}`;
-    this.seriesInfo[seriesId] = { type: 'installment', periodicity: dados.periodicity };
+    this.seriesInfo[seriesId] = {
+      type: 'installment',
+      periodicity: dados.periodicity,
+      anchorDate: dados.anchorDate,
+    };
     const competenceDate = dados.competenceDate || dados.anchorDate;
     const share = Math.trunc(dados.totalAmount * 100 / dados.occurrences) / 100;
     const lastShare = Math.round((dados.totalAmount - share * (dados.occurrences - 1)) * 100) / 100;
@@ -640,6 +666,104 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
         ignoreReason,
       };
     });
+  }
+
+  private calcularExtensao(seriesId: string, occurrences: number) {
+    const serie = this.seriesInfo[seriesId];
+    const ocorrenciasDaSerie = this.contas.filter((item) => item.series_id === seriesId);
+    const ultimaAtiva = [...ocorrenciasDaSerie]
+      .filter((item) => item.status !== 'cancelled')
+      .sort((a, b) => (b.series_position ?? 0) - (a.series_position ?? 0))[0];
+    if (!serie || !ultimaAtiva) {
+      throw new Error('Não há ocorrência ativa nesta Série para basear a extensão.');
+    }
+    const maxPosition = Math.max(...ocorrenciasDaSerie.map((item) => item.series_position ?? 0));
+    const categoria = this.categorias.find((item) => item.id === ultimaAtiva.category_id);
+    const fornecedor = ultimaAtiva.supplier_id
+      ? this.fornecedores.find((item) => item.id === ultimaAtiva.supplier_id)
+      : undefined;
+
+    const novas = Array.from({ length: occurrences }, (_, index) => {
+      const position = maxPosition + index + 1;
+      const dueDate = computeDueDateFake(serie.anchorDate, serie.periodicity, position);
+      return { position, dueDate };
+    });
+
+    return { serie, ultimaAtiva, categoria, fornecedor, novas };
+  }
+
+  async visualizarPreviaExtensaoSerie(
+    _tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<OcorrenciaPreviaExtensaoSerie[]> {
+    const { ultimaAtiva, novas } = this.calcularExtensao(seriesId, occurrences);
+    return novas.map(({ position, dueDate }) => ({
+      seriesPosition: position,
+      dueDate,
+      amount: ultimaAtiva.amount,
+    }));
+  }
+
+  async estenderRecorrencia(
+    tenantId: string,
+    seriesId: string,
+    occurrences: number
+  ): Promise<ContaPagar[]> {
+    const { ultimaAtiva, categoria, fornecedor, novas } = this.calcularExtensao(seriesId, occurrences);
+    const criadas: ContaPagar[] = [];
+
+    for (const { position, dueDate } of novas) {
+      const id = `conta-${this.proximoId++}`;
+      this.contas.push({
+        id,
+        description: ultimaAtiva.description,
+        category_id: ultimaAtiva.category_id,
+        category_name: categoria?.name || ultimaAtiva.category_name,
+        category_archived: false,
+        supplier_id: ultimaAtiva.supplier_id,
+        supplier_name: fornecedor?.name || null,
+        supplier_archived: null,
+        amount: ultimaAtiva.amount,
+        paid_amount: 0,
+        remaining_amount: ultimaAtiva.amount,
+        status: 'open',
+        situation: 'open',
+        highlight: null,
+        due_date: dueDate,
+        competence_date: dueDate,
+        document_number: null,
+        notes: null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+      });
+      criadas.push({
+        id,
+        tenant_id: tenantId,
+        description: ultimaAtiva.description,
+        category_id: ultimaAtiva.category_id,
+        supplier_id: ultimaAtiva.supplier_id,
+        amount: ultimaAtiva.amount,
+        paid_amount: 0,
+        status: 'open',
+        due_date: dueDate,
+        competence_date: dueDate,
+        document_number: null,
+        notes: null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+        created_by: 'user-1',
+        updated_at: '2026-09-14T10:00:00Z',
+        updated_by: 'user-1',
+        cancelled_at: null,
+        cancelled_by: null,
+        cancellation_reason: null,
+      });
+    }
+
+    return criadas;
   }
 }
 
@@ -1383,4 +1507,68 @@ describe('ContasPagarTab (adaptador simulado)', () => {
       expect(screen.queryByRole('button', { name: 'Cancelar conta' })).not.toBeInTheDocument();
     });
   });
+
+  it('mostra o aviso de fim próximo e estende a Recorrência (ticket 14/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    const hoje = new Date();
+    const ancora = new Date(hoje.getTime());
+    ancora.setDate(ancora.getDate() + 5);
+    const ancoraIso = ancora.toISOString().slice(0, 10);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel curto' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '900' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira ocorrência'), {
+      target: { value: ancoraIso },
+    });
+    fireEvent.change(screen.getByLabelText('Periodicidade'), { target: { value: 'monthly' } });
+    fireEvent.change(screen.getByLabelText('Quantidade de ocorrências'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Recorrência' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel curto').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel curto')[0]);
+    await screen.findByText('Detalhe da conta a pagar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Estender Série' }));
+    await screen.findByRole('heading', { name: 'Estender Recorrência' });
+
+    fireEvent.change(screen.getByLabelText('Quantidade de novas ocorrências'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ver prévia das ocorrências' }));
+
+    const previa = await screen.findByLabelText('Prévia da extensão');
+    await waitFor(() => {
+      expect(within(previa).getAllByRole('listitem')).toHaveLength(2);
+    });
+    expect(within(previa).getByText('3ª ocorrência')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar extensão' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Estender Recorrência' })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel curto').length).toBeGreaterThanOrEqual(4);
+    });
+  }, 20000);
 });
