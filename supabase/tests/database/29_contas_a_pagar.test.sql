@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(128);
+select plan(155);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
@@ -12,7 +12,11 @@ select plan(128);
 -- sem Baixa ativa), migration 20260914100000_editar_e_cancelar_conta_a_pagar.sql.
 -- Ticket 09: filtro de categoria/fornecedor em list_payables,
 -- get_payables_totals e get_payables_alert, migration
--- 20260914110000_filtros_totais_e_alerta_de_vencidas.sql.
+-- 20260914110000_filtros_totais_e_alerta_de_vencidas.sql. Ticket 11: tabela
+-- payable_series, calendario ancorado (private.compute_series_due_date),
+-- preview_payable_series, create_recurring_payable_series e get_payable
+-- com resumo da Serie, migration
+-- 20260914120000_recorrencia_com_calendario_ancorado_e_previa.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -1387,6 +1391,232 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao consulta alerta informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 11/036: Serie (Recorrencia), calendario ancorado e previa. Contexto
+-- proprio (ticket29j_context), para nao depender do estado mutado pelas
+-- secoes anteriores.
+-- ---------------------------------------------------------------------------
+create temporary table ticket29j_context (
+  tenant_a_id uuid not null,
+  tenant_b_id uuid not null,
+  gerente_a_id uuid not null,
+  barbeiro_a_id uuid not null,
+  gerente_b_id uuid not null,
+  categoria_id uuid not null
+) on commit drop;
+
+with ta as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29j_tenant_a__', '__ticket29j_tenant_a__@teste.com', '11999998701', 'America/Sao_Paulo')
+  returning id
+), tb as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29j_tenant_b__', '__ticket29j_tenant_b__@teste.com', '11999998702', 'America/Sao_Paulo')
+  returning id
+), au_gerente_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29j_gerente_a__@teste.com') returning id
+), au_barbeiro_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29j_barbeiro_a__@teste.com') returning id
+), au_gerente_b as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29j_gerente_b__@teste.com') returning id
+), cat as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29j Categoria' from ta returning id
+)
+insert into ticket29j_context (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id, gerente_b_id, categoria_id)
+select ta.id, tb.id, au_gerente_a.id, au_barbeiro_a.id, au_gerente_b.id, cat.id
+from ta, tb, au_gerente_a, au_barbeiro_a, au_gerente_b, cat;
+
+update public.users set tenant_id = (select tenant_a_id from ticket29j_context), role = 'gerente', is_active = true where id = (select gerente_a_id from ticket29j_context);
+update public.users set tenant_id = (select tenant_a_id from ticket29j_context), role = 'barbeiro', is_active = true where id = (select barbeiro_a_id from ticket29j_context);
+update public.users set tenant_id = (select tenant_b_id from ticket29j_context), role = 'gerente', is_active = true where id = (select gerente_b_id from ticket29j_context);
+grant select on ticket29j_context to authenticated;
+
+select has_table('public', 'payable_series', 'tabela payable_series existe');
+select has_function(
+  'public', 'preview_payable_series', array['text', 'text', 'date', 'integer', 'numeric', 'uuid'],
+  'public.preview_payable_series(...) existe'
+);
+select has_function(
+  'public', 'create_recurring_payable_series',
+  array['text', 'uuid', 'text', 'date', 'integer', 'numeric', 'uuid', 'text', 'text', 'uuid'],
+  'public.create_recurring_payable_series(...) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.preview_payable_series(text,text,date,integer,numeric,uuid)'::regprocedure),
+  'preview_payable_series fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.create_recurring_payable_series(text,uuid,text,date,integer,numeric,uuid,text,text,uuid)'::regprocedure),
+  'create_recurring_payable_series fixa search_path vazio'
+);
+select ok(
+  not has_table_privilege('anon', 'public.payable_series', 'SELECT'),
+  'anon nao tem privilegio de SELECT em payable_series'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.payable_series', 'INSERT'),
+  'authenticated nao tem privilegio de INSERT direto em payable_series'
+);
+select ok(
+  has_function_privilege('service_role', 'public.create_recurring_payable_series(text,uuid,text,date,integer,numeric,uuid,text,text,uuid)', 'EXECUTE'),
+  'service_role executa create_recurring_payable_series'
+);
+
+-- Calendario: ancora 31/jan (ano nao bissexto) passa por fevereiro e volta a 31.
+select is(
+  private.compute_series_due_date('2026-01-31', 'monthly', 1), '2026-01-31'::date,
+  'posicao 1 vence na propria ancora'
+);
+select is(
+  private.compute_series_due_date('2026-01-31', 'monthly', 2), '2026-02-28'::date,
+  'ancora 31/jan vence em 28/fev (fevereiro mais curto, ano nao bissexto)'
+);
+select is(
+  private.compute_series_due_date('2026-01-31', 'monthly', 3), '2026-03-31'::date,
+  'ancora 31/jan volta a vencer em 31/mar (nunca parte da ocorrencia anterior)'
+);
+
+-- Ancora 29/fev (ano bissexto) vence em 28/fev no ano seguinte (nao bissexto).
+select is(
+  private.compute_series_due_date('2028-02-29', 'yearly', 1), '2028-02-29'::date,
+  'ancora bissexta na posicao 1'
+);
+select is(
+  private.compute_series_due_date('2028-02-29', 'yearly', 2), '2029-02-28'::date,
+  'ancora 29/fev vence em 28/fev no ano seguinte nao bissexto'
+);
+
+-- Quinzenal mantem o dia da semana.
+select is(
+  (select extract(dow from private.compute_series_due_date('2026-09-14', 'biweekly', 3))),
+  (select extract(dow from '2026-09-14'::date)),
+  'quinzenal mantem o dia da semana (catorze dias, nao quinze)'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29j_context), true);
+set local role authenticated;
+
+-- Previa igual as ocorrencias efetivamente criadas.
+create temporary table ticket29j_previa (position integer, due_date date, amount numeric) on commit drop;
+grant select, insert on ticket29j_previa to authenticated;
+insert into ticket29j_previa (position, due_date, amount)
+select series_position, due_date, amount from public.preview_payable_series(
+  'recurring', 'monthly', '2026-01-31', 3, 500
+);
+
+create temporary table ticket29j_criadas (id uuid, series_position integer, due_date date, amount numeric) on commit drop;
+grant select, insert on ticket29j_criadas to authenticated;
+insert into ticket29j_criadas (id, series_position, due_date, amount)
+select id, series_position, due_date, amount from public.create_recurring_payable_series(
+  'Ticket29j Recorrencia', (select categoria_id from ticket29j_context), 'monthly', '2026-01-31', 3, 500
+);
+
+select is(
+  (select count(*)::integer from ticket29j_criadas), 3,
+  'create_recurring_payable_series gera a quantidade pedida de ocorrencias'
+);
+select is(
+  (select array_agg(due_date order by position) from ticket29j_previa),
+  (select array_agg(due_date order by series_position) from ticket29j_criadas),
+  'a previa devolve as mesmas datas das ocorrencias efetivamente criadas'
+);
+select is(
+  (select array_agg(amount order by position) from ticket29j_previa),
+  (select array_agg(amount order by series_position) from ticket29j_criadas),
+  'a previa devolve os mesmos valores das ocorrencias efetivamente criadas'
+);
+select is(
+  (select competence_date from public.payables where id = (select id from ticket29j_criadas where series_position = 2)),
+  (select due_date from public.payables where id = (select id from ticket29j_criadas where series_position = 2)),
+  'cada ocorrencia da Recorrencia recebe o proprio vencimento como competencia'
+);
+select is(
+  (select amount from public.payables where id = (select id from ticket29j_criadas where series_position = 1)),
+  500::numeric,
+  'todas as ocorrencias da Recorrencia tem o mesmo valor'
+);
+
+-- Quantidade fora de 1 a 60 recusada, tanto na previa quanto na criacao.
+select throws_ok(
+  format(
+    $$select public.preview_payable_series('recurring', 'monthly', '2026-01-31', 0, 500, '%s'::uuid)$$,
+    (select tenant_a_id from ticket29j_context)
+  ),
+  '22023',
+  'A quantidade deve estar entre 1 e 60.',
+  'previa recusa quantidade zero'
+);
+select throws_ok(
+  format(
+    $$select public.preview_payable_series('recurring', 'monthly', '2026-01-31', 61, 500, '%s'::uuid)$$,
+    (select tenant_a_id from ticket29j_context)
+  ),
+  '22023',
+  'A quantidade deve estar entre 1 e 60.',
+  'previa recusa quantidade acima de 60'
+);
+select throws_ok(
+  format(
+    $$select public.create_recurring_payable_series('Ticket29j Invalida', '%s'::uuid, 'monthly', '2026-01-31', 61, 500)$$,
+    (select categoria_id from ticket29j_context)
+  ),
+  '22023',
+  'A quantidade deve estar entre 1 e 60.',
+  'criacao recusa quantidade acima de 60'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29j_context), true);
+set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.payable_series where tenant_id = (select tenant_a_id from ticket29j_context)),
+  0,
+  'profissional nao le nenhuma Serie pela RLS'
+);
+select throws_ok(
+  $$select public.preview_payable_series('recurring', 'monthly', '2026-01-31', 3, 500)$$,
+  '42501',
+  'Acesso negado para consultar Contas a Pagar.',
+  'profissional e recusado ao consultar a previa'
+);
+select throws_ok(
+  format(
+    $$select public.create_recurring_payable_series('Tentativa', '%s'::uuid, 'monthly', '2026-01-31', 3, 500)$$,
+    (select categoria_id from ticket29j_context)
+  ),
+  '42501',
+  'Acesso negado para gerenciar Contas a Pagar.',
+  'profissional e recusado ao tentar criar Recorrencia'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29j_context), true);
+set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.payable_series where tenant_id = (select tenant_a_id from ticket29j_context)),
+  0,
+  'gestor de outro tenant nao le Series do tenant A'
+);
+select throws_ok(
+  format(
+    $$select public.create_recurring_payable_series('Tentativa', '%s'::uuid, 'monthly', '2026-01-31', 3, 500, null, null, null, '%s'::uuid)$$,
+    (select categoria_id from ticket29j_context),
+    (select tenant_a_id from ticket29j_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao cria Recorrencia informando o tenant A explicitamente'
 );
 
 reset role;

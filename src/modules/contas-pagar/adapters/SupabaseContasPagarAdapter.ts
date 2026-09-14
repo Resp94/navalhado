@@ -9,10 +9,13 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosRecorrencia,
   FiltroListaContasPagar,
+  FiltroPreviaSerie,
   FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from '../types';
 
@@ -77,7 +80,7 @@ function mapearLinhaLista(row: ListaContasPagarRow): ContaPagarListada {
   };
 }
 
-/** Linha bruta devolvida por `get_payable` (mesmas colunas de `list_payables`, mais autoria). */
+/** Linha bruta devolvida por `get_payable` (mesmas colunas de `list_payables`, mais autoria e resumo da Série). */
 interface ContaPagarDetalheRow extends ListaContasPagarRow {
   created_at: string;
   created_by: string | null;
@@ -89,6 +92,9 @@ interface ContaPagarDetalheRow extends ListaContasPagarRow {
   cancelled_by: string | null;
   cancelled_by_name: string | null;
   cancellation_reason: string | null;
+  series_type: ContaPagarDetalhe['seriesType'];
+  series_periodicity: ContaPagarDetalhe['seriesPeriodicity'];
+  series_occurrences_count: number | null;
 }
 
 function mapearLinhaDetalhe(row: ContaPagarDetalheRow): ContaPagarDetalhe {
@@ -104,6 +110,9 @@ function mapearLinhaDetalhe(row: ContaPagarDetalheRow): ContaPagarDetalhe {
     cancelledBy: row.cancelled_by,
     cancelledByName: row.cancelled_by_name,
     cancellationReason: row.cancellation_reason,
+    seriesType: row.series_type,
+    seriesPeriodicity: row.series_periodicity,
+    seriesOccurrencesCount: row.series_occurrences_count,
   };
 }
 
@@ -175,6 +184,21 @@ function mapearAlerta(row: AlertaRow): AlertaContasPagar {
     overdueBalance: Number(row.overdue_balance) || 0,
     dueTodayCount: Number(row.due_today_count) || 0,
     dueTodayBalance: Number(row.due_today_balance) || 0,
+  };
+}
+
+/** Linha bruta devolvida por `preview_payable_series`. */
+interface PreviaSerieRow {
+  series_position: number;
+  due_date: string;
+  amount: number | string;
+}
+
+function mapearPreviaSerie(row: PreviaSerieRow): OcorrenciaPreviaSerie {
+  return {
+    position: row.series_position,
+    dueDate: row.due_date,
+    amount: Number(row.amount) || 0,
   };
 }
 
@@ -337,5 +361,40 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
     return mapearAlerta(
       linhas[0] || { overdue_count: 0, overdue_balance: 0, due_today_count: 0, due_today_balance: 0 }
     );
+  }
+
+  async visualizarPreviaSerie(
+    tenantId: string,
+    filtro: FiltroPreviaSerie
+  ): Promise<OcorrenciaPreviaSerie[]> {
+    const { data, error } = await this.supabase.rpc('preview_payable_series', {
+      p_series_type: filtro.seriesType,
+      p_periodicity: filtro.periodicity,
+      p_anchor_date: filtro.anchorDate,
+      p_occurrences: filtro.occurrences,
+      p_amount: filtro.amount,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return ((data as PreviaSerieRow[]) || []).map(mapearPreviaSerie);
+  }
+
+  async criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]> {
+    const { data, error } = await this.supabase.rpc('create_recurring_payable_series', {
+      p_description: dados.description,
+      p_category_id: dados.categoryId,
+      p_periodicity: dados.periodicity,
+      p_anchor_date: dados.anchorDate,
+      p_occurrences: dados.occurrences,
+      p_amount: dados.amount,
+      p_supplier_id: dados.supplierId ?? null,
+      p_document_number: dados.documentNumber ?? null,
+      p_notes: dados.notes ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return (data as ContaPagar[]) || [];
   }
 }

@@ -15,9 +15,13 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosRecorrencia,
   FiltroListaContasPagar,
+  FiltroPreviaSerie,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaPreviaSerie,
+  PeriodicidadeSerie,
   TotaisContasPagar,
 } from '../../../../modules/contas-pagar/types';
 
@@ -197,6 +201,9 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       cancelledBy: null,
       cancelledByName: null,
       cancellationReason: null,
+      seriesType: null,
+      seriesPeriodicity: null,
+      seriesOccurrencesCount: null,
     };
   }
 
@@ -370,6 +377,108 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       dueTodayBalance: venceHoje.reduce((soma, conta) => soma + conta.remaining_amount, 0),
     };
   }
+
+  async visualizarPreviaSerie(
+    _tenantId: string,
+    filtro: FiltroPreviaSerie
+  ): Promise<OcorrenciaPreviaSerie[]> {
+    const ocorrencias: OcorrenciaPreviaSerie[] = [];
+    const total = Math.round(filtro.amount * 100);
+    const share = filtro.seriesType === 'installment' ? Math.trunc(total / filtro.occurrences) : total;
+    const lastShare = filtro.seriesType === 'installment' ? total - share * (filtro.occurrences - 1) : total;
+
+    for (let position = 1; position <= filtro.occurrences; position++) {
+      ocorrencias.push({
+        position,
+        dueDate: computeDueDateFake(filtro.anchorDate, filtro.periodicity, position),
+        amount: (position === filtro.occurrences ? lastShare : share) / 100,
+      });
+    }
+    return ocorrencias;
+  }
+
+  async criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]> {
+    const categoria = this.categorias.find((item) => item.id === dados.categoryId);
+    const fornecedor = dados.supplierId
+      ? this.fornecedores.find((item) => item.id === dados.supplierId)
+      : undefined;
+    const seriesId = `serie-${this.proximoId}`;
+    const criadas: ContaPagar[] = [];
+
+    for (let position = 1; position <= dados.occurrences; position++) {
+      const id = `conta-${this.proximoId++}`;
+      const dueDate = computeDueDateFake(dados.anchorDate, dados.periodicity, position);
+      this.contas.push({
+        id,
+        description: dados.description,
+        category_id: dados.categoryId,
+        category_name: categoria?.name || '',
+        category_archived: false,
+        supplier_id: dados.supplierId || null,
+        supplier_name: fornecedor?.name || null,
+        supplier_archived: null,
+        amount: dados.amount,
+        paid_amount: 0,
+        remaining_amount: dados.amount,
+        status: 'open',
+        situation: 'open',
+        highlight: null,
+        due_date: dueDate,
+        competence_date: dueDate,
+        document_number: dados.documentNumber || null,
+        notes: dados.notes || null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+      });
+      criadas.push({
+        id,
+        tenant_id: tenantId,
+        description: dados.description,
+        category_id: dados.categoryId,
+        supplier_id: dados.supplierId || null,
+        amount: dados.amount,
+        paid_amount: 0,
+        status: 'open',
+        due_date: dueDate,
+        competence_date: dueDate,
+        document_number: dados.documentNumber || null,
+        notes: dados.notes || null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+        created_by: 'user-1',
+        updated_at: '2026-09-14T10:00:00Z',
+        updated_by: 'user-1',
+        cancelled_at: null,
+        cancelled_by: null,
+        cancellation_reason: null,
+      });
+    }
+
+    return criadas;
+  }
+}
+
+/** Calendario simplificado, só para este teste (a correção real é validada pela suíte pgTAP). */
+function computeDueDateFake(anchorIso: string, periodicity: PeriodicidadeSerie, position: number): string {
+  const [ano, mes, dia] = anchorIso.split('-').map(Number);
+  const offset = position - 1;
+
+  if (periodicity === 'weekly' || periodicity === 'biweekly') {
+    const dias = periodicity === 'weekly' ? offset * 7 : offset * 14;
+    const data = new Date(Date.UTC(ano, mes - 1, dia));
+    data.setUTCDate(data.getUTCDate() + dias);
+    return data.toISOString().slice(0, 10);
+  }
+
+  const offsetMeses = periodicity === 'monthly' ? offset : offset * 12;
+  const totalMeses = ano * 12 + (mes - 1) + offsetMeses;
+  const targetYear = Math.floor(totalMeses / 12);
+  const targetMonth = (totalMeses % 12) + 1;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const day = Math.min(dia, lastDay);
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function renderTab(
@@ -838,5 +947,87 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Boleto do distribuidor').length).toBeGreaterThan(0);
     });
+  });
+
+  it('alterna para a variante Recorrência, mostra a prévia e cria as ocorrências (ticket 11/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+
+    expect(screen.getByLabelText('Vencimento da primeira ocorrência')).toBeInTheDocument();
+    expect(screen.getByLabelText('Periodicidade')).toBeInTheDocument();
+    expect(screen.getByLabelText('Quantidade de ocorrências')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Aluguel mensal' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira ocorrência'), {
+      target: { value: '2026-10-05' },
+    });
+    fireEvent.change(screen.getByLabelText('Periodicidade'), { target: { value: 'monthly' } });
+    fireEvent.change(screen.getByLabelText('Quantidade de ocorrências'), { target: { value: '3' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver prévia das ocorrências' }));
+
+    const previa = await screen.findByLabelText('Prévia das ocorrências');
+    await waitFor(() => {
+      expect(within(previa).getAllByRole('listitem')).toHaveLength(3);
+    });
+    expect(within(previa).getByText('1ª ocorrência')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Recorrência' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel mensal').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByLabelText('Descrição')).not.toBeInTheDocument();
+  });
+
+  it('voltar para a variante Avulsa limpa a prévia da Recorrência', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira ocorrência'), {
+      target: { value: '2026-10-05' },
+    });
+    fireEvent.change(screen.getByLabelText('Quantidade de ocorrências'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ver prévia das ocorrências' }));
+    await screen.findByLabelText('Prévia das ocorrências');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Avulsa' }));
+
+    expect(screen.queryByLabelText('Prévia das ocorrências')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Periodicidade')).not.toBeInTheDocument();
   });
 });

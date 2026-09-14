@@ -6,10 +6,13 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosRecorrencia,
   FiltroListaContasPagar,
+  FiltroPreviaSerie,
   FiltroTotaisContasPagar,
   IContasPagarAdapter,
   ListaContasPagarResultado,
+  OcorrenciaPreviaSerie,
   TotaisContasPagar,
 } from './types';
 
@@ -28,6 +31,9 @@ const NOTES_MAX = 500;
 const PAGE_SIZE_PADRAO = 20;
 const PAGE_SIZE_MAX = 100;
 const MOTIVO_MIN = 5;
+const OCORRENCIAS_MIN_RECORRENCIA = 1;
+const OCORRENCIAS_MAX = 60;
+const PERIODICIDADES_SERIE = ['weekly', 'biweekly', 'monthly', 'yearly'] as const;
 const FORMAS_PAGAMENTO_BAIXA = [
   'cash',
   'pix',
@@ -293,5 +299,97 @@ export class ContasPagarRepository {
     }
 
     return this.adapter.obterAlerta(tenantId);
+  }
+
+  /** Validação comum a prévia e criação de Série: periodicidade, âncora, quantidade e valor. */
+  private validarCamposSerieComuns(
+    dados: { periodicity: string; anchorDate: string; occurrences: number; amount: number },
+    ocorrenciasMin: number
+  ) {
+    if (!PERIODICIDADES_SERIE.includes(dados.periodicity as (typeof PERIODICIDADES_SERIE)[number])) {
+      throw new ContasPagarValidationError('Periodicidade inválida.');
+    }
+
+    if (!dados.anchorDate) {
+      throw new ContasPagarValidationError('Data âncora é obrigatória.');
+    }
+
+    if (
+      dados.occurrences == null ||
+      !Number.isInteger(dados.occurrences) ||
+      dados.occurrences < ocorrenciasMin ||
+      dados.occurrences > OCORRENCIAS_MAX
+    ) {
+      throw new ContasPagarValidationError(
+        `A quantidade deve estar entre ${ocorrenciasMin} e ${OCORRENCIAS_MAX}.`
+      );
+    }
+
+    if (dados.amount == null || Number.isNaN(dados.amount) || dados.amount <= 0) {
+      throw new ContasPagarValidationError('O valor deve ser maior que zero.');
+    }
+  }
+
+  async visualizarPreviaSerie(
+    tenantId: string,
+    filtro: FiltroPreviaSerie
+  ): Promise<OcorrenciaPreviaSerie[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    const ocorrenciasMin = filtro.seriesType === 'installment' ? 2 : OCORRENCIAS_MIN_RECORRENCIA;
+    this.validarCamposSerieComuns(filtro, ocorrenciasMin);
+
+    return this.adapter.visualizarPreviaSerie(tenantId, {
+      seriesType: filtro.seriesType,
+      periodicity: filtro.periodicity,
+      anchorDate: filtro.anchorDate,
+      occurrences: filtro.occurrences,
+      amount: Math.round(filtro.amount * 100) / 100,
+    });
+  }
+
+  async criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    const description = (dados.description || '').replace(/\s+/g, ' ').trim();
+    if (description.length < DESCRICAO_MIN || description.length > DESCRICAO_MAX) {
+      throw new ContasPagarValidationError(
+        `A descrição deve ter entre ${DESCRICAO_MIN} e ${DESCRICAO_MAX} caracteres.`
+      );
+    }
+
+    if (!dados.categoryId) {
+      throw new ContasPagarValidationError('Categoria de despesa é obrigatória.');
+    }
+
+    this.validarCamposSerieComuns(dados, OCORRENCIAS_MIN_RECORRENCIA);
+
+    const documentNumber = (dados.documentNumber || '').trim();
+    if (documentNumber.length > DOCUMENTO_MAX) {
+      throw new ContasPagarValidationError(
+        `Número do documento deve ter no máximo ${DOCUMENTO_MAX} caracteres.`
+      );
+    }
+
+    const notes = (dados.notes || '').trim();
+    if (notes.length > NOTES_MAX) {
+      throw new ContasPagarValidationError(`Observação deve ter no máximo ${NOTES_MAX} caracteres.`);
+    }
+
+    return this.adapter.criarRecorrencia(tenantId, {
+      description,
+      categoryId: dados.categoryId,
+      periodicity: dados.periodicity,
+      anchorDate: dados.anchorDate,
+      occurrences: dados.occurrences,
+      amount: Math.round(dados.amount * 100) / 100,
+      supplierId: dados.supplierId || null,
+      documentNumber: documentNumber || null,
+      notes: notes || null,
+    });
   }
 }

@@ -602,3 +602,145 @@ describe('SupabaseContasPagarAdapter — obterAlerta', () => {
     await expect(adapter.obterAlerta('tenant-1')).rejects.toThrow(ContasPagarValidationError);
   });
 });
+
+describe('SupabaseContasPagarAdapter — visualizarPreviaSerie', () => {
+  it('chama preview_payable_series com os parâmetros mapeados e devolve as ocorrências mapeadas', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        { series_position: 1, due_date: '2026-09-30', amount: '100.00' },
+        { series_position: 2, due_date: '2026-10-30', amount: '100.00' },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.visualizarPreviaSerie('tenant-1', {
+      seriesType: 'recurring',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 2,
+      amount: 100,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('preview_payable_series', {
+      p_series_type: 'recurring',
+      p_periodicity: 'monthly',
+      p_anchor_date: '2026-09-30',
+      p_occurrences: 2,
+      p_amount: 100,
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toEqual([
+      { position: 1, dueDate: '2026-09-30', amount: 100 },
+      { position: 2, dueDate: '2026-10-30', amount: 100 },
+    ]);
+  });
+
+  it('devolve lista vazia quando não há ocorrências', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.visualizarPreviaSerie('tenant-1', {
+      seriesType: 'recurring',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 1,
+      amount: 100,
+    });
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'A quantidade deve estar entre 1 e 60.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'recurring',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 61,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});
+
+describe('SupabaseContasPagarAdapter — criarRecorrencia', () => {
+  it('chama create_recurring_payable_series com os parâmetros mapeados', async () => {
+    const supabase = novoSupabaseMock();
+    const contas = [{ id: 'conta-1' }, { id: 'conta-2' }];
+    supabase.rpc.mockResolvedValueOnce({ data: contas, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.criarRecorrencia('tenant-1', {
+      description: 'Aluguel',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 2,
+      amount: 100,
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('create_recurring_payable_series', {
+      p_description: 'Aluguel',
+      p_category_id: 'cat-1',
+      p_periodicity: 'monthly',
+      p_anchor_date: '2026-09-30',
+      p_occurrences: 2,
+      p_amount: 100,
+      p_supplier_id: 'sup-1',
+      p_document_number: 'NF-1',
+      p_notes: 'obs',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toBe(contas);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.criarRecorrencia('tenant-1', {
+      description: 'Aluguel',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 2,
+      amount: 100,
+    });
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Categoria de despesa informada não existe ou está arquivada.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.criarRecorrencia('tenant-1', {
+        description: 'Aluguel',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 2,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});

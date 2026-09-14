@@ -84,6 +84,44 @@ export interface ContaPagarDetalhe extends ContaPagarListada {
   cancelledBy: string | null;
   cancelledByName: string | null;
   cancellationReason: string | null;
+  /** Resumo da Série (ticket 11/036): presente só quando a conta pertence a uma. */
+  seriesType: TipoSerie | null;
+  seriesPeriodicity: PeriodicidadeSerie | null;
+  seriesOccurrencesCount: number | null;
+}
+
+/** Tipo de Série (ticket 11/036): Recorrência aqui, Parcelamento chega no ticket 12/036. */
+export type TipoSerie = 'installment' | 'recurring';
+
+/** Periodicidade da Série. Quinzenal usa catorze dias, não quinze, para manter o dia da semana. */
+export type PeriodicidadeSerie = 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+
+/** Uma linha da prévia (ticket 11/036): mesmo cálculo usado na criação, nunca replicado no navegador. */
+export interface OcorrenciaPreviaSerie {
+  position: number;
+  dueDate: string;
+  amount: number;
+}
+
+export interface FiltroPreviaSerie {
+  seriesType: TipoSerie;
+  periodicity: PeriodicidadeSerie;
+  anchorDate: string;
+  occurrences: number;
+  amount: number;
+}
+
+/** Dados de criação de uma Recorrência (ticket 11/036): 1 a 60 ocorrências, mesmo valor. */
+export interface DadosRecorrencia {
+  description: string;
+  categoryId: string;
+  periodicity: PeriodicidadeSerie;
+  anchorDate: string;
+  occurrences: number;
+  amount: number;
+  supplierId?: string | null;
+  documentNumber?: string | null;
+  notes?: string | null;
 }
 
 /** Forma de pagamento da Baixa (ticket 07/036): domínio próprio, não o de Comanda. */
@@ -211,4 +249,6 @@ export interface IContasPagarAdapter {
   cancelarConta(tenantId: string, payableId: string, motivo: string): Promise<ContaPagar>;
   obterTotais(tenantId: string, filtro: FiltroTotaisContasPagar): Promise<TotaisContasPagar>;
   obterAlerta(tenantId: string): Promise<AlertaContasPagar>;
+  visualizarPreviaSerie(tenantId: string, filtro: FiltroPreviaSerie): Promise<OcorrenciaPreviaSerie[]>;
+  criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]>;
 }

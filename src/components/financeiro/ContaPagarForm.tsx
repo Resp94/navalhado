@@ -11,9 +11,25 @@ import {
   ContasPagarRepository,
   ContasPagarValidationError,
 } from '../../modules/contas-pagar/ContasPagarRepository';
-import type { ContaPagar } from '../../modules/contas-pagar/types';
+import type { ContaPagar, OcorrenciaPreviaSerie, PeriodicidadeSerie } from '../../modules/contas-pagar/types';
 import type { PlanoContasRepository } from '../../modules/plano-contas/PlanoContasRepository';
 import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
+
+const OPCOES_PERIODICIDADE: { value: PeriodicidadeSerie; label: string }[] = [
+  { value: 'weekly', label: 'Semanal' },
+  { value: 'biweekly', label: 'Quinzenal' },
+  { value: 'monthly', label: 'Mensal' },
+  { value: 'yearly', label: 'Anual' },
+];
+
+function formatarMoedaPrevia(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatarDataPrevia(iso: string): string {
+  const [ano, mes, dia] = iso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
 
 export interface ContaPagarFormProps {
   /** Repositório injetado (Supabase em produção, simulado nos testes). */
@@ -61,6 +77,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   onSalvar,
   onCancelar,
 }) => {
+  const [variante, setVariante] = useState<'avulsa' | 'recorrencia'>('avulsa');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categoriaEscolhidaManualmente, setCategoriaEscolhidaManualmente] = useState(false);
@@ -71,6 +88,14 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ticket 11/036: campos da variante Recorrência. Data âncora é o vencimento
+  // da primeira ocorrência — reusa o mesmo estado `dueDate` do formulário.
+  const [periodicity, setPeriodicity] = useState<PeriodicidadeSerie>('monthly');
+  const [occurrences, setOccurrences] = useState('1');
+  const [previaOcorrencias, setPreviaOcorrencias] = useState<OcorrenciaPreviaSerie[] | null>(null);
+  const [previaCarregando, setPreviaCarregando] = useState(false);
+  const [previaErro, setPreviaErro] = useState<string | null>(null);
 
   // Ticket 10/036: registros criados pelo cadastro rápido, para o select
   // mostrar e selecionar o novo registro na hora, sem esperar a aba recarregar
@@ -134,6 +159,37 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
     }
   };
 
+  const handleTrocarVariante = (novaVariante: 'avulsa' | 'recorrencia') => {
+    setVariante(novaVariante);
+    setPreviaOcorrencias(null);
+    setPreviaErro(null);
+    setError(null);
+  };
+
+  const handleVerPrevia = async () => {
+    setPreviaErro(null);
+    setPreviaCarregando(true);
+    try {
+      const previa = await repository.visualizarPreviaSerie(tenantId, {
+        seriesType: 'recurring',
+        periodicity,
+        anchorDate: dueDate,
+        occurrences: Number(occurrences),
+        amount: Number(amount.replace(',', '.')),
+      });
+      setPreviaOcorrencias(previa);
+    } catch (err) {
+      setPreviaOcorrencias(null);
+      if (err instanceof ContasPagarValidationError) {
+        setPreviaErro(err.message);
+      } else {
+        setPreviaErro('Não foi possível calcular a prévia.');
+      }
+    } finally {
+      setPreviaCarregando(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -142,6 +198,22 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
 
     setSaving(true);
     try {
+      if (variante === 'recorrencia') {
+        const criadas = await repository.criarRecorrencia(tenantId, {
+          description,
+          categoryId,
+          periodicity,
+          anchorDate: dueDate,
+          occurrences: Number(occurrences),
+          amount: valorNumerico,
+          supplierId: supplierId || null,
+          documentNumber: documentNumber || null,
+          notes: notes || null,
+        });
+        onSalvar(criadas[0]);
+        return;
+      }
+
       const salva = await repository.criarContaAvulsa(tenantId, {
         description,
         categoryId,
@@ -166,10 +238,13 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   return (
     <form className="conta-pagar-form" onSubmit={handleSubmit}>
       <SegmentedControl
-        value="avulsa"
-        onChange={() => {}}
+        value={variante}
+        onChange={handleTrocarVariante}
         aria-label="Tipo de lançamento"
-        options={[{ id: 'avulsa', label: 'Avulsa' }]}
+        options={[
+          { id: 'avulsa', label: 'Avulsa' },
+          { id: 'recorrencia', label: 'Recorrência' },
+        ]}
       />
 
       <Input
@@ -235,12 +310,66 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
       />
 
       <Input
-        label="Vencimento"
+        label={variante === 'recorrencia' ? 'Vencimento da primeira ocorrência' : 'Vencimento'}
         type="date"
         value={dueDate}
-        onChange={(event) => setDueDate(event.target.value)}
+        onChange={(event) => {
+          setDueDate(event.target.value);
+          setPreviaOcorrencias(null);
+        }}
         disabled={saving}
       />
+
+      {variante === 'recorrencia' && (
+        <>
+          <Select
+            label="Periodicidade"
+            value={periodicity}
+            onChange={(event) => {
+              setPeriodicity(event.target.value as PeriodicidadeSerie);
+              setPreviaOcorrencias(null);
+            }}
+            options={OPCOES_PERIODICIDADE}
+            disabled={saving}
+          />
+
+          <Input
+            label="Quantidade de ocorrências"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={60}
+            value={occurrences}
+            onChange={(event) => {
+              setOccurrences(event.target.value);
+              setPreviaOcorrencias(null);
+            }}
+            disabled={saving}
+          />
+
+          <Button type="button" variant="secondary" size="sm" loading={previaCarregando} onClick={handleVerPrevia}>
+            Ver prévia das ocorrências
+          </Button>
+
+          {previaErro && (
+            <div className="conta-pagar-form-error" role="alert">
+              {previaErro}
+            </div>
+          )}
+
+          {previaOcorrencias && previaOcorrencias.length > 0 && (
+            <ul className="conta-pagar-form-previa" aria-label="Prévia das ocorrências">
+              {previaOcorrencias.map((ocorrencia) => (
+                <li key={ocorrencia.position}>
+                  <span>{ocorrencia.position}ª ocorrência</span>
+                  <span>{formatarDataPrevia(ocorrencia.dueDate)}</span>
+                  <span>{formatarMoedaPrevia(ocorrencia.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
       <Input
         label="Número do documento (opcional)"
@@ -272,7 +401,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           </Button>
         )}
         <Button type="submit" variant="primary" loading={saving}>
-          Lançar conta
+          {variante === 'recorrencia' ? 'Criar Recorrência' : 'Lançar conta'}
         </Button>
       </div>
 
@@ -322,6 +451,33 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
 
         .conta-pagar-form-campo-com-atalho > :first-child {
           flex: 1;
+        }
+
+        .conta-pagar-form-previa {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          max-height: 220px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .conta-pagar-form-previa li {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          font-size: var(--font-size-sm, 0.875rem);
+          color: var(--color-text-primary, #2D231E);
+          padding: 0.5rem 0.75rem;
+          border-radius: var(--radius-sm, 6px);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
+        }
+
+        .dark-theme .conta-pagar-form-previa li {
+          color: var(--color-text-primary, #FFF1E6);
+          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
         }
 
         .conta-pagar-form-error {

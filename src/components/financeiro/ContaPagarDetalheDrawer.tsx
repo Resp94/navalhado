@@ -9,7 +9,13 @@ import { EstornoBaixaDialog } from './EstornoBaixaDialog';
 import { EditarContaDialog } from './EditarContaDialog';
 import { CancelarContaDialog } from './CancelarContaDialog';
 import { ContasPagarRepository } from '../../modules/contas-pagar/ContasPagarRepository';
-import type { Baixa, ContaPagarDetalhe, FormaPagamentoBaixa } from '../../modules/contas-pagar/types';
+import type {
+  Baixa,
+  ContaPagarDetalhe,
+  FormaPagamentoBaixa,
+  PeriodicidadeSerie,
+  TipoSerie,
+} from '../../modules/contas-pagar/types';
 import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
 
 export interface ContaPagarDetalheDrawerProps {
@@ -41,6 +47,18 @@ const ROTULO_FORMA: Record<FormaPagamentoBaixa, string> = {
   debit_card: 'Cartão de débito',
   automatic_debit: 'Débito automático',
   other: 'Outra',
+};
+
+const ROTULO_TIPO_SERIE: Record<TipoSerie, string> = {
+  recurring: 'Recorrência',
+  installment: 'Parcelamento',
+};
+
+const ROTULO_PERIODICIDADE: Record<PeriodicidadeSerie, string> = {
+  weekly: 'semanal',
+  biweekly: 'quinzenal',
+  monthly: 'mensal',
+  yearly: 'anual',
 };
 
 function formatarMoeda(valor: number): string {
@@ -168,6 +186,18 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
               <dt>Valor</dt>
               <dd>{formatarMoeda(conta.amount)}</dd>
             </div>
+            {conta.seriesType && (
+              <div>
+                <dt>Série</dt>
+                <dd>
+                  {ROTULO_TIPO_SERIE[conta.seriesType]}
+                  {conta.seriesPeriodicity && ` ${ROTULO_PERIODICIDADE[conta.seriesPeriodicity]}`}
+                  {conta.series_position && conta.seriesOccurrencesCount
+                    ? ` · ${conta.series_position}/${conta.seriesOccurrencesCount}`
+                    : ''}
+                </dd>
+              </div>
+            )}
             <div>
               <dt>Saldo restante</dt>
               <dd>{formatarMoeda(conta.remaining_amount)}</dd>

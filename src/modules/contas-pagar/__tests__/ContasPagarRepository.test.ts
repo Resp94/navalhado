@@ -68,6 +68,8 @@ function novoAdapter(): IContasPagarAdapter {
     cancelarConta: vi.fn(),
     obterTotais: vi.fn(),
     obterAlerta: vi.fn(),
+    visualizarPreviaSerie: vi.fn(),
+    criarRecorrencia: vi.fn(),
   };
 }
 
@@ -397,7 +399,7 @@ describe('ContasPagarRepository — obterConta', () => {
 
   it('delega ao adaptador e devolve o resultado', async () => {
     const adapter = novoAdapter();
-    const detalhe = { ...contaListada(), createdAt: '2026-09-13T10:00:00Z', createdBy: null, createdByName: null, updatedAt: '2026-09-13T10:00:00Z', updatedBy: null, updatedByName: null, cancelledAt: null, cancelledBy: null, cancelledByName: null, cancellationReason: null };
+    const detalhe = { ...contaListada(), createdAt: '2026-09-13T10:00:00Z', createdBy: null, createdByName: null, updatedAt: '2026-09-13T10:00:00Z', updatedBy: null, updatedByName: null, cancelledAt: null, cancelledBy: null, cancelledByName: null, cancellationReason: null, seriesType: null, seriesPeriodicity: null, seriesOccurrencesCount: null };
     vi.mocked(adapter.obterConta).mockResolvedValueOnce(detalhe);
     const repository = new ContasPagarRepository(adapter);
 
@@ -936,5 +938,238 @@ describe('ContasPagarRepository — obterAlerta', () => {
 
     expect(adapter.obterAlerta).toHaveBeenCalledWith('tenant-1');
     expect(resultado).toBe(alerta);
+  });
+});
+
+describe('ContasPagarRepository — visualizarPreviaSerie', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('', {
+        seriesType: 'recurring',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.visualizarPreviaSerie).not.toHaveBeenCalled();
+  });
+
+  it('recusa periodicidade inválida', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'recurring',
+        // @ts-expect-error periodicidade invalida de proposito
+        periodicity: 'daily',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa data âncora ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'recurring',
+        periodicity: 'monthly',
+        anchorDate: '',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it.each([0, 61])('recusa quantidade fora de 1 a 60 para Recorrência: %s', async (occurrences) => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'recurring',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa quantidade 1 para Parcelamento (mínimo é 2)', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'installment',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 1,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa valor inválido', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.visualizarPreviaSerie('tenant-1', {
+        seriesType: 'recurring',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 0,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('delega ao adaptador com o valor arredondado', async () => {
+    const adapter = novoAdapter();
+    const previa = [{ position: 1, dueDate: '2026-09-30', amount: 100 }];
+    vi.mocked(adapter.visualizarPreviaSerie).mockResolvedValueOnce(previa);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.visualizarPreviaSerie('tenant-1', {
+      seriesType: 'recurring',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      amount: 99.999,
+    });
+
+    expect(adapter.visualizarPreviaSerie).toHaveBeenCalledWith('tenant-1', {
+      seriesType: 'recurring',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      amount: 100,
+    });
+    expect(resultado).toBe(previa);
+  });
+});
+
+describe('ContasPagarRepository — criarRecorrencia', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarRecorrencia('', {
+        description: 'Aluguel',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.criarRecorrencia).not.toHaveBeenCalled();
+  });
+
+  it('recusa descrição inválida', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarRecorrencia('tenant-1', {
+        description: 'a',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa categoria ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarRecorrencia('tenant-1', {
+        description: 'Aluguel',
+        categoryId: '',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it.each([0, 61])('recusa quantidade fora de 1 a 60: %s', async (occurrences) => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarRecorrencia('tenant-1', {
+        description: 'Aluguel',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences,
+        amount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('normaliza a descrição, arredonda o valor e delega ao adaptador', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.criarRecorrencia).mockResolvedValueOnce([contaPagar()]);
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.criarRecorrencia('tenant-1', {
+      description: '  Aluguel   Mensal  ',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      amount: 99.999,
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+
+    expect(adapter.criarRecorrencia).toHaveBeenCalledWith('tenant-1', {
+      description: 'Aluguel Mensal',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      amount: 100,
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+  });
+
+  it('devolve as contas criadas pelo adaptador', async () => {
+    const adapter = novoAdapter();
+    const criadas = [contaPagar({ id: 'conta-1' }), contaPagar({ id: 'conta-2' })];
+    vi.mocked(adapter.criarRecorrencia).mockResolvedValueOnce(criadas);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.criarRecorrencia('tenant-1', {
+      description: 'Aluguel',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 2,
+      amount: 100,
+    });
+
+    expect(resultado).toBe(criadas);
   });
 });
