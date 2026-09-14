@@ -1,10 +1,13 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(83);
 
--- Spec 036 (Contas a Pagar), ticket 06: tabela public.payables, RPC de criacao
+-- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
--- 20260913180000_livro_de_contas_a_pagar.sql.
+-- 20260913180000_livro_de_contas_a_pagar.sql. Ticket 07: tabela
+-- public.payable_settlements (Baixa) e RPCs settle_payable,
+-- reverse_payable_settlement, get_payable, list_payable_settlements,
+-- migration 20260914090000_baixa_fora_do_caixa_e_estorno.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -509,6 +512,370 @@ select throws_ok(
   '42501',
   null,
   'gestor de outro tenant nao insere diretamente em payables do tenant A'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 07/036: Baixa fora do caixa e Estorno de Baixa. Reaproveita
+-- ticket29_context (tenant_a_id, gerente_a_id, barbeiro_a_id, tenant_b_id,
+-- gerente_b_id, categoria_ativa_id, fornecedor_ativo_id).
+-- ---------------------------------------------------------------------------
+select has_table('public', 'payable_settlements', 'tabela payable_settlements existe');
+
+select has_function(
+  'public', 'settle_payable',
+  array['uuid', 'numeric', 'date', 'text', 'numeric', 'numeric', 'text', 'uuid', 'uuid'],
+  'public.settle_payable(...) existe'
+);
+select has_function(
+  'public', 'reverse_payable_settlement', array['uuid', 'text', 'uuid'],
+  'public.reverse_payable_settlement(uuid, text, uuid) existe'
+);
+select has_function('public', 'get_payable', array['uuid', 'uuid'], 'public.get_payable(uuid, uuid) existe');
+select has_function(
+  'public', 'list_payable_settlements', array['uuid', 'uuid'],
+  'public.list_payable_settlements(uuid, uuid) existe'
+);
+
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.settle_payable(uuid,numeric,date,text,numeric,numeric,text,uuid,uuid)'::regprocedure),
+  'settle_payable fixa search_path vazio'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.reverse_payable_settlement(uuid,text,uuid)'::regprocedure),
+  'reverse_payable_settlement fixa search_path vazio'
+);
+
+select ok(
+  not has_table_privilege('anon', 'public.payable_settlements', 'SELECT'),
+  'anon nao tem privilegio de SELECT em payable_settlements'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.payable_settlements', 'INSERT'),
+  'authenticated nao tem privilegio de INSERT direto em payable_settlements'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.payable_settlements', 'UPDATE'),
+  'authenticated nao tem privilegio de UPDATE direto em payable_settlements'
+);
+select ok(
+  has_function_privilege('service_role', 'public.settle_payable(uuid,numeric,date,text,numeric,numeric,text,uuid,uuid)', 'EXECUTE'),
+  'service_role executa settle_payable'
+);
+
+-- Restricao de consistencia da tabela: source/cash_session_id/cash_movement_id.
+select throws_ok(
+  format(
+    $$insert into public.payable_settlements (tenant_id, payable_id, principal, payment_date, payment_method, source)
+      values ('%s'::uuid, gen_random_uuid(), 100, '2026-09-14', 'pix', 'gaveta')$$,
+    (select tenant_a_id from ticket29_context)
+  ),
+  '23514',
+  null,
+  'restricao recusa origem gaveta sem sessao de caixa nem movimento de caixa vinculados'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29_context), true);
+set local role authenticated;
+
+-- Conta dedicada a Baixa parcial e total.
+create temporary table ticket29g_conta_parcial (id uuid) on commit drop;
+insert into ticket29g_conta_parcial (id)
+select id from public.create_payable(
+  'Ticket29g Baixa Parcial', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+
+create temporary table ticket29g_baixa_parcial (id uuid, paid_amount numeric) on commit drop;
+grant select, insert on ticket29g_baixa_parcial to authenticated;
+insert into ticket29g_baixa_parcial (id, paid_amount)
+select id, paid_amount from public.settle_payable(
+  (select id from ticket29g_conta_parcial), 40, '2026-09-14', 'pix'
+);
+
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_parcial)),
+  'partially_paid',
+  'Baixa parcial deixa a conta como parcialmente paga'
+);
+select is(
+  (select paid_amount from public.payables where id = (select id from ticket29g_conta_parcial)),
+  40::numeric,
+  'Baixa parcial soma o principal ao valor baixado da conta'
+);
+select is(
+  (select paid_amount from ticket29g_baixa_parcial),
+  40::numeric,
+  'Baixa sem juros nem desconto tem valor pago igual ao principal'
+);
+
+select public.settle_payable((select id from ticket29g_conta_parcial), 60, '2026-09-14', 'pix');
+
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_parcial)),
+  'paid',
+  'segunda Baixa completando o saldo deixa a conta como paga'
+);
+select is(
+  (select paid_amount from public.payables where id = (select id from ticket29g_conta_parcial)),
+  100::numeric,
+  'as duas Baixas juntas somam o valor total da conta'
+);
+
+-- Juros e desconto: principal 100, juros 10, desconto 5 -> pago 105.
+create temporary table ticket29g_conta_juros (id uuid) on commit drop;
+insert into ticket29g_conta_juros (id)
+select id from public.create_payable(
+  'Ticket29g Juros e Desconto', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+
+create temporary table ticket29g_baixa_juros (paid_amount numeric) on commit drop;
+grant select, insert on ticket29g_baixa_juros to authenticated;
+insert into ticket29g_baixa_juros (paid_amount)
+select paid_amount from public.settle_payable(
+  (select id from ticket29g_conta_juros), 100, '2026-09-14', 'boleto', 10, 5
+);
+
+select is(
+  (select paid_amount from ticket29g_baixa_juros),
+  105::numeric,
+  'valor pago e gerado como principal + juros - desconto'
+);
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_juros)),
+  'paid',
+  'juros nao afetam o saldo da conta: principal igual ao valor ja deixa a conta paga'
+);
+
+-- Valor pago zero aceito fora do caixa (desconto cobre o principal).
+create temporary table ticket29g_conta_zero (id uuid) on commit drop;
+insert into ticket29g_conta_zero (id)
+select id from public.create_payable(
+  'Ticket29g Valor Pago Zero', (select categoria_ativa_id from ticket29_context), 50, '2026-09-30'
+);
+
+select lives_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 50, '2026-09-14', 'pix', 0, 50)$$,
+    (select id from ticket29g_conta_zero)
+  ),
+  'valor pago zero e aceito fora do caixa (desconto cobre o principal)'
+);
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_zero)),
+  'paid',
+  'a conta com valor pago zero fica paga (o principal abateu o saldo mesmo sem dinheiro sair)'
+);
+
+-- Data futura recusada.
+create temporary table ticket29g_conta_futuro (id uuid) on commit drop;
+insert into ticket29g_conta_futuro (id)
+select id from public.create_payable(
+  'Ticket29g Data Futura', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 50, (current_date + 5), 'pix')$$,
+    (select id from ticket29g_conta_futuro)
+  ),
+  '22023',
+  'A data do pagamento não pode estar no futuro.',
+  'Baixa com data de pagamento no futuro e recusada'
+);
+
+-- Origem gaveta recusada explicitamente ate o ticket 15/036.
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 50, '2026-09-14', 'cash', 0, 0, 'gaveta')$$,
+    (select id from ticket29g_conta_futuro)
+  ),
+  '22023',
+  'Baixa pela gaveta ainda não está disponível.',
+  'Baixa com origem gaveta e recusada ate o ticket 15/036'
+);
+
+-- Principal excedendo o saldo restante e recusado.
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 1000, '2026-09-14', 'pix')$$,
+    (select id from ticket29g_conta_futuro)
+  ),
+  '22023',
+  'O principal não pode exceder o saldo restante da conta.',
+  'Baixa com principal maior que o saldo restante e recusada'
+);
+
+-- Duas Baixas na mesma conta: a segunda enxerga o saldo ja atualizado pela
+-- primeira e e recusada ao tentar ultrapassar o valor total (serializacao
+-- pela trava da Conta a Pagar; verdadeira concorrencia exigiria duas conexoes,
+-- fora do alcance de um teste pgTAP de conexao unica).
+create temporary table ticket29g_conta_concorrente (id uuid) on commit drop;
+insert into ticket29g_conta_concorrente (id)
+select id from public.create_payable(
+  'Ticket29g Duas Baixas', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+select public.settle_payable((select id from ticket29g_conta_concorrente), 60, '2026-09-14', 'pix');
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 50, '2026-09-14', 'pix')$$,
+    (select id from ticket29g_conta_concorrente)
+  ),
+  '22023',
+  'O principal não pode exceder o saldo restante da conta.',
+  'segunda Baixa enxerga o saldo ja reduzido pela primeira e nao ultrapassa o valor da conta'
+);
+
+-- Estorno: devolve o principal ao saldo e recalcula o estado.
+create temporary table ticket29g_conta_estorno (id uuid) on commit drop;
+insert into ticket29g_conta_estorno (id)
+select id from public.create_payable(
+  'Ticket29g Estorno', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+create temporary table ticket29g_baixa_estorno (id uuid) on commit drop;
+grant select, insert on ticket29g_baixa_estorno to authenticated;
+insert into ticket29g_baixa_estorno (id)
+select id from public.settle_payable((select id from ticket29g_conta_estorno), 40, '2026-09-14', 'pix');
+
+select throws_ok(
+  $$select public.reverse_payable_settlement(gen_random_uuid(), 'oi')$$,
+  '22023',
+  'Informe um motivo com pelo menos cinco caracteres.',
+  'estorno recusa motivo com menos de cinco caracteres'
+);
+
+select ok(
+  (select reversed_at from public.reverse_payable_settlement(
+    (select id from ticket29g_baixa_estorno), 'Baixa lancada por engano'
+  )) is not null,
+  'estornar preenche reversed_at na Baixa'
+);
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_estorno)),
+  'open',
+  'estornar a unica Baixa devolve a conta para aberto'
+);
+select is(
+  (select paid_amount from public.payables where id = (select id from ticket29g_conta_estorno)),
+  0::numeric,
+  'estornar a Baixa devolve o principal ao saldo (valor baixado volta a zero)'
+);
+select throws_ok(
+  format(
+    $$select public.reverse_payable_settlement('%s'::uuid, 'tentando de novo')$$,
+    (select id from ticket29g_baixa_estorno)
+  ),
+  'P0001',
+  'Esta Baixa já foi estornada.',
+  'estornar uma Baixa ja estornada e recusado'
+);
+
+-- Estorno parcial: conta com duas Baixas, estorna so a primeira e o estado
+-- recalcula para parcialmente paga (nao para aberto).
+create temporary table ticket29g_conta_estorno_parcial (id uuid) on commit drop;
+insert into ticket29g_conta_estorno_parcial (id)
+select id from public.create_payable(
+  'Ticket29g Estorno Parcial', (select categoria_ativa_id from ticket29_context), 100, '2026-09-30'
+);
+create temporary table ticket29g_baixas_estorno_parcial (ordem integer, id uuid) on commit drop;
+grant select, insert on ticket29g_baixas_estorno_parcial to authenticated;
+insert into ticket29g_baixas_estorno_parcial (ordem, id)
+select 1, id from public.settle_payable((select id from ticket29g_conta_estorno_parcial), 30, '2026-09-14', 'pix');
+insert into ticket29g_baixas_estorno_parcial (ordem, id)
+select 2, id from public.settle_payable((select id from ticket29g_conta_estorno_parcial), 30, '2026-09-14', 'pix');
+
+select public.reverse_payable_settlement(
+  (select id from ticket29g_baixas_estorno_parcial where ordem = 1), 'estorno da primeira Baixa'
+);
+select is(
+  (select status from public.payables where id = (select id from ticket29g_conta_estorno_parcial)),
+  'partially_paid',
+  'estornar uma de duas Baixas ativas recalcula para parcialmente paga, nao para aberto'
+);
+select is(
+  (select paid_amount from public.payables where id = (select id from ticket29g_conta_estorno_parcial)),
+  30::numeric,
+  'estornar uma Baixa deixa so o principal da Baixa restante no valor baixado'
+);
+
+-- get_payable e list_payable_settlements: leitura de detalhe com autor.
+select is(
+  (select created_by_name from public.get_payable((select id from ticket29g_conta_estorno_parcial))),
+  (select name from public.users where id = (select gerente_a_id from ticket29_context)),
+  'get_payable devolve o nome de quem criou a conta'
+);
+select is(
+  (select count(*)::integer from public.list_payable_settlements((select id from ticket29g_conta_estorno_parcial))),
+  2,
+  'list_payable_settlements lista todas as Baixas da conta, estornadas e ativas'
+);
+select is(
+  (select created_by_name from public.list_payable_settlements((select id from ticket29g_conta_estorno_parcial)) limit 1),
+  (select name from public.users where id = (select gerente_a_id from ticket29_context)),
+  'list_payable_settlements devolve o nome de quem lancou a Baixa'
+);
+
+reset role;
+
+-- Profissional nao le Baixas nem executa Baixa ou estorno.
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29_context), true);
+set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.payable_settlements where tenant_id = (select tenant_a_id from ticket29_context)),
+  0,
+  'profissional nao le nenhuma Baixa pela RLS'
+);
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 10, '2026-09-14', 'pix')$$,
+    (select id from ticket29g_conta_estorno_parcial)
+  ),
+  '42501',
+  'Acesso negado para dar Baixa em Contas a Pagar.',
+  'profissional e recusado ao tentar dar Baixa'
+);
+select throws_ok(
+  format(
+    $$select public.reverse_payable_settlement('%s'::uuid, 'motivo valido')$$,
+    (select id from ticket29g_baixas_estorno_parcial where ordem = 2)
+  ),
+  '42501',
+  'Acesso negado para estornar Baixa.',
+  'profissional e recusado ao tentar estornar Baixa'
+);
+
+reset role;
+
+-- Gestor de outro tenant nao le nem escreve Baixas do tenant A.
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29_context), true);
+set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.payable_settlements where tenant_id = (select tenant_a_id from ticket29_context)),
+  0,
+  'gestor de outro tenant nao le Baixas do tenant A'
+);
+select throws_ok(
+  format(
+    $$select public.settle_payable('%s'::uuid, 10, '2026-09-14', 'pix', 0, 0, 'fora_do_caixa', null, '%s'::uuid)$$,
+    (select id from ticket29g_conta_estorno_parcial),
+    (select tenant_a_id from ticket29_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao da Baixa informando o tenant A explicitamente'
+);
+select throws_ok(
+  format(
+    $$select public.reverse_payable_settlement('%s'::uuid, 'motivo valido', '%s'::uuid)$$,
+    (select id from ticket29g_baixas_estorno_parcial where ordem = 2),
+    (select tenant_a_id from ticket29_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao estorna Baixa informando o tenant A explicitamente'
 );
 
 reset role;

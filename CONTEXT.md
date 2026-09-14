@@ -180,3 +180,15 @@ _Avoid_: Status gravado em coluna própria, vencimento calculado no navegador, a
 **Data de Competência**:
 Data (`competence_date`) a que uma Conta a Pagar pertence para fins de resultado por mês, gravada já na criação com o vencimento como valor inicial -- reconstruí-la depois, sem tê-la gravado desde o início, não seria possível. Nenhuma tela desta entrega a exibe ou consome; existe para as entregas futuras de totais e relatório por período.
 _Avoid_: Confundir com vencimento (a data em que a conta deve ser paga), calcular a partir de outras colunas depois do fato
+
+**Baixa (ticket 07/036)**:
+Pagamento (total ou parcial) de uma Conta a Pagar (`payable_settlements`), em tabela própria e separada -- uma conta pode ter várias Baixas. O principal abate o saldo da conta; juros e multa entram só no valor pago, nunca no saldo; desconto faz parte do principal abatido (pagar R$ 95 numa conta de R$ 100 com R$ 5 de desconto é principal 100, desconto 5, valor pago 95, conta paga). Valor pago (`paid_amount`) é coluna gerada (`principal + juros - desconto`), nunca recomposta pelo consumidor -- fonte única também para o fluxo de caixa da spec 037. Valor pago zero só é aceito fora do caixa (abatimento concedido pelo fornecedor). O contrato nasceu completo no ticket 07/036 (parâmetros de origem e Sessão de Caixa já existem), mas a origem gaveta é recusada com mensagem explícita até o ticket 15/036.
+_Avoid_: Somar juros ao saldo da conta, recompor o valor pago a partir de outras colunas, aceitar Baixa pela gaveta antes do ticket 15/036
+
+**Estorno de Baixa (ticket 07/036)**:
+Reversão de uma Baixa lançada por engano (`reversed_at`/`reversed_by`/`reversal_reason` na própria linha da Baixa, todos ou nenhum preenchidos) -- nada é apagado. Exige motivo com pelo menos cinco caracteres, recusa Baixa já estornada, devolve o principal ao saldo da conta e recalcula o estado da conta (aberto ou parcialmente pago conforme o que sobrar de Baixas ativas). Baixa e Estorno de Baixa travam primeiro a Conta a Pagar (e, no estorno, a Baixa também) antes de qualquer verificação de estado ou saldo -- ordem fixa que evita ciclo de lock com a Sessão de Caixa quando o ticket 15/036 acrescentar a gaveta.
+_Avoid_: Apagar a Baixa estornada, recalcular o estado da conta sem considerar as outras Baixas ativas
+
+**Origem do Dinheiro (ticket 07/036)**:
+Campo da Baixa (`source`: `gaveta` ou `fora_do_caixa`) que declara de onde saiu o pagamento. Fora do caixa (Pix, boleto, transferência, débito automático, cartão, dinheiro fora da gaveta) não movimenta nenhum saldo. Pela gaveta gera um movimento de caixa vinculado à Baixa nos dois sentidos -- só disponível a partir do ticket 15/036. A forma de pagamento da Baixa (`payment_method`: inclui boleto e débito automático) é um domínio próprio, não o mesmo conjunto usado pelos pagamentos de Comanda.
+_Avoid_: Reusar o domínio de forma de pagamento da Comanda, tratar "fora do caixa" como sinônimo de "não registrado"

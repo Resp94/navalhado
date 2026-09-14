@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { ContasPagarTab } from '../ContasPagarTab';
@@ -7,8 +7,11 @@ import { PlanoContasRepository } from '../../../../modules/plano-contas/PlanoCon
 import { InMemoryPlanoContasAdapter } from '../../../../modules/plano-contas/adapters/InMemoryPlanoContasAdapter';
 import type { CategoriaDespesa, Fornecedor } from '../../../../modules/plano-contas/types';
 import type {
+  Baixa,
   ContaPagar,
+  ContaPagarDetalhe,
   ContaPagarListada,
+  DadosBaixa,
   DadosContaPagarAvulsa,
   FiltroListaContasPagar,
   IContasPagarAdapter,
@@ -93,7 +96,9 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
   private contas: ContaPagarListada[];
   private categorias: CategoriaDespesa[];
   private fornecedores: Fornecedor[];
+  private baixasPorConta: Record<string, Baixa[]> = {};
   private proximoId = 1;
+  private proximoIdBaixa = 1;
 
   constructor(
     contas: ContaPagarListada[] = [],
@@ -170,6 +175,91 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
       status === 'not_cancelled' ? conta.status !== 'cancelled' : conta.situation === status
     );
     return { contas: filtradas, totalCount: filtradas.length };
+  }
+
+  async obterConta(_tenantId: string, payableId: string): Promise<ContaPagarDetalhe> {
+    const conta = this.contas.find((item) => item.id === payableId);
+    if (!conta) {
+      throw new Error('Conta a pagar não encontrada.');
+    }
+    return {
+      ...conta,
+      createdAt: '2026-09-13T10:00:00Z',
+      createdBy: 'user-1',
+      createdByName: 'Fulano',
+      updatedAt: '2026-09-13T10:00:00Z',
+      updatedBy: 'user-1',
+      updatedByName: 'Fulano',
+      cancelledAt: null,
+      cancelledBy: null,
+      cancelledByName: null,
+      cancellationReason: null,
+    };
+  }
+
+  async darBaixa(_tenantId: string, payableId: string, dados: DadosBaixa): Promise<Baixa> {
+    const conta = this.contas.find((item) => item.id === payableId);
+    if (!conta) {
+      throw new Error('Conta a pagar não encontrada.');
+    }
+
+    const interestAmount = dados.interestAmount ?? 0;
+    const discountAmount = dados.discountAmount ?? 0;
+    const nova: Baixa = {
+      id: `baixa-${this.proximoIdBaixa++}`,
+      principal: dados.principal,
+      interestAmount,
+      discountAmount,
+      paidAmount: dados.principal + interestAmount - discountAmount,
+      paymentDate: dados.paymentDate,
+      paymentMethod: dados.paymentMethod,
+      source: dados.source ?? 'fora_do_caixa',
+      createdAt: '2026-09-14T10:00:00Z',
+      createdBy: 'user-1',
+      createdByName: 'Fulano',
+      reversedAt: null,
+      reversedBy: null,
+      reversedByName: null,
+      reversalReason: null,
+    };
+
+    this.baixasPorConta[payableId] = [...(this.baixasPorConta[payableId] || []), nova];
+
+    conta.paid_amount += dados.principal;
+    conta.remaining_amount = conta.amount - conta.paid_amount;
+    conta.status =
+      conta.paid_amount >= conta.amount ? 'paid' : conta.paid_amount > 0 ? 'partially_paid' : 'open';
+    conta.situation = conta.status;
+
+    return nova;
+  }
+
+  async estornarBaixa(_tenantId: string, settlementId: string, motivo: string): Promise<Baixa> {
+    for (const [payableId, baixas] of Object.entries(this.baixasPorConta)) {
+      const alvo = baixas.find((item) => item.id === settlementId);
+      if (!alvo) continue;
+
+      alvo.reversedAt = '2026-09-14T11:00:00Z';
+      alvo.reversedBy = 'user-1';
+      alvo.reversedByName = 'Fulano';
+      alvo.reversalReason = motivo;
+
+      const conta = this.contas.find((item) => item.id === payableId);
+      if (conta) {
+        conta.paid_amount -= alvo.principal;
+        conta.remaining_amount = conta.amount - conta.paid_amount;
+        conta.status =
+          conta.paid_amount <= 0 ? 'open' : conta.paid_amount < conta.amount ? 'partially_paid' : 'paid';
+        conta.situation = conta.status;
+      }
+
+      return alvo;
+    }
+    throw new Error('Baixa não encontrada.');
+  }
+
+  async listarBaixas(_tenantId: string, payableId: string): Promise<Baixa[]> {
+    return this.baixasPorConta[payableId] || [];
   }
 }
 
@@ -334,5 +424,94 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     await screen.findByText('Categoria de despesa é obrigatória.');
     // O Drawer continua aberto (nada foi salvo).
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument();
+  });
+
+  it('dá Baixa numa conta pelo detalhe, e ela aparece paga na lista (ticket 07/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Aluguel de setembro',
+          amount: 100,
+          paid_amount: 0,
+          remaining_amount: 100,
+          status: 'open',
+          situation: 'open',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel de setembro').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel de setembro')[0]);
+
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar Baixa' }));
+
+    const principalInput = await screen.findByLabelText('Principal');
+    fireEvent.change(principalInput, { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Data do pagamento'), {
+      target: { value: '2026-09-14' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Baixa' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Paga').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('estorna uma Baixa e a conta volta a ficar em aberto (ticket 07/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([
+        contaListada({
+          id: 'conta-1',
+          description: 'Aluguel de setembro',
+          amount: 100,
+          paid_amount: 0,
+          remaining_amount: 100,
+          status: 'open',
+          situation: 'open',
+        }),
+      ])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Aluguel de setembro').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText('Aluguel de setembro')[0]);
+    await screen.findByRole('heading', { name: 'Detalhe da conta a pagar' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dar Baixa' }));
+    const principalInput = await screen.findByLabelText('Principal');
+    fireEvent.change(principalInput, { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Data do pagamento'), {
+      target: { value: '2026-09-14' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Baixa' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Ativa').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Estornar' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Estornar Baixa' });
+    const motivoInput = await within(dialog).findByLabelText('Motivo do estorno');
+    fireEvent.change(motivoInput, { target: { value: 'lançada por engano' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Estornar' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Estornada').length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText('Em aberto').length).toBeGreaterThan(0);
   });
 });

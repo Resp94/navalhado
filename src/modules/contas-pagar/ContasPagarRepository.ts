@@ -1,5 +1,8 @@
 import type {
+  Baixa,
   ContaPagar,
+  ContaPagarDetalhe,
+  DadosBaixa,
   DadosContaPagarAvulsa,
   FiltroListaContasPagar,
   IContasPagarAdapter,
@@ -20,6 +23,17 @@ const DOCUMENTO_MAX = 60;
 const NOTES_MAX = 500;
 const PAGE_SIZE_PADRAO = 20;
 const PAGE_SIZE_MAX = 100;
+const MOTIVO_MIN = 5;
+const FORMAS_PAGAMENTO_BAIXA = [
+  'cash',
+  'pix',
+  'transfer',
+  'boleto',
+  'credit_card',
+  'debit_card',
+  'automatic_debit',
+  'other',
+] as const;
 
 /**
  * Repositório de Contas a Pagar (ticket 06/036): valida entrada, normaliza
@@ -104,5 +118,94 @@ export class ContasPagarRepository {
       page,
       pageSize,
     });
+  }
+
+  async obterConta(tenantId: string, payableId: string): Promise<ContaPagarDetalhe> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    return this.adapter.obterConta(tenantId, payableId);
+  }
+
+  async darBaixa(tenantId: string, payableId: string, dados: DadosBaixa): Promise<Baixa> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    if (dados.principal == null || Number.isNaN(dados.principal) || dados.principal <= 0) {
+      throw new ContasPagarValidationError('O principal deve ser maior que zero.');
+    }
+
+    const interestAmount = dados.interestAmount ?? 0;
+    if (Number.isNaN(interestAmount) || interestAmount < 0) {
+      throw new ContasPagarValidationError('Juros e multa não podem ser negativos.');
+    }
+
+    const discountAmount = dados.discountAmount ?? 0;
+    if (Number.isNaN(discountAmount) || discountAmount < 0) {
+      throw new ContasPagarValidationError('O desconto não pode ser negativo.');
+    }
+    if (discountAmount > dados.principal + interestAmount) {
+      throw new ContasPagarValidationError('O desconto não pode exceder o principal mais os juros.');
+    }
+
+    if (!dados.paymentDate) {
+      throw new ContasPagarValidationError('Data do pagamento é obrigatória.');
+    }
+
+    if (!FORMAS_PAGAMENTO_BAIXA.includes(dados.paymentMethod)) {
+      throw new ContasPagarValidationError('Forma de pagamento inválida.');
+    }
+
+    const source = dados.source ?? 'fora_do_caixa';
+    if (source === 'gaveta') {
+      throw new ContasPagarValidationError('Baixa pela gaveta ainda não está disponível.');
+    }
+
+    return this.adapter.darBaixa(tenantId, payableId, {
+      principal: Math.round(dados.principal * 100) / 100,
+      paymentDate: dados.paymentDate,
+      paymentMethod: dados.paymentMethod,
+      interestAmount: Math.round(interestAmount * 100) / 100,
+      discountAmount: Math.round(discountAmount * 100) / 100,
+      source,
+      cashSessionId: dados.cashSessionId ?? null,
+    });
+  }
+
+  async estornarBaixa(tenantId: string, settlementId: string, motivo: string): Promise<Baixa> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!settlementId) {
+      throw new ContasPagarValidationError('Baixa é obrigatória.');
+    }
+
+    const motivoNormalizado = (motivo || '').trim();
+    if (motivoNormalizado.length < MOTIVO_MIN) {
+      throw new ContasPagarValidationError(
+        `Informe um motivo com pelo menos ${MOTIVO_MIN} caracteres.`
+      );
+    }
+
+    return this.adapter.estornarBaixa(tenantId, settlementId, motivoNormalizado);
+  }
+
+  async listarBaixas(tenantId: string, payableId: string): Promise<Baixa[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+    if (!payableId) {
+      throw new ContasPagarValidationError('Conta a pagar é obrigatória.');
+    }
+
+    return this.adapter.listarBaixas(tenantId, payableId);
   }
 }

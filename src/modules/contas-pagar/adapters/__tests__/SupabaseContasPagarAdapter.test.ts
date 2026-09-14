@@ -179,3 +179,231 @@ describe('SupabaseContasPagarAdapter — listarContas', () => {
     await expect(adapter.listarContas('tenant-1', {})).rejects.toThrow(ContasPagarValidationError);
   });
 });
+
+const LINHA_LISTA_BASE = {
+  id: 'conta-1',
+  description: 'Aluguel',
+  category_id: 'cat-1',
+  category_name: 'Aluguel e condomínio',
+  category_archived: false,
+  supplier_id: null,
+  supplier_name: null,
+  supplier_archived: null,
+  amount: '100.00',
+  paid_amount: '0.00',
+  remaining_amount: '100.00',
+  status: 'open',
+  situation: 'open',
+  highlight: null,
+  due_date: '2026-09-30',
+  competence_date: '2026-09-30',
+  document_number: null,
+  notes: null,
+  series_id: null,
+  series_position: null,
+};
+
+describe('SupabaseContasPagarAdapter — obterConta', () => {
+  it('chama get_payable com os parâmetros mapeados e devolve o detalhe mapeado', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          ...LINHA_LISTA_BASE,
+          created_at: '2026-09-13T10:00:00Z',
+          created_by: 'user-1',
+          created_by_name: 'Fulano',
+          updated_at: '2026-09-13T10:00:00Z',
+          updated_by: 'user-1',
+          updated_by_name: 'Fulano',
+          cancelled_at: null,
+          cancelled_by: null,
+          cancelled_by_name: null,
+          cancellation_reason: null,
+        },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.obterConta('tenant-1', 'conta-1');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_payable', {
+      p_payable_id: 'conta-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toMatchObject({
+      id: 'conta-1',
+      amount: 100,
+      createdByName: 'Fulano',
+      updatedByName: 'Fulano',
+      cancelledByName: null,
+    });
+  });
+
+  it('recusa quando a RPC não devolve linha', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.obterConta('tenant-1', 'conta-1')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'Conta a pagar não encontrada.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.obterConta('tenant-1', 'conta-1')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});
+
+const BAIXA_ROW_BASE = {
+  id: 'baixa-1',
+  principal: '100.00',
+  interest_amount: '0.00',
+  discount_amount: '0.00',
+  paid_amount: '100.00',
+  payment_date: '2026-09-14',
+  payment_method: 'pix',
+  source: 'fora_do_caixa',
+  created_at: '2026-09-14T10:00:00Z',
+  created_by: 'user-1',
+  reversed_at: null,
+  reversed_by: null,
+  reversal_reason: null,
+};
+
+describe('SupabaseContasPagarAdapter — darBaixa', () => {
+  it('chama settle_payable com os parâmetros mapeados e devolve a Baixa mapeada', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: BAIXA_ROW_BASE, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.darBaixa('tenant-1', 'conta-1', {
+      principal: 100,
+      interestAmount: 0,
+      discountAmount: 0,
+      paymentDate: '2026-09-14',
+      paymentMethod: 'pix',
+      source: 'fora_do_caixa',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('settle_payable', {
+      p_payable_id: 'conta-1',
+      p_principal: 100,
+      p_payment_date: '2026-09-14',
+      p_payment_method: 'pix',
+      p_interest_amount: 0,
+      p_discount_amount: 0,
+      p_source: 'fora_do_caixa',
+      p_cash_session_id: null,
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toMatchObject({ id: 'baixa-1', principal: 100, paidAmount: 100 });
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'Baixa pela gaveta ainda não está disponível.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.darBaixa('tenant-1', 'conta-1', {
+        principal: 100,
+        paymentDate: '2026-09-14',
+        paymentMethod: 'cash',
+        source: 'gaveta',
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});
+
+describe('SupabaseContasPagarAdapter — estornarBaixa', () => {
+  it('chama reverse_payable_settlement com os parâmetros mapeados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: { ...BAIXA_ROW_BASE, reversed_at: '2026-09-14T11:00:00Z', reversed_by: 'user-1', reversal_reason: 'engano' },
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.estornarBaixa('tenant-1', 'baixa-1', 'lançada por engano');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('reverse_payable_settlement', {
+      p_settlement_id: 'baixa-1',
+      p_reason: 'lançada por engano',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado.reversalReason).toBe('engano');
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'Esta Baixa já foi estornada.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.estornarBaixa('tenant-1', 'baixa-1', 'motivo')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});
+
+describe('SupabaseContasPagarAdapter — listarBaixas', () => {
+  it('chama list_payable_settlements e mapeia as linhas', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: [
+        { ...BAIXA_ROW_BASE, created_by_name: 'Fulano' },
+        { ...BAIXA_ROW_BASE, id: 'baixa-2', created_by_name: 'Fulano' },
+      ],
+      error: null,
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.listarBaixas('tenant-1', 'conta-1');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('list_payable_settlements', {
+      p_payable_id: 'conta-1',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toHaveLength(2);
+    expect(resultado[0]).toMatchObject({ id: 'baixa-1', createdByName: 'Fulano' });
+  });
+
+  it('devolve lista vazia quando não há Baixas', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.listarBaixas('tenant-1', 'conta-1');
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'Conta a pagar não encontrada.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(adapter.listarBaixas('tenant-1', 'conta-1')).rejects.toThrow(
+      ContasPagarValidationError
+    );
+  });
+});

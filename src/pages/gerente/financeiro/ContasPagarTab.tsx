@@ -10,6 +10,7 @@ import { usePlanoContas } from '../../../modules/plano-contas/usePlanoContas';
 import type { ContaPagarListada } from '../../../modules/contas-pagar/types';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import { ContaPagarForm } from '../../../components/financeiro/ContaPagarForm';
+import { ContaPagarDetalheDrawer } from '../../../components/financeiro/ContaPagarDetalheDrawer';
 import { Badge, Card, EmptyState, Skeleton } from '../../../components/ui';
 import { Button } from '../../../components/ui/forms/Button';
 import { Select } from '../../../components/ui/forms/Select';
@@ -76,6 +77,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   const fornecedoresAtivos = fornecedores.filter((fornecedor) => fornecedor.archived_at === null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [contaSelecionadaId, setContaSelecionadaId] = useState<string | null>(null);
 
   const abrirCriar = () => setDrawerOpen(true);
   const fecharDrawer = () => setDrawerOpen(false);
@@ -84,6 +86,9 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     setDrawerOpen(false);
     await reload();
   };
+
+  const abrirDetalhe = (payableId: string) => setContaSelecionadaId(payableId);
+  const fecharDetalhe = () => setContaSelecionadaId(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -172,7 +177,11 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
                 {contas.map((conta) => {
                   const { situacao } = renderLinha(conta);
                   return (
-                    <TableRow key={conta.id}>
+                    <TableRow
+                      key={conta.id}
+                      onClick={() => abrirDetalhe(conta.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <TableCell>{conta.description}</TableCell>
                       <TableCell>{conta.category_name}</TableCell>
                       <TableCell>{conta.supplier_name || '—'}</TableCell>
@@ -193,7 +202,12 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
             {contas.map((conta) => {
               const { situacao } = renderLinha(conta);
               return (
-                <Card key={conta.id} className="contas-pagar-card">
+                <Card
+                  key={conta.id}
+                  className="contas-pagar-card"
+                  onClick={() => abrirDetalhe(conta.id)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="contas-pagar-card-row">
                     <span className="contas-pagar-card-name">{conta.description}</span>
                     <Badge variant={situacao.variant}>{situacao.label}</Badge>
@@ -233,6 +247,17 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
           onCancelar={fecharDrawer}
         />
       </Drawer>
+
+      {contaSelecionadaId && (
+        <ContaPagarDetalheDrawer
+          isOpen={!!contaSelecionadaId}
+          repository={repository}
+          tenantId={tenantId}
+          payableId={contaSelecionadaId}
+          onClose={fecharDetalhe}
+          onAtualizado={reload}
+        />
+      )}
     </div>
   );
 };

@@ -72,6 +72,62 @@ export interface ListaContasPagarResultado {
   totalCount: number;
 }
 
+/** Detalhe de uma Conta a Pagar (ticket 07/036): a linha da lista, mais autoria completa. */
+export interface ContaPagarDetalhe extends ContaPagarListada {
+  createdAt: string;
+  createdBy: string | null;
+  createdByName: string | null;
+  updatedAt: string;
+  updatedBy: string | null;
+  updatedByName: string | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  cancelledByName: string | null;
+  cancellationReason: string | null;
+}
+
+/** Forma de pagamento da Baixa (ticket 07/036): domínio próprio, não o de Comanda. */
+export type FormaPagamentoBaixa =
+  | 'cash'
+  | 'pix'
+  | 'transfer'
+  | 'boleto'
+  | 'credit_card'
+  | 'debit_card'
+  | 'automatic_debit'
+  | 'other';
+
+/** Origem do dinheiro de uma Baixa. `gaveta` só é aceita a partir do ticket 15/036. */
+export type OrigemDinheiroBaixa = 'gaveta' | 'fora_do_caixa';
+
+export interface Baixa {
+  id: string;
+  principal: number;
+  interestAmount: number;
+  discountAmount: number;
+  paidAmount: number;
+  paymentDate: string;
+  paymentMethod: FormaPagamentoBaixa;
+  source: OrigemDinheiroBaixa;
+  createdAt: string;
+  createdBy: string | null;
+  createdByName: string | null;
+  reversedAt: string | null;
+  reversedBy: string | null;
+  reversedByName: string | null;
+  reversalReason: string | null;
+}
+
+export interface DadosBaixa {
+  principal: number;
+  paymentDate: string;
+  paymentMethod: FormaPagamentoBaixa;
+  interestAmount?: number;
+  discountAmount?: number;
+  source?: OrigemDinheiroBaixa;
+  cashSessionId?: string | null;
+}
+
 export interface FiltroListaContasPagar {
   dueDateFrom?: string | null;
   dueDateTo?: string | null;
@@ -103,4 +159,8 @@ export interface IContasPagarAdapter {
     tenantId: string,
     filtro: FiltroListaContasPagar
   ): Promise<ListaContasPagarResultado>;
+  obterConta(tenantId: string, payableId: string): Promise<ContaPagarDetalhe>;
+  darBaixa(tenantId: string, payableId: string, dados: DadosBaixa): Promise<Baixa>;
+  estornarBaixa(tenantId: string, settlementId: string, motivo: string): Promise<Baixa>;
+  listarBaixas(tenantId: string, payableId: string): Promise<Baixa[]>;
 }

@@ -1,8 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ContasPagarValidationError } from '../ContasPagarRepository';
 import type {
+  Baixa,
   ContaPagar,
+  ContaPagarDetalhe,
   ContaPagarListada,
+  DadosBaixa,
   DadosContaPagarAvulsa,
   FiltroListaContasPagar,
   IContasPagarAdapter,
@@ -70,6 +73,75 @@ function mapearLinhaLista(row: ListaContasPagarRow): ContaPagarListada {
   };
 }
 
+/** Linha bruta devolvida por `get_payable` (mesmas colunas de `list_payables`, mais autoria). */
+interface ContaPagarDetalheRow extends ListaContasPagarRow {
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+  updated_at: string;
+  updated_by: string | null;
+  updated_by_name: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancelled_by_name: string | null;
+  cancellation_reason: string | null;
+}
+
+function mapearLinhaDetalhe(row: ContaPagarDetalheRow): ContaPagarDetalhe {
+  return {
+    ...mapearLinhaLista(row),
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+    createdByName: row.created_by_name,
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by,
+    updatedByName: row.updated_by_name,
+    cancelledAt: row.cancelled_at,
+    cancelledBy: row.cancelled_by,
+    cancelledByName: row.cancelled_by_name,
+    cancellationReason: row.cancellation_reason,
+  };
+}
+
+/** Linha bruta devolvida por `settle_payable`/`reverse_payable_settlement`/`list_payable_settlements`. */
+interface BaixaRow {
+  id: string;
+  principal: number | string;
+  interest_amount: number | string;
+  discount_amount: number | string;
+  paid_amount: number | string;
+  payment_date: string;
+  payment_method: Baixa['paymentMethod'];
+  source: Baixa['source'];
+  created_at: string;
+  created_by: string | null;
+  created_by_name?: string | null;
+  reversed_at: string | null;
+  reversed_by: string | null;
+  reversed_by_name?: string | null;
+  reversal_reason: string | null;
+}
+
+function mapearBaixa(row: BaixaRow): Baixa {
+  return {
+    id: row.id,
+    principal: Number(row.principal) || 0,
+    interestAmount: Number(row.interest_amount) || 0,
+    discountAmount: Number(row.discount_amount) || 0,
+    paidAmount: Number(row.paid_amount) || 0,
+    paymentDate: row.payment_date,
+    paymentMethod: row.payment_method,
+    source: row.source,
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+    createdByName: row.created_by_name ?? null,
+    reversedAt: row.reversed_at,
+    reversedBy: row.reversed_by,
+    reversedByName: row.reversed_by_name ?? null,
+    reversalReason: row.reversal_reason,
+  };
+}
+
 export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
   private supabase: SupabaseClient;
 
@@ -113,5 +185,57 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
       contas: linhas.map(mapearLinhaLista),
       totalCount: linhas.length > 0 ? Number(linhas[0].total_count) || 0 : 0,
     };
+  }
+
+  async obterConta(tenantId: string, payableId: string): Promise<ContaPagarDetalhe> {
+    const { data, error } = await this.supabase.rpc('get_payable', {
+      p_payable_id: payableId,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    const linhas = (data as ContaPagarDetalheRow[]) || [];
+    if (linhas.length === 0) {
+      throw new ContasPagarValidationError('Conta a pagar não encontrada.');
+    }
+    return mapearLinhaDetalhe(linhas[0]);
+  }
+
+  async darBaixa(tenantId: string, payableId: string, dados: DadosBaixa): Promise<Baixa> {
+    const { data, error } = await this.supabase.rpc('settle_payable', {
+      p_payable_id: payableId,
+      p_principal: dados.principal,
+      p_payment_date: dados.paymentDate,
+      p_payment_method: dados.paymentMethod,
+      p_interest_amount: dados.interestAmount ?? 0,
+      p_discount_amount: dados.discountAmount ?? 0,
+      p_source: dados.source ?? 'fora_do_caixa',
+      p_cash_session_id: dados.cashSessionId ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return mapearBaixa(data as BaixaRow);
+  }
+
+  async estornarBaixa(tenantId: string, settlementId: string, motivo: string): Promise<Baixa> {
+    const { data, error } = await this.supabase.rpc('reverse_payable_settlement', {
+      p_settlement_id: settlementId,
+      p_reason: motivo,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return mapearBaixa(data as BaixaRow);
+  }
+
+  async listarBaixas(tenantId: string, payableId: string): Promise<Baixa[]> {
+    const { data, error } = await this.supabase.rpc('list_payable_settlements', {
+      p_payable_id: payableId,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return ((data as BaixaRow[]) || []).map(mapearBaixa);
   }
 }
