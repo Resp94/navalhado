@@ -28,6 +28,8 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
 }) => {
   const totalRealizado = buckets.reduce((sum, bucket) => sum + bucket.inflow_realized, 0);
   const totalSaidaRealizada = buckets.reduce((sum, bucket) => sum + bucket.outflow_realized, 0);
+  const totalPrevisto = buckets.reduce((sum, bucket) => sum + bucket.outflow_forecast, 0);
+  const totalVencido = buckets.reduce((sum, bucket) => sum + bucket.outflow_overdue, 0);
   const semDados = loading && buckets.length === 0;
 
   const estimativaOk = estimate?.status === 'ok';
@@ -88,6 +90,25 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
                 : estimate
                   ? `Estimativa baseada em ${estimate.weeks_used} ${estimate.weeks_used === 1 ? 'semana' : 'semanas'} de histórico`
                   : 'Média do recebido por dia da semana nos dias futuros do período'}
+            </p>
+          </div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-header">
+            <span className="kpi-label">Saídas previstas</span>
+          </div>
+          <div>
+            <h3 className="kpi-value">{semDados ? '—' : formatCurrency(totalPrevisto)}</h3>
+            <p className="kpi-meta">
+              Contas a Pagar em aberto com vencimento no período
+              {!semDados && totalVencido > 0 && (
+                <>
+                  {' '}
+                  <span className="fluxo-caixa-saldo-negativo">
+                    ({formatCurrency(totalVencido)} vencidas)
+                  </span>
+                </>
+              )}
             </p>
           </div>
         </div>

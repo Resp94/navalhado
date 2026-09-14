@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Drawer } from '../../../../components/ui/feedback/Drawer';
 import { formatCurrency } from '../../../../lib/currency';
 import type { FluxoCaixaBucket, FluxoCaixaInflowByMethod } from '../../../../modules/fluxo-caixa/types';
@@ -89,6 +90,31 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
                   <div key={item.professional_id}>
                     <dt>{item.professional_name}</dt>
                     <dd>{formatCurrency(item.amount)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
+
+          <section>
+            <div className="fluxo-caixa-detalhe-subtitulo-header">
+              <h4 className="fluxo-caixa-detalhe-subtitulo">Contas a Pagar previstas e vencidas</h4>
+              <Link to="/financeiro/contas-a-pagar" className="fluxo-caixa-compromissos-link">
+                Ver na aba de Contas a Pagar
+              </Link>
+            </div>
+            {bucket.detail.payables_forecast.length === 0 ? (
+              <p className="fluxo-caixa-detalhe-vazio">Nenhuma Conta a Pagar prevista ou vencida no agrupamento.</p>
+            ) : (
+              <dl className="fluxo-caixa-detalhe-lista">
+                {bucket.detail.payables_forecast.map((item) => (
+                  <div key={item.payable_id}>
+                    <dt>
+                      {item.description}
+                      {item.overdue && <span className="fluxo-caixa-vencido-badge">vencido</span>}
+                      <span className="fluxo-caixa-detalhe-meta"> · vencimento {formatBucketDate(item.due_date)}</span>
+                    </dt>
+                    <dd>{formatCurrency(item.remaining_amount)}</dd>
                   </div>
                 ))}
               </dl>

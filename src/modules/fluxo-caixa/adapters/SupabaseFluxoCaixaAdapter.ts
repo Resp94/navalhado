@@ -3,6 +3,7 @@ import {
   FLUXO_CAIXA_WEEKDAY_KEYS,
   type FluxoCaixaBucket,
   type FluxoCaixaEstimate,
+  type FluxoCaixaPayableForecast,
   type FluxoCaixaProjetado,
   type FluxoCaixaUndatedCommitments,
   type FluxoCaixaValorPorProfissional,
@@ -61,6 +62,20 @@ function toValoresPorProfissional(value: unknown): FluxoCaixaValorPorProfissiona
   });
 }
 
+function toPayablesForecast(value: unknown): FluxoCaixaPayableForecast[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      payable_id: raw.payable_id ? String(raw.payable_id) : '',
+      description: raw.description ? String(raw.description) : '',
+      remaining_amount: toNumber(raw.remaining_amount),
+      due_date: raw.due_date ? String(raw.due_date) : '',
+      overdue: raw.overdue === true,
+    };
+  });
+}
+
 /**
  * Adaptador Supabase do Fluxo de Caixa Projetado (spec 037, ticket 01):
  * converte o JSON de `get_projected_cash_flow` em números e tipos do
@@ -93,6 +108,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         inflow_by_method?: Record<string, unknown>;
         payouts_by_professional?: unknown;
         advances_by_professional?: unknown;
+        payables_forecast?: unknown;
         estimated_days?: unknown;
         closed_days?: unknown;
       };
@@ -105,6 +121,8 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         inflow_realized: toNumber(bucket?.inflow_realized),
         inflow_estimated: toNullableNumber(bucket?.inflow_estimated),
         outflow_realized: toNumber(bucket?.outflow_realized),
+        outflow_forecast: toNumber(bucket?.outflow_forecast),
+        outflow_overdue: toNumber(bucket?.outflow_overdue),
         pending_flow: toNumber(bucket?.pending_flow),
         detail: {
           inflow_by_method: {
@@ -115,6 +133,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
           },
           payouts_by_professional: toValoresPorProfissional(detail.payouts_by_professional),
           advances_by_professional: toValoresPorProfissional(detail.advances_by_professional),
+          payables_forecast: toPayablesForecast(detail.payables_forecast),
           estimated_days: toNumber(detail.estimated_days),
           closed_days: toNumber(detail.closed_days),
         },

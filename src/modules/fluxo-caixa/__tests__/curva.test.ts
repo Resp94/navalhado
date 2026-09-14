@@ -8,11 +8,14 @@ function bucket(overrides: Partial<FluxoCaixaBucket> & { start_date: string; kin
     inflow_realized: 0,
     inflow_estimated: null,
     outflow_realized: 0,
+    outflow_forecast: 0,
+    outflow_overdue: 0,
     pending_flow: 0,
     detail: {
       inflow_by_method: { dinheiro: 0, pix: 0, cartao: 0, outros: 0 },
       payouts_by_professional: [],
       advances_by_professional: [],
+      payables_forecast: [],
       estimated_days: 0,
       closed_days: 0,
     },
@@ -102,5 +105,22 @@ describe('computeFluxoCaixaCurva', () => {
     const curva = computeFluxoCaixaCurva(buckets, 0);
 
     expect(curva.pontos[0].resultado).toBe(0);
+  });
+
+  it('o resultado desconta saida prevista e vencida (ticket 07/037)', () => {
+    const buckets = [
+      bucket({
+        start_date: '2026-06-02',
+        kind: 'current',
+        inflow_realized: 200,
+        outflow_realized: 50,
+        outflow_forecast: 30,
+        outflow_overdue: 20,
+      }),
+    ];
+
+    const curva = computeFluxoCaixaCurva(buckets, 0);
+
+    expect(curva.pontos[0].resultado).toBe(100);
   });
 });

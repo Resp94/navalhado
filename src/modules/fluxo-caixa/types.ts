@@ -16,16 +16,32 @@ export interface FluxoCaixaValorPorProfissional {
 }
 
 /**
+ * Conta a Pagar (spec 036) prevista ou vencida dentro de um agrupamento
+ * (spec 037, ticket 07). `overdue` distingue as duas: `false` é Saída
+ * Prevista (vencimento hoje ou depois), `true` é Conta a Pagar Vencida
+ * (vencimento passado, sempre no agrupamento atual) -- nunca as duas ao
+ * mesmo tempo para a mesma conta.
+ */
+export interface FluxoCaixaPayableForecast {
+  payable_id: string;
+  description: string;
+  remaining_amount: number;
+  due_date: string;
+  overdue: boolean;
+}
+
+/**
  * Detalhamento de um agrupamento. Ticket 01: entradas por forma de
  * pagamento. Ticket 02: Quitações de Comissão e vales por profissional.
  * Ticket 03: dias estimados e dias fechados (só dias futuros do
- * agrupamento). Os tickets seguintes (05 a 08) acrescentam aqui categorias
- * de despesa e Contas a Pagar previstas.
+ * agrupamento). Ticket 07: Contas a Pagar previstas e vencidas. O ticket
+ * seguinte (08) acrescenta aqui Baixas por categoria de despesa.
  */
 export interface FluxoCaixaBucketDetail {
   inflow_by_method: FluxoCaixaInflowByMethod;
   payouts_by_professional: FluxoCaixaValorPorProfissional[];
   advances_by_professional: FluxoCaixaValorPorProfissional[];
+  payables_forecast: FluxoCaixaPayableForecast[];
   /** Dias futuros do agrupamento em que a barbearia funciona (recebem estimativa, mesmo que zero). */
   estimated_days: number;
   /** Dias futuros do agrupamento em que a barbearia não funciona (horário de funcionamento inativo ou ausente). */
@@ -73,15 +89,29 @@ export interface FluxoCaixaBucket {
   inflow_estimated: number | null;
   /**
    * Saída realizada: Quitações de Comissão (líquidas do abate de vale) e
-   * vales dados no agrupamento, excluindo estornos (ticket 02). Os tickets
-   * seguintes somam aqui Baixas de Contas a Pagar.
+   * vales dados no agrupamento, excluindo estornos (ticket 02). O ticket
+   * seguinte (08) soma aqui Baixas de Contas a Pagar.
    */
   outflow_realized: number;
   /**
+   * Saída Prevista (ticket 07): soma do saldo restante de Contas a Pagar em
+   * aberto ou parcialmente pagas com vencimento hoje ou depois, no
+   * agrupamento do próprio vencimento.
+   */
+  outflow_forecast: number;
+  /**
+   * Conta a Pagar Vencida (ticket 07): soma do saldo restante de Contas a
+   * Pagar em aberto ou parcialmente pagas com vencimento já passado --
+   * sempre no agrupamento atual (o que contém `business_today`), nunca
+   * somada em `outflow_forecast`.
+   */
+  outflow_overdue: number;
+  /**
    * O que, dentro deste agrupamento, ainda não está no saldo de hoje: soma
-   * entradas estimadas e o realizado com data posterior a `business_today`
-   * (entradas futuras somam, saídas futuras subtraem). Os tickets seguintes
-   * somam aqui saídas previstas e vencidas.
+   * entradas estimadas, o realizado com data posterior a `business_today`
+   * (entradas futuras somam, saídas futuras subtraem), e subtrai
+   * integralmente `outflow_forecast` e `outflow_overdue` (nenhuma das duas
+   * já saiu da gaveta).
    */
   pending_flow: number;
   detail: FluxoCaixaBucketDetail;

@@ -37,7 +37,7 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
   const chartHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
   const entradasTotais = buckets.map((bucket) => bucket.inflow_realized + (bucket.inflow_estimated ?? 0));
-  const saidas = buckets.map((bucket) => bucket.outflow_realized);
+  const saidas = buckets.map((bucket) => bucket.outflow_realized + bucket.outflow_forecast + bucket.outflow_overdue);
   const saldosValidos = curva
     ? curva.pontos.map((ponto) => ponto.saldo).filter((saldo): saldo is number => saldo !== null)
     : [];
@@ -68,7 +68,7 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
   }, '');
 
   const rotuloCurva = curva?.rotulo || 'Resultado acumulado';
-  const titulo = `Gráfico de entradas e saídas por agrupamento, com a linha de ${rotuloCurva.toLowerCase()} do período`;
+  const titulo = `Gráfico de entradas, saídas realizadas, previstas e vencidas por agrupamento, com a linha de ${rotuloCurva.toLowerCase()} do período`;
 
   return (
     <section className="card-panel fluxo-caixa-grafico-panel" aria-label="Gráfico do fluxo de caixa projetado">
@@ -86,6 +86,14 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
         <span className="fluxo-caixa-legenda-item">
           <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--saida" aria-hidden="true" />
           Saída realizada
+        </span>
+        <span className="fluxo-caixa-legenda-item">
+          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--previsto" aria-hidden="true" />
+          Saída prevista
+        </span>
+        <span className="fluxo-caixa-legenda-item">
+          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--vencido" aria-hidden="true" />
+          Conta vencida
         </span>
         <span className="fluxo-caixa-legenda-item">
           <span className="fluxo-caixa-legenda-linha" aria-hidden="true" />
@@ -106,6 +114,26 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
             >
               <rect width="6" height="6" fill="var(--color-info, #3f83f8)" fillOpacity="0.22" />
               <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-info, #3f83f8)" strokeWidth="2" />
+            </pattern>
+            <pattern
+              id="fluxo-caixa-hachura-previsto"
+              width="6"
+              height="6"
+              patternTransform="rotate(45)"
+              patternUnits="userSpaceOnUse"
+            >
+              <rect width="6" height="6" fill="var(--color-warning, #b45309)" fillOpacity="0.22" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-warning, #b45309)" strokeWidth="2" />
+            </pattern>
+            <pattern
+              id="fluxo-caixa-hachura-vencido"
+              width="6"
+              height="6"
+              patternTransform="rotate(-45)"
+              patternUnits="userSpaceOnUse"
+            >
+              <rect width="6" height="6" fill="var(--color-danger, #c0392b)" fillOpacity="0.3" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-danger, #c0392b)" strokeWidth="2" />
             </pattern>
           </defs>
 
@@ -177,6 +205,31 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
                   fill="var(--color-danger, #c0392b)"
                   fillOpacity="0.75"
                 />
+                {bucket.outflow_forecast > 0 && (
+                  <rect
+                    x={saidaX}
+                    y={escalaY(bucket.outflow_realized + bucket.outflow_forecast)}
+                    width={barWidth}
+                    height={Math.max(
+                      0,
+                      escalaY(bucket.outflow_realized) - escalaY(bucket.outflow_realized + bucket.outflow_forecast)
+                    )}
+                    fill="url(#fluxo-caixa-hachura-previsto)"
+                  />
+                )}
+                {bucket.outflow_overdue > 0 && (
+                  <rect
+                    x={saidaX}
+                    y={escalaY(bucket.outflow_realized + bucket.outflow_forecast + bucket.outflow_overdue)}
+                    width={barWidth}
+                    height={Math.max(
+                      0,
+                      escalaY(bucket.outflow_realized + bucket.outflow_forecast) -
+                        escalaY(bucket.outflow_realized + bucket.outflow_forecast + bucket.outflow_overdue)
+                    )}
+                    fill="url(#fluxo-caixa-hachura-vencido)"
+                  />
+                )}
 
                 <text
                   x={groupX + groupWidth / 2}

@@ -80,6 +80,52 @@
   color: var(--color-text-secondary, var(--color-text-primary));
 }
 
+/* Saída Prevista e Conta a Pagar Vencida (ticket 07): mesmo padrão da
+   entrada estimada -- rótulo textual sempre ao lado do valor. */
+.fluxo-caixa-previsto-grupo {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fluxo-caixa-previsto,
+.fluxo-caixa-vencido {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.fluxo-caixa-previsto-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--color-warning-bg, rgba(217, 119, 6, 0.15));
+  color: var(--color-warning, #b45309);
+}
+
+.fluxo-caixa-vencido-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.35rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--color-danger, #c0392b);
+}
+
+.fluxo-caixa-previsto-vazio {
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
 /* --------------------------------------------------------------------------
    Filtros
    -------------------------------------------------------------------------- */
@@ -269,6 +315,28 @@
   opacity: 0.75;
 }
 
+.fluxo-caixa-legenda-swatch--previsto {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-warning, #b45309) 0,
+    var(--color-warning, #b45309) 1.5px,
+    transparent 1.5px,
+    transparent 4px
+  );
+  background-color: rgba(180, 83, 9, 0.22);
+}
+
+.fluxo-caixa-legenda-swatch--vencido {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-danger, #c0392b) 0,
+    var(--color-danger, #c0392b) 1.5px,
+    transparent 1.5px,
+    transparent 4px
+  );
+  background-color: rgba(192, 57, 43, 0.3);
+}
+
 .fluxo-caixa-legenda-linha {
   display: inline-block;
   width: 1.1rem;
@@ -300,6 +368,18 @@
   font-size: var(--font-size-sm);
   font-weight: 800;
   color: var(--color-text-primary);
+}
+
+.fluxo-caixa-detalhe-subtitulo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.fluxo-caixa-detalhe-subtitulo-header .fluxo-caixa-detalhe-subtitulo {
+  margin: 0;
 }
 
 .fluxo-caixa-detalhe-lista {

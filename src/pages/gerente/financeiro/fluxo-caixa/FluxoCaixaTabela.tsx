@@ -3,6 +3,7 @@ import { formatCurrency } from '../../../../lib/currency';
 import type { FluxoCaixaBucket, FluxoCaixaBucketKind } from '../../../../modules/fluxo-caixa/types';
 import type { FluxoCaixaCurva } from '../../../../modules/fluxo-caixa/curva';
 import { FluxoCaixaValorEstimado } from './FluxoCaixaValorEstimado';
+import { FluxoCaixaValorPrevisto } from './FluxoCaixaValorPrevisto';
 
 export interface FluxoCaixaTabelaProps {
   buckets: FluxoCaixaBucket[];
@@ -47,7 +48,7 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, cur
       ) : (
         <table
           className="fluxo-caixa-tabela"
-          aria-label="Uma linha por agrupamento do período, com o recebido, a saída realizada, a entrada estimada e a curva"
+          aria-label="Uma linha por agrupamento do período, com o recebido, a saída realizada, a entrada estimada, a saída prevista ou vencida e a curva"
         >
           <thead>
             <tr>
@@ -56,6 +57,7 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, cur
               <th scope="col">Recebido</th>
               <th scope="col">Saída realizada</th>
               <th scope="col">Estimado</th>
+              <th scope="col">Previsto</th>
               <th scope="col">{curva?.rotulo || 'Resultado acumulado'}</th>
             </tr>
           </thead>
@@ -88,6 +90,9 @@ export const FluxoCaixaTabela: React.FC<FluxoCaixaTabelaProps> = ({ buckets, cur
                   <td data-label="Saída realizada">{formatCurrency(bucket.outflow_realized)}</td>
                   <td data-label="Estimado">
                     {bucket.kind === 'past' ? '—' : <FluxoCaixaValorEstimado value={bucket.inflow_estimated} />}
+                  </td>
+                  <td data-label="Previsto">
+                    <FluxoCaixaValorPrevisto forecast={bucket.outflow_forecast} overdue={bucket.outflow_overdue} />
                   </td>
                   <td data-label={curva?.rotulo || 'Resultado acumulado'}>
                     {saldo === null ? (

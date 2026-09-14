@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(46);
 
 -- Spec 037 (Fluxo de Caixa Projetado), ticket 01: Realizado de Comandas
 -- ponta a ponta. Cobre o contrato de leitura (public.get_projected_cash_flow),
@@ -730,6 +730,158 @@ select is(
   ),
   jsonb_build_object('outflow_realized', '0.00', 'pending_flow', '0.00'),
   'Compromissos sem Data nao entram em nenhum agrupamento nem no fluxo pendente: a comissao/vale em aberto lancados nesta secao nao alteram outflow_realized nem pending_flow do dia'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 07/037: Saidas previstas e Contas a Pagar Vencidas. Tenant e
+-- gerente proprios (mesmo cuidado do ticket35_context): payables e um livro
+-- novo, sem risco de contaminacao de outro ticket, mas isola mesmo assim
+-- para o "hoje" fixo do teste nao colidir com nenhuma outra secao.
+--
+-- "Hoje" do teste: 2026-08-15. Seis Contas a Pagar cobrindo cada regra:
+--   A: aberta, vence 2026-08-20 (hoje + 5)      -> prevista futura, 100.00
+--   B: parcial, vence 2026-08-15 (hoje)         -> prevista no bucket atual, 150.00 (200 - 50 pago)
+--   C: aberta, venceu 2026-08-05 (hoje - 10)    -> vencida, sempre no bucket atual, 80.00
+--   D: paga,   venceu 2026-08-12                -> nao entra
+--   E: cancelada, vence 2026-08-17              -> nao entra
+--   F: aberta, vence 2026-09-04 (fora do periodo pedido, que termina em 2026-08-25) -> nao entra
+-- ---------------------------------------------------------------------------
+create temporary table ticket37_context (
+  tenant_id uuid not null,
+  gerente_id uuid not null
+) on commit drop;
+with t as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket37_tenant__', '__ticket37_tenant__@teste.com', '11999991037', 'America/Sao_Paulo')
+  returning id
+), au as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket37_gerente__@teste.com') returning id
+)
+insert into ticket37_context (tenant_id, gerente_id)
+select t.id, au.id from t, au;
+
+update public.users set tenant_id = (select tenant_id from ticket37_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket37_context);
+
+-- Todo tenant nasce com catorze categorias de despesa padrao (gatilho AFTER
+-- INSERT em tenants, spec 035) -- basta reusar a primeira.
+create temporary table ticket37_category (category_id uuid not null) on commit drop;
+insert into ticket37_category (category_id)
+select id from public.financial_categories
+where tenant_id = (select tenant_id from ticket37_context)
+order by id
+limit 1;
+
+insert into public.payables (tenant_id, description, category_id, amount, due_date, competence_date)
+select tenant_id, 'A futura ticket37', (select category_id from ticket37_category limit 1), 100, '2026-08-20'::date, '2026-08-20'::date
+from ticket37_context;
+
+insert into public.payables (tenant_id, description, category_id, amount, paid_amount, status, due_date, competence_date)
+select tenant_id, 'B hoje ticket37', (select category_id from ticket37_category limit 1), 200, 50, 'partially_paid', '2026-08-15'::date, '2026-08-15'::date
+from ticket37_context;
+
+insert into public.payables (tenant_id, description, category_id, amount, due_date, competence_date)
+select tenant_id, 'C vencida ticket37', (select category_id from ticket37_category limit 1), 80, '2026-08-05'::date, '2026-08-05'::date
+from ticket37_context;
+
+insert into public.payables (tenant_id, description, category_id, amount, paid_amount, status, due_date, competence_date)
+select tenant_id, 'D paga ticket37', (select category_id from ticket37_category limit 1), 50, 50, 'paid', '2026-08-12'::date, '2026-08-12'::date
+from ticket37_context;
+
+insert into public.payables (tenant_id, description, category_id, amount, status, due_date, competence_date, cancelled_at, cancelled_by, cancellation_reason)
+select tenant_id, 'E cancelada ticket37', (select category_id from ticket37_category limit 1), 30, 'cancelled', '2026-08-17'::date, '2026-08-17'::date, now(), gerente_id, 'teste ticket37'
+from ticket37_context;
+
+insert into public.payables (tenant_id, description, category_id, amount, due_date, competence_date)
+select tenant_id, 'F fora do periodo ticket37', (select category_id from ticket37_category limit 1), 40, '2026-09-04'::date, '2026-09-04'::date
+from ticket37_context;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket37_context), true);
+
+select is(
+  (
+    select jsonb_build_object('outflow_forecast', bucket ->> 'outflow_forecast', 'outflow_overdue', bucket ->> 'outflow_overdue')
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-31'::date, '2026-08-25'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-15'
+  ),
+  jsonb_build_object('outflow_forecast', '150.00', 'outflow_overdue', '80.00'),
+  'Bucket atual soma a prevista que vence hoje (B, saldo restante 150) em outflow_forecast e a vencida (C, 80) em outflow_overdue, campos separados'
+);
+
+select is(
+  (
+    select bucket ->> 'outflow_forecast'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-31'::date, '2026-08-25'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-20'
+  ),
+  '100.00',
+  'Prevista futura (A) entra no bucket do proprio vencimento, pelo saldo restante'
+);
+
+select is(
+  (
+    select jsonb_build_object('outflow_forecast', bucket ->> 'outflow_forecast', 'outflow_overdue', bucket ->> 'outflow_overdue')
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-31'::date, '2026-08-25'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-12'
+  ),
+  jsonb_build_object('outflow_forecast', '0.00', 'outflow_overdue', '0.00'),
+  'Conta paga (D, vencimento 2026-08-12) nao gera nenhuma saida prevista nem vencida'
+);
+
+select is(
+  (
+    select bucket -> 'detail' -> 'payables_forecast'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-31'::date, '2026-08-25'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-15'
+  ),
+  jsonb_build_array(
+    jsonb_build_object('payable_id', (select id from public.payables where tenant_id = (select tenant_id from ticket37_context) and description = 'C vencida ticket37'), 'description', 'C vencida ticket37', 'remaining_amount', 80.00, 'due_date', '2026-08-05', 'overdue', true),
+    jsonb_build_object('payable_id', (select id from public.payables where tenant_id = (select tenant_id from ticket37_context) and description = 'B hoje ticket37'), 'description', 'B hoje ticket37', 'remaining_amount', 150.00, 'due_date', '2026-08-15', 'overdue', false)
+  ),
+  'Detalhamento do bucket atual lista prevista e vencida juntas, cada uma com descricao, saldo restante, vencimento original e marca de atrasada -- vencida ordenada primeiro por ter o vencimento mais antigo'
+);
+
+select is(
+  (
+    select bucket ->> 'pending_flow'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-31'::date, '2026-08-25'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-15'
+  ),
+  '-230.00',
+  'Fluxo pendente do bucket atual desconta integralmente a prevista (150) e a vencida (80), mesmo a prevista vencendo hoje -- nenhuma das duas ja saiu da gaveta'
+);
+
+select is(
+  (
+    select bool_and((bucket ->> 'outflow_forecast')::numeric = 0 and (bucket ->> 'outflow_overdue')::numeric = 0 and jsonb_array_length(bucket -> 'detail' -> 'payables_forecast') = 0)
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket37_context), '2026-07-01'::date, '2026-07-10'::date, 'day', '2026-08-15'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  true,
+  'Periodo inteiramente passado (fim antes de hoje) nao devolve nenhuma prevista nem vencida em bucket nenhum, mesmo havendo Contas a Pagar vencidas no tenant'
 );
 
 select * from finish(true);

@@ -23,24 +23,13 @@ export interface FluxoCaixaCurva {
   primeiroNegativoIndex: number | null;
 }
 
-/**
- * Campos que os tickets 05 (saídas previstas) e 07 (vencidas) ainda vão
- * acrescentar ao contrato. Lidos com fallback a zero enquanto não existem,
- * para que a função de resultado já fique correta e nunca precise mudar de
- * assinatura quando os tickets seguintes chegarem.
- */
-type FluxoCaixaBucketComPrevisao = FluxoCaixaBucket & {
-  outflow_forecast?: number;
-  outflow_overdue?: number;
-};
-
-function resultadoDoBucket(bucket: FluxoCaixaBucketComPrevisao): number {
+function resultadoDoBucket(bucket: FluxoCaixaBucket): number {
   return (
     bucket.inflow_realized +
     (bucket.inflow_estimated ?? 0) -
     bucket.outflow_realized -
-    (bucket.outflow_forecast ?? 0) -
-    (bucket.outflow_overdue ?? 0)
+    bucket.outflow_forecast -
+    bucket.outflow_overdue
   );
 }
 

@@ -34,6 +34,8 @@ describe('SupabaseFluxoCaixaAdapter', () => {
             inflow_realized: '150.50',
             inflow_estimated: '25.00',
             outflow_realized: '90.00',
+            outflow_forecast: '45.00',
+            outflow_overdue: '15.00',
             pending_flow: '0.00',
             detail: {
               inflow_by_method: { dinheiro: '30.00', pix: '100.50', cartao: '20.00', outros: '0.00' },
@@ -42,6 +44,10 @@ describe('SupabaseFluxoCaixaAdapter', () => {
               ],
               advances_by_professional: [
                 { professional_id: 'prof-2', professional_name: 'Bruno', amount: '30.00' },
+              ],
+              payables_forecast: [
+                { payable_id: 'pay-1', description: 'Aluguel', remaining_amount: '45.00', due_date: '2026-06-10', overdue: false },
+                { payable_id: 'pay-2', description: 'Água', remaining_amount: '15.00', due_date: '2026-06-01', overdue: true },
               ],
               estimated_days: 5,
               closed_days: 2,
@@ -87,11 +93,17 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       inflow_realized: 150.5,
       inflow_estimated: 25,
       outflow_realized: 90,
+      outflow_forecast: 45,
+      outflow_overdue: 15,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 30, pix: 100.5, cartao: 20, outros: 0 },
         payouts_by_professional: [{ professional_id: 'prof-1', professional_name: 'Ana', amount: 60 }],
         advances_by_professional: [{ professional_id: 'prof-2', professional_name: 'Bruno', amount: 30 }],
+        payables_forecast: [
+          { payable_id: 'pay-1', description: 'Aluguel', remaining_amount: 45, due_date: '2026-06-10', overdue: false },
+          { payable_id: 'pay-2', description: 'Água', remaining_amount: 15, due_date: '2026-06-01', overdue: true },
+        ],
         estimated_days: 5,
         closed_days: 2,
       },
@@ -133,11 +145,14 @@ describe('SupabaseFluxoCaixaAdapter', () => {
       inflow_realized: 0,
       inflow_estimated: null,
       outflow_realized: 0,
+      outflow_forecast: 0,
+      outflow_overdue: 0,
       pending_flow: 0,
       detail: {
         inflow_by_method: { dinheiro: 0, pix: 0, cartao: 0, outros: 0 },
         payouts_by_professional: [],
         advances_by_professional: [],
+        payables_forecast: [],
         estimated_days: 0,
         closed_days: 0,
       },
