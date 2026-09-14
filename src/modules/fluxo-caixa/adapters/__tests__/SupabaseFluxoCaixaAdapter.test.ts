@@ -49,6 +49,9 @@ describe('SupabaseFluxoCaixaAdapter', () => {
                 { payable_id: 'pay-1', description: 'Aluguel', remaining_amount: '45.00', due_date: '2026-06-10', overdue: false },
                 { payable_id: 'pay-2', description: 'Água', remaining_amount: '15.00', due_date: '2026-06-01', overdue: true },
               ],
+              settlements_by_category: [
+                { category_id: 'cat-1', category_name: 'Produtos para revenda', amount: '90.00' },
+              ],
               estimated_days: 5,
               closed_days: 2,
             },
@@ -104,6 +107,9 @@ describe('SupabaseFluxoCaixaAdapter', () => {
           { payable_id: 'pay-1', description: 'Aluguel', remaining_amount: 45, due_date: '2026-06-10', overdue: false },
           { payable_id: 'pay-2', description: 'Água', remaining_amount: 15, due_date: '2026-06-01', overdue: true },
         ],
+        settlements_by_category: [
+          { category_id: 'cat-1', category_name: 'Produtos para revenda', amount: 90 },
+        ],
         estimated_days: 5,
         closed_days: 2,
       },
@@ -153,6 +159,7 @@ describe('SupabaseFluxoCaixaAdapter', () => {
         payouts_by_professional: [],
         advances_by_professional: [],
         payables_forecast: [],
+        settlements_by_category: [],
         estimated_days: 0,
         closed_days: 0,
       },

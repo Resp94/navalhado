@@ -122,6 +122,22 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           </section>
 
           <section>
+            <h4 className="fluxo-caixa-detalhe-subtitulo">Baixas pagas por Categoria de Despesa</h4>
+            {bucket.detail.settlements_by_category.length === 0 ? (
+              <p className="fluxo-caixa-detalhe-vazio">Nenhuma Baixa paga no agrupamento.</p>
+            ) : (
+              <dl className="fluxo-caixa-detalhe-lista">
+                {bucket.detail.settlements_by_category.map((item) => (
+                  <div key={item.category_id}>
+                    <dt>{item.category_name}</dt>
+                    <dd>{formatCurrency(item.amount)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
+
+          <section>
             <h4 className="fluxo-caixa-detalhe-subtitulo">Totais do agrupamento</h4>
             <dl className="fluxo-caixa-detalhe-lista">
               <div>

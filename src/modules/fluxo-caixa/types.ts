@@ -30,18 +30,26 @@ export interface FluxoCaixaPayableForecast {
   overdue: boolean;
 }
 
+/** Total de Baixa paga (valor líquido) de uma Categoria de Despesa num agrupamento (ticket 08). */
+export interface FluxoCaixaValorPorCategoria {
+  category_id: string;
+  category_name: string;
+  amount: number;
+}
+
 /**
  * Detalhamento de um agrupamento. Ticket 01: entradas por forma de
  * pagamento. Ticket 02: Quitações de Comissão e vales por profissional.
  * Ticket 03: dias estimados e dias fechados (só dias futuros do
- * agrupamento). Ticket 07: Contas a Pagar previstas e vencidas. O ticket
- * seguinte (08) acrescenta aqui Baixas por categoria de despesa.
+ * agrupamento). Ticket 07: Contas a Pagar previstas e vencidas. Ticket 08:
+ * Baixas pagas por Categoria de Despesa.
  */
 export interface FluxoCaixaBucketDetail {
   inflow_by_method: FluxoCaixaInflowByMethod;
   payouts_by_professional: FluxoCaixaValorPorProfissional[];
   advances_by_professional: FluxoCaixaValorPorProfissional[];
   payables_forecast: FluxoCaixaPayableForecast[];
+  settlements_by_category: FluxoCaixaValorPorCategoria[];
   /** Dias futuros do agrupamento em que a barbearia funciona (recebem estimativa, mesmo que zero). */
   estimated_days: number;
   /** Dias futuros do agrupamento em que a barbearia não funciona (horário de funcionamento inativo ou ausente). */
@@ -88,9 +96,10 @@ export interface FluxoCaixaBucket {
    */
   inflow_estimated: number | null;
   /**
-   * Saída realizada: Quitações de Comissão (líquidas do abate de vale) e
-   * vales dados no agrupamento, excluindo estornos (ticket 02). O ticket
-   * seguinte (08) soma aqui Baixas de Contas a Pagar.
+   * Saída realizada: Quitações de Comissão (líquidas do abate de vale),
+   * vales dados no agrupamento (ticket 02) e Baixas de Conta a Pagar pelo
+   * valor pago -- principal, mais juros, menos desconto (ticket 08),
+   * excluindo estornos.
    */
   outflow_realized: number;
   /**

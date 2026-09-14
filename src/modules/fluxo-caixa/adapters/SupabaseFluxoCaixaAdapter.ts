@@ -6,6 +6,7 @@ import {
   type FluxoCaixaPayableForecast,
   type FluxoCaixaProjetado,
   type FluxoCaixaUndatedCommitments,
+  type FluxoCaixaValorPorCategoria,
   type FluxoCaixaValorPorProfissional,
   type FluxoCaixaWeekdayAverages,
   type IFluxoCaixaAdapter,
@@ -76,6 +77,18 @@ function toPayablesForecast(value: unknown): FluxoCaixaPayableForecast[] {
   });
 }
 
+function toValoresPorCategoria(value: unknown): FluxoCaixaValorPorCategoria[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      category_id: raw.category_id ? String(raw.category_id) : '',
+      category_name: raw.category_name ? String(raw.category_name) : '',
+      amount: toNumber(raw.amount),
+    };
+  });
+}
+
 /**
  * Adaptador Supabase do Fluxo de Caixa Projetado (spec 037, ticket 01):
  * converte o JSON de `get_projected_cash_flow` em números e tipos do
@@ -109,6 +122,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
         payouts_by_professional?: unknown;
         advances_by_professional?: unknown;
         payables_forecast?: unknown;
+        settlements_by_category?: unknown;
         estimated_days?: unknown;
         closed_days?: unknown;
       };
@@ -134,6 +148,7 @@ export class SupabaseFluxoCaixaAdapter implements IFluxoCaixaAdapter {
           payouts_by_professional: toValoresPorProfissional(detail.payouts_by_professional),
           advances_by_professional: toValoresPorProfissional(detail.advances_by_professional),
           payables_forecast: toPayablesForecast(detail.payables_forecast),
+          settlements_by_category: toValoresPorCategoria(detail.settlements_by_category),
           estimated_days: toNumber(detail.estimated_days),
           closed_days: toNumber(detail.closed_days),
         },

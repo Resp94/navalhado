@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(52);
 
 -- Spec 037 (Fluxo de Caixa Projetado), ticket 01: Realizado de Comandas
 -- ponta a ponta. Cobre o contrato de leitura (public.get_projected_cash_flow),
@@ -882,6 +882,189 @@ select is(
   ),
   true,
   'Periodo inteiramente passado (fim antes de hoje) nao devolve nenhuma prevista nem vencida em bucket nenhum, mesmo havendo Contas a Pagar vencidas no tenant'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 08/037: Baixas como saída realizada. Tenant e gerente próprios,
+-- "hoje" fixo em 2026-09-01. Duas categorias próprias (evita depender da
+-- ordem alfabética das 14 categorias padrão semeadas por tenant).
+--
+-- Payable A: amount=400, vencimento 2026-09-03 (dentro do período pedido).
+--   S1: principal 150, juros 5           -> paga 155, em 2026-08-28, categoria A
+--   S2 (estornada): principal 40         -> paga 40 (não deve contar)
+--   S3 (valor pago zero): principal 50, desconto 50 -> paga 0, em 2026-08-29, categoria A
+--   S5 (pela gaveta): principal 20       -> paga 20, em 2026-08-30, categoria A,
+--       com cash_movement de sangria de valor DIFERENTE (999) na mesma sessão --
+--       se o fluxo vazasse para cash_movements, o total apareceria somado a mais.
+--   payables.paid_amount simulado em 220 (150+50+20, a soma dos PRINCIPAIS das
+--   Baixas válidas -- é isso que settle_payable realmente incrementa, nunca o
+--   valor pago líquido), então o saldo restante cai para 180 mesmo com a
+--   Baixa de valor pago zero incluída.
+-- Payable B: amount=200, já 'paid' (paid_amount=200) antes de qualquer Baixa
+-- deste ticket -- a Baixa ainda conta, porque conta pelo próprio estado de
+-- estorno, nunca pelo status da conta.
+--   S4: principal 60, desconto 10        -> paga 50, em 2026-08-28, categoria B
+-- ---------------------------------------------------------------------------
+create temporary table ticket38_context (
+  tenant_id uuid not null,
+  gerente_id uuid not null,
+  cat_a_id uuid not null,
+  cat_b_id uuid not null,
+  payable_a_id uuid not null,
+  payable_b_id uuid not null
+) on commit drop;
+
+with t as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket38_tenant__', '__ticket38_tenant__@teste.com', '11999991038', 'America/Sao_Paulo')
+  returning id
+), au as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket38_gerente__@teste.com') returning id
+), cat_a as (
+  insert into public.financial_categories (tenant_id, name, nature)
+  select t.id, 'Categoria A Ticket38', 'expense' from t
+  returning id
+), cat_b as (
+  insert into public.financial_categories (tenant_id, name, nature)
+  select t.id, 'Categoria B Ticket38', 'expense' from t
+  returning id
+)
+insert into ticket38_context (tenant_id, gerente_id, cat_a_id, cat_b_id, payable_a_id, payable_b_id)
+select t.id, au.id, cat_a.id, cat_b.id, gen_random_uuid(), gen_random_uuid()
+from t, au, cat_a, cat_b;
+
+update public.users set tenant_id = (select tenant_id from ticket38_context), role = 'gerente', is_active = true
+where id = (select gerente_id from ticket38_context);
+
+with pa as (
+  insert into public.payables (id, tenant_id, description, category_id, amount, paid_amount, status, due_date, competence_date)
+  select payable_a_id, tenant_id, 'Payable A Ticket38', cat_a_id, 400, 220, 'partially_paid', '2026-09-03', '2026-09-03'
+  from ticket38_context
+  returning id
+), pb as (
+  insert into public.payables (id, tenant_id, description, category_id, amount, paid_amount, status, due_date, competence_date)
+  select payable_b_id, tenant_id, 'Payable B Ticket38', cat_b_id, 200, 200, 'paid', '2026-07-01', '2026-07-01'
+  from ticket38_context
+  returning id
+)
+select 1;
+
+insert into public.payable_settlements (tenant_id, payable_id, principal, interest_amount, discount_amount, payment_date, payment_method, source, created_by)
+select tenant_id, payable_a_id, 150, 5, 0, '2026-08-28', 'pix', 'fora_do_caixa', gerente_id from ticket38_context;
+
+insert into public.payable_settlements (tenant_id, payable_id, principal, interest_amount, discount_amount, payment_date, payment_method, source, created_by, reversed_at, reversed_by, reversal_reason)
+select tenant_id, payable_a_id, 40, 0, 0, '2026-08-28', 'pix', 'fora_do_caixa', gerente_id, now(), gerente_id, 'teste ticket38'
+from ticket38_context;
+
+insert into public.payable_settlements (tenant_id, payable_id, principal, interest_amount, discount_amount, payment_date, payment_method, source, created_by)
+select tenant_id, payable_a_id, 50, 0, 50, '2026-08-29', 'pix', 'fora_do_caixa', gerente_id from ticket38_context;
+
+insert into public.payable_settlements (tenant_id, payable_id, principal, interest_amount, discount_amount, payment_date, payment_method, source, created_by)
+select tenant_id, payable_b_id, 60, 0, 10, '2026-08-28', 'cash', 'fora_do_caixa', gerente_id from ticket38_context;
+
+with cs as (
+  insert into public.cash_sessions (tenant_id, opened_by, initial_amount, status)
+  select tenant_id, gerente_id, 200, 'open' from ticket38_context
+  returning id
+), cm as (
+  insert into public.cash_movements (tenant_id, cash_session_id, type, amount, reason, performed_by, created_at)
+  select ticket38_context.tenant_id, cs.id, 'sangria', 999, 'Sangria ticket38 (valor diferente da Baixa)', gerente_id, '2026-08-30 10:00:00-03'
+  from ticket38_context, cs
+  returning id, cash_session_id
+)
+insert into public.payable_settlements (tenant_id, payable_id, principal, interest_amount, discount_amount, payment_date, payment_method, source, cash_session_id, cash_movement_id, created_by)
+select ticket38_context.tenant_id, payable_a_id, 20, 0, 0, '2026-08-30', 'cash', 'gaveta', cm.cash_session_id, cm.id, gerente_id
+from ticket38_context, cm;
+
+select set_config('request.jwt.claim.sub', (select gerente_id::text from ticket38_context), true);
+
+select is(
+  (
+    select jsonb_build_object('outflow_realized', bucket ->> 'outflow_realized', 'settlements_by_category', bucket -> 'detail' -> 'settlements_by_category')
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-28'
+  ),
+  jsonb_build_object(
+    'outflow_realized', '205.00',
+    'settlements_by_category', jsonb_build_array(
+      jsonb_build_object('category_id', (select cat_a_id from ticket38_context), 'category_name', 'Categoria A Ticket38', 'amount', 155.00),
+      jsonb_build_object('category_id', (select cat_b_id from ticket38_context), 'category_name', 'Categoria B Ticket38', 'amount', 50.00)
+    )
+  ),
+  'Saida realizada do dia soma o valor pago das Baixas de ambas as contas (155 + 50, juros somado e desconto abatido), detalhadas por Categoria de Despesa -- Payable B ja estava "paga" e a Baixa conta do mesmo jeito'
+);
+
+select is(
+  (
+    select bucket ->> 'outflow_realized'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-29'
+  ),
+  '0.00',
+  'Baixa de valor pago zero (principal integralmente abatido por desconto) nao gera saida realizada'
+);
+
+select is(
+  (
+    select bucket ->> 'outflow_realized'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-30'
+  ),
+  '20.00',
+  'Baixa pela gaveta conta uma vez: a saida realizada e o principal da Baixa (20), nao soma o valor (999, de proposito diferente) do movimento de caixa da mesma sessao'
+);
+
+select is(
+  (
+    select bucket ->> 'outflow_forecast'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-09-03'
+  ),
+  '180.00',
+  'O saldo restante da Payable A (400 - 220, soma dos principais das tres Baixas validas, inclusive a de valor pago zero) reduz a Saida Prevista no bucket do vencimento'
+);
+
+select is(
+  (
+    select sum((bucket ->> 'outflow_realized')::numeric)
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  225.00,
+  'A soma de todas as saidas realizadas do periodo (155 + 0 + 20 + 50) exclui a Baixa estornada (40) por completo'
+);
+
+select is(
+  (
+    select bucket ->> 'outflow_realized'
+    from jsonb_array_elements(
+      private.get_projected_cash_flow_core(
+        (select tenant_id from ticket38_context), '2026-08-25'::date, '2026-09-05'::date, 'day', '2026-09-01'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+    where bucket ->> 'start_date' = '2026-08-27'
+  ),
+  '0.00',
+  'Dia sem Baixa nao ganha saida realizada nenhuma (garante que nada vazou de outro dia do periodo)'
 );
 
 select * from finish(true);

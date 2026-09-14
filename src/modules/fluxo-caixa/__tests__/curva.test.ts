@@ -16,6 +16,7 @@ function bucket(overrides: Partial<FluxoCaixaBucket> & { start_date: string; kin
       payouts_by_professional: [],
       advances_by_professional: [],
       payables_forecast: [],
+      settlements_by_category: [],
       estimated_days: 0,
       closed_days: 0,
     },
