@@ -51,7 +51,11 @@ gaveta" (brecha de inserção direta).
 **Notas de implementação:**
 
 - Migration `supabase/migrations/20260913150000_sangria_suprimento_rpc_trava_de_saldo.sql`,
-  faixa de timestamp `20260913150000`–`20260913159999`, ainda não aplicada no DEV.
+  faixa de timestamp `20260913150000`–`20260913159999`, aplicada no DEV via MCP `apply_migration`
+  (é puramente aditiva: não revoga a inserção direta, então não depende da pré-condição de deploy
+  abaixo, que só bloqueia o ticket 04). Revalidada contra o DEV real via a suíte
+  `25_validar_saldo_gaveta_quitacao_comissao` (bloco `ticket36_03_context`, 24/24 assertions) e a
+  `20_reabertura_sessao_caixa` (15/15, usando `register_cash_movement` na sangria pós-reabertura).
 - Nome do contrato novo consumido pelo frontend: `public.register_cash_movement(p_cash_session_id
   uuid, p_tenant_id uuid, p_type text, p_amount numeric, p_reason text) returns jsonb`. Devolve o
   movimento gravado (`id, tenant_id, cash_session_id, type, amount, reason, performed_by,

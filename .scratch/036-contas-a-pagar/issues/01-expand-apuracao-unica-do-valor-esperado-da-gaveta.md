@@ -22,7 +22,7 @@ gaveta".
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Existe uma função privada única que calcula o valor esperado de uma Sessão de Caixa: fundo
       de troco inicial, mais dinheiro recebido de Comanda na sessão, mais entradas de movimento,
@@ -58,4 +58,11 @@ gaveta".
       alteração** — são a prova de que as funções reescritas devolvem o mesmo resultado.
 - [x] Obrigações de comissão, Quitação de Comissão, Conta do Profissional e seus contratos não
       mudam de semântica.
-- [ ] `npm run test:db` verde.
+- [x] `npm run test:db` verde. (Migration `20260913100000_apuracao_unica_valor_esperado_gaveta.sql`
+      aplicada no DEV via MCP `apply_migration` — não só validada em `begin/rollback`. Após aplicar,
+      as suítes `07_fechar_caixa_atomicamente`, `17_code_review_regressions`,
+      `18_code_review_behavioral_regressions`, `19_quitacao_comissao_gaveta_caixa`,
+      `20_reabertura_sessao_caixa`, `21_estorno_quitacao_comissao`,
+      `25_validar_saldo_gaveta_quitacao_comissao`, `26_conta_do_profissional_gorjeta` e
+      `27_abate_vale_na_quitacao_comissao` foram rodadas de ponta a ponta contra o DEV real (não
+      simulado), todas dentro de `begin/rollback`: 250/250 assertions passaram, nada persistiu.)

@@ -33,7 +33,8 @@ gaveta" (extrato impresso).
 **Notas de implementação:**
 
 - `get_cash_session_statement` (migration
-  `supabase/migrations/20260913160000_extrato_sessao_caixa_sentido_e_vinculos.sql`) passa a
+  `supabase/migrations/20260913160000_extrato_sessao_caixa_sentido_e_vinculos.sql`, aplicada no
+  DEV via MCP `apply_migration`) passa a
   devolver, em cada item de `movements`, as chaves aditivas `direction`
   (`'entrada' | 'saida'`, espelhando `cash_movements.direction` do ticket 01) e `professional_id`
   (vínculo já existente na linha do vale). Nenhuma chave existente mudou; assinatura e

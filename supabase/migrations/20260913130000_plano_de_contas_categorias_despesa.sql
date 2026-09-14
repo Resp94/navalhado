@@ -31,8 +31,18 @@ comment on table public.financial_categories is
 comment on column public.financial_categories.seed_key is
   'Chave estavel da categoria padrao semeada. Nula para categoria criada pelo gestor. Base da idempotencia da semeadura, independente de renomeacao.';
 
-alter table public.financial_categories
-  add constraint financial_categories_tenant_id_key unique (tenant_id, id);
+do $guard$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'financial_categories_tenant_id_key'
+      and conrelid = 'public.financial_categories'::regclass
+  ) then
+    alter table public.financial_categories
+      add constraint financial_categories_tenant_id_key unique (tenant_id, id);
+  end if;
+end;
+$guard$;
 
 create unique index if not exists idx_financial_categories_tenant_nature_lower_name
   on public.financial_categories (tenant_id, nature, lower(name));
