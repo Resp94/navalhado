@@ -3,12 +3,16 @@ import { Input } from '../ui/forms/Input';
 import { Textarea } from '../ui/forms/Textarea';
 import { Select } from '../ui/forms/Select';
 import { Button } from '../ui/forms/Button';
+import { Drawer } from '../ui/feedback/Drawer';
 import { SegmentedControl } from '../ui/navigation/SegmentedControl';
+import { CategoriaDespesaForm } from './CategoriaDespesaForm';
+import { FornecedorForm } from './FornecedorForm';
 import {
   ContasPagarRepository,
   ContasPagarValidationError,
 } from '../../modules/contas-pagar/ContasPagarRepository';
 import type { ContaPagar } from '../../modules/contas-pagar/types';
+import type { PlanoContasRepository } from '../../modules/plano-contas/PlanoContasRepository';
 import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
 
 export interface ContaPagarFormProps {
@@ -19,6 +23,17 @@ export interface ContaPagarFormProps {
   categoriasAtivas: CategoriaDespesa[];
   /** Só fornecedores ativos: a RPC exige fornecedor ativo quando informado. */
   fornecedoresAtivos: Fornecedor[];
+  /**
+   * Repositório do Plano de Contas (ticket 10/036): presente habilita o
+   * cadastro rápido de Categoria de Despesa e Fornecedor sem sair do
+   * formulário, reusando os formulários autônomos da 035. Ausente (ex.:
+   * algum consumidor futuro sem esse contexto) esconde os atalhos.
+   */
+  planoContasRepository?: PlanoContasRepository;
+  /** Chamado depois de um cadastro rápido bem-sucedido, para a aba recarregar a lista de categorias. */
+  onCategoriaCriada?: (categoria: CategoriaDespesa) => void;
+  /** Chamado depois de um cadastro rápido bem-sucedido, para a aba recarregar a lista de fornecedores. */
+  onFornecedorCriado?: (fornecedor: Fornecedor) => void;
   onSalvar: (conta: ContaPagar) => void;
   onCancelar?: () => void;
 }
@@ -40,6 +55,9 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   tenantId,
   categoriasAtivas,
   fornecedoresAtivos,
+  planoContasRepository,
+  onCategoriaCriada,
+  onFornecedorCriado,
   onSalvar,
   onCancelar,
 }) => {
@@ -54,13 +72,30 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ticket 10/036: registros criados pelo cadastro rápido, para o select
+  // mostrar e selecionar o novo registro na hora, sem esperar a aba recarregar
+  // a lista de categorias/fornecedores em segundo plano.
+  const [categoriasExtras, setCategoriasExtras] = useState<CategoriaDespesa[]>([]);
+  const [fornecedoresExtras, setFornecedoresExtras] = useState<Fornecedor[]>([]);
+  const [categoriaDrawerAberto, setCategoriaDrawerAberto] = useState(false);
+  const [fornecedorDrawerAberto, setFornecedorDrawerAberto] = useState(false);
+
+  const todasCategoriasAtivas = [
+    ...categoriasAtivas,
+    ...categoriasExtras.filter((extra) => !categoriasAtivas.some((item) => item.id === extra.id)),
+  ];
+  const todosFornecedoresAtivos = [
+    ...fornecedoresAtivos,
+    ...fornecedoresExtras.filter((extra) => !fornecedoresAtivos.some((item) => item.id === extra.id)),
+  ];
+
   const categoriaOptions = [
     { value: '', label: 'Selecione uma categoria' },
-    ...categoriasAtivas.map((categoria) => ({ value: categoria.id, label: categoria.name })),
+    ...todasCategoriasAtivas.map((categoria) => ({ value: categoria.id, label: categoria.name })),
   ];
   const fornecedorOptions = [
     { value: '', label: 'Sem fornecedor' },
-    ...fornecedoresAtivos.map((fornecedor) => ({ value: fornecedor.id, label: fornecedor.name })),
+    ...todosFornecedoresAtivos.map((fornecedor) => ({ value: fornecedor.id, label: fornecedor.name })),
   ];
 
   const handleCategoryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -74,8 +109,27 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
 
     if (categoriaEscolhidaManualmente) return;
 
-    const fornecedor = fornecedoresAtivos.find((item) => item.id === novoFornecedorId);
+    const fornecedor = todosFornecedoresAtivos.find((item) => item.id === novoFornecedorId);
     if (fornecedor?.default_category && !fornecedor.default_category.archived) {
+      setCategoryId(fornecedor.default_category.id);
+    }
+  };
+
+  const handleCategoriaCriada = (categoria: CategoriaDespesa) => {
+    setCategoriasExtras((atual) => [...atual, categoria]);
+    setCategoryId(categoria.id);
+    setCategoriaEscolhidaManualmente(true);
+    setCategoriaDrawerAberto(false);
+    onCategoriaCriada?.(categoria);
+  };
+
+  const handleFornecedorCriado = (fornecedor: Fornecedor) => {
+    setFornecedoresExtras((atual) => [...atual, fornecedor]);
+    setSupplierId(fornecedor.id);
+    setFornecedorDrawerAberto(false);
+    onFornecedorCriado?.(fornecedor);
+
+    if (!categoriaEscolhidaManualmente && fornecedor.default_category && !fornecedor.default_category.archived) {
       setCategoryId(fornecedor.default_category.id);
     }
   };
@@ -128,21 +182,47 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         disabled={saving}
       />
 
-      <Select
-        label="Categoria de despesa"
-        value={categoryId}
-        onChange={handleCategoryChange}
-        options={categoriaOptions}
-        disabled={saving}
-      />
+      <div className="conta-pagar-form-campo-com-atalho">
+        <Select
+          label="Categoria de despesa"
+          value={categoryId}
+          onChange={handleCategoryChange}
+          options={categoriaOptions}
+          disabled={saving}
+        />
+        {planoContasRepository && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setCategoriaDrawerAberto(true)}
+            disabled={saving}
+          >
+            Nova categoria
+          </Button>
+        )}
+      </div>
 
-      <Select
-        label="Fornecedor (opcional)"
-        value={supplierId}
-        onChange={handleSupplierChange}
-        options={fornecedorOptions}
-        disabled={saving}
-      />
+      <div className="conta-pagar-form-campo-com-atalho">
+        <Select
+          label="Fornecedor (opcional)"
+          value={supplierId}
+          onChange={handleSupplierChange}
+          options={fornecedorOptions}
+          disabled={saving}
+        />
+        {planoContasRepository && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setFornecedorDrawerAberto(true)}
+            disabled={saving}
+          >
+            Novo fornecedor
+          </Button>
+        )}
+      </div>
 
       <Input
         label="Valor"
@@ -196,11 +276,52 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         </Button>
       </div>
 
+      {planoContasRepository && (
+        <Drawer
+          isOpen={categoriaDrawerAberto}
+          onClose={() => setCategoriaDrawerAberto(false)}
+          title="Nova categoria de despesa"
+        >
+          <CategoriaDespesaForm
+            repository={planoContasRepository}
+            tenantId={tenantId}
+            onSalvar={handleCategoriaCriada}
+            onCancelar={() => setCategoriaDrawerAberto(false)}
+          />
+        </Drawer>
+      )}
+
+      {planoContasRepository && (
+        <Drawer
+          isOpen={fornecedorDrawerAberto}
+          onClose={() => setFornecedorDrawerAberto(false)}
+          title="Novo fornecedor"
+        >
+          <FornecedorForm
+            repository={planoContasRepository}
+            tenantId={tenantId}
+            categoriasAtivas={todasCategoriasAtivas}
+            onSalvar={handleFornecedorCriado}
+            onCancelar={() => setFornecedorDrawerAberto(false)}
+          />
+        </Drawer>
+      )}
+
       <style>{`
         .conta-pagar-form {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+        }
+
+        .conta-pagar-form-campo-com-atalho {
+          display: flex;
+          align-items: flex-end;
+          gap: 0.75rem;
+        }
+
+        .conta-pagar-form-campo-com-atalho > :first-child {
+          flex: 1;
         }
 
         .conta-pagar-form-error {

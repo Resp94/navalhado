@@ -74,7 +74,12 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     useContasPagar(tenantId, repository);
   const { alerta, reload: recarregarAlertaLocal } = useContasPagarAlerta(tenantId, repository);
 
-  const { categoriasDespesa, fornecedores } = usePlanoContas(tenantId, planoContasRepository);
+  const {
+    categoriasDespesa,
+    fornecedores,
+    reload: recarregarCategoriasDespesa,
+    reloadFornecedores: recarregarFornecedores,
+  } = usePlanoContas(tenantId, planoContasRepository);
   const categoriasAtivas = categoriasDespesa.filter((categoria) => categoria.archived_at === null);
   const fornecedoresAtivos = fornecedores.filter((fornecedor) => fornecedor.archived_at === null);
 
@@ -336,6 +341,9 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
           tenantId={tenantId}
           categoriasAtivas={categoriasAtivas}
           fornecedoresAtivos={fornecedoresAtivos}
+          planoContasRepository={planoContasRepository}
+          onCategoriaCriada={() => void recarregarCategoriasDespesa()}
+          onFornecedorCriado={() => void recarregarFornecedores()}
           onSalvar={handleSalvar}
           onCancelar={fecharDrawer}
         />

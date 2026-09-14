@@ -754,4 +754,89 @@ describe('ContasPagarTab (adaptador simulado)', () => {
     });
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
+
+  it('cadastra uma Categoria de Despesa pelo formulário e ela fica selecionada (ticket 10/036)', async () => {
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(new InMemoryPlanoContasAdapter([], []));
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova categoria' }));
+    const nomeCategoriaInput = await screen.findByLabelText('Nome da categoria');
+    fireEvent.change(nomeCategoriaInput, { target: { value: 'Água e luz' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar categoria' }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nome da categoria')).not.toBeInTheDocument();
+    });
+
+    const categoriaSelect = screen.getByLabelText('Categoria de despesa') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(categoriaSelect.value).not.toBe('');
+    });
+    expect(within(categoriaSelect).getByText('Água e luz')).toBeInTheDocument();
+
+    // Os campos já preenchidos permanecem depois do cadastro rápido.
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Conta de luz' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('Vencimento'), { target: { value: '2026-10-10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lançar conta' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Conta de luz').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('cadastra um Fornecedor pelo formulário e ele fica selecionado (ticket 10/036)', async () => {
+    const categoriaAluguel = categoria({ id: 'cat-1', name: 'Aluguel e condomínio' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaAluguel], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaAluguel], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Novo fornecedor' }));
+    const nomeFornecedorInput = await screen.findByLabelText('Nome do fornecedor');
+    fireEvent.change(nomeFornecedorInput, { target: { value: 'Distribuidora Nova' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar fornecedor' }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nome do fornecedor')).not.toBeInTheDocument();
+    });
+
+    const fornecedorSelect = screen.getByLabelText('Fornecedor (opcional)') as HTMLSelectElement;
+    await waitFor(() => {
+      expect(fornecedorSelect.value).not.toBe('');
+    });
+    expect(within(fornecedorSelect).getByText('Distribuidora Nova')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Boleto do distribuidor' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '300' } });
+    fireEvent.change(screen.getByLabelText('Vencimento'), { target: { value: '2026-10-10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lançar conta' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Boleto do distribuidor').length).toBeGreaterThan(0);
+    });
+  });
 });
