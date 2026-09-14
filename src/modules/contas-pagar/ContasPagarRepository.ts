@@ -6,6 +6,7 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosParcelamento,
   DadosRecorrencia,
   FiltroListaContasPagar,
   FiltroPreviaSerie,
@@ -32,6 +33,7 @@ const PAGE_SIZE_PADRAO = 20;
 const PAGE_SIZE_MAX = 100;
 const MOTIVO_MIN = 5;
 const OCORRENCIAS_MIN_RECORRENCIA = 1;
+const OCORRENCIAS_MIN_PARCELAMENTO = 2;
 const OCORRENCIAS_MAX = 60;
 const PERIODICIDADES_SERIE = ['weekly', 'biweekly', 'monthly', 'yearly'] as const;
 const FORMAS_PAGAMENTO_BAIXA = [
@@ -387,6 +389,53 @@ export class ContasPagarRepository {
       anchorDate: dados.anchorDate,
       occurrences: dados.occurrences,
       amount: Math.round(dados.amount * 100) / 100,
+      supplierId: dados.supplierId || null,
+      documentNumber: documentNumber || null,
+      notes: notes || null,
+    });
+  }
+
+  async criarParcelamento(tenantId: string, dados: DadosParcelamento): Promise<ContaPagar[]> {
+    if (!tenantId) {
+      throw new ContasPagarValidationError('Unidade é obrigatória.');
+    }
+
+    const description = (dados.description || '').replace(/\s+/g, ' ').trim();
+    if (description.length < DESCRICAO_MIN || description.length > DESCRICAO_MAX) {
+      throw new ContasPagarValidationError(
+        `A descrição deve ter entre ${DESCRICAO_MIN} e ${DESCRICAO_MAX} caracteres.`
+      );
+    }
+
+    if (!dados.categoryId) {
+      throw new ContasPagarValidationError('Categoria de despesa é obrigatória.');
+    }
+
+    this.validarCamposSerieComuns(
+      { periodicity: dados.periodicity, anchorDate: dados.anchorDate, occurrences: dados.occurrences, amount: dados.totalAmount },
+      OCORRENCIAS_MIN_PARCELAMENTO
+    );
+
+    const documentNumber = (dados.documentNumber || '').trim();
+    if (documentNumber.length > DOCUMENTO_MAX) {
+      throw new ContasPagarValidationError(
+        `Número do documento deve ter no máximo ${DOCUMENTO_MAX} caracteres.`
+      );
+    }
+
+    const notes = (dados.notes || '').trim();
+    if (notes.length > NOTES_MAX) {
+      throw new ContasPagarValidationError(`Observação deve ter no máximo ${NOTES_MAX} caracteres.`);
+    }
+
+    return this.adapter.criarParcelamento(tenantId, {
+      description,
+      categoryId: dados.categoryId,
+      periodicity: dados.periodicity,
+      anchorDate: dados.anchorDate,
+      occurrences: dados.occurrences,
+      totalAmount: Math.round(dados.totalAmount * 100) / 100,
+      competenceDate: dados.competenceDate || null,
       supplierId: dados.supplierId || null,
       documentNumber: documentNumber || null,
       notes: notes || null,

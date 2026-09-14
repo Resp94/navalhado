@@ -124,6 +124,25 @@ export interface DadosRecorrencia {
   notes?: string | null;
 }
 
+/**
+ * Dados de criação de um Parcelamento (ticket 12/036): 2 a 60 parcelas a
+ * partir de um valor total, competência única (padrão: vencimento da
+ * primeira parcela). A numeração "i/N" é derivada na leitura, nunca gravada.
+ */
+export interface DadosParcelamento {
+  description: string;
+  categoryId: string;
+  periodicity: PeriodicidadeSerie;
+  anchorDate: string;
+  occurrences: number;
+  /** Valor total da compra — dividido truncado em centavos, resíduo na última parcela. */
+  totalAmount: number;
+  competenceDate?: string | null;
+  supplierId?: string | null;
+  documentNumber?: string | null;
+  notes?: string | null;
+}
+
 /** Forma de pagamento da Baixa (ticket 07/036): domínio próprio, não o de Comanda. */
 export type FormaPagamentoBaixa =
   | 'cash'
@@ -251,4 +270,5 @@ export interface IContasPagarAdapter {
   obterAlerta(tenantId: string): Promise<AlertaContasPagar>;
   visualizarPreviaSerie(tenantId: string, filtro: FiltroPreviaSerie): Promise<OcorrenciaPreviaSerie[]>;
   criarRecorrencia(tenantId: string, dados: DadosRecorrencia): Promise<ContaPagar[]>;
+  criarParcelamento(tenantId: string, dados: DadosParcelamento): Promise<ContaPagar[]>;
 }

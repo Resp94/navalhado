@@ -744,3 +744,77 @@ describe('SupabaseContasPagarAdapter — criarRecorrencia', () => {
     ).rejects.toThrow(ContasPagarValidationError);
   });
 });
+
+describe('SupabaseContasPagarAdapter — criarParcelamento', () => {
+  it('chama create_installment_payable_series com os parâmetros mapeados', async () => {
+    const supabase = novoSupabaseMock();
+    const contas = [{ id: 'conta-1' }, { id: 'conta-2' }, { id: 'conta-3' }];
+    supabase.rpc.mockResolvedValueOnce({ data: contas, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.criarParcelamento('tenant-1', {
+      description: 'Compra de equipamento',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      totalAmount: 100,
+      competenceDate: '2026-09-30',
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('create_installment_payable_series', {
+      p_description: 'Compra de equipamento',
+      p_category_id: 'cat-1',
+      p_periodicity: 'monthly',
+      p_anchor_date: '2026-09-30',
+      p_occurrences: 3,
+      p_amount: 100,
+      p_supplier_id: 'sup-1',
+      p_competence_date: '2026-09-30',
+      p_document_number: 'NF-1',
+      p_notes: 'obs',
+      p_tenant_id: 'tenant-1',
+    });
+    expect(resultado).toBe(contas);
+  });
+
+  it('devolve lista vazia quando a RPC não devolve dados', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    const resultado = await adapter.criarParcelamento('tenant-1', {
+      description: 'Compra de equipamento',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      totalAmount: 100,
+    });
+
+    expect(resultado).toEqual([]);
+  });
+
+  it('traduz erro do Postgres em ContasPagarValidationError', async () => {
+    const supabase = novoSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22023', message: 'A quantidade deve estar entre 2 e 60.' },
+    });
+    const adapter = new SupabaseContasPagarAdapter(supabase);
+
+    await expect(
+      adapter.criarParcelamento('tenant-1', {
+        description: 'Compra de equipamento',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        totalAmount: 100,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+});

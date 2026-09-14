@@ -70,6 +70,7 @@ function novoAdapter(): IContasPagarAdapter {
     obterAlerta: vi.fn(),
     visualizarPreviaSerie: vi.fn(),
     criarRecorrencia: vi.fn(),
+    criarParcelamento: vi.fn(),
   };
 }
 
@@ -1168,6 +1169,123 @@ describe('ContasPagarRepository — criarRecorrencia', () => {
       anchorDate: '2026-09-30',
       occurrences: 2,
       amount: 100,
+    });
+
+    expect(resultado).toBe(criadas);
+  });
+});
+
+describe('ContasPagarRepository — criarParcelamento', () => {
+  it('recusa unidade ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarParcelamento('', {
+        description: 'Compra de equipamento',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        totalAmount: 300,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+    expect(adapter.criarParcelamento).not.toHaveBeenCalled();
+  });
+
+  it('recusa descrição inválida', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarParcelamento('tenant-1', {
+        description: 'a',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        totalAmount: 300,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('recusa categoria ausente', async () => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarParcelamento('tenant-1', {
+        description: 'Compra de equipamento',
+        categoryId: '',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences: 3,
+        totalAmount: 300,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it.each([1, 61])('recusa quantidade fora de 2 a 60: %s', async (occurrences) => {
+    const adapter = novoAdapter();
+    const repository = new ContasPagarRepository(adapter);
+
+    await expect(
+      repository.criarParcelamento('tenant-1', {
+        description: 'Compra de equipamento',
+        categoryId: 'cat-1',
+        periodicity: 'monthly',
+        anchorDate: '2026-09-30',
+        occurrences,
+        totalAmount: 300,
+      })
+    ).rejects.toThrow(ContasPagarValidationError);
+  });
+
+  it('normaliza a descrição, arredonda o valor e delega ao adaptador', async () => {
+    const adapter = novoAdapter();
+    vi.mocked(adapter.criarParcelamento).mockResolvedValueOnce([contaPagar()]);
+    const repository = new ContasPagarRepository(adapter);
+
+    await repository.criarParcelamento('tenant-1', {
+      description: '  Compra   de   equipamento  ',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      totalAmount: 99.999,
+      competenceDate: '2026-09-30',
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+
+    expect(adapter.criarParcelamento).toHaveBeenCalledWith('tenant-1', {
+      description: 'Compra de equipamento',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 3,
+      totalAmount: 100,
+      competenceDate: '2026-09-30',
+      supplierId: 'sup-1',
+      documentNumber: 'NF-1',
+      notes: 'obs',
+    });
+  });
+
+  it('devolve as contas criadas pelo adaptador', async () => {
+    const adapter = novoAdapter();
+    const criadas = [contaPagar({ id: 'conta-1' }), contaPagar({ id: 'conta-2' })];
+    vi.mocked(adapter.criarParcelamento).mockResolvedValueOnce(criadas);
+    const repository = new ContasPagarRepository(adapter);
+
+    const resultado = await repository.criarParcelamento('tenant-1', {
+      description: 'Compra de equipamento',
+      categoryId: 'cat-1',
+      periodicity: 'monthly',
+      anchorDate: '2026-09-30',
+      occurrences: 2,
+      totalAmount: 300,
     });
 
     expect(resultado).toBe(criadas);

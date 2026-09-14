@@ -9,6 +9,7 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosParcelamento,
   DadosRecorrencia,
   FiltroListaContasPagar,
   FiltroPreviaSerie,
@@ -389,6 +390,25 @@ export class SupabaseContasPagarAdapter implements IContasPagarAdapter {
       p_occurrences: dados.occurrences,
       p_amount: dados.amount,
       p_supplier_id: dados.supplierId ?? null,
+      p_document_number: dados.documentNumber ?? null,
+      p_notes: dados.notes ?? null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) throw traduzirErro(error);
+    return (data as ContaPagar[]) || [];
+  }
+
+  async criarParcelamento(tenantId: string, dados: DadosParcelamento): Promise<ContaPagar[]> {
+    const { data, error } = await this.supabase.rpc('create_installment_payable_series', {
+      p_description: dados.description,
+      p_category_id: dados.categoryId,
+      p_periodicity: dados.periodicity,
+      p_anchor_date: dados.anchorDate,
+      p_occurrences: dados.occurrences,
+      p_amount: dados.totalAmount,
+      p_supplier_id: dados.supplierId ?? null,
+      p_competence_date: dados.competenceDate ?? null,
       p_document_number: dados.documentNumber ?? null,
       p_notes: dados.notes ?? null,
       p_tenant_id: tenantId,

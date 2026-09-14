@@ -57,8 +57,8 @@ export interface ContaPagarFormProps {
 /**
  * Formulário de Conta a Pagar (ticket 06/036): casca de campos comuns com
  * variante explícita escolhida por controle segmentado, sem flag booleana de
- * modo. Só "Avulsa" existe neste ticket; Parcelamento e Recorrência chegam
- * nos tickets 11 e 12, como novas opções do mesmo controle.
+ * modo. Avulsa (06), Recorrência (11) e Parcelamento (12) são as três
+ * variantes desse mesmo controle.
  *
  * Ao escolher o Fornecedor, a categoria padrão dele pré-preenche a Categoria
  * de Despesa só se estiver ativa e só se o gestor ainda não tiver escolhido
@@ -77,7 +77,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   onSalvar,
   onCancelar,
 }) => {
-  const [variante, setVariante] = useState<'avulsa' | 'recorrencia'>('avulsa');
+  const [variante, setVariante] = useState<'avulsa' | 'recorrencia' | 'parcelamento'>('avulsa');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categoriaEscolhidaManualmente, setCategoriaEscolhidaManualmente] = useState(false);
@@ -93,6 +93,9 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   // da primeira ocorrência — reusa o mesmo estado `dueDate` do formulário.
   const [periodicity, setPeriodicity] = useState<PeriodicidadeSerie>('monthly');
   const [occurrences, setOccurrences] = useState('1');
+  // Ticket 12/036: competência única do Parcelamento (padrão: vencimento da
+  // primeira parcela, quando deixada em branco).
+  const [competenceDate, setCompetenceDate] = useState('');
   const [previaOcorrencias, setPreviaOcorrencias] = useState<OcorrenciaPreviaSerie[] | null>(null);
   const [previaCarregando, setPreviaCarregando] = useState(false);
   const [previaErro, setPreviaErro] = useState<string | null>(null);
@@ -159,7 +162,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
     }
   };
 
-  const handleTrocarVariante = (novaVariante: 'avulsa' | 'recorrencia') => {
+  const handleTrocarVariante = (novaVariante: 'avulsa' | 'recorrencia' | 'parcelamento') => {
     setVariante(novaVariante);
     setPreviaOcorrencias(null);
     setPreviaErro(null);
@@ -171,7 +174,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
     setPreviaCarregando(true);
     try {
       const previa = await repository.visualizarPreviaSerie(tenantId, {
-        seriesType: 'recurring',
+        seriesType: variante === 'parcelamento' ? 'installment' : 'recurring',
         periodicity,
         anchorDate: dueDate,
         occurrences: Number(occurrences),
@@ -214,6 +217,23 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         return;
       }
 
+      if (variante === 'parcelamento') {
+        const criadas = await repository.criarParcelamento(tenantId, {
+          description,
+          categoryId,
+          periodicity,
+          anchorDate: dueDate,
+          occurrences: Number(occurrences),
+          totalAmount: valorNumerico,
+          competenceDate: competenceDate || null,
+          supplierId: supplierId || null,
+          documentNumber: documentNumber || null,
+          notes: notes || null,
+        });
+        onSalvar(criadas[0]);
+        return;
+      }
+
       const salva = await repository.criarContaAvulsa(tenantId, {
         description,
         categoryId,
@@ -244,6 +264,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         options={[
           { id: 'avulsa', label: 'Avulsa' },
           { id: 'recorrencia', label: 'Recorrência' },
+          { id: 'parcelamento', label: 'Parcelamento' },
         ]}
       />
 
@@ -300,7 +321,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
       </div>
 
       <Input
-        label="Valor"
+        label={variante === 'parcelamento' ? 'Valor total' : 'Valor'}
         type="text"
         inputMode="decimal"
         value={amount}
@@ -310,7 +331,13 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
       />
 
       <Input
-        label={variante === 'recorrencia' ? 'Vencimento da primeira ocorrência' : 'Vencimento'}
+        label={
+          variante === 'recorrencia'
+            ? 'Vencimento da primeira ocorrência'
+            : variante === 'parcelamento'
+              ? 'Vencimento da primeira parcela'
+              : 'Vencimento'
+        }
         type="date"
         value={dueDate}
         onChange={(event) => {
@@ -320,7 +347,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         disabled={saving}
       />
 
-      {variante === 'recorrencia' && (
+      {(variante === 'recorrencia' || variante === 'parcelamento') && (
         <>
           <Select
             label="Periodicidade"
@@ -334,10 +361,10 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           />
 
           <Input
-            label="Quantidade de ocorrências"
+            label={variante === 'parcelamento' ? 'Quantidade de parcelas' : 'Quantidade de ocorrências'}
             type="number"
             inputMode="numeric"
-            min={1}
+            min={variante === 'parcelamento' ? 2 : 1}
             max={60}
             value={occurrences}
             onChange={(event) => {
@@ -347,8 +374,18 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
             disabled={saving}
           />
 
+          {variante === 'parcelamento' && (
+            <Input
+              label="Competência (opcional, padrão: vencimento da primeira parcela)"
+              type="date"
+              value={competenceDate}
+              onChange={(event) => setCompetenceDate(event.target.value)}
+              disabled={saving}
+            />
+          )}
+
           <Button type="button" variant="secondary" size="sm" loading={previaCarregando} onClick={handleVerPrevia}>
-            Ver prévia das ocorrências
+            {variante === 'parcelamento' ? 'Ver prévia das parcelas' : 'Ver prévia das ocorrências'}
           </Button>
 
           {previaErro && (
@@ -361,7 +398,11 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
             <ul className="conta-pagar-form-previa" aria-label="Prévia das ocorrências">
               {previaOcorrencias.map((ocorrencia) => (
                 <li key={ocorrencia.position}>
-                  <span>{ocorrencia.position}ª ocorrência</span>
+                  <span>
+                    {variante === 'parcelamento'
+                      ? `${ocorrencia.position}/${previaOcorrencias.length}`
+                      : `${ocorrencia.position}ª ocorrência`}
+                  </span>
                   <span>{formatarDataPrevia(ocorrencia.dueDate)}</span>
                   <span>{formatarMoedaPrevia(ocorrencia.amount)}</span>
                 </li>
@@ -401,7 +442,11 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           </Button>
         )}
         <Button type="submit" variant="primary" loading={saving}>
-          {variante === 'recorrencia' ? 'Criar Recorrência' : 'Lançar conta'}
+          {variante === 'recorrencia'
+            ? 'Criar Recorrência'
+            : variante === 'parcelamento'
+              ? 'Criar Parcelamento'
+              : 'Lançar conta'}
         </Button>
       </div>
 

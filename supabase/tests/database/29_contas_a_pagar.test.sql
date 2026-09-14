@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(155);
+select plan(172);
 
 -- Spec 036 (Contas a Pagar). Ticket 06: tabela public.payables, RPC de criacao
 -- avulsa (create_payable) e RPC de leitura paginada (list_payables), migration
@@ -16,7 +16,10 @@ select plan(155);
 -- payable_series, calendario ancorado (private.compute_series_due_date),
 -- preview_payable_series, create_recurring_payable_series e get_payable
 -- com resumo da Serie, migration
--- 20260914120000_recorrencia_com_calendario_ancorado_e_previa.sql.
+-- 20260914120000_recorrencia_com_calendario_ancorado_e_previa.sql. Ticket 12:
+-- create_installment_payable_series (Parcelamento, residuo na ultima
+-- parcela), migration
+-- 20260914130000_parcelamento_com_residuo_na_ultima_parcela.sql.
 
 -- ---------------------------------------------------------------------------
 -- Contrato: tabela, funcoes, search_path fixo e privilegios.
@@ -1617,6 +1620,188 @@ select throws_ok(
   '42501',
   'Acesso negado para esta unidade.',
   'gestor de outro tenant nao cria Recorrencia informando o tenant A explicitamente'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Ticket 12/036: Serie (Parcelamento), residuo na ultima parcela. Contexto
+-- proprio (ticket29k_context), para nao depender do estado mutado pelas
+-- secoes anteriores.
+-- ---------------------------------------------------------------------------
+create temporary table ticket29k_context (
+  tenant_a_id uuid not null,
+  tenant_b_id uuid not null,
+  gerente_a_id uuid not null,
+  barbeiro_a_id uuid not null,
+  gerente_b_id uuid not null,
+  categoria_id uuid not null
+) on commit drop;
+
+with ta as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29k_tenant_a__', '__ticket29k_tenant_a__@teste.com', '11999998801', 'America/Sao_Paulo')
+  returning id
+), tb as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__ticket29k_tenant_b__', '__ticket29k_tenant_b__@teste.com', '11999998802', 'America/Sao_Paulo')
+  returning id
+), au_gerente_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29k_gerente_a__@teste.com') returning id
+), au_barbeiro_a as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29k_barbeiro_a__@teste.com') returning id
+), au_gerente_b as (
+  insert into auth.users (id, email) values (gen_random_uuid(), '__ticket29k_gerente_b__@teste.com') returning id
+), cat as (
+  insert into public.financial_categories (tenant_id, nature, name)
+  select ta.id, 'expense', 'Ticket29k Categoria' from ta returning id
+)
+insert into ticket29k_context (tenant_a_id, tenant_b_id, gerente_a_id, barbeiro_a_id, gerente_b_id, categoria_id)
+select ta.id, tb.id, au_gerente_a.id, au_barbeiro_a.id, au_gerente_b.id, cat.id
+from ta, tb, au_gerente_a, au_barbeiro_a, au_gerente_b, cat;
+
+update public.users set tenant_id = (select tenant_a_id from ticket29k_context), role = 'gerente', is_active = true where id = (select gerente_a_id from ticket29k_context);
+update public.users set tenant_id = (select tenant_a_id from ticket29k_context), role = 'barbeiro', is_active = true where id = (select barbeiro_a_id from ticket29k_context);
+update public.users set tenant_id = (select tenant_b_id from ticket29k_context), role = 'gerente', is_active = true where id = (select gerente_b_id from ticket29k_context);
+grant select on ticket29k_context to authenticated;
+
+select has_function(
+  'public', 'create_installment_payable_series',
+  array['text', 'uuid', 'text', 'date', 'integer', 'numeric', 'uuid', 'date', 'text', 'text', 'uuid'],
+  'public.create_installment_payable_series(...) existe'
+);
+select ok(
+  (select proconfig @> array['search_path=""'] from pg_proc
+   where oid = 'public.create_installment_payable_series(text,uuid,text,date,integer,numeric,uuid,date,text,text,uuid)'::regprocedure),
+  'create_installment_payable_series fixa search_path vazio'
+);
+select ok(
+  has_function_privilege('service_role', 'public.create_installment_payable_series(text,uuid,text,date,integer,numeric,uuid,date,text,text,uuid)', 'EXECUTE'),
+  'service_role executa create_installment_payable_series'
+);
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket29k_context), true);
+set local role authenticated;
+
+-- Parcelamento de 100 em 3: 33,33 / 33,33 / 33,34 (residuo na ultima).
+create temporary table ticket29k_previa (position integer, due_date date, amount numeric) on commit drop;
+grant select, insert on ticket29k_previa to authenticated;
+insert into ticket29k_previa (position, due_date, amount)
+select series_position, due_date, amount from public.preview_payable_series(
+  'installment', 'monthly', '2026-01-31', 3, 100
+);
+
+create temporary table ticket29k_criadas (id uuid, series_position integer, due_date date, amount numeric, competence_date date, description text) on commit drop;
+grant select, insert on ticket29k_criadas to authenticated;
+insert into ticket29k_criadas (id, series_position, due_date, amount, competence_date, description)
+select id, series_position, due_date, amount, competence_date, description from public.create_installment_payable_series(
+  'Ticket29k Parcelamento', (select categoria_id from ticket29k_context), 'monthly', '2026-01-31', 3, 100
+);
+
+select is(
+  (select count(*)::integer from ticket29k_criadas), 3,
+  'create_installment_payable_series gera a quantidade pedida de parcelas'
+);
+select is(
+  (select array_agg(amount order by series_position) from ticket29k_criadas),
+  array[33.33, 33.33, 33.34]::numeric[],
+  'Parcelamento de 100 em 3 parcelas da 33,33 / 33,33 / 33,34 -- residuo na ultima'
+);
+select is(
+  (select sum(amount) from ticket29k_criadas), 100::numeric,
+  'a soma das parcelas e exatamente o total, sem perda de centavos'
+);
+select is(
+  (select array_agg(due_date order by position) from ticket29k_previa),
+  (select array_agg(due_date order by series_position) from ticket29k_criadas),
+  'a previa do Parcelamento devolve as mesmas datas das parcelas efetivamente criadas'
+);
+select is(
+  (select array_agg(amount order by position) from ticket29k_previa),
+  (select array_agg(amount order by series_position) from ticket29k_criadas),
+  'a previa do Parcelamento devolve os mesmos valores das parcelas efetivamente criadas'
+);
+select is(
+  (select count(distinct competence_date)::integer from ticket29k_criadas), 1,
+  'todas as parcelas do Parcelamento compartilham a mesma competencia'
+);
+select is(
+  (select competence_date from ticket29k_criadas where series_position = 1), '2026-01-31'::date,
+  'competencia do Parcelamento usa a data ancora quando nao informada explicitamente'
+);
+
+-- Competencia explicita, diferente da ancora, replicada em todas as parcelas.
+create temporary table ticket29k_criadas_comp (id uuid, series_position integer, competence_date date) on commit drop;
+grant select, insert on ticket29k_criadas_comp to authenticated;
+insert into ticket29k_criadas_comp (id, series_position, competence_date)
+select id, series_position, competence_date from public.create_installment_payable_series(
+  'Ticket29k Parcelamento Competencia', (select categoria_id from ticket29k_context), 'monthly', '2026-02-10', 2, 200,
+  null, '2026-02-01'
+);
+select is(
+  (select count(distinct competence_date)::integer from ticket29k_criadas_comp), 1,
+  'competencia explicita do Parcelamento tambem e a mesma em todas as parcelas'
+);
+select is(
+  (select competence_date from ticket29k_criadas_comp where series_position = 1), '2026-02-01'::date,
+  'competencia explicita do Parcelamento e usada, nao a data ancora'
+);
+
+-- Descricao gravada sem sufixo "i/N": a numeracao e derivada na leitura.
+select is(
+  (select count(distinct description)::integer from ticket29k_criadas), 1,
+  'a descricao do Parcelamento e identica em todas as parcelas, sem sufixo de numeracao'
+);
+
+-- Quantidade fora de 2 a 60 recusada (minimo do Parcelamento e 2, nao 1).
+select throws_ok(
+  format(
+    $$select public.create_installment_payable_series('Ticket29k Invalida', '%s'::uuid, 'monthly', '2026-01-31', 1, 100)$$,
+    (select categoria_id from ticket29k_context)
+  ),
+  '22023',
+  'A quantidade deve estar entre 2 e 60.',
+  'criacao do Parcelamento recusa quantidade 1 (minimo e 2, nao 1 como na Recorrencia)'
+);
+select throws_ok(
+  format(
+    $$select public.create_installment_payable_series('Ticket29k Invalida', '%s'::uuid, 'monthly', '2026-01-31', 61, 100)$$,
+    (select categoria_id from ticket29k_context)
+  ),
+  '22023',
+  'A quantidade deve estar entre 2 e 60.',
+  'criacao do Parcelamento recusa quantidade acima de 60'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select barbeiro_a_id::text from ticket29k_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select public.create_installment_payable_series('Tentativa', '%s'::uuid, 'monthly', '2026-01-31', 3, 100)$$,
+    (select categoria_id from ticket29k_context)
+  ),
+  '42501',
+  'Acesso negado para gerenciar Contas a Pagar.',
+  'profissional e recusado ao tentar criar Parcelamento'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub', (select gerente_b_id::text from ticket29k_context), true);
+set local role authenticated;
+
+select throws_ok(
+  format(
+    $$select public.create_installment_payable_series('Tentativa', '%s'::uuid, 'monthly', '2026-01-31', 3, 100, null, null, null, null, '%s'::uuid)$$,
+    (select categoria_id from ticket29k_context),
+    (select tenant_a_id from ticket29k_context)
+  ),
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gestor de outro tenant nao cria Parcelamento informando o tenant A explicitamente'
 );
 
 reset role;

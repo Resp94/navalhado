@@ -15,6 +15,7 @@ import type {
   DadosBaixa,
   DadosContaPagarAvulsa,
   DadosEdicaoContaPagar,
+  DadosParcelamento,
   DadosRecorrencia,
   FiltroListaContasPagar,
   FiltroPreviaSerie,
@@ -442,6 +443,72 @@ class FakeContasPagarAdapter implements IContasPagarAdapter {
         status: 'open',
         due_date: dueDate,
         competence_date: dueDate,
+        document_number: dados.documentNumber || null,
+        notes: dados.notes || null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+        created_by: 'user-1',
+        updated_at: '2026-09-14T10:00:00Z',
+        updated_by: 'user-1',
+        cancelled_at: null,
+        cancelled_by: null,
+        cancellation_reason: null,
+      });
+    }
+
+    return criadas;
+  }
+
+  async criarParcelamento(tenantId: string, dados: DadosParcelamento): Promise<ContaPagar[]> {
+    const categoria = this.categorias.find((item) => item.id === dados.categoryId);
+    const fornecedor = dados.supplierId
+      ? this.fornecedores.find((item) => item.id === dados.supplierId)
+      : undefined;
+    const seriesId = `serie-${this.proximoId}`;
+    const competenceDate = dados.competenceDate || dados.anchorDate;
+    const share = Math.trunc(dados.totalAmount * 100 / dados.occurrences) / 100;
+    const lastShare = Math.round((dados.totalAmount - share * (dados.occurrences - 1)) * 100) / 100;
+    const criadas: ContaPagar[] = [];
+
+    for (let position = 1; position <= dados.occurrences; position++) {
+      const id = `conta-${this.proximoId++}`;
+      const dueDate = computeDueDateFake(dados.anchorDate, dados.periodicity, position);
+      const installmentAmount = position === dados.occurrences ? lastShare : share;
+      this.contas.push({
+        id,
+        description: dados.description,
+        category_id: dados.categoryId,
+        category_name: categoria?.name || '',
+        category_archived: false,
+        supplier_id: dados.supplierId || null,
+        supplier_name: fornecedor?.name || null,
+        supplier_archived: null,
+        amount: installmentAmount,
+        paid_amount: 0,
+        remaining_amount: installmentAmount,
+        status: 'open',
+        situation: 'open',
+        highlight: null,
+        due_date: dueDate,
+        competence_date: competenceDate,
+        document_number: dados.documentNumber || null,
+        notes: dados.notes || null,
+        series_id: seriesId,
+        series_position: position,
+        created_at: '2026-09-14T10:00:00Z',
+      });
+      criadas.push({
+        id,
+        tenant_id: tenantId,
+        description: dados.description,
+        category_id: dados.categoryId,
+        supplier_id: dados.supplierId || null,
+        amount: installmentAmount,
+        paid_amount: 0,
+        status: 'open',
+        due_date: dueDate,
+        competence_date: competenceDate,
         document_number: dados.documentNumber || null,
         notes: dados.notes || null,
         series_id: seriesId,
@@ -1029,5 +1096,64 @@ describe('ContasPagarTab (adaptador simulado)', () => {
 
     expect(screen.queryByLabelText('Prévia das ocorrências')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Periodicidade')).not.toBeInTheDocument();
+  });
+
+  it('alterna entre as três variantes do formulário e cria um Parcelamento (ticket 12/036)', async () => {
+    const categoriaEquipamento = categoria({ id: 'cat-1', name: 'Equipamentos' });
+    const contasPagarRepository = new ContasPagarRepository(
+      new FakeContasPagarAdapter([], [categoriaEquipamento], [])
+    );
+    const planoContasRepository = new PlanoContasRepository(
+      new InMemoryPlanoContasAdapter([categoriaEquipamento], [])
+    );
+
+    renderTab(contasPagarRepository, planoContasRepository);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nenhuma conta a pagar encontrada')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nova conta' }));
+    await screen.findByLabelText('Descrição');
+
+    // Avulsa -> Recorrência -> Parcelamento -> Avulsa: cada troca mostra e esconde os campos certos.
+    fireEvent.click(screen.getByRole('tab', { name: 'Recorrência' }));
+    expect(screen.getByLabelText('Vencimento da primeira ocorrência')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Parcelamento' }));
+    expect(screen.getByLabelText('Vencimento da primeira parcela')).toBeInTheDocument();
+    expect(screen.getByLabelText('Valor total')).toBeInTheDocument();
+    expect(screen.getByLabelText('Quantidade de parcelas')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Vencimento da primeira ocorrência')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Avulsa' }));
+    expect(screen.getByLabelText('Vencimento')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Valor total')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Parcelamento' }));
+
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Compra de forno' } });
+    fireEvent.change(screen.getByLabelText('Categoria de despesa'), { target: { value: 'cat-1' } });
+    fireEvent.change(screen.getByLabelText('Valor total'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Vencimento da primeira parcela'), {
+      target: { value: '2026-10-05' },
+    });
+    fireEvent.change(screen.getByLabelText('Periodicidade'), { target: { value: 'monthly' } });
+    fireEvent.change(screen.getByLabelText('Quantidade de parcelas'), { target: { value: '3' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver prévia das parcelas' }));
+
+    const previa = await screen.findByLabelText('Prévia das ocorrências');
+    await waitFor(() => {
+      expect(within(previa).getAllByRole('listitem')).toHaveLength(3);
+    });
+    expect(within(previa).getByText('1/3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Parcelamento' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Compra de forno').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByLabelText('Descrição')).not.toBeInTheDocument();
   });
 });
