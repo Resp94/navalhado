@@ -19,7 +19,7 @@ gaveta" (brecha de inserção direta).
 **Blocked by:** 01 — Expand: apuração única do valor esperado da gaveta no servidor;
 035/02 — Hub Financeiro em sub-rotas.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] RPC de movimento manual aceita só suprimento e sangria e recusa qualquer outro tipo.
 - [x] A RPC grava o autor a partir da sessão autenticada, sem parâmetro de autor.
