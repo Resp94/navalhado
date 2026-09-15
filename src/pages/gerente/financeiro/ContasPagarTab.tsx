@@ -105,6 +105,12 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     tenant?.onContasPagarAlteradas?.();
   };
 
+  // Bumping esta versão força o efeito de totais abaixo a recarregar mesmo
+  // quando nenhum filtro mudou -- é o gatilho que faltava depois de criar,
+  // dar Baixa, estornar ou cancelar uma conta (bug encontrado na validação
+  // da spec 036: totais ficavam parados até a página ser recarregada).
+  const [totaisVersao, setTotaisVersao] = useState(0);
+
   useEffect(() => {
     let cancelado = false;
     if (!tenantId) return;
@@ -128,7 +134,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     return () => {
       cancelado = true;
     };
-  }, [tenantId, repository, filtro.dueDateFrom, filtro.dueDateTo, filtro.categoryId, filtro.supplierId]);
+  }, [tenantId, repository, filtro.dueDateFrom, filtro.dueDateTo, filtro.categoryId, filtro.supplierId, totaisVersao]);
 
   const abrirCriar = () => setDrawerOpen(true);
   const fecharDrawer = () => setDrawerOpen(false);
@@ -137,6 +143,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
     setDrawerOpen(false);
     await reload();
     notificarAlteracao();
+    setTotaisVersao((versao) => versao + 1);
   };
 
   const abrirDetalhe = (payableId: string) => setContaSelecionadaId(payableId);
@@ -145,6 +152,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   const handleAtualizadoNoDetalhe = async () => {
     await reload();
     notificarAlteracao();
+    setTotaisVersao((versao) => versao + 1);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));

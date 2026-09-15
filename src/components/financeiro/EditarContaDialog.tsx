@@ -38,10 +38,12 @@ function rotuloIgnorada(status: string): string {
 }
 
 /**
- * Diálogo de edição (ticket 08/036): a RPC é a autoridade sobre o que cada
- * estado permite travar (valor a partir de parcialmente paga, vencimento a
- * partir de paga) — este formulário não desabilita campos por estado, só
- * mostra a mensagem que a RPC devolver.
+ * Diálogo de edição (ticket 08/036): a RPC continua sendo a autoridade final
+ * sobre o que cada estado permite travar (valor a partir de parcialmente
+ * paga, vencimento a partir de paga) -- este formulário espelha essa mesma
+ * regra desabilitando os campos correspondentes, para o gestor não preencher
+ * uma alteração só para descobrir a recusa ao salvar (bug encontrado na
+ * validação da spec 036).
  *
  * Ticket 13/036: quando a conta pertence a uma Série, um controle segmentado
  * escolhe o alcance -- "apenas esta" segue as regras acima; "esta e as
@@ -90,6 +92,8 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
 
   const alcanceLote = alcance === 'esta_e_seguintes';
   const valorEmLoteAceito = conta.seriesType === 'recurring';
+  const valorTravado = conta.status === 'partially_paid' || conta.status === 'paid';
+  const vencimentoTravado = conta.status === 'paid';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -252,7 +256,8 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
             inputMode="decimal"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            disabled={saving}
+            disabled={saving || (!alcanceLote && valorTravado)}
+            helperText={!alcanceLote && valorTravado ? 'Valor travado: conta parcialmente paga ou paga.' : undefined}
           />
         )}
 
@@ -263,7 +268,8 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
               type="date"
               value={dueDate}
               onChange={(event) => setDueDate(event.target.value)}
-              disabled={saving}
+              disabled={saving || vencimentoTravado}
+              helperText={vencimentoTravado ? 'Vencimento travado: conta paga.' : undefined}
             />
 
             <Input
