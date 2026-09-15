@@ -60,7 +60,7 @@ export const Clientes: React.FC = () => {
     saveCustomer,
     deleteCustomer,
     loadHistorico,
-  } = useClientes(tenant.tenantId);
+  } = useClientes(tenant.tenantId, tenant.timezone);
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1015,8 +1015,14 @@ export const Clientes: React.FC = () => {
                               <span className="timeline-type-badge">
                                 <ReceiptIcon /> Comanda #{cmd.comanda_number}
                               </span>
-                              <span className={`badge badge--appt-${cmd.status === 'closed' ? 'completed' : 'pending'}`}>
-                                {cmd.status === 'closed' ? 'Paga' : 'Em aberto'}
+                              <span
+                                className={`badge badge--appt-${
+                                  cmd.status === 'fechada' ? 'completed' : cmd.status === 'cancelada' ? 'canceled' : 'pending'
+                                }`}
+                              >
+                                {cmd.status === 'fechada' && 'Paga'}
+                                {cmd.status === 'aberta' && 'Em aberto'}
+                                {cmd.status === 'cancelada' && 'Cancelada'}
                               </span>
                             </div>
                             <div className="timeline-card__body">
@@ -1132,8 +1138,10 @@ export const Clientes: React.FC = () => {
                       <span className="text-sm text-secondary">
                         Último atendimento registrado em:{' '}
                         <strong>
-                          {new Date(ltvMetrics.lastVisitDate).toLocaleDateString('pt-BR', {
+                          {/* lastVisitDate já é o dia de negócio; meio-dia UTC evita virar o dia ao formatar */}
+                          {new Date(`${ltvMetrics.lastVisitDate}T12:00:00Z`).toLocaleDateString('pt-BR', {
                             dateStyle: 'long',
+                            timeZone: 'UTC',
                           })}
                         </strong>
                       </span>

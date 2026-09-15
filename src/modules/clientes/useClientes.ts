@@ -51,7 +51,7 @@ export function calculateClienteStats(customers: Cliente[]): EstatisticasCliente
   return { totalCount, completosCount, provisoriosCount };
 }
 
-export function useClientes(tenantId: string) {
+export function useClientes(tenantId: string, timeZone?: string) {
   const { addToast } = useToast();
 
   const repository = useMemo(() => {
@@ -167,9 +167,9 @@ export function useClientes(tenantId: string) {
 
   const calculateLTVMetrics = useCallback(
     (customerId: string): MetricasLTVCliente => {
-      return repository.calculateLTV(customerId, history, comandasHistory);
+      return repository.calculateLTV(customerId, history, comandasHistory, timeZone);
     },
-    [repository, history, comandasHistory]
+    [repository, history, comandasHistory, timeZone]
   );
 
   return {

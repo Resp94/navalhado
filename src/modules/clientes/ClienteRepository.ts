@@ -124,11 +124,12 @@ export class ClienteRepository {
   calculateLTV(
     customerId: string,
     appointments: HistoricoVisitasCliente[],
-    comandas: ComandaHistoricoCliente[]
+    comandas: ComandaHistoricoCliente[],
+    timeZone?: string
   ): MetricasLTVCliente {
     if (!customerId) {
       return { ...DEFAULT_LTV_METRICS };
     }
-    return calculateLTVMetrics(customerId, appointments || [], comandas || []);
+    return calculateLTVMetrics(customerId, appointments || [], comandas || [], timeZone);
   }
 }
