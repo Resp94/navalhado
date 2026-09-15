@@ -5,7 +5,13 @@ import { useFluxoCaixa } from '../useFluxoCaixa';
 import type { FluxoCaixaProjetado, IFluxoCaixaAdapter } from '../types';
 
 function buildResult(businessToday: string): FluxoCaixaProjetado {
-  return { timezone: 'America/Sao_Paulo', business_today: businessToday, buckets: [] };
+  return {
+    timezone: 'America/Sao_Paulo',
+    business_today: businessToday,
+    estimate: { status: 'ok', weeks_used: 8, weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 } },
+    undated_commitments: { commission_open: 0, tips_open: 0, advances_open: 0, net_due: 0 },
+    buckets: [],
+  };
 }
 
 describe('useFluxoCaixa', () => {

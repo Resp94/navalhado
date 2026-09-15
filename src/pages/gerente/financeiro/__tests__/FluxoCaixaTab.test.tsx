@@ -23,7 +23,11 @@ vi.mock('react-router-dom', () => ({
 }));
 
 class FakeFluxoCaixaAdapter implements IFluxoCaixaAdapter {
-  constructor(private resposta: FluxoCaixaProjetado) {}
+  private resposta: FluxoCaixaProjetado;
+
+  constructor(resposta: FluxoCaixaProjetado) {
+    this.resposta = resposta;
+  }
 
   async obterFluxoCaixaProjetado(_input: ObterFluxoCaixaInput): Promise<FluxoCaixaProjetado> {
     return this.resposta;

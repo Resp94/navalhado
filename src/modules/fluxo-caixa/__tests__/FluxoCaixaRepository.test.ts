@@ -2,6 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FluxoCaixaRepository, FluxoCaixaValidationError } from '../FluxoCaixaRepository';
 import type { IFluxoCaixaAdapter } from '../types';
 
+const estimateFixture = {
+  status: 'ok' as const,
+  weeks_used: 8,
+  weekday_averages: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+};
+
+const undatedCommitmentsFixture = {
+  commission_open: 0,
+  tips_open: 0,
+  advances_open: 0,
+  net_due: 0,
+};
+
 describe('FluxoCaixaRepository', () => {
   const mockAdapter: IFluxoCaixaAdapter = {
     obterFluxoCaixaProjetado: vi.fn(),
@@ -17,6 +30,8 @@ describe('FluxoCaixaRepository', () => {
     vi.mocked(mockAdapter.obterFluxoCaixaProjetado).mockResolvedValueOnce({
       timezone: 'America/Sao_Paulo',
       business_today: '2026-06-10',
+      estimate: estimateFixture,
+      undated_commitments: undatedCommitmentsFixture,
       buckets: [],
     });
 
@@ -150,6 +165,8 @@ describe('FluxoCaixaRepository', () => {
     vi.mocked(mockAdapter.obterFluxoCaixaProjetado).mockResolvedValueOnce({
       timezone: 'America/Sao_Paulo',
       business_today: '2026-06-15',
+      estimate: estimateFixture,
+      undated_commitments: undatedCommitmentsFixture,
       buckets: [],
     });
 
