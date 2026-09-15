@@ -7,6 +7,7 @@ import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
 import { ExtratoSessaoCaixaModal } from '../../../components/caixa/ExtratoSessaoCaixaModal';
+import { ReabrirCaixaDialog } from '../../../components/caixa/ReabrirCaixaDialog';
 import { formatCurrency } from '../../../lib/currency';
 import { dateInZone } from '../../../lib/timezone';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
@@ -70,6 +71,7 @@ export const CaixaTab: React.FC = () => {
   const [isAberturaModalOpen, setIsAberturaModalOpen] = useState(false);
   const [isFechamentoModalOpen, setIsFechamentoModalOpen] = useState(false);
   const [extratoSession, setExtratoSession] = useState<CashSession | null>(null);
+  const [reabrirSession, setReabrirSession] = useState<CashSession | null>(null);
 
   // Resumo do turno, movimentos e histórico de sessões, apurados a partir da Sessão de Caixa ativa.
   // Quem chama é o painel, que trata o erro com uma única mensagem para a carga inteira.
@@ -211,6 +213,13 @@ export const CaixaTab: React.FC = () => {
       addToast(err?.message || 'Erro ao registrar suprimento.', 'error');
       throw err;
     }
+  };
+
+  const handleSessaoReaberta = async (session: CashSession) => {
+    setReabrirSession(null);
+    addToast('Turno reaberto com sucesso.', 'success');
+    setActiveSession(session);
+    await refresh();
   };
 
   const methodsList = useMemo(() => {
@@ -572,7 +581,7 @@ export const CaixaTab: React.FC = () => {
                                   {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
                                 </span>
                               </td>
-                              <td>
+                              <td style={{ display: 'flex', gap: '0.5rem' }}>
                                 {sess.status !== 'open' && (
                                   <button
                                     type="button"
@@ -580,6 +589,15 @@ export const CaixaTab: React.FC = () => {
                                     onClick={() => setExtratoSession(sess)}
                                   >
                                     Extrato
+                                  </button>
+                                )}
+                                {sess.status !== 'open' && !activeSession && (
+                                  <button
+                                    type="button"
+                                    className="btn-table-action btn-table-action--ghost"
+                                    onClick={() => setReabrirSession(sess)}
+                                  >
+                                    Reabrir
                                   </button>
                                 )}
                               </td>
@@ -638,6 +656,17 @@ export const CaixaTab: React.FC = () => {
         tenantName={tenant?.tenantName}
         caixaRepo={caixaRepo}
         onClose={() => setExtratoSession(null)}
+      />
+
+      {/* Reabertura de sessão de caixa encerrada, para permitir estorno de Baixa pela gaveta,
+          vale ou Quitação de Comissão lançados no turno (bug encontrado na validação da spec 036). */}
+      <ReabrirCaixaDialog
+        isOpen={!!reabrirSession}
+        repository={caixaRepo}
+        tenantId={tenant?.tenantId || ''}
+        session={reabrirSession}
+        onReaberta={handleSessaoReaberta}
+        onFechar={() => setReabrirSession(null)}
       />
     </>
   );
