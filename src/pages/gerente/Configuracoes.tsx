@@ -346,13 +346,26 @@ export const Configuracoes: React.FC = () => {
     );
   }
 
+  const configInputClass =
+    'px-4 py-3 rounded-md border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-medium outline-none min-h-11 box-border transition-[box-shadow,background-color] duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] max-[480px]:text-base';
+  const leadNumberInputClass =
+    'w-20 px-2.5 py-2 min-h-10 rounded-sm border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-bold text-center box-border outline-none transition-shadow duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] max-[480px]:flex-1 max-[480px]:min-h-11 max-[480px]:text-base';
+  const businessTimeSelectClass =
+    'px-3 py-2 min-h-10 rounded-sm border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-semibold outline-none cursor-pointer transition-shadow duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] disabled:cursor-not-allowed disabled:bg-bg-primary disabled:opacity-60 max-sm:flex-1 max-sm:min-h-11 max-sm:text-center max-[480px]:text-base';
+  const leadChipBtnBaseClass =
+    'px-3.5 py-1.5 min-h-[38px] rounded-full border-0 text-xs font-bold cursor-pointer transition-all duration-150 ease-in max-[480px]:min-h-10';
+  const leadChipBtnInactiveClass =
+    'shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary hover:shadow-[0_0_0_1px_var(--color-brand-primary)] hover:text-brand-primary';
+  const leadChipBtnActiveClass =
+    'shadow-[0_0_0_0.5px_var(--color-brand-primary)] bg-brand-primary text-white hover:shadow-[0_0_0_1px_var(--color-brand-hover)] hover:bg-brand-hover';
+
   return (
-    <form onSubmit={handleSave} className="config-form">
+    <form onSubmit={handleSave} className="flex flex-col gap-8 pb-12 max-sm:gap-5">
       {/* Cabeçalho */}
-      <div className="config-header">
-        <div className="config-header-text">
-          <h2>Ajustes da barbearia</h2>
-          <p>
+      <div className="flex justify-between items-start flex-wrap gap-5">
+        <div className="max-w-[620px]">
+          <h2 className="text-xl font-extrabold m-0 tracking-[-0.02em] text-text-primary">Ajustes da barbearia</h2>
+          <p className="text-text-primary text-sm m-0 mt-1.5 leading-normal">
             Personalize os dados da sua barbearia, defina os horários de atendimento da equipe e controle as regras de agendamento online com total autonomia.
           </p>
         </div>
@@ -360,7 +373,7 @@ export const Configuracoes: React.FC = () => {
         <button
           type="submit"
           disabled={saving}
-          className="btn btn--primary btn-save-config"
+          className="btn btn--primary px-7 py-3 rounded-full font-bold text-sm shadow-[0_4px_14px_rgba(217,108,0,0.2)] inline-flex items-center gap-2 min-h-11 max-sm:w-full max-sm:justify-center"
         >
           <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={2} />
           {saving ? 'Salvando...' : 'Salvar alterações'}
@@ -368,62 +381,62 @@ export const Configuracoes: React.FC = () => {
       </div>
 
       {/* CARD 1: Perfil e Localização */}
-      <div className="card card-config">
-        <div className="config-section-header">
+      <div className="card card-config bg-bg-secondary border border-border rounded-lg p-8 shadow-sm flex flex-col gap-6 max-sm:p-4 max-sm:rounded-md max-sm:gap-5">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
           <div>
-            <h3>Perfil e localização</h3>
-            <p>Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.</p>
+            <h3 className="text-base font-extrabold m-0 text-text-primary">Perfil e localização</h3>
+            <p className="text-xs text-text-primary m-0 mt-0.5">Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.</p>
           </div>
         </div>
 
-        <div className="config-fields-grid">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 max-sm:grid-cols-1 max-sm:gap-4">
           {/* Nome da Barbearia */}
-          <div className="form-group">
-            <label htmlFor="name">Nome da barbearia</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="name" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Nome da barbearia</label>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Barbearia Navalha de Ouro"
-              className="config-input"
+              className={configInputClass}
             />
           </div>
 
           {/* E-mail de Contato */}
-          <div className="form-group">
-            <label htmlFor="email">E-mail de contato</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">E-mail de contato</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contato@barbearia.com"
-              className="config-input"
+              className={configInputClass}
             />
           </div>
 
           {/* Telefone */}
-          <div className="form-group">
-            <label htmlFor="phone">Telefone</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="phone" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Telefone</label>
             <input
               id="phone"
               type="text"
               value={phone}
               onChange={handlePhoneChange}
               placeholder="(00) 00000-0000"
-              className="config-input"
+              className={configInputClass}
             />
           </div>
 
           {/* Fuso Horário */}
-          <div className="form-group">
-            <label htmlFor="timezone">Fuso horário</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="timezone" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Fuso horário</label>
             <select
               id="timezone"
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="config-select"
+              className={configInputClass}
             >
               <option value="America/Sao_Paulo">Horário de Brasília (UTC-3)</option>
               <option value="America/Manaus">Horário da Amazônia (UTC-4)</option>
@@ -434,16 +447,16 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* Endereço Estruturado com CEP */}
-        <div className="address-section">
-          <div className="address-section-title">
+        <div className="flex flex-col gap-4 border-t border-dashed border-border pt-5">
+          <div className="flex items-center gap-2 text-xs font-bold text-text-primary uppercase tracking-[0.05em]">
             <span>Endereço do estabelecimento</span>
           </div>
 
-          <div className="address-row-grid">
+          <div className="grid grid-cols-[140px_1fr_100px] gap-4 max-sm:grid-cols-2 max-[480px]:grid-cols-1">
             {/* CEP */}
-            <div className="form-group cep-field">
-              <label htmlFor="cep">
-                CEP {loadingCep && <span className="cep-loading">(Buscando...)</span>}
+            <div className="flex flex-col gap-1.5 max-sm:col-span-2 max-[480px]:col-auto">
+              <label htmlFor="cep" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">
+                CEP {loadingCep && <span className="text-brand-primary text-[11px]">(Buscando...)</span>}
               </label>
               <input
                 id="cep"
@@ -454,67 +467,67 @@ export const Configuracoes: React.FC = () => {
                 onKeyDown={handleCepKeyDown}
                 placeholder="00000-000"
                 maxLength={9}
-                className="config-input"
+                className={configInputClass}
               />
             </div>
 
             {/* Logradouro / Rua */}
-            <div className="form-group street-field">
-              <label htmlFor="address_street">Rua ou avenida</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="address_street" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Rua ou avenida</label>
               <input
                 id="address_street"
                 type="text"
                 value={addressStreet}
                 onChange={(e) => setAddressStreet(e.target.value)}
                 placeholder="Ex: Rua das Flores"
-                className="config-input"
+                className={configInputClass}
               />
             </div>
 
             {/* Número */}
-            <div className="form-group number-field">
-              <label htmlFor="address_number">Número</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="address_number" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Número</label>
               <input
                 id="address_number"
                 type="text"
                 value={addressNumber}
                 onChange={(e) => setAddressNumber(e.target.value)}
                 placeholder="Ex: 123"
-                className="config-input"
+                className={configInputClass}
               />
             </div>
           </div>
 
-          <div className="address-sub-grid">
+          <div className="grid grid-cols-[1fr_1fr_90px] gap-4 max-sm:grid-cols-2 max-[480px]:grid-cols-1">
             {/* Bairro */}
-            <div className="form-group">
-              <label htmlFor="address_neighborhood">Bairro</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="address_neighborhood" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Bairro</label>
               <input
                 id="address_neighborhood"
                 type="text"
                 value={addressNeighborhood}
                 onChange={(e) => setAddressNeighborhood(e.target.value)}
                 placeholder="Ex: Centro"
-                className="config-input"
+                className={configInputClass}
               />
             </div>
 
             {/* Cidade */}
-            <div className="form-group">
-              <label htmlFor="address_city">Cidade</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="address_city" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Cidade</label>
               <input
                 id="address_city"
                 type="text"
                 value={addressCity}
                 onChange={(e) => setAddressCity(e.target.value)}
                 placeholder="Ex: São Paulo"
-                className="config-input"
+                className={configInputClass}
               />
             </div>
 
             {/* UF */}
-            <div className="form-group uf-field">
-              <label htmlFor="address_state">UF</label>
+            <div className="flex flex-col gap-1.5 max-sm:col-span-2 max-[480px]:col-auto">
+              <label htmlFor="address_state" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">UF</label>
               <input
                 id="address_state"
                 type="text"
@@ -522,51 +535,51 @@ export const Configuracoes: React.FC = () => {
                 maxLength={2}
                 onChange={(e) => setAddressState(e.target.value.toUpperCase())}
                 placeholder="SP"
-                className="config-input uf-input"
+                className={`${configInputClass} uppercase text-center`}
               />
             </div>
           </div>
 
           {cepError && (
-            <span className="cep-error">{cepError}</span>
+            <span className="text-error text-xs">{cepError}</span>
           )}
 
           {/* Campo de Endereço Completo (legado/resumo) */}
-          <div className="form-group">
-            <label htmlFor="address">Endereço completo ou ponto de referência</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="address" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Endereço completo ou ponto de referência</label>
             <input
               id="address"
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Rua, Número, Bairro, Cidade, Estado"
-              className="config-input"
+              className={configInputClass}
             />
           </div>
         </div>
       </div>
 
       {/* CARD 2: Regras de Agendamento Online */}
-      <div className="card card-config">
-        <div className="config-section-header">
+      <div className="card card-config bg-bg-secondary border border-border rounded-lg p-8 shadow-sm flex flex-col gap-6 max-sm:p-4 max-sm:rounded-md max-sm:gap-5">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
           <div>
-            <h3>Regras de agendamento online</h3>
-            <p>Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.</p>
+            <h3 className="text-base font-extrabold m-0 text-text-primary">Regras de agendamento online</h3>
+            <p className="text-xs text-text-primary m-0 mt-0.5">Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.</p>
           </div>
         </div>
 
         {/* 2.1 Intervalo entre Horários */}
-        <div className="lead-rule-block">
-          <div className="lead-rule-header">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
             <div>
-              <label htmlFor="slot_interval_minutes" className="lead-rule-title">
+              <label htmlFor="slot_interval_minutes" className="text-sm font-bold text-text-primary">
                 Intervalo entre horários na grade
               </label>
-              <p className="lead-rule-desc">
+              <p className="text-xs text-text-primary m-0 mt-0.5">
                 Frequência de novos horários gerados para os clientes reservarem online.
               </p>
             </div>
-            <div className="lead-input-group">
+            <div className="flex items-center gap-1.5 max-[480px]:w-full max-[480px]:justify-between">
               <input
                 id="slot_interval_minutes"
                 type="number"
@@ -574,14 +587,14 @@ export const Configuracoes: React.FC = () => {
                 max={240}
                 value={slotIntervalMinutes}
                 onChange={(e) => setSlotIntervalMinutes(Number(e.target.value))}
-                className="lead-number-input"
+                className={leadNumberInputClass}
               />
-              <span className="lead-input-unit">minutos</span>
+              <span className="text-xs text-text-primary font-semibold">minutos</span>
             </div>
           </div>
 
           {/* Chips de Intervalo */}
-          <div className="lead-chips-grid">
+          <div className="flex gap-2 flex-wrap">
             {SLOT_INTERVAL_PRESETS.map((preset) => {
               const isSelected = slotIntervalMinutes === preset.value;
               return (
@@ -589,7 +602,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setSlotIntervalMinutes(preset.value)}
-                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
+                  className={`${leadChipBtnBaseClass} ${isSelected ? leadChipBtnActiveClass : leadChipBtnInactiveClass}`}
                 >
                   {preset.label}
                 </button>
@@ -599,17 +612,17 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* 2.2 Antecedência Mínima para Agendamento */}
-        <div className="lead-rule-block lead-rule-block--bordered">
-          <div className="lead-rule-header">
+        <div className="flex flex-col gap-2.5 border-t border-dashed border-border pt-5">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
             <div>
-              <label htmlFor="min_booking_lead_time_minutes" className="lead-rule-title">
+              <label htmlFor="min_booking_lead_time_minutes" className="text-sm font-bold text-text-primary">
                 Antecedência mínima para agendar
               </label>
-              <p className="lead-rule-desc">
+              <p className="text-xs text-text-primary m-0 mt-0.5">
                 Tempo mínimo antes do corte em que o cliente ainda pode reservar um horário pelo link.
               </p>
             </div>
-            <div className="lead-input-group">
+            <div className="flex items-center gap-1.5 max-[480px]:w-full max-[480px]:justify-between">
               <input
                 id="min_booking_lead_time_minutes"
                 type="number"
@@ -617,14 +630,14 @@ export const Configuracoes: React.FC = () => {
                 max={1440}
                 value={minBookingLeadTimeMinutes}
                 onChange={(e) => setMinBookingLeadTimeMinutes(Number(e.target.value))}
-                className="lead-number-input"
+                className={leadNumberInputClass}
               />
-              <span className="lead-input-unit">minutos</span>
+              <span className="text-xs text-text-primary font-semibold">minutos</span>
             </div>
           </div>
 
           {/* Chips de Antecedência de Agendamento */}
-          <div className="lead-chips-grid">
+          <div className="flex gap-2 flex-wrap">
             {BOOKING_LEAD_TIME_PRESETS.map((preset) => {
               const isSelected = minBookingLeadTimeMinutes === preset.value;
               return (
@@ -632,7 +645,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setMinBookingLeadTimeMinutes(preset.value)}
-                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
+                  className={`${leadChipBtnBaseClass} ${isSelected ? leadChipBtnActiveClass : leadChipBtnInactiveClass}`}
                 >
                   {preset.label}
                 </button>
@@ -642,17 +655,17 @@ export const Configuracoes: React.FC = () => {
         </div>
 
         {/* 2.3 Antecedência Mínima para Cancelamento */}
-        <div className="lead-rule-block lead-rule-block--bordered">
-          <div className="lead-rule-header">
+        <div className="flex flex-col gap-2.5 border-t border-dashed border-border pt-5">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
             <div>
-              <label htmlFor="min_cancellation_lead_time_minutes" className="lead-rule-title">
+              <label htmlFor="min_cancellation_lead_time_minutes" className="text-sm font-bold text-text-primary">
                 Antecedência mínima para cancelar ou reagendar
               </label>
-              <p className="lead-rule-desc">
+              <p className="text-xs text-text-primary m-0 mt-0.5">
                 Após esse prazo, o cliente não consegue desmarcar pelo link e recebe um botão direto para conversar no WhatsApp do barbeiro.
               </p>
             </div>
-            <div className="lead-input-group">
+            <div className="flex items-center gap-1.5 max-[480px]:w-full max-[480px]:justify-between">
               <input
                 id="min_cancellation_lead_time_minutes"
                 type="number"
@@ -660,14 +673,14 @@ export const Configuracoes: React.FC = () => {
                 max={2880}
                 value={minCancellationLeadTimeMinutes}
                 onChange={(e) => setMinCancellationLeadTimeMinutes(Number(e.target.value))}
-                className="lead-number-input"
+                className={leadNumberInputClass}
               />
-              <span className="lead-input-unit">minutos</span>
+              <span className="text-xs text-text-primary font-semibold">minutos</span>
             </div>
           </div>
 
           {/* Chips de Antecedência de Cancelamento */}
-          <div className="lead-chips-grid">
+          <div className="flex gap-2 flex-wrap">
             {CANCELLATION_LEAD_TIME_PRESETS.map((preset) => {
               const isSelected = minCancellationLeadTimeMinutes === preset.value;
               return (
@@ -675,7 +688,7 @@ export const Configuracoes: React.FC = () => {
                   key={preset.value}
                   type="button"
                   onClick={() => setMinCancellationLeadTimeMinutes(preset.value)}
-                  className={`lead-chip-btn ${isSelected ? 'lead-chip-btn--active' : ''}`}
+                  className={`${leadChipBtnBaseClass} ${isSelected ? leadChipBtnActiveClass : leadChipBtnInactiveClass}`}
                 >
                   {preset.label}
                 </button>
@@ -686,45 +699,45 @@ export const Configuracoes: React.FC = () => {
       </div>
 
       {/* CARD 3: Horário de Funcionamento Geral */}
-      <div className="card card-config">
-        <div className="config-section-header">
+      <div className="card card-config bg-bg-secondary border border-border rounded-lg p-8 shadow-sm flex flex-col gap-6 max-sm:p-4 max-sm:rounded-md max-sm:gap-5">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
           <div>
-            <h3>Horário de funcionamento geral</h3>
-            <p>Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.</p>
+            <h3 className="text-base font-extrabold m-0 text-text-primary">Horário de funcionamento geral</h3>
+            <p className="text-xs text-text-primary m-0 mt-0.5">Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.</p>
           </div>
         </div>
 
-        <div className="business-hours-list">
+        <div className="flex flex-col gap-2.5">
           {daysOfWeek.map(({ key, label }) => {
             const schedule = businessHours[key] || defaultBusinessHours[key];
             return (
               <div
                 key={key}
-                className={`business-day-row ${schedule.active ? 'business-day-row--active' : 'business-day-row--inactive'}`}
+                className={`flex items-center justify-between px-4 py-3 rounded-md bg-bg-secondary border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] transition-all duration-200 ease-in gap-4 max-sm:flex-col max-sm:items-stretch max-sm:gap-[0.65rem] max-sm:px-4 max-sm:py-[0.85rem] ${schedule.active ? '' : 'opacity-[0.65]'}`}
               >
                 {/* Checkbox e Nome do Dia */}
-                <div className="business-day-header">
+                <div className="flex items-center gap-3 min-w-[160px] max-sm:min-w-0 max-sm:w-full">
                   <input
                     id={`checkbox-${key}`}
                     type="checkbox"
                     checked={schedule.active}
                     aria-label={label}
                     onChange={(e) => handleDayActiveChange(key, e.target.checked)}
-                    className="business-checkbox"
+                    className="w-5 h-5 rounded-sm border border-border cursor-pointer accent-brand-primary shrink-0"
                   />
-                  <label htmlFor={`checkbox-${key}`} className="business-day-label">
+                  <label htmlFor={`checkbox-${key}`} className="text-sm font-bold text-text-primary cursor-pointer">
                     {label}
                   </label>
                 </div>
 
                 {/* Seletores Padronizados de Horário */}
-                <div className="business-day-selects">
+                <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-between">
                   <select
                     value={schedule.open}
                     disabled={!schedule.active}
                     aria-label={`Abertura ${label}`}
                     onChange={(e) => handleTimeChange(key, 'open', e.target.value)}
-                    className="business-time-select"
+                    className={businessTimeSelectClass}
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
@@ -732,13 +745,13 @@ export const Configuracoes: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <span className="business-time-sep">às</span>
+                  <span className="text-xs text-text-primary font-semibold shrink-0">às</span>
                   <select
                     value={schedule.close}
                     disabled={!schedule.active}
                     aria-label={`Fechamento ${label}`}
                     onChange={(e) => handleTimeChange(key, 'close', e.target.value)}
-                    className="business-time-select"
+                    className={businessTimeSelectClass}
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
@@ -752,459 +765,6 @@ export const Configuracoes: React.FC = () => {
           })}
         </div>
       </div>
-
-      <style>{`
-        .config-form {
-          display: flex;
-          flex-direction: column;
-          gap: 2rem;
-          padding-bottom: 3rem;
-        }
-
-        .config-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          flex-wrap: wrap;
-          gap: 1.25rem;
-        }
-
-        .config-header-text {
-          max-width: 620px;
-        }
-
-        .config-header-text h2 {
-          font-size: var(--font-size-xl);
-          font-weight: 800;
-          margin: 0;
-          letter-spacing: -0.02em;
-          color: var(--color-text-primary);
-        }
-
-        .config-header-text p {
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          margin: 6px 0 0;
-          line-height: 1.5;
-        }
-
-        .btn-save-config {
-          padding: 12px 28px;
-          border-radius: var(--radius-full);
-          font-weight: 700;
-          font-size: 14px;
-          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.2);
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          min-height: 44px;
-        }
-
-        .card-config {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 2rem;
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .config-section-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border-bottom: 1px solid var(--color-border);
-          padding-bottom: 1rem;
-        }
-
-        .config-section-header h3 {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          margin: 0;
-          color: var(--color-text-primary);
-        }
-
-        .config-section-header p {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          margin: 2px 0 0;
-        }
-
-        .config-fields-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .config-input,
-        .config-select {
-          padding: 12px 16px;
-          border-radius: var(--radius-md);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          outline: none;
-          min-height: 44px;
-          box-sizing: border-box;
-          transition: box-shadow 0.2s ease, background-color 0.2s ease;
-        }
-
-        .config-input:focus,
-        .config-select:focus {
-          box-shadow: 0 0 0 2px var(--color-brand-primary);
-        }
-
-        .address-section {
-          border-top: 1px dashed var(--color-border);
-          padding-top: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .address-section-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .address-row-grid {
-          display: grid;
-          grid-template-columns: 140px 1fr 100px;
-          gap: 1rem;
-        }
-
-        .address-sub-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 90px;
-          gap: 1rem;
-        }
-
-        .cep-loading {
-          color: var(--color-brand-primary);
-          font-size: 11px;
-        }
-
-        .cep-error {
-          font-size: 12px;
-          color: var(--color-error);
-        }
-
-        .uf-input {
-          text-transform: uppercase;
-          text-align: center;
-        }
-
-        .lead-rule-block {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .lead-rule-block--bordered {
-          border-top: 1px dashed var(--color-border);
-          padding-top: 1.25rem;
-        }
-
-        .lead-rule-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .lead-rule-title {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .lead-rule-desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          margin: 2px 0 0;
-        }
-
-        .lead-input-group {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .lead-number-input {
-          width: 80px;
-          padding: 8px 10px;
-          min-height: 40px;
-          border-radius: var(--radius-sm);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          text-align: center;
-          box-sizing: border-box;
-          outline: none;
-          transition: box-shadow 0.2s ease;
-        }
-
-        .lead-number-input:focus {
-          box-shadow: 0 0 0 2px var(--color-brand-primary);
-        }
-
-        .lead-input-unit {
-          font-size: 12px;
-          color: var(--color-text-primary);
-          font-weight: 600;
-        }
-
-        .lead-chips-grid {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .lead-chip-btn {
-          padding: 6px 14px;
-          min-height: 38px;
-          border-radius: var(--radius-full);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: 12px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .lead-chip-btn:hover {
-          box-shadow: 0 0 0 1px var(--color-brand-primary);
-          color: var(--color-brand-primary);
-        }
-
-        .lead-chip-btn--active {
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-brand-primary);
-          background-color: var(--color-brand-primary);
-          color: #FFFFFF;
-        }
-
-        .lead-chip-btn--active:hover {
-          box-shadow: 0 0 0 1px var(--color-brand-hover);
-          background-color: var(--color-brand-hover);
-          color: #FFFFFF;
-        }
-
-        .business-hours-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .business-day-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 16px;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          transition: all 0.2s ease;
-          gap: 1rem;
-        }
-
-        .business-day-row--inactive {
-          opacity: 0.65;
-        }
-
-        .business-day-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-width: 160px;
-        }
-
-        .business-checkbox {
-          width: 20px;
-          height: 20px;
-          border-radius: 4px;
-          border: 1px solid var(--color-border);
-          cursor: pointer;
-          accent-color: var(--color-brand-primary);
-          flex-shrink: 0;
-        }
-
-        .business-day-label {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          cursor: pointer;
-        }
-
-        .business-day-selects {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .business-time-select {
-          padding: 8px 12px;
-          min-height: 40px;
-          border-radius: var(--radius-sm);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          outline: none;
-          cursor: pointer;
-          transition: box-shadow 0.2s ease;
-        }
-
-        .business-time-select:focus {
-          box-shadow: 0 0 0 2px var(--color-brand-primary);
-        }
-
-        .business-time-select:disabled {
-          cursor: not-allowed;
-          background-color: var(--color-bg-primary);
-          opacity: 0.6;
-        }
-
-        .business-time-sep {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-
-        @media (max-width: 640px) {
-          .config-form {
-            gap: 1.25rem;
-          }
-
-          .card-config {
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            gap: 1.25rem;
-          }
-
-          .btn-save-config {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .config-fields-grid {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-
-          .address-row-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .cep-field {
-            grid-column: span 2;
-          }
-
-          .address-sub-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .uf-field {
-            grid-column: span 2;
-          }
-
-          .business-day-row {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.65rem;
-            padding: 0.85rem 1rem;
-          }
-
-          .business-day-header {
-            min-width: 0;
-            width: 100%;
-          }
-
-          .business-day-selects {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .business-time-select {
-            flex: 1;
-            min-height: 44px;
-            text-align: center;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .config-input,
-          .config-select,
-          .business-time-select,
-          .lead-number-input {
-            font-size: 16px; /* Previne auto-zoom iOS */
-          }
-
-          .address-row-grid,
-          .address-sub-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .cep-field,
-          .uf-field {
-            grid-column: auto;
-          }
-
-          .lead-rule-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .lead-input-group {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .lead-number-input {
-            flex: 1;
-            min-height: 44px;
-          }
-
-          .lead-chip-btn {
-            min-height: 40px;
-          }
-        }
-      `}</style>
     </form>
   );
 };

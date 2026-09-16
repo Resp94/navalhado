@@ -136,18 +136,21 @@ describe('Aba de Serviços (Servicos.tsx)', () => {
   });
 
   it('marca posição e categoria como informações secundárias para compactação mobile', async () => {
-    const { container } = render(<Servicos />);
+    render(<Servicos />);
 
     await waitFor(() => {
       expect(screen.getByText('Corte Tradicional')).toBeInTheDocument();
     });
 
-    expect(container.querySelector('.service-position-badge')).toHaveClass(
-      'service-position-badge--mobile-secondary'
-    );
-    expect(container.querySelector('.service-category-badge')).toHaveClass(
-      'service-category-badge--mobile-secondary'
-    );
+    // Badge de posição (#1) e de categoria (Cabelo) devem ficar ocultos
+    // em telas mobile (compactação), mantendo-se visíveis no desktop.
+    // "Cabelo" também aparece no filtro de categorias, então isolamos o
+    // badge (um <span> fora de qualquer <button>) entre as ocorrências.
+    expect(screen.getByText('#1')).toHaveClass('max-md:hidden');
+    const categoryBadge = screen
+      .getAllByText('Cabelo')
+      .find((el) => el.tagName === 'SPAN' && !el.closest('button'));
+    expect(categoryBadge).toHaveClass('max-md:hidden');
   });
 
   it('permite alternar status de ativo/inativo pelo switch', async () => {
