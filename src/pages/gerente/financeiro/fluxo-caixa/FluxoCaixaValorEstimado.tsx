@@ -18,13 +18,15 @@ export interface FluxoCaixaValorEstimadoProps {
  */
 export const FluxoCaixaValorEstimado: React.FC<FluxoCaixaValorEstimadoProps> = ({ value }) => {
   if (value === null) {
-    return <span className="fluxo-caixa-estimado-vazio">histórico insuficiente</span>;
+    return <span className="text-xs italic text-text-secondary">histórico insuficiente</span>;
   }
 
   return (
-    <span className="fluxo-caixa-estimado">
+    <span className="inline-flex items-center gap-[0.35rem]">
       {formatCurrency(value)}
-      <span className="fluxo-caixa-estimado-badge">estimado</span>
+      <span className="inline-flex items-center px-[0.4rem] py-[0.1rem] rounded-full text-[0.65rem] font-bold uppercase tracking-[0.03em] bg-info/[0.12] text-info">
+        estimado
+      </span>
     </span>
   );
 };

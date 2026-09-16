@@ -57,7 +57,7 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
 
   return (
     <>
-      <section className="kpi-cards-grid fluxo-caixa-resumo" aria-label="Resumo do fluxo de caixa projetado">
+      <section className="kpi-cards-grid" aria-label="Resumo do fluxo de caixa projetado">
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-label">Entradas recebidas</span>
@@ -104,7 +104,7 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
               {!semDados && totalVencido > 0 && (
                 <>
                   {' '}
-                  <span className="fluxo-caixa-saldo-negativo">
+                  <span className="text-[#c0392b] font-bold">
                     ({formatCurrency(totalVencido)} vencidas)
                   </span>
                 </>
@@ -117,7 +117,7 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
             <span className="kpi-label">{curva?.rotulo || 'Resultado acumulado'} ao fim do período</span>
           </div>
           <div>
-            <h3 className={`kpi-value ${ultimoPonto && ultimoPonto.saldo !== null && ultimoPonto.saldo < 0 ? 'fluxo-caixa-saldo-negativo' : ''}`}>
+            <h3 className={`kpi-value ${ultimoPonto && ultimoPonto.saldo !== null && ultimoPonto.saldo < 0 ? 'text-[#c0392b] font-bold' : ''}`}>
               {semDados || !ultimoPonto || ultimoPonto.saldo === null ? '—' : formatCurrency(ultimoPonto.saldo)}
             </h3>
             <p className="kpi-meta">
@@ -132,7 +132,7 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
             <span className="kpi-label">Valor depois dos Compromissos sem Data</span>
           </div>
           <div>
-            <h3 className={`kpi-value ${valorAposCompromissos !== null && valorAposCompromissos < 0 ? 'fluxo-caixa-saldo-negativo' : ''}`}>
+            <h3 className={`kpi-value ${valorAposCompromissos !== null && valorAposCompromissos < 0 ? 'text-[#c0392b] font-bold' : ''}`}>
               {semDados || valorAposCompromissos === null ? '—' : formatCurrency(valorAposCompromissos)}
             </h3>
             <p className="kpi-meta">
@@ -143,10 +143,10 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
       </section>
 
       {!semDados && undatedCommitments && (
-        <section className="card-panel fluxo-caixa-compromissos" aria-label="Compromissos sem Data">
-          <div className="fluxo-caixa-compromissos-header">
+        <section className="card-panel flex flex-col gap-[0.6rem]" aria-label="Compromissos sem Data">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <h3 className="card-panel-title">Compromissos sem Data</h3>
-            <Link to="/financeiro/comissoes" className="fluxo-caixa-compromissos-link">
+            <Link to="/financeiro/comissoes" className="text-xs font-bold text-info no-underline hover:underline">
               Ver na aba de Comissões
             </Link>
           </div>
@@ -154,26 +154,26 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
             Quanto a barbearia deve hoje à equipe entre comissões e gorjetas em aberto, já descontados os vales a
             abater. Não é distribuído entre os agrupamentos nem entra no fluxo pendente ou na curva.
           </p>
-          <div className="fluxo-caixa-compromissos-valores">
-            <div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
+            <div className="flex flex-col gap-[0.2rem]">
               <span className="kpi-label">Comissões em aberto</span>
-              <strong>{formatCurrency(undatedCommitments.commission_open)}</strong>
+              <strong className="text-base">{formatCurrency(undatedCommitments.commission_open)}</strong>
             </div>
-            <div>
+            <div className="flex flex-col gap-[0.2rem]">
               <span className="kpi-label">Gorjetas em aberto</span>
-              <strong>{formatCurrency(undatedCommitments.tips_open)}</strong>
+              <strong className="text-base">{formatCurrency(undatedCommitments.tips_open)}</strong>
             </div>
-            <div>
+            <div className="flex flex-col gap-[0.2rem]">
               <span className="kpi-label">Vales a abater</span>
-              <strong>{formatCurrency(undatedCommitments.advances_open)}</strong>
+              <strong className="text-base">{formatCurrency(undatedCommitments.advances_open)}</strong>
             </div>
-            <div>
+            <div className="flex flex-col gap-[0.2rem]">
               <span className="kpi-label">Líquido devido</span>
-              <strong>{formatCurrency(undatedCommitments.net_due)}</strong>
+              <strong className="text-base">{formatCurrency(undatedCommitments.net_due)}</strong>
             </div>
           </div>
           {somaSimplesPodeDivergir && (
-            <p className="fluxo-caixa-aviso">
+            <p className="text-xs text-text-secondary -mt-2">
               O líquido devido pode ser maior que "comissões + gorjetas − vales" quando algum profissional tem vale
               acima do que tem a receber: o vale em excesso não reduz o que a casa deve aos colegas.
             </p>
@@ -182,7 +182,7 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
       )}
 
       {!semDados && estimate && (
-        <p className="fluxo-caixa-aviso">
+        <p className="text-xs text-text-secondary -mt-2">
           {estimativaOk
             ? 'A estimativa de entradas não desconta as comissões que essa receita futura vai gerar. O dia de hoje mostra apenas o realizado.'
             : 'O dia de hoje mostra apenas o realizado.'}
@@ -190,7 +190,10 @@ export const FluxoCaixaResumo: React.FC<FluxoCaixaResumoProps> = ({
       )}
 
       {!semDados && pontoNegativo && (
-        <p className="fluxo-caixa-negativo-destaque" role="alert">
+        <p
+          className="text-sm font-bold text-[#c0392b] bg-[#c0392b]/[0.08] border border-[#c0392b]/25 rounded-md py-[0.6rem] px-[0.9rem]"
+          role="alert"
+        >
           {curva?.rotulo === 'Saldo projetado'
             ? `Saldo projetado negativo a partir de ${formatBucketDate(pontoNegativo.start_date)}.`
             : `Resultado acumulado negativo a partir de ${formatBucketDate(pontoNegativo.start_date)}.`}
