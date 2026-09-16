@@ -5,6 +5,22 @@ import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { ArrowRightIcon, WarningIcon } from '../components/Icons';
 
+const PAGE_CLASS =
+  'min-h-screen min-h-dvh flex items-center justify-center p-6 relative overflow-hidden ' +
+  'max-md:px-[0.875rem] max-md:py-4 max-md:items-start ' +
+  'max-md:pt-[max(1.5rem,env(safe-area-inset-top,1.5rem))] max-md:pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] ' +
+  'max-md:overflow-y-auto max-md:[-webkit-overflow-scrolling:touch]';
+
+const SHELL_CLASS =
+  'w-full max-w-[420px] p-[6px] rounded-[calc(var(--radius-xl)+6px)] bg-[rgba(217,108,0,0.04)] ' +
+  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] [animation:slideUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both] ' +
+  'max-md:p-0.5 max-md:rounded-xl max-md:my-auto max-md:mx-0';
+
+const CARD_CLASS =
+  'bg-bg-secondary rounded-xl w-full text-center flex flex-col gap-7 relative ' +
+  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_1px_2px_rgba(45,35,30,0.04),var(--shadow-lg)] ' +
+  'pt-10 px-8 pb-8 max-md:pt-7 max-md:px-5 max-md:pb-6 max-md:rounded-[calc(var(--radius-xl)-2px)] max-md:gap-5';
+
 export const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -120,18 +136,17 @@ export const ResetPassword: React.FC = () => {
     return (
       <>
         <div className="noise-overlay" />
-        <div className="reset-page">
-          <div className="reset-page__bg" />
-          <div className="reset-card__shell">
-            <div className="reset-card reset-card--loading">
-              <div className="spinner spinner--lg" />
-              <p style={{ marginTop: '1rem', color: 'var(--color-text-secondary)' }}>
+        <div className={PAGE_CLASS}>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_85%_55%_at_50%_30%,rgba(217,108,0,0.07)_0%,transparent_65%),radial-gradient(ellipse_55%_45%_at_80%_80%,rgba(242,178,119,0.08)_0%,transparent_55%)]" />
+          <div className={SHELL_CLASS}>
+            <div className={`${CARD_CLASS} items-center justify-center`}>
+              <div className="spinner w-8 h-8 border-[3px] border-t-brand-primary" />
+              <p className="mt-4 text-text-secondary">
                 Validando link de recuperação...
               </p>
             </div>
           </div>
         </div>
-        <style>{styles}</style>
       </>
     );
   }
@@ -141,28 +156,26 @@ export const ResetPassword: React.FC = () => {
     return (
       <>
         <div className="noise-overlay" />
-        <div className="reset-page">
-          <div className="reset-page__bg" />
-          <div className="reset-card__shell">
-            <div className="reset-card reset-card--error">
-              <div className="reset-card__error-icon">
+        <div className={PAGE_CLASS}>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_85%_55%_at_50%_30%,rgba(217,108,0,0.07)_0%,transparent_65%),radial-gradient(ellipse_55%_45%_at_80%_80%,rgba(242,178,119,0.08)_0%,transparent_55%)]" />
+          <div className={SHELL_CLASS}>
+            <div className={`${CARD_CLASS} items-center justify-center gap-5`}>
+              <div className="flex items-center justify-center bg-error-bg text-error p-4 rounded-full shadow-[0_4px_12px_rgba(240,82,82,0.15)]">
                 <WarningIcon size={40} />
               </div>
-              <h1 className="reset-card__title">Link Inválido</h1>
-              <p className="reset-card__subtitle" style={{ lineHeight: '1.5', marginTop: '0.25rem' }}>
+              <h1 className="text-2xl font-bold text-text-primary tracking-[-0.03em] m-0">Link Inválido</h1>
+              <p className="text-sm text-text-secondary m-0 font-normal leading-[1.5] mt-1">
                 Este link de redefinição de senha expirou ou é inválido. Por favor, solicite um novo link a partir da tela de login.
               </p>
               <button
                 onClick={() => navigate('/')}
-                className="btn btn--primary"
-                style={{ width: '100%', marginTop: '0.75rem' }}
+                className="btn btn--primary w-full mt-3"
               >
                 Voltar para o Login
               </button>
             </div>
           </div>
         </div>
-        <style>{styles}</style>
       </>
     );
   }
@@ -170,26 +183,31 @@ export const ResetPassword: React.FC = () => {
   return (
     <>
       <div className="noise-overlay" />
-      <div className="reset-page">
-        <div className="reset-page__bg" />
+      <div className={PAGE_CLASS}>
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_85%_55%_at_50%_30%,rgba(217,108,0,0.07)_0%,transparent_65%),radial-gradient(ellipse_55%_45%_at_80%_80%,rgba(242,178,119,0.08)_0%,transparent_55%)]" />
 
-        <div className="reset-card__shell">
-          <div className="reset-card">
+        <div className={SHELL_CLASS}>
+          <div className={CARD_CLASS}>
             {/* Header do Card */}
-            <div className="reset-card__header">
-              <span className="reset-card__eyebrow">segurança</span>
-              <div className="reset-card__icon">
-                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
+            <div className="flex flex-col items-center gap-1.5 [animation:slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both] [animation-delay:0.05s]">
+              <span className="inline-block px-3 py-1 rounded-full bg-brand-lightest text-brand-primary text-[0.625rem] font-semibold uppercase tracking-[0.2em] mb-1">
+                segurança
+              </span>
+              <div className="bg-brand-lightest p-[0.875rem] rounded-full flex items-center justify-center text-brand-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_4px_14px_rgba(217,108,0,0.12)] mb-1">
+                <img src="/simbolo.svg" alt="Navalhado" className="w-[50px] h-[50px] block" />
               </div>
-              <h1 className="reset-card__title">Nova senha</h1>
-              <p className="reset-card__subtitle">
+              <h1 className="text-2xl font-bold text-text-primary tracking-[-0.03em] m-0">Nova senha</h1>
+              <p className="text-sm text-text-secondary m-0 font-normal">
                 Digite sua nova credencial de acesso
               </p>
             </div>
 
             {/* Formulário */}
-            <form onSubmit={handleReset} className="reset-card__form">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <form
+              onSubmit={handleReset}
+              className="flex flex-col gap-5 [animation:slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both] [animation-delay:0.1s]"
+            >
+              <div className="flex flex-col gap-1">
                 <Input
                   label="Nova Senha"
                   type="password"
@@ -202,10 +220,10 @@ export const ResetPassword: React.FC = () => {
                   required
                 />
                 {password && (
-                  <div className="pwd-strength-indicator">
-                    <div className="pwd-strength-bar">
+                  <div className="flex items-center gap-2 mt-0.5 text-left">
+                    <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
                       <div
-                        className="pwd-strength-fill"
+                        className="h-full w-0 rounded-full transition-all duration-300"
                         style={{
                           width: `${(pwdStrength.score / 4) * 100}%`,
                           backgroundColor: pwdStrength.color
@@ -233,7 +251,7 @@ export const ResetPassword: React.FC = () => {
 
               <button
                 type="submit"
-                className="btn btn--primary reset-card__cta"
+                className="btn btn--primary w-full py-[0.85rem] px-6 text-base mt-2 max-md:min-h-12"
                 disabled={isSubmitDisabled}
               >
                 {loading ? (
@@ -254,214 +272,6 @@ export const ResetPassword: React.FC = () => {
           </div>
         </div>
       </div>
-      <style>{styles}</style>
     </>
   );
 };
-
-const styles = `
-.reset-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.reset-page__bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 85% 55% at 50% 30%, rgba(217, 108, 0, 0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 45% at 80% 80%, rgba(242, 178, 119, 0.08) 0%, transparent 55%);
-  pointer-events: none;
-}
-
-.reset-card__shell {
-  width: 100%;
-  max-width: 420px;
-  padding: 6px;
-  border-radius: calc(var(--radius-xl) + 6px);
-  background: rgba(217, 108, 0, 0.04);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
-  animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.reset-card {
-  background-color: var(--color-bg-secondary);
-  border-radius: var(--radius-xl);
-  padding: 2.5rem 2rem 2rem;
-  width: 100%;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-  position: relative;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.6),
-    0 1px 2px rgba(45, 35, 30, 0.04),
-    var(--shadow-lg);
-}
-
-.reset-card--loading {
-  padding: 3rem 2rem;
-  align-items: center;
-  justify-content: center;
-}
-
-.reset-card--error {
-  padding: 3rem 2rem;
-  align-items: center;
-  justify-content: center;
-  gap: 1.25rem;
-}
-
-.reset-card__error-icon {
-  background: var(--color-error-bg);
-  color: var(--color-error);
-  padding: 1rem;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(240, 82, 82, 0.15);
-}
-
-.reset-card__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 0.05s;
-}
-
-.reset-card__eyebrow {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-full);
-  background: var(--color-brand-lightest);
-  color: var(--color-brand-primary);
-  font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  margin-bottom: 0.25rem;
-}
-
-.reset-card__icon {
-  background: var(--color-brand-lightest);
-  padding: 0.875rem;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-brand-primary);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    0 4px 14px rgba(217, 108, 0, 0.12);
-  margin-bottom: 0.25rem;
-}
-
-.reset-card__icon img {
-  /* Sem rotação */
-}
-
-.reset-card__title {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-
-.reset-card__subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0;
-  font-weight: 400;
-}
-
-.reset-card__form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 0.1s;
-}
-
-.reset-card__cta {
-  width: 100%;
-  padding: 0.85rem 1.5rem;
-  font-size: var(--font-size-base);
-  margin-top: 0.5rem;
-}
-
-.pwd-strength-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.125rem;
-  text-align: left;
-}
-
-.pwd-strength-bar {
-  flex: 1;
-  height: 4px;
-  background-color: var(--color-border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.pwd-strength-fill {
-  height: 100%;
-  width: 0;
-  border-radius: var(--radius-full);
-  transition: all 0.3s ease;
-}
-
-.spinner--lg {
-  width: 32px;
-  height: 32px;
-  border-width: 3px;
-  border-top-color: var(--color-brand-primary);
-}
-
-@media (max-width: 768px) {
-  .reset-page {
-    padding: 1rem 0.875rem;
-    align-items: flex-start;
-    padding-top: max(1.5rem, env(safe-area-inset-top, 1.5rem));
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .reset-card__shell {
-    padding: 2px;
-    border-radius: var(--radius-xl);
-    margin: auto 0;
-  }
-  .reset-card {
-    padding: 1.75rem 1.25rem 1.5rem;
-    border-radius: calc(var(--radius-xl) - 2px);
-    gap: 1.25rem;
-  }
-  .reset-card__cta {
-    min-height: 48px;
-  }
-}
-
-@keyframes smoothFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-`;

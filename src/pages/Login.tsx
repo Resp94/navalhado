@@ -10,7 +10,7 @@ import { ArrowRightIcon, LockIcon } from '../components/Icons';
 /* ─── Ondas SVG Orgânicas em Camadas ─── */
 const VerticalCloudWave: React.FC = () => (
   <svg
-    className="login-wave-desktop"
+    className="absolute top-0 bottom-0 -right-px w-[100px] h-full pointer-events-none z-3"
     viewBox="0 0 100 1000"
     preserveAspectRatio="none"
     aria-hidden="true"
@@ -59,7 +59,7 @@ const VerticalCloudWave: React.FC = () => (
 
 const HorizontalCloudWave: React.FC = () => (
   <svg
-    className="login-wave-mobile"
+    className="absolute -bottom-px inset-x-0 w-full h-[52px] pointer-events-none z-3"
     viewBox="0 0 1000 100"
     preserveAspectRatio="none"
     aria-hidden="true"
@@ -255,18 +255,23 @@ export const Login: React.FC = () => {
       {/* Textura sutil de ruído/grain */}
       <div className="noise-overlay" />
 
-      <div className="login-replica-page">
+      <div className="min-h-screen min-h-dvh bg-white flex flex-col relative overflow-x-hidden lg:flex-row lg:h-screen lg:h-dvh lg:overflow-hidden">
         {/* ─── PAINEL ESQUERDO: DESTAQUE INSTITUCIONAL COM ONDAS (DESKTOP) ─── */}
-        <div className="login-replica__hero" aria-label="Apresentação Navalhado">
-          <div className="login-replica__hero-inner">
-            <div className="login-replica__center-block">
+        <div
+          className="hidden relative z-1 overflow-hidden box-border lg:flex lg:flex-none lg:w-[46%] lg:h-full bg-[linear-gradient(155deg,#1C1816_0%,#120F0E_100%)]"
+          aria-label="Apresentação Navalhado"
+        >
+          <div className="hidden lg:flex lg:flex-col lg:justify-center lg:items-center lg:w-full lg:h-full lg:px-12 lg:py-14 relative z-2 text-center gap-6">
+            <div className="flex flex-col items-center gap-4">
               <img
                 src="/simbolo.svg"
                 alt="Navalhado"
-                className="login-replica__logo"
+                className="w-16 h-16 block [filter:drop-shadow(0_4px_16px_rgba(217,108,0,0.25))]"
               />
-              <h1 className="login-replica__brand-title">Navalhado</h1>
-              <p className="login-replica__brand-description">
+              <h1 className="text-[2.25rem] font-bold text-white m-0 tracking-[-0.02em] leading-[1.15] text-center">
+                Navalhado
+              </h1>
+              <p className="text-[0.9375rem] leading-[1.6] text-white/[0.72] m-0 max-w-[32ch] text-center font-normal">
                 Gerencie sua barbearia com confiança. Agendamentos, comandas e métricas com precisão e sofisticação.
               </p>
             </div>
@@ -277,17 +282,22 @@ export const Login: React.FC = () => {
         </div>
 
         {/* ─── BANNER SUPERIOR MOBILE COM ONDAS HORIZONTAIS (< 1024px) ─── */}
-        <div className="login-replica__hero-mobile" aria-label="Cabeçalho Navalhado">
-          <div className="login-replica__hero-mobile-inner">
-            <div className="login-replica__badge login-replica__badge--mobile">
+        <div
+          className="flex flex-col items-center justify-center relative overflow-hidden z-1 px-6 pt-10 pb-16 bg-[linear-gradient(160deg,#1C1816_0%,#120F0E_100%)] lg:hidden"
+          aria-label="Cabeçalho Navalhado"
+        >
+          <div className="flex flex-col items-center gap-2 relative z-2 text-center">
+            <div className="w-auto h-auto shadow-none bg-transparent flex items-center justify-center transition-transform duration-300 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.06]">
               <img
                 src="/simbolo.svg"
                 alt="Navalhado"
-                className="login-replica__logo login-replica__logo--mobile"
+                className="w-[52px] h-[52px] block [filter:drop-shadow(0_4px_12px_rgba(217,108,0,0.25))]"
               />
             </div>
-            <h1 className="login-replica__brand-title login-replica__brand-title--mobile">Navalhado</h1>
-            <p className="login-replica__brand-description--mobile">
+            <h1 className="text-[1.625rem] font-bold text-white m-0 tracking-[-0.02em] leading-[1.15] text-center">
+              Navalhado
+            </h1>
+            <p className="text-[0.8125rem] text-white/70 m-0 leading-[1.4]">
               Gerencie sua barbearia com confiança
             </p>
           </div>
@@ -297,17 +307,22 @@ export const Login: React.FC = () => {
         </div>
 
         {/* ─── PAINEL DIREITO: FORMULÁRIO DE LOGIN ─── */}
-        <div className="login-replica__form-panel">
-          <div className="login-replica__form-wrapper">
-            <div className="login-replica__form-header">
-              <h2 className="login-replica__form-title">Acesse sua conta</h2>
-              <p className="login-replica__form-subtitle">
+        <div className="flex-1 flex items-center justify-center px-5 pt-8 [padding-bottom:max(3rem,env(safe-area-inset-bottom,3rem))] box-border bg-white z-2 lg:flex-none lg:w-[54%] lg:h-full lg:overflow-y-auto lg:px-10 lg:py-12">
+          <div className="w-full max-w-[390px] mx-auto flex flex-col gap-6 box-border [animation:slideUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both]">
+            <div className="flex flex-col items-center text-center gap-1.5">
+              <h2 className="text-[1.75rem] font-bold text-text-primary tracking-[-0.025em] m-0">Acesse sua conta</h2>
+              <p className="text-sm text-text-secondary m-0">
                 Informe suas credenciais para continuar
               </p>
             </div>
 
             {/* FORMULÁRIO */}
-            <form onSubmit={handleLogin} className="login-replica__form">
+            {/* !important nos inputs: sobrepõe o style inline do componente Input
+                (fora do escopo desta migração) para trocar borda por box-shadow fino. */}
+            <form
+              onSubmit={handleLogin}
+              className="flex flex-col gap-[1.125rem] w-full [&_input]:!border-0 [&_input]:!shadow-[0_0_0_0.5px_var(--color-text-primary)] [&_input:focus]:!shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
+            >
               <Input
                 label="E-mail"
                 type="email"
@@ -333,10 +348,10 @@ export const Login: React.FC = () => {
               />
 
               {/* Esqueci a senha */}
-              <div className="login-replica__forgot">
+              <div className="flex justify-end -mt-1.5">
                 <button
                   type="button"
-                  className="btn btn--ghost"
+                  className="btn btn--ghost min-h-9 inline-flex items-center !text-text-primary font-semibold"
                   onClick={() => setIsResetOpen(true)}
                 >
                   Esqueci a senha
@@ -346,7 +361,7 @@ export const Login: React.FC = () => {
               {/* Botão CTA Pílula */}
               <button
                 type="submit"
-                className="login-replica__cta-btn"
+                className="w-full min-h-12 px-6 py-[0.875rem] rounded-full text-white border-none font-semibold text-base flex items-center justify-center gap-2 cursor-pointer shadow-none transition-all duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] bg-[linear-gradient(135deg,#E67200_0%,#D96C00_100%)] hover:not-disabled:-translate-y-px hover:not-disabled:bg-[linear-gradient(135deg,#EB7804_0%,#E06F00_100%)] active:not-disabled:translate-y-0 disabled:opacity-55 disabled:cursor-not-allowed"
                 disabled={isSubmitDisabled}
               >
                 {loading ? (
@@ -365,32 +380,32 @@ export const Login: React.FC = () => {
               </button>
 
               {/* Rodapé: Criar conta & Links Legais com espaçamento refinado */}
-              <div className="login-card__footer">
-                <div className="login-card__signup">
-                  <span className="login-card__signup-text">
+              <div className="flex flex-col items-center gap-3 mt-1 pt-2 w-full">
+                <div className="flex items-center justify-center gap-2 py-1 static">
+                  <span className="text-xs text-text-secondary">
                     Não tem conta?{' '}
                   </span>
                   <button
                     type="button"
-                    className="btn btn--link login-card__signup-btn"
+                    className="btn btn--link min-h-9 inline-flex items-center px-2 py-1 !text-text-primary !font-bold"
                     onClick={() => navigate('/signup')}
                   >
                     Criar conta
                   </button>
                 </div>
 
-                <div className="login-card__legal-footer">
+                <div className="flex justify-center items-center gap-3 text-xs text-[var(--color-text-tertiary,#9C8E85)] static">
                   <button
                     type="button"
-                    className="login-card__legal-btn"
+                    className="bg-none border-none px-2 py-1 text-text-primary underline underline-offset-2 cursor-pointer text-xs min-h-8 inline-flex items-center transition-opacity duration-150 hover:opacity-75"
                     onClick={() => setLegalModalMode('terms')}
                   >
                     Termos de uso
                   </button>
-                  <span aria-hidden="true" className="login-card__legal-bullet">•</span>
+                  <span aria-hidden="true" className="text-[var(--color-text-tertiary,#9C8E85)] opacity-60 select-none">•</span>
                   <button
                     type="button"
-                    className="login-card__legal-btn"
+                    className="bg-none border-none px-2 py-1 text-text-primary underline underline-offset-2 cursor-pointer text-xs min-h-8 inline-flex items-center transition-opacity duration-150 hover:opacity-75"
                     onClick={() => setLegalModalMode('privacy')}
                   >
                     Privacidade (LGPD)
@@ -421,16 +436,16 @@ export const Login: React.FC = () => {
         }}
         title="Redefinir senha"
       >
-        <div className="modal-reset">
-          <div className="modal-reset__icon">
+        <div className="flex flex-col items-center gap-4 [animation:slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_both] [animation-delay:0.05s]">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-brand-lightest text-brand-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_4px_12px_rgba(217,108,0,0.1)] mb-1">
             <LockIcon size={22} />
           </div>
 
-          <p className="modal-reset__description">
+          <p className="text-sm text-text-secondary leading-[1.6] m-0 text-center max-w-[32ch]">
             Digite seu e-mail e enviaremos um link seguro para criar uma nova senha.
           </p>
 
-          <form onSubmit={handleResetPassword} className="modal-reset__form">
+          <form onSubmit={handleResetPassword} className="flex flex-col gap-5 w-full mt-2">
             <Input
               label="E-mail"
               type="email"
@@ -445,7 +460,7 @@ export const Login: React.FC = () => {
 
             <button
               type="submit"
-              className="btn btn--primary modal-reset__btn"
+              className="btn btn--primary w-full min-h-11"
               disabled={isResetSubmitDisabled}
             >
               {resetLoading ? (
@@ -460,466 +475,6 @@ export const Login: React.FC = () => {
           </form>
         </div>
       </Modal>
-
-      {/* ─── ESTILOS DA PÁGINA (ISOLADOS & RESPONSIVOS) ─── */}
-      <style>{`
-        .login-replica-page {
-          min-height: 100vh;
-          min-height: 100dvh;
-          background-color: #ffffff;
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          overflow-x: hidden;
-        }
-
-        @media (min-width: 1024px) {
-          .login-replica-page {
-            flex-direction: row;
-            height: 100vh;
-            height: 100dvh;
-            overflow: hidden;
-          }
-        }
-
-        /* ── Painel Esquerdo Desktop ── */
-        .login-replica__hero {
-          display: none;
-        }
-
-        @media (min-width: 1024px) {
-          .login-replica__hero {
-            display: flex;
-            flex: 0 0 46%;
-            width: 46%;
-            height: 100%;
-            background: linear-gradient(155deg, #1C1816 0%, #120F0E 100%);
-            position: relative;
-            box-sizing: border-box;
-            overflow: hidden;
-            z-index: 1;
-          }
-
-          .login-replica__hero-inner {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            height: 100%;
-            padding: 3.5rem 3rem;
-            box-sizing: border-box;
-            position: relative;
-            z-index: 2;
-            text-align: center;
-            gap: 1.5rem;
-          }
-        }
-
-        .login-replica__eyebrow {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #ffffff;
-          letter-spacing: -0.01em;
-          text-transform: uppercase;
-          margin: 0;
-          line-height: 1.2;
-        }
-
-        .login-replica__center-block {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .login-replica__badge {
-          width: auto;
-          height: auto;
-          border-radius: 0;
-          background: transparent;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: none;
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .login-replica__badge:hover {
-          transform: scale(1.06);
-        }
-
-        .login-replica__logo {
-          width: 64px;
-          height: 64px;
-          display: block;
-          filter: drop-shadow(0 4px 16px rgba(217, 108, 0, 0.25));
-        }
-
-        .login-replica__brand-title {
-          font-size: 2.25rem;
-          font-weight: 700;
-          color: #ffffff;
-          margin: 0;
-          letter-spacing: -0.02em;
-          line-height: 1.15;
-          text-align: center;
-        }
-
-        .login-replica__brand-description {
-          font-size: 0.9375rem;
-          line-height: 1.6;
-          color: rgba(255, 255, 255, 0.72);
-          margin: 0;
-          max-width: 32ch;
-          text-align: center;
-          font-weight: 400;
-        }
-
-        /* Ondas Desktop */
-        .login-wave-desktop {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          right: -1px;
-          width: 100px;
-          height: 100%;
-          pointer-events: none;
-          z-index: 3;
-        }
-
-        /* ── Banner Superior Mobile (< 1024px) ── */
-        .login-replica__hero-mobile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(160deg, #1C1816 0%, #120F0E 100%);
-          position: relative;
-          padding: 2.5rem 1.5rem 4rem;
-          overflow: hidden;
-          z-index: 1;
-        }
-
-        @media (min-width: 1024px) {
-          .login-replica__hero-mobile {
-            display: none;
-          }
-        }
-
-        .login-replica__hero-mobile-inner {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          position: relative;
-          z-index: 2;
-          text-align: center;
-        }
-
-        .login-replica__badge--mobile {
-          width: auto;
-          height: auto;
-          box-shadow: none;
-          background: transparent;
-        }
-
-        .login-replica__logo--mobile {
-          width: 52px;
-          height: 52px;
-          filter: drop-shadow(0 4px 12px rgba(217, 108, 0, 0.25));
-        }
-
-        .login-replica__brand-title--mobile {
-          font-size: 1.625rem;
-          margin: 0;
-        }
-
-        .login-replica__brand-description--mobile {
-          font-size: 0.8125rem;
-          color: rgba(255, 255, 255, 0.7);
-          margin: 0;
-          line-height: 1.4;
-        }
-
-        /* Ondas Mobile */
-        .login-wave-mobile {
-          position: absolute;
-          bottom: -1px;
-          left: 0;
-          right: 0;
-          width: 100%;
-          height: 52px;
-          pointer-events: none;
-          z-index: 3;
-        }
-
-        /* ── Painel do Formulário ── */
-        .login-replica__form-panel {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem 1.25rem max(3rem, env(safe-area-inset-bottom, 3rem));
-          box-sizing: border-box;
-          background-color: #ffffff;
-          z-index: 2;
-        }
-
-        @media (min-width: 1024px) {
-          .login-replica__form-panel {
-            flex: 0 0 54%;
-            width: 54%;
-            height: 100%;
-            overflow-y: auto;
-            padding: 3rem 2.5rem;
-          }
-        }
-
-        .login-replica__form-wrapper {
-          width: 100%;
-          max-width: 390px;
-          margin: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          box-sizing: border-box;
-          animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-
-        .login-replica__form-header {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 0.375rem;
-        }
-
-        .login-replica__form-title {
-          font-size: 1.75rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-          letter-spacing: -0.025em;
-          margin: 0;
-        }
-
-        .login-replica__form-subtitle {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-          margin: 0;
-        }
-
-        .login-replica__form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.125rem;
-          width: 100%;
-        }
-
-        .login-replica__form input {
-          border: 0 !important;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E) !important;
-        }
-
-        .login-replica__form input:focus {
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00) !important;
-        }
-
-        .login-replica__forgot {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: -0.375rem;
-        }
-
-        .login-replica__forgot .btn--ghost {
-          color: var(--color-text-primary, #2D231E) !important;
-          font-weight: 600;
-        }
-
-        /* Botão CTA Pílula */
-        .login-replica__cta-btn {
-          width: 100%;
-          min-height: 48px;
-          padding: 0.875rem 1.5rem;
-          border-radius: var(--radius-full, 9999px);
-          background: linear-gradient(135deg, #E67200 0%, #D96C00 100%);
-          color: #ffffff;
-          border: none;
-          font-weight: 600;
-          font-size: var(--font-size-base, 1rem);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          box-shadow: none;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .login-replica__cta-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: none;
-          background: linear-gradient(135deg, #EB7804 0%, #E06F00 100%);
-        }
-
-        .login-replica__cta-btn:active:not(:disabled) {
-          transform: translateY(0);
-        }
-
-        .login-replica__cta-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-          box-shadow: none;
-        }
-
-        /* ─── Footer com Cadastro & Links Legais ─── */
-        .login-card__footer {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.75rem;
-          margin-top: 0.25rem;
-          padding-top: 0.5rem;
-          width: 100%;
-        }
-
-        .login-card__signup {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.25rem 0;
-          position: static !important;
-          top: auto !important;
-          left: auto !important;
-          transform: none !important;
-        }
-
-        .login-card__signup-text {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .login-card__signup-btn {
-          font-size: var(--font-size-xs, 0.8125rem) !important;
-          min-height: 36px;
-          display: inline-flex;
-          align-items: center;
-          padding: 0.25rem 0.5rem;
-          color: var(--color-text-primary, #2D231E) !important;
-          font-weight: 700 !important;
-        }
-
-        .login-card__legal-footer {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 0.75rem;
-          font-size: 0.75rem;
-          color: var(--color-text-tertiary, #9C8E85);
-          position: static !important;
-          top: auto !important;
-          left: auto !important;
-          transform: none !important;
-        }
-
-        .login-card__legal-bullet {
-          color: var(--color-text-tertiary, #9C8E85);
-          opacity: 0.6;
-          user-select: none;
-        }
-
-        .login-card__legal-btn {
-          background: none;
-          border: none;
-          padding: 0.25rem 0.5rem;
-          color: var(--color-text-primary, #2D231E) !important;
-          text-decoration: underline;
-          text-underline-offset: 2px;
-          cursor: pointer;
-          font-size: 0.75rem;
-          min-height: 32px;
-          display: inline-flex;
-          align-items: center;
-          transition: opacity 0.15s ease;
-        }
-
-        .login-card__legal-btn:hover {
-          opacity: 0.75;
-        }
-
-        .btn--ghost {
-          min-height: 36px;
-          display: inline-flex;
-          align-items: center;
-        }
-
-        /* ── Modal de Recuperação ── */
-        .modal-reset {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1rem;
-          animation: smoothFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-          animation-delay: 0.05s;
-        }
-
-        .modal-reset__icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 3rem;
-          height: 3rem;
-          border-radius: var(--radius-full);
-          background: var(--color-brand-lightest, #FFF1E6);
-          color: var(--color-brand-primary, #D96C00);
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.5),
-            0 4px 12px rgba(217, 108, 0, 0.1);
-          margin-bottom: 0.25rem;
-        }
-
-        .modal-reset__description {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-          line-height: 1.6;
-          margin: 0;
-          text-align: center;
-          max-width: 32ch;
-        }
-
-        .modal-reset__form {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          width: 100%;
-          margin-top: 0.5rem;
-        }
-
-        .modal-reset__btn {
-          width: 100%;
-          min-height: 44px;
-        }
-
-        /* Animações e Acessibilidade */
-        @keyframes smoothFadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .login-replica__form-wrapper,
-          .modal-reset {
-            animation: none !important;
-          }
-        }
-      `}</style>
     </>
   );
 };
