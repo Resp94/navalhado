@@ -21,10 +21,14 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { CalendarUserIcon } from '@hugeicons/core-free-icons';
 import type { TenantContextType } from './GerenteLayout';
 import type { Notification } from '../lib/useRealtimeNotifications';
-import './GlassSidebar.css';
 
 const COLLAPSED_WIDTH = 72;
 const EXPANDED_WIDTH = 250;
+
+/* Glassmorphism "Vidro Líquido" Navalhado — preservado do GlassSidebar.css original.
+   Combinação de gradientes que valor Tailwind padrão não expressa: usa arbitrário. */
+const GLASS_SURFACE_CLASSES =
+  'bg-[radial-gradient(ellipse_70%_50%_at_20%_10%,rgba(217,108,0,0.06)_0%,transparent_70%),radial-gradient(ellipse_60%_40%_at_80%_90%,rgba(217,108,0,0.04)_0%,transparent_60%),linear-gradient(155deg,rgba(255,255,255,0.82)_0%,rgba(255,246,240,0.72)_50%,rgba(255,255,255,0.78)_100%)] backdrop-blur-[28px] backdrop-saturate-[190%] border border-[rgba(255,255,255,0.85)] shadow-[0_12px_36px_-6px_rgba(45,35,30,0.09),0_2px_8px_rgba(45,35,30,0.04),inset_0_1px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(234,222,214,0.5)] transition-[border-color,box-shadow] duration-200 ease-in';
 
 interface NavItemConfig {
   path: string;
@@ -171,7 +175,7 @@ function NavItemRow({
   };
 
   return (
-    <div className="glass-sidebar__item">
+    <div className="relative flex w-full h-10 min-h-10 max-h-10 items-center box-border shrink-0">
       {/* Tooltip flutuante quando recolhido */}
       <AnimatePresence>
         {!isOpen && hovered && coords && (
@@ -181,7 +185,7 @@ function NavItemRow({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -4 }}
             transition={{ duration: 0.1 }}
-            className="glass-sidebar__tooltip"
+            className="pointer-events-none fixed z-[9999] whitespace-nowrap rounded-md px-3 py-[0.4rem] text-xs font-semibold text-text-primary font-base bg-[rgba(255,255,255,0.94)] backdrop-blur-[16px] backdrop-saturate-[180%] border border-[rgba(234,222,214,0.9)] shadow-[0_8px_24px_rgba(45,35,30,0.12),0_2px_6px_rgba(45,35,30,0.04)]"
             style={{
               top: coords.top,
               left: coords.left,
@@ -200,10 +204,11 @@ function NavItemRow({
         onClick={onClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`glass-sidebar__button ${isActive ? 'glass-sidebar__button--active' : ''}`}
+        aria-current={isActive ? 'page' : undefined}
+        className={`flex items-center gap-2.5 w-full h-10 min-h-10 max-h-10 bg-transparent border-none outline-none cursor-pointer p-0 text-text-secondary no-underline font-base box-border transition-colors duration-100 ease-in relative overflow-hidden hover:text-text-primary ${isActive ? 'text-black' : ''}`}
         aria-label={item.label}
       >
-        <div className="glass-sidebar__tile">
+        <div className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-lg flex items-center justify-center shrink-0 box-border bg-transparent border-none shadow-none relative text-inherit self-center">
           {item.renderIcon({
             size: 22,
             isBold: isActive,
@@ -219,7 +224,7 @@ function NavItemRow({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -4, transition: { duration: 0.08 } }}
               transition={{ duration: 0.14, ease: 'easeOut' }}
-              className={`glass-sidebar__label ${isActive ? 'glass-sidebar__label--active' : ''}`}
+              className={`text-sm font-normal text-inherit whitespace-nowrap overflow-hidden text-ellipsis leading-none font-base shrink-0 ${isActive ? 'font-semibold' : ''}`}
             >
               {item.label}
             </motion.span>
@@ -230,7 +235,7 @@ function NavItemRow({
         {isActive && (
           <motion.div
             layoutId="activeSidebarDot"
-            className="glass-sidebar__active-dot"
+            className="absolute right-4 top-[17px] w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_6px_rgba(217,108,0,0.45)] pointer-events-none shrink-0"
             animate={{ right: isOpen ? 16 : 4 }}
             transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
           />
@@ -285,7 +290,7 @@ function NotificationsFooterItem({
   };
 
   return (
-    <div className="glass-sidebar__item" ref={dropdownRef}>
+    <div className="relative flex w-full h-10 min-h-10 max-h-10 items-center box-border shrink-0" ref={dropdownRef}>
       {/* Tooltip flutuante quando recolhido */}
       <AnimatePresence>
         {!isOpen && hovered && !dropdownOpen && coords && (
@@ -295,7 +300,7 @@ function NotificationsFooterItem({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -4 }}
             transition={{ duration: 0.1 }}
-            className="glass-sidebar__tooltip"
+            className="pointer-events-none fixed z-[9999] whitespace-nowrap rounded-md px-3 py-[0.4rem] text-xs font-semibold text-text-primary font-base bg-[rgba(255,255,255,0.94)] backdrop-blur-[16px] backdrop-saturate-[180%] border border-[rgba(234,222,214,0.9)] shadow-[0_8px_24px_rgba(45,35,30,0.12),0_2px_6px_rgba(45,35,30,0.04)]"
             style={{
               top: coords.top,
               left: coords.left,
@@ -313,13 +318,13 @@ function NotificationsFooterItem({
         onClick={() => setDropdownOpen(!dropdownOpen)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`glass-sidebar__button ${dropdownOpen ? 'glass-sidebar__button--active' : ''}`}
+        className={`flex items-center gap-2.5 w-full h-10 min-h-10 max-h-10 bg-transparent border-none outline-none cursor-pointer p-0 text-text-secondary no-underline font-base box-border transition-colors duration-100 ease-in relative overflow-hidden hover:text-text-primary ${dropdownOpen ? 'text-black' : ''}`}
         aria-label="Notificações"
       >
-        <div className="glass-sidebar__tile">
+        <div className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-lg flex items-center justify-center shrink-0 box-border bg-transparent border-none shadow-none relative text-inherit self-center">
           <Bell size={22} weight={dropdownOpen ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
           {unreadCount > 0 && (
-            <span className="glass-sidebar__badge">
+            <span className="absolute top-[3px] right-[3px] bg-brand-primary text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-[3px] border-2 border-[rgba(255,255,255,0.95)] shadow-[0_1px_4px_rgba(217,108,0,0.35)] leading-none box-border">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -333,7 +338,7 @@ function NotificationsFooterItem({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -4, transition: { duration: 0.08 } }}
               transition={{ duration: 0.14, ease: 'easeOut' }}
-              className="glass-sidebar__label"
+              className="text-sm font-normal text-inherit whitespace-nowrap overflow-hidden text-ellipsis leading-none font-base shrink-0"
             >
               Notificações
             </motion.span>
@@ -343,14 +348,19 @@ function NotificationsFooterItem({
 
       {/* Dropdown de Notificações */}
       {dropdownOpen && (
-        <div className="glass-sidebar__notif-dropdown">
-          <div className="glass-sidebar__notif-header">
-            <h3 className="glass-sidebar__notif-title">Notificações</h3>
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="absolute left-[calc(100%+12px)] bottom-0 w-[360px] max-w-[90vw] bg-[rgba(255,255,255,0.96)] backdrop-blur-[24px] backdrop-saturate-[180%] border border-[rgba(234,222,214,0.9)] rounded-xl shadow-[0_16px_40px_rgba(45,35,30,0.15),0_4px_12px_rgba(45,35,30,0.06)] z-[9999] overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4.5 py-3.5 border-b border-b-[rgba(45,35,30,0.08)]">
+            <h3 className="m-0 text-base font-semibold text-text-primary font-base">Notificações</h3>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={onMarkAllAsRead}
-                className="glass-sidebar__notif-mark-all"
+                className="bg-none border-none text-brand-primary text-xs font-semibold cursor-pointer px-2 py-1 rounded-sm transition-colors duration-150 ease-in hover:text-brand-hover hover:bg-[rgba(217,108,0,0.08)]"
                 aria-label="Marcar todas como lidas"
               >
                 Marcar todas como lidas
@@ -358,38 +368,38 @@ function NotificationsFooterItem({
             )}
           </div>
 
-          <div className="glass-sidebar__notif-list">
+          <div className="max-h-[340px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="glass-sidebar__notif-empty">
-                <div className="glass-sidebar__notif-empty-icon">
+              <div className="py-9 px-5 text-center flex flex-col items-center gap-2.5">
+                <div className="w-10 h-10 rounded-full bg-[rgba(217,108,0,0.08)] flex items-center justify-center text-brand-primary">
                   <Bell size={22} weight="regular" />
                 </div>
                 <div>
-                  <p className="glass-sidebar__notif-empty-title">Nenhuma notificação por aqui</p>
-                  <p className="glass-sidebar__notif-empty-desc">Você está em dia com as suas novidades.</p>
+                  <p className="m-0 font-semibold text-text-primary text-sm">Nenhuma notificação por aqui</p>
+                  <p className="mt-1 text-xs text-text-secondary">Você está em dia com as suas novidades.</p>
                 </div>
               </div>
             ) : (
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`glass-sidebar__notif-item ${!n.read ? 'glass-sidebar__notif-item--unread' : ''}`}
+                  className={`px-4.5 py-3 border-b border-b-[rgba(45,35,30,0.06)] flex gap-2.5 relative transition-colors duration-150 ease-in hover:bg-[rgba(45,35,30,0.03)] ${!n.read ? 'bg-[rgba(217,108,0,0.04)] border-l-[3px] border-l-brand-primary' : ''}`}
                 >
-                  <div className="glass-sidebar__notif-content">
-                    <div className="glass-sidebar__notif-item-header">
-                      <h4 className="glass-sidebar__notif-item-title">{n.title}</h4>
-                      <span className="glass-sidebar__notif-item-time">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h4 className="m-0 text-sm font-semibold text-text-primary">{n.title}</h4>
+                      <span className="text-[10px] text-text-secondary whitespace-nowrap">
                         {formatRelativeTime(n.created_at)}
                       </span>
                     </div>
-                    <p className="glass-sidebar__notif-item-msg">{n.message}</p>
+                    <p className="mt-1 text-xs text-text-secondary leading-relaxed">{n.message}</p>
                   </div>
 
                   {!n.read && (
                     <button
                       type="button"
                       onClick={() => onMarkAsRead(n.id)}
-                      className="glass-sidebar__notif-read-btn"
+                      className="bg-none border-none text-brand-primary cursor-pointer p-1.5 flex items-center justify-center rounded-full self-center transition-colors duration-150 ease-in hover:bg-[rgba(217,108,0,0.1)] hover:text-brand-hover"
                       title="Marcar como lida"
                       aria-label="Marcar como lida"
                     >
@@ -400,7 +410,7 @@ function NotificationsFooterItem({
               ))
             )}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -435,7 +445,7 @@ function UserFooterItem({
   return (
     <div
       ref={rowRef}
-      className="glass-sidebar__item"
+      className="relative flex w-full h-10 min-h-10 max-h-10 items-center box-border shrink-0"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -448,7 +458,7 @@ function UserFooterItem({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -4 }}
             transition={{ duration: 0.1 }}
-            className="glass-sidebar__tooltip"
+            className="pointer-events-none fixed z-[9999] whitespace-nowrap rounded-md px-3 py-[0.4rem] text-xs font-semibold text-text-primary font-base bg-[rgba(255,255,255,0.94)] backdrop-blur-[16px] backdrop-saturate-[180%] border border-[rgba(234,222,214,0.9)] shadow-[0_8px_24px_rgba(45,35,30,0.12),0_2px_6px_rgba(45,35,30,0.04)]"
             style={{
               top: coords.top,
               left: coords.left,
@@ -460,8 +470,8 @@ function UserFooterItem({
         )}
       </AnimatePresence>
 
-      <div className="glass-sidebar__user-row">
-        <div className="glass-sidebar__tile">
+      <div className="flex items-center gap-2.5 w-full h-10 min-h-10 max-h-10 p-0 box-border text-text-secondary overflow-hidden">
+        <div className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-lg flex items-center justify-center shrink-0 box-border bg-transparent border-none shadow-none relative text-inherit self-center">
           <User size={22} weight="regular" style={{ color: 'currentColor' }} />
         </div>
 
@@ -473,9 +483,12 @@ function UserFooterItem({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -4, transition: { duration: 0.08 } }}
               transition={{ duration: 0.14, ease: 'easeOut' }}
-              className="glass-sidebar__user-info"
+              className="flex flex-col justify-center min-w-0 overflow-hidden whitespace-nowrap"
             >
-              <span className="glass-sidebar__user-name" title={managerName}>
+              <span
+                className="text-sm font-semibold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.2]"
+                title={managerName}
+              >
                 {managerName}
               </span>
             </motion.div>
@@ -537,9 +550,12 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
   };
 
   return (
-    <aside className="glass-sidebar-wrapper" aria-label="Navegação Principal do Gerente">
+    <aside
+      className="sticky top-0 h-dvh z-[90] pt-4 pb-4 pl-4 flex flex-col shrink-0 box-border max-[768px]:hidden"
+      aria-label="Navegação Principal do Gerente"
+    >
       <motion.div
-        className={`glass-sidebar ${isOpen ? 'glass-sidebar--expanded' : 'glass-sidebar--collapsed'}`}
+        className={`relative h-full max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl py-3.5 px-2 box-border overflow-visible ${GLASS_SURFACE_CLASSES}`}
         animate={{ width: isOpen ? EXPANDED_WIDTH : COLLAPSED_WIDTH }}
         transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
         initial={false}
@@ -548,7 +564,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
         <button
           type="button"
           onClick={() => navigate('/agenda')}
-          className="glass-sidebar__brand"
+          className="flex items-center gap-2.5 bg-transparent border-none border-b border-b-[rgba(45,35,30,0.06)] p-0 h-15 min-h-15 max-h-15 cursor-pointer text-left w-full text-text-primary font-base mb-2 box-border overflow-hidden shrink-0"
           title={tenantInfo.tenantName}
           aria-label={`Página inicial de ${tenantInfo.tenantName}`}
         >
@@ -556,13 +572,13 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
             <img
               src={tenantInfo.logoUrl}
               alt={tenantInfo.tenantName}
-              className="glass-sidebar__logo-img"
+              className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-md object-cover shrink-0 self-center"
             />
           ) : (
             <img
               src="/simbolo.svg"
               alt="Navalhado"
-              className="glass-sidebar__logo-fallback"
+              className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 object-contain shrink-0 p-0.5 box-border self-center"
             />
           )}
 
@@ -574,16 +590,18 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -4, transition: { duration: 0.08 } }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="glass-sidebar__brand-info"
+                className="flex flex-col justify-center flex-1 min-w-0 overflow-hidden"
               >
-                <span className="glass-sidebar__brand-name">{tenantInfo.tenantName}</span>
+                <span className="text-sm font-bold text-text-primary whitespace-normal [overflow-wrap:break-word] leading-[1.25] line-clamp-3 overflow-hidden">
+                  {tenantInfo.tenantName}
+                </span>
               </motion.div>
             )}
           </AnimatePresence>
         </button>
 
         {/* Links de Navegação */}
-        <nav className="glass-sidebar__nav">
+        <nav className="flex flex-col gap-1 flex-1 overflow-y-auto overflow-x-hidden py-0.5 box-border [scrollbar-width:thin] [scrollbar-color:transparent_transparent] transition-[scrollbar-color] duration-200 ease-in hover:[scrollbar-color:rgba(45,35,30,0.2)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-[4px] [&::-webkit-scrollbar-thumb]:transition-colors [&::-webkit-scrollbar-thumb]:duration-200 hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.2)]">
           {NAV_ITEMS.map((item) => {
             const isActive =
               location.pathname === item.path ||
@@ -603,10 +621,10 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
         </nav>
 
         {/* Divisor */}
-        <div className="glass-sidebar__divider" />
+        <div className="w-full h-px min-h-px max-h-px bg-[rgba(45,35,30,0.08)] my-2 shrink-0" />
 
         {/* Rodapé: Notificações, Perfil, Logout e Toggle perfeitamente alinhados */}
-        <div className="glass-sidebar__footer">
+        <div className="flex flex-col gap-1 shrink-0 mt-auto pt-1 box-border">
           {/* Notificações */}
           <NotificationsFooterItem
             isOpen={isOpen}
@@ -623,7 +641,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
           />
 
           {/* Botão de Sair (Logout) */}
-          <div className="glass-sidebar__item">
+          <div className="relative flex w-full h-10 min-h-10 max-h-10 items-center box-border shrink-0">
             <AnimatePresence>
               {!isOpen && logoutHovered && logoutCoords && (
                 <motion.div
@@ -632,12 +650,11 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -4 }}
                   transition={{ duration: 0.1 }}
-                  className="glass-sidebar__tooltip"
+                  className="pointer-events-none fixed z-[9999] whitespace-nowrap rounded-md px-3 py-[0.4rem] text-xs font-semibold text-error font-base bg-[rgba(255,255,255,0.94)] backdrop-blur-[16px] backdrop-saturate-[180%] border border-[rgba(234,222,214,0.9)] shadow-[0_8px_24px_rgba(45,35,30,0.12),0_2px_6px_rgba(45,35,30,0.04)]"
                   style={{
                     top: logoutCoords.top,
                     left: logoutCoords.left,
                     transform: 'translateY(-50%)',
-                    color: 'var(--color-error, #F05252)',
                   }}
                 >
                   Sair da Conta
@@ -651,10 +668,10 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
               onClick={onLogout}
               onMouseEnter={handleLogoutMouseEnter}
               onMouseLeave={handleLogoutMouseLeave}
-              className="glass-sidebar__button glass-sidebar__button--logout"
+              className="flex items-center gap-2.5 w-full h-10 min-h-10 max-h-10 bg-transparent border-none outline-none cursor-pointer p-0 text-text-secondary no-underline font-base box-border transition-colors duration-100 ease-in relative overflow-hidden hover:text-error"
               aria-label="Sair da Conta"
             >
-              <div className="glass-sidebar__tile">
+              <div className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-lg flex items-center justify-center shrink-0 box-border bg-transparent border-none shadow-none relative text-inherit self-center">
                 <SignOut size={22} weight="regular" style={{ color: 'currentColor' }} />
               </div>
 
@@ -666,7 +683,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -4, transition: { duration: 0.08 } }}
                     transition={{ duration: 0.14, ease: 'easeOut' }}
-                    className="glass-sidebar__label"
+                    className="text-sm font-normal text-inherit whitespace-nowrap overflow-hidden text-ellipsis leading-none font-base shrink-0"
                   >
                     Sair
                   </motion.span>
@@ -677,14 +694,14 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
 
           {/* Botão Toggle (Recolher/Expandir) */}
           <div
-            className={`glass-sidebar__toggle-wrapper ${
-              isOpen ? 'glass-sidebar__toggle-wrapper--start' : 'glass-sidebar__toggle-wrapper--center'
+            className={`flex items-center w-full h-9 min-h-9 max-h-9 mt-1 shrink-0 ${
+              isOpen ? 'justify-start' : 'justify-center'
             }`}
           >
             <button
               type="button"
               onClick={toggleSidebar}
-              className="glass-sidebar__toggle"
+              className="flex items-center justify-center w-10 h-9 min-w-10 max-w-10 min-h-9 max-h-9 rounded-lg bg-[rgba(45,35,30,0.05)] border border-[rgba(45,35,30,0.08)] text-text-secondary cursor-pointer outline-none transition-colors duration-150 ease-in shrink-0 hover:bg-[rgba(217,108,0,0.12)] hover:border-[rgba(217,108,0,0.3)] hover:text-brand-primary"
               aria-label={isOpen ? 'Recolher menu lateral' : 'Expandir menu lateral'}
               title={isOpen ? 'Recolher menu' : 'Expandir menu'}
             >
@@ -696,7 +713,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                     animate={{ opacity: 1, rotate: 0 }}
                     exit={{ opacity: 0, rotate: -90 }}
                     transition={{ duration: 0.14 }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    className="flex items-center justify-center"
                   >
                     <ArrowLeft size={18} weight="bold" />
                   </motion.span>
@@ -707,7 +724,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                     animate={{ opacity: 1, rotate: 0 }}
                     exit={{ opacity: 0, rotate: -90 }}
                     transition={{ duration: 0.14 }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    className="flex items-center justify-center"
                   >
                     <ArrowRight size={18} weight="bold" />
                   </motion.span>
