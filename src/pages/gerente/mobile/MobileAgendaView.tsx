@@ -15,6 +15,7 @@ import {
 } from '../../../lib/timezone';
 import { getDayBusinessHours } from '../Agenda';
 import type { Appointment, Professional } from '../Agenda';
+import { CustomDatePicker } from '../../../components/CustomDatePicker';
 import {
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
@@ -75,6 +76,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
     () => professionals.filter((p) => p.is_active),
     [professionals]
   );
+
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const [selectedProfId, setSelectedProfId] = useState<string>(() => {
     return activeProfessionals[0]?.id || professionals[0]?.id || '';
@@ -215,16 +218,31 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           </button>
 
           <div className="mobile-agenda__date-display">
-            <label className="mobile-agenda__calendar-picker" title="Escolher data no calendário">
-              <HugeiconsIcon icon={Calendar03Icon} size={15} className="mobile-agenda__calendar-icon" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && onSelectDate(e.target.value)}
-                className="mobile-agenda__date-input"
-                aria-label="Selecionar data da agenda"
-              />
-            </label>
+            <div className="mobile-agenda__date-picker-wrapper">
+              <button
+                type="button"
+                className="mobile-agenda__calendar-picker"
+                onClick={() => setIsDatePickerOpen((prev) => !prev)}
+                title="Escolher data no calendário"
+                aria-label="Escolher data no calendário"
+                aria-expanded={isDatePickerOpen}
+              >
+                <HugeiconsIcon icon={Calendar03Icon} size={15} className="mobile-agenda__calendar-icon" />
+              </button>
+
+              {isDatePickerOpen && (
+                <CustomDatePicker
+                  selectedDate={selectedDate}
+                  timezone={timezone}
+                  onSelectDate={(newDate) => {
+                    onSelectDate(newDate);
+                    setIsDatePickerOpen(false);
+                  }}
+                  onClose={() => setIsDatePickerOpen(false)}
+                  position="left"
+                />
+              )}
+            </div>
             <span className="mobile-agenda__date-title">{formattedDateTitle}</span>
             {isToday ? (
               <span className="mobile-agenda__today-pill">Hoje</span>
@@ -308,24 +326,6 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           </div>
         ) : (
           <div className="mobile-agenda__cards-list">
-            {filteredAppointments.length === 0 && (
-              <div className={`mobile-agenda__empty-banner ${!dayBh.active ? 'mobile-agenda__empty-banner--closed' : ''}`}>
-                <div className="mobile-agenda__empty-icon-sm" style={{ color: !dayBh.active ? '#EF4444' : undefined }}>
-                  <HugeiconsIcon icon={Calendar03Icon} size={20} />
-                </div>
-                <div className="mobile-agenda__empty-banner-content">
-                  <h3 className="mobile-agenda__empty-title" style={{ fontSize: '0.875rem', margin: 0 }}>
-                    {!dayBh.active ? 'Barbearia fechada neste dia' : 'Nenhum agendamento para este dia'}
-                  </h3>
-                  <p className="mobile-agenda__empty-desc" style={{ fontSize: '0.75rem', margin: 0 }}>
-                    {!dayBh.active
-                      ? `Conforme o horário de funcionamento configurado, o estabelecimento não abre às ${dayBh.dayLabel}s.`
-                      : `Agenda disponível para ${profNameMap.get(selectedProfId) || 'o profissional'}. Toque abaixo para agendar.`}
-                  </p>
-                </div>
-              </div>
-            )}
-
             {timelineItems.map((item) => {
               if (item.type === 'empty') {
                 const isPast =
@@ -562,20 +562,32 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           user-select: none;
         }
 
-        .mobile-agenda__calendar-picker {
+        .mobile-agenda__date-picker-wrapper {
           position: relative;
+          flex-shrink: 0;
+        }
+
+        .mobile-agenda__date-picker-wrapper .custom-datepicker-dropdown {
+          position: fixed;
+          left: 16px;
+          right: 16px;
+          top: 96px;
+          width: auto;
+        }
+
+        .mobile-agenda__calendar-picker {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           width: 28px;
           height: 28px;
+          padding: 0;
           border-radius: var(--radius-sm, 6px);
-          background: var(--color-bg-primary);
+          background: transparent;
           border: 1px solid var(--color-border);
-          color: var(--color-brand-primary);
+          color: #000;
           cursor: pointer;
           transition: all 0.15s ease;
-          overflow: hidden;
           flex-shrink: 0;
         }
 
@@ -590,17 +602,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
         .mobile-agenda__calendar-icon {
           pointer-events: none;
-        }
-
-        .mobile-agenda__date-input {
-          position: absolute;
-          inset: 0;
-          opacity: 0;
-          width: 100%;
-          height: 100%;
-          cursor: pointer;
-          appearance: none;
-          -webkit-appearance: none;
+          fill: none;
+          stroke: #000;
         }
 
         .mobile-agenda__nav-btn {
@@ -609,9 +612,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           min-width: 28px;
           min-height: 28px;
           border-radius: var(--radius-sm, 6px);
-          background: var(--color-bg-primary);
+          background: transparent;
           border: 1px solid var(--color-border);
-          color: var(--color-text-primary);
+          color: #000;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -723,35 +726,6 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           background: rgba(0, 0, 0, 0.15);
           padding: 1px 5px;
           border-radius: var(--radius-full, 9999px);
-        }
-
-        .mobile-agenda__empty-banner {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 8px);
-          margin-bottom: 0.25rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__empty-icon-sm {
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__empty-banner-content {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-          overflow: hidden;
         }
 
         .mobile-agenda__timeline {
