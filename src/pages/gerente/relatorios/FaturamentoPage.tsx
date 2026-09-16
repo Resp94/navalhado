@@ -6,15 +6,58 @@ import type { RelatoriosOutletContextType } from './RelatoriosLayout';
 import { RelatoriosRepository } from '../../../modules/relatorios/RelatoriosRepository';
 import { SupabaseRelatoriosAdapter } from '../../../modules/relatorios/adapters/SupabaseRelatoriosAdapter';
 import { useRelatorioFaturamento } from '../../../modules/relatorios/useRelatorioFaturamento';
+import type { CsvColumn } from '../../../modules/relatorios/csv';
+import type {
+  RelatorioFaturamentoBucket,
+  RelatorioRecebidoPorForma,
+  TicketPorProfissional,
+} from '../../../modules/relatorios/types';
+import { formatCurrencyOrDash, formatDisplayDate, formatPercent } from '../../../modules/relatorios/formatacao';
+import { formatCurrency } from '../../../lib/currency';
 import { Badge } from '../../../components/ui/data-display/Badge';
 import { Button } from '../../../components/ui/forms/Button';
 import { EmptyState } from '../../../components/ui/data-display/EmptyState';
 import { Skeleton } from '../../../components/ui/data-display/Skeleton';
+import { ExportarCsvButton } from '../../../components/ui/data-display/ExportarCsvButton';
 import { FaturamentoResumo } from './faturamento/FaturamentoResumo';
 import { FaturamentoTabela } from './faturamento/FaturamentoTabela';
 import { FaturamentoRecebidoPorForma } from './faturamento/FaturamentoRecebidoPorForma';
 import { FaturamentoTicketPorProfissional } from './faturamento/FaturamentoTicketPorProfissional';
+import { FaturamentoGrafico } from './faturamento/FaturamentoGrafico';
 import './Relatorios.css';
+
+function formatBucketPeriodo(bucket: RelatorioFaturamentoBucket): string {
+  return bucket.start_date === bucket.end_date
+    ? formatDisplayDate(bucket.start_date)
+    : `${formatDisplayDate(bucket.start_date)} a ${formatDisplayDate(bucket.end_date)}`;
+}
+
+const COLUNAS_CSV_BUCKETS: CsvColumn<RelatorioFaturamentoBucket>[] = [
+  { header: 'Período', accessor: formatBucketPeriodo },
+  { header: 'Bruto', accessor: (bucket) => formatCurrency(bucket.gross) },
+  { header: 'Descontos', accessor: (bucket) => formatCurrency(bucket.discounts) },
+  { header: 'Líquido', accessor: (bucket) => formatCurrency(bucket.net) },
+  { header: 'Serviços', accessor: (bucket) => formatCurrency(bucket.services_net) },
+  { header: 'Produtos', accessor: (bucket) => formatCurrency(bucket.products_net) },
+  { header: 'Gorjetas', accessor: (bucket) => formatCurrency(bucket.tips) },
+  { header: 'Ticket médio', accessor: (bucket) => formatCurrencyOrDash(bucket.average_ticket) },
+  { header: 'Recebido', accessor: (bucket) => formatCurrency(bucket.received) },
+  { header: 'Comandas fechadas', accessor: (bucket) => String(bucket.closed_comandas) },
+];
+
+const COLUNAS_CSV_RECEBIDO_POR_FORMA: CsvColumn<RelatorioRecebidoPorForma>[] = [
+  { header: 'Forma', accessor: (item) => item.label },
+  { header: 'Valor', accessor: (item) => formatCurrency(item.amount) },
+  { header: 'Participação', accessor: (item) => formatPercent(item.share) },
+  { header: 'Pagamentos', accessor: (item) => String(item.payments_count) },
+];
+
+const COLUNAS_CSV_TICKET_PROFISSIONAL: CsvColumn<TicketPorProfissional>[] = [
+  { header: 'Profissional', accessor: (item) => item.name },
+  { header: 'Líquido', accessor: (item) => formatCurrency(item.net) },
+  { header: 'Comandas', accessor: (item) => String(item.comandas) },
+  { header: 'Ticket médio', accessor: (item) => formatCurrencyOrDash(item.average_ticket) },
+];
 
 const DATA_QUALITY_LABEL: Record<string, string> = {
   estimated: 'Parte dos dados deste período é estimada (Comandas sem todos os valores confirmados).',
@@ -119,9 +162,42 @@ export const FaturamentoPage: React.FC<FaturamentoPageProps> = ({ repository: in
             previousPeriod={previousPeriod}
             loading={loading}
           />
+          <FaturamentoGrafico buckets={buckets} />
+          <div className="relatorios-faturamento-secao-header">
+            <h3 className="card-panel-title">Faturamento por agrupamento</h3>
+            <ExportarCsvButton
+              columns={COLUNAS_CSV_BUCKETS}
+              rows={buckets}
+              reportSlug="faturamento"
+              startDate={periodo.startDate}
+              endDate={periodo.endDate}
+            />
+          </div>
           <FaturamentoTabela buckets={buckets} />
-          <FaturamentoRecebidoPorForma receivedByMethod={receivedByMethod} />
-          <FaturamentoTicketPorProfissional ticketByProfessional={ticketByProfessional} />
+          <FaturamentoRecebidoPorForma
+            receivedByMethod={receivedByMethod}
+            exportButton={
+              <ExportarCsvButton
+                columns={COLUNAS_CSV_RECEBIDO_POR_FORMA}
+                rows={receivedByMethod}
+                reportSlug="faturamento_recebido_por_forma"
+                startDate={periodo.startDate}
+                endDate={periodo.endDate}
+              />
+            }
+          />
+          <FaturamentoTicketPorProfissional
+            ticketByProfessional={ticketByProfessional}
+            exportButton={
+              <ExportarCsvButton
+                columns={COLUNAS_CSV_TICKET_PROFISSIONAL}
+                rows={ticketByProfessional}
+                reportSlug="faturamento_ticket_por_profissional"
+                startDate={periodo.startDate}
+                endDate={periodo.endDate}
+              />
+            }
+          />
         </>
       )}
     </div>

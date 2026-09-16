@@ -8,6 +8,8 @@ import type { RelatorioRecebidoPorForma } from '../../../../modules/relatorios/t
 
 export interface FaturamentoRecebidoPorFormaProps {
   receivedByMethod: RelatorioRecebidoPorForma[];
+  /** Botão "Exportar CSV" desta seção (spec 038, ticket 04), injetado pela página. */
+  exportButton?: React.ReactNode;
 }
 
 /**
@@ -21,15 +23,23 @@ export interface FaturamentoRecebidoPorFormaProps {
  * `FaturamentoTabela`. `share` nulo (período sem recebimento) mostra
  * "--", nunca "0%".
  */
-export const FaturamentoRecebidoPorForma: React.FC<FaturamentoRecebidoPorFormaProps> = ({ receivedByMethod }) => {
+export const FaturamentoRecebidoPorForma: React.FC<FaturamentoRecebidoPorFormaProps> = ({
+  receivedByMethod,
+  exportButton,
+}) => {
   return (
     <Card variant="outline" className="relatorios-recebido-card">
       <CardHeader>
-        <CardTitle>Recebido por forma de pagamento</CardTitle>
-        <CardDescription>
-          Quanto entrou em PIX, dinheiro, cartão de crédito, cartão de débito e outros no período,
-          pela data do pagamento.
-        </CardDescription>
+        <div className="relatorios-faturamento-secao-header">
+          <div className="relatorios-faturamento-secao-titulo">
+            <CardTitle>Recebido por forma de pagamento</CardTitle>
+            <CardDescription>
+              Quanto entrou em PIX, dinheiro, cartão de crédito, cartão de débito e outros no
+              período, pela data do pagamento.
+            </CardDescription>
+          </div>
+          {exportButton}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relatorios-recebido-barras" role="list">

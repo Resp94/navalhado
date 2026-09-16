@@ -9,6 +9,8 @@ import type { TicketPorProfissional } from '../../../../modules/relatorios/types
 
 export interface FaturamentoTicketPorProfissionalProps {
   ticketByProfessional: TicketPorProfissional[];
+  /** Botão "Exportar CSV" desta seção (spec 038, ticket 04), injetado pela página. */
+  exportButton?: React.ReactNode;
 }
 
 /**
@@ -26,15 +28,21 @@ export interface FaturamentoTicketPorProfissionalProps {
  */
 export const FaturamentoTicketPorProfissional: React.FC<FaturamentoTicketPorProfissionalProps> = ({
   ticketByProfessional,
+  exportButton,
 }) => {
   return (
     <Card variant="outline" className="relatorios-ticket-profissional-card">
       <CardHeader>
-        <CardTitle>Ticket por profissional</CardTitle>
-        <CardDescription>
-          Comanda dividida conta para cada profissional. Item sem profissional associado não entra
-          nesta lista, então a soma do líquido pode ser menor que o total do período.
-        </CardDescription>
+        <div className="relatorios-faturamento-secao-header">
+          <div className="relatorios-faturamento-secao-titulo">
+            <CardTitle>Ticket por profissional</CardTitle>
+            <CardDescription>
+              Comanda dividida conta para cada profissional. Item sem profissional associado não
+              entra nesta lista, então a soma do líquido pode ser menor que o total do período.
+            </CardDescription>
+          </div>
+          {exportButton}
+        </div>
       </CardHeader>
       <CardContent>
         {ticketByProfessional.length === 0 ? (

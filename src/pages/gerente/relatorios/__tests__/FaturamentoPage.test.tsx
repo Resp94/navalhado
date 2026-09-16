@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FaturamentoPage } from '../FaturamentoPage';
 import { RelatoriosRepository } from '../../../../modules/relatorios/RelatoriosRepository';
@@ -342,5 +342,48 @@ describe('FaturamentoPage', () => {
       expect(screen.getByText('Não foi possível carregar o faturamento por período.')).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: /tentar de novo/i })).toBeInTheDocument();
+  });
+
+  it('mostra os botões de exportar CSV das três tabelas e o clique não quebra a tela (spec 038, ticket 04)', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
+    const repository = new RelatoriosRepository(adapter);
+
+    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    // jsdom não implementa download real: mocka a API de Blob/URL usada por `baixarCsv`.
+    Object.defineProperty(window.URL, 'createObjectURL', { value: createObjectURL, writable: true });
+    Object.defineProperty(window.URL, 'revokeObjectURL', { value: revokeObjectURL, writable: true });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<FaturamentoPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Faturamento por agrupamento')).toBeInTheDocument();
+    });
+
+    const botoes = screen.getAllByRole('button', { name: /exportar csv/i });
+    expect(botoes.length).toBe(3);
+
+    botoes.forEach((botao) => fireEvent.click(botao));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(3);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(3);
+    expect(clickSpy).toHaveBeenCalledTimes(3);
+
+    clickSpy.mockRestore();
+  });
+
+  it('mostra o gráfico de evolução do faturamento com título descritivo no SVG', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<FaturamentoPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Evolução do faturamento líquido')).toBeInTheDocument();
+    });
+
+    const svg = screen.getByRole('img', { name: /evolução do faturamento líquido de serviços/i });
+    expect(svg.querySelector('title')).not.toBeNull();
   });
 });

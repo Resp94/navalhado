@@ -236,6 +236,80 @@ a.relatorios-catalogo-item:hover {
   overflow-x: auto;
 }
 
+.relatorios-faturamento-secao-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/*
+ * Titulo + descricao dentro de .relatorios-faturamento-secao-header (ticket
+ * 04): precisam do mesmo gap de 0.25rem que CardHeader aplica aos proprios
+ * filhos diretos -- perdido quando o botao de exportar virou irmao do
+ * titulo/descricao dentro de um wrapper, tirando os dois de serem filhos
+ * diretos de CardHeader.
+ */
+.relatorios-faturamento-secao-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   Gráfico de evolução (ticket 04): SVG feito à mão, rolagem horizontal só
+   dentro do próprio contêiner (nunca da página), mesmo precedente do Fluxo
+   de Caixa Projetado.
+   -------------------------------------------------------------------------- */
+.relatorios-faturamento-grafico-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.5rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary, var(--color-text-primary));
+}
+
+.relatorios-faturamento-grafico-nota {
+  margin: 0 0 0.75rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.relatorios-faturamento-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.relatorios-faturamento-legenda-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: var(--radius-sm, 3px);
+}
+
+.relatorios-faturamento-legenda-swatch--servicos {
+  background: var(--color-brand-primary, #d96c00);
+}
+
+.relatorios-faturamento-legenda-swatch--produtos {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-info, #3f83f8) 0,
+    var(--color-info, #3f83f8) 1.5px,
+    transparent 1.5px,
+    transparent 4px
+  );
+  background-color: rgba(63, 131, 248, 0.25);
+}
+
+.relatorios-faturamento-grafico-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 .relatorios-recebido-card {
   margin-top: 0;
 }
