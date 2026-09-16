@@ -62,6 +62,10 @@ class FakeRelatoriosAdapter implements RelatoriosAdapter {
   obterClientesSemRetorno(input: ObterClientesSemRetornoInput): Promise<RelatorioClientesSemRetorno> {
     return this.handler(input);
   }
+
+  obterClientes(): Promise<never> {
+    throw new Error('Não usado neste teste.');
+  }
 }
 
 function itemBase(overrides: Partial<RelatorioClientesSemRetorno['items'][number]> = {}) {

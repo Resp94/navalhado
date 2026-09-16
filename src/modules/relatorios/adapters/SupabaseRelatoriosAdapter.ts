@@ -1,7 +1,9 @@
 import { supabase } from '../../../lib/supabase';
 import type {
   ClienteSemRetornoItem,
+  ClienteUmaVisita,
   ObterAgendaInput,
+  ObterClientesInput,
   ObterClientesSemRetornoInput,
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
@@ -13,9 +15,13 @@ import type {
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
   RelatorioAgendaStatusTotais,
+  RelatorioClientes,
+  RelatorioClientesBucket,
   RelatorioClientesSemRetorno,
   RelatorioClientesSemRetornoFaixas,
   RelatorioClientesSemRetornoTotais,
+  RelatorioClientesVisitantes,
+  RelatorioClientesVisitantesAnterior,
   RelatorioEquipeServicos,
   RelatorioEquipeServicosTotais,
   RelatorioFaturamento,
@@ -494,6 +500,55 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       total_count: toNumber(raw.total_count),
     };
   }
+
+  /**
+   * Novos x recorrentes (`get_customer_report`, spec 038, ticket 10):
+   * visitantes únicos/novos/recorrentes/novos-de-uma-visita/sem-cliente do
+   * período e do anterior, agrupamento por dia/semana/mês e lista de
+   * Clientes de Uma Visita (até 200). `previous_visitors` nunca ganha
+   * `new_single_visit` aqui -- o backend não envia essa chave para o
+   * período anterior (ver comentário do tipo `RelatorioClientesVisitantesAnterior`).
+   */
+  async obterClientes(input: ObterClientesInput): Promise<RelatorioClientes> {
+    const { data, error } = await supabase.rpc('get_customer_report', {
+      p_tenant_id: input.tenantId,
+      p_start_date: input.startDate,
+      p_end_date: input.endDate,
+      p_granularity: input.granularity,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao buscar o relatório de Clientes.');
+    }
+
+    const raw = (data || {}) as {
+      timezone?: string;
+      business_today?: string;
+      period?: { start?: unknown; end?: unknown };
+      previous_period?: { start?: unknown; end?: unknown };
+      visitors?: unknown;
+      previous_visitors?: unknown;
+      buckets?: unknown;
+      single_visit_customers?: unknown;
+    };
+
+    return {
+      timezone: raw.timezone || 'America/Sao_Paulo',
+      business_today: raw.business_today ? String(raw.business_today) : '',
+      period: {
+        start: raw.period?.start ? String(raw.period.start) : '',
+        end: raw.period?.end ? String(raw.period.end) : '',
+      },
+      previous_period: {
+        start: raw.previous_period?.start ? String(raw.previous_period.start) : '',
+        end: raw.previous_period?.end ? String(raw.previous_period.end) : '',
+      },
+      visitors: toClientesVisitantes(raw.visitors),
+      previous_visitors: toClientesVisitantesAnterior(raw.previous_visitors),
+      buckets: toClientesBuckets(raw.buckets),
+      single_visit_customers: toClientesUmaVisita(raw.single_visit_customers),
+    };
+  }
 }
 
 function toClientesSemRetornoTotais(value: unknown): RelatorioClientesSemRetornoTotais {
@@ -530,6 +585,59 @@ function toClientesSemRetornoItems(value: unknown): ClienteSemRetornoItem[] {
       return_period_days: toNumber(raw.return_period_days),
       days_since: toNumber(raw.days_since),
       days_overdue: toNumber(raw.days_overdue),
+    };
+  });
+}
+
+function toClientesVisitantes(value: unknown): RelatorioClientesVisitantes {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    unique_customers: toNumber(raw.unique_customers),
+    new_customers: toNumber(raw.new_customers),
+    returning_customers: toNumber(raw.returning_customers),
+    new_single_visit: toNumber(raw.new_single_visit),
+    unidentified_attendances: toNumber(raw.unidentified_attendances),
+  };
+}
+
+/**
+ * `previous_visitors` nunca tem `new_single_visit` no jsonb (decisão da
+ * migração do ticket 10) -- a conversão aqui simplesmente não lê essa
+ * chave, refletindo fielmente o contrato.
+ */
+function toClientesVisitantesAnterior(value: unknown): RelatorioClientesVisitantesAnterior {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    unique_customers: toNumber(raw.unique_customers),
+    new_customers: toNumber(raw.new_customers),
+    returning_customers: toNumber(raw.returning_customers),
+    unidentified_attendances: toNumber(raw.unidentified_attendances),
+  };
+}
+
+function toClientesBuckets(value: unknown): RelatorioClientesBucket[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      start_date: raw.start_date ? String(raw.start_date) : '',
+      end_date: raw.end_date ? String(raw.end_date) : '',
+      new_customers: toNumber(raw.new_customers),
+      returning_customers: toNumber(raw.returning_customers),
+    };
+  });
+}
+
+function toClientesUmaVisita(value: unknown): ClienteUmaVisita[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      customer_id: raw.customer_id ? String(raw.customer_id) : '',
+      name: raw.name ? String(raw.name) : '',
+      phone: toNullableString(raw.phone),
+      visit_date: raw.visit_date ? String(raw.visit_date) : '',
+      professional_name: toNullableString(raw.professional_name),
     };
   });
 }

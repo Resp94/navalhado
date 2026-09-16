@@ -1,10 +1,12 @@
 import { MS_PER_DAY, calendarExtentInDays, parseDateOnly as parseCalendarDate } from '../fluxo-caixa/calendario';
 import type {
   ObterAgendaInput,
+  ObterClientesInput,
   ObterClientesSemRetornoInput,
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
   RelatorioAgenda,
+  RelatorioClientes,
   RelatorioClientesSemRetorno,
   RelatorioClientesSemRetornoBand,
   RelatorioEquipeServicos,
@@ -42,6 +44,11 @@ export interface ObterEquipeEServicosRepositoryInput extends ObterEquipeEServico
 }
 
 export interface ObterAgendaRepositoryInput extends ObterAgendaInput {
+  /** Dia de hoje no fuso do tenant (nunca a data local do navegador). */
+  today: string;
+}
+
+export interface ObterClientesRepositoryInput extends ObterClientesInput {
   /** Dia de hoje no fuso do tenant (nunca a data local do navegador). */
   today: string;
 }
@@ -217,5 +224,55 @@ export class RelatoriosRepository {
     }
 
     return await this.adapter.obterClientesSemRetorno({ tenantId, overdueBand, professionalId, limit, offset });
+  }
+
+  /**
+   * Contrato de Novos x recorrentes (`get_customer_report`, spec 038,
+   * ticket 10, página "Clientes"): mesma validação de período E
+   * granularidade do Faturamento por período (730 dias de olhar para trás,
+   * 366 dias de extensão máxima, granularidade diária só até 92 dias) --
+   * mesmos limites do núcleo do banco (`private.get_customer_report_core`),
+   * reaproveitados aqui em vez de reescritos.
+   */
+  async obterClientes(input: ObterClientesRepositoryInput): Promise<RelatorioClientes> {
+    const { tenantId, startDate, endDate, granularity, today } = input;
+
+    if (!tenantId || !tenantId.trim()) {
+      throw new RelatoriosValidationError('ID da unidade (tenant) é obrigatório.');
+    }
+    if (!startDate || !endDate) {
+      throw new RelatoriosValidationError('As datas de início e fim do período são obrigatórias.');
+    }
+    if (!today) {
+      throw new RelatoriosValidationError('A data de hoje é obrigatória para validar o período.');
+    }
+
+    const startTs = parseDateOnly(startDate);
+    const endTs = parseDateOnly(endDate);
+    const todayTs = parseDateOnly(today);
+
+    if (endTs < startTs) {
+      throw new RelatoriosValidationError('A data final não pode ser anterior à data inicial.');
+    }
+    if (endTs > todayTs) {
+      throw new RelatoriosValidationError('A data final não pode ser posterior a hoje.');
+    }
+    if (startTs < todayTs - 730 * MS_PER_DAY) {
+      throw new RelatoriosValidationError('A data inicial não pode ser mais de 730 dias antes de hoje.');
+    }
+
+    const extent = calendarExtentInDays(startDate, endDate);
+    if (extent > 366) {
+      throw new RelatoriosValidationError('O período não pode ter mais de 366 dias.');
+    }
+
+    if (!GRANULARITIES.includes(granularity)) {
+      throw new RelatoriosValidationError('Granularidade desconhecida. Use dia, semana ou mês.');
+    }
+    if (granularity === 'day' && extent > 92) {
+      throw new RelatoriosValidationError('A granularidade diária só é permitida em períodos de até 92 dias.');
+    }
+
+    return await this.adapter.obterClientes({ tenantId, startDate, endDate, granularity });
   }
 }

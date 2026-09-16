@@ -37,18 +37,21 @@ const GRANULARITY_OPTIONS: { id: RelatoriosGranularity; label: string }[] = [
 
 /**
  * As cinco páginas do módulo (spec 038). Faturamento (ticket 01), Equipe e
- * Serviços (ticket 05), Agenda (ticket 07) e Clientes sem Retorno (ticket
- * 09) já existem. `hidePeriodFilter` é a decisão central de esconder o
- * filtro de período compartilhado (spec: "a página Clientes sem Retorno
- * esconde o filtro de período e mostra os próprios filtros") -- resolvida
- * aqui, uma única vez, pelo mesmo princípio do gate de desktop: a página
- * filha não repete a checagem, só ganha os próprios filtros no lugar.
+ * Serviços (ticket 05), Agenda (ticket 07), Clientes (ticket 10) e Clientes
+ * sem Retorno (ticket 09) já existem. `hidePeriodFilter` é a decisão
+ * central de esconder o filtro de período compartilhado (spec: "a página
+ * Clientes sem Retorno esconde o filtro de período e mostra os próprios
+ * filtros") -- resolvida aqui, uma única vez, pelo mesmo princípio do gate
+ * de desktop: a página filha não repete a checagem, só ganha os próprios
+ * filtros no lugar. Clientes (ticket 10) usa o filtro compartilhado, como
+ * Faturamento, Equipe e Serviços e Agenda -- só Clientes sem Retorno o
+ * esconde.
  */
 const REPORT_PAGES: { path: string; label: string; enabled: boolean; hidePeriodFilter?: boolean }[] = [
   { path: '/relatorios/faturamento', label: 'Faturamento', enabled: true },
   { path: '/relatorios/equipe-e-servicos', label: 'Equipe e Serviços', enabled: true },
   { path: '/relatorios/agenda', label: 'Agenda', enabled: true },
-  { path: '/relatorios/clientes', label: 'Clientes', enabled: false },
+  { path: '/relatorios/clientes', label: 'Clientes', enabled: true },
   { path: '/relatorios/clientes-sem-retorno', label: 'Clientes sem Retorno', enabled: true, hidePeriodFilter: true },
 ];
 

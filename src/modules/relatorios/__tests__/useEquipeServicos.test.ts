@@ -18,7 +18,13 @@ function buildResult(businessToday: string): RelatorioEquipeServicos {
 
 describe('useEquipeServicos', () => {
   it('descarta a resposta de uma chamada antiga que resolve depois da mais nova', async () => {
-    const adapter: RelatoriosAdapter = { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn(), obterClientesSemRetorno: vi.fn() };
+    const adapter: RelatoriosAdapter = {
+      obterFaturamentoPorPeriodo: vi.fn(),
+      obterEquipeEServicos: vi.fn(),
+      obterAgenda: vi.fn(),
+      obterClientesSemRetorno: vi.fn(),
+      obterClientes: vi.fn(),
+    };
     const repository = new RelatoriosRepository(adapter);
 
     let resolveFirst: (value: RelatorioEquipeServicos) => void = () => {};
@@ -55,7 +61,13 @@ describe('useEquipeServicos', () => {
   });
 
   it('expõe erro de validação em pt-BR sem quebrar o carregamento', async () => {
-    const adapter: RelatoriosAdapter = { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn(), obterClientesSemRetorno: vi.fn() };
+    const adapter: RelatoriosAdapter = {
+      obterFaturamentoPorPeriodo: vi.fn(),
+      obterEquipeEServicos: vi.fn(),
+      obterAgenda: vi.fn(),
+      obterClientesSemRetorno: vi.fn(),
+      obterClientes: vi.fn(),
+    };
     const repository = new RelatoriosRepository(adapter);
 
     const { result } = renderHook(() =>
@@ -73,7 +85,13 @@ describe('useEquipeServicos', () => {
   });
 
   it('recarrega manualmente por meio de reload', async () => {
-    const adapter: RelatoriosAdapter = { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn(), obterClientesSemRetorno: vi.fn() };
+    const adapter: RelatoriosAdapter = {
+      obterFaturamentoPorPeriodo: vi.fn(),
+      obterEquipeEServicos: vi.fn(),
+      obterAgenda: vi.fn(),
+      obterClientesSemRetorno: vi.fn(),
+      obterClientes: vi.fn(),
+    };
     vi.mocked(adapter.obterEquipeEServicos).mockResolvedValue(buildResult('2026-06-20'));
     const repository = new RelatoriosRepository(adapter);
 
@@ -97,7 +115,13 @@ describe('useEquipeServicos', () => {
   });
 
   it('refaz a busca quando professionalId muda, filtrando só via parâmetro repassado ao repositório', async () => {
-    const adapter: RelatoriosAdapter = { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn(), obterClientesSemRetorno: vi.fn() };
+    const adapter: RelatoriosAdapter = {
+      obterFaturamentoPorPeriodo: vi.fn(),
+      obterEquipeEServicos: vi.fn(),
+      obterAgenda: vi.fn(),
+      obterClientesSemRetorno: vi.fn(),
+      obterClientes: vi.fn(),
+    };
     vi.mocked(adapter.obterEquipeEServicos).mockResolvedValue(buildResult('2026-06-20'));
     const repository = new RelatoriosRepository(adapter);
 

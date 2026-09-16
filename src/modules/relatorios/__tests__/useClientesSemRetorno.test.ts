@@ -22,6 +22,7 @@ function buildAdapter(): RelatoriosAdapter {
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
     obterClientesSemRetorno: vi.fn(),
+    obterClientes: vi.fn(),
   };
 }
 

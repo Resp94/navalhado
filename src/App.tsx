@@ -25,6 +25,7 @@ import { FaturamentoPage } from './pages/gerente/relatorios/FaturamentoPage';
 import { EquipeServicosPage } from './pages/gerente/relatorios/EquipeServicosPage';
 import { AgendaPage } from './pages/gerente/relatorios/AgendaPage';
 import { ClientesSemRetornoPage } from './pages/gerente/relatorios/ClientesSemRetornoPage';
+import { ClientesPage as RelatoriosClientesPage } from './pages/gerente/relatorios/ClientesPage';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -93,6 +94,7 @@ function App() {
               <Route path="faturamento" element={<FaturamentoPage />} />
               <Route path="equipe-e-servicos" element={<EquipeServicosPage />} />
               <Route path="agenda" element={<AgendaPage />} />
+              <Route path="clientes" element={<RelatoriosClientesPage />} />
               <Route path="clientes-sem-retorno" element={<ClientesSemRetornoPage />} />
               <Route path="*" element={<Navigate to="/relatorios" replace />} />
             </Route>

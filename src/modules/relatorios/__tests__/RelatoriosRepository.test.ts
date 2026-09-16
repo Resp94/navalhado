@@ -8,6 +8,7 @@ function mockAdapterFactory(): RelatoriosAdapter {
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
     obterClientesSemRetorno: vi.fn(),
+    obterClientes: vi.fn(),
   };
 }
 
@@ -50,6 +51,7 @@ describe('RelatoriosRepository', () => {
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
     obterClientesSemRetorno: vi.fn(),
+    obterClientes: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -206,6 +208,7 @@ describe('RelatoriosRepository.obterEquipeEServicos', () => {
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
     obterClientesSemRetorno: vi.fn(),
+    obterClientes: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -499,6 +502,7 @@ describe('RelatoriosRepository.obterClientesSemRetorno', () => {
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
     obterClientesSemRetorno: vi.fn(),
+    obterClientes: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -584,5 +588,157 @@ describe('RelatoriosRepository.obterClientesSemRetorno', () => {
         offset: 0,
       })
     ).rejects.toThrow('Faixa de atraso desconhecida. Use até 15, 16 a 30, 31 a 60 ou mais de 60 dias.');
+  });
+});
+
+const clientesFixture = {
+  timezone: 'America/Sao_Paulo',
+  business_today: '2026-06-15',
+  period: { start: '2026-06-01', end: '2026-06-15' },
+  previous_period: { start: '2026-05-17', end: '2026-05-31' },
+  visitors: { unique_customers: 0, new_customers: 0, returning_customers: 0, new_single_visit: 0, unidentified_attendances: 0 },
+  previous_visitors: { unique_customers: 0, new_customers: 0, returning_customers: 0, unidentified_attendances: 0 },
+  buckets: [],
+  single_visit_customers: [],
+};
+
+describe('RelatoriosRepository.obterClientes', () => {
+  const mockAdapter: RelatoriosAdapter = mockAdapterFactory();
+
+  const repository = new RelatoriosRepository(mockAdapter);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('repassa ao adaptador um pedido válido (mesma validação de período e granularidade do Faturamento)', async () => {
+    vi.mocked(mockAdapter.obterClientes).mockResolvedValueOnce(clientesFixture);
+
+    const result = await repository.obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+      today: '2026-06-15',
+    });
+
+    expect(mockAdapter.obterClientes).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+    expect(result.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('rejeita sem tenant informado', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: '',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow(RelatoriosValidationError);
+    expect(mockAdapter.obterClientes).not.toHaveBeenCalled();
+  });
+
+  it('rejeita datas ausentes', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '',
+        endDate: '2026-06-15',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('As datas de início e fim do período são obrigatórias.');
+  });
+
+  it('rejeita fim antes do início', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-15',
+        endDate: '2026-06-01',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser anterior à data inicial.');
+  });
+
+  it('rejeita fim depois de hoje', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-20',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser posterior a hoje.');
+  });
+
+  it('rejeita início mais de 730 dias antes de hoje', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2024-01-01',
+        endDate: '2024-01-10',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data inicial não pode ser mais de 730 dias antes de hoje.');
+  });
+
+  it('rejeita período acima de 366 dias', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2025-06-01',
+        endDate: '2026-06-15',
+        granularity: 'month',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('O período não pode ter mais de 366 dias.');
+  });
+
+  it('rejeita granularidade desconhecida', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-10',
+        granularity: 'year' as any,
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('Granularidade desconhecida. Use dia, semana ou mês.');
+  });
+
+  it('rejeita granularidade diária acima de 92 dias', async () => {
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-01-01',
+        endDate: '2026-06-15',
+        granularity: 'day',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A granularidade diária só é permitida em períodos de até 92 dias.');
+  });
+
+  it('aceita granularidade semanal em período acima de 92 dias', async () => {
+    vi.mocked(mockAdapter.obterClientes).mockResolvedValueOnce(clientesFixture);
+
+    await expect(
+      repository.obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-01-01',
+        endDate: '2026-06-15',
+        granularity: 'week',
+        today: '2026-06-15',
+      })
+    ).resolves.toBeTruthy();
   });
 });

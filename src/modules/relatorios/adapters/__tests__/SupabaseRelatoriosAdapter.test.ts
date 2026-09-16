@@ -895,3 +895,180 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
     ).rejects.toThrow('Acesso negado.');
   });
 });
+
+describe('SupabaseRelatoriosAdapter.obterClientes', () => {
+  it('chama get_customer_report com o contrato atual e converte números', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        timezone: 'America/Sao_Paulo',
+        business_today: '2026-06-15',
+        period: { start: '2026-06-01', end: '2026-06-15' },
+        previous_period: { start: '2026-05-17', end: '2026-05-31' },
+        visitors: {
+          unique_customers: 10,
+          new_customers: 4,
+          returning_customers: 6,
+          new_single_visit: 2,
+          unidentified_attendances: 1,
+        },
+        previous_visitors: {
+          unique_customers: 8,
+          new_customers: 3,
+          returning_customers: 5,
+          unidentified_attendances: 0,
+        },
+        buckets: [
+          { start_date: '2026-06-01', end_date: '2026-06-07', new_customers: 2, returning_customers: 3 },
+          { start_date: '2026-06-08', end_date: '2026-06-15', new_customers: 2, returning_customers: 3 },
+        ],
+        single_visit_customers: [
+          {
+            customer_id: 'cust-1',
+            name: 'Ana',
+            phone: '11999998888',
+            visit_date: '2026-06-10',
+            professional_name: 'Carlos',
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_customer_report', {
+      p_tenant_id: 'tenant-1',
+      p_start_date: '2026-06-01',
+      p_end_date: '2026-06-15',
+      p_granularity: 'day',
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.visitors).toEqual({
+      unique_customers: 10,
+      new_customers: 4,
+      returning_customers: 6,
+      new_single_visit: 2,
+      unidentified_attendances: 1,
+    });
+    expect(result.previous_visitors).toEqual({
+      unique_customers: 8,
+      new_customers: 3,
+      returning_customers: 5,
+      unidentified_attendances: 0,
+    });
+    expect(result.buckets).toEqual([
+      { start_date: '2026-06-01', end_date: '2026-06-07', new_customers: 2, returning_customers: 3 },
+      { start_date: '2026-06-08', end_date: '2026-06-15', new_customers: 2, returning_customers: 3 },
+    ]);
+    expect(result.single_visit_customers).toEqual([
+      { customer_id: 'cust-1', name: 'Ana', phone: '11999998888', visit_date: '2026-06-10', professional_name: 'Carlos' },
+    ]);
+  });
+
+  it('nunca inventa new_single_visit em previous_visitors, mesmo se o backend enviar por engano', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        previous_visitors: {
+          unique_customers: 8,
+          new_customers: 3,
+          returning_customers: 5,
+          unidentified_attendances: 0,
+          new_single_visit: 999,
+        },
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(result.previous_visitors).not.toHaveProperty('new_single_visit');
+    expect(result.previous_visitors).toEqual({
+      unique_customers: 8,
+      new_customers: 3,
+      returning_customers: 5,
+      unidentified_attendances: 0,
+    });
+  });
+
+  it('preserva phone e professional_name nulos em single_visit_customers sem coagir para string vazia', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        single_visit_customers: [
+          {
+            customer_id: 'cust-2',
+            name: 'Bruno',
+            phone: null,
+            visit_date: '2026-06-11',
+            professional_name: null,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(result.single_visit_customers[0].phone).toBeNull();
+    expect(result.single_visit_customers[0].professional_name).toBeNull();
+  });
+
+  it('preenche campos ausentes com zero, string vazia ou lista vazia', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.business_today).toBe('');
+    expect(result.period).toEqual({ start: '', end: '' });
+    expect(result.previous_period).toEqual({ start: '', end: '' });
+    expect(result.visitors).toEqual({
+      unique_customers: 0,
+      new_customers: 0,
+      returning_customers: 0,
+      new_single_visit: 0,
+      unidentified_attendances: 0,
+    });
+    expect(result.previous_visitors).toEqual({
+      unique_customers: 0,
+      new_customers: 0,
+      returning_customers: 0,
+      unidentified_attendances: 0,
+    });
+    expect(result.buckets).toEqual([]);
+    expect(result.single_visit_customers).toEqual([]);
+  });
+
+  it('lança erro quando a RPC devolve erro (Clientes)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Acesso negado.' } });
+
+    await expect(
+      new SupabaseRelatoriosAdapter().obterClientes({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+        granularity: 'day',
+      })
+    ).rejects.toThrow('Acesso negado.');
+  });
+});

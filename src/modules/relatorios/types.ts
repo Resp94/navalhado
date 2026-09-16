@@ -409,6 +409,90 @@ export interface ObterClientesSemRetornoInput {
 }
 
 /**
+ * Visitantes de um período do relatório "Novos x recorrentes"
+ * (`get_customer_report`, spec 038, ticket 10): únicos, novos (primeira
+ * Visita da vida cai no período), recorrentes (já tinham Visita antes do
+ * início do período) e atendimentos sem cliente identificado (Comanda
+ * fechada sem `customer_id`, não é Visita). `new_customers +
+ * returning_customers = unique_customers`, mutuamente exclusivos.
+ * `new_single_visit` é o Cliente Novo cuja única Visita, até hoje, é a do
+ * período (o candidato a Cliente de Uma Visita).
+ */
+export interface RelatorioClientesVisitantes {
+  unique_customers: number;
+  new_customers: number;
+  returning_customers: number;
+  new_single_visit: number;
+  unidentified_attendances: number;
+}
+
+/**
+ * Visitantes do período ANTERIOR: sem `new_single_visit` -- decisão
+ * documentada na migração do ticket 10 (`private.get_customer_report_core`):
+ * "Cliente de Uma Visita" depende de "até hoje" (um corte móvel), o que não
+ * faz sentido para um período anterior FIXO no passado. O backend nunca
+ * envia essa chave para `previous_visitors`; o tipo aqui reflete isso e não
+ * inventa o campo.
+ */
+export type RelatorioClientesVisitantesAnterior = Omit<RelatorioClientesVisitantes, 'new_single_visit'>;
+
+/**
+ * Um agrupamento (dia/semana/mês) de Novos x recorrentes (spec 038, ticket
+ * 10): Novo conta no agrupamento da primeira Visita da vida; Recorrente
+ * conta no agrupamento da primeira Visita DELE DENTRO DO PERÍODO (não a
+ * mais recente).
+ */
+export interface RelatorioClientesBucket {
+  start_date: string;
+  end_date: string;
+  new_customers: number;
+  returning_customers: number;
+}
+
+/**
+ * Uma linha da lista de Clientes de Uma Visita (spec 038, ticket 10,
+ * limitada a 200, mais recentes primeiro): Cliente Novo do período cuja
+ * única Visita, até hoje, é a do período. `phone` e `professional_name` são
+ * `string | null` de propósito (cliente sem telefone cadastrado, última
+ * Visita sem profissional identificável), nunca convertidos para um valor
+ * padrão -- mesma decisão de `ClienteSemRetornoItem` (ticket 09).
+ */
+export interface ClienteUmaVisita {
+  customer_id: string;
+  name: string;
+  phone: string | null;
+  visit_date: string;
+  professional_name: string | null;
+}
+
+/**
+ * Contrato de leitura de Novos x recorrentes (`get_customer_report`, spec
+ * 038, relatório 9, ticket 10; a QUARTA página do módulo, "Clientes"). COM
+ * `granularity`/`previous_period`, como o Faturamento (ticket 01) -- é o
+ * único outro contrato do módulo agrupado por dia/semana/mês. Ainda sem
+ * `registrations` (origem de cadastro/canal de aquisição): o ticket 11 faz
+ * `CREATE OR REPLACE` na mesma função para acrescentar esse campo, não
+ * implementado aqui.
+ */
+export interface RelatorioClientes {
+  timezone: string;
+  business_today: string;
+  period: RelatoriosPeriodo;
+  previous_period: RelatoriosPeriodo;
+  visitors: RelatorioClientesVisitantes;
+  previous_visitors: RelatorioClientesVisitantesAnterior;
+  buckets: RelatorioClientesBucket[];
+  single_visit_customers: ClienteUmaVisita[];
+}
+
+export interface ObterClientesInput {
+  tenantId: string;
+  startDate: string;
+  endDate: string;
+  granularity: RelatoriosGranularity;
+}
+
+/**
  * Interface do adaptador do módulo de Relatórios: uma consulta por
  * contrato de leitura (spec 038, "Módulo `src/modules/relatorios/`"). Só
  * leitura -- sem adaptador em memória, como a 037: um `vi.fn()` cobre
@@ -419,4 +503,5 @@ export interface RelatoriosAdapter {
   obterEquipeEServicos(input: ObterEquipeEServicosInput): Promise<RelatorioEquipeServicos>;
   obterAgenda(input: ObterAgendaInput): Promise<RelatorioAgenda>;
   obterClientesSemRetorno(input: ObterClientesSemRetornoInput): Promise<RelatorioClientesSemRetorno>;
+  obterClientes(input: ObterClientesInput): Promise<RelatorioClientes>;
 }
