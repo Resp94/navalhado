@@ -161,7 +161,7 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="Detalhe da conta a pagar" width="min(92vw, 560px)">
       {loading && (
-        <div className="conta-pagar-detalhe-skeleton">
+        <div className="flex flex-col gap-4">
           <Skeleton height={24} />
           <Skeleton height={80} />
           <Skeleton height={120} />
@@ -173,13 +173,13 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
       )}
 
       {!loading && !error && conta && (
-        <div className="conta-pagar-detalhe">
-          <header className="conta-pagar-detalhe-header">
-            <h3 className="conta-pagar-detalhe-titulo">{conta.description}</h3>
+        <div className="flex flex-col gap-4">
+          <header className="flex items-center justify-between gap-3">
+            <h3 className="m-0 text-base font-extrabold text-text-primary">{conta.description}</h3>
             {situacao && <Badge variant={situacao.variant}>{situacao.label}</Badge>}
           </header>
 
-          <dl className="conta-pagar-detalhe-info">
+          <dl className="grid grid-cols-2 gap-3 gap-x-4 m-0 [&_dt]:text-xs [&_dt]:text-text-secondary [&_dd]:m-0 [&_dd]:font-bold [&_dd]:text-text-primary">
             <div>
               <dt>Categoria</dt>
               <dd>{conta.category_name}</dd>
@@ -245,8 +245,11 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           </dl>
 
           {conta.seriesEndingSoon && conta.series_id && (
-            <div className="conta-pagar-detalhe-aviso-serie" role="status">
-              <p>
+            <div
+              className="bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem] flex flex-wrap items-center justify-between gap-3"
+              role="status"
+            >
+              <p className="m-0 text-sm text-text-primary">
                 Esta Recorrência está perto de acabar
                 {conta.seriesLastDueDate && ` — última ocorrência vence em ${formatarData(conta.seriesLastDueDate)}`}
                 .
@@ -257,7 +260,7 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
             </div>
           )}
 
-          <div className="conta-pagar-detalhe-acoes">
+          <div className="flex flex-wrap gap-3">
             {podeReceberBaixa && (
               <Button variant="primary" size="sm" onClick={() => setBaixaDialogAberto(true)}>
                 Dar Baixa
@@ -275,18 +278,21 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
             )}
           </div>
 
-          <h4 className="conta-pagar-detalhe-subtitulo">Baixas</h4>
+          <h4 className="mt-2 mb-0 text-sm font-extrabold text-text-primary">Baixas</h4>
 
           {baixas.length === 0 && (
-            <p className="conta-pagar-detalhe-vazio">Nenhuma Baixa lançada ainda.</p>
+            <p className="text-sm text-text-secondary">Nenhuma Baixa lançada ainda.</p>
           )}
 
           {baixas.length > 0 && (
-            <ul className="conta-pagar-detalhe-baixas">
+            <ul className="list-none m-0 p-0 flex flex-col gap-3">
               {baixas.map((baixa) => (
-                <li key={baixa.id} className="conta-pagar-detalhe-baixa">
-                  <div className="conta-pagar-detalhe-baixa-linha">
-                    <span className="conta-pagar-detalhe-baixa-valor">
+                <li
+                  key={baixa.id}
+                  className="shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md p-[0.85rem] flex flex-col gap-[0.35rem]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-text-primary">
                       {formatarMoeda(baixa.paidAmount)}
                     </span>
                     {baixa.reversedAt ? (
@@ -295,17 +301,17 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
                       <Badge variant="success">Ativa</Badge>
                     )}
                   </div>
-                  <p className="conta-pagar-detalhe-baixa-detalhe">
+                  <p className="m-0 text-sm text-text-secondary">
                     Principal {formatarMoeda(baixa.principal)}
                     {baixa.interestAmount > 0 && ` · Juros ${formatarMoeda(baixa.interestAmount)}`}
                     {baixa.discountAmount > 0 && ` · Desconto ${formatarMoeda(baixa.discountAmount)}`}
                   </p>
-                  <p className="conta-pagar-detalhe-baixa-detalhe">
+                  <p className="m-0 text-sm text-text-secondary">
                     {formatarData(baixa.paymentDate)} · {ROTULO_FORMA[baixa.paymentMethod]}
                     {baixa.createdByName && ` · lançada por ${baixa.createdByName}`}
                   </p>
                   {baixa.reversedAt && (
-                    <p className="conta-pagar-detalhe-baixa-detalhe">
+                    <p className="m-0 text-sm text-text-secondary">
                       Estornada{baixa.reversedByName && ` por ${baixa.reversedByName}`}
                       {baixa.reversalReason && `: ${baixa.reversalReason}`}
                     </p>
@@ -381,123 +387,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           onFechar={() => setEstenderAberto(false)}
         />
       )}
-
-      <style>{`
-        .conta-pagar-detalhe-skeleton {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .conta-pagar-detalhe {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .conta-pagar-detalhe-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.75rem;
-        }
-
-        .conta-pagar-detalhe-titulo {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-detalhe-info {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem 1rem;
-          margin: 0;
-        }
-
-        .conta-pagar-detalhe-info dt {
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .conta-pagar-detalhe-info dd {
-          margin: 0;
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-detalhe-aviso-serie {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.75rem;
-        }
-
-        .conta-pagar-detalhe-aviso-serie p {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-detalhe-acoes {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-
-        .conta-pagar-detalhe-subtitulo {
-          margin: 0.5rem 0 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-detalhe-vazio {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .conta-pagar-detalhe-baixas {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .conta-pagar-detalhe-baixa {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .conta-pagar-detalhe-baixa-linha {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .conta-pagar-detalhe-baixa-valor {
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-detalhe-baixa-detalhe {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-      `}</style>
     </Drawer>
   );
 };

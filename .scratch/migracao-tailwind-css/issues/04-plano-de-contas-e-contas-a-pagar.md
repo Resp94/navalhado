@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Fundação Tailwind), 02 (Remoção do modo escuro), 03 (Componentes UI compartilhados)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `PlanoContas.css` e `ContasPagar.css` removidos, com toda regra convertida em utilitário Tailwind equivalente
-- [ ] Bloco `<style>` inline dos modais listados removido e convertido
-- [ ] Fluxo de criar/editar/excluir categoria de despesa, fornecedor e conta a pagar verificado manualmente sem mudança de comportamento
-- [ ] Testes existentes desses componentes continuam passando, com seletores por classe CSS removida reescritos para role/texto/label
-- [ ] `npm run test`, `npm run build` e `oxlint` continuam passando
+- [x] `PlanoContas.css` e `ContasPagar.css` removidos, com toda regra convertida em utilitário Tailwind equivalente
+- [x] Bloco `<style>` inline dos modais listados removido e convertido
+- [x] Fluxo de criar/editar/excluir categoria de despesa, fornecedor e conta a pagar verificado manualmente sem mudança de comportamento
+- [x] Testes existentes desses componentes continuam passando, com seletores por classe CSS removida reescritos para role/texto/label
+- [x] `npm run test`, `npm run build` e `oxlint` continuam passando
