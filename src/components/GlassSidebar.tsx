@@ -7,6 +7,7 @@ import {
   Scissors,
   Package,
   CurrencyDollar,
+  ChartBar,
   WhatsappLogo,
   Gear,
   SignOut,
@@ -77,6 +78,18 @@ const NAV_ITEMS: NavItemConfig[] = [
     label: 'Financeiro',
     renderIcon: ({ size, isBold }) => (
       <CurrencyDollar size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
+    ),
+  },
+  {
+    // Módulo de Relatórios (spec 038): rota própria, fora do Hub
+    // Financeiro, exclusiva do desktop -- por isso não entra na barra
+    // inferior nem na gaveta "Mais" do celular (`MobileBottomNav`,
+    // `MobileMaisDrawer`), só nesta sidebar (`GlassSidebar`), que já é
+    // exibida apenas acima de 768px.
+    path: '/relatorios',
+    label: 'Relatórios',
+    renderIcon: ({ size, isBold }) => (
+      <ChartBar size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
     ),
   },
   {
