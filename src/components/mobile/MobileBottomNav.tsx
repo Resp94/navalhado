@@ -18,180 +18,81 @@ interface MobileBottomNavProps {
   activeItemId?: string;
 }
 
+const ITEM_BASE_CLASS =
+  'flex-1 flex flex-col items-center justify-center gap-[3px] h-full bg-transparent border-none text-text-secondary no-underline relative cursor-pointer py-1.5 px-0 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation [-webkit-tap-highlight-color:transparent] active:scale-92';
+
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ items, activeItemId }) => {
   const location = useLocation();
 
   return (
-    <>
-      <nav className="mobile-bottom-nav" aria-label="Navegação principal mobile">
-        <div className="mobile-bottom-nav__container">
-          {items.map((item) => {
-            const isActive = activeItemId 
-              ? activeItemId === item.id 
-              : item.path 
-                ? (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path))) 
-                : false;
+    <nav
+      className="hidden max-md:block fixed bottom-0 inset-x-0 z-[900] bg-bg-secondary backdrop-blur-[20px] backdrop-saturate-[180%] border-t border-border shadow-lg pb-[env(safe-area-inset-bottom,0px)]"
+      aria-label="Navegação principal mobile"
+    >
+      <div className="flex items-center justify-around h-[60px] max-w-[600px] mx-auto px-2">
+        {items.map((item) => {
+          const isActive = activeItemId
+            ? activeItemId === item.id
+            : item.path
+              ? (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)))
+              : false;
 
-            let iconElement: React.ReactNode;
-            if (React.isValidElement(item.icon)) {
-              iconElement = item.icon;
-            } else if (typeof item.icon === 'function') {
-              const CustomIcon = item.icon as React.ComponentType<{ size?: number; className?: string }>;
-              iconElement = <CustomIcon size={22} />;
-            } else {
-              iconElement = <HugeiconsIcon icon={item.icon as HugeIconProp} size={22} />;
-            }
+          let iconElement: React.ReactNode;
+          if (React.isValidElement(item.icon)) {
+            iconElement = item.icon;
+          } else if (typeof item.icon === 'function') {
+            const CustomIcon = item.icon as React.ComponentType<{ size?: number; className?: string }>;
+            iconElement = <CustomIcon size={22} />;
+          } else {
+            iconElement = <HugeiconsIcon icon={item.icon as HugeIconProp} size={22} />;
+          }
 
-            const content = (
-              <>
-                <div className="mobile-bottom-nav__icon-wrapper">
-                  {iconElement}
-                  {item.badgeCount && item.badgeCount > 0 ? (
-                    <span className="mobile-bottom-nav__badge">{item.badgeCount > 99 ? '99+' : item.badgeCount}</span>
-                  ) : null}
-                </div>
-                <span className="mobile-bottom-nav__label">{item.label}</span>
-                {isActive && <div className="mobile-bottom-nav__indicator" />}
-              </>
-            );
+          const itemClassName = `${ITEM_BASE_CLASS} ${isActive ? 'text-brand-primary' : ''}`;
+          const labelClassName = `text-[0.6875rem] tracking-[-0.01em] text-inherit whitespace-nowrap ${isActive ? 'font-semibold' : 'font-medium'}`;
 
-            if (item.onClick) {
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={item.onClick}
-                  className={`mobile-bottom-nav__item ${isActive ? 'mobile-bottom-nav__item--active' : ''}`}
-                  aria-label={item.label}
-                >
-                  {content}
-                </button>
-              );
-            }
+          const content = (
+            <>
+              <div className="relative flex items-center justify-center h-6 text-inherit">
+                {iconElement}
+                {item.badgeCount && item.badgeCount > 0 ? (
+                  <span className="absolute -top-1 -right-2 bg-error text-brand-lightest text-[0.625rem] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
+                  </span>
+                ) : null}
+              </div>
+              <span className={labelClassName}>{item.label}</span>
+              {isActive && (
+                <div className="absolute top-0 w-6 h-[3px] bg-brand-primary rounded-b-sm shadow-[0_2px_8px_rgba(217,108,0,0.4)]" />
+              )}
+            </>
+          );
 
+          if (item.onClick) {
             return (
-              <Link
+              <button
                 key={item.id}
-                to={item.path || '#'}
-                className={`mobile-bottom-nav__item ${isActive ? 'mobile-bottom-nav__item--active' : ''}`}
+                type="button"
+                onClick={item.onClick}
+                className={itemClassName}
                 aria-label={item.label}
               >
                 {content}
-              </Link>
+              </button>
             );
-          })}
-        </div>
-      </nav>
-
-      <style>{`
-        .mobile-bottom-nav {
-          display: none;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 900;
-          background: var(--color-bg-secondary);
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border-top: 1px solid var(--color-border);
-          box-shadow: var(--shadow-lg, 0 -4px 24px rgba(0, 0, 0, 0.35));
-          padding-bottom: env(safe-area-inset-bottom, 0px);
-        }
-
-        @media (max-width: 768px) {
-          .mobile-bottom-nav {
-            display: block;
           }
-        }
 
-        .mobile-bottom-nav__container {
-          display: flex;
-          align-items: center;
-          justify-content: space-around;
-          height: 60px;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 0 0.5rem;
-        }
-
-        .mobile-bottom-nav__item {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          height: 100%;
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          text-decoration: none;
-          position: relative;
-          cursor: pointer;
-          padding: 6px 0;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          touch-action: manipulation;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        .mobile-bottom-nav__item:active {
-          transform: scale(0.92);
-        }
-
-        .mobile-bottom-nav__icon-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 24px;
-          color: inherit;
-        }
-
-        .mobile-bottom-nav__label {
-          font-size: 0.6875rem;
-          font-weight: 500;
-          letter-spacing: -0.01em;
-          color: inherit;
-          white-space: nowrap;
-        }
-
-        .mobile-bottom-nav__item--active {
-          color: var(--color-brand-primary);
-        }
-
-        .mobile-bottom-nav__item--active .mobile-bottom-nav__label {
-          font-weight: 600;
-        }
-
-        .mobile-bottom-nav__indicator {
-          position: absolute;
-          top: 0;
-          width: 24px;
-          height: 3px;
-          background: var(--color-brand-primary);
-          border-radius: 0 0 var(--radius-sm, 3px) var(--radius-sm, 3px);
-          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.4);
-        }
-
-        .mobile-bottom-nav__badge {
-          position: absolute;
-          top: -4px;
-          right: -8px;
-          background: var(--color-error);
-          color: var(--color-brand-lightest);
-          font-size: 0.625rem;
-          font-weight: 700;
-          min-width: 16px;
-          height: 16px;
-          border-radius: var(--radius-full, 9999px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 4px;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-        }
-      `}</style>
-    </>
+          return (
+            <Link
+              key={item.id}
+              to={item.path || '#'}
+              className={itemClassName}
+              aria-label={item.label}
+            >
+              {content}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 };

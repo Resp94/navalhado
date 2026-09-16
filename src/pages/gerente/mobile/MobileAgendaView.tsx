@@ -51,6 +51,41 @@ interface TimelineItem {
   block?: BlockedSlot;
 }
 
+// Cores dos estados visuais do card de agendamento (ticket 12, spec 039).
+// Os estados são mutuamente exclusivos na origem (status do agendamento), exceto
+// por "isFitting", que é independente e pode combinar com qualquer um deles.
+// Prioridade (replica a cascata do CSS legado): no-show > pago > encaixe > em andamento > padrão.
+const AGENDA_CARD_COLORS = {
+  default: { background: '#d1d5db', borderColor: 'rgba(0, 0, 0, 0.08)' },
+  fitting: { background: '#ffedd5', borderColor: '#b45309' },
+  active: { background: '#fed7aa', borderColor: '#f97316' },
+  paid: { background: '#86efac', borderColor: '#4ade80' },
+  noShow: { background: '#fee2e2', borderColor: '#fca5a5' },
+} as const;
+
+function getAgendaCardStyle(opts: {
+  isNoShow: boolean;
+  isPaid: boolean;
+  isFitting: boolean;
+  isProgress: boolean;
+}): React.CSSProperties {
+  const state = opts.isNoShow
+    ? AGENDA_CARD_COLORS.noShow
+    : opts.isPaid
+      ? AGENDA_CARD_COLORS.paid
+      : opts.isFitting
+        ? AGENDA_CARD_COLORS.fitting
+        : opts.isProgress
+          ? AGENDA_CARD_COLORS.active
+          : AGENDA_CARD_COLORS.default;
+
+  return {
+    backgroundColor: state.background,
+    borderColor: state.borderColor,
+    borderLeftWidth: opts.isFitting ? 4 : 1,
+  };
+}
+
 export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   timezone,
   businessHours,
@@ -203,13 +238,13 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   }, [filteredAppointments, filteredBlocks, showEmptySlots, timeSlots, timezone, dayBh, businessHours, selectedProfId, professionals, selectedDate]);
 
   return (
-    <div className="mobile-agenda">
+    <div className="flex flex-col gap-3 w-full max-w-full box-border overflow-x-hidden pb-2">
       {/* ─── SELETOR DE DATA ─── */}
-      <div className="mobile-agenda__header-row">
-        <div className="mobile-agenda__date-bar">
+      <div className="flex items-center w-full max-w-full box-border max-[380px]:gap-[0.2rem]">
+        <div className="flex items-center justify-between w-full bg-bg-secondary border border-border rounded-md py-[0.32rem] px-2 box-border max-[380px]:py-[0.2rem] max-[380px]:px-[0.25rem]">
           <button
             type="button"
-            className="mobile-agenda__nav-btn"
+            className="w-7 h-7 min-w-7 min-h-7 rounded-sm bg-transparent border border-border text-black flex items-center justify-center cursor-pointer transition-all duration-150 ease-linear touch-manipulation p-0 hover:border-brand-primary hover:text-brand-primary active:scale-92"
             onClick={handlePrevDay}
             aria-label="Dia anterior"
             title="Voltar para o dia anterior"
@@ -217,17 +252,21 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             <HugeiconsIcon icon={ArrowLeft01Icon} size={18} />
           </button>
 
-          <div className="mobile-agenda__date-display">
-            <div className="mobile-agenda__date-picker-wrapper">
+          <div className="flex items-center gap-1.5 select-none">
+            <div className="relative shrink-0">
               <button
                 type="button"
-                className="mobile-agenda__calendar-picker"
+                className="inline-flex items-center justify-center w-7 h-7 p-0 rounded-sm bg-transparent border border-border text-black cursor-pointer transition-all duration-150 ease-linear shrink-0 hover:border-brand-primary hover:bg-brand-lightest active:scale-92"
                 onClick={() => setIsDatePickerOpen((prev) => !prev)}
                 title="Escolher data no calendário"
                 aria-label="Escolher data no calendário"
                 aria-expanded={isDatePickerOpen}
               >
-                <HugeiconsIcon icon={Calendar03Icon} size={15} className="mobile-agenda__calendar-icon" />
+                <HugeiconsIcon
+                  icon={Calendar03Icon}
+                  size={15}
+                  className="pointer-events-none fill-none stroke-black"
+                />
               </button>
 
               {isDatePickerOpen && (
@@ -240,16 +279,27 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   }}
                   onClose={() => setIsDatePickerOpen(false)}
                   position="left"
+                  // Sobrescreve o posicionamento absoluto padrão do CustomDatePicker
+                  // (componente compartilhado, fora do escopo desta migração) para
+                  // que o calendário apareça fixo e ocupando a largura útil da tela
+                  // em vez de um dropdown ancorado ao botão, em viewport mobile.
+                  // !important é necessário pois o <style> interno do CustomDatePicker
+                  // é renderizado depois do CSS global e empataria em especificidade.
+                  className="!fixed !left-4 !right-4 !top-24 !w-auto"
                 />
               )}
             </div>
-            <span className="mobile-agenda__date-title">{formattedDateTitle}</span>
+            <span className="text-[0.84375rem] font-bold text-text-primary whitespace-nowrap tracking-[-0.01em]">
+              {formattedDateTitle}
+            </span>
             {isToday ? (
-              <span className="mobile-agenda__today-pill">Hoje</span>
+              <span className="text-[0.5625rem] font-bold uppercase bg-[rgba(217,108,0,0.15)] text-brand-primary py-[1.5px] px-[5px] rounded-sm whitespace-nowrap leading-[1.2]">
+                Hoje
+              </span>
             ) : (
               <button
                 type="button"
-                className="mobile-agenda__today-pill mobile-agenda__today-pill--btn"
+                className="text-[0.5625rem] font-bold uppercase bg-[rgba(217,108,0,0.15)] text-brand-primary py-[1.5px] px-[5px] rounded-sm whitespace-nowrap leading-[1.2] cursor-pointer border-none transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-brand-primary hover:text-brand-lightest"
                 onClick={handleSetToday}
                 title="Voltar para hoje"
               >
@@ -260,7 +310,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
 
           <button
             type="button"
-            className="mobile-agenda__nav-btn"
+            className="w-7 h-7 min-w-7 min-h-7 rounded-sm bg-transparent border border-border text-black flex items-center justify-center cursor-pointer transition-all duration-150 ease-linear touch-manipulation p-0 hover:border-brand-primary hover:text-brand-primary active:scale-92"
             onClick={handleNextDay}
             aria-label="Próximo dia"
             title="Avançar para o próximo dia"
@@ -271,7 +321,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
       </div>
 
       {/* ─── CARROSSEL DE PROFISSIONAIS ─── */}
-      <div className="mobile-agenda__prof-carousel">
+      <div className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] max-w-full [&::-webkit-scrollbar]:hidden">
         {activeProfessionals.map((prof) => {
           const count = appointments.filter((a) => a.professional_id === prof.id).length;
           const isSelected = selectedProfId === prof.id;
@@ -280,37 +330,41 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             <button
               key={prof.id}
               type="button"
-              className={`mobile-agenda__prof-chip ${isSelected ? 'mobile-agenda__prof-chip--active' : ''}`}
+              className={`flex items-center gap-1.5 py-[0.45rem] px-3 rounded-full text-[0.8125rem] whitespace-nowrap cursor-pointer shrink-0 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-96 ${
+                isSelected
+                  ? 'bg-brand-primary text-brand-lightest border border-brand-primary font-bold'
+                  : 'bg-bg-secondary text-text-secondary border border-border font-medium'
+              }`}
               onClick={() => setSelectedProfId(prof.id)}
             >
-              <span className="mobile-agenda__chip-avatar">
+              <span className="w-[18px] h-[18px] rounded-full bg-black/15 text-inherit text-[0.625rem] font-bold flex items-center justify-center">
                 {prof.name.charAt(0).toUpperCase()}
               </span>
               <span>{prof.name.split(' ')[0]}</span>
-              <span className="mobile-agenda__chip-count">{count}</span>
+              <span className="text-[0.6875rem] bg-black/15 py-px px-[5px] rounded-full">{count}</span>
             </button>
           );
         })}
       </div>
 
       {/* ─── LINHA DO TEMPO CRONOLÓGICA ─── */}
-      <div className="mobile-agenda__timeline">
+      <div className="flex flex-col gap-3 w-full box-border">
         {timelineItems.length === 0 ? (
-          <div className="mobile-agenda__empty-state">
-            <div className="mobile-agenda__empty-icon">
+          <div className="flex flex-col items-center justify-center text-center py-12 px-6 bg-bg-secondary border border-border rounded-xl w-full box-border">
+            <div className="text-text-secondary mb-3">
               <HugeiconsIcon icon={Calendar03Icon} size={32} />
             </div>
-            <h3 className="mobile-agenda__empty-title">
+            <h3 className="text-base font-bold text-text-primary m-0 mb-1">
               {!dayBh.active ? 'Barbearia fechada neste dia' : 'Nenhum agendamento para este dia'}
             </h3>
-            <p className="mobile-agenda__empty-desc">
+            <p className="text-[0.8125rem] text-text-secondary m-0 mb-5">
               {!dayBh.active
                 ? `Conforme o horário de funcionamento configurado, o estabelecimento não abre às ${dayBh.dayLabel}s.`
                 : `Nenhum atendimento para ${profNameMap.get(selectedProfId) || 'o profissional'} hoje.`}
             </p>
             <button
               type="button"
-              className="mobile-agenda__empty-cta"
+              className="flex items-center gap-2 bg-brand-primary text-brand-lightest text-[0.8125rem] font-semibold py-2.5 px-4 rounded-md border-none cursor-pointer transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-brand-hover"
               onClick={() =>
                 onOpenNewAppointment(
                   selectedProfId || undefined,
@@ -325,7 +379,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="mobile-agenda__cards-list">
+          <div className="flex flex-col gap-2.5 w-full box-border">
             {timelineItems.map((item) => {
               if (item.type === 'empty') {
                 const isPast =
@@ -336,7 +390,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   return (
                     <div
                       key={`empty-past-${item.time}`}
-                      className="mobile-agenda__empty-slot mobile-agenda__empty-slot--past"
+                      className="flex items-center gap-3 py-2.5 px-3.5 rounded-md min-h-11 w-full box-border transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-[repeating-linear-gradient(-45deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02)_6px,rgba(0,0,0,0.05)_6px,rgba(0,0,0,0.05)_12px)] border border-dashed border-border opacity-85 cursor-pointer hover:border-brand-primary hover:bg-[rgba(217,108,0,0.06)] hover:opacity-100 active:border-brand-primary active:bg-[rgba(217,108,0,0.06)] active:opacity-100"
                       role="button"
                       tabIndex={0}
                       onClick={() =>
@@ -359,8 +413,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                       title={`Horário já passou (${item.time}) - Toque para registrar encaixe`}
                       aria-label={`Horário decorrido às ${item.time}. Toque para registrar encaixe.`}
                     >
-                      <span className="mobile-agenda__empty-slot-time">{item.time}</span>
-                      <span className="mobile-agenda__empty-slot-text">
+                      <span className="text-xs font-bold text-text-secondary min-w-[42px]">{item.time}</span>
+                      <span className="flex items-center gap-[0.35rem] text-xs font-medium text-text-secondary">
                         <HugeiconsIcon icon={Clock01Icon} size={14} />
                         Toque para encaixe
                       </span>
@@ -371,7 +425,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={`empty-avail-${item.time}`}
-                    className="mobile-agenda__empty-slot mobile-agenda__empty-slot--available"
+                    className="flex items-center gap-3 py-2.5 px-3.5 rounded-md min-h-11 w-full box-border transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-white/[0.02] border border-dashed border-border cursor-pointer hover:border-brand-primary hover:bg-[rgba(217,108,0,0.08)] hover:scale-[0.99] active:border-brand-primary active:bg-[rgba(217,108,0,0.08)] active:scale-[0.99]"
                     role="button"
                     tabIndex={0}
                     onClick={() =>
@@ -394,8 +448,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                     title={`Toque para agendar às ${item.time}`}
                     aria-label={`Horário vago às ${item.time}. Toque para agendar.`}
                   >
-                    <span className="mobile-agenda__empty-slot-time">{item.time}</span>
-                    <span className="mobile-agenda__empty-slot-text">
+                    <span className="text-xs font-bold text-text-secondary min-w-[42px]">{item.time}</span>
+                    <span className="flex items-center gap-[0.35rem] text-xs font-medium text-text-secondary">
                       <HugeiconsIcon icon={PlusSignIcon} size={14} />
                       Toque para agendar
                     </span>
@@ -412,7 +466,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={blk.id}
-                    className="mobile-agenda__block-card"
+                    className="flex items-center justify-between py-3 px-4 bg-[rgba(240,82,82,0.08)] border border-dashed border-[rgba(240,82,82,0.3)] rounded-md text-error cursor-pointer w-full box-border"
                     role="button"
                     tabIndex={0}
                     onClick={() => onRemoveBlock(blk)}
@@ -425,14 +479,18 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                     title="Toque para remover este bloqueio"
                     aria-label={`Bloqueio ${blk.reason} das ${tStart} às ${tEnd}. Toque para remover.`}
                   >
-                    <div className="mobile-agenda__block-info">
+                    <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
                       <HugeiconsIcon icon={UnavailableIcon} size={16} />
                       <div>
-                        <span className="mobile-agenda__block-title">Bloqueio: {blk.reason}</span>
-                        <span className="mobile-agenda__block-time">{tStart} às {tEnd} • {profName}</span>
+                        <span className="text-[0.8125rem] font-semibold block whitespace-nowrap overflow-hidden text-ellipsis">
+                          Bloqueio: {blk.reason}
+                        </span>
+                        <span className="text-[0.6875rem] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tStart} às {tEnd} • {profName}
+                        </span>
                       </div>
                     </div>
-                    <span className="mobile-agenda__block-remove">Remover</span>
+                    <span className="text-[0.6875rem] font-semibold underline shrink-0">Remover</span>
                   </div>
                 );
               }
@@ -456,7 +514,13 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                 return (
                   <div
                     key={app.id}
-                    className={`mobile-agenda__card ${isNoShow ? 'mobile-agenda__card--no-show' : isCompletedAndPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
+                    className={`rounded-xl py-[0.65rem] px-3.5 cursor-pointer transition-transform duration-150 ease-linear select-none shadow-[0_1px_3px_rgba(0,0,0,0.05)] w-full max-w-full box-border min-w-0 overflow-hidden border border-solid active:scale-[0.985] ${isNoShow ? 'mobile-agenda__card--no-show' : isCompletedAndPaid ? 'mobile-agenda__card--paid' : isProgress ? 'mobile-agenda__card--active' : ''} ${isFitting ? 'mobile-agenda__card--fitting' : 'mobile-agenda__card--normal'}`}
+                    style={getAgendaCardStyle({
+                      isNoShow,
+                      isPaid: isCompletedAndPaid,
+                      isFitting,
+                      isProgress,
+                    })}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenCheckout(app)}
@@ -469,41 +533,41 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                     title="Toque para abrir a comanda"
                     aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Toque para abrir comanda.`}
                   >
-                    <div className="mobile-agenda__card-compact">
-                      <div className="mobile-agenda__card-col-time">
-                        <span className="mobile-agenda__time-text">{timeStart}</span>
+                    <div className="flex items-center justify-between gap-2 w-full min-w-0">
+                      <div className="flex items-center min-w-11 shrink-0">
+                        <span className="text-[0.9375rem] font-extrabold text-[#111827] tracking-[-0.02em]">{timeStart}</span>
                       </div>
 
-                      <div className="mobile-agenda__card-col-client">
-                        <span className="mobile-agenda__client-name">
+                      <div className="flex flex-col justify-center gap-[0.1rem] flex-1 min-w-0 overflow-hidden">
+                        <span className="text-[0.8125rem] font-semibold text-[#111827] whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
                           {app.customer?.name || 'Cliente Balcão'}
                         </span>
                         {app.customer?.phone && (
-                          <span className="mobile-agenda__client-phone">
+                          <span className="text-[0.6875rem] text-[#374151] whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
                             {app.customer.phone}
                           </span>
                         )}
                       </div>
 
-                      <div className="mobile-agenda__card-col-service">
-                        <span className="mobile-agenda__service-price">
+                      <div className="flex flex-col items-end justify-center gap-[0.15rem] text-right [flex:0_1_auto] max-w-[45%] min-w-0 overflow-hidden">
+                        <span className="text-[0.6875rem] font-bold text-[#1f2937] uppercase leading-[1.2] whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
                           {(app.service?.name || 'Serviço').toUpperCase()} - R$ {Number(app.service?.price || 0).toFixed(2)}
                         </span>
                         {isFitting && (
-                          <span className="mobile-agenda__fitting-pill">Encaixe</span>
+                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b45309] text-white text-[0.65rem] font-bold">Encaixe</span>
                         )}
                         {isCompletedAndPaid && (
-                          <span className="mobile-agenda__paid-pill">Pago</span>
+                          <span className="text-[0.5625rem] font-bold text-[#065f46] bg-[rgba(16,185,129,0.25)] py-px px-[5px] rounded-[3px] uppercase">Pago</span>
                         )}
                         {isNoShow && (
-                          <span className="mobile-agenda__no-show-pill">Não compareceu</span>
+                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b91c1c] text-white text-[0.65rem] font-bold">Não compareceu</span>
                         )}
                       </div>
                     </div>
                     {canMarkNoShow && onMarkNoShow && (
                       <button
                         type="button"
-                        className="mobile-agenda__no-show-action"
+                        className="self-end mt-[0.45rem] border border-[#fca5a5] rounded-md py-[0.3rem] px-[0.55rem] bg-white/80 text-[#b91c1c] text-[0.7rem] font-bold cursor-pointer"
                         onClick={(event) => {
                           event.stopPropagation();
                           void onMarkNoShow(app);
@@ -522,607 +586,6 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           </div>
         )}
       </div>
-
-      <style>{`
-        .mobile-agenda {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          overflow-x: hidden;
-          padding-bottom: 0.5rem;
-        }
-
-        .mobile-agenda__header-row {
-          display: flex;
-          align-items: center;
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__date-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 10px);
-          padding: 0.32rem 0.5rem;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__date-display {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          user-select: none;
-        }
-
-        .mobile-agenda__date-picker-wrapper {
-          position: relative;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__date-picker-wrapper .custom-datepicker-dropdown {
-          position: fixed;
-          left: 16px;
-          right: 16px;
-          top: 96px;
-          width: auto;
-        }
-
-        .mobile-agenda__calendar-picker {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          padding: 0;
-          border-radius: var(--radius-sm, 6px);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          color: #000;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__calendar-picker:hover {
-          border-color: var(--color-brand-primary);
-          background: var(--color-brand-lightest);
-        }
-
-        .mobile-agenda__calendar-picker:active {
-          transform: scale(0.92);
-        }
-
-        .mobile-agenda__calendar-icon {
-          pointer-events: none;
-          fill: none;
-          stroke: #000;
-        }
-
-        .mobile-agenda__nav-btn {
-          width: 28px;
-          height: 28px;
-          min-width: 28px;
-          min-height: 28px;
-          border-radius: var(--radius-sm, 6px);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          color: #000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          touch-action: manipulation;
-          padding: 0;
-        }
-
-        .mobile-agenda__nav-btn:hover {
-          border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
-        }
-
-        .mobile-agenda__nav-btn:active {
-          transform: scale(0.92);
-        }
-
-        .mobile-agenda__date-title {
-          font-size: 0.84375rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          letter-spacing: -0.01em;
-        }
-
-        .mobile-agenda__today-pill {
-          font-size: 0.5625rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          background: rgba(217, 108, 0, 0.15);
-          color: var(--color-brand-primary);
-          padding: 1.5px 5px;
-          border-radius: var(--radius-sm, 4px);
-          white-space: nowrap;
-          line-height: 1.2;
-        }
-
-        .mobile-agenda__today-pill--btn {
-          cursor: pointer;
-          border: none;
-          transition: all 0.2s ease;
-        }
-
-        .mobile-agenda__today-pill--btn:hover {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-        }
-
-
-
-        .mobile-agenda__prof-carousel {
-          display: flex;
-          gap: 0.5rem;
-          overflow-x: auto;
-          padding-bottom: 4px;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          max-width: 100%;
-        }
-
-        .mobile-agenda__prof-carousel::-webkit-scrollbar {
-          display: none;
-        }
-
-        .mobile-agenda__prof-chip {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          padding: 0.45rem 0.75rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-full, 9999px);
-          color: var(--color-text-secondary);
-          font-size: 0.8125rem;
-          font-weight: 500;
-          white-space: nowrap;
-          cursor: pointer;
-          flex-shrink: 0;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-agenda__prof-chip:active {
-          transform: scale(0.96);
-        }
-
-        .mobile-agenda__prof-chip--active {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          border-color: var(--color-brand-primary);
-          font-weight: 700;
-        }
-
-        .mobile-agenda__chip-avatar {
-          width: 18px;
-          height: 18px;
-          border-radius: var(--radius-full, 50%);
-          background: rgba(0, 0, 0, 0.15);
-          color: inherit;
-          font-size: 0.625rem;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .mobile-agenda__chip-count {
-          font-size: 0.6875rem;
-          background: rgba(0, 0, 0, 0.15);
-          padding: 1px 5px;
-          border-radius: var(--radius-full, 9999px);
-        }
-
-        .mobile-agenda__timeline {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 3rem 1.5rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-xl, 16px);
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__empty-icon {
-          color: var(--color-text-secondary);
-          margin-bottom: 0.75rem;
-        }
-
-        .mobile-agenda__empty-title {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0 0 0.25rem;
-        }
-
-        .mobile-agenda__empty-desc {
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary);
-          margin: 0 0 1.25rem;
-        }
-
-        .mobile-agenda__empty-cta {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          font-size: 0.8125rem;
-          font-weight: 600;
-          padding: 0.625rem 1rem;
-          border-radius: var(--radius-md, 8px);
-          border: none;
-          cursor: pointer;
-          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-agenda__empty-cta:hover {
-          background: var(--color-brand-hover);
-        }
-
-        .mobile-agenda__cards-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.625rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__empty-slot {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.625rem 0.875rem;
-          border-radius: var(--radius-md, 8px);
-          min-height: 44px;
-          width: 100%;
-          box-sizing: border-box;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-agenda__empty-slot--available {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px dashed var(--color-border);
-          cursor: pointer;
-        }
-
-        .mobile-agenda__empty-slot--available:hover,
-        .mobile-agenda__empty-slot--available:active {
-          border-color: var(--color-brand-primary);
-          background: rgba(217, 108, 0, 0.08);
-          transform: scale(0.99);
-        }
-
-        .mobile-agenda__empty-slot--past {
-          background: repeating-linear-gradient(
-            -45deg,
-            rgba(0, 0, 0, 0.02),
-            rgba(0, 0, 0, 0.02) 6px,
-            rgba(0, 0, 0, 0.05) 6px,
-            rgba(0, 0, 0, 0.05) 12px
-          );
-          border: 1px dashed var(--color-border);
-          opacity: 0.85;
-          cursor: pointer;
-        }
-
-        .mobile-agenda__empty-slot--past:hover,
-        .mobile-agenda__empty-slot--past:active {
-          border-color: var(--color-brand-primary);
-          background: rgba(217, 108, 0, 0.06);
-          opacity: 1;
-        }
-
-        .mobile-agenda__empty-slot--break {
-          background: repeating-linear-gradient(
-            45deg,
-            rgba(217, 108, 0, 0.03),
-            rgba(217, 108, 0, 0.03) 6px,
-            rgba(217, 108, 0, 0.07) 6px,
-            rgba(217, 108, 0, 0.07) 12px
-          );
-          border: 1px solid rgba(217, 108, 0, 0.2);
-          opacity: 0.8;
-          cursor: not-allowed;
-        }
-
-        .mobile-agenda__empty-slot--break .mobile-agenda__empty-slot-text {
-          color: var(--color-brand-primary, #d96c00);
-          font-weight: 700;
-        }
-
-        .mobile-agenda__empty-slot--closed {
-          background: repeating-linear-gradient(
-            -45deg,
-            rgba(0, 0, 0, 0.03),
-            rgba(0, 0, 0, 0.03) 6px,
-            rgba(0, 0, 0, 0.06) 6px,
-            rgba(0, 0, 0, 0.06) 12px
-          );
-          border: 1px solid var(--color-border);
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-
-        .mobile-agenda__empty-slot-time {
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          min-width: 42px;
-        }
-
-        .mobile-agenda__empty-slot-text {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-agenda__block-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          background: rgba(240, 82, 82, 0.08);
-          border: 1px dashed rgba(240, 82, 82, 0.3);
-          border-radius: var(--radius-md, 10px);
-          color: var(--color-error);
-          cursor: pointer;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-agenda__block-info {
-          display: flex;
-          align-items: center;
-          gap: 0.625rem;
-          min-width: 0;
-          overflow: hidden;
-        }
-
-        .mobile-agenda__block-title {
-          font-size: 0.8125rem;
-          font-weight: 600;
-          display: block;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .mobile-agenda__block-time {
-          font-size: 0.6875rem;
-          opacity: 0.8;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .mobile-agenda__block-remove {
-          font-size: 0.6875rem;
-          font-weight: 600;
-          text-decoration: underline;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__card {
-          background: #d1d5db;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          border-radius: 12px;
-          padding: 0.65rem 0.875rem;
-          cursor: pointer;
-          transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
-          user-select: none;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-          overflow: hidden;
-        }
-
-        .mobile-agenda__card:active {
-          transform: scale(0.985);
-        }
-
-        .mobile-agenda__card--paid {
-          background: #86efac;
-          border-color: #4ade80;
-        }
-
-        .mobile-agenda__card--active {
-          background: #fed7aa;
-          border-color: #f97316;
-        }
-
-        .mobile-agenda__card--fitting {
-          border-left: 4px solid #b45309;
-          background: #ffedd5;
-        }
-
-        .mobile-agenda__card--fitting.mobile-agenda__card--paid {
-          border-color: #4ade80;
-          background: #86efac;
-        }
-
-        .mobile-agenda__card--normal {
-          border-left-width: 1px;
-        }
-
-        .mobile-agenda__fitting-pill {
-          display: inline-flex;
-          align-items: center;
-          border-radius: 999px;
-          padding: 2px 6px;
-          background: #b45309;
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 700;
-        }
-
-        .mobile-agenda__card--no-show {
-          background: #fee2e2;
-          border-color: #fca5a5;
-        }
-
-        .mobile-agenda__no-show-pill {
-          display: inline-flex;
-          align-items: center;
-          border-radius: 999px;
-          padding: 2px 6px;
-          background: #b91c1c;
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 700;
-        }
-
-        .mobile-agenda__no-show-action {
-          align-self: flex-end;
-          margin-top: 0.45rem;
-          border: 1px solid #fca5a5;
-          border-radius: 6px;
-          padding: 0.3rem 0.55rem;
-          background: rgba(255, 255, 255, 0.8);
-          color: #b91c1c;
-          font-size: 0.7rem;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .mobile-agenda__card-compact {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          width: 100%;
-          min-width: 0;
-        }
-
-        .mobile-agenda__card-col-time {
-          display: flex;
-          align-items: center;
-          min-width: 44px;
-          flex-shrink: 0;
-        }
-
-        .mobile-agenda__time-text {
-          font-size: 0.9375rem;
-          font-weight: 800;
-          color: #111827;
-          letter-spacing: -0.02em;
-        }
-
-        .mobile-agenda__card-col-client {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          gap: 0.1rem;
-          flex: 1 1 auto;
-          min-width: 0;
-          overflow: hidden;
-        }
-
-        .mobile-agenda__client-name {
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: #111827;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-
-        .mobile-agenda__client-phone {
-          font-size: 0.6875rem;
-          color: #374151;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-
-        .mobile-agenda__prof-tag {
-          font-size: 0.6875rem;
-          font-weight: 600;
-          color: #4b5563;
-        }
-
-        .mobile-agenda__card-col-service {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          justify-content: center;
-          gap: 0.15rem;
-          text-align: right;
-          flex: 0 1 auto;
-          max-width: 45%;
-          min-width: 0;
-          overflow: hidden;
-        }
-
-        .mobile-agenda__service-price {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          color: #1f2937;
-          text-transform: uppercase;
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-
-        .mobile-agenda__paid-pill {
-          font-size: 0.5625rem;
-          font-weight: 700;
-          color: #065f46;
-          background: rgba(16, 185, 129, 0.25);
-          padding: 1px 5px;
-          border-radius: 3px;
-          text-transform: uppercase;
-        }
-
-        @media (max-width: 380px) {
-          .mobile-agenda__header-row {
-            gap: 0.2rem;
-          }
-          .mobile-agenda__date-bar {
-            padding: 0.2rem 0.25rem;
-          }
-          .mobile-agenda__action-btn {
-            padding: 0.35rem 0.35rem;
-            font-size: 0.625rem;
-          }
-        }
-      `}</style>
     </div>
   );
 };
