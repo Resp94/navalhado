@@ -15,6 +15,12 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   selectSize?: 'sm' | 'md' | 'lg';
 }
 
+const WRAPPER_SIZE_CLASSES: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'min-h-9',
+  md: 'min-h-[42px]',
+  lg: 'min-h-12',
+};
+
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   (
     {
@@ -37,167 +43,59 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const selectId = id || generatedId;
 
     return (
-      <>
-        <div className={`ui-select-group ${disabled ? 'ui-select-group--disabled' : ''} ${className}`} style={style}>
-          {label && (
-            <label htmlFor={selectId} className="ui-select-label">
-              {label}
-            </label>
-          )}
+      <div
+        className={`flex flex-col gap-[0.35rem] w-full text-left box-border ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}
+        style={style}
+      >
+        {label && (
+          <label htmlFor={selectId} className="text-xs font-extrabold text-text-primary tracking-wide uppercase leading-tight select-none">
+            {label}
+          </label>
+        )}
 
-          <div
-            className={`ui-select-wrapper ui-select-wrapper--${selectSize} ${error ? 'ui-select-wrapper--error' : ''}`}
+        <div
+          className={`relative flex items-center w-full rounded-md bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[box-shadow,background-color] duration-150 ease-in box-border focus-within:shadow-[0_0_0_1.5px_var(--color-brand-primary)] [&:focus-within_.select-chevron]:text-brand-primary ${error ? 'shadow-[0_0_0_1.5px_var(--color-error)]!' : ''} ${WRAPPER_SIZE_CLASSES[selectSize]}`}
+        >
+          <select
+            ref={ref}
+            id={selectId}
+            disabled={disabled}
+            className="w-full h-full py-[0.55rem] pr-9 pl-[0.85rem] border-none outline-none bg-transparent text-text-primary font-base text-sm cursor-pointer appearance-none box-border disabled:cursor-not-allowed"
+            aria-invalid={!!error}
+            aria-describedby={error ? `${selectId}-error` : helperText ? `${selectId}-helper` : undefined}
+            {...props}
           >
-            <select
-              ref={ref}
-              id={selectId}
-              disabled={disabled}
-              className="ui-select-field"
-              aria-invalid={!!error}
-              aria-describedby={error ? `${selectId}-error` : helperText ? `${selectId}-helper` : undefined}
-              {...props}
-            >
-              {placeholder && (
-                <option value="" disabled hidden>
-                  {placeholder}
-                </option>
-              )}
-              {options
-                ? options.map((opt) => (
-                    <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-                      {opt.label}
-                    </option>
-                  ))
-                : children}
-            </select>
+            {placeholder && (
+              <option value="" disabled hidden>
+                {placeholder}
+              </option>
+            )}
+            {options
+              ? options.map((opt) => (
+                  <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                    {opt.label}
+                  </option>
+                ))
+              : children}
+          </select>
 
-            <span className="ui-select-chevron" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </span>
-          </div>
-
-          {error ? (
-            <p id={`${selectId}-error`} className="ui-select-feedback ui-select-feedback--error" role="alert">
-              {error}
-            </p>
-          ) : helperText ? (
-            <p id={`${selectId}-helper`} className="ui-select-feedback ui-select-feedback--helper">
-              {helperText}
-            </p>
-          ) : null}
+          <span className="select-chevron absolute right-[0.85rem] flex items-center justify-center pointer-events-none text-text-secondary transition-colors duration-150 ease-in" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
         </div>
 
-        <style>{`
-          .ui-select-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            width: 100%;
-            text-align: left;
-            box-sizing: border-box;
-          }
-
-          .ui-select-group--disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-
-          .ui-select-label {
-            font-size: var(--font-size-xs, 0.75rem);
-            font-weight: 800;
-            color: var(--color-text-primary, #2D231E);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            line-height: 1.2;
-            user-select: none;
-          }
-
-          .ui-select-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-            width: 100%;
-            border-radius: var(--radius-md, 8px);
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            transition: box-shadow 0.15s ease, background-color 0.15s ease;
-            box-sizing: border-box;
-          }
-
-          .ui-select-wrapper:focus-within {
-            box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-select-wrapper--error {
-            box-shadow: 0 0 0 1.5px var(--color-error, #F05252) !important;
-          }
-
-          /* ALTURAS */
-          .ui-select-wrapper--sm {
-            min-height: 36px;
-          }
-
-          .ui-select-wrapper--md {
-            min-height: 42px;
-          }
-
-          .ui-select-wrapper--lg {
-            min-height: 48px;
-          }
-
-          .ui-select-field {
-            width: 100%;
-            height: 100%;
-            padding: 0.55rem 2.2rem 0.55rem 0.85rem;
-            border: none;
-            outline: none;
-            background: transparent;
-            color: var(--color-text-primary, #2D231E);
-            font-family: var(--font-family-base, 'Outfit', sans-serif);
-            font-size: var(--font-size-sm, 0.875rem);
-            cursor: pointer;
-            appearance: none;
-            -webkit-appearance: none;
-            box-sizing: border-box;
-          }
-
-          .ui-select-field:disabled {
-            cursor: not-allowed;
-          }
-
-          .ui-select-chevron {
-            position: absolute;
-            right: 0.85rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            color: var(--color-text-secondary, #70625B);
-            transition: color 0.15s ease;
-          }
-
-          .ui-select-wrapper:focus-within .ui-select-chevron {
-            color: var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-select-feedback {
-            margin: 0;
-            font-size: 0.75rem;
-            line-height: 1.35;
-          }
-
-          .ui-select-feedback--error {
-            color: var(--color-error, #F05252);
-            font-weight: 600;
-          }
-
-          .ui-select-feedback--helper {
-            color: var(--color-text-secondary, #70625B);
-          }
-        `}</style>
-      </>
+        {error ? (
+          <p id={`${selectId}-error`} className="m-0 text-xs leading-snug text-error font-semibold" role="alert">
+            {error}
+          </p>
+        ) : helperText ? (
+          <p id={`${selectId}-helper`} className="m-0 text-xs leading-snug text-text-secondary">
+            {helperText}
+          </p>
+        ) : null}
+      </div>
     );
   }
 );

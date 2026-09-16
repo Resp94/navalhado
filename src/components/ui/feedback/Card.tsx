@@ -4,6 +4,12 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'flat' | 'outline';
 }
 
+const VARIANT_CLASSES: Record<NonNullable<CardProps['variant']>, string> = {
+  default: 'shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)]',
+  outline: 'border border-border shadow-none',
+  flat: 'bg-bg-primary border border-border',
+};
+
 export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',
@@ -12,36 +18,13 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   return (
-    <>
-      <div className={`ui-card ui-card--${variant} ${className}`} style={style} {...props}>
-        {children}
-      </div>
-
-      <style>{`
-        .ui-card {
-          border-radius: var(--radius-lg, 12px);
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-sizing: border-box;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          overflow: hidden;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .ui-card--default {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E), var(--shadow-sm);
-        }
-
-        .ui-card--outline {
-          border: 1px solid var(--color-border, #EADED6);
-          box-shadow: none;
-        }
-
-        .ui-card--flat {
-          background-color: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
-        }
-      `}</style>
-    </>
+    <div
+      className={`rounded-lg bg-bg-secondary box-border font-base overflow-hidden transition-[border-color,box-shadow] duration-200 ease-in ${VARIANT_CLASSES[variant]} ${className}`}
+      style={style}
+      {...props}
+    >
+      {children}
+    </div>
   );
 };
 
@@ -52,14 +35,8 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => (
   <div
-    className={`ui-card-header ${className}`}
-    style={{
-      padding: '1.25rem 1.5rem 0.5rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.25rem',
-      ...style,
-    }}
+    className={`px-6 pt-5 pb-2 flex flex-col gap-1 ${className}`}
+    style={style}
     {...props}
   >
     {children}
@@ -73,15 +50,8 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   ...props
 }) => (
   <h3
-    className={`ui-card-title ${className}`}
-    style={{
-      margin: 0,
-      fontSize: 'var(--font-size-base, 1rem)',
-      fontWeight: 800,
-      color: 'var(--color-text-primary)',
-      letterSpacing: '-0.01em',
-      ...style,
-    }}
+    className={`m-0 text-base font-extrabold text-text-primary tracking-tight ${className}`}
+    style={style}
     {...props}
   >
     {children}
@@ -95,14 +65,8 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   ...props
 }) => (
   <p
-    className={`ui-card-description ${className}`}
-    style={{
-      margin: 0,
-      fontSize: 'var(--font-size-xs, 0.75rem)',
-      color: 'var(--color-text-secondary)',
-      lineHeight: 1.4,
-      ...style,
-    }}
+    className={`m-0 text-xs text-text-secondary leading-normal ${className}`}
+    style={style}
     {...props}
   >
     {children}
@@ -116,12 +80,8 @@ export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => (
   <div
-    className={`ui-card-content ${className}`}
-    style={{
-      padding: '1rem 1.5rem',
-      boxSizing: 'border-box',
-      ...style,
-    }}
+    className={`px-6 py-4 box-border ${className}`}
+    style={style}
     {...props}
   >
     {children}
@@ -135,16 +95,8 @@ export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => (
   <div
-    className={`ui-card-footer ${className}`}
-    style={{
-      padding: '0.75rem 1.5rem 1.25rem',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: '0.75rem',
-      borderTop: '1px solid var(--color-border)',
-      ...style,
-    }}
+    className={`px-6 pt-3 pb-5 flex items-center justify-end gap-3 border-t border-border ${className}`}
+    style={style}
     {...props}
   >
     {children}

@@ -23,123 +23,39 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
     const radioId = id || generatedId;
 
     return (
-      <>
-        <label
-          htmlFor={radioId}
-          className={`ui-radio-container ${disabled ? 'ui-radio-container--disabled' : ''} ${className}`}
-          style={style}
-        >
-          <div className="ui-radio-control-wrapper">
-            <input
-              ref={ref}
-              id={radioId}
-              type="radio"
-              checked={checked}
-              disabled={disabled}
-              className="ui-radio-input"
-              {...props}
+      <label
+        htmlFor={radioId}
+        className={`inline-flex items-start gap-[0.65rem] cursor-pointer select-none box-border ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+        style={style}
+      >
+        <div className="relative inline-flex items-center justify-center shrink-0 mt-px">
+          <input
+            ref={ref}
+            id={radioId}
+            type="radio"
+            checked={checked}
+            disabled={disabled}
+            className="absolute opacity-0 w-0 h-0 m-0 p-0 peer"
+            {...props}
+          />
+          <span
+            className={`w-[18px] h-[18px] rounded-full bg-bg-secondary flex items-center justify-center transition-[background-color,box-shadow] duration-150 ease-in box-border peer-focus-visible:outline-2 peer-focus-visible:outline-brand-primary peer-focus-visible:outline-offset-2 ${
+              checked ? 'shadow-[0_0_0_1.5px_var(--color-brand-primary)]!' : 'shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full bg-brand-primary transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] ${checked ? 'scale-100' : 'scale-0'}`}
             />
-            <span className={`ui-radio-custom ${checked ? 'ui-radio-custom--checked' : ''}`}>
-              <span className="ui-radio-inner-dot" />
-            </span>
+          </span>
+        </div>
+
+        {(label || description) && (
+          <div className="flex flex-col gap-[0.1rem]">
+            {label && <span className="text-sm font-semibold text-text-primary leading-snug">{label}</span>}
+            {description && <span className="text-xs text-text-secondary leading-snug">{description}</span>}
           </div>
-
-          {(label || description) && (
-            <div className="ui-radio-text-group">
-              {label && <span className="ui-radio-label">{label}</span>}
-              {description && <span className="ui-radio-desc">{description}</span>}
-            </div>
-          )}
-        </label>
-
-        <style>{`
-          .ui-radio-container {
-            display: inline-flex;
-            align-items: flex-start;
-            gap: 0.65rem;
-            cursor: pointer;
-            user-select: none;
-            box-sizing: border-box;
-          }
-
-          .ui-radio-container--disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-
-          .ui-radio-control-wrapper {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 1px;
-          }
-
-          .ui-radio-input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-            margin: 0;
-            padding: 0;
-          }
-
-          .ui-radio-custom {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.15s ease, box-shadow 0.15s ease;
-            box-sizing: border-box;
-          }
-
-          .ui-radio-input:focus-visible + .ui-radio-custom {
-            outline: 2px solid var(--color-brand-primary, #D96C00);
-            outline-offset: 2px;
-          }
-
-          .ui-radio-custom--checked {
-            box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00) !important;
-          }
-
-          .ui-radio-inner-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--color-brand-primary, #D96C00);
-            transform: scale(0);
-            transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-          }
-
-          .ui-radio-custom--checked .ui-radio-inner-dot {
-            transform: scale(1);
-          }
-
-          .ui-radio-text-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-          }
-
-          .ui-radio-label {
-            font-size: var(--font-size-sm, 0.875rem);
-            font-weight: 600;
-            color: var(--color-text-primary, #2D231E);
-            line-height: 1.3;
-          }
-
-          .ui-radio-desc {
-            font-size: var(--font-size-xs, 0.75rem);
-            color: var(--color-text-secondary, #70625B);
-            line-height: 1.35;
-          }
-        `}</style>
-      </>
+        )}
+      </label>
     );
   }
 );

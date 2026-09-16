@@ -8,6 +8,12 @@ export interface SkeletonProps {
   style?: React.CSSProperties;
 }
 
+const SHAPE_CLASSES: Record<NonNullable<SkeletonProps['shape']>, string> = {
+  rect: 'rounded-md',
+  circle: 'rounded-full',
+  text: 'rounded-sm h-[14px]',
+};
+
 export const Skeleton: React.FC<SkeletonProps> = ({
   width,
   height,
@@ -16,48 +22,14 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   style,
 }) => {
   return (
-    <>
-      <div
-        className={`ui-skeleton ui-skeleton--${shape} ${className}`}
-        style={{
-          width: typeof width === 'number' ? `${width}px` : width,
-          height: typeof height === 'number' ? `${height}px` : height,
-          ...style,
-        }}
-        aria-hidden="true"
-      />
-
-      <style>{`
-        .ui-skeleton {
-          background: linear-gradient(
-            90deg,
-            rgba(45, 35, 30, 0.05) 25%,
-            rgba(45, 35, 30, 0.1) 50%,
-            rgba(45, 35, 30, 0.05) 75%
-          );
-          background-size: 200% 100%;
-          animation: uiSkeletonShimmer 1.5s infinite ease-in-out;
-          box-sizing: border-box;
-        }
-
-        .ui-skeleton--rect {
-          border-radius: var(--radius-md, 8px);
-        }
-
-        .ui-skeleton--circle {
-          border-radius: var(--radius-full, 9999px);
-        }
-
-        .ui-skeleton--text {
-          border-radius: var(--radius-sm, 4px);
-          height: 14px;
-        }
-
-        @keyframes uiSkeletonShimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
-    </>
+    <div
+      className={`bg-[linear-gradient(90deg,rgba(45,35,30,0.05)_25%,rgba(45,35,30,0.1)_50%,rgba(45,35,30,0.05)_75%)] bg-[length:200%_100%] animate-shimmer box-border ${SHAPE_CLASSES[shape]} ${className}`}
+      style={{
+        width: typeof width === 'number' ? `${width}px` : width,
+        height: typeof height === 'number' ? `${height}px` : height,
+        ...style,
+      }}
+      aria-hidden="true"
+    />
   );
 };

@@ -25,113 +25,53 @@ export const Pagination: React.FC<PaginationProps> = ({
   const isLast = currentPage >= totalPages;
 
   return (
-    <>
-      <nav aria-label="Paginação" className={`ui-pagination ${className}`} style={style}>
-        {totalItems !== undefined && (
-          <div className="ui-pagination-info">
-            Total: <strong>{totalItems}</strong> {totalItems === 1 ? 'item' : 'itens'}
-            {itemsPerPage && totalPages > 1 && (
-              <span className="ui-pagination-sub">
-                {' '}• Página {currentPage} de {totalPages}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="ui-pagination-controls">
-          <button
-            type="button"
-            disabled={isFirst}
-            onClick={() => onPageChange(currentPage - 1)}
-            className="ui-pagination-btn"
-            title="Página anterior"
-            aria-label="Página anterior"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span>Anterior</span>
-          </button>
-
-          <span className="ui-pagination-current">
-            {currentPage} / {totalPages || 1}
-          </span>
-
-          <button
-            type="button"
-            disabled={isLast}
-            onClick={() => onPageChange(currentPage + 1)}
-            className="ui-pagination-btn"
-            title="Próxima página"
-            aria-label="Próxima página"
-          >
-            <span>Próxima</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+    <nav
+      aria-label="Paginação"
+      className={`flex items-center justify-between flex-wrap gap-4 py-3 font-base text-xs text-text-secondary w-full box-border ${className}`}
+      style={style}
+    >
+      {totalItems !== undefined && (
+        <div>
+          Total: <strong className="text-text-primary">{totalItems}</strong> {totalItems === 1 ? 'item' : 'itens'}
+          {itemsPerPage && totalPages > 1 && (
+            <span> • Página {currentPage} de {totalPages}</span>
+          )}
         </div>
-      </nav>
+      )}
 
-      <style>{`
-        .ui-pagination {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 1rem;
-          padding: 0.75rem 0;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-text-secondary, #70625B);
-          width: 100%;
-          box-sizing: border-box;
-        }
+      <div className="flex items-center gap-2 ml-auto">
+        <button
+          type="button"
+          disabled={isFirst}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="inline-flex items-center gap-[0.35rem] px-3 py-[0.4rem] bg-bg-secondary text-text-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm font-inherit text-xs font-bold cursor-pointer transition-[background-color,opacity] duration-150 ease-in min-h-8 hover:not-disabled:bg-black/4 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Página anterior"
+          aria-label="Página anterior"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span>Anterior</span>
+        </button>
 
-        .ui-pagination-info strong {
-          color: var(--color-text-primary, #2D231E);
-        }
+        <span className="font-bold px-[0.4rem] text-text-primary">
+          {currentPage} / {totalPages || 1}
+        </span>
 
-        .ui-pagination-controls {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-left: auto;
-        }
-
-        .ui-pagination-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.4rem 0.75rem;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          color: var(--color-text-primary, #2D231E);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-sm, 6px);
-          font-family: inherit;
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 700;
-          cursor: pointer;
-          transition: background-color 0.15s ease, opacity 0.15s ease;
-          min-height: 32px;
-        }
-
-        .ui-pagination-btn:hover:not(:disabled) {
-          background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .ui-pagination-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .ui-pagination-current {
-          font-weight: 700;
-          padding: 0 0.4rem;
-          color: var(--color-text-primary, #2D231E);
-        }
-      `}</style>
-    </>
+        <button
+          type="button"
+          disabled={isLast}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="inline-flex items-center gap-[0.35rem] px-3 py-[0.4rem] bg-bg-secondary text-text-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm font-inherit text-xs font-bold cursor-pointer transition-[background-color,opacity] duration-150 ease-in min-h-8 hover:not-disabled:bg-black/4 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Próxima página"
+          aria-label="Próxima página"
+        >
+          <span>Próxima</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    </nav>
   );
 };

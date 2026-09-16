@@ -23,66 +23,22 @@ export const PercentageBar: React.FC<PercentageBarProps> = ({
   const fillPercent = share !== null ? Math.max(0, Math.min(1, share)) * 100 : null;
 
   return (
-    <>
-      <div className={`ui-percentage-bar ${className}`} style={style}>
-        <div className="ui-percentage-bar__header">
-          <span className="ui-percentage-bar__label">{label}</span>
-          <span className="ui-percentage-bar__value">
-            {value}
-            {trailing !== undefined && trailing !== null && <> · {trailing}</>}
-          </span>
-        </div>
-        <div className="ui-percentage-bar__track">
-          {fillPercent !== null && (
-            <div className="ui-percentage-bar__fill" style={{ width: `${fillPercent}%` }} />
-          )}
-        </div>
+    <div className={`flex flex-col gap-[0.35rem] ${className}`} style={style}>
+      <div className="flex justify-between items-baseline gap-3 text-xs">
+        <span className="font-bold text-text-primary">{label}</span>
+        <span className="text-text-secondary [font-variant-numeric:tabular-nums] font-semibold whitespace-nowrap">
+          {value}
+          {trailing !== undefined && trailing !== null && <> · {trailing}</>}
+        </span>
       </div>
-
-      <style>{`
-        .ui-percentage-bar {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .ui-percentage-bar__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          gap: 0.75rem;
-          font-size: var(--font-size-xs, 0.75rem);
-        }
-
-        .ui-percentage-bar__label {
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .ui-percentage-bar__value {
-          color: var(--color-text-secondary, #70625B);
-          font-variant-numeric: tabular-nums;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-
-        .ui-percentage-bar__track {
-          width: 100%;
-          height: 8px;
-          background: transparent;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-full, 9999px);
-          overflow: hidden;
-        }
-
-        .ui-percentage-bar__fill {
-          height: 100%;
-          background: var(--color-brand-primary, #D96C00);
-          border-radius: var(--radius-full, 9999px);
-          transform-origin: left;
-          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-      `}</style>
-    </>
+      <div className="w-full h-2 bg-transparent shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-full overflow-hidden">
+        {fillPercent !== null && (
+          <div
+            className="h-full bg-brand-primary rounded-full origin-left transition-transform duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{ width: `${fillPercent}%` }}
+          />
+        )}
+      </div>
+    </div>
   );
 };

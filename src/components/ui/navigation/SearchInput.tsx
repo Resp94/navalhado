@@ -7,6 +7,12 @@ export interface SearchInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
   inputSize?: 'sm' | 'md' | 'lg';
 }
 
+const WRAPPER_SIZE_CLASSES: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'min-h-9',
+  md: 'min-h-[42px]',
+  lg: 'min-h-12',
+};
+
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   (
     {
@@ -32,141 +38,44 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     return (
-      <>
-        <div className={`ui-search-wrapper ui-search-wrapper--${inputSize} ${disabled ? 'ui-search-wrapper--disabled' : ''} ${className}`} style={style}>
-          <span className="ui-search-icon" aria-hidden="true">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
+      <div
+        className={`relative flex items-center w-full rounded-md bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[box-shadow,background-color] duration-150 ease-in box-border px-3 focus-within:shadow-[0_0_0_1.5px_var(--color-brand-primary)] [&:focus-within_.search-icon]:text-brand-primary ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${WRAPPER_SIZE_CLASSES[inputSize]} ${className}`}
+        style={style}
+      >
+        <span className="search-icon flex items-center justify-center text-text-secondary mr-2 shrink-0 pointer-events-none transition-colors duration-150 ease-in" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+        </span>
+
+        <input
+          ref={ref}
+          id={searchId}
+          type="search"
+          value={value}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 w-full border-none outline-none bg-transparent text-text-primary font-base text-sm py-2 box-border placeholder:text-text-secondary placeholder:opacity-65 [&::-webkit-search-decoration]:hidden [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-results-button]:hidden [&::-webkit-search-results-decoration]:hidden"
+          {...props}
+        />
+
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full border-none bg-text-primary/8 text-text-secondary cursor-pointer p-0 ml-[0.4rem] shrink-0 transition-[background-color,color] duration-150 ease-in hover:bg-text-primary hover:text-white"
+            title="Limpar busca"
+            aria-label="Limpar busca"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
-          </span>
-
-          <input
-            ref={ref}
-            id={searchId}
-            type="search"
-            value={value}
-            disabled={disabled}
-            placeholder={placeholder}
-            onChange={(e) => onChange(e.target.value)}
-            className="ui-search-input"
-            {...props}
-          />
-
-          {value && !disabled && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="ui-search-clear-btn"
-              title="Limpar busca"
-              aria-label="Limpar busca"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <style>{`
-          .ui-search-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-            width: 100%;
-            border-radius: var(--radius-md, 8px);
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            transition: box-shadow 0.15s ease, background-color 0.15s ease;
-            box-sizing: border-box;
-            padding: 0 0.75rem;
-          }
-
-          .ui-search-wrapper:focus-within {
-            box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-search-wrapper--disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-
-          .ui-search-wrapper--sm {
-            min-height: 36px;
-          }
-
-          .ui-search-wrapper--md {
-            min-height: 42px;
-          }
-
-          .ui-search-wrapper--lg {
-            min-height: 48px;
-          }
-
-          .ui-search-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--color-text-secondary, #70625B);
-            margin-right: 0.5rem;
-            flex-shrink: 0;
-            pointer-events: none;
-          }
-
-          .ui-search-wrapper:focus-within .ui-search-icon {
-            color: var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-search-input {
-            flex: 1;
-            width: 100%;
-            border: none;
-            outline: none;
-            background: transparent;
-            color: var(--color-text-primary, #2D231E);
-            font-family: var(--font-family-base, 'Outfit', sans-serif);
-            font-size: var(--font-size-sm, 0.875rem);
-            padding: 0.5rem 0;
-            box-sizing: border-box;
-          }
-
-          .ui-search-input::placeholder {
-            color: var(--color-text-secondary, #70625B);
-            opacity: 0.65;
-          }
-
-          /* Remove o botão nativo feio de clear do WebKit */
-          .ui-search-input::-webkit-search-decoration,
-          .ui-search-input::-webkit-search-cancel-button,
-          .ui-search-input::-webkit-search-results-button,
-          .ui-search-input::-webkit-search-results-decoration {
-            display: none;
-          }
-
-          .ui-search-clear-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            border: none;
-            background-color: rgba(45, 35, 30, 0.08);
-            color: var(--color-text-secondary, #70625B);
-            cursor: pointer;
-            padding: 0;
-            margin-left: 0.4rem;
-            flex-shrink: 0;
-            transition: background-color 0.15s ease, color 0.15s ease;
-          }
-
-          .ui-search-clear-btn:hover {
-            background-color: var(--color-text-primary, #2D231E);
-            color: #FFFFFF;
-          }
-        `}</style>
-      </>
+          </button>
+        )}
+      </div>
     );
   }
 );

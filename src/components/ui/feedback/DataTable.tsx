@@ -7,40 +7,13 @@ export const Table: React.FC<React.TableHTMLAttributes<HTMLTableElement>> = ({
   ...props
 }) => {
   return (
-    <>
-      <div className="ui-table-container">
-        <div className="ui-table-responsive">
-          <table className={`ui-table ${className}`} style={style} {...props}>
-            {children}
-          </table>
-        </div>
+    <div className="w-full rounded-lg bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] overflow-hidden box-border font-base">
+      <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <table className={`w-full border-collapse text-left text-sm ${className}`} style={style} {...props}>
+          {children}
+        </table>
       </div>
-
-      <style>{`
-        .ui-table-container {
-          width: 100%;
-          border-radius: var(--radius-lg, 12px);
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E), var(--shadow-sm);
-          overflow: hidden;
-          box-sizing: border-box;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-        }
-
-        .ui-table-responsive {
-          width: 100%;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .ui-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-          font-size: var(--font-size-sm, 0.875rem);
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 
@@ -49,7 +22,7 @@ export const TableHeader: React.FC<React.HTMLAttributes<HTMLTableSectionElement>
   className = '',
   ...props
 }) => (
-  <thead className={`ui-table-header ${className}`} {...props}>
+  <thead className={className} {...props}>
     {children}
   </thead>
 );
@@ -59,7 +32,7 @@ export const TableBody: React.FC<React.HTMLAttributes<HTMLTableSectionElement>> 
   className = '',
   ...props
 }) => (
-  <tbody className={`ui-table-body ${className}`} {...props}>
+  <tbody className={`[&_tr:hover]:bg-text-primary/2 ${className}`} {...props}>
     {children}
   </tbody>
 );
@@ -71,32 +44,25 @@ export const TableRow: React.FC<React.HTMLAttributes<HTMLTableRowElement>> = ({
   ...props
 }) => {
   return (
-    <>
-      <tr className={`ui-table-row ${className}`} style={style} {...props}>
-        {children}
-      </tr>
-
-      <style>{`
-        .ui-table-row {
-          transition: background-color 0.12s ease;
-          border-bottom: 1px solid var(--color-border, #EADED6);
-        }
-
-        .ui-table-row:last-child {
-          border-bottom: none;
-        }
-
-        .ui-table-body .ui-table-row:hover {
-          background-color: rgba(45, 35, 30, 0.02);
-        }
-      `}</style>
-    </>
+    <tr
+      className={`transition-colors duration-100 ease-in border-b border-border last:border-b-0 ${className}`}
+      style={style}
+      {...props}
+    >
+      {children}
+    </tr>
   );
 };
 
 export interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   align?: 'left' | 'center' | 'right';
 }
+
+const ALIGN_CLASSES: Record<NonNullable<TableHeadProps['align']>, string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
 
 export const TableHead: React.FC<TableHeadProps> = ({
   children,
@@ -106,30 +72,13 @@ export const TableHead: React.FC<TableHeadProps> = ({
   ...props
 }) => {
   return (
-    <>
-      <th className={`ui-table-head ui-table-head--${align} ${className}`} style={style} {...props}>
-        {children}
-      </th>
-
-      <style>{`
-        .ui-table-head {
-          padding: 0.85rem 1rem;
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary, #70625B);
-          background-color: var(--color-bg-primary, #FFF1E6);
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          white-space: nowrap;
-          box-sizing: border-box;
-        }
-
-        .ui-table-head--left { text-align: left; }
-        .ui-table-head--center { text-align: center; }
-        .ui-table-head--right { text-align: right; }
-      `}</style>
-    </>
+    <th
+      className={`px-4 py-[0.85rem] text-xs font-bold uppercase tracking-wide text-text-secondary bg-bg-primary border-b border-border whitespace-nowrap box-border ${ALIGN_CLASSES[align]} ${className}`}
+      style={style}
+      {...props}
+    >
+      {children}
+    </th>
   );
 };
 
@@ -145,24 +94,12 @@ export const TableCell: React.FC<TableCellProps> = ({
   ...props
 }) => {
   return (
-    <>
-      <td className={`ui-table-cell ui-table-cell--${align} ${className}`} style={style} {...props}>
-        {children}
-      </td>
-
-      <style>{`
-        .ui-table-cell {
-          padding: 0.85rem 1rem;
-          color: var(--color-text-primary, #2D231E);
-          vertical-align: middle;
-          box-sizing: border-box;
-          line-height: 1.4;
-        }
-
-        .ui-table-cell--left { text-align: left; }
-        .ui-table-cell--center { text-align: center; }
-        .ui-table-cell--right { text-align: right; }
-      `}</style>
-    </>
+    <td
+      className={`px-4 py-[0.85rem] text-text-primary align-middle box-border leading-normal ${ALIGN_CLASSES[align]} ${className}`}
+      style={style}
+      {...props}
+    >
+      {children}
+    </td>
   );
 };

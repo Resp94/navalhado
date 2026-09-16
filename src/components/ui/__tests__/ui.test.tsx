@@ -42,8 +42,8 @@ describe('Design System UI Components', () => {
 
       const btn = screen.getByRole('button', { name: /salvar/i });
       expect(btn).toBeInTheDocument();
-      expect(btn.className).toContain('ui-btn--primary');
-      expect(btn.className).toContain('ui-btn--md');
+      expect(btn).toHaveAttribute('data-variant', 'primary');
+      expect(btn).toHaveAttribute('data-size', 'md');
 
       fireEvent.click(btn);
       expect(handleClick).toHaveBeenCalledTimes(1);

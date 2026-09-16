@@ -14,6 +14,12 @@ export interface ConfirmDialogProps {
   loading?: boolean;
 }
 
+const ICON_BADGE_CLASSES: Record<NonNullable<ConfirmDialogProps['variant']>, string> = {
+  danger: 'text-error',
+  warning: 'text-warning',
+  info: 'text-info',
+};
+
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   onClose,
@@ -42,239 +48,79 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <>
+    <div
+      className="fixed inset-0 z-[1100] bg-black/65 backdrop-blur-md flex items-center justify-center p-5 box-border animate-fade-in"
+      onClick={() => !loading && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ui-confirm-title"
+    >
       <div
-        className="ui-confirm-overlay"
-        onClick={() => !loading && onClose()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ui-confirm-title"
+        className="w-full max-w-[440px] bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary),0_20px_48px_rgba(0,0,0,0.25)] rounded-xl p-7 flex flex-col items-center text-center gap-4 box-border font-base animate-dialog-in max-[480px]:p-5"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="ui-confirm-card" onClick={(e) => e.stopPropagation()}>
-          <div className={`ui-confirm-icon-badge ui-confirm-icon-badge--${variant}`}>
-            {variant === 'danger' && (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                <line x1="10" y1="11" x2="10" y2="17" />
-                <line x1="14" y1="11" x2="14" y2="17" />
-              </svg>
-            )}
-            {variant === 'warning' && (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            )}
-            {variant === 'info' && (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-            )}
-          </div>
-
-          <h3 id="ui-confirm-title" className="ui-confirm-title">
-            {title}
-          </h3>
-
-          <div className="ui-confirm-desc">{description}</div>
-
-          {warningText && (
-            <div className="ui-confirm-warning-box">
-              <p>{warningText}</p>
-            </div>
+        <div className={`w-13 h-13 rounded-full flex items-center justify-center shrink-0 bg-transparent ${ICON_BADGE_CLASSES[variant]}`}>
+          {variant === 'danger' && (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              <line x1="10" y1="11" x2="10" y2="17" />
+              <line x1="14" y1="11" x2="14" y2="17" />
+            </svg>
           )}
+          {variant === 'warning' && (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          )}
+          {variant === 'info' && (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          )}
+        </div>
 
-          <div className="ui-confirm-actions">
-            <Button
-              variant="secondary"
-              size="md"
-              fullWidth
-              onClick={onClose}
-              disabled={loading}
-            >
-              {cancelText}
-            </Button>
+        <h3 id="ui-confirm-title" className="text-[1.15rem] font-extrabold text-text-primary m-0 tracking-tight">
+          {title}
+        </h3>
 
-            <Button
-              variant={variant === 'danger' ? 'danger' : 'primary'}
-              size="md"
-              fullWidth
-              onClick={onConfirm}
-              loading={loading}
-            >
-              {confirmText}
-            </Button>
+        <div className="text-sm text-text-primary leading-relaxed m-0 [&_span]:text-text-primary [&_strong]:text-text-primary">
+          {description}
+        </div>
+
+        {warningText && (
+          <div className="bg-brand-lightest shadow-[0_0_0_0.3px_var(--color-text-primary)] rounded-md p-[0.85rem] text-xs text-text-primary text-left leading-relaxed w-full box-border">
+            <p className="m-0 text-text-primary">{warningText}</p>
           </div>
+        )}
+
+        <div className="flex w-full gap-3 mt-2 max-[480px]:flex-col-reverse">
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onClick={onClose}
+            disabled={loading}
+          >
+            {cancelText}
+          </Button>
+
+          <Button
+            variant={variant === 'danger' ? 'danger' : 'primary'}
+            size="md"
+            fullWidth
+            onClick={onConfirm}
+            loading={loading}
+          >
+            {confirmText}
+          </Button>
         </div>
       </div>
-
-      <style>{`
-        .ui-confirm-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 1100;
-          background-color: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1.25rem;
-          box-sizing: border-box;
-          animation: uiConfirmFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .ui-confirm-card {
-          width: 100%;
-          max-width: 440px;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E), 0 20px 48px rgba(0, 0, 0, 0.25);
-          border-radius: var(--radius-xl, 16px);
-          padding: 1.75rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 1rem;
-          box-sizing: border-box;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          animation: uiConfirmSpring 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .ui-confirm-icon-badge {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          background-color: transparent;
-        }
-
-        .ui-confirm-icon-badge--danger {
-          background-color: transparent;
-          color: var(--color-error, #F05252);
-        }
-
-        .ui-confirm-icon-badge--warning {
-          background-color: transparent;
-          color: var(--color-warning, #D97706);
-        }
-
-        .ui-confirm-icon-badge--info {
-          background-color: transparent;
-          color: var(--color-info, #3F83F8);
-        }
-
-        .ui-confirm-title {
-          font-size: 1.15rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .ui-confirm-desc {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-          line-height: 1.45;
-          margin: 0;
-        }
-
-        .ui-confirm-desc span,
-        .ui-confirm-desc strong {
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .ui-confirm-warning-box {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          font-size: 12px;
-          color: var(--color-text-primary, #2D231E);
-          text-align: left;
-          line-height: 1.45;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .ui-confirm-warning-box p {
-          margin: 0;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .ui-confirm-actions {
-          display: flex;
-          width: 100%;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        .ui-confirm-actions .ui-btn--danger {
-          box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E);
-          border: 0px solid transparent;
-          border-width: 0px;
-          color: var(--color-bg-secondary, #FFFFFF);
-        }
-
-        @keyframes uiConfirmFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes uiConfirmSpring {
-          from { opacity: 0; transform: scale(0.92) translateY(8px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        @media (max-width: 934px) {
-          .ui-confirm-icon-badge {
-            background-color: transparent !important;
-            background-image: none !important;
-          }
-
-          .ui-confirm-desc,
-          .ui-confirm-desc span {
-            color: var(--color-text-primary, #2D231E) !important;
-          }
-
-          .ui-confirm-warning-box {
-            box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-            color: var(--color-text-primary, #2D231E) !important;
-          }
-
-          .ui-confirm-warning-box p {
-            color: var(--color-text-primary, #2D231E) !important;
-          }
-
-          .ui-confirm-actions .ui-btn--danger {
-            box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-            color: var(--color-bg-secondary, #FFFFFF) !important;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .ui-confirm-card {
-            padding: 1.25rem;
-          }
-          .ui-confirm-actions {
-            flex-direction: column-reverse;
-          }
-        }
-      `}</style>
-    </>
+    </div>
   );
 };

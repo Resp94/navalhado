@@ -24,79 +24,22 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   style,
 }) => {
   return (
-    <>
-      <div className={`ui-empty-state ${compact ? 'ui-empty-state--compact' : ''} ${className}`} style={style}>
-        {icon && <div className="ui-empty-state__icon">{icon}</div>}
-        <h3 className="ui-empty-state__title">{title}</h3>
-        {description && <p className="ui-empty-state__desc">{description}</p>}
-        {illustration && <div className="ui-empty-state__illustration">{illustration}</div>}
-        {children}
-        {action && <div className="ui-empty-state__action">{action}</div>}
-      </div>
-
-      <style>{`
-        .ui-empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 3.5rem 1.5rem;
-          box-sizing: border-box;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          width: 100%;
-        }
-
-        .ui-empty-state--compact {
-          padding: 2rem 1rem;
-        }
-
-        .ui-empty-state__icon {
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          color: var(--color-brand-primary, #D96C00);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1rem;
-          flex-shrink: 0;
-        }
-
-        .ui-empty-state--compact .ui-empty-state__icon {
-          width: 44px;
-          height: 44px;
-          margin-bottom: 0.75rem;
-        }
-
-        .ui-empty-state__title {
-          font-size: var(--font-size-base, 1rem);
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0 0 0.35rem 0;
-          letter-spacing: -0.01em;
-        }
-
-        .ui-empty-state__desc {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-          max-width: 380px;
-          margin: 0;
-          line-height: 1.45;
-        }
-
-        .ui-empty-state__illustration {
-          margin-top: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .ui-empty-state__action {
-          margin-top: 1.25rem;
-        }
-      `}</style>
-    </>
+    <div
+      className={`flex flex-col items-center justify-center text-center box-border font-base w-full ${compact ? 'py-8 px-4' : 'py-14 px-6'} ${className}`}
+      style={style}
+    >
+      {icon && (
+        <div
+          className={`rounded-full bg-brand-lightest text-brand-primary flex items-center justify-center shrink-0 ${compact ? 'w-11 h-11 mb-3' : 'w-14 h-14 mb-4'}`}
+        >
+          {icon}
+        </div>
+      )}
+      <h3 className="text-base font-extrabold text-text-primary m-0 mb-[0.35rem] tracking-tight">{title}</h3>
+      {description && <p className="text-sm text-text-secondary max-w-[380px] m-0 leading-relaxed">{description}</p>}
+      {illustration && <div className="mt-6 flex items-center justify-center">{illustration}</div>}
+      {children}
+      {action && <div className="mt-5">{action}</div>}
+    </div>
   );
 };

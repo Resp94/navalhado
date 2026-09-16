@@ -33,121 +33,50 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
       }
     }, [indeterminate, ref]);
 
+    const isChecked = checked || indeterminate;
+
     return (
-      <>
-        <label
-          htmlFor={checkboxId}
-          className={`ui-checkbox-container ${disabled ? 'ui-checkbox-container--disabled' : ''} ${className}`}
-          style={style}
-        >
-          <div className="ui-checkbox-control-wrapper">
-            <input
-              ref={ref || internalRef}
-              id={checkboxId}
-              type="checkbox"
-              checked={checked}
-              disabled={disabled}
-              className="ui-checkbox-input"
-              {...props}
-            />
-            <span className={`ui-checkbox-custom ${checked || indeterminate ? 'ui-checkbox-custom--checked' : ''}`}>
-              {indeterminate ? (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              ) : checked ? (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : null}
-            </span>
+      <label
+        htmlFor={checkboxId}
+        className={`inline-flex items-start gap-[0.65rem] cursor-pointer select-none box-border ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+        style={style}
+      >
+        <div className="relative inline-flex items-center justify-center shrink-0 mt-px">
+          <input
+            ref={ref || internalRef}
+            id={checkboxId}
+            type="checkbox"
+            checked={checked}
+            disabled={disabled}
+            className="absolute opacity-0 w-0 h-0 m-0 p-0 peer"
+            {...props}
+          />
+          <span
+            className={`w-[18px] h-[18px] rounded-sm flex items-center justify-center text-white transition-[background-color,box-shadow] duration-150 ease-in box-border peer-focus-visible:outline-2 peer-focus-visible:outline-brand-primary peer-focus-visible:outline-offset-2 ${
+              isChecked
+                ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]'
+                : 'bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+            }`}
+          >
+            {indeterminate ? (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            ) : checked ? (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : null}
+          </span>
+        </div>
+
+        {(label || description) && (
+          <div className="flex flex-col gap-[0.1rem]">
+            {label && <span className="text-sm font-semibold text-text-primary leading-snug">{label}</span>}
+            {description && <span className="text-xs text-text-secondary leading-snug">{description}</span>}
           </div>
-
-          {(label || description) && (
-            <div className="ui-checkbox-text-group">
-              {label && <span className="ui-checkbox-label">{label}</span>}
-              {description && <span className="ui-checkbox-desc">{description}</span>}
-            </div>
-          )}
-        </label>
-
-        <style>{`
-          .ui-checkbox-container {
-            display: inline-flex;
-            align-items: flex-start;
-            gap: 0.65rem;
-            cursor: pointer;
-            user-select: none;
-            box-sizing: border-box;
-          }
-
-          .ui-checkbox-container--disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-
-          .ui-checkbox-control-wrapper {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 1px;
-          }
-
-          .ui-checkbox-input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-            margin: 0;
-            padding: 0;
-          }
-
-          .ui-checkbox-custom {
-            width: 18px;
-            height: 18px;
-            border-radius: var(--radius-sm, 4px);
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFFFFF;
-            transition: background-color 0.15s ease, box-shadow 0.15s ease;
-            box-sizing: border-box;
-          }
-
-          .ui-checkbox-input:focus-visible + .ui-checkbox-custom {
-            outline: 2px solid var(--color-brand-primary, #D96C00);
-            outline-offset: 2px;
-          }
-
-          .ui-checkbox-custom--checked {
-            background-color: var(--color-brand-primary, #D96C00) !important;
-            box-shadow: 0 0 0 0.8px var(--color-brand-primary, #D96C00) !important;
-          }
-
-          .ui-checkbox-text-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-          }
-
-          .ui-checkbox-label {
-            font-size: var(--font-size-sm, 0.875rem);
-            font-weight: 600;
-            color: var(--color-text-primary, #2D231E);
-            line-height: 1.3;
-          }
-
-          .ui-checkbox-desc {
-            font-size: var(--font-size-xs, 0.75rem);
-            color: var(--color-text-secondary, #70625B);
-            line-height: 1.35;
-          }
-        `}</style>
-      </>
+        )}
+      </label>
     );
   }
 );
