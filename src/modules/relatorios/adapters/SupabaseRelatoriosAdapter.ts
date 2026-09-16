@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import type {
+  AcquisitionChannelItem,
   ClienteSemRetornoItem,
   ClienteUmaVisita,
   ObterAgendaInput,
@@ -8,6 +9,7 @@ import type {
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
   ProfissionalRanking,
+  RegistrationOrigemItem,
   RelatorioAgenda,
   RelatorioAgendaHeatmap,
   RelatorioAgendaMotivoCancelamento,
@@ -17,6 +19,8 @@ import type {
   RelatorioAgendaStatusTotais,
   RelatorioClientes,
   RelatorioClientesBucket,
+  RelatorioClientesRegistrationOrigin,
+  RelatorioClientesRegistrations,
   RelatorioClientesSemRetorno,
   RelatorioClientesSemRetornoFaixas,
   RelatorioClientesSemRetornoTotais,
@@ -36,6 +40,15 @@ import type {
 } from '../types';
 
 const AGENDA_ORIGINS: RelatorioAgendaOrigem[] = ['manual', 'whatsapp', 'client_channel', 'online'];
+
+const REGISTRATION_ORIGINS: RelatorioClientesRegistrationOrigin[] = [
+  'balcao',
+  'agenda',
+  'online',
+  'canal_cliente',
+  'whatsapp_bot',
+  'importacao',
+];
 
 const DATA_QUALITY_STATUSES: RelatoriosDataQualityStatus[] = [
   'confirmed',
@@ -502,11 +515,12 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
   }
 
   /**
-   * Novos x recorrentes (`get_customer_report`, spec 038, ticket 10):
-   * visitantes únicos/novos/recorrentes/novos-de-uma-visita/sem-cliente do
-   * período e do anterior, agrupamento por dia/semana/mês e lista de
-   * Clientes de Uma Visita (até 200). `previous_visitors` nunca ganha
-   * `new_single_visit` aqui -- o backend não envia essa chave para o
+   * Novos x recorrentes + Origem dos clientes (`get_customer_report`, spec
+   * 038, tickets 10-11): visitantes únicos/novos/recorrentes/novos-de-uma-
+   * visita/sem-cliente do período e do anterior, agrupamento por
+   * dia/semana/mês, lista de Clientes de Uma Visita (até 200) e cadastros
+   * do período por origem/canal de aquisição. `previous_visitors` nunca
+   * ganha `new_single_visit` aqui -- o backend não envia essa chave para o
    * período anterior (ver comentário do tipo `RelatorioClientesVisitantesAnterior`).
    */
   async obterClientes(input: ObterClientesInput): Promise<RelatorioClientes> {
@@ -530,6 +544,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       previous_visitors?: unknown;
       buckets?: unknown;
       single_visit_customers?: unknown;
+      registrations?: unknown;
     };
 
     return {
@@ -547,6 +562,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       previous_visitors: toClientesVisitantesAnterior(raw.previous_visitors),
       buckets: toClientesBuckets(raw.buckets),
       single_visit_customers: toClientesUmaVisita(raw.single_visit_customers),
+      registrations: toClientesRegistrations(raw.registrations),
     };
   }
 }
@@ -640,4 +656,48 @@ function toClientesUmaVisita(value: unknown): ClienteUmaVisita[] {
       professional_name: toNullableString(raw.professional_name),
     };
   });
+}
+
+function toRegistrationOriginItems(value: unknown): RegistrationOrigemItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    const origin = REGISTRATION_ORIGINS.includes(raw.origin as RelatorioClientesRegistrationOrigin)
+      ? (raw.origin as RelatorioClientesRegistrationOrigin)
+      : 'balcao';
+    return {
+      origin,
+      total: toNumber(raw.total),
+      with_visit: toNumber(raw.with_visit),
+    };
+  });
+}
+
+function toAcquisitionChannelItems(value: unknown): AcquisitionChannelItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      channel: raw.channel ? String(raw.channel) : '',
+      total: toNumber(raw.total),
+      with_visit: toNumber(raw.with_visit),
+    };
+  });
+}
+
+/**
+ * Cadastros do período (spec 038, ticket 11):
+ * `acquisition_channel_filled_share` preserva `null` (período sem cadastro
+ * -- denominador zero no núcleo do banco), nunca coagido para `0`, mesmo
+ * padrão de `share`/`average_ticket` do resto do módulo.
+ */
+function toClientesRegistrations(value: unknown): RelatorioClientesRegistrations {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    total: toNumber(raw.total),
+    provisional: toNumber(raw.provisional),
+    by_registration_origin: toRegistrationOriginItems(raw.by_registration_origin),
+    by_acquisition_channel: toAcquisitionChannelItems(raw.by_acquisition_channel),
+    acquisition_channel_filled_share: toNullableNumber(raw.acquisition_channel_filled_share),
+  };
 }

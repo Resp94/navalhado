@@ -466,13 +466,71 @@ export interface ClienteUmaVisita {
 }
 
 /**
- * Contrato de leitura de Novos x recorrentes (`get_customer_report`, spec
- * 038, relatório 9, ticket 10; a QUARTA página do módulo, "Clientes"). COM
- * `granularity`/`previous_period`, como o Faturamento (ticket 01) -- é o
- * único outro contrato do módulo agrupado por dia/semana/mês. Ainda sem
- * `registrations` (origem de cadastro/canal de aquisição): o ticket 11 faz
- * `CREATE OR REPLACE` na mesma função para acrescentar esse campo, não
- * implementado aqui.
+ * Origem automática do cadastro (spec 038, ticket 11): `registration_origin`
+ * é `not null` na tabela `customers` -- sempre um destes seis valores, nunca
+ * vazio.
+ */
+export type RelatorioClientesRegistrationOrigin =
+  | 'balcao'
+  | 'agenda'
+  | 'online'
+  | 'canal_cliente'
+  | 'whatsapp_bot'
+  | 'importacao';
+
+/**
+ * Uma linha de `by_registration_origin` (spec 038, ticket 11): total de
+ * cadastros do período com esta origem e quantos já tiveram ao menos uma
+ * Visita até hoje (`with_visit`, por `exists`, nunca por junção que
+ * duplicaria cliente com várias Visitas). Só aparecem origens presentes no
+ * período -- sem linha com `total = 0`.
+ */
+export interface RegistrationOrigemItem {
+  origin: RelatorioClientesRegistrationOrigin;
+  total: number;
+  with_visit: number;
+}
+
+/**
+ * Uma linha de `by_acquisition_channel` (spec 038, ticket 11): `channel` já
+ * chega como rótulo pronto de exibição (grafia mais frequente do grupo
+ * normalizado, ou "Não informado" para nulo/vazio) -- a tela nunca
+ * normaliza ou re-agrupa este texto. "Não informado" sempre aparece,
+ * mesmo com `total = 0`, quando há ao menos um cadastro no período (ver
+ * `RelatorioClientesRegistrations.acquisition_channel_filled_share`).
+ */
+export interface AcquisitionChannelItem {
+  channel: string;
+  total: number;
+  with_visit: number;
+}
+
+/**
+ * Cadastros do período (spec 038, ticket 11, "Origem dos clientes"): Origem
+ * do Cadastro (automática, sempre preenchida) e Canal de Aquisição
+ * (declarado, opcional) aparecem separados, porque respondem perguntas
+ * diferentes -- por qual porta o cadastro entrou x como a pessoa conheceu a
+ * barbearia. `provisional` = cadastros com `cadastro_completo = false`.
+ * `acquisition_channel_filled_share` é a fração dos cadastros do período com
+ * canal preenchido (não vazio) -- `null` quando não há cadastro no período
+ * (`total = 0`), nunca `0` (mesmo padrão de `share`/`average_ticket` do
+ * resto do módulo). Com `total = 0` as duas listas vêm vazias: nada a
+ * destacar, mesmo padrão dos demais relatórios da spec.
+ */
+export interface RelatorioClientesRegistrations {
+  total: number;
+  provisional: number;
+  by_registration_origin: RegistrationOrigemItem[];
+  by_acquisition_channel: AcquisitionChannelItem[];
+  acquisition_channel_filled_share: number | null;
+}
+
+/**
+ * Contrato de leitura de Novos x recorrentes + Origem dos clientes
+ * (`get_customer_report`, spec 038, relatórios 9-10, tickets 10-11; a
+ * QUARTA página do módulo, "Clientes"). COM `granularity`/`previous_period`,
+ * como o Faturamento (ticket 01) -- é o único outro contrato do módulo
+ * agrupado por dia/semana/mês.
  */
 export interface RelatorioClientes {
   timezone: string;
@@ -483,6 +541,7 @@ export interface RelatorioClientes {
   previous_visitors: RelatorioClientesVisitantesAnterior;
   buckets: RelatorioClientesBucket[];
   single_visit_customers: ClienteUmaVisita[];
+  registrations: RelatorioClientesRegistrations;
 }
 
 export interface ObterClientesInput {

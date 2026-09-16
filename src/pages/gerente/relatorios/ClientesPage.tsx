@@ -7,8 +7,13 @@ import { RelatoriosRepository } from '../../../modules/relatorios/RelatoriosRepo
 import { SupabaseRelatoriosAdapter } from '../../../modules/relatorios/adapters/SupabaseRelatoriosAdapter';
 import { useRelatorioClientes } from '../../../modules/relatorios/useRelatorioClientes';
 import type { CsvColumn } from '../../../modules/relatorios/csv';
-import type { ClienteUmaVisita, RelatorioClientesBucket } from '../../../modules/relatorios/types';
-import { formatDisplayDate } from '../../../modules/relatorios/formatacao';
+import type {
+  AcquisitionChannelItem,
+  ClienteUmaVisita,
+  RegistrationOrigemItem,
+  RelatorioClientesBucket,
+} from '../../../modules/relatorios/types';
+import { formatDisplayDate, formatPercent } from '../../../modules/relatorios/formatacao';
 import { Button } from '../../../components/ui/forms/Button';
 import { EmptyState } from '../../../components/ui/data-display/EmptyState';
 import { Skeleton } from '../../../components/ui/data-display/Skeleton';
@@ -17,6 +22,7 @@ import { ClientesResumo } from './clientes/ClientesResumo';
 import { ClientesGrafico } from './clientes/ClientesGrafico';
 import { ClientesTabela } from './clientes/ClientesTabela';
 import { ClientesUmaVisitaLista } from './clientes/ClientesUmaVisitaLista';
+import { ClientesOrigemDosClientes, formatRegistrationOriginLabel } from './clientes/ClientesOrigemDosClientes';
 import './Relatorios.css';
 
 function formatBucketPeriodo(bucket: RelatorioClientesBucket): string {
@@ -38,6 +44,36 @@ const COLUNAS_CSV_UMA_VISITA: CsvColumn<ClienteUmaVisita>[] = [
   { header: 'Data da visita', accessor: (item) => formatDisplayDate(item.visit_date) },
   { header: 'Profissional', accessor: (item) => item.professional_name ?? '' },
 ];
+
+/**
+ * Participação da linha sobre o total de cadastros do período (spec 038,
+ * ticket 11): sempre `item.total / registrations.total`, nunca
+ * `item.with_visit` -- mesma regra das barras horizontais
+ * (`ClientesOrigemDosClientes`). `null` (formatado "--") com total zero,
+ * embora esta função só seja chamada quando há cadastro no período (o botão
+ * de exportar fica desabilitado com lista vazia).
+ */
+function formatShareCsv(total: number, registrationsTotal: number): string {
+  return formatPercent(registrationsTotal > 0 ? total / registrationsTotal : null);
+}
+
+function colunasCsvOrigemCadastro(registrationsTotal: number): CsvColumn<RegistrationOrigemItem>[] {
+  return [
+    { header: 'Origem', accessor: (item) => formatRegistrationOriginLabel(item.origin) },
+    { header: 'Cadastros', accessor: (item) => String(item.total) },
+    { header: 'Participação', accessor: (item) => formatShareCsv(item.total, registrationsTotal) },
+    { header: 'Com Visita', accessor: (item) => String(item.with_visit) },
+  ];
+}
+
+function colunasCsvCanalAquisicao(registrationsTotal: number): CsvColumn<AcquisitionChannelItem>[] {
+  return [
+    { header: 'Canal', accessor: (item) => item.channel },
+    { header: 'Cadastros', accessor: (item) => String(item.total) },
+    { header: 'Participação', accessor: (item) => formatShareCsv(item.total, registrationsTotal) },
+    { header: 'Com Visita', accessor: (item) => String(item.with_visit) },
+  ];
+}
 
 export interface ClientesPageProps {
   /** Injetado nos testes; produção usa o repositório padrão com o adaptador Supabase. */
@@ -75,6 +111,13 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
   const previousVisitors = data?.previous_visitors ?? null;
   const buckets = data?.buckets ?? [];
   const singleVisitCustomers = data?.single_visit_customers ?? [];
+  const registrations = data?.registrations ?? {
+    total: 0,
+    provisional: 0,
+    by_registration_origin: [],
+    by_acquisition_channel: [],
+    acquisition_channel_filled_share: null,
+  };
   const isEmpty =
     !loading &&
     !error &&
@@ -155,6 +198,36 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
             />
           </div>
           <ClientesUmaVisitaLista items={singleVisitCustomers} />
+
+          <div className="relatorios-faturamento-secao-header">
+            <div className="relatorios-faturamento-secao-titulo">
+              <h3 className="card-panel-title">Origem dos clientes</h3>
+              <p className="card-panel-subtitle">
+                Por qual porta o cadastro entrou e como o cliente disse que conheceu a barbearia.
+              </p>
+            </div>
+          </div>
+          <ClientesOrigemDosClientes
+            registrations={registrations}
+            exportOrigemButton={
+              <ExportarCsvButton
+                columns={colunasCsvOrigemCadastro(registrations.total)}
+                rows={registrations.by_registration_origin}
+                reportSlug="clientes_origem_cadastro"
+                startDate={periodo.startDate}
+                endDate={periodo.endDate}
+              />
+            }
+            exportCanalButton={
+              <ExportarCsvButton
+                columns={colunasCsvCanalAquisicao(registrations.total)}
+                rows={registrations.by_acquisition_channel}
+                reportSlug="clientes_canal_aquisicao"
+                startDate={periodo.startDate}
+                endDate={periodo.endDate}
+              />
+            }
+          />
         </>
       )}
     </div>

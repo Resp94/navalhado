@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(49);
 
 -- Spec 038 (Modulo de Relatorios), ticket 10: Novos x recorrentes (relatorio
 -- 9-10, so a parte de visitors/previous_visitors/buckets/
@@ -487,6 +487,171 @@ select is(
   ),
   '0',
   'bucket 2026-09-08: 0 (a SEGUNDA Visita de cli_e dentro do periodo nao conta de novo)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 11: Origem dos clientes (bloco `registrations`), mesmo tenant_a,
+-- mesmo periodo 2026-09-01 a 2026-09-10. Cadastros com created_at explicito
+-- (o default e now(), sem relacao com as datas simuladas do teste).
+--
+-- reg_a: origem balcao, canal "Instagram" (1 grafia), completo, sem Visita.
+-- reg_b: origem balcao, canal "instagram " (com espaco, mesmo grupo
+--   normalizado), completo, sem Visita.
+-- reg_c: origem agenda, canal "instagram" (minusculo, mesmo grupo -- grafia
+--   "instagram" minuscula fica com 2 ocorrencias apos trim contra 1 de
+--   "Instagram", entao e a grafia mais frequente exibida), completo, com
+--   DUAS Visitas (testa que with_visit nao duplica contagem).
+-- reg_d: origem online, canal nulo -> "Não informado", completo, sem Visita.
+-- reg_e: origem canal_cliente, canal vazio ('') -> tambem "Não informado",
+--   PROVISIONAL (cadastro_completo = false), sem Visita.
+-- reg_f: origem whatsapp_bot, canal "Google", PROVISIONAL, com Visita.
+--
+-- Totais esperados: total = 6, provisional = 2 (reg_e, reg_f).
+-- by_registration_origin: balcao 2/0, agenda 1/1, online 1/0,
+--   canal_cliente 1/0, whatsapp_bot 1/1 (total/with_visit).
+-- by_acquisition_channel: "instagram" (grafia mais frequente) 3/1,
+--   "Não informado" 2/0, "Google" 1/1.
+-- acquisition_channel_filled_share = 4/6 = 0.6667 (reg_a/b/c/f preenchidos).
+-- ---------------------------------------------------------------------------
+create temporary table t11_customers (
+  reg_a_id uuid not null, reg_b_id uuid not null, reg_c_id uuid not null,
+  reg_d_id uuid not null, reg_e_id uuid not null, reg_f_id uuid not null
+) on commit drop;
+insert into t11_customers (reg_a_id, reg_b_id, reg_c_id, reg_d_id, reg_e_id, reg_f_id)
+values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid());
+grant select on t11_customers to authenticated;
+
+insert into public.customers (id, tenant_id, name, phone, created_at, registration_origin, acquisition_channel, cadastro_completo)
+select reg_a_id, (select tenant_a_id from t10_context), '__t11_reg_a__', '11988883001',
+       '2026-09-02 09:00:00-03'::timestamptz, 'balcao', 'Instagram', true
+from t11_customers
+union all
+select reg_b_id, (select tenant_a_id from t10_context), '__t11_reg_b__', '11988883002',
+       '2026-09-02 09:10:00-03'::timestamptz, 'balcao', 'instagram ', true
+from t11_customers
+union all
+select reg_c_id, (select tenant_a_id from t10_context), '__t11_reg_c__', '11988883003',
+       '2026-09-03 09:00:00-03'::timestamptz, 'agenda', 'instagram', true
+from t11_customers
+union all
+select reg_d_id, (select tenant_a_id from t10_context), '__t11_reg_d__', '11988883004',
+       '2026-09-04 09:00:00-03'::timestamptz, 'online', null, true
+from t11_customers
+union all
+select reg_e_id, (select tenant_a_id from t10_context), '__t11_reg_e__', '11988883005',
+       '2026-09-05 09:00:00-03'::timestamptz, 'canal_cliente', '', false
+from t11_customers
+union all
+select reg_f_id, (select tenant_a_id from t10_context), '__t11_reg_f__', '11988883006',
+       '2026-09-06 09:00:00-03'::timestamptz, 'whatsapp_bot', 'Google', false
+from t11_customers;
+
+-- Visitas de reg_c (DUAS, dias diferentes -- with_visit nao pode duplicar) e
+-- reg_f (uma).
+insert into public.comandas (id, tenant_id, customer_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select gen_random_uuid(), (select tenant_a_id from t10_context), reg_c_id, 'fechada', 50, 0, 0, '2026-09-03 12:00:00-03'::timestamptz
+from t11_customers
+union all
+select gen_random_uuid(), (select tenant_a_id from t10_context), reg_c_id, 'fechada', 50, 0, 0, '2026-09-07 12:00:00-03'::timestamptz
+from t11_customers
+union all
+select gen_random_uuid(), (select tenant_a_id from t10_context), reg_f_id, 'fechada', 50, 0, 0, '2026-09-06 12:00:00-03'::timestamptz
+from t11_customers;
+
+select is(
+  ((private.get_customer_report_core(
+    (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+  ) -> 'registrations' ->> 'total')::int),
+  6,
+  'registrations.total conta os 6 cadastros do periodo (reg_a a reg_f)'
+);
+select is(
+  ((private.get_customer_report_core(
+    (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+  ) -> 'registrations' ->> 'provisional')::int),
+  2,
+  'registrations.provisional conta reg_e e reg_f (cadastro_completo = false)'
+);
+select is(
+  (
+    select jsonb_agg(jsonb_build_object('origin', i ->> 'origin', 'total', (i ->> 'total')::int, 'with_visit', (i ->> 'with_visit')::int) order by i ->> 'origin')
+    from jsonb_array_elements(
+      private.get_customer_report_core(
+        (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+      ) -> 'registrations' -> 'by_registration_origin'
+    ) as i
+  ),
+  jsonb_build_array(
+    jsonb_build_object('origin', 'agenda', 'total', 1, 'with_visit', 1),
+    jsonb_build_object('origin', 'balcao', 'total', 2, 'with_visit', 0),
+    jsonb_build_object('origin', 'canal_cliente', 'total', 1, 'with_visit', 0),
+    jsonb_build_object('origin', 'online', 'total', 1, 'with_visit', 0),
+    jsonb_build_object('origin', 'whatsapp_bot', 'total', 1, 'with_visit', 1)
+  ),
+  'by_registration_origin agrupa cada origem com total e with_visit (exists, sem duplicar)'
+);
+select is(
+  (
+    select i ->> 'channel'
+    from jsonb_array_elements(
+      private.get_customer_report_core(
+        (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+      ) -> 'registrations' -> 'by_acquisition_channel'
+    ) as i
+    where (i ->> 'total')::int = 3
+  ),
+  'instagram',
+  'grafias diferentes ("Instagram", "instagram ", "instagram") agrupam juntas e exibem a grafia MAIS FREQUENTE ("instagram" minusculo, 2 ocorrencias contra 1 de "Instagram")'
+);
+select is(
+  (
+    select (i ->> 'with_visit')::int
+    from jsonb_array_elements(
+      private.get_customer_report_core(
+        (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+      ) -> 'registrations' -> 'by_acquisition_channel'
+    ) as i
+    where i ->> 'channel' = 'instagram'
+  ),
+  1,
+  'grupo "instagram" tem with_visit = 1 (so reg_c, mesmo com DUAS Visitas -- exists nao duplica)'
+);
+select is(
+  (
+    select jsonb_build_object('total', (i ->> 'total')::int, 'with_visit', (i ->> 'with_visit')::int)
+    from jsonb_array_elements(
+      private.get_customer_report_core(
+        (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+      ) -> 'registrations' -> 'by_acquisition_channel'
+    ) as i
+    where i ->> 'channel' = 'Não informado'
+  ),
+  jsonb_build_object('total', 2, 'with_visit', 0),
+  'nulo (reg_d) e vazio (reg_e) agrupam juntos em "Não informado" (total 2), sempre presente'
+);
+select is(
+  ((private.get_customer_report_core(
+    (select tenant_a_id from t10_context), '2026-09-01'::date, '2026-09-10'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+  ) -> 'registrations' ->> 'acquisition_channel_filled_share')::numeric),
+  0.6667,
+  'acquisition_channel_filled_share = 4/6 (reg_a, reg_b, reg_c, reg_f preenchidos), arredondado a 4 casas'
+);
+
+-- Periodo sem NENHUM cadastro (2026-09-11 a 2026-09-15, nenhum cliente criado
+-- nessa janela): total/provisional zerados, listas vazias (nada a destacar,
+-- nem "Não informado"), share null (nunca zero nem divisao por zero).
+select is(
+  (private.get_customer_report_core(
+    (select tenant_a_id from t10_context), '2026-09-11'::date, '2026-09-15'::date, 'day', '2026-09-16'::date, 'America/Sao_Paulo'
+  ) -> 'registrations'),
+  jsonb_build_object(
+    'total', 0,
+    'provisional', 0,
+    'by_registration_origin', '[]'::jsonb,
+    'by_acquisition_channel', '[]'::jsonb,
+    'acquisition_channel_filled_share', null
+  ),
+  'periodo sem cadastro devolve total/provisional zerados, listas vazias e share null (nunca zero)'
 );
 
 select * from finish(true);

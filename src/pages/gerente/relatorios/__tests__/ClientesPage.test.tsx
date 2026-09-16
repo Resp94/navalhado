@@ -80,6 +80,23 @@ function respostaBase(overrides: Partial<RelatorioClientes> = {}): RelatorioClie
     },
     buckets: [{ start_date: '2026-06-01', end_date: '2026-06-15', new_customers: 4, returning_customers: 6 }],
     single_visit_customers: [umaVisitaBase()],
+    registrations: {
+      total: 6,
+      provisional: 2,
+      by_registration_origin: [
+        { origin: 'balcao', total: 2, with_visit: 0 },
+        { origin: 'agenda', total: 1, with_visit: 1 },
+        { origin: 'online', total: 1, with_visit: 0 },
+        { origin: 'canal_cliente', total: 1, with_visit: 0 },
+        { origin: 'whatsapp_bot', total: 1, with_visit: 1 },
+      ],
+      by_acquisition_channel: [
+        { channel: 'instagram', total: 3, with_visit: 1 },
+        { channel: 'Não informado', total: 2, with_visit: 0 },
+        { channel: 'Google', total: 1, with_visit: 1 },
+      ],
+      acquisition_channel_filled_share: 0.6667,
+    },
     ...overrides,
   };
 }
@@ -130,6 +147,54 @@ describe('ClientesPage', () => {
 
     await waitFor(() => expect(screen.getByText('Clientes únicos')).toBeInTheDocument());
     expect(screen.getByText('Nenhum Cliente de Uma Visita neste período')).toBeInTheDocument();
+  });
+
+  it('destaca "Não informado" no canal de aquisição com o percentual preenchido', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<ClientesPage repository={repository} />);
+
+    await waitFor(() => expect(screen.getByText('Origem dos clientes')).toBeInTheDocument());
+
+    expect(screen.getAllByText('Não informado').length).toBeGreaterThan(0);
+    expect(screen.getByText('66,7%')).toBeInTheDocument();
+    // O texto "Canal preenchido em X% dos cadastros do período." é quebrado
+    // em três nós (o percentual vem dentro de um <strong>), então o
+    // matcher padrão de texto do RTL não casa a string inteira -- comparação
+    // via `textContent` do parágrafo inteiro.
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === 'p' &&
+          element.textContent === 'Canal preenchido em 66,7% dos cadastros do período.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Canal de aquisição é um dado declarado pelo cliente, sem preenchimento automático. Para reduzir "Não informado", peça para completar o canal de aquisição na Central 360º do cliente.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('mostra o estado vazio de Origem dos clientes quando não há cadastro no período, sem esconder as outras seções', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () =>
+      respostaBase({
+        registrations: {
+          total: 0,
+          provisional: 0,
+          by_registration_origin: [],
+          by_acquisition_channel: [],
+          acquisition_channel_filled_share: null,
+        },
+      })
+    );
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<ClientesPage repository={repository} />);
+
+    await waitFor(() => expect(screen.getByText('Clientes únicos')).toBeInTheDocument());
+    expect(screen.getByText('Nenhum cadastro no período')).toBeInTheDocument();
   });
 
   it('mostra erro com botão de tentar de novo', async () => {

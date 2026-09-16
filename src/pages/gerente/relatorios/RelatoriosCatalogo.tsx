@@ -18,18 +18,19 @@ interface CatalogoGrupo {
  * Catálogo do Módulo de Relatórios (spec 038, "Posição no produto",
  * "Catálogo sem números"): lista os dez relatórios agrupados pelas cinco
  * páginas, cada um com uma frase de pergunta, sem nenhum número -- não
- * chama nenhum contrato. Faturamento por período (ticket 01), Equipe e
- * Serviços (ticket 05), o primeiro relatório de Agenda (ticket 07) e Novos
- * x recorrentes (ticket 10) têm link real; os demais aparecem marcados "em
- * breve" até seus tickets.
+ * chama nenhum contrato. Os dez relatórios (tickets 01-11) têm link real;
+ * cada pergunta aponta para a página que já responde essa pergunta, mesmo
+ * quando duas ou três perguntas dividem a mesma página/contrato
+ * (Faturamento serve 1-3 pela mesma RPC; Agenda serve 6-7; Clientes serve
+ * 9-10).
  */
 const CATALOGO: CatalogoGrupo[] = [
   {
     page: 'Faturamento',
     reports: [
       { question: 'Quanto faturei e como foi em relação ao período anterior?', path: '/relatorios/faturamento' },
-      { question: 'Quanto entrou em cada forma de pagamento?' },
-      { question: 'O ticket médio dos clientes está subindo ou caindo?' },
+      { question: 'Quanto entrou em cada forma de pagamento?', path: '/relatorios/faturamento' },
+      { question: 'O ticket médio dos clientes está subindo ou caindo?', path: '/relatorios/faturamento' },
     ],
   },
   {
@@ -43,14 +44,14 @@ const CATALOGO: CatalogoGrupo[] = [
     page: 'Agenda',
     reports: [
       { question: 'Quantos agendamentos viraram atendimento, cancelamento ou falta?', path: '/relatorios/agenda' },
-      { question: 'Quais dias e horários têm mais demanda?' },
+      { question: 'Quais dias e horários têm mais demanda?', path: '/relatorios/agenda' },
     ],
   },
   {
     page: 'Clientes',
     reports: [
       { question: 'Quantos clientes são novos e quantos são recorrentes?', path: '/relatorios/clientes' },
-      { question: 'De onde vêm os clientes da barbearia?' },
+      { question: 'De onde vêm os clientes da barbearia?', path: '/relatorios/clientes' },
     ],
   },
   {

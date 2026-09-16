@@ -930,6 +930,23 @@ describe('SupabaseRelatoriosAdapter.obterClientes', () => {
             professional_name: 'Carlos',
           },
         ],
+        registrations: {
+          total: 6,
+          provisional: 2,
+          by_registration_origin: [
+            { origin: 'balcao', total: 2, with_visit: 0 },
+            { origin: 'agenda', total: 1, with_visit: 1 },
+            { origin: 'online', total: 1, with_visit: 0 },
+            { origin: 'canal_cliente', total: 1, with_visit: 0 },
+            { origin: 'whatsapp_bot', total: 1, with_visit: 1 },
+          ],
+          by_acquisition_channel: [
+            { channel: 'instagram', total: 3, with_visit: 1 },
+            { channel: 'Não informado', total: 2, with_visit: 0 },
+            { channel: 'Google', total: 1, with_visit: 1 },
+          ],
+          acquisition_channel_filled_share: 0.6667,
+        },
       },
       error: null,
     });
@@ -969,6 +986,50 @@ describe('SupabaseRelatoriosAdapter.obterClientes', () => {
     expect(result.single_visit_customers).toEqual([
       { customer_id: 'cust-1', name: 'Ana', phone: '11999998888', visit_date: '2026-06-10', professional_name: 'Carlos' },
     ]);
+    expect(result.registrations).toEqual({
+      total: 6,
+      provisional: 2,
+      by_registration_origin: [
+        { origin: 'balcao', total: 2, with_visit: 0 },
+        { origin: 'agenda', total: 1, with_visit: 1 },
+        { origin: 'online', total: 1, with_visit: 0 },
+        { origin: 'canal_cliente', total: 1, with_visit: 0 },
+        { origin: 'whatsapp_bot', total: 1, with_visit: 1 },
+      ],
+      by_acquisition_channel: [
+        { channel: 'instagram', total: 3, with_visit: 1 },
+        { channel: 'Não informado', total: 2, with_visit: 0 },
+        { channel: 'Google', total: 1, with_visit: 1 },
+      ],
+      acquisition_channel_filled_share: 0.6667,
+    });
+  });
+
+  it('preserva acquisition_channel_filled_share nulo (período sem cadastro) sem coagir para zero', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        registrations: {
+          total: 0,
+          provisional: 0,
+          by_registration_origin: [],
+          by_acquisition_channel: [],
+          acquisition_channel_filled_share: null,
+        },
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientes({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(result.registrations.acquisition_channel_filled_share).toBeNull();
+    expect(result.registrations.total).toBe(0);
+    expect(result.registrations.by_registration_origin).toEqual([]);
+    expect(result.registrations.by_acquisition_channel).toEqual([]);
   });
 
   it('nunca inventa new_single_visit em previous_visitors, mesmo se o backend enviar por engano', async () => {
@@ -1057,6 +1118,13 @@ describe('SupabaseRelatoriosAdapter.obterClientes', () => {
     });
     expect(result.buckets).toEqual([]);
     expect(result.single_visit_customers).toEqual([]);
+    expect(result.registrations).toEqual({
+      total: 0,
+      provisional: 0,
+      by_registration_origin: [],
+      by_acquisition_channel: [],
+      acquisition_channel_filled_share: null,
+    });
   });
 
   it('lança erro quando a RPC devolve erro (Clientes)', async () => {

@@ -24,6 +24,13 @@ function buildResult(businessToday: string): RelatorioClientes {
     previous_visitors: { unique_customers: 0, new_customers: 0, returning_customers: 0, unidentified_attendances: 0 },
     buckets: [],
     single_visit_customers: [],
+    registrations: {
+      total: 0,
+      provisional: 0,
+      by_registration_origin: [],
+      by_acquisition_channel: [],
+      acquisition_channel_filled_share: null,
+    },
   };
 }
 
