@@ -445,46 +445,6 @@
   gap: 1rem;
 }
 
-.payment-method-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.payment-method-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-size-xs);
-}
-
-.payment-method-name {
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.payment-method-amount {
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.payment-progress-track {
-  width: 100%;
-  height: 8px;
-  background: transparent;
-  box-shadow: 0 0 0 0.5px var(--color-text-primary);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.payment-progress-bar {
-  height: 100%;
-  background: var(--color-brand-primary);
-  border-radius: var(--radius-full);
-  transform-origin: left;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 /* ==========================================================================
    6. Tabelas do Hub Financeiro
    ========================================================================== */
