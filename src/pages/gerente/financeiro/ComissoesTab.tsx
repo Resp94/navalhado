@@ -15,6 +15,20 @@ import { SupabaseComissaoAdapter } from '../../../modules/comissoes/adapters/Sup
 import { formatDate } from './formatacao';
 import type { FinancialMetrics, PainelContext } from './types';
 
+// Tabelas do Hub Financeiro (ticket 08/039): classes compartilhadas entre CaixaTab e
+// ComissoesTab, únicas consumidoras de `.financeiro-data-table` e afins em Financeiro.css.
+const TABLE_WRAP_CLASSES = 'border border-border rounded-md overflow-x-auto bg-bg-secondary';
+const TABLE_CLASSES = 'w-full border-collapse text-sm text-left';
+const TH_CLASSES = 'bg-bg-primary px-4 py-3 text-[11px] uppercase tracking-wide font-bold text-text-primary border-b border-border whitespace-nowrap';
+const TBODY_CLASSES = 'divide-y divide-border';
+const TR_HOVER_CLASSES = 'hover:bg-[rgba(217,108,0,0.025)]';
+const TD_CLASSES = 'px-4 py-[0.85rem] text-text-primary';
+const TABLE_EMPTY_NOTICE_CLASSES = 'px-4 py-10 text-center text-xs text-text-secondary';
+const BTN_TABLE_ACTION_BASE_CLASSES =
+  'inline-flex items-center gap-[0.35rem] px-3 py-[0.4rem] rounded-sm text-[11px] font-bold cursor-pointer border-0 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 [@media(pointer:coarse)]:min-h-[38px] [@media(pointer:coarse)]:px-[0.85rem] [@media(pointer:coarse)]:py-2';
+const BTN_TABLE_ACTION_GHOST_CLASSES = `${BTN_TABLE_ACTION_BASE_CLASSES} bg-transparent text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:bg-[rgba(45,35,30,0.05)] hover:text-text-primary hover:shadow-[0_0_0_0.5px_var(--color-text-primary)]`;
+const BTN_TABLE_ACTION_PRIMARY_CLASSES = `${BTN_TABLE_ACTION_BASE_CLASSES} bg-success text-bg-secondary shadow-none hover:bg-success hover:brightness-[0.92] hover:text-bg-secondary hover:shadow-none`;
+
 interface CommissionPayoutHistoryItem {
   id: string;
   professional_id: string;
@@ -149,73 +163,73 @@ export const ComissoesTab: React.FC = () => {
               </div>
 
               {!metrics?.commissions_by_professional || metrics.commissions_by_professional.length === 0 ? (
-                <div className="table-empty-notice">
+                <div className={TABLE_EMPTY_NOTICE_CLASSES}>
                   Nenhum atendimento ou comissão gerada no período selecionado.
                 </div>
               ) : (
-                <div className="table-responsive-container">
-                  <table className="financeiro-data-table">
+                <div className={TABLE_WRAP_CLASSES}>
+                  <table className={TABLE_CLASSES}>
                     <thead>
                       <tr>
-                        <th>Profissional</th>
-                        <th style={{ textAlign: 'center' }}>Atendimentos</th>
-                        <th>Total faturado</th>
-                        <th>Comissão gerada</th>
-                        <th>Já quitado</th>
-                        <th>Saldo pendente</th>
-                        <th style={{ textAlign: 'center' }}>Ações</th>
+                        <th className={TH_CLASSES}>Profissional</th>
+                        <th className={TH_CLASSES} style={{ textAlign: 'center' }}>Atendimentos</th>
+                        <th className={TH_CLASSES}>Total faturado</th>
+                        <th className={TH_CLASSES}>Comissão gerada</th>
+                        <th className={TH_CLASSES}>Já quitado</th>
+                        <th className={TH_CLASSES}>Saldo pendente</th>
+                        <th className={TH_CLASSES} style={{ textAlign: 'center' }}>Ações</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className={TBODY_CLASSES}>
                       {metrics.commissions_by_professional.map((p) => (
-                        <tr key={p.professional_id || p.professional_name}>
-                          <td>
-                            <div className="cell-prof-name">
+                        <tr key={p.professional_id || p.professional_name} className={TR_HOVER_CLASSES}>
+                          <td className={TD_CLASSES}>
+                            <div className="flex items-center gap-[0.6rem] font-bold text-text-primary">
                               <span>{p.professional_name}</span>
                             </div>
                           </td>
-                          <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                          <td className={TD_CLASSES} style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
                             {p.appointments_count}
                           </td>
-                          <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                          <td className={TD_CLASSES} style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                             {formatCurrency(p.gross_sum ?? p.commission_sum)}
                           </td>
-                          <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                          <td className={TD_CLASSES} style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
                             {formatCurrency(p.commission_sum)}
                           </td>
-                          <td className="cell-paid-amount">
+                          <td className={`${TD_CLASSES} font-bold text-success tabular-nums`}>
                             {formatCurrency(p.paid_sum || 0)}
                           </td>
-                          <td className="cell-pending-amount">
+                          <td className={`${TD_CLASSES} font-extrabold text-brand-primary tabular-nums`}>
                             {formatCurrency(p.pending_sum || 0)}
                           </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div className="cell-actions-group">
+                          <td className={TD_CLASSES} style={{ textAlign: 'center' }}>
+                            <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => setSelectedProfForDetails({ id: p.professional_id, name: p.professional_name })}
                                 type="button"
-                                className="btn-table-action btn-table-action--ghost"
+                                className={BTN_TABLE_ACTION_GHOST_CLASSES}
                               >
                                 Ver comandas
                               </button>
                               <button
                                 onClick={() => setSelectedProfForVale({ id: p.professional_id, name: p.professional_name })}
                                 type="button"
-                                className="btn-table-action btn-table-action--ghost"
+                                className={BTN_TABLE_ACTION_GHOST_CLASSES}
                               >
                                 Vale
                               </button>
                               <button
                                 onClick={() => setSelectedProfForExtrato({ id: p.professional_id, name: p.professional_name })}
                                 type="button"
-                                className="btn-table-action btn-table-action--ghost"
+                                className={BTN_TABLE_ACTION_GHOST_CLASSES}
                               >
                                 Extrato
                               </button>
                               <button
                                 onClick={() => setSelectedProfForPayout(p)}
                                 type="button"
-                                className="btn-table-action btn-table-action--primary"
+                                className={BTN_TABLE_ACTION_PRIMARY_CLASSES}
                               >
                                 <HugeiconsIcon icon={Coins01Icon} size={14} />
                                 Pagar comissão
@@ -242,52 +256,56 @@ export const ComissoesTab: React.FC = () => {
               </div>
 
               {payoutsHistory.length === 0 ? (
-                <div className="table-empty-notice">
+                <div className={TABLE_EMPTY_NOTICE_CLASSES}>
                   Nenhum repasse de comissão foi realizado neste período.
                 </div>
               ) : (
-                <div className="table-responsive-container">
-                  <table className="financeiro-data-table">
+                <div className={TABLE_WRAP_CLASSES}>
+                  <table className={TABLE_CLASSES}>
                     <thead>
                       <tr>
-                        <th>Data do repasse</th>
-                        <th>Profissional</th>
-                        <th>Forma de pagamento</th>
-                        <th>Valor pago</th>
-                        <th>Observações</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th className={TH_CLASSES}>Data do repasse</th>
+                        <th className={TH_CLASSES}>Profissional</th>
+                        <th className={TH_CLASSES}>Forma de pagamento</th>
+                        <th className={TH_CLASSES}>Valor pago</th>
+                        <th className={TH_CLASSES}>Observações</th>
+                        <th className={TH_CLASSES}>Status</th>
+                        <th className={TH_CLASSES}>Ações</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className={TBODY_CLASSES}>
                       {payoutsHistory.map((pay) => (
-                        <tr key={pay.id} style={pay.reversed_at ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
-                          <td style={{ fontWeight: 700 }}>{pay.professional_name}</td>
-                          <td style={{ color: 'var(--color-text-secondary)' }}>
+                        <tr
+                          key={pay.id}
+                          className={TR_HOVER_CLASSES}
+                          style={pay.reversed_at ? { opacity: 0.55 } : undefined}
+                        >
+                          <td className={TD_CLASSES} style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
+                          <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{pay.professional_name}</td>
+                          <td className={TD_CLASSES} style={{ color: 'var(--color-text-secondary)' }}>
                             {PAYMENT_METHOD_LABELS[pay.payment_method] || pay.payment_method}
                           </td>
-                          <td className="cell-paid-amount">
+                          <td className={`${TD_CLASSES} font-bold text-success tabular-nums`}>
                             {formatCurrency(pay.amount)}
                           </td>
-                          <td style={{ color: 'var(--color-text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pay.notes || ''}>
+                          <td className={TD_CLASSES} style={{ color: 'var(--color-text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pay.notes || ''}>
                             {pay.notes || '-'}
                           </td>
-                          <td>
+                          <td className={TD_CLASSES}>
                             {pay.reversed_at ? (
-                              <span className="payout-status-badge payout-status-badge--reversed">Estornado</span>
+                              <span className="inline-block px-[0.6rem] py-[0.15rem] rounded-full text-[0.7rem] font-bold bg-[rgba(240,82,82,0.12)] text-error">Estornado</span>
                             ) : (
-                              <span className="payout-status-badge payout-status-badge--paid">Pago</span>
+                              <span className="inline-block px-[0.6rem] py-[0.15rem] rounded-full text-[0.7rem] font-bold bg-[rgba(14,159,110,0.12)] text-success">Pago</span>
                             )}
                           </td>
-                          <td>
+                          <td className={TD_CLASSES}>
                             {pay.reversed_at ? (
                               '-'
                             ) : reversingPayoutId === pay.id ? (
-                              <div className="payout-reversal-form">
+                              <div className="flex items-center gap-[0.35rem]">
                                 <input
                                   type="text"
-                                  className="payout-reversal-input"
+                                  className="border border-border rounded-sm px-2 py-[0.35rem] text-[0.8rem] w-40 disabled:opacity-60 disabled:cursor-not-allowed"
                                   placeholder="Motivo do estorno"
                                   value={payoutReversalReason}
                                   onChange={(e) => setPayoutReversalReason(e.target.value)}
@@ -296,7 +314,7 @@ export const ComissoesTab: React.FC = () => {
                                 />
                                 <button
                                   type="button"
-                                  className="payout-reversal-confirm-btn"
+                                  className="bg-error text-white border-none rounded-sm px-[0.6rem] py-[0.35rem] text-xs font-bold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                   onClick={() => handleConfirmPayoutReversal(pay.id)}
                                   disabled={isReversingPayout}
                                 >
@@ -304,7 +322,7 @@ export const ComissoesTab: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  className="payout-reversal-cancel-btn"
+                                  className="bg-transparent border-none text-text-secondary text-xs cursor-pointer"
                                   onClick={() => {
                                     setReversingPayoutId(null);
                                     setPayoutReversalReason('');
@@ -318,7 +336,7 @@ export const ComissoesTab: React.FC = () => {
                             ) : (
                               <button
                                 type="button"
-                                className="btn-table-action btn-table-action--ghost"
+                                className={BTN_TABLE_ACTION_GHOST_CLASSES}
                                 onClick={() => {
                                   setReversingPayoutId(pay.id);
                                   setPayoutReversalReason('');
@@ -334,7 +352,7 @@ export const ComissoesTab: React.FC = () => {
                     </tbody>
                   </table>
                   {payoutReversalError && (
-                    <div className="table-empty-notice" role="alert" style={{ color: 'var(--color-error, #F05252)' }}>
+                    <div className={TABLE_EMPTY_NOTICE_CLASSES} role="alert" style={{ color: 'var(--color-error, #F05252)' }}>
                       {payoutReversalError}
                     </div>
                   )}

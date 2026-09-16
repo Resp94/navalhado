@@ -164,22 +164,22 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
 
   return (
     <div
-      className="caixa-modal-overlay"
+      className="fixed inset-0 z-[9999] bg-[rgba(20,17,15,0.55)] backdrop-blur-[8px] flex items-center justify-center p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-fechamento-caixa-title"
     >
-      <div className="caixa-modal-shell">
-        <div className="caixa-modal-header">
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-[500px] max-h-[min(90dvh,720px)] flex flex-col shadow-xl overflow-hidden animate-dialog-in">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-bg-secondary shrink-0">
           <div>
-            <h3 id="modal-fechamento-caixa-title" className="caixa-modal-title">
+            <h3 id="modal-fechamento-caixa-title" className="text-lg font-extrabold text-text-primary m-0 tracking-tight leading-tight">
               Fechamento e conferência de caixa
             </h3>
           </div>
           <button
             onClick={onClose}
             type="button"
-            className="caixa-close-btn"
+            className="text-text-primary p-[0.35rem] min-w-11 min-h-11 -mr-[0.35rem] rounded-sm transition-all duration-200 bg-transparent border-none cursor-pointer flex items-center justify-center shrink-0 hover:bg-[rgba(45,35,30,0.05)]"
             aria-label="Fechar modal"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -187,87 +187,87 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
         </div>
 
         {/* ─── RESUMO DE ARRECADAÇÃO GERAL DO TURNO ─── */}
-        <div className="caixa-turn-revenue-card">
-          <div className="caixa-turn-revenue-header">
-            <span className="caixa-turn-revenue-label">
+        <div className="bg-bg-secondary border-b border-border px-6 py-4 flex flex-col gap-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-[0.4rem] text-sm font-bold text-text-primary">
               <HugeiconsIcon icon={Invoice01Icon} size={15} />
               Total arrecadado no turno:
             </span>
-            <span className="caixa-turn-revenue-val">
+            <span className="text-lg font-extrabold text-brand-primary tracking-tight">
               {formatCurrency(totalTurnRevenue)}
             </span>
           </div>
-          <div className="caixa-turn-methods-grid">
-            <div className="caixa-turn-method-badge">
-              <span className="caixa-turn-method-label">Pix</span>
-              <span className="caixa-turn-method-val">{formatCurrency(pixInTurn)}</span>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-transparent border-none shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-lg px-[0.6rem] py-[0.4rem] flex flex-col items-center text-center gap-[0.15rem]">
+              <span className="text-[0.6875rem] font-semibold text-text-primary">Pix</span>
+              <span className="text-[0.8125rem] font-bold text-text-primary">{formatCurrency(pixInTurn)}</span>
             </div>
-            <div className="caixa-turn-method-badge">
-              <span className="caixa-turn-method-label">Cartões</span>
-              <span className="caixa-turn-method-val">{formatCurrency(cardInTurn)}</span>
+            <div className="bg-transparent border-none shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-lg px-[0.6rem] py-[0.4rem] flex flex-col items-center text-center gap-[0.15rem]">
+              <span className="text-[0.6875rem] font-semibold text-text-primary">Cartões</span>
+              <span className="text-[0.8125rem] font-bold text-text-primary">{formatCurrency(cardInTurn)}</span>
             </div>
-            <div className="caixa-turn-method-badge">
-              <span className="caixa-turn-method-label">Dinheiro</span>
-              <span className="caixa-turn-method-val">{formatCurrency(cashInTurn)}</span>
+            <div className="bg-transparent border-none shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-lg px-[0.6rem] py-[0.4rem] flex flex-col items-center text-center gap-[0.15rem]">
+              <span className="text-[0.6875rem] font-semibold text-text-primary">Dinheiro</span>
+              <span className="text-[0.8125rem] font-bold text-text-primary">{formatCurrency(cashInTurn)}</span>
             </div>
           </div>
         </div>
 
         {/* ─── CONFERÊNCIA FÍSICA DA GAVETA ─── */}
-        <div className="caixa-breakdown-summary">
-          <div className="caixa-breakdown-title">
+        <div className="bg-transparent border-b border-border px-6 py-4 flex flex-col gap-[0.45rem] shrink-0">
+          <div className="flex items-center gap-[0.35rem] text-xs font-bold text-text-primary uppercase tracking-wide mb-1 [&_svg]:stroke-text-primary [&_svg]:text-text-primary">
             <HugeiconsIcon icon={Coins01Icon} size={15} />
             <span>Conferência da gaveta (dinheiro físico)</span>
           </div>
-          <div className="caixa-breakdown-item">
-            <span className="caixa-breakdown-label">Fundo de troco inicial:</span>
-            <span className="caixa-breakdown-val">{formatCurrency(initialAmount)}</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-text-primary font-semibold">Fundo de troco inicial:</span>
+            <span className="text-text-primary tabular-nums font-bold">{formatCurrency(initialAmount)}</span>
           </div>
-          <div className="caixa-breakdown-item">
-            <span className="caixa-breakdown-label">(+) Entradas em dinheiro (espécie):</span>
-            <span className="caixa-breakdown-val text-success">+{formatCurrency(cashInTurn)}</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-text-primary font-semibold">(+) Entradas em dinheiro (espécie):</span>
+            <span className="text-text-primary tabular-nums font-bold text-success">+{formatCurrency(cashInTurn)}</span>
           </div>
           {suprimentos > 0 ? (
-            <div className="caixa-breakdown-item">
-              <span className="caixa-breakdown-label">(+) Suprimentos (entradas avulsas):</span>
-              <span className="caixa-breakdown-val text-success">+{formatCurrency(suprimentos)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-primary font-semibold">(+) Suprimentos (entradas avulsas):</span>
+              <span className="text-text-primary tabular-nums font-bold text-success">+{formatCurrency(suprimentos)}</span>
             </div>
           ) : null}
           {sangrias > 0 ? (
-            <div className="caixa-breakdown-item">
-              <span className="caixa-breakdown-label">(-) Sangrias (retiradas):</span>
-              <span className="caixa-breakdown-val text-danger">-{formatCurrency(sangrias)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-primary font-semibold">(-) Sangrias (retiradas):</span>
+              <span className="text-text-primary tabular-nums font-bold text-error">-{formatCurrency(sangrias)}</span>
             </div>
           ) : null}
           {contractRepasses > 0 ? (
-            <div className="caixa-breakdown-item">
-              <span className="caixa-breakdown-label">(-) Repasses de comissão em dinheiro:</span>
-              <span className="caixa-breakdown-val text-danger">-{formatCurrency(contractRepasses)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-primary font-semibold">(-) Repasses de comissão em dinheiro:</span>
+              <span className="text-text-primary tabular-nums font-bold text-error">-{formatCurrency(contractRepasses)}</span>
             </div>
           ) : null}
           {contractVales > 0 ? (
-            <div className="caixa-breakdown-item">
-              <span className="caixa-breakdown-label">(-) Vales em dinheiro:</span>
-              <span className="caixa-breakdown-val text-danger">-{formatCurrency(contractVales)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-primary font-semibold">(-) Vales em dinheiro:</span>
+              <span className="text-text-primary tabular-nums font-bold text-error">-{formatCurrency(contractVales)}</span>
             </div>
           ) : null}
-          <div className="caixa-breakdown-item expected">
-            <span className="caixa-breakdown-label font-bold">Total em dinheiro esperado na gaveta:</span>
-            <span className="caixa-breakdown-val font-bold caixa-val-highlight">
+          <div className="flex justify-between items-center text-xs border-t border-dashed border-border pt-2 mt-1">
+            <span className="text-text-primary font-semibold font-bold">Total em dinheiro esperado na gaveta:</span>
+            <span className="text-text-primary tabular-nums font-bold text-brand-primary text-sm">
               {contractExpectedAmount === undefined
                 ? (expectedAmountFailed ? 'Indisponível' : 'Calculando…')
                 : formatCurrency(expectedAmount)}
             </span>
           </div>
           {expectedAmountFailed ? (
-            <div className="caixa-breakdown-item" role="alert">
-              <span className="caixa-breakdown-label text-danger">
+            <div className="flex justify-between items-center text-xs" role="alert">
+              <span className="text-error font-semibold">
                 Não foi possível apurar o valor esperado da gaveta. A conferência abaixo fica
                 indisponível até a apuração ser refeita.
               </span>
               <button
                 type="button"
-                className="caixa-link-btn text-danger"
+                className="text-error underline-offset-2 hover:underline bg-transparent border-none cursor-pointer p-0"
                 onClick={() => session && void fetchExpectedAmount(session)}
               >
                 Tentar novamente
@@ -276,17 +276,17 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           ) : null}
         </div>
 
-        <form onSubmit={handleConfirm} className="caixa-modal-body">
-          <div className="caixa-field-group">
-            <label htmlFor="closing-amount-input" className="caixa-label">
+        <form onSubmit={handleConfirm} className="px-6 py-5 flex flex-col gap-[1.15rem] bg-bg-secondary overflow-y-auto">
+          <div className="flex flex-col gap-[0.4rem]">
+            <label htmlFor="closing-amount-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
               Valor total em dinheiro contado na gaveta *
             </label>
-            <div className="caixa-input-container">
-              <span className="caixa-input-prefix">R$</span>
+            <div className="relative flex items-center">
+              <span className="absolute left-[1.15rem] text-text-primary font-extrabold text-lg pointer-events-none">R$</span>
               <input
                 id="closing-amount-input"
                 type="text"
-                className="caixa-input"
+                className="w-full bg-bg-secondary border-none shadow-[0_0_0_2.11677px_var(--color-text-primary)] rounded-md py-3 pr-4 pl-13 text-text-primary text-[1.35rem] font-extrabold tabular-nums outline-none transition-all duration-200 focus:shadow-[0_0_0_3px_rgba(217,108,0,0.25)]"
                 value={closingAmount}
                 onChange={handleAmountChange}
                 placeholder="0,00"
@@ -297,25 +297,25 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           </div>
 
           {contractExpectedAmount === undefined ? (
-            <div className="caixa-conferencia-badge">
-              <span className="caixa-conferencia-icon">
+            <div className="px-4 py-[0.85rem] rounded-md flex items-center gap-[0.65rem]">
+              <span className="flex items-center justify-center shrink-0 [&_svg]:h-fit">
                 <HugeiconsIcon icon={AlertCircleIcon} size={18} />
               </span>
-              <span className="caixa-conferencia-text">
+              <span className="text-xs font-bold leading-snug text-text-primary">
                 Conferência indisponível: o valor esperado da gaveta ainda não foi apurado.
               </span>
             </div>
           ) : (
             <div
-              className={`caixa-conferencia-badge ${
+              className={`px-4 py-[0.85rem] rounded-md flex items-center gap-[0.65rem] ${
                 Math.abs(difference) < 0.01
-                  ? 'exact'
+                  ? 'bg-success-bg border border-[rgba(14,159,110,0.3)]'
                   : difference > 0
-                  ? 'surplus'
-                  : 'shortage'
+                  ? 'bg-[rgba(63,131,248,0.1)] border border-[rgba(63,131,248,0.3)]'
+                  : 'bg-[rgba(240,82,82,0.1)] border border-[rgba(240,82,82,0.3)]'
               }`}
             >
-              <span className="caixa-conferencia-icon">
+              <span className="flex items-center justify-center shrink-0 [&_svg]:h-fit [&_svg_path]:stroke-text-primary">
                 <HugeiconsIcon
                   icon={
                     Math.abs(difference) < 0.01
@@ -325,7 +325,7 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
                   size={18}
                 />
               </span>
-              <span className="caixa-conferencia-text">
+              <span className="text-xs font-bold leading-snug text-text-primary">
                 {Math.abs(difference) < 0.01
                   ? 'Conferência exata. O valor contado bate perfeitamente com o esperado.'
                   : difference > 0
@@ -335,13 +335,13 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
             </div>
           )}
 
-          <div className="caixa-field-group">
-            <label htmlFor="fechamento-notes-input" className="caixa-label">
+          <div className="flex flex-col gap-[0.4rem]">
+            <label htmlFor="fechamento-notes-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
               Observações do fechamento (opcional)
             </label>
             <textarea
               id="fechamento-notes-input"
-              className="caixa-textarea"
+              className="w-full bg-bg-secondary border-none shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-md px-[0.85rem] py-[0.65rem] text-text-primary text-sm outline-none resize-none transition-all duration-200 focus:shadow-[0_0_0_2px_var(--color-brand-primary)]"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -350,24 +350,24 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           </div>
 
           {errorMsg && (
-            <div className="caixa-error-banner" role="alert">
+            <div className="bg-[rgba(240,82,82,0.1)] border border-[rgba(240,82,82,0.25)] text-error px-[0.85rem] py-[0.65rem] rounded-md text-xs flex items-center gap-2" role="alert">
               <HugeiconsIcon icon={Cancel01Icon} size={16} />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          <div className="caixa-modal-actions">
+          <div className="flex items-center justify-end gap-3 mt-2 pt-4 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="caixa-cancel-action-btn"
+              className="px-5 py-[0.65rem] min-h-11 text-text-primary bg-transparent border-none shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-md text-sm font-bold cursor-pointer transition-all duration-200 hover:not-disabled:bg-[rgba(45,35,30,0.04)] disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="caixa-submit-action-btn"
+              className="px-[1.35rem] py-[0.65rem] min-h-11 text-text-primary bg-transparent border-none shadow-[0_0_0_1.5px_var(--color-error),var(--shadow-sm)] rounded-md text-sm font-bold cursor-pointer flex items-center gap-2 transition-all duration-200 [&_span]:text-text-primary [&_svg_path]:stroke-text-primary hover:not-disabled:bg-error-bg hover:not-disabled:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting || contractExpectedAmount === undefined}
               title={
                 contractExpectedAmount === undefined
@@ -387,347 +387,6 @@ export const FechamentoCaixaModal: React.FC<FechamentoCaixaModalProps> = ({
           </div>
         </form>
       </div>
-
-      <style>{`
-        .caixa-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: rgba(20, 17, 15, 0.55);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-        .caixa-modal-shell {
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-lg, 1rem);
-          width: 100%;
-          max-width: 500px;
-          max-height: min(90dvh, 720px);
-          display: flex;
-          flex-direction: column;
-          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-          overflow: hidden;
-          animation: caixaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes caixaFadeIn {
-          from { opacity: 0; transform: scale(0.96) translateY(6px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .caixa-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1rem 1.5rem;
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          background: var(--color-bg-secondary, #ffffff);
-          flex-shrink: 0;
-        }
-        .caixa-modal-title {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0;
-          letter-spacing: -0.01em;
-          line-height: 1.3;
-        }
-        .caixa-close-btn {
-          color: var(--color-text-primary, #2D231E);
-          padding: 0.35rem;
-          min-width: 44px;
-          min-height: 44px;
-          margin-right: -0.35rem;
-          border-radius: var(--radius-sm, 0.375rem);
-          transition: all 0.2s ease;
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .caixa-close-btn:hover {
-          color: var(--color-text-primary, #2D231E);
-          background: rgba(45, 35, 30, 0.05);
-        }
-        .caixa-turn-revenue-card {
-          background: var(--color-bg-secondary, #ffffff);
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          padding: 1rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          flex-shrink: 0;
-        }
-        .caixa-turn-revenue-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .caixa-turn-revenue-label {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.875rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-turn-revenue-val {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-brand-primary, #D96C00);
-          letter-spacing: -0.01em;
-        }
-        .caixa-turn-methods-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.5rem;
-        }
-        .caixa-turn-method-badge {
-          background-color: transparent;
-          border: none;
-          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
-          border-radius: 8px;
-          padding: 0.4rem 0.6rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 0.15rem;
-        }
-        .caixa-turn-method-label {
-          font-size: 0.6875rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-turn-method-val {
-          font-size: 0.8125rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-breakdown-title {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-          margin-bottom: 0.25rem;
-        }
-        .caixa-breakdown-title svg {
-          stroke: var(--color-text-primary, #2D231E);
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-breakdown-summary {
-          background-color: transparent;
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          padding: 1rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
-          flex-shrink: 0;
-        }
-        .caixa-breakdown-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-xs, 0.8125rem);
-        }
-        .caixa-breakdown-label {
-          color: var(--color-text-primary, #2D231E);
-          font-weight: 600;
-        }
-        .caixa-breakdown-val {
-          color: var(--color-text-primary, #2D231E);
-          font-variant-numeric: tabular-nums;
-          font-weight: 700;
-        }
-        .caixa-val-highlight {
-          color: var(--color-brand-primary, #D96C00);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 800;
-        }
-        .caixa-breakdown-item.expected {
-          border-top: 1px dashed var(--color-border, #EADED6);
-          padding-top: 0.5rem;
-          margin-top: 0.25rem;
-        }
-        .caixa-modal-body {
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.15rem;
-          background: var(--color-bg-secondary, #ffffff);
-          overflow-y: auto;
-        }
-        .caixa-field-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-        .caixa-label {
-          font-size: var(--font-size-xs, 0.8125rem);
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        .caixa-input-container {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .caixa-input-prefix {
-          position: absolute;
-          left: 1.15rem;
-          color: var(--color-text-primary, #2D231E);
-          font-weight: 800;
-          font-size: 1.125rem;
-          pointer-events: none;
-        }
-        .caixa-input {
-          width: 100%;
-          background: var(--color-bg-secondary, #ffffff);
-          border: none;
-          box-shadow: 0 0 0 2.11677px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.75rem 1rem 0.75rem 3.25rem;
-          color: var(--color-text-primary, #2D231E);
-          font-size: 1.35rem;
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-        .caixa-input:focus {
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.25);
-        }
-        .caixa-conferencia-badge {
-          padding: 0.85rem 1rem;
-          border-radius: var(--radius-md, 0.5rem);
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-        }
-        .caixa-conferencia-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .caixa-conferencia-icon svg {
-          height: fit-content;
-        }
-        .caixa-conferencia-icon svg path {
-          stroke: var(--color-text-primary, #2D231E);
-        }
-        .caixa-conferencia-text {
-          font-size: var(--font-size-xs, 0.8125rem);
-          font-weight: 700;
-          line-height: 1.35;
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-conferencia-badge.exact {
-          background: var(--color-success-bg, rgba(14, 159, 110, 0.1));
-          border: 1px solid rgba(14, 159, 110, 0.3);
-        }
-        .caixa-conferencia-badge.surplus {
-          background: rgba(63, 131, 248, 0.1);
-          border: 1px solid rgba(63, 131, 248, 0.3);
-        }
-        .caixa-conferencia-badge.shortage {
-          background: rgba(240, 82, 82, 0.1);
-          border: 1px solid rgba(240, 82, 82, 0.3);
-        }
-        .caixa-textarea {
-          width: 100%;
-          background: var(--color-bg-secondary, #ffffff);
-          border: none;
-          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.65rem 0.85rem;
-          color: var(--color-text-primary, #2D231E);
-          font-size: var(--font-size-sm, 0.875rem);
-          outline: none;
-          resize: none;
-          transition: all 0.2s ease;
-        }
-        .caixa-textarea:focus {
-          box-shadow: 0 0 0 2px var(--color-brand-primary, #D96C00);
-        }
-        .caixa-error-banner {
-          background: rgba(240, 82, 82, 0.1);
-          border: 1px solid rgba(240, 82, 82, 0.25);
-          color: var(--color-error, #F05252);
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-xs, 0.8125rem);
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .caixa-modal-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--color-border, #EADED6);
-        }
-        .caixa-cancel-action-btn {
-          padding: 0.65rem 1.25rem;
-          min-height: 44px;
-          color: var(--color-text-primary, #2D231E);
-          background-color: transparent;
-          border: none;
-          box-shadow: 0 0 0 0.888889px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .caixa-cancel-action-btn:hover:not(:disabled) {
-          background-color: rgba(45, 35, 30, 0.04);
-        }
-        .caixa-submit-action-btn {
-          padding: 0.65rem 1.35rem;
-          min-height: 44px;
-          color: var(--color-text-primary, #2D231E);
-          background-color: transparent;
-          border: none;
-          box-shadow: 0 0 0 1.5px var(--color-error, #F05252), var(--shadow-sm, 0 1px 2px rgba(45, 35, 30, 0.06));
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .caixa-submit-action-btn span {
-          color: var(--color-text-primary, #2D231E);
-        }
-        .caixa-submit-action-btn svg path {
-          stroke: var(--color-text-primary, #2D231E);
-        }
-        .caixa-submit-action-btn:hover:not(:disabled) {
-          background-color: var(--color-error-bg, #FDE8E8);
-          transform: translateY(-1px);
-        }
-        .caixa-submit-action-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      `}</style>
     </div>
   );
 };

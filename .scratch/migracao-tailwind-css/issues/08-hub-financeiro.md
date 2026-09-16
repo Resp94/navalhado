@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Fundação Tailwind), 02 (Remoção do modo escuro), 03 (Componentes UI compartilhados)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `Financeiro.css` removido, com toda regra convertida
-- [ ] Bloco `<style>` inline de cada modal e tab listado removido e convertido
-- [ ] Fluxo de abertura/fechamento de caixa, quitação de comissão, baixa e vale verificado manualmente sem mudança de comportamento
-- [ ] Testes existentes desses componentes continuam passando, com seletores por classe CSS removida reescritos
-- [ ] `npm run test`, `npm run build` e `oxlint` continuam passando
+- [x] `Financeiro.css`: toda regra exclusiva de `CaixaTab`/`ComissoesTab` (banner de turno, grid intermediário, tabelas, células, badges de repasse, resumo diário) convertida para Tailwind e removida. O arquivo não foi apagado por completo: `.financeiro-page`, `.financeiro-header*`, `.financeiro-nav-tabs`/`.nav-tab-btn*` (exclusivos de `HubLayout.tsx`), `.financeiro-period-tabs`/`.period-tab-btn*`/`.kpi-*` (exclusivos de `PainelLayout.tsx`), `.card-panel*` e `.table-responsive-container` (compartilhados também com `FluxoCaixaTab`, as páginas de Relatórios e `MinhasComissoes.tsx`) e `.financeiro-mobile-view`/`.financeiro-desktop-view`/`.financeiro-tab-content`/`.financeiro-panel-header` (compartilhados com `ContasPagarTab`/`PlanoContasTab`/`PainelLayout`, tickets 04 e outros) continuam nele porque removê-los quebraria arquivos fora do escopo deste ticket (`HubLayout.tsx`, `PainelLayout.tsx`, `ContasPagarTab.tsx`, `PlanoContasTab.tsx` não foram tocados, por instrução explícita). Documentado no topo do arquivo.
+- [x] Bloco `<style>` inline de cada modal e tab listado removido e convertido (`FechamentoCaixaModal`, `AberturaAssistidaCaixaModal`, `QuitacaoComissaoModal`, `BaixaDialog`, `LancarValeModal`, `ExtratoContaProfissionalModal`). Exceção documentada: `ExtratoSessaoCaixaModal` mantém um `<style>` mínimo só para a regra de impressão `body * { visibility: hidden }` (seletor de documento inteiro, sem equivalente em utilitário Tailwind escopado ao componente).
+- [~] Fluxo de abertura/fechamento de caixa, quitação de comissão, baixa e vale: não houve passagem manual pela UI (ambiente sem Supabase local disponível nesta sessão). Cobertura indireta pelos 53 testes automatizados dos componentes tocados, que exercitam esses fluxos via Testing Library — recomenda-se uma verificação visual manual antes do merge.
+- [x] Testes existentes desses componentes continuam passando; um seletor por classe CSS removida (`.caixa-val-highlight`) foi reescrito para `getByText` em `FechamentoCaixaModal.test.tsx`.
+- [x] `npx tsc -b`, `npx vitest run` (escopo do Hub Financeiro), `npx oxlint` e `npx vite build` passando.
