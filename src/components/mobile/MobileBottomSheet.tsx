@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Cancel01Icon } from '@hugeicons/core-free-icons';
 
@@ -17,9 +17,14 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   children,
   maxHeight = '85vh',
 }) => {
+  // Controla a transição de entrada (slide-up) do painel: monta fora da tela
+  // e, no frame seguinte, desliza para a posição final via transition-transform.
+  const [slidIn, setSlidIn] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      const raf = requestAnimationFrame(() => setSlidIn(true));
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           onClose();
@@ -27,11 +32,13 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => {
+        cancelAnimationFrame(raf);
         document.body.style.overflow = '';
         window.removeEventListener('keydown', handleKeyDown);
       };
     } else {
       document.body.style.overflow = '';
+      setSlidIn(false);
     }
   }, [isOpen, onClose]);
 
@@ -39,27 +46,31 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
   return (
     <>
-      <div className="bottom-sheet-backdrop" onClick={onClose} aria-hidden="true" />
-      <div 
-        className="bottom-sheet-panel" 
+      <div
+        className="fixed inset-0 bg-black/65 backdrop-blur-[8px] z-[1000] animate-fade-in"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[1001] bg-bg-secondary border-t border-border rounded-t-lg shadow-lg flex flex-col pb-[env(safe-area-inset-bottom,1rem)] touch-pan-y transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${slidIn ? 'translate-y-0' : 'translate-y-full'}`}
         style={{ maxHeight }}
         role="dialog"
         aria-modal="true"
         aria-label={title || 'Painel de Ações'}
       >
         {/* Alça de puxar (Drag Handle) */}
-        <div className="bottom-sheet-handle-container" onClick={onClose}>
-          <div className="bottom-sheet-handle" />
+        <div className="w-full pt-2.5 pb-1.5 flex justify-center cursor-pointer group" onClick={onClose}>
+          <div className="w-9 h-1 rounded-sm bg-border transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:bg-brand-primary" />
         </div>
 
         {/* Header se houver título */}
         {title && (
-          <div className="bottom-sheet-header">
-            <h3 className="bottom-sheet-title">{title}</h3>
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="bottom-sheet-close"
+          <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b border-border">
+            <h3 className="text-lg font-bold text-text-primary m-0 tracking-[-0.02em]">{title}</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-transparent border-none text-text-secondary cursor-pointer p-2.5 min-w-11 min-h-11 rounded-md flex items-center justify-center transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation hover:text-text-primary"
               aria-label="Fechar"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -68,115 +79,10 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         )}
 
         {/* Conteúdo rolável */}
-        <div className="bottom-sheet-content">
+        <div className="p-5 overflow-y-auto [-webkit-overflow-scrolling:touch] flex-1">
           {children}
         </div>
       </div>
-
-      <style>{`
-        .bottom-sheet-backdrop {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          z-index: 1000;
-          animation: bottomSheetFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        .bottom-sheet-panel {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 1001;
-          background: var(--color-bg-secondary);
-          border-top: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
-          box-shadow: var(--shadow-lg, 0 -10px 40px rgba(0, 0, 0, 0.6));
-          display: flex;
-          flex-direction: column;
-          padding-bottom: env(safe-area-inset-bottom, 1rem);
-          animation: bottomSheetSlideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
-          touch-action: pan-y;
-        }
-
-        .bottom-sheet-handle-container {
-          width: 100%;
-          padding: 10px 0 6px;
-          display: flex;
-          justify-content: center;
-          cursor: pointer;
-        }
-
-        .bottom-sheet-handle {
-          width: 36px;
-          height: 4px;
-          border-radius: var(--radius-sm, 2px);
-          background: var(--color-border);
-          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .bottom-sheet-handle-container:hover .bottom-sheet-handle {
-          background: var(--color-brand-primary);
-        }
-
-        .bottom-sheet-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.5rem 1.25rem 0.75rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .bottom-sheet-title {
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.02em;
-        }
-
-        .bottom-sheet-close {
-          background: transparent;
-          border: none;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          padding: 10px;
-          min-width: 44px;
-          min-height: 44px;
-          border-radius: var(--radius-md, 8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          touch-action: manipulation;
-        }
-
-        .bottom-sheet-close:hover {
-          color: var(--color-text-primary);
-        }
-
-        .bottom-sheet-content {
-          padding: 1.25rem;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
-          flex: 1;
-        }
-
-        @keyframes bottomSheetFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes bottomSheetSlideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-      `}</style>
     </>
   );
 };

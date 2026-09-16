@@ -90,7 +90,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
     Number(turnSummary?.total || 0),
     Number(metrics?.total_revenue || 0)
   );
-  
+
   const initialAmount = Number(activeSession?.initial_amount) || 0;
   const totalCashInDrawer = expectedDrawerAmount;
 
@@ -152,93 +152,101 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
   };
 
   return (
-    <div className="mobile-caixa">
+    <div className="flex flex-col gap-4 w-full min-w-0 max-w-full box-border">
       {/* ─── 1. STATUS DO CAIXA DO DIA ─── */}
-      <div className={`mobile-caixa__status-card ${activeSession ? 'status--open' : 'status--closed'}`}>
-        <div className="mobile-caixa__status-header">
-          <div className="mobile-caixa__status-badge">
-            <span className="mobile-caixa__status-dot" />
+      <div
+        className={`bg-bg-secondary border rounded-lg p-[1.15rem] flex flex-col gap-3.5 shadow-sm ${activeSession ? 'border-[rgba(14,159,110,0.3)]' : 'border-[rgba(240,82,82,0.25)]'}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-text-primary">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                activeSession
+                  ? 'bg-success shadow-[0_0_8px_var(--color-success)]'
+                  : 'bg-error'
+              }`}
+            />
             <span>{activeSession ? 'Caixa aberto' : 'Caixa fechado'}</span>
           </div>
 
           {activeSession && (
-            <span className="mobile-caixa__opened-time">
+            <span className="flex items-center gap-[0.35rem] text-xs text-text-secondary">
               <HugeiconsIcon icon={Clock01Icon} size={14} />
               {formatDate(activeSession.opened_at)}
             </span>
           )}
         </div>
 
-        <div className="mobile-caixa__status-body">
+        <div>
           {activeSession ? (
-            <div className="mobile-caixa__amount-row">
+            <div className="flex items-center justify-between bg-bg-primary p-3 rounded-md border border-border">
               <div>
-                <span className="mobile-caixa__amount-label">Troco inicial</span>
-                <span className="mobile-caixa__amount-val">
+                <span className="text-[0.6875rem] text-text-secondary uppercase block">Troco inicial</span>
+                <span className="text-base font-bold text-text-primary">
                   {formatCurrency(initialAmount)}
                 </span>
               </div>
               <div>
-                <span className="mobile-caixa__amount-label">Entradas no turno</span>
-                <span className="mobile-caixa__amount-val text-success">
+                <span className="text-[0.6875rem] text-text-secondary uppercase block">Entradas no turno</span>
+                <span className="text-base font-bold text-success">
                   +{formatCurrency(turnSummary?.total || 0)}
                 </span>
               </div>
               {activeSessionCashReceipts > 0 && (
                 <div>
-                  <span className="mobile-caixa__amount-label">Dinheiro espécie</span>
-                  <span className="mobile-caixa__amount-val text-success">
+                  <span className="text-[0.6875rem] text-text-secondary uppercase block">Dinheiro espécie</span>
+                  <span className="text-base font-bold text-success">
                     +{formatCurrency(activeSessionCashReceipts)}
                   </span>
                 </div>
               )}
               {suprimentosTotal > 0 && (
                 <div>
-                  <span className="mobile-caixa__amount-label">Suprimentos</span>
-                  <span className="mobile-caixa__amount-val text-success">
+                  <span className="text-[0.6875rem] text-text-secondary uppercase block">Suprimentos</span>
+                  <span className="text-base font-bold text-success">
                     +{formatCurrency(suprimentosTotal)}
                   </span>
                 </div>
               )}
               {sangriasTotal > 0 && (
                 <div>
-                  <span className="mobile-caixa__amount-label">Sangrias</span>
-                  <span className="mobile-caixa__amount-val text-danger">
+                  <span className="text-[0.6875rem] text-text-secondary uppercase block">Sangrias</span>
+                  <span className="text-base font-bold text-error">
                     -{formatCurrency(sangriasTotal)}
                   </span>
                 </div>
               )}
               {repassesComissaoTotal > 0 && (
                 <div>
-                  <span className="mobile-caixa__amount-label">Repasses de comissão</span>
-                  <span className="mobile-caixa__amount-val text-danger">
+                  <span className="text-[0.6875rem] text-text-secondary uppercase block">Repasses de comissão</span>
+                  <span className="text-base font-bold text-error">
                     -{formatCurrency(repassesComissaoTotal)}
                   </span>
                 </div>
               )}
               {valesTotal > 0 && (
                 <div>
-                  <span className="mobile-caixa__amount-label">Vales</span>
-                  <span className="mobile-caixa__amount-val text-danger">
+                  <span className="text-[0.6875rem] text-text-secondary uppercase block">Vales</span>
+                  <span className="text-base font-bold text-error">
                     -{formatCurrency(valesTotal)}
                   </span>
                 </div>
               )}
             </div>
           ) : (
-            <p className="mobile-caixa__closed-msg">
+            <p className="text-[0.8125rem] text-text-secondary m-0">
               Inicie o turno para liberar o recebimento de comandas em dinheiro e pagamentos.
             </p>
           )}
         </div>
 
-        <div className="mobile-caixa__status-footer">
+        <div>
           {activeSession ? (
-            <div className="mobile-caixa__actions-wrapper">
-              <div className="mobile-caixa__quick-movements">
+            <div className="flex flex-col gap-2 w-full">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="mobile-caixa__movement-btn btn--suprimento"
+                  className="flex items-center justify-center gap-[0.35rem] py-[0.65rem] px-2 min-h-11 rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation bg-[rgba(14,159,110,0.12)] border border-[rgba(14,159,110,0.25)] text-success"
                   onClick={() => handleOpenMovement('suprimento')}
                 >
                   <HugeiconsIcon icon={ArrowDown01Icon} size={15} />
@@ -246,7 +254,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  className="mobile-caixa__movement-btn btn--sangria"
+                  className="flex items-center justify-center gap-[0.35rem] py-[0.65rem] px-2 min-h-11 rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation bg-[rgba(240,82,82,0.12)] border border-[rgba(240,82,82,0.25)] text-error"
                   onClick={() => handleOpenMovement('sangria')}
                 >
                   <HugeiconsIcon icon={ArrowUp01Icon} size={15} />
@@ -256,7 +264,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
               <button
                 type="button"
-                className="mobile-caixa__btn-action btn--close-caixa"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-md text-sm font-bold border cursor-pointer min-h-12 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-[rgba(240,82,82,0.15)] text-error border-[rgba(240,82,82,0.3)]"
                 onClick={onOpenFechamento}
               >
                 <LockIcon size={16} />
@@ -266,7 +274,7 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           ) : (
             <button
               type="button"
-              className="mobile-caixa__btn-action btn--open-caixa"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-md text-sm font-bold border-none cursor-pointer min-h-12 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-brand-primary text-brand-lightest"
               onClick={onOpenAbertura}
             >
               <HugeiconsIcon icon={PlusSignIcon} size={18} />
@@ -277,70 +285,76 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
       </div>
 
       {/* ─── 2. RESUMO DOS VALORES DO DIA (4 CARDS) ─── */}
-      <div className="mobile-caixa__cards-grid">
-        <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Faturamento total</span>
-          <span className="mobile-caixa__kpi-val text-primary">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-bg-secondary border border-border rounded-lg p-3.5 flex flex-col gap-1 shadow-sm">
+          <span className="text-[0.6875rem] text-text-secondary uppercase">Faturamento total</span>
+          <span className="text-lg font-extrabold text-brand-primary">
             {formatCurrency(totalRevenue)}
           </span>
         </div>
 
-        <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Dinheiro em gaveta</span>
-          <span className="mobile-caixa__kpi-val">
+        <div className="bg-bg-secondary border border-border rounded-lg p-3.5 flex flex-col gap-1 shadow-sm">
+          <span className="text-[0.6875rem] text-text-secondary uppercase">Dinheiro em gaveta</span>
+          <span className="text-lg font-extrabold text-text-primary">
             {totalCashInDrawer === undefined ? 'indisponível' : formatCurrency(totalCashInDrawer)}
           </span>
         </div>
 
-        <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Recebimentos Pix</span>
-          <span className="mobile-caixa__kpi-val text-info">
+        <div className="bg-bg-secondary border border-border rounded-lg p-3.5 flex flex-col gap-1 shadow-sm">
+          <span className="text-[0.6875rem] text-text-secondary uppercase">Recebimentos Pix</span>
+          <span className="text-lg font-extrabold text-info">
             {formatCurrency(pixTotal)}
           </span>
         </div>
 
-        <div className="mobile-caixa__kpi-card">
-          <span className="mobile-caixa__kpi-label">Cartão de crédito e débito</span>
-          <span className="mobile-caixa__kpi-val">
+        <div className="bg-bg-secondary border border-border rounded-lg p-3.5 flex flex-col gap-1 shadow-sm">
+          <span className="text-[0.6875rem] text-text-secondary uppercase">Cartão de crédito e débito</span>
+          <span className="text-lg font-extrabold text-text-primary">
             {formatCurrency(cardTotal)}
           </span>
         </div>
       </div>
 
       {/* ─── 3. RESUMO FINANCEIRO POR DIA ─── */}
-      <section className="mobile-caixa__daily-summary" aria-labelledby="mobile-daily-summary-title">
-        <div className="mobile-caixa__daily-header">
+      <section
+        className="flex flex-col gap-3 p-4 bg-bg-secondary border border-border rounded-lg shadow-sm min-w-0 max-w-full box-border"
+        aria-labelledby="mobile-daily-summary-title"
+      >
+        <div>
           <div>
-            <h3 id="mobile-daily-summary-title">Resumo por dia</h3>
-            <p>Faturamento realizado separado das entradas no caixa.</p>
+            <h3 id="mobile-daily-summary-title" className="m-0 text-base text-text-primary">Resumo por dia</h3>
+            <p className="mt-1 mb-0 text-xs text-text-secondary">Faturamento realizado separado das entradas no caixa.</p>
           </div>
         </div>
 
-        <div className="mobile-caixa__daily-filters">
-          <label>
+        <div className="grid grid-cols-1 gap-3 min-w-0 max-w-full box-border">
+          <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border">
             <span>De</span>
             <input
               aria-label="Data inicial do resumo diário"
               type="date"
               value={dailyStartDate}
               onChange={(event) => onDailyStartDateChange?.(event.target.value)}
+              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
             />
           </label>
-          <label>
+          <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border">
             <span>Até</span>
             <input
               aria-label="Data final do resumo diário"
               type="date"
               value={dailyEndDate}
               onChange={(event) => onDailyEndDateChange?.(event.target.value)}
+              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
             />
           </label>
-          <label className="mobile-caixa__daily-session-filter">
+          <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border col-span-full">
             <span>Sessão</span>
             <select
               aria-label="Sessão do resumo diário"
               value={selectedDailySessionId || ''}
               onChange={(event) => onDailySessionChange?.(event.target.value)}
+              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
             >
               <option value="">Todas as sessões</option>
               {historySessions.map((session) => (
@@ -352,57 +366,57 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
           </label>
         </div>
 
-        <div className="mobile-caixa__daily-kpis">
-          <div>
-            <span>Faturamento realizado</span>
-            <strong>{formatCurrency(dailyTotals.realized)}</strong>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-[0.2rem] p-[0.7rem] rounded-md bg-bg-primary border border-border">
+            <span className="text-[0.6875rem] text-text-secondary">Faturamento realizado</span>
+            <strong className="text-base text-brand-primary [font-variant-numeric:tabular-nums]">{formatCurrency(dailyTotals.realized)}</strong>
           </div>
-          <div>
-            <span>Entradas no caixa</span>
-            <strong>{formatCurrency(dailyTotals.received)}</strong>
+          <div className="flex flex-col gap-[0.2rem] p-[0.7rem] rounded-md bg-bg-primary border border-border">
+            <span className="text-[0.6875rem] text-text-secondary">Entradas no caixa</span>
+            <strong className="text-base text-success [font-variant-numeric:tabular-nums]">{formatCurrency(dailyTotals.received)}</strong>
           </div>
         </div>
 
         {dailySummaryLoading ? (
-          <div className="mobile-caixa__daily-state" role="status">Carregando resumo por dia...</div>
+          <div className="p-3 text-center text-xs text-text-secondary" role="status">Carregando resumo por dia...</div>
         ) : dailySummaryError ? (
-          <div className="mobile-caixa__daily-state mobile-caixa__daily-state--error" role="alert">{dailySummaryError}</div>
+          <div className="p-3 text-center text-xs text-error" role="alert">{dailySummaryError}</div>
         ) : (
-          <div className="mobile-caixa__daily-list">
+          <div className="flex flex-col gap-2">
             {dailySummary.map((summary) => (
-              <div className="mobile-caixa__daily-item" key={summary.date}>
-                <div className="mobile-caixa__daily-item-header">
-                  <strong>{formatDailyDate(summary.date)}</strong>
-                  <span>{summary.closed_comandas_count} comanda(s)</span>
+              <div className="flex flex-col gap-[0.45rem] p-[0.7rem] border border-border rounded-md bg-bg-primary" key={summary.date}>
+                <div className="flex items-center justify-between gap-2">
+                  <strong className="text-text-primary text-[0.8125rem]">{formatDailyDate(summary.date)}</strong>
+                  <span className="text-text-secondary text-[0.6875rem]">{summary.closed_comandas_count} comanda(s)</span>
                 </div>
-                <div className="mobile-caixa__daily-item-values">
-                  <span>Faturado <b>{formatCurrency(summary.realized_revenue)}</b></span>
-                  <span>Recebido <b>{formatCurrency(summary.received_total)}</b></span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-text-secondary text-[0.6875rem]">Faturado <b className="text-text-primary [font-variant-numeric:tabular-nums]">{formatCurrency(summary.realized_revenue)}</b></span>
+                  <span className="text-text-secondary text-[0.6875rem]">Recebido <b className="text-text-primary [font-variant-numeric:tabular-nums]">{formatCurrency(summary.received_total)}</b></span>
                 </div>
-                <div className="mobile-caixa__daily-item-methods">
-                  <span>Dinheiro {formatCurrency(summary.by_method.dinheiro)}</span>
-                  <span>PIX {formatCurrency(summary.by_method.pix)}</span>
-                  <span>Cartão {formatCurrency(summary.by_method.cartao)}</span>
-                  <span>Outros {formatCurrency(summary.by_method.outros)}</span>
+                <div className="flex items-center flex-wrap justify-start gap-2 pt-[0.35rem] border-t border-border">
+                  <span className="text-text-secondary text-[0.6875rem]">Dinheiro {formatCurrency(summary.by_method.dinheiro)}</span>
+                  <span className="text-text-secondary text-[0.6875rem]">PIX {formatCurrency(summary.by_method.pix)}</span>
+                  <span className="text-text-secondary text-[0.6875rem]">Cartão {formatCurrency(summary.by_method.cartao)}</span>
+                  <span className="text-text-secondary text-[0.6875rem]">Outros {formatCurrency(summary.by_method.outros)}</span>
                 </div>
               </div>
             ))}
             {dailySummary.length === 0 && (
-              <div className="mobile-caixa__daily-state">Nenhum movimento no período selecionado.</div>
+              <div className="p-3 text-center text-xs text-text-secondary">Nenhum movimento no período selecionado.</div>
             )}
           </div>
         )}
       </section>
 
       {/* ─── 4. ÚLTIMOS TURNOS / MOVIMENTAÇÕES ─── */}
-      <div className="mobile-caixa__history">
-        <h3 className="mobile-caixa__history-title">Turnos recentes</h3>
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[0.9375rem] font-bold text-text-primary m-0">Turnos recentes</h3>
         {historySessions.length === 0 ? (
-          <div className="mobile-caixa__history-empty">
+          <div className="p-6 text-center text-[0.8125rem] text-text-secondary bg-bg-secondary rounded-md">
             <span>Nenhum histórico de turno registrado ainda.</span>
           </div>
         ) : (
-          <div className="mobile-caixa__history-list">
+          <div className="flex flex-col gap-2">
             {historySessions.slice(0, 5).map((session) => {
               const isCurrentActive = activeSession?.id === session.id;
               const revenue = isCurrentActive
@@ -410,20 +424,20 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
                 : (session.total_revenue || 0);
 
               return (
-                <div key={session.id} className="mobile-caixa__history-item">
-                  <div className="mobile-caixa__history-info">
-                    <span className="mobile-caixa__history-date">
+                <div key={session.id} className="flex items-center justify-between bg-bg-secondary border border-border rounded-md p-3 shadow-sm text-[0.8125rem]">
+                  <div className="flex flex-col gap-[0.15rem]">
+                    <span className="font-semibold text-text-primary">
                       {formatDate(session.opened_at)}
                     </span>
-                    <span className={`mobile-caixa__history-status ${session.closed_at ? 'status--closed' : 'status--open'}`}>
+                    <span className={`text-[0.6875rem] font-semibold ${session.closed_at ? 'text-text-secondary' : 'text-success'}`}>
                       {session.closed_at ? 'Fechado' : 'Aberto (Em andamento)'}
                     </span>
                   </div>
-                  <div className="mobile-caixa__history-amounts">
-                    <span className="mobile-caixa__history-revenue">
+                  <div className="flex flex-col items-end gap-[0.15rem] text-xs text-text-secondary">
+                    <span className="text-[0.8125rem] font-extrabold text-brand-primary">
                       Arrecadado: {formatCurrency(revenue)}
                     </span>
-                    <span className="mobile-caixa__history-drawer">
+                    <span className="text-[0.6875rem] text-text-secondary">
                       {session.closed_at
                         ? `Gaveta: ${formatCurrency(session.closing_amount ?? 0)}`
                         : `Troco inicial: ${formatCurrency(session.initial_amount)}`}
@@ -442,564 +456,40 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
         onClose={() => setMovementModalOpen(false)}
         title={movementType === 'sangria' ? 'Registrar Sangria (Saída)' : 'Registrar Suprimento (Entrada)'}
       >
-        <div className="mobile-caixa__movement-form">
-          <div className="form-group">
-            <label className="form-label">Valor (R$)</label>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-[0.35rem]">
+            <label className="text-xs font-semibold text-text-secondary">Valor (R$)</label>
             <input
               type="number"
               step="0.01"
               placeholder="0,00"
               value={movementAmount}
               onChange={(e) => setMovementAmount(e.target.value)}
-              className="form-input"
+              className="bg-bg-primary border border-border rounded-md text-text-primary py-2.5 px-3 text-sm outline-none focus:border-brand-primary"
               autoFocus
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Motivo / Descrição</label>
+          <div className="flex flex-col gap-[0.35rem]">
+            <label className="text-xs font-semibold text-text-secondary">Motivo / Descrição</label>
             <input
               type="text"
               placeholder={movementType === 'sangria' ? 'Ex: Pagamento de Fornecedor, Troco' : 'Ex: Aporte extra de troco'}
               value={movementReason}
               onChange={(e) => setMovementReason(e.target.value)}
-              className="form-input"
+              className="bg-bg-primary border border-border rounded-md text-text-primary py-2.5 px-3 text-sm outline-none focus:border-brand-primary"
             />
           </div>
 
           <button
             type="button"
-            className="mobile-caixa__btn-submit"
+            className="bg-brand-primary text-brand-lightest border-none rounded-md py-3 text-sm font-bold cursor-pointer transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-brand-hover"
             onClick={handleSaveMovement}
           >
             Confirmar {movementType === 'sangria' ? 'Sangria' : 'Suprimento'}
           </button>
         </div>
       </MobileBottomSheet>
-
-      <style>{`
-        .mobile-caixa {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          width: 100%;
-        }
-
-        .mobile-caixa__status-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          padding: 1.15rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.875rem;
-          box-shadow: var(--shadow-sm, 0 4px 12px rgba(0, 0, 0, 0.2));
-        }
-
-        .mobile-caixa__status-card.status--open {
-          border-color: rgba(14, 159, 110, 0.3);
-        }
-
-        .mobile-caixa__status-card.status--closed {
-          border-color: rgba(240, 82, 82, 0.25);
-        }
-
-        .mobile-caixa__status-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .mobile-caixa__status-badge {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .status--open .mobile-caixa__status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: var(--radius-full, 50%);
-          background: var(--color-success);
-          box-shadow: 0 0 8px var(--color-success);
-        }
-
-        .status--closed .mobile-caixa__status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: var(--radius-full, 50%);
-          background: var(--color-error);
-        }
-
-        .mobile-caixa__opened-time {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-caixa__amount-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: var(--color-bg-primary);
-          padding: 0.75rem;
-          border-radius: var(--radius-md, 10px);
-          border: 1px solid var(--color-border);
-        }
-
-        .mobile-caixa__amount-label {
-          font-size: 0.6875rem;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          display: block;
-        }
-
-        .mobile-caixa__amount-val {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .text-success { color: var(--color-success) !important; }
-        .text-primary { color: var(--color-brand-primary) !important; }
-        .text-info { color: var(--color-info) !important; }
-
-        .mobile-caixa__closed-msg {
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
-        .mobile-caixa__actions-wrapper {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          width: 100%;
-        }
-
-        .mobile-caixa__quick-movements {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__movement-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.35rem;
-          padding: 0.65rem 0.5rem;
-          min-height: 44px;
-          border-radius: var(--radius-md, 8px);
-          font-size: 0.75rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          touch-action: manipulation;
-        }
-
-        .btn--suprimento {
-          background: rgba(14, 159, 110, 0.12);
-          border: 1px solid rgba(14, 159, 110, 0.25);
-          color: var(--color-success);
-        }
-
-        .btn--sangria {
-          background: rgba(240, 82, 82, 0.12);
-          border: 1px solid rgba(240, 82, 82, 0.25);
-          color: var(--color-error);
-        }
-
-        .mobile-caixa__btn-action {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          border-radius: var(--radius-md, 10px);
-          font-size: 0.875rem;
-          font-weight: 700;
-          border: none;
-          cursor: pointer;
-          min-height: 48px;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn--open-caixa {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-        }
-
-        .btn--close-caixa {
-          background: rgba(240, 82, 82, 0.15);
-          color: var(--color-error);
-          border: 1px solid rgba(240, 82, 82, 0.3);
-        }
-
-        .mobile-caixa__cards-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-        }
-
-        .mobile-caixa__kpi-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          padding: 0.875rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
-        }
-
-        .mobile-caixa__kpi-label {
-          font-size: 0.6875rem;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-        }
-
-        .mobile-caixa__kpi-val {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-caixa__daily-summary {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          padding: 1rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
-          min-width: 0;
-          max-width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-caixa__daily-header h3 {
-          margin: 0;
-          font-size: 1rem;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-caixa__daily-header p {
-          margin: 0.25rem 0 0;
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-caixa__daily-filters {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 0.75rem;
-          min-width: 0;
-          max-width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-caixa__daily-filters label {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          min-width: 0;
-          font-size: 0.6875rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          max-width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-caixa__daily-filters input,
-        .mobile-caixa__daily-filters select {
-          width: 100%;
-          inline-size: 100%;
-          min-inline-size: 0;
-          min-width: 0;
-          max-width: 100%;
-          min-height: 40px;
-          padding: 0.45rem;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 8px);
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          font: inherit;
-          font-size: 0.75rem;
-          font-weight: 600;
-          box-sizing: border-box;
-        }
-
-        .mobile-caixa {
-          min-width: 0;
-          max-width: 100%;
-          box-sizing: border-box;
-        }
-
-        .mobile-caixa__daily-session-filter {
-          grid-column: 1 / -1;
-        }
-
-        .mobile-caixa__daily-kpis {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__daily-kpis > div {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          padding: 0.7rem;
-          border-radius: var(--radius-md, 8px);
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-        }
-
-        .mobile-caixa__daily-kpis span {
-          font-size: 0.6875rem;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-caixa__daily-kpis strong {
-          font-size: 1rem;
-          color: var(--color-brand-primary);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .mobile-caixa__daily-kpis > div:last-child strong {
-          color: var(--color-success);
-        }
-
-        .mobile-caixa__daily-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__daily-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
-          padding: 0.7rem;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 8px);
-          background: var(--color-bg-primary);
-        }
-
-        .mobile-caixa__daily-item-header,
-        .mobile-caixa__daily-item-values,
-        .mobile-caixa__daily-item-methods {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__daily-item-header strong {
-          color: var(--color-text-primary);
-          font-size: 0.8125rem;
-        }
-
-        .mobile-caixa__daily-item-header span,
-        .mobile-caixa__daily-item-values span,
-        .mobile-caixa__daily-item-methods span {
-          color: var(--color-text-secondary);
-          font-size: 0.6875rem;
-        }
-
-        .mobile-caixa__daily-item-values b {
-          color: var(--color-text-primary);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .mobile-caixa__daily-item-methods {
-          flex-wrap: wrap;
-          justify-content: flex-start;
-          padding-top: 0.35rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .mobile-caixa__daily-state {
-          padding: 0.75rem;
-          text-align: center;
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-caixa__daily-state--error {
-          color: var(--color-error);
-        }
-
-        .mobile-caixa__desktop-notice {
-          display: flex;
-          gap: 0.75rem;
-          background: rgba(217, 108, 0, 0.08);
-          border: 1px dashed rgba(217, 108, 0, 0.3);
-          border-radius: var(--radius-lg, 12px);
-          padding: 0.875rem;
-          align-items: flex-start;
-        }
-
-        .mobile-caixa__notice-icon {
-          color: var(--color-brand-primary);
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
-
-        .mobile-caixa__notice-title {
-          font-size: 0.8125rem;
-          font-weight: 700;
-          color: var(--color-brand-primary);
-          margin: 0 0 0.15rem;
-        }
-
-        .mobile-caixa__notice-desc {
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-          margin: 0;
-          line-height: 1.4;
-        }
-
-        .mobile-caixa__history {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__history-title {
-          font-size: 0.9375rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .mobile-caixa__history-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .mobile-caixa__history-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 10px);
-          padding: 0.75rem;
-          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
-          font-size: 0.8125rem;
-        }
-
-        .mobile-caixa__history-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .mobile-caixa__history-date {
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-caixa__history-status {
-          font-size: 0.6875rem;
-          font-weight: 600;
-        }
-
-        .mobile-caixa__history-status.status--open {
-          color: var(--color-success, #0E9F6E);
-        }
-
-        .mobile-caixa__history-status.status--closed {
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .mobile-caixa__history-amounts {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 0.15rem;
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-caixa__history-revenue {
-          font-size: 0.8125rem;
-          font-weight: 800;
-          color: var(--color-brand-primary, #D96C00);
-        }
-
-        .mobile-caixa__history-drawer {
-          font-size: 0.6875rem;
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .mobile-caixa__history-empty {
-          padding: 1.5rem;
-          text-align: center;
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary);
-          background: var(--color-bg-secondary);
-          border-radius: var(--radius-md, 10px);
-        }
-
-        .mobile-caixa__movement-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .form-label {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-text-secondary);
-        }
-
-        .form-input {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 8px);
-          color: var(--color-text-primary);
-          padding: 0.625rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-
-        .form-input:focus {
-          border-color: var(--color-brand-primary);
-        }
-
-        .mobile-caixa__btn-submit {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          border: none;
-          border-radius: var(--radius-md, 8px);
-          padding: 0.75rem;
-          font-size: 0.875rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-caixa__btn-submit:hover {
-          background: var(--color-brand-hover);
-        }
-      `}</style>
     </div>
   );
 };
