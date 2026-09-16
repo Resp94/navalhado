@@ -84,8 +84,8 @@ describe('GlassSidebar Component', () => {
 
     render(<GlassSidebar {...defaultProps} />);
 
-    const financeiroBtn = screen.getByRole('button', { name: /Financeiro/i });
-    expect(financeiroBtn.className).toContain('glass-sidebar__button--active');
+    const financeiroBtn = screen.getByRole('button', { name: /Financeiro/i, current: 'page' });
+    expect(financeiroBtn).toHaveAttribute('aria-current', 'page');
 
     mockLocation.pathname = '/agenda';
   });
