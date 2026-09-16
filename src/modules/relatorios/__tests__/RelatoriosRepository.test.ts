@@ -7,6 +7,7 @@ function mockAdapterFactory(): RelatoriosAdapter {
     obterFaturamentoPorPeriodo: vi.fn(),
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
+    obterClientesSemRetorno: vi.fn(),
   };
 }
 
@@ -48,6 +49,7 @@ describe('RelatoriosRepository', () => {
     obterFaturamentoPorPeriodo: vi.fn(),
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
+    obterClientesSemRetorno: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -203,6 +205,7 @@ describe('RelatoriosRepository.obterEquipeEServicos', () => {
     obterFaturamentoPorPeriodo: vi.fn(),
     obterEquipeEServicos: vi.fn(),
     obterAgenda: vi.fn(),
+    obterClientesSemRetorno: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -478,5 +481,108 @@ describe('RelatoriosRepository.obterAgenda', () => {
         today: '2026-06-15',
       })
     ).resolves.toBeTruthy();
+  });
+});
+
+const clientesSemRetornoFixture = {
+  timezone: 'America/Sao_Paulo',
+  business_today: '2026-06-15',
+  totals: { without_return: 0, within_return: 0, no_visit_ever: 0 },
+  bands: { up_to_15: 0, d16_30: 0, d31_60: 0, over_60: 0 },
+  items: [],
+  total_count: 0,
+};
+
+describe('RelatoriosRepository.obterClientesSemRetorno', () => {
+  const mockAdapter: RelatoriosAdapter = {
+    obterFaturamentoPorPeriodo: vi.fn(),
+    obterEquipeEServicos: vi.fn(),
+    obterAgenda: vi.fn(),
+    obterClientesSemRetorno: vi.fn(),
+  };
+
+  const repository = new RelatoriosRepository(mockAdapter);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('repassa ao adaptador um pedido válido, sem período (fotografia de hoje)', async () => {
+    vi.mocked(mockAdapter.obterClientesSemRetorno).mockResolvedValueOnce(clientesSemRetornoFixture);
+
+    const result = await repository.obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      limit: 20,
+      offset: 0,
+    });
+
+    expect(mockAdapter.obterClientesSemRetorno).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      overdueBand: undefined,
+      professionalId: undefined,
+      limit: 20,
+      offset: 0,
+    });
+    expect(result).toEqual(clientesSemRetornoFixture);
+  });
+
+  it('repassa a faixa de atraso e o profissional quando informados', async () => {
+    vi.mocked(mockAdapter.obterClientesSemRetorno).mockResolvedValueOnce(clientesSemRetornoFixture);
+
+    await repository.obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      overdueBand: 'over_60',
+      professionalId: 'prof-1',
+      limit: 20,
+      offset: 40,
+    });
+
+    expect(mockAdapter.obterClientesSemRetorno).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      overdueBand: 'over_60',
+      professionalId: 'prof-1',
+      limit: 20,
+      offset: 40,
+    });
+  });
+
+  it('rejeita tenantId ausente', async () => {
+    await expect(repository.obterClientesSemRetorno({ tenantId: '', limit: 20, offset: 0 })).rejects.toThrow(
+      'ID da unidade (tenant) é obrigatório.'
+    );
+  });
+
+  it.each([0, -1, 101, 1.5])('rejeita limite inválido (%s)', async (limit) => {
+    await expect(repository.obterClientesSemRetorno({ tenantId: 'tenant-1', limit, offset: 0 })).rejects.toThrow(
+      'O limite deve estar entre 1 e 100.'
+    );
+  });
+
+  it('aceita limite nos extremos (1 e 100)', async () => {
+    vi.mocked(mockAdapter.obterClientesSemRetorno).mockResolvedValue(clientesSemRetornoFixture);
+
+    await expect(
+      repository.obterClientesSemRetorno({ tenantId: 'tenant-1', limit: 1, offset: 0 })
+    ).resolves.toBeTruthy();
+    await expect(
+      repository.obterClientesSemRetorno({ tenantId: 'tenant-1', limit: 100, offset: 0 })
+    ).resolves.toBeTruthy();
+  });
+
+  it.each([-1, -10, 1.5])('rejeita deslocamento inválido (%s)', async (offset) => {
+    await expect(repository.obterClientesSemRetorno({ tenantId: 'tenant-1', limit: 20, offset })).rejects.toThrow(
+      'O deslocamento não pode ser negativo.'
+    );
+  });
+
+  it('rejeita faixa de atraso desconhecida', async () => {
+    await expect(
+      repository.obterClientesSemRetorno({
+        tenantId: 'tenant-1',
+        overdueBand: 'inexistente' as any,
+        limit: 20,
+        offset: 0,
+      })
+    ).rejects.toThrow('Faixa de atraso desconhecida. Use até 15, 16 a 30, 31 a 60 ou mais de 60 dias.');
   });
 });

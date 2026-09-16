@@ -35,13 +35,21 @@ const GRANULARITY_OPTIONS: { id: RelatoriosGranularity; label: string }[] = [
   { id: 'month', label: 'Mês' },
 ];
 
-/** As cinco páginas do módulo (spec 038). Faturamento (ticket 01), Equipe e Serviços (ticket 05) e Agenda (ticket 07) já existem. */
-const REPORT_PAGES: { path: string; label: string; enabled: boolean }[] = [
+/**
+ * As cinco páginas do módulo (spec 038). Faturamento (ticket 01), Equipe e
+ * Serviços (ticket 05), Agenda (ticket 07) e Clientes sem Retorno (ticket
+ * 09) já existem. `hidePeriodFilter` é a decisão central de esconder o
+ * filtro de período compartilhado (spec: "a página Clientes sem Retorno
+ * esconde o filtro de período e mostra os próprios filtros") -- resolvida
+ * aqui, uma única vez, pelo mesmo princípio do gate de desktop: a página
+ * filha não repete a checagem, só ganha os próprios filtros no lugar.
+ */
+const REPORT_PAGES: { path: string; label: string; enabled: boolean; hidePeriodFilter?: boolean }[] = [
   { path: '/relatorios/faturamento', label: 'Faturamento', enabled: true },
   { path: '/relatorios/equipe-e-servicos', label: 'Equipe e Serviços', enabled: true },
   { path: '/relatorios/agenda', label: 'Agenda', enabled: true },
   { path: '/relatorios/clientes', label: 'Clientes', enabled: false },
-  { path: '/relatorios/clientes-sem-retorno', label: 'Clientes sem Retorno', enabled: false },
+  { path: '/relatorios/clientes-sem-retorno', label: 'Clientes sem Retorno', enabled: true, hidePeriodFilter: true },
 ];
 
 export interface RelatoriosPeriodoContextValue {
@@ -100,7 +108,13 @@ export const RelatoriosLayout: React.FC = () => {
     );
   }
 
-  const isCatalogo = location.pathname.replace(/\/+$/, '') === '/relatorios';
+  const normalizedPath = location.pathname.replace(/\/+$/, '');
+  const isCatalogo = normalizedPath === '/relatorios';
+  // Comparação exata, nunca `startsWith`: "/relatorios/clientes-sem-retorno"
+  // começa com "/relatorios/clientes", que casaria com a entrada errada
+  // (Clientes, sem `hidePeriodFilter`) se a checagem fosse por prefixo.
+  const currentPage = REPORT_PAGES.find((page) => normalizedPath === page.path);
+  const hidePeriodFilter = currentPage?.hidePeriodFilter === true;
 
   const handleShortcutChange = (shortcut: RelatoriosPeriodShortcutId) => {
     if (shortcut === periodoState.shortcut) return;
@@ -172,7 +186,7 @@ export const RelatoriosLayout: React.FC = () => {
         )}
       </nav>
 
-      {!isCatalogo && (
+      {!isCatalogo && !hidePeriodFilter && (
         <section className="relatorios-filtro-periodo" aria-label="Filtro de período">
           <SegmentedControl<RelatoriosPeriodShortcutId>
             aria-label="Atalho de período"

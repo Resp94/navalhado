@@ -35,6 +35,10 @@ class FakeRelatoriosAdapter implements RelatoriosAdapter {
   obterAgenda(): Promise<never> {
     throw new Error('Não usado neste teste.');
   }
+
+  obterClientesSemRetorno(): Promise<never> {
+    throw new Error('Não usado neste teste.');
+  }
 }
 
 function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioFaturamento {

@@ -1,6 +1,8 @@
 import { supabase } from '../../../lib/supabase';
 import type {
+  ClienteSemRetornoItem,
   ObterAgendaInput,
+  ObterClientesSemRetornoInput,
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
   ProfissionalRanking,
@@ -11,6 +13,9 @@ import type {
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
   RelatorioAgendaStatusTotais,
+  RelatorioClientesSemRetorno,
+  RelatorioClientesSemRetornoFaixas,
+  RelatorioClientesSemRetornoTotais,
   RelatorioEquipeServicos,
   RelatorioEquipeServicosTotais,
   RelatorioFaturamento,
@@ -46,6 +51,17 @@ function toNumber(value: unknown): number {
  */
 function toNullableNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : toNumber(value);
+}
+
+/**
+ * Coerção de texto que preserva `null` (spec 038, ticket 09): usada para
+ * `phone`/`last_service_name`/`last_professional_name`, onde o núcleo do
+ * banco devolve `null` de propósito (cliente sem telefone, última Visita
+ * sem serviço/profissional identificável) -- nunca convertido para string
+ * vazia, que apagaria a distinção na tela (badge "sem telefone" etc).
+ */
+function toNullableString(value: unknown): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 type BucketTotais = Omit<RelatorioFaturamentoTotais, 'received_total'>;
@@ -437,4 +453,83 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       heatmap: toAgendaHeatmap(raw.heatmap),
     };
   }
+
+  /**
+   * Clientes sem Retorno (`get_customers_without_return`, spec 038, ticket
+   * 09): SEM período -- `p_overdue_band`/`p_professional_id` são omitidos
+   * (`undefined` -> `null`) quando não filtrados. `phone`,
+   * `last_service_name` e `last_professional_name` preservam `null`
+   * (`toNullableString`): telefone ausente e última Visita sem
+   * serviço/profissional identificável são casos reais do contrato, nunca
+   * string vazia.
+   */
+  async obterClientesSemRetorno(input: ObterClientesSemRetornoInput): Promise<RelatorioClientesSemRetorno> {
+    const { data, error } = await supabase.rpc('get_customers_without_return', {
+      p_tenant_id: input.tenantId,
+      p_overdue_band: input.overdueBand || null,
+      p_professional_id: input.professionalId || null,
+      p_limit: input.limit,
+      p_offset: input.offset,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao buscar o relatório de Clientes sem Retorno.');
+    }
+
+    const raw = (data || {}) as {
+      timezone?: string;
+      business_today?: string;
+      totals?: unknown;
+      bands?: unknown;
+      items?: unknown;
+      total_count?: unknown;
+    };
+
+    return {
+      timezone: raw.timezone || 'America/Sao_Paulo',
+      business_today: raw.business_today ? String(raw.business_today) : '',
+      totals: toClientesSemRetornoTotais(raw.totals),
+      bands: toClientesSemRetornoFaixas(raw.bands),
+      items: toClientesSemRetornoItems(raw.items),
+      total_count: toNumber(raw.total_count),
+    };
+  }
+}
+
+function toClientesSemRetornoTotais(value: unknown): RelatorioClientesSemRetornoTotais {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    without_return: toNumber(raw.without_return),
+    within_return: toNumber(raw.within_return),
+    no_visit_ever: toNumber(raw.no_visit_ever),
+  };
+}
+
+function toClientesSemRetornoFaixas(value: unknown): RelatorioClientesSemRetornoFaixas {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    up_to_15: toNumber(raw.up_to_15),
+    d16_30: toNumber(raw.d16_30),
+    d31_60: toNumber(raw.d31_60),
+    over_60: toNumber(raw.over_60),
+  };
+}
+
+function toClientesSemRetornoItems(value: unknown): ClienteSemRetornoItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      customer_id: raw.customer_id ? String(raw.customer_id) : '',
+      name: raw.name ? String(raw.name) : '',
+      phone: toNullableString(raw.phone),
+      has_phone: raw.has_phone === true,
+      last_visit_date: raw.last_visit_date ? String(raw.last_visit_date) : '',
+      last_service_name: toNullableString(raw.last_service_name),
+      last_professional_name: toNullableString(raw.last_professional_name),
+      return_period_days: toNumber(raw.return_period_days),
+      days_since: toNumber(raw.days_since),
+      days_overdue: toNumber(raw.days_overdue),
+    };
+  });
 }

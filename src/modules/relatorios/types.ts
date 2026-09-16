@@ -335,6 +335,79 @@ export interface ObterAgendaInput {
   professionalId?: string;
 }
 
+/** Faixa de atraso do relatório de Clientes sem Retorno (spec 038, ticket 09). */
+export type RelatorioClientesSemRetornoBand = 'up_to_15' | 'd16_30' | 'd31_60' | 'over_60';
+
+/**
+ * Totais do topo do contrato (spec 038, ticket 09): ignoram paginação e o
+ * filtro de faixa (`p_overdue_band`), mas respeitam o filtro de
+ * profissional (pela última Visita). Chegam mesmo com a página vazia --
+ * por isso o contrato é `jsonb` e não linhas, como `list_payables`.
+ */
+export interface RelatorioClientesSemRetornoTotais {
+  without_return: number;
+  within_return: number;
+  no_visit_ever: number;
+}
+
+/**
+ * Contagem por faixa de atraso (até 15, 16-30, 31-60, mais de 60 dias):
+ * mesma regra dos totais -- ignora paginação e `p_overdue_band`, respeita
+ * `p_professional_id`.
+ */
+export interface RelatorioClientesSemRetornoFaixas {
+  up_to_15: number;
+  d16_30: number;
+  d31_60: number;
+  over_60: number;
+}
+
+/**
+ * Uma linha da lista paginada (spec 038, ticket 09): `phone` e
+ * `last_service_name`/`last_professional_name` são `string | null` de
+ * propósito -- cliente sem telefone cadastrado, ou última Visita sem
+ * serviço/profissional identificável (o núcleo do banco devolve `null`,
+ * nunca string vazia), nunca convertidos para um valor padrão.
+ */
+export interface ClienteSemRetornoItem {
+  customer_id: string;
+  name: string;
+  phone: string | null;
+  has_phone: boolean;
+  last_visit_date: string;
+  last_service_name: string | null;
+  last_professional_name: string | null;
+  return_period_days: number;
+  days_since: number;
+  days_overdue: number;
+}
+
+/**
+ * Contrato de leitura de Clientes sem Retorno (`get_customers_without_return`,
+ * spec 038, relatório 8, ticket 09). Sem `period`/`granularity`: é uma
+ * fotografia de hoje, a única página do módulo sem filtro de período.
+ * `total_count` é contado sobre o conjunto filtrado (profissional + faixa),
+ * antes da paginação.
+ */
+export interface RelatorioClientesSemRetorno {
+  timezone: string;
+  business_today: string;
+  totals: RelatorioClientesSemRetornoTotais;
+  bands: RelatorioClientesSemRetornoFaixas;
+  items: ClienteSemRetornoItem[];
+  total_count: number;
+}
+
+export interface ObterClientesSemRetornoInput {
+  tenantId: string;
+  /** Filtra só a lista paginada -- totais e faixas ignoram este filtro. */
+  overdueBand?: RelatorioClientesSemRetornoBand;
+  /** Filtra totais, faixas e lista, pela última Visita do cliente. */
+  professionalId?: string;
+  limit: number;
+  offset: number;
+}
+
 /**
  * Interface do adaptador do módulo de Relatórios: uma consulta por
  * contrato de leitura (spec 038, "Módulo `src/modules/relatorios/`"). Só
@@ -345,4 +418,5 @@ export interface RelatoriosAdapter {
   obterFaturamentoPorPeriodo(input: ObterFaturamentoPorPeriodoInput): Promise<RelatorioFaturamento>;
   obterEquipeEServicos(input: ObterEquipeEServicosInput): Promise<RelatorioEquipeServicos>;
   obterAgenda(input: ObterAgendaInput): Promise<RelatorioAgenda>;
+  obterClientesSemRetorno(input: ObterClientesSemRetornoInput): Promise<RelatorioClientesSemRetorno>;
 }

@@ -6,6 +6,7 @@ import { RelatoriosLayout } from '../RelatoriosLayout';
 const mockObterFaturamentoPorPeriodo = vi.fn();
 const mockObterEquipeEServicos = vi.fn();
 const mockObterAgenda = vi.fn();
+const mockObterClientesSemRetorno = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -28,6 +29,7 @@ vi.mock('../../../../modules/relatorios/adapters/SupabaseRelatoriosAdapter', () 
     obterFaturamentoPorPeriodo: mockObterFaturamentoPorPeriodo,
     obterEquipeEServicos: mockObterEquipeEServicos,
     obterAgenda: mockObterAgenda,
+    obterClientesSemRetorno: mockObterClientesSemRetorno,
   })),
 }));
 
@@ -89,5 +91,22 @@ describe('RelatoriosLayout — gate de desktop', () => {
 
     expect(screen.queryByText('Os relatórios estão disponíveis apenas no computador')).not.toBeInTheDocument();
     expect(screen.getByText('Conteúdo do Faturamento')).toBeInTheDocument();
+  });
+
+  it('esconde o filtro de período compartilhado só na página Clientes sem Retorno', () => {
+    setViewportWidth(1280);
+
+    render(
+      <MemoryRouter initialEntries={['/relatorios/clientes-sem-retorno']}>
+        <Routes>
+          <Route path="/relatorios" element={<RelatoriosLayout />}>
+            <Route path="clientes-sem-retorno" element={<div>Conteúdo de Clientes sem Retorno</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Conteúdo de Clientes sem Retorno')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Filtro de período')).not.toBeInTheDocument();
   });
 });

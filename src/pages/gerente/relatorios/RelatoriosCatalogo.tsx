@@ -54,7 +54,12 @@ const CATALOGO: CatalogoGrupo[] = [
   },
   {
     page: 'Clientes sem Retorno',
-    reports: [{ question: 'Quais clientes passaram do prazo de retorno sem voltar?' }],
+    reports: [
+      {
+        question: 'Quais clientes passaram do prazo de retorno sem voltar?',
+        path: '/relatorios/clientes-sem-retorno',
+      },
+    ],
   },
 ];
 

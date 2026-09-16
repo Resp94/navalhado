@@ -38,7 +38,7 @@ function buildResult(businessToday: string): RelatorioAgenda {
 }
 
 function buildAdapter(): RelatoriosAdapter {
-  return { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn() };
+  return { obterFaturamentoPorPeriodo: vi.fn(), obterEquipeEServicos: vi.fn(), obterAgenda: vi.fn(), obterClientesSemRetorno: vi.fn() };
 }
 
 describe('useAgenda', () => {

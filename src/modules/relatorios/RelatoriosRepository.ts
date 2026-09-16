@@ -1,9 +1,12 @@
 import { MS_PER_DAY, calendarExtentInDays, parseDateOnly as parseCalendarDate } from '../fluxo-caixa/calendario';
 import type {
   ObterAgendaInput,
+  ObterClientesSemRetornoInput,
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
   RelatorioAgenda,
+  RelatorioClientesSemRetorno,
+  RelatorioClientesSemRetornoBand,
   RelatorioEquipeServicos,
   RelatorioFaturamento,
   RelatoriosAdapter,
@@ -18,6 +21,7 @@ export class RelatoriosValidationError extends Error {
 }
 
 const GRANULARITIES: RelatoriosGranularity[] = ['day', 'week', 'month'];
+const OVERDUE_BANDS: RelatorioClientesSemRetornoBand[] = ['up_to_15', 'd16_30', 'd31_60', 'over_60'];
 
 function parseDateOnly(value: string): number {
   try {
@@ -184,5 +188,34 @@ export class RelatoriosRepository {
     }
 
     return await this.adapter.obterAgenda({ tenantId, startDate, endDate, professionalId });
+  }
+
+  /**
+   * Contrato de Clientes sem Retorno (`get_customers_without_return`, spec
+   * 038, ticket 09): SEM período -- é uma fotografia de hoje, a única
+   * validação aqui é tenant, paginação (limite 1-100, deslocamento >= 0) e
+   * faixa de atraso, os MESMOS limites do núcleo do banco, para o erro
+   * aparecer em pt-BR antes da ida à rede (não só confiar na validação do
+   * servidor).
+   */
+  async obterClientesSemRetorno(input: ObterClientesSemRetornoInput): Promise<RelatorioClientesSemRetorno> {
+    const { tenantId, overdueBand, professionalId, limit, offset } = input;
+
+    if (!tenantId || !tenantId.trim()) {
+      throw new RelatoriosValidationError('ID da unidade (tenant) é obrigatório.');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new RelatoriosValidationError('O limite deve estar entre 1 e 100.');
+    }
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new RelatoriosValidationError('O deslocamento não pode ser negativo.');
+    }
+    if (overdueBand !== undefined && !OVERDUE_BANDS.includes(overdueBand)) {
+      throw new RelatoriosValidationError(
+        'Faixa de atraso desconhecida. Use até 15, 16 a 30, 31 a 60 ou mais de 60 dias.'
+      );
+    }
+
+    return await this.adapter.obterClientesSemRetorno({ tenantId, overdueBand, professionalId, limit, offset });
   }
 }

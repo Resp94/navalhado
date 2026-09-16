@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
@@ -40,9 +40,11 @@ const ReceiptIcon = () => <HugeiconsIcon icon={Invoice01Icon} size={14} />;
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addToast } = useToast();
 
   const {
+    customers,
     filteredCustomers,
     stats,
     loading,
@@ -300,6 +302,24 @@ export const Clientes: React.FC = () => {
     setIsDrawerOpen(true);
     loadHistorico(customer.id);
   };
+
+  // Abre a Central 360º direto para um cliente vindo de outra tela (spec 038,
+  // ticket 09: ação "Central 360º" da página Clientes sem Retorno) via
+  // `?customerId=...` na URL -- mesma gaveta usada pelo clique numa linha
+  // desta tabela, sem duplicar UI. Remove o parâmetro da URL depois de abrir,
+  // para um F5 na página não reabrir a gaveta sozinho.
+  useEffect(() => {
+    const customerId = searchParams.get('customerId');
+    if (!customerId || loading) return;
+    const customer = customers.find((c) => c.id === customerId);
+    if (customer) {
+      handleOpenDrawer(customer);
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('customerId');
+    setSearchParams(nextParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, customers, loading]);
 
   const handleCopyLink = (token: string) => {
     const link = tenant.slug

@@ -751,4 +751,147 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
       })
     ).rejects.toThrow('Acesso negado.');
   });
+
+  it('chama get_customers_without_return com o contrato atual e converte números', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        timezone: 'America/Sao_Paulo',
+        business_today: '2026-06-15',
+        totals: { without_return: 3, within_return: 10, no_visit_ever: 2 },
+        bands: { up_to_15: 1, d16_30: 1, d31_60: 1, over_60: 0 },
+        items: [
+          {
+            customer_id: 'cust-1',
+            name: 'Ana',
+            phone: '11999998888',
+            has_phone: true,
+            last_visit_date: '2026-05-01',
+            last_service_name: 'Corte',
+            last_professional_name: 'Carlos',
+            return_period_days: 20,
+            days_since: 45,
+            days_overdue: 25,
+          },
+        ],
+        total_count: 3,
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      limit: 20,
+      offset: 0,
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_customers_without_return', {
+      p_tenant_id: 'tenant-1',
+      p_overdue_band: null,
+      p_professional_id: null,
+      p_limit: 20,
+      p_offset: 0,
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.business_today).toBe('2026-06-15');
+    expect(result.totals).toEqual({ without_return: 3, within_return: 10, no_visit_ever: 2 });
+    expect(result.bands).toEqual({ up_to_15: 1, d16_30: 1, d31_60: 1, over_60: 0 });
+    expect(result.total_count).toBe(3);
+    expect(result.items).toEqual([
+      {
+        customer_id: 'cust-1',
+        name: 'Ana',
+        phone: '11999998888',
+        has_phone: true,
+        last_visit_date: '2026-05-01',
+        last_service_name: 'Corte',
+        last_professional_name: 'Carlos',
+        return_period_days: 20,
+        days_since: 45,
+        days_overdue: 25,
+      },
+    ]);
+  });
+
+  it('passa p_overdue_band e p_professional_id quando informados', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    await new SupabaseRelatoriosAdapter().obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      overdueBand: 'over_60',
+      professionalId: 'prof-1',
+      limit: 20,
+      offset: 20,
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_customers_without_return', {
+      p_tenant_id: 'tenant-1',
+      p_overdue_band: 'over_60',
+      p_professional_id: 'prof-1',
+      p_limit: 20,
+      p_offset: 20,
+    });
+  });
+
+  it('preserva phone, last_service_name e last_professional_name nulos sem coagir para string vazia', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        items: [
+          {
+            customer_id: 'cust-2',
+            name: 'Bruno',
+            phone: null,
+            has_phone: false,
+            last_visit_date: '2026-05-10',
+            last_service_name: null,
+            last_professional_name: null,
+            return_period_days: 20,
+            days_since: 30,
+            days_overdue: 10,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      limit: 20,
+      offset: 0,
+    });
+
+    expect(result.items[0].phone).toBeNull();
+    expect(result.items[0].has_phone).toBe(false);
+    expect(result.items[0].last_service_name).toBeNull();
+    expect(result.items[0].last_professional_name).toBeNull();
+  });
+
+  it('preenche campos ausentes com zero, string vazia ou lista vazia', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    const result = await new SupabaseRelatoriosAdapter().obterClientesSemRetorno({
+      tenantId: 'tenant-1',
+      limit: 20,
+      offset: 0,
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.business_today).toBe('');
+    expect(result.totals).toEqual({ without_return: 0, within_return: 0, no_visit_ever: 0 });
+    expect(result.bands).toEqual({ up_to_15: 0, d16_30: 0, d31_60: 0, over_60: 0 });
+    expect(result.items).toEqual([]);
+    expect(result.total_count).toBe(0);
+  });
+
+  it('lança erro quando a RPC devolve erro (Clientes sem Retorno)', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Acesso negado.' } });
+
+    await expect(
+      new SupabaseRelatoriosAdapter().obterClientesSemRetorno({
+        tenantId: 'tenant-1',
+        limit: 20,
+        offset: 0,
+      })
+    ).rejects.toThrow('Acesso negado.');
+  });
 });
