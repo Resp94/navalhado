@@ -23,7 +23,6 @@ import { ClientesGrafico } from './clientes/ClientesGrafico';
 import { ClientesTabela } from './clientes/ClientesTabela';
 import { ClientesUmaVisitaLista } from './clientes/ClientesUmaVisitaLista';
 import { ClientesOrigemDosClientes, formatRegistrationOriginLabel } from './clientes/ClientesOrigemDosClientes';
-import './Relatorios.css';
 
 function formatBucketPeriodo(bucket: RelatorioClientesBucket): string {
   return bucket.start_date === bucket.end_date
@@ -126,8 +125,8 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
     visitors?.unidentified_attendances === 0;
 
   return (
-    <div className="relatorios-faturamento">
-      <header className="relatorios-faturamento-header">
+    <div className="flex flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
         <div>
           <h2 className="card-panel-title">
             <HugeiconsIcon icon={UserGroupIcon} size={18} />
@@ -150,16 +149,23 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
       </header>
 
       {error && (
-        <div className="relatorios-faturamento-erro" role="alert">
+        <div
+          className="text-error bg-error-bg border border-[rgba(240,82,82,0.25)] rounded-md px-4 py-3 flex items-center justify-between gap-4"
+          role="alert"
+        >
           <span>{error}</span>
-          <button type="button" onClick={() => void reload()}>
+          <button
+            type="button"
+            className="border-none bg-error text-white rounded-sm px-3 py-[0.35rem] font-bold cursor-pointer"
+            onClick={() => void reload()}
+          >
             Tentar de novo
           </button>
         </div>
       )}
 
       {loading && !data ? (
-        <div className="relatorios-faturamento-cards">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
           {Array.from({ length: 5 }).map((_, index) => (
             <Skeleton key={index} height={110} />
           ))}
@@ -173,7 +179,7 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
         <>
           <ClientesResumo visitors={visitors} previousVisitors={previousVisitors} loading={loading} />
           <ClientesGrafico buckets={buckets} />
-          <div className="relatorios-faturamento-secao-header">
+          <div className="flex items-center justify-between gap-4 mb-3">
             <h3 className="card-panel-title">Novos x recorrentes por agrupamento</h3>
             <ExportarCsvButton
               columns={COLUNAS_CSV_BUCKETS}
@@ -185,8 +191,8 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
           </div>
           <ClientesTabela buckets={buckets} />
 
-          <div className="relatorios-faturamento-secao-header">
-            <div className="relatorios-faturamento-secao-titulo">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex flex-col gap-1">
               <h3 className="card-panel-title">Clientes de Uma Visita</h3>
             </div>
             <ExportarCsvButton
@@ -199,8 +205,8 @@ export const ClientesPage: React.FC<ClientesPageProps> = ({ repository: injected
           </div>
           <ClientesUmaVisitaLista items={singleVisitCustomers} />
 
-          <div className="relatorios-faturamento-secao-header">
-            <div className="relatorios-faturamento-secao-titulo">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex flex-col gap-1">
               <h3 className="card-panel-title">Origem dos clientes</h3>
               <p className="card-panel-subtitle">
                 Por qual porta o cadastro entrou e como o cliente disse que conheceu a barbearia.

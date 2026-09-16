@@ -50,7 +50,7 @@ export const FaturamentoResumo: React.FC<FaturamentoResumoProps> = ({
       : undefined;
 
   return (
-    <div className="relatorios-faturamento-cards">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
       <StatCard
         title="Faturamento bruto"
         value={formatCurrency(totals?.gross ?? 0)}

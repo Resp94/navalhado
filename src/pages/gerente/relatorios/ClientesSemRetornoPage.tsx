@@ -18,7 +18,6 @@ import { ExportarCsvButton } from '../../../components/ui/data-display/ExportarC
 import { ClientesSemRetornoResumo } from './clientesSemRetorno/ClientesSemRetornoResumo';
 import { ClientesSemRetornoFaixas, TODAS_AS_FAIXAS, type FiltroFaixa } from './clientesSemRetorno/ClientesSemRetornoFaixas';
 import { ClientesSemRetornoTabela } from './clientesSemRetorno/ClientesSemRetornoTabela';
-import './Relatorios.css';
 
 /** Tamanho de página fixo (dentro do limite de 100 do contrato): 20 linhas por vez -- razoável para uma lista de reativação lida em detalhe, sem exigir muito scroll. */
 const PAGE_SIZE = 20;
@@ -113,8 +112,8 @@ export const ClientesSemRetornoPage: React.FC<ClientesSemRetornoPageProps> = ({ 
     !professionalId;
 
   return (
-    <div className="relatorios-faturamento">
-      <header className="relatorios-faturamento-header">
+    <div className="flex flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
         <div>
           <h2 className="card-panel-title">
             <HugeiconsIcon icon={UserRemove01Icon} size={18} />
@@ -136,16 +135,23 @@ export const ClientesSemRetornoPage: React.FC<ClientesSemRetornoPageProps> = ({ 
       </header>
 
       {error && (
-        <div className="relatorios-faturamento-erro" role="alert">
+        <div
+          className="text-error bg-error-bg border border-[rgba(240,82,82,0.25)] rounded-md px-4 py-3 flex items-center justify-between gap-4"
+          role="alert"
+        >
           <span>{error}</span>
-          <button type="button" onClick={() => void reload()}>
+          <button
+            type="button"
+            className="border-none bg-error text-white rounded-sm px-3 py-[0.35rem] font-bold cursor-pointer"
+            onClick={() => void reload()}
+          >
             Tentar de novo
           </button>
         </div>
       )}
 
       {loading && !data ? (
-        <div className="relatorios-faturamento-cards">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
           {Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} height={110} />
           ))}
@@ -159,15 +165,15 @@ export const ClientesSemRetornoPage: React.FC<ClientesSemRetornoPageProps> = ({ 
         <>
           <ClientesSemRetornoResumo totals={data?.totals ?? null} loading={loading} />
 
-          <div className="relatorios-faturamento-secao-header relatorios-clientes-sem-retorno-filtros">
-            <div className="relatorios-faturamento-secao-titulo">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <div className="flex flex-col gap-1">
               <ClientesSemRetornoFaixas bands={data?.bands ?? null} value={overdueBand} onChange={setOverdueBand} />
 
               <Select
                 aria-label="Filtrar por profissional"
                 value={professionalId}
                 onChange={(event) => setProfessionalId(event.target.value)}
-                className="relatorios-clientes-sem-retorno-filtro-profissional"
+                className="max-w-[240px]"
                 selectSize="sm"
               >
                 <option value="">Todos os profissionais</option>
@@ -197,18 +203,6 @@ export const ClientesSemRetornoPage: React.FC<ClientesSemRetornoPageProps> = ({ 
           />
         </>
       )}
-
-      <style>{`
-        .relatorios-clientes-sem-retorno-filtros {
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-
-        .relatorios-clientes-sem-retorno-filtro-profissional {
-          max-width: 240px;
-        }
-      `}</style>
     </div>
   );
 };

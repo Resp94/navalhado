@@ -11,12 +11,11 @@ export interface ClientesTabelaProps {
  * Tabela por agrupamento de Novos x recorrentes (spec 038, ticket 10): é a
  * mesma tabela que o CSV exporta -- toda visualização tem equivalente em
  * tabela, mesmo padrão de `FaturamentoTabela`. Rola na horizontal dentro
- * do próprio contêiner (`.relatorios-faturamento-tabela-wrap`), nunca a
- * página inteira.
+ * do próprio contêiner (`overflow-x-auto`), nunca a página inteira.
  */
 export const ClientesTabela: React.FC<ClientesTabelaProps> = ({ buckets }) => {
   return (
-    <div className="relatorios-faturamento-tabela-wrap">
+    <div className="overflow-x-auto">
       <Table aria-label="Novos x recorrentes por agrupamento">
         <TableHeader>
           <TableRow>

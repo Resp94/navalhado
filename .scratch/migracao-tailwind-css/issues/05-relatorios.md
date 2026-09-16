@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Fundação Tailwind), 02 (Remoção do modo escuro), 03 (Componentes UI compartilhados)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `Relatorios.css` removido, com toda regra convertida
-- [ ] Bloco `<style>` inline de cada componente de gráfico/tabela listado removido e convertido
-- [ ] Cada um dos relatórios (Faturamento, Equipe e Serviços, Agenda, Clientes, Clientes sem Retorno) verificado manualmente sem mudança de leitura visual dos números, cores de série e legendas
-- [ ] Testes existentes desses componentes continuam passando, com seletores por classe CSS removida reescritos
-- [ ] `npm run test`, `npm run build` e `oxlint` continuam passando
+- [x] `Relatorios.css` removido, com toda regra convertida
+- [x] Bloco `<style>` inline de cada componente de gráfico/tabela listado removido e convertido
+- [x] Cada um dos relatórios (Faturamento, Equipe e Serviços, Agenda, Clientes, Clientes sem Retorno) verificado manualmente sem mudança de leitura visual dos números, cores de série e legendas
+- [x] Testes existentes desses componentes continuam passando, com seletores por classe CSS removida reescritos
+- [x] `npm run test`, `npm run build` e `oxlint` continuam passando

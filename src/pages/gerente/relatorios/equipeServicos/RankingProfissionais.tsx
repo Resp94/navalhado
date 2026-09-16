@@ -104,10 +104,10 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({ prof
   };
 
   return (
-    <Card variant="outline" className="relatorios-ranking-profissionais-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Ranking de profissionais</CardTitle>
             <CardDescription>
               Comissão gerada, não paga. Clique numa coluna para reordenar a tabela.
@@ -123,7 +123,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({ prof
             description="Não há item reconhecido de nenhum profissional no período selecionado."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Ranking de profissionais">
               <TableHeader>
                 <TableRow>
@@ -134,7 +134,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({ prof
                       <TableHead key={coluna.key} align={coluna.align} aria-sort={ariaSort as any}>
                         <button
                           type="button"
-                          className="relatorios-ranking-coluna-btn"
+                          className="inline-flex items-center gap-1 border-none bg-transparent p-0 [font:inherit] [text-transform:inherit] [letter-spacing:inherit] text-inherit cursor-pointer hover:text-brand-primary focus-visible:text-brand-primary"
                           onClick={() => handleHeaderClick(coluna)}
                         >
                           {coluna.label}
@@ -154,7 +154,7 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({ prof
                 {linhas.map((profissional) => (
                   <TableRow key={profissional.professional_id}>
                     <TableCell>
-                      <span className="relatorios-ranking-profissional-nome">
+                      <span className="inline-flex items-center gap-2">
                         {profissional.name}
                         {profissional.archived && (
                           <Badge variant="neutral" size="xs">
@@ -182,33 +182,6 @@ export const RankingProfissionais: React.FC<RankingProfissionaisProps> = ({ prof
           </div>
         )}
       </CardContent>
-
-      <style>{`
-        .relatorios-ranking-profissional-nome {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .relatorios-ranking-coluna-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          border: none;
-          background: transparent;
-          padding: 0;
-          font: inherit;
-          color: inherit;
-          text-transform: inherit;
-          letter-spacing: inherit;
-          cursor: pointer;
-        }
-
-        .relatorios-ranking-coluna-btn:hover,
-        .relatorios-ranking-coluna-btn:focus-visible {
-          color: var(--color-brand-primary, #D96C00);
-        }
-      `}</style>
     </Card>
   );
 };

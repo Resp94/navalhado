@@ -79,17 +79,17 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
   }
 
   return (
-    <div className="relatorios-origem-grid">
-      <div className="relatorios-origem-coluna">
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+    <div className="grid grid-cols-2 gap-6 items-start">
+      <div className="flex flex-col gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <h4 className="card-panel-title">Origem do cadastro</h4>
             <p className="card-panel-subtitle">Por qual porta o cadastro entrou -- automática, sempre preenchida.</p>
           </div>
           {exportOrigemButton}
         </div>
 
-        <div className="relatorios-origem-barras" role="list">
+        <div className="flex flex-col gap-[0.85rem]" role="list">
           {registrations.by_registration_origin.map((item) => {
             const share = shareOf(item.total, registrations.total);
             return (
@@ -105,7 +105,7 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
           })}
         </div>
 
-        <div className="relatorios-faturamento-tabela-wrap">
+        <div className="overflow-x-auto">
           <Table aria-label="Origem do cadastro">
             <TableHeader>
               <TableRow>
@@ -129,21 +129,21 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
         </div>
       </div>
 
-      <div className="relatorios-origem-coluna">
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+      <div className="flex flex-col gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <h4 className="card-panel-title">Canal de aquisição</h4>
             <p className="card-panel-subtitle">Como o cliente disse que conheceu a barbearia -- declarado, opcional.</p>
           </div>
           {exportCanalButton}
         </div>
 
-        <p className="relatorios-origem-canal-preenchido">
+        <p className="m-0 text-sm text-text-secondary">
           Canal preenchido em <strong>{formatPercent(registrations.acquisition_channel_filled_share)}</strong> dos
           cadastros do período.
         </p>
 
-        <div className="relatorios-origem-barras" role="list">
+        <div className="flex flex-col gap-[0.85rem]" role="list">
           {registrations.by_acquisition_channel.map((item) => {
             const share = shareOf(item.total, registrations.total);
             const destaque = item.channel === NAO_INFORMADO;
@@ -151,7 +151,11 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
               <div
                 role="listitem"
                 key={item.channel}
-                className={destaque ? 'relatorios-origem-item-destaque' : undefined}
+                className={
+                  destaque
+                    ? 'py-2 px-[0.6rem] -my-2 -mx-[0.6rem] rounded-md bg-brand-lightest'
+                    : undefined
+                }
               >
                 <PercentageBar
                   label={item.channel}
@@ -164,7 +168,7 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
           })}
         </div>
 
-        <div className="relatorios-faturamento-tabela-wrap">
+        <div className="overflow-x-auto">
           <Table aria-label="Canal de aquisição">
             <TableHeader>
               <TableRow>
@@ -178,7 +182,10 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
               {registrations.by_acquisition_channel.map((item: AcquisitionChannelItem) => {
                 const destaque = item.channel === NAO_INFORMADO;
                 return (
-                  <TableRow key={item.channel} className={destaque ? 'relatorios-origem-linha-destaque' : undefined}>
+                  <TableRow
+                    key={item.channel}
+                    className={destaque ? '[&_td]:bg-brand-lightest [&_td]:font-bold' : undefined}
+                  >
                     <TableCell>{item.channel}</TableCell>
                     <TableCell align="right">{item.total}</TableCell>
                     <TableCell align="right">{formatPercent(shareOf(item.total, registrations.total))}</TableCell>
@@ -190,57 +197,11 @@ export const ClientesOrigemDosClientes: React.FC<ClientesOrigemDosClientesProps>
           </Table>
         </div>
 
-        <p className="relatorios-origem-orientacao">
+        <p className="m-0 text-xs text-text-secondary">
           Canal de aquisição é um dado declarado pelo cliente, sem preenchimento automático. Para reduzir "Não
           informado", peça para completar o canal de aquisição na Central 360º do cliente.
         </p>
       </div>
-
-      <style>{`
-        .relatorios-origem-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
-
-        .relatorios-origem-coluna {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          min-width: 0;
-        }
-
-        .relatorios-origem-barras {
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-        }
-
-        .relatorios-origem-item-destaque {
-          padding: 0.5rem 0.6rem;
-          margin: -0.5rem -0.6rem;
-          border-radius: var(--radius-md, 8px);
-          background: var(--color-brand-lightest, #FFF1E6);
-        }
-
-        .relatorios-origem-linha-destaque td {
-          background: var(--color-brand-lightest, #FFF1E6);
-          font-weight: 700;
-        }
-
-        .relatorios-origem-canal-preenchido {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .relatorios-origem-orientacao {
-          margin: 0;
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-      `}</style>
     </div>
   );
 };

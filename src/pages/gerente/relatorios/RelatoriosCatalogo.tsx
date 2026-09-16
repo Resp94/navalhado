@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '../../../components/ui/data-display/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/feedback/Card';
-import './Relatorios.css';
 
 interface CatalogoRelatorio {
   question: string;
@@ -67,22 +66,25 @@ const CATALOGO: CatalogoGrupo[] = [
 
 export const RelatoriosCatalogo: React.FC = () => {
   return (
-    <div className="relatorios-catalogo-grupos">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
       {CATALOGO.map((grupo) => (
         <Card key={grupo.page} variant="outline" aria-label={grupo.page}>
           <CardHeader>
             <CardTitle>{grupo.page}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="relatorios-catalogo-lista">
+            <ul className="list-none m-0 p-0 flex flex-col gap-2">
               {grupo.reports.map((report) => (
                 <li key={report.question}>
                   {report.path ? (
-                    <Link to={report.path} className="relatorios-catalogo-item">
+                    <Link
+                      to={report.path}
+                      className="flex items-center justify-between gap-3 px-3 py-[0.6rem] rounded-md bg-bg-primary text-sm text-text-primary no-underline hover:bg-brand-lightest hover:text-brand-deep"
+                    >
                       {report.question}
                     </Link>
                   ) : (
-                    <span className="relatorios-catalogo-item relatorios-catalogo-item--disabled">
+                    <span className="flex items-center justify-between gap-3 px-3 py-[0.6rem] rounded-md bg-bg-primary text-sm text-text-secondary opacity-70">
                       {report.question}
                       <Badge variant="neutral" size="xs">em breve</Badge>
                     </span>
