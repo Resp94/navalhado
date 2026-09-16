@@ -44,6 +44,7 @@ function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioF
       products_net: 80,
       tips: 30,
       closed_comandas: 2,
+      average_ticket: 240,
       received_total: 450,
     },
     previous_totals: {
@@ -54,6 +55,7 @@ function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioF
       products_net: 40,
       tips: 15,
       closed_comandas: 2,
+      average_ticket: 145,
       received_total: 280,
     },
     received_by_method: [
@@ -74,6 +76,7 @@ function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioF
         products_net: 20,
         tips: 10,
         closed_comandas: 1,
+        average_ticket: 200,
         received: 190,
         received_by_method: [
           { method: 'pix', label: 'PIX', amount: 190, payments_count: 2 },
@@ -82,6 +85,35 @@ function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioF
           { method: 'cash', label: 'Dinheiro', amount: 0, payments_count: 0 },
           { method: 'other', label: 'Outros', amount: 0, payments_count: 0 },
         ],
+      },
+    ],
+    ticket_by_professional: [
+      {
+        professional_id: 'prof-1',
+        name: 'Carlos',
+        is_active: true,
+        archived: false,
+        net: 300,
+        comandas: 2,
+        average_ticket: 150,
+      },
+      {
+        professional_id: 'prof-2',
+        name: 'Bruna',
+        is_active: false,
+        archived: false,
+        net: 100,
+        comandas: 1,
+        average_ticket: 100,
+      },
+      {
+        professional_id: 'prof-3',
+        name: 'Daniel',
+        is_active: true,
+        archived: true,
+        net: 80,
+        comandas: 1,
+        average_ticket: 80,
       },
     ],
     ...overrides,
@@ -125,6 +157,7 @@ describe('FaturamentoPage', () => {
           products_net: 0,
           tips: 0,
           closed_comandas: 0,
+          average_ticket: null,
           received_total: 0,
         },
         buckets: [],
@@ -197,6 +230,7 @@ describe('FaturamentoPage', () => {
           products_net: 80,
           tips: 30,
           closed_comandas: 2,
+          average_ticket: 240,
           received_total: 0,
         },
         received_by_method: [
@@ -220,6 +254,80 @@ describe('FaturamentoPage', () => {
     expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(5);
     // Nunca "0%" quando share é nulo.
     expect(screen.queryByText('0,0%')).not.toBeInTheDocument();
+  });
+
+  it('mostra "--" (nunca "R$ 0,00") quando o ticket médio é nulo no cartão e na tabela por agrupamento', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () =>
+      respostaBase({
+        totals: {
+          gross: 0,
+          discounts: 0,
+          net: 0,
+          services_net: 0,
+          products_net: 0,
+          tips: 0,
+          closed_comandas: 2,
+          average_ticket: null,
+          received_total: 0,
+        },
+        previous_totals: {
+          gross: 0,
+          discounts: 0,
+          net: 0,
+          services_net: 0,
+          products_net: 0,
+          tips: 0,
+          closed_comandas: 0,
+          average_ticket: null,
+          received_total: 0,
+        },
+        buckets: [
+          {
+            start_date: '2026-06-01',
+            end_date: '2026-06-07',
+            gross: 0,
+            discounts: 0,
+            net: 0,
+            services_net: 0,
+            products_net: 0,
+            tips: 0,
+            closed_comandas: 2,
+            average_ticket: null,
+            received: 0,
+            received_by_method: [],
+          },
+        ],
+      })
+    );
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<FaturamentoPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Ticket médio').length).toBeGreaterThan(0);
+    });
+
+    // "--" aparece no cartão de ticket médio e na coluna da tabela, nunca "R$ 0,00" para ticket médio.
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('mostra a tabela de ticket por profissional com inativos/arquivados marcados e o aviso de Comanda dividida', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<FaturamentoPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ticket por profissional')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Comanda dividida conta para cada profissional\./)).toBeInTheDocument();
+    expect(screen.getByText(/Item sem profissional associado não entra nesta lista/)).toBeInTheDocument();
+    expect(screen.getByText('Carlos')).toBeInTheDocument();
+    expect(screen.getByText('Bruna')).toBeInTheDocument();
+    expect(screen.getByText('Inativo')).toBeInTheDocument();
+    expect(screen.getByText('Daniel')).toBeInTheDocument();
+    expect(screen.getByText('Arquivado')).toBeInTheDocument();
   });
 
   it('mostra erro com botão de tentar de novo quando a consulta falha', async () => {

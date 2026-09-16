@@ -16,6 +16,7 @@ const faturamentoFixture = {
     products_net: 0,
     tips: 0,
     closed_comandas: 1,
+    average_ticket: 100,
     received_total: 100,
   },
   previous_totals: {
@@ -26,10 +27,12 @@ const faturamentoFixture = {
     products_net: 0,
     tips: 0,
     closed_comandas: 0,
+    average_ticket: null,
     received_total: 0,
   },
   received_by_method: [],
   buckets: [],
+  ticket_by_professional: [],
 };
 
 describe('RelatoriosRepository', () => {

@@ -19,6 +19,7 @@ function buildResult(businessToday: string): RelatorioFaturamento {
       products_net: 0,
       tips: 0,
       closed_comandas: 0,
+      average_ticket: null,
       received_total: 0,
     },
     previous_totals: {
@@ -29,10 +30,12 @@ function buildResult(businessToday: string): RelatorioFaturamento {
       products_net: 0,
       tips: 0,
       closed_comandas: 0,
+      average_ticket: null,
       received_total: 0,
     },
     received_by_method: [],
     buckets: [],
+    ticket_by_professional: [],
   };
 }
 

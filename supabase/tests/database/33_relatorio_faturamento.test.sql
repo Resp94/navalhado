@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(53);
 
 -- Spec 038 (Modulo de Relatorios), ticket 01: esqueleto do modulo e
 -- Faturamento por periodo, ponta a ponta. Cobre o contrato de leitura
@@ -700,6 +700,24 @@ select is(
   'duas Comandas fechadas em dois dias do mesmo agrupamento nao multiplicam bruto/liquido/Comandas fechadas/services_net/products_net/tips'
 );
 
+-- Fix do ticket 03 (assimetria de denominador): o ticket medio dos TOTAIS
+-- (periodo com um unico agrupamento de semana, cobrindo os 2 dias de
+-- negocio acima, cada um com sua propria Comanda) precisa usar a contagem
+-- DIRETA de comanda_id distinto em `recognized` (2 Comandas), nao a soma das
+-- contagens ja por-bucket -- as duas formas so coincidiam por um invariante
+-- nao garantido (uma comanda pode, em tese, ter itens reconhecidos em mais
+-- de um business_day dentro do mesmo agrupamento). liquido (460) / Comandas
+-- com item (2) = 230.00.
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-13'::date, '2026-07-19'::date, 'week', '2026-07-19'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'average_ticket')::numeric
+  ),
+  230.00,
+  'ticket medio dos totais, num agrupamento (semana) com 2 dias de negocio e 2 Comandas distintas, e o liquido (460) dividido pela contagem direta de Comandas com item reconhecido (2), nao pela soma das contagens por-bucket'
+);
+
 select is(
   (
     select bucket -> 'received_by_method'
@@ -742,6 +760,318 @@ select is(
   ),
   true,
   'participacao de todas as formas e nula quando o periodo nao teve recebimento, nunca divisao por zero'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 03: Evolucao do ticket medio. Ticket medio = liquido reconhecido /
+-- Comandas fechadas com ao menos um item reconhecido -- denominador
+-- DIFERENTE de closed_comandas (que conta toda Comanda fechada, mesmo sem
+-- item reconhecido). Via nucleo (hoje fixo), tenant_a.
+-- ---------------------------------------------------------------------------
+
+-- (a): ticket medio nos totais, no periodo anterior e por agrupamento, com
+-- 2 Comandas com item reconhecido em dois dias do periodo e 1 Comanda no
+-- periodo anterior.
+create temporary table ticket03_medio_context (
+  comanda_a_id uuid not null,
+  comanda_b_id uuid not null,
+  comanda_c_id uuid not null,
+  item_a_id uuid not null,
+  item_b_id uuid not null,
+  item_c_id uuid not null
+) on commit drop;
+insert into ticket03_medio_context (comanda_a_id, comanda_b_id, comanda_c_id, item_a_id, item_b_id, item_c_id)
+values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_a_id, (select tenant_a_id from ticket01_context), 'fechada', 110, 10, 0, '2026-08-03 12:00:00-03'::timestamptz
+from ticket03_medio_context;
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_b_id, (select tenant_a_id from ticket01_context), 'fechada', 200, 0, 0, '2026-08-04 12:00:00-03'::timestamptz
+from ticket03_medio_context;
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_c_id, (select tenant_a_id from ticket01_context), 'fechada', 50, 0, 0, '2026-08-01 12:00:00-03'::timestamptz
+from ticket03_medio_context;
+
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_a_id, comanda_a_id, (select tenant_a_id from ticket01_context), 'servico', 1, 110, 110,
+  'confirmed', 1, 110, 110, 10, 100, 30, 30, 'professional_service'
+from ticket03_medio_context;
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_b_id, comanda_b_id, (select tenant_a_id from ticket01_context), 'servico', 1, 200, 200,
+  'confirmed', 1, 200, 200, 0, 200, 30, 60, 'professional_service'
+from ticket03_medio_context;
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_c_id, comanda_c_id, (select tenant_a_id from ticket01_context), 'servico', 1, 50, 50,
+  'confirmed', 1, 50, 50, 0, 50, 30, 15, 'professional_service'
+from ticket03_medio_context;
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-08-03'::date, '2026-08-04'::date, 'day', '2026-08-04'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'average_ticket')::numeric
+  ),
+  150.00,
+  'ticket medio dos totais e liquido (300) / Comandas com item reconhecido (2)'
+);
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-08-03'::date, '2026-08-04'::date, 'day', '2026-08-04'::date, 'America/Sao_Paulo'
+    ) -> 'previous_totals' ->> 'average_ticket')::numeric
+  ),
+  50.00,
+  'ticket medio do periodo anterior (2026-08-01 a 2026-08-02) e liquido (50) / Comandas com item (1)'
+);
+
+select is(
+  (
+    select jsonb_agg(
+      jsonb_build_object('start_date', bucket ->> 'start_date', 'average_ticket', (bucket ->> 'average_ticket')::numeric)
+      order by bucket ->> 'start_date'
+    )
+    from jsonb_array_elements(
+      private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-08-03'::date, '2026-08-04'::date, 'day', '2026-08-04'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_array(
+    jsonb_build_object('start_date', '2026-08-03', 'average_ticket', 100.00),
+    jsonb_build_object('start_date', '2026-08-04', 'average_ticket', 200.00)
+  ),
+  'ticket medio por agrupamento (dia) e o liquido do dia dividido pelas Comandas com item reconhecido daquele dia'
+);
+
+-- (b): item revertido CONTA para o denominador do ticket medio, mesmo
+-- contribuindo zero ao numerador -- decisao registrada no comentario da
+-- migracao do ticket 03: report_recognized_items emite uma linha (net=0)
+-- para o item revertido, entao a Comanda aparece em `recognized` e conta
+-- como "Comanda com item reconhecido".
+create temporary table ticket03_revertido_context (comanda_id uuid not null, item_id uuid not null) on commit drop;
+insert into ticket03_revertido_context (comanda_id, item_id) values (gen_random_uuid(), gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 999, 0, 0, '2026-08-06 12:00:00-03'::timestamptz
+from ticket03_revertido_context;
+insert into public.comanda_itens (id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price, snapshot_status)
+select item_id, comanda_id, (select tenant_a_id from ticket01_context), 'servico', 1, 999, 999, 'reverted'
+from ticket03_revertido_context;
+
+select is(
+  (
+    select jsonb_build_object('closed_comandas', bucket ->> 'closed_comandas', 'average_ticket', bucket ->> 'average_ticket')
+    from jsonb_array_elements(
+      private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-08-06'::date, '2026-08-06'::date, 'day', '2026-08-06'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_object('closed_comandas', '1', 'average_ticket', '0.00'),
+  'Comanda fechada cujo unico item foi revertido conta para o denominador do ticket medio (ticket medio 0.00, nao nulo)'
+);
+
+-- (c): agrupamento com Comanda fechada mas SEM NENHUM item (nenhuma linha
+-- em recognized) tem ticket medio NULO, mesmo com closed_comandas = 1 --
+-- prova de que os dois denominadores sao diferentes.
+create temporary table ticket03_sem_item_context (comanda_id uuid not null) on commit drop;
+insert into ticket03_sem_item_context (comanda_id) values (gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 0, 0, 0, '2026-08-07 12:00:00-03'::timestamptz
+from ticket03_sem_item_context;
+
+select is(
+  (
+    select jsonb_build_object(
+      'closed_comandas', bucket ->> 'closed_comandas',
+      'average_ticket_is_null', (bucket -> 'average_ticket') = 'null'::jsonb
+    )
+    from jsonb_array_elements(
+      private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-08-07'::date, '2026-08-07'::date, 'day', '2026-08-07'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_object('closed_comandas', '1', 'average_ticket_is_null', true),
+  'Comanda fechada sem nenhum item reconhecido nao entra no denominador do ticket medio: agrupamento com Comanda mas sem item reconhecido devolve ticket medio nulo, nunca zero, mesmo com closed_comandas = 1'
+);
+
+-- (d): Comanda com dois profissionais conta uma Comanda para cada um, com o
+-- valor de cada item isolado para quem executou; um dos profissionais tem
+-- outra Comanda sozinho, somada ao ticket dele.
+create temporary table ticket03_profissionais_context (
+  prof_um_id uuid not null,
+  prof_dois_id uuid not null,
+  comanda_f_id uuid not null,
+  comanda_g_id uuid not null,
+  item_f1_id uuid not null,
+  item_f2_id uuid not null,
+  item_g_id uuid not null
+) on commit drop;
+insert into ticket03_profissionais_context (
+  prof_um_id, prof_dois_id, comanda_f_id, comanda_g_id, item_f1_id, item_f2_id, item_g_id
+) values (
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+);
+grant select on ticket03_profissionais_context to authenticated;
+
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_um_id, (select tenant_a_id from ticket01_context), '__ticket03_prof_um__', '11999990001', 30, true
+from ticket03_profissionais_context;
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_dois_id, (select tenant_a_id from ticket01_context), '__ticket03_prof_dois__', '11999990002', 30, true
+from ticket03_profissionais_context;
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_f_id, (select tenant_a_id from ticket01_context), 'fechada', 150, 0, 0, '2026-08-09 12:00:00-03'::timestamptz
+from ticket03_profissionais_context;
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_g_id, (select tenant_a_id from ticket01_context), 'fechada', 80, 0, 0, '2026-08-10 12:00:00-03'::timestamptz
+from ticket03_profissionais_context;
+
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, professional_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_f1_id, comanda_f_id, (select tenant_a_id from ticket01_context), prof_um_id, 'servico', 1, 100, 100,
+  'confirmed', 1, 100, 100, 0, 100, 30, 30, 'professional_service'
+from ticket03_profissionais_context;
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, professional_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_f2_id, comanda_f_id, (select tenant_a_id from ticket01_context), prof_dois_id, 'servico', 1, 50, 50,
+  'confirmed', 1, 50, 50, 0, 50, 30, 15, 'professional_service'
+from ticket03_profissionais_context;
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, professional_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_g_id, comanda_g_id, (select tenant_a_id from ticket01_context), prof_um_id, 'servico', 1, 80, 80,
+  'confirmed', 1, 80, 80, 0, 80, 30, 24, 'professional_service'
+from ticket03_profissionais_context;
+
+select is(
+  (
+    select private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-08-09'::date, '2026-08-10'::date, 'day', '2026-08-10'::date, 'America/Sao_Paulo'
+    ) -> 'ticket_by_professional'
+  ),
+  (
+    select jsonb_build_array(
+      jsonb_build_object(
+        'professional_id', prof_um_id, 'name', '__ticket03_prof_um__', 'is_active', true, 'archived', false,
+        'net', 180.00, 'comandas', 2, 'average_ticket', 90.00
+      ),
+      jsonb_build_object(
+        'professional_id', prof_dois_id, 'name', '__ticket03_prof_dois__', 'is_active', true, 'archived', false,
+        'net', 50.00, 'comandas', 1, 'average_ticket', 50.00
+      )
+    )
+    from ticket03_profissionais_context
+  ),
+  'Comanda com dois profissionais conta uma Comanda para cada um, com o liquido isolado de cada um; profissional com outra Comanda sozinho soma liquido e Comandas'
+);
+
+-- (e): profissional inativo e profissional arquivado com item no periodo
+-- continuam em ticket_by_professional, marcados como tal (nao filtrado como
+-- em get_tenant_financial_metrics).
+create temporary table ticket03_inativos_context (
+  prof_inativo_id uuid not null,
+  prof_arquivado_id uuid not null,
+  comanda_h_id uuid not null,
+  comanda_i_id uuid not null,
+  item_h_id uuid not null,
+  item_i_id uuid not null
+) on commit drop;
+insert into ticket03_inativos_context (
+  prof_inativo_id, prof_arquivado_id, comanda_h_id, comanda_i_id, item_h_id, item_i_id
+) values (
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+);
+grant select on ticket03_inativos_context to authenticated;
+
+-- Inseridos ATIVOS (o trigger validate_comanda_item_references exige
+-- profissional ativo e nao arquivado no momento em que o item e criado --
+-- o mesmo motivo pelo qual soft delete existe: o historico e preservado,
+-- mas a inativacao/arquivamento so pode acontecer DEPOIS do atendimento).
+-- Inativados/arquivados so depois de o item ja existir.
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_inativo_id, (select tenant_a_id from ticket01_context), '__ticket03_prof_inativo__', '11999990003', 30, true
+from ticket03_inativos_context;
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_arquivado_id, (select tenant_a_id from ticket01_context), '__ticket03_prof_arquivado__', '11999990004', 30, true
+from ticket03_inativos_context;
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_h_id, (select tenant_a_id from ticket01_context), 'fechada', 60, 0, 0, '2026-08-11 12:00:00-03'::timestamptz
+from ticket03_inativos_context;
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_i_id, (select tenant_a_id from ticket01_context), 'fechada', 40, 0, 0, '2026-08-12 12:00:00-03'::timestamptz
+from ticket03_inativos_context;
+
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, professional_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_h_id, comanda_h_id, (select tenant_a_id from ticket01_context), prof_inativo_id, 'servico', 1, 60, 60,
+  'confirmed', 1, 60, 60, 0, 60, 30, 18, 'professional_service'
+from ticket03_inativos_context;
+insert into public.comanda_itens (
+  id, comanda_id, tenant_id, professional_id, item_type, quantity, unit_price, total_price,
+  snapshot_status, snapshot_quantity, snapshot_unit_price, snapshot_gross_amount, snapshot_discount_amount,
+  snapshot_net_amount, snapshot_commission_percentage, snapshot_commission_amount, snapshot_commission_rule
+)
+select item_i_id, comanda_i_id, (select tenant_a_id from ticket01_context), prof_arquivado_id, 'servico', 1, 40, 40,
+  'confirmed', 1, 40, 40, 0, 40, 30, 12, 'professional_service'
+from ticket03_inativos_context;
+
+-- So agora, com os itens ja gravados, o profissional e inativado/arquivado.
+update public.professionals set is_active = false
+where id = (select prof_inativo_id from ticket03_inativos_context);
+update public.professionals set deleted_at = now()
+where id = (select prof_arquivado_id from ticket03_inativos_context);
+
+select is(
+  (
+    select private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-08-11'::date, '2026-08-12'::date, 'day', '2026-08-12'::date, 'America/Sao_Paulo'
+    ) -> 'ticket_by_professional'
+  ),
+  (
+    select jsonb_build_array(
+      jsonb_build_object(
+        'professional_id', prof_inativo_id, 'name', '__ticket03_prof_inativo__', 'is_active', false, 'archived', false,
+        'net', 60.00, 'comandas', 1, 'average_ticket', 60.00
+      ),
+      jsonb_build_object(
+        'professional_id', prof_arquivado_id, 'name', '__ticket03_prof_arquivado__', 'is_active', true, 'archived', true,
+        'net', 40.00, 'comandas', 1, 'average_ticket', 40.00
+      )
+    )
+    from ticket03_inativos_context
+  ),
+  'profissional inativo e profissional arquivado com item no periodo continuam em ticket_by_professional, marcados como tal'
 );
 
 select * from finish(true);

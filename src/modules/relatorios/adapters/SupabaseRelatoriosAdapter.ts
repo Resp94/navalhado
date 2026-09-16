@@ -8,6 +8,7 @@ import type {
   RelatorioRecebidoPorFormaBucket,
   RelatoriosAdapter,
   RelatoriosDataQualityStatus,
+  TicketPorProfissional,
 } from '../types';
 
 const DATA_QUALITY_STATUSES: RelatoriosDataQualityStatus[] = [
@@ -23,6 +24,15 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/**
+ * Coerção numérica que preserva `null` (mesmo padrão de `share` do ticket
+ * 02): usada para campos onde o banco devolve `jsonb null` de propósito
+ * (ausência de denominador), nunca convertido para `0`.
+ */
+function toNullableNumber(value: unknown): number | null {
+  return value === null || value === undefined ? null : toNumber(value);
+}
+
 type BucketTotais = Omit<RelatorioFaturamentoTotais, 'received_total'>;
 
 function toBucketTotais(value: unknown): BucketTotais {
@@ -35,7 +45,24 @@ function toBucketTotais(value: unknown): BucketTotais {
     products_net: toNumber(raw.products_net),
     tips: toNumber(raw.tips),
     closed_comandas: toNumber(raw.closed_comandas),
+    average_ticket: toNullableNumber(raw.average_ticket),
   };
+}
+
+function toTicketByProfessional(value: unknown): TicketPorProfissional[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      professional_id: raw.professional_id ? String(raw.professional_id) : '',
+      name: raw.name ? String(raw.name) : '',
+      is_active: raw.is_active === true,
+      archived: raw.archived === true,
+      net: toNumber(raw.net),
+      comandas: toNumber(raw.comandas),
+      average_ticket: toNullableNumber(raw.average_ticket),
+    };
+  });
 }
 
 function toTotais(value: unknown): RelatorioFaturamentoTotais {
@@ -107,6 +134,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       previous_totals?: unknown;
       received_by_method?: unknown;
       buckets?: Array<Record<string, unknown>>;
+      ticket_by_professional?: unknown;
     };
 
     const dataQualityRaw = raw.data_quality || {};
@@ -143,6 +171,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       previous_totals: toTotais(raw.previous_totals),
       received_by_method: toReceivedByMethod(raw.received_by_method),
       buckets,
+      ticket_by_professional: toTicketByProfessional(raw.ticket_by_professional),
     };
   }
 }

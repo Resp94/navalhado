@@ -2,7 +2,7 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/feedback/DataTable';
 import { formatCurrency } from '../../../../lib/currency';
 import type { RelatorioFaturamentoBucket } from '../../../../modules/relatorios/types';
-import { formatDisplayDate } from '../../../../modules/relatorios/formatacao';
+import { formatCurrencyOrDash, formatDisplayDate } from '../../../../modules/relatorios/formatacao';
 
 export interface FaturamentoTabelaProps {
   buckets: RelatorioFaturamentoBucket[];
@@ -28,6 +28,7 @@ export const FaturamentoTabela: React.FC<FaturamentoTabelaProps> = ({ buckets })
             <TableHead align="right">Serviços</TableHead>
             <TableHead align="right">Produtos</TableHead>
             <TableHead align="right">Gorjetas</TableHead>
+            <TableHead align="right">Ticket médio</TableHead>
             <TableHead align="right">Recebido</TableHead>
             <TableHead align="right">Comandas fechadas</TableHead>
           </TableRow>
@@ -46,6 +47,7 @@ export const FaturamentoTabela: React.FC<FaturamentoTabelaProps> = ({ buckets })
               <TableCell align="right">{formatCurrency(bucket.services_net)}</TableCell>
               <TableCell align="right">{formatCurrency(bucket.products_net)}</TableCell>
               <TableCell align="right">{formatCurrency(bucket.tips)}</TableCell>
+              <TableCell align="right">{formatCurrencyOrDash(bucket.average_ticket)}</TableCell>
               <TableCell align="right">{formatCurrency(bucket.received)}</TableCell>
               <TableCell align="right">{bucket.closed_comandas}</TableCell>
             </TableRow>

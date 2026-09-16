@@ -3,13 +3,26 @@ import { StatCard } from '../../../../components/ui/data-display/StatCard';
 import { formatCurrency } from '../../../../lib/currency';
 import { calcularVariacaoPercentual } from '../../../../modules/relatorios/variacao';
 import type { RelatorioFaturamentoTotais, RelatoriosPeriodo } from '../../../../modules/relatorios/types';
-import { formatDisplayDate } from '../../../../modules/relatorios/formatacao';
+import { formatCurrencyOrDash, formatDisplayDate } from '../../../../modules/relatorios/formatacao';
 
 function formatVariacao(atual: number, anterior: number): { value: string; isPositive?: boolean } | undefined {
   const variacao = calcularVariacaoPercentual(atual, anterior);
   if (variacao === null) return undefined;
   const percent = (variacao * 100).toFixed(1);
   return { value: `${variacao >= 0 ? '+' : ''}${percent}%`, isPositive: variacao >= 0 };
+}
+
+/**
+ * Variação do ticket médio: `undefined` (sem seta, sem "--" quebrado)
+ * quando qualquer um dos dois lados é `null` -- não há variação que faça
+ * sentido mostrar sem os dois valores.
+ */
+function formatVariacaoTicketMedio(
+  atual: number | null,
+  anterior: number | null
+): { value: string; isPositive?: boolean } | undefined {
+  if (atual === null || anterior === null) return undefined;
+  return formatVariacao(atual, anterior);
 }
 
 export interface FaturamentoResumoProps {
@@ -65,6 +78,16 @@ export const FaturamentoResumo: React.FC<FaturamentoResumoProps> = ({
         trend={totals && previousTotals ? formatVariacao(totals.products_net, previousTotals.products_net) : undefined}
       />
       <StatCard title="Gorjetas" value={formatCurrency(totals?.tips ?? 0)} loading={loading} />
+      <StatCard
+        title="Ticket médio"
+        value={formatCurrencyOrDash(totals?.average_ticket ?? null)}
+        loading={loading}
+        trend={
+          totals && previousTotals
+            ? formatVariacaoTicketMedio(totals.average_ticket, previousTotals.average_ticket)
+            : undefined
+        }
+      />
       <StatCard
         title="Recebido"
         value={formatCurrency(totals?.received_total ?? 0)}

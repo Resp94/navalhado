@@ -43,7 +43,30 @@ export interface RelatorioFaturamentoTotais {
   products_net: number;
   tips: number;
   closed_comandas: number;
+  /**
+   * Líquido reconhecido / Comandas fechadas com ao menos um item
+   * reconhecido (spec 038, ticket 03). `null` quando não há Comanda com
+   * item reconhecido no período/agrupamento -- ticket vazio, nunca zero,
+   * para um período fechado não parecer um período de ticket ruim.
+   */
+  average_ticket: number | null;
   received_total: number;
+}
+
+/**
+ * Ticket por profissional (spec 038, ticket 03, histórias 30-31): todos os
+ * profissionais com ao menos um item reconhecido no período, inclusive
+ * inativos e arquivados. Uma Comanda dividida entre profissionais conta
+ * uma Comanda distinta para cada um -- a tela avisa isso.
+ */
+export interface TicketPorProfissional {
+  professional_id: string;
+  name: string;
+  is_active: boolean;
+  archived: boolean;
+  net: number;
+  comandas: number;
+  average_ticket: number | null;
 }
 
 /**
@@ -92,6 +115,7 @@ export interface RelatorioFaturamento {
   previous_totals: RelatorioFaturamentoTotais;
   received_by_method: RelatorioRecebidoPorForma[];
   buckets: RelatorioFaturamentoBucket[];
+  ticket_by_professional: TicketPorProfissional[];
 }
 
 export interface ObterFaturamentoPorPeriodoInput {

@@ -13,6 +13,7 @@ import { Skeleton } from '../../../components/ui/data-display/Skeleton';
 import { FaturamentoResumo } from './faturamento/FaturamentoResumo';
 import { FaturamentoTabela } from './faturamento/FaturamentoTabela';
 import { FaturamentoRecebidoPorForma } from './faturamento/FaturamentoRecebidoPorForma';
+import { FaturamentoTicketPorProfissional } from './faturamento/FaturamentoTicketPorProfissional';
 import './Relatorios.css';
 
 const DATA_QUALITY_LABEL: Record<string, string> = {
@@ -55,6 +56,7 @@ export const FaturamentoPage: React.FC<FaturamentoPageProps> = ({ repository: in
   const previousPeriod = data?.previous_period ?? null;
   const buckets = data?.buckets ?? [];
   const receivedByMethod = data?.received_by_method ?? [];
+  const ticketByProfessional = data?.ticket_by_professional ?? [];
   const dataQualityWarning =
     data && data.data_quality.status !== 'confirmed' ? DATA_QUALITY_LABEL[data.data_quality.status] : null;
   const isEmpty = !loading && !error && data !== null && totals?.closed_comandas === 0;
@@ -119,6 +121,7 @@ export const FaturamentoPage: React.FC<FaturamentoPageProps> = ({ repository: in
           />
           <FaturamentoTabela buckets={buckets} />
           <FaturamentoRecebidoPorForma receivedByMethod={receivedByMethod} />
+          <FaturamentoTicketPorProfissional ticketByProfessional={ticketByProfessional} />
         </>
       )}
     </div>
