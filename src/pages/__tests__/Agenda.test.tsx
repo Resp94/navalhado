@@ -403,8 +403,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const appointmentCard = screen
         .getAllByText('Pedro Cliente')
-        .find((element) => element.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card');
+        .find((element) => element.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]');
       expect(appointmentCard).toBeInTheDocument();
       fireEvent.click(appointmentCard!);
 
@@ -656,7 +656,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByText('Almoço')).toBeInTheDocument();
     });
 
-    const blockCard = screen.getByText('Almoço').closest('.timeline-blocked-card');
+    const blockCard = screen.getByText('Almoço').closest('[data-testid="blocked-card"]');
     expect(blockCard).toBeInTheDocument();
 
     fireEvent.click(blockCard!);
@@ -681,7 +681,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     const clientLabels = screen.getAllByText('Pedro Cliente');
-    const appointmentCard = clientLabels.find((el) => el.closest('.timeline-appointment-card'))?.closest('.timeline-appointment-card');
+    const appointmentCard = clientLabels.find((el) => el.closest('[data-testid="appointment-card"]'))?.closest('[data-testid="appointment-card"]');
     expect(appointmentCard).toBeInTheDocument();
 
     fireEvent.click(appointmentCard!);
@@ -700,7 +700,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
     const cards = screen
       .getAllByText('Pedro Cliente')
-      .map((element) => element.closest('.timeline-appointment-card'))
+      .map((element) => element.closest('[data-testid="appointment-card"]'))
       .filter(Boolean);
     expect(cards.length).toBeGreaterThan(0);
     cards.forEach((card) => {
@@ -719,16 +719,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
     const clientLabels = screen.getAllByText('Pedro Cliente');
     const card = clientLabels
-      .find((el) => el.closest('.timeline-appointment-card'))
-      ?.closest('.timeline-appointment-card');
+      .find((el) => el.closest('[data-testid="appointment-card"]'))
+      ?.closest('[data-testid="appointment-card"]');
     expect(card).toBeInTheDocument();
 
-    const topRow = card!.querySelector('.card-top-row');
+    const topRow = card!.querySelector('[data-testid="card-top-row"]');
     expect(topRow).toBeInTheDocument();
     expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
     expect(topRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
 
-    const clientRow = card!.querySelector('.card-client-row');
+    const clientRow = card!.querySelector('[data-testid="card-client-row"]');
     expect(clientRow).toBeInTheDocument();
     expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
   });
@@ -749,16 +749,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const clientLabels = screen.getAllByText('Pedro Cliente');
       const card = clientLabels
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card');
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]');
       expect(card).toBeInTheDocument();
 
-      const topRow = card!.querySelector('.card-top-row');
+      const topRow = card!.querySelector('[data-testid="card-top-row"]');
       expect(topRow).toBeInTheDocument();
-      expect(topRow!.querySelector('.badge-chip--fitting')).toBeInTheDocument();
+      expect(topRow!.querySelector('[title="Encaixe"]')).toBeInTheDocument();
       expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
 
-      const clientRow = card!.querySelector('.card-client-row');
+      const clientRow = card!.querySelector('[data-testid="card-client-row"]');
       expect(clientRow).toBeInTheDocument();
       expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
       expect(clientRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
@@ -804,8 +804,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const soloCard = screen
         .getAllByText('Cliente Solo')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(soloCard).toBeInTheDocument();
       expect(soloCard.style.width).toBe('calc(100% - 8px)');
       expect(soloCard.style.height).toBe('69px');
@@ -813,8 +813,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const regularCard = screen
         .getAllByText('Pedro Cliente')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(regularCard).toBeInTheDocument();
       expect(regularCard.style.width).toBe('calc(50% - 8px)');
       expect(regularCard.style.height).toBe('69px');
@@ -822,8 +822,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const fittingCard = screen
         .getAllByText('Cliente Encaixe')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(fittingCard).toBeInTheDocument();
       expect(fittingCard.style.width).toBe('calc(50% - 8px)');
       expect(fittingCard.style.height).toBe('69px');
@@ -844,9 +844,9 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     const occupiedSlot = screen.getByTestId('slot-cell-prof-1-09:00');
-    expect(occupiedSlot).toHaveClass('grid-slot-cell--occupied');
+    expect(occupiedSlot).toHaveClass('cursor-default');
     expect(occupiedSlot).toHaveAttribute('title', expect.stringContaining('Horário ocupado'));
-    expect(occupiedSlot.querySelector('.slot-hover-text')).toBeNull();
+    expect(occupiedSlot.querySelectorAll('span').length).toBe(0);
 
     // Clicar no slot ocupado não deve abrir o modal de novo agendamento
     fireEvent.click(occupiedSlot);
@@ -883,8 +883,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       const cards = overlappingAppointments.map(([, customerName]) => {
         const card = screen
           .getAllByText(customerName)
-          .find((el) => el.closest('.timeline-appointment-card'))
-          ?.closest('.timeline-appointment-card') as HTMLElement;
+          .find((el) => el.closest('[data-testid="appointment-card"]'))
+          ?.closest('[data-testid="appointment-card"]') as HTMLElement;
         expect(card).toBeInTheDocument();
         return card;
       });
@@ -949,7 +949,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       await waitFor(
         () => {
-          const cards = document.querySelectorAll('.timeline-appointment-card');
+          const cards = document.querySelectorAll('[data-testid="appointment-card"]');
           expect(cards.length).toBeGreaterThan(0);
         },
         { timeout: 3000 }
@@ -957,8 +957,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const soloCard = screen
         .getAllByText('Cliente Semana Solo')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(soloCard).toBeInTheDocument();
       expect(soloCard.style.width).toBe('463px');
       expect(soloCard.style.height).toBe('69px');
@@ -966,8 +966,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const regularCard = screen
         .getAllByText('Pedro Cliente')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(regularCard).toBeInTheDocument();
       expect(regularCard.style.width).toBe('231px');
       expect(regularCard.style.height).toBe('69px');
@@ -975,8 +975,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       const fittingCard = screen
         .getAllByText('Cliente Semana Encaixe')
-        .find((el) => el.closest('.timeline-appointment-card'))
-        ?.closest('.timeline-appointment-card') as HTMLElement;
+        .find((el) => el.closest('[data-testid="appointment-card"]'))
+        ?.closest('[data-testid="appointment-card"]') as HTMLElement;
       expect(fittingCard).toBeInTheDocument();
       expect(fittingCard.style.width).toBe('231px');
       expect(fittingCard.style.height).toBe('69px');

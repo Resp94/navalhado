@@ -862,7 +862,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   return (
     <>
       <div
-        className="comanda-modal-overlay"
+        className="fixed inset-0 bg-[rgba(20,17,15,0.65)] backdrop-blur-md flex items-center justify-center z-[1050] p-5 animate-fade-in"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-checkout-title"
@@ -870,24 +870,24 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
           if (e.target === e.currentTarget) onClose();
         }}
       >
-        <div className="comanda-modal-shell">
-          <div className="comanda-modal-card">
+        <div className="w-full max-w-[640px] max-h-[calc(100dvh-2.5rem)] flex flex-col p-1 rounded-[calc(var(--radius-xl)+4px)] bg-[rgba(20,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_24px_56px_-12px_rgba(20,17,15,0.35),var(--shadow-xl)] animate-dialog-in box-border font-base max-md:max-w-full max-md:max-h-[92dvh] max-md:rounded-t-3xl max-md:rounded-b-none max-md:p-0 max-md:bg-transparent max-md:shadow-[0_-10px_40px_rgba(0,0,0,0.45)] max-md:![animation:slideUpMobile_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
+          <div className="bg-bg-secondary border border-text-primary rounded-xl w-full max-h-full flex flex-col shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),var(--shadow-lg)] overflow-hidden text-text-primary max-md:rounded-t-3xl max-md:rounded-b-none max-md:border-b-0">
             {/* Header com Double-Bezel e Detalhes da Comanda */}
-            <div className="comanda-modal-header">
-              <div className="comanda-modal-header-info">
-                <div className="comanda-modal-badge-wrapper">
-                  <div className="comanda-header-icon-badge">
+            <div className="relative flex items-start justify-between px-6 pt-5 pb-4 border-b border-text-primary bg-transparent shrink-0 max-md:px-5 max-md:pt-[1.15rem] max-md:pb-4">
+              <div className="flex flex-col items-start gap-[0.65rem] flex-1 min-w-0">
+                <div className="flex items-center gap-3 flex-wrap pr-10">
+                  <div className="w-[38px] h-[38px] rounded-md bg-brand-lightest text-text-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex items-center justify-center shrink-0 [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path:nth-of-type(1)]:fill-text-primary [&_svg_path:nth-of-type(1)]:stroke-text-primary [&_svg_path:nth-of-type(2)]:stroke-bg-secondary [&_svg_path:nth-of-type(3)]:stroke-bg-secondary">
                     <HugeiconsIcon icon={Invoice01Icon} size={18} />
                   </div>
-                  <div className="comanda-header-title-row">
-                    <h3 id="modal-checkout-title" className="comanda-modal-title">
+                  <div className="flex items-center gap-[0.6rem] flex-wrap min-h-[38px]">
+                    <h3 id="modal-checkout-title" className="text-lg font-bold text-text-primary m-0 tracking-[-0.01em]">
                       {loadedComanda?.comanda_number
                         ? `Comanda #${loadedComanda.comanda_number}`
                         : 'Comanda de atendimento'}
                     </h3>
                     <span
-                      className={`comanda-status-pill ${
-                        isClosed ? 'comanda-status-pill--closed' : 'comanda-status-pill--open'
+                      className={`text-[0.7rem] font-bold uppercase tracking-[0.04em] px-[0.55rem] py-[0.2rem] rounded-full leading-[1.2] border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary ${
+                        isClosed ? 'bg-success-bg' : 'bg-warning-bg'
                       }`}
                     >
                       {isClosed ? 'Liquidada' : 'Em aberto'}
@@ -895,10 +895,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   </div>
                 </div>
 
-                <div className="comanda-modal-subtitle">
-                  <div className="comanda-subtitle-row">
-                    <span className="comanda-subtitle-customer">
-                      <HugeiconsIcon icon={UserIcon} size={13} className="inline-user-icon" />
+                <div className="text-xs text-text-secondary mt-[0.15rem] flex flex-col gap-2 w-full">
+                  <div className="flex items-center gap-[0.6rem] flex-wrap">
+                    <span className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary">
+                      <HugeiconsIcon icon={UserIcon} size={13} className="text-text-primary shrink-0" />
                       <span>
                         Cliente: <strong>{customerName}</strong>
                       </span>
@@ -909,18 +909,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         onClick={() => {
                           openWhatsApp(customerPhone, `Olá ${customerName}, tudo bem? Falamos da barbearia.`);
                         }}
-                        className="comanda-customer-phone-tag comanda-customer-phone-btn"
+                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] cursor-pointer transition-all duration-200 select-none hover:bg-warning hover:text-text-primary active:scale-[0.97] [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                         title="Abrir conversa no WhatsApp com o cliente"
                       >
-                        <HugeiconsIcon icon={WhatsappIcon} size={13} className="inline-phone-icon" />
+                        <HugeiconsIcon icon={WhatsappIcon} size={13} className="text-text-primary shrink-0" />
                         <span>{customerPhone}</span>
                       </button>
                     )}
                   </div>
                   {appointmentId ? (
-                    <div className="comanda-subtitle-row">
+                    <div className="flex items-center gap-[0.6rem] flex-wrap">
                       <span
-                        className="comanda-customer-phone-tag comanda-appointment-tag"
+                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] [&_span]:text-text-primary [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                         title="Comanda gerada a partir de agendamento da agenda"
                       >
                         <HugeiconsIcon icon={Calendar02Icon} size={13} />
@@ -933,7 +933,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </span>
                       </span>
                       {!isClosed && (
-                        <div className="comanda-appointment-actions">
+                        <div className="inline-flex items-center gap-[0.4rem] shrink-0">
                           <button
                             type="button"
                             onClick={() => {
@@ -950,7 +950,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
                               setIsRescheduleModalOpen((prev) => !prev);
                             }}
-                            className="comanda-customer-phone-tag comanda-reschedule-btn"
+                            className="inline-flex items-center gap-1 text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 hover:brightness-95 [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                             title="Reagendar horário deste atendimento mantendo a comanda aberta"
                             aria-label="Reagendar atendimento"
                           >
@@ -966,7 +966,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 setCancelConfirmOpen(false);
                                 setNoShowConfirmOpen((prev) => !prev);
                               }}
-                              className="comanda-customer-phone-tag comanda-noshow-btn"
+                              className="inline-flex items-center gap-1 text-error font-bold text-xs bg-bg-secondary px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-error)] cursor-pointer transition-all duration-150 hover:bg-error-bg [&_svg]:h-fit [&_svg]:text-error [&_svg_path]:stroke-error"
                               title="Marcar atendimento como não compareceu"
                               aria-label="Marcar atendimento como não compareceu"
                             >
@@ -978,9 +978,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       )}
                     </div>
                   ) : (
-                    <div className="comanda-subtitle-row">
+                    <div className="flex items-center gap-[0.6rem] flex-wrap">
                       <span
-                        className="comanda-customer-phone-tag"
+                        className="inline-flex items-center gap-[0.35rem] font-bold text-xs px-[0.6rem] py-1 rounded-sm tracking-[0.01em]"
                         style={{
                           backgroundColor: 'rgba(45, 35, 30, 0.04)',
                           color: 'var(--color-text-secondary)',
@@ -996,7 +996,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="comanda-btn-close"
+                className="absolute top-5 right-6 w-[38px] h-[38px] rounded-full border border-transparent bg-transparent text-text-primary inline-flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 hover:bg-error-bg hover:text-error hover:border-error hover:scale-105"
                 aria-label="Fechar modal de comanda"
               >
                 <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -1006,7 +1006,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             {/* Painel Interativo de Reagendamento Direto na Comanda */}
             {isRescheduleModalOpen && (
               <div
-                className="comanda-reschedule-card"
                 role="region"
                 aria-label="Painel de Reagendamento de Atendimento"
                 style={{
@@ -1115,27 +1114,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             {/* Banner de Confirmação de Não Comparecimento */}
             {noShowConfirmOpen && (
               <div
-                className="comanda-cancel-confirm-card comanda-no-show-confirm-card"
+                className="mx-6 mt-4 p-[0.9rem_1.15rem] rounded-lg bg-error-bg border border-error flex flex-col gap-[0.65rem] animate-fade-in"
                 role="region"
                 aria-label="Painel de Confirmação de Não Comparecimento"
               >
-                <div className="comanda-reopen-content">
-                  <div className="comanda-reopen-icon comanda-reopen-icon--danger">
+                <div className="flex items-start gap-[0.65rem]">
+                  <div className="text-error mt-[0.1rem] shrink-0">
                     <HugeiconsIcon icon={BadgeXIcon} size={18} />
                   </div>
                   <div>
-                    <h4 className="comanda-reopen-title">Confirmar não comparecimento</h4>
-                    <p className="comanda-reopen-desc">
+                    <h4 className="text-sm font-bold text-text-primary m-0">Confirmar não comparecimento</h4>
+                    <p className="text-xs text-text-secondary mt-[0.2rem] mb-0 leading-[1.4]">
                       Deseja marcar o atendimento de <strong>{customerName || 'Cliente'}</strong> como não compareceu? A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
                     </p>
                   </div>
                 </div>
-                <div className="comanda-reopen-actions">
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setNoShowConfirmOpen(false)}
                     disabled={isMarkingNoShow}
-                    className="comanda-btn-ghost-sm"
+                    className="px-3 py-[0.35rem] text-xs font-semibold bg-transparent border border-border rounded-md text-text-secondary cursor-pointer transition-all duration-150 hover:bg-bg-secondary hover:text-text-primary"
                   >
                     Voltar
                   </button>
@@ -1143,7 +1142,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isMarkingNoShow}
                     onClick={handleConfirmNoShowAction}
-                    className="comanda-btn-danger-sm"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isMarkingNoShow ? 'Marcando...' : 'Sim, não compareceu'}
                   </button>
@@ -1153,23 +1152,23 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
             {/* Banner de Confirmação de Reabertura */}
             {reopenConfirmOpen && (
-              <div className="comanda-reopen-confirm-card" role="alert">
-                <div className="comanda-reopen-content">
-                  <div className="comanda-reopen-icon">
+              <div className="mx-6 mt-4 p-[0.9rem_1.15rem] rounded-lg bg-warning-bg border border-warning flex flex-col gap-[0.65rem] animate-fade-in" role="alert">
+                <div className="flex items-start gap-[0.65rem]">
+                  <div className="text-warning mt-[0.1rem] shrink-0">
                     <HugeiconsIcon icon={AlertCircleIcon} size={18} />
                   </div>
                   <div>
-                    <h4 className="comanda-reopen-title">Deseja realmente reabrir esta comanda?</h4>
-                    <p className="comanda-reopen-desc">
+                    <h4 className="text-sm font-bold text-text-primary m-0">Deseja realmente reabrir esta comanda?</h4>
+                    <p className="text-xs text-text-secondary mt-[0.2rem] mb-0 leading-[1.4]">
                       Ao reabrir, os pagamentos registrados serão estornados e a comanda voltará para o status de edição.
                     </p>
                   </div>
                 </div>
-                <div className="comanda-reopen-actions">
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setReopenConfirmOpen(false)}
-                    className="comanda-btn-ghost-sm"
+                    className="px-3 py-[0.35rem] text-xs font-semibold bg-transparent border border-border rounded-md text-text-secondary cursor-pointer transition-all duration-150 hover:bg-bg-secondary hover:text-text-primary"
                   >
                     Cancelar
                   </button>
@@ -1177,7 +1176,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isReopening}
                     onClick={handleReopenComanda}
-                    className="comanda-btn-warning-sm"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-warning text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isReopening ? 'Reabrindo...' : 'Confirmar reabertura'}
                   </button>
@@ -1187,23 +1186,23 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
             {/* Banner de Confirmação de Cancelamento */}
             {cancelConfirmOpen && (
-              <div className="comanda-cancel-confirm-card" role="alert">
-                <div className="comanda-reopen-content">
-                  <div className="comanda-reopen-icon comanda-reopen-icon--danger">
+              <div className="mx-6 mt-4 p-[0.9rem_1.15rem] rounded-lg bg-error-bg border border-error flex flex-col gap-[0.65rem] animate-fade-in" role="alert">
+                <div className="flex items-start gap-[0.65rem]">
+                  <div className="text-error mt-[0.1rem] shrink-0">
                     <HugeiconsIcon icon={Cancel01Icon} size={18} />
                   </div>
                   <div>
-                    <h4 className="comanda-reopen-title">Cancelar este agendamento e comanda?</h4>
-                    <p className="comanda-reopen-desc">
+                    <h4 className="text-sm font-bold text-text-primary m-0">Cancelar este agendamento e comanda?</h4>
+                    <p className="text-xs text-text-secondary mt-[0.2rem] mb-0 leading-[1.4]">
                       O agendamento será cancelado na grade e a comanda aberta correspondente será cancelada automaticamente.
                     </p>
                   </div>
                 </div>
-                <div className="comanda-reopen-actions">
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setCancelConfirmOpen(false)}
-                    className="comanda-btn-ghost-sm"
+                    className="px-3 py-[0.35rem] text-xs font-semibold bg-transparent border border-border rounded-md text-text-secondary cursor-pointer transition-all duration-150 hover:bg-bg-secondary hover:text-text-primary"
                   >
                     Voltar
                   </button>
@@ -1211,7 +1210,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isCanceling}
                     onClick={handleCancelComandaEAgendamento}
-                    className="comanda-btn-danger-sm"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isCanceling ? 'Cancelando...' : 'Confirmar cancelamento'}
                   </button>
@@ -1220,17 +1219,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             )}
 
             {/* Body */}
-            <div className="comanda-modal-body">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 pt-[0.9rem] pb-4 flex flex-col gap-3 max-md:px-5 max-md:py-[1.15rem] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-brand-soft [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-brand-primary [&_button:focus-visible]:outline-offset-2 [&_input:focus-visible]:outline [&_input:focus-visible]:outline-2 [&_input:focus-visible]:outline-brand-primary [&_input:focus-visible]:outline-offset-2 [&_select:focus-visible]:outline [&_select:focus-visible]:outline-2 [&_select:focus-visible]:outline-brand-primary [&_select:focus-visible]:outline-offset-2">
               {isLoadingComanda ? (
-                <div className="comanda-loading-state">
-                  <div className="comanda-spinner" />
-                  <p className="comanda-loading-text">Carregando dados da comanda...</p>
+                <div className="flex flex-col items-center justify-center py-16 px-4 gap-4 min-h-[280px]">
+                  <div className="w-[34px] h-[34px] border-[3px] border-brand-soft border-t-brand-primary rounded-full animate-spin" />
+                  <p className="text-sm text-text-secondary font-semibold">Carregando dados da comanda...</p>
                 </div>
               ) : (
                 <>
                   {/* Mensagem de Erro / Validação */}
                   {errorMsg && (
-                    <div className="comanda-error-alert" role="alert">
+                    <div className="p-[0.85rem_1.15rem] rounded-md bg-error-bg border border-error text-error text-xs font-semibold flex items-center gap-2" role="alert">
                       <HugeiconsIcon icon={AlertCircleIcon} size={16} />
                       <span>{errorMsg}</span>
                     </div>
@@ -1238,15 +1237,15 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                   {/* Banner de Comanda Fechada / Liquidada (Modo Recibo) */}
                   {isClosed && (
-                    <div className="comanda-closed-badge-banner">
-                      <div className="comanda-closed-banner-left">
-                        <div className="comanda-closed-icon-badge">
+                    <div className="flex items-center justify-between p-[0.9rem_1.25rem] rounded-lg bg-success-bg border border-success gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-[38px] h-[38px] rounded-full bg-white text-success flex items-center justify-center shrink-0 shadow-sm">
                           <HugeiconsIcon icon={CheckmarkCircle01Icon} size={20} />
                         </div>
                         <div>
-                          <strong className="comanda-closed-title">Atendimento liquidado e pago</strong>
+                          <strong className="block text-sm font-bold text-text-primary">Atendimento liquidado e pago</strong>
                           {loadedComanda?.closed_at && (
-                            <span className="closed-time-detail">
+                            <span className="block text-xs text-text-secondary mt-[0.15rem]">
                               Fechado em {new Date(loadedComanda.closed_at).toLocaleDateString('pt-BR')} às{' '}
                               {new Date(loadedComanda.closed_at).toLocaleTimeString('pt-BR', {
                                 hour: '2-digit',
@@ -1256,26 +1255,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           )}
                         </div>
                       </div>
-                      <span className="comanda-receipt-badge">Recibo</span>
+                      <span className="text-[0.7rem] font-bold uppercase tracking-[0.05em] px-3 py-[0.3rem] rounded-full bg-success text-white shrink-0 shadow-sm">Recibo</span>
                     </div>
                   )}
 
                   {/* Seção 1: Itens Consumidos */}
-                  <div className="comanda-section">
-                    <div className="comanda-section-header">
-                      <div className="comanda-section-title-wrap">
-                        <h4 className="comanda-section-title">ITENS CONSUMIDOS</h4>
-                        <span className="comanda-section-count-badge">{itens.length}</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-nowrap max-md:gap-3">
+                      <div className="inline-flex items-center gap-2 shrink-0">
+                        <h4 className="text-xs font-extrabold uppercase tracking-[0.05em] text-text-primary m-0 leading-none inline-flex items-center">ITENS CONSUMIDOS</h4>
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-[0.35rem] text-[0.72rem] font-extrabold rounded-full bg-text-primary text-brand-lightest leading-none box-border shadow-[0_1px_2px_rgba(20,17,15,0.15)]">{itens.length}</span>
                       </div>
                       {!isClosed && (
-                        <div className="comanda-section-actions">
+                        <div className="inline-flex items-center gap-[0.45rem]">
                           <button
                             type="button"
                             onClick={() => {
                               setIsAddingService((prev) => !prev);
                               setIsAddingProduct(false);
                             }}
-                            className={`btn-add-item ${isAddingService ? 'btn-add-item--active' : ''}`}
+                            className={`inline-flex items-center gap-[0.45rem] px-[0.85rem] py-[0.35rem] rounded-lg border border-text-primary bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer transition-all duration-200 hover:bg-[#F6E7DB] hover:border-text-primary hover:text-text-primary hover:-translate-y-px ${isAddingService ? 'bg-[#F6E7DB] -translate-y-px' : ''}`}
                             aria-expanded={isAddingService}
                           >
                             <HugeiconsIcon icon={ScissorIcon} size={14} />
@@ -1287,7 +1286,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               setIsAddingProduct((prev) => !prev);
                               setIsAddingService(false);
                             }}
-                            className={`btn-add-item ${isAddingProduct ? 'btn-add-item--active' : ''}`}
+                            className={`inline-flex items-center gap-[0.45rem] px-[0.85rem] py-[0.35rem] rounded-lg border border-text-primary bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer transition-all duration-200 hover:bg-[#F6E7DB] hover:border-text-primary hover:text-text-primary hover:-translate-y-px ${isAddingProduct ? 'bg-[#F6E7DB] -translate-y-px' : ''}`}
                             aria-expanded={isAddingProduct}
                           >
                             <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
@@ -1299,22 +1298,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                     {/* Formulário Embutido: Adicionar Serviço */}
                     {!isClosed && isAddingService && (
-                      <div className="add-item-box">
-                        <div className="add-item-header">
-                          <span className="add-item-title">Adicionar novo serviço</span>
+                      <div className="p-4 rounded-lg bg-bg-primary border-[1.5px] border-brand-soft flex flex-col gap-3 animate-fade-in shadow-sm">
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xs font-bold text-brand-deep">Adicionar novo serviço</span>
                           <button
                             type="button"
                             onClick={() => setIsAddingService(false)}
-                            className="btn-cancel-item"
+                            className="bg-transparent border border-border rounded-sm px-[0.65rem] py-1 text-text-secondary text-xs font-semibold cursor-pointer transition-all duration-150 hover:text-error hover:border-error hover:bg-error-bg"
                           >
                             Cancelar
                           </button>
                         </div>
-                        <div className="add-item-row">
+                        <div className="flex gap-2 items-center max-md:flex-col max-md:items-stretch">
                           <select
                             value={selectedServiceId}
                             onChange={(e) => setSelectedServiceId(e.target.value)}
-                            className="comanda-select flex-1"
+                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar serviço"
                           >
                             <option value="">Selecione o serviço...</option>
@@ -1328,7 +1327,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <select
                             value={selectedProfId}
                             onChange={(e) => setSelectedProfId(e.target.value)}
-                            className="comanda-select flex-1"
+                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar profissional"
                           >
                             <option value="">Profissional (opcional)...</option>
@@ -1343,7 +1342,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             type="button"
                             disabled={!selectedServiceId}
                             onClick={handleAddServiceConfirm}
-                            className="btn-confirm-item"
+                            className="px-4 py-2 rounded-md border-none bg-brand-primary text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Adicionar
                           </button>
@@ -1353,22 +1352,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                     {/* Formulário Embutido: Adicionar Produto */}
                     {!isClosed && isAddingProduct && (
-                      <div className="add-item-box">
-                        <div className="add-item-header">
-                          <span className="add-item-title">Adicionar produto do estoque</span>
+                      <div className="p-4 rounded-lg bg-bg-primary border-[1.5px] border-brand-soft flex flex-col gap-3 animate-fade-in shadow-sm">
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xs font-bold text-brand-deep">Adicionar produto do estoque</span>
                           <button
                             type="button"
                             onClick={() => setIsAddingProduct(false)}
-                            className="btn-cancel-item"
+                            className="bg-transparent border border-border rounded-sm px-[0.65rem] py-1 text-text-secondary text-xs font-semibold cursor-pointer transition-all duration-150 hover:text-error hover:border-error hover:bg-error-bg"
                           >
                             Cancelar
                           </button>
                         </div>
-                        <div className="add-item-row">
+                        <div className="flex gap-2 items-center max-md:flex-col max-md:items-stretch">
                           <select
                             value={selectedProductId}
                             onChange={(e) => setSelectedProductId(e.target.value)}
-                            className="comanda-select flex-1"
+                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar produto"
                           >
                             <option value="">Selecione o produto...</option>
@@ -1383,7 +1382,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             type="button"
                             disabled={!selectedProductId}
                             onClick={handleAddProductConfirm}
-                            className="btn-confirm-item"
+                            className="px-4 py-2 rounded-md border-none bg-brand-primary text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Adicionar
                           </button>
@@ -1392,26 +1391,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     )}
 
                     {/* Lista dos Itens da Comanda */}
-                    <div className="comanda-items-list">
+                    <div className="flex flex-col gap-[0.55rem]">
                       {itens.length === 0 ? (
-                        <div className="comanda-empty-items">
+                        <div className="p-6 text-center bg-brand-lightest border border-dashed border-text-primary rounded-md text-text-secondary text-xs">
                           <p>Nenhum item adicionado à comanda ainda.</p>
                         </div>
                       ) : (
                         itens.map((it) => (
-                          <div key={it.tempId} className="comanda-item-card">
-                            <div className="comanda-item-info">
-                              <div className="comanda-item-text-group">
-                                <strong className="comanda-item-name">{it.name}</strong>
-                                <div className="comanda-item-detail">
-                                  <span className="comanda-type-tag">
+                          <div key={it.tempId} className="flex items-center justify-between px-4 py-3 rounded-lg bg-brand-lightest border border-text-primary transition-all duration-200">
+                            <div className="flex items-center min-w-0">
+                              <div className="flex flex-col gap-[0.2rem] min-w-0">
+                                <strong className="text-base font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">{it.name}</strong>
+                                <div className="flex items-center gap-[0.35rem] text-[0.8rem] font-semibold text-text-primary flex-wrap">
+                                  <span className="font-bold text-text-primary">
                                     {it.item_type === 'servico' ? 'Serviço' : 'Produto'}
                                   </span>
                                   {it.quantity > 1 && <span>• {it.quantity}x</span>}
                                   <span>• R$ {it.unit_price.toFixed(2)}</span>
                                   {it.professional_id &&
                                     availableProfessionals.find((p) => p.id === it.professional_id) && (
-                                      <span className="comanda-prof-tag">
+                                      <span className="text-text-primary font-semibold">
                                         • {availableProfessionals.find((p) => p.id === it.professional_id)?.name}
                                       </span>
                                     )}
@@ -1419,15 +1418,15 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               </div>
                             </div>
 
-                            <div className="comanda-item-right">
-                              <span className="comanda-item-total">
+                            <div className="flex items-center gap-[0.85rem] shrink-0">
+                              <span className="text-[1.15rem] font-extrabold text-text-primary">
                                 R$ {(it.quantity * it.unit_price).toFixed(2)}
                               </span>
                               {!isClosed && (
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveItem(it.tempId)}
-                                  className="comanda-item-remove-btn"
+                                  className="bg-transparent border border-text-primary text-text-primary cursor-pointer flex items-center justify-center w-9 h-9 rounded-md transition-all duration-200 [&_svg_path]:stroke-text-primary hover:text-error hover:bg-error-bg hover:border-error hover:[&_svg_path]:stroke-error"
                                   title="Remover item"
                                   aria-label={`Remover ${it.name}`}
                                 >
@@ -1443,17 +1442,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                   {/* Seção 2: Desconto e Gorjeta (Apenas editável se aberta) */}
                   {!isClosed && (
-                    <div className="comanda-discount-tip-grid">
-                      <div className="comanda-form-group">
-                        <label className="comanda-label">
-                          <HugeiconsIcon icon={Discount01Icon} size={14} className="label-icon" />
+                    <div className="grid grid-cols-2 gap-[0.85rem] max-md:grid-cols-1">
+                      <div className="flex flex-col gap-[0.4rem]">
+                        <label className="text-xs font-bold text-text-primary flex items-center gap-[0.35rem]">
+                          <HugeiconsIcon icon={Discount01Icon} size={14} className="text-text-primary" />
                           <span>Desconto</span>
                         </label>
-                        <div className="comanda-input-segmented-wrapper">
-                          <div className="comanda-segmented-type" role="radiogroup" aria-label="Tipo de desconto">
+                        <div className="flex gap-[0.4rem]">
+                          <div className="flex border border-text-primary rounded-md overflow-hidden bg-brand-lightest shrink-0" role="radiogroup" aria-label="Tipo de desconto">
                             <button
                               type="button"
-                              className={`seg-type-btn ${discountType === 'fixed' ? 'seg-type-btn--active' : ''}`}
+                              className={`border-none bg-brand-lightest px-3 py-2 min-w-[38px] inline-flex items-center justify-center text-[0.82rem] font-bold text-text-primary cursor-pointer leading-none transition-all duration-150 ${discountType === 'fixed' ? 'bg-warning shadow-[0_0_0_1px_var(--color-text-primary)]' : 'hover:bg-[rgba(45,35,30,0.08)]'}`}
                               onClick={() => setDiscountType('fixed')}
                               aria-label="Desconto em valor monetário"
                             >
@@ -1461,7 +1460,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             </button>
                             <button
                               type="button"
-                              className={`seg-type-btn ${discountType === 'percent' ? 'seg-type-btn--active' : ''}`}
+                              className={`border-none bg-brand-lightest px-3 py-2 min-w-[38px] inline-flex items-center justify-center text-[0.82rem] font-bold text-text-primary cursor-pointer leading-none transition-all duration-150 ${discountType === 'percent' ? 'bg-warning shadow-[0_0_0_1px_var(--color-text-primary)]' : 'hover:bg-[rgba(45,35,30,0.08)]'}`}
                               onClick={() => setDiscountType('percent')}
                               aria-label="Desconto em porcentagem"
                             >
@@ -1475,7 +1474,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             value={discountValue || ''}
                             onChange={(e) => setDiscountValue(Math.max(0, parseFloat(e.target.value) || 0))}
                             placeholder="0,00"
-                            className="comanda-input-num"
+                            className="w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Valor do desconto"
                           />
                         </div>
@@ -1492,39 +1491,39 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   )}
 
                   {/* Seção 3: Sumário de Totais (Estilo Recibo de Luxo) */}
-                  <div className="comanda-summary-box">
-                    <div className="summary-row">
-                      <span className="summary-label">Subtotal</span>
-                      <span className="summary-value">R$ {subtotal.toFixed(2)}</span>
+                  <div className="p-[0.85rem_1.15rem] rounded-lg bg-brand-lightest border border-text-primary flex flex-col gap-[0.4rem]">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-text-primary font-semibold">Subtotal</span>
+                      <span className="text-text-primary font-bold">R$ {subtotal.toFixed(2)}</span>
                     </div>
                     {discountAmount > 0 && (
-                      <div className="summary-row summary-discount">
-                        <span className="summary-label">
+                      <div className="flex justify-between items-center text-xs [&_span]:text-error [&_span]:font-bold">
+                        <span>
                           Desconto {discountType === 'percent' ? `(${discountValue}%)` : ''}
                         </span>
-                        <span className="summary-value">- R$ {discountAmount.toFixed(2)}</span>
+                        <span>- R$ {discountAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {tipValue > 0 && (
-                      <div className="summary-row summary-tip">
-                        <span className="summary-label">Gorjeta</span>
-                        <span className="summary-value">+ R$ {tipValue.toFixed(2)}</span>
+                      <div className="flex justify-between items-center text-xs [&_span]:text-success [&_span]:font-bold">
+                        <span>Gorjeta</span>
+                        <span>+ R$ {tipValue.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="summary-divider" />
-                    <div className="summary-row summary-total">
-                      <span className="summary-total-label">
+                    <div className="h-px bg-[rgba(45,35,30,0.15)] my-[0.2rem]" />
+                    <div className="flex justify-between items-center text-xs pt-[0.2rem]">
+                      <span className="text-sm font-extrabold text-text-primary uppercase tracking-[0.04em]">
                         {isClosed ? 'TOTAL LIQUIDADO' : 'TOTAL A PAGAR'}
                       </span>
-                      <span className="summary-total-value">R$ {totalFinal.toFixed(2)}</span>
+                      <span className="text-text-primary text-[1.45rem] font-extrabold tracking-[-0.02em]">R$ {totalFinal.toFixed(2)}</span>
                     </div>
                   </div>
 
                   {/* Seção 4: Formas de Pagamento */}
-                  <div className="comanda-section">
-                    <div className="comanda-section-header">
-                      <div className="comanda-section-title-wrap">
-                        <h4 className="comanda-section-title">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-nowrap max-md:gap-3">
+                      <div className="inline-flex items-center gap-2 shrink-0">
+                        <h4 className="text-xs font-extrabold uppercase tracking-[0.05em] text-text-primary m-0 leading-none inline-flex items-center">
                           {isClosed ? 'PAGAMENTOS REGISTRADOS' : 'FORMA DE PAGAMENTO'}
                         </h4>
                       </div>
@@ -1532,7 +1531,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={handleEnableSplit}
-                          className="btn-split-toggle"
+                          className="bg-bg-secondary border border-text-primary text-text-primary text-xs font-bold px-[0.85rem] py-[0.35rem] rounded-md cursor-pointer transition-all duration-200 hover:bg-brand-lightest hover:border-text-primary hover:-translate-y-px"
                         >
                           Dividir pagamento
                         </button>
@@ -1541,7 +1540,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <button
                           type="button"
                           onClick={handleDisableSplit}
-                          className="btn-split-cancel"
+                          className="bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-bold px-[0.85rem] py-[0.35rem] rounded-md cursor-pointer transition-all duration-150 hover:bg-brand-lightest hover:brightness-[0.96] hover:-translate-y-px"
                         >
                           Forma única
                         </button>
@@ -1550,19 +1549,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                     {/* Modo de Visualização Fechada / Recibo */}
                     {isClosed ? (
-                      <div className="comanda-payments-list">
+                      <div className="flex flex-col gap-3">
                         {pagamentos.map((pag, idx) => {
                           const conf = methodConfigs[pag.method] || { label: pag.method, icon: Invoice01Icon };
                           const IconComp = conf.icon;
                           return (
-                            <div key={idx} className="payment-receipt-row">
-                              <span className="payment-receipt-method">
-                                <span className="payment-receipt-icon">
+                            <div key={idx} className="flex items-center justify-between p-[0.85rem_1rem] rounded-lg bg-bg-primary border border-border text-sm transition-all duration-200">
+                              <span className="font-bold text-text-primary flex items-center gap-[0.65rem]">
+                                <span className="w-8 h-8 rounded-md bg-bg-secondary border border-border flex items-center justify-center text-brand-primary">
                                   <HugeiconsIcon icon={IconComp} size={16} />
                                 </span>
                                 <span>{conf.label}</span>
                               </span>
-                              <strong className="payment-receipt-amount">
+                              <strong className="text-brand-primary font-extrabold text-sm">
                                 R$ {pag.amount.toFixed(2)}
                               </strong>
                             </div>
@@ -1571,8 +1570,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       </div>
                     ) : !isSplitting ? (
                       /* Modo Pagamento Único: Botões de Acesso Rápido com Ícones */
-                      <div className="single-payment-container">
-                        <div className="quick-methods-grid">
+                      <div>
+                        <div className="grid grid-cols-4 gap-[0.65rem] max-md:grid-cols-2">
                           {(['pix', 'credit_card', 'debit_card', 'cash'] as MetodoPagamento[]).map((m) => {
                             const conf = methodConfigs[m];
                             const IconComp = conf.icon;
@@ -1582,23 +1581,23 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 key={m}
                                 type="button"
                                 onClick={() => handleSelectSingleMethod(m)}
-                                className={`btn-quick-method ${isSelected ? 'btn-quick-method--active' : ''}`}
+                                className={`flex flex-col items-center justify-center gap-[0.35rem] px-2 py-[0.65rem] border bg-brand-lightest rounded-lg text-xs font-bold text-text-primary cursor-pointer text-center transition-all duration-200 hover:border-text-primary hover:-translate-y-px hover:shadow-sm [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg]:scale-[1.08] ${isSelected ? 'border-[1.5px] border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:shadow-[0_0_0_1px_var(--color-text-primary),var(--shadow-sm)]' : 'border-text-primary'}`}
                               >
-                                <HugeiconsIcon icon={IconComp} size={18} className="quick-method-icon" />
-                                <span className="quick-method-text">{conf.shortLabel || conf.label}</span>
+                                <HugeiconsIcon icon={IconComp} size={18} className="text-text-primary" />
+                                <span>{conf.shortLabel || conf.label}</span>
                               </button>
                             );
                           })}
                         </div>
 
                         {pagamentos[0]?.method === 'cash' && (
-                          <div className="cash-single-calculator">
-                            <div className="cash-quick-notes">
-                              <span className="cash-notes-label">Cédulas rápidas:</span>
+                          <div className="mt-[0.85rem] p-[1rem_1.15rem] rounded-lg bg-bg-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-[0.95rem] animate-fade-in">
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span className="text-xs font-bold text-text-primary mr-1">Cédulas rápidas:</span>
                               <button
                                 type="button"
-                                className={`btn-quick-note ${
-                                  pagamentos[0]?.receivedCash === totalFinal ? 'btn-quick-note--active' : ''
+                                className={`px-[0.85rem] py-[0.35rem] rounded-full border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold cursor-pointer transition-all duration-150 hover:brightness-[0.96] hover:-translate-y-px ${
+                                  pagamentos[0]?.receivedCash === totalFinal ? 'bg-brand-soft text-text-primary hover:bg-brand-soft' : 'bg-bg-secondary text-text-primary'
                                 }`}
                                 onClick={() =>
                                   setPagamentos([{ ...pagamentos[0], receivedCash: totalFinal }])
@@ -1612,8 +1611,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                   <button
                                     key={note}
                                     type="button"
-                                    className={`btn-quick-note ${
-                                      pagamentos[0]?.receivedCash === note ? 'btn-quick-note--active' : ''
+                                    className={`px-[0.85rem] py-[0.35rem] rounded-full border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold cursor-pointer transition-all duration-150 hover:brightness-[0.96] hover:-translate-y-px ${
+                                      pagamentos[0]?.receivedCash === note ? 'bg-brand-soft text-text-primary hover:bg-brand-soft' : 'bg-bg-secondary text-text-primary'
                                     }`}
                                     onClick={() =>
                                       setPagamentos([{ ...pagamentos[0], receivedCash: note }])
@@ -1625,10 +1624,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               })}
                             </div>
 
-                            <label className="cash-input-field">
-                              <span className="cash-input-label">Valor entregue pelo cliente:</span>
-                              <div className="cash-input-wrap">
-                                <span className="cash-prefix">R$</span>
+                            <label className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-bold text-text-primary">Valor entregue pelo cliente:</span>
+                              <div className="relative flex items-center w-[140px]">
+                                <span className="absolute left-[0.85rem] text-sm font-bold text-text-primary pointer-events-none">R$</span>
                                 <input
                                   type="number"
                                   min={totalFinal}
@@ -1638,19 +1637,19 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                     const val = parseFloat(e.target.value) || 0;
                                     setPagamentos([{ ...pagamentos[0], receivedCash: val }]);
                                   }}
-                                  className="cash-received-input"
+                                  className="w-full py-2 pr-3 pl-8 text-sm font-extrabold text-text-primary bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none text-center transition-all duration-200 [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                                   placeholder="0,00"
                                 />
                               </div>
                             </label>
 
                             {pagamentos[0]?.receivedCash > totalFinal && (
-                              <div className="cash-change-badge">
-                                <div className="cash-change-left">
+                              <div className="flex items-center justify-between p-[0.75rem_1rem] rounded-md bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs">
+                                <div className="flex items-center gap-2 font-bold text-text-primary [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary [&_svg_path]:[stroke:var(--color-text-primary)] [&_svg_ellipse]:stroke-text-primary">
                                   <HugeiconsIcon icon={Coins01Icon} size={18} />
                                   <span>Troco a devolver:</span>
                                 </div>
-                                <strong className="cash-change-val">
+                                <strong className="text-base font-extrabold text-text-primary">
                                   R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
                                 </strong>
                               </div>
@@ -1660,8 +1659,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       </div>
                     ) : (
                       /* Modo Pagamento Dividido */
-                      <div className="split-payments-container">
-                        <div className="comanda-payments-list">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3">
                           {pagamentos.map((pag, idx) => {
                             const change =
                               pag.method === 'cash' && pag.receivedCash > pag.amount
@@ -1669,8 +1668,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 : 0;
 
                             return (
-                              <div key={idx} className="payment-row-card">
-                                <div className="payment-row-main">
+                              <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
                                   <select
                                     value={pag.method}
                                     onChange={(e) => {
@@ -1681,7 +1680,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                         )
                                       );
                                     }}
-                                    className="comanda-select payment-method-select"
+                                    className="flex-[1.2] bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-lg font-bold px-[0.85rem] py-[0.6rem] text-text-primary outline-none"
                                     aria-label="Forma de pagamento"
                                   >
                                     <option value="pix">PIX</option>
@@ -1691,8 +1690,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                     <option value="other">Outro</option>
                                   </select>
 
-                                  <div className="payment-amount-input-wrapper">
-                                    <span className="payment-amount-prefix">R$</span>
+                                  <div className="flex-1 relative flex items-center">
+                                    <span className="absolute left-[0.85rem] text-xs font-bold text-text-primary pointer-events-none">R$</span>
                                     <input
                                       type="number"
                                       min="0"
@@ -1708,7 +1707,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                           )
                                         );
                                       }}
-                                      className="payment-amount-input"
+                                      className="w-full py-[0.6rem] pr-3 pl-8 text-sm font-extrabold text-text-primary bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-lg outline-none text-center transition-all duration-200 [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                                       aria-label="Valor desta forma"
                                     />
                                   </div>
@@ -1717,7 +1716,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleRemovePagamentoLinha(idx)}
-                                      className="btn-remove-payment"
+                                      className="bg-transparent border-none text-text-primary cursor-pointer p-[0.4rem] rounded-md transition-all duration-200 flex items-center justify-center [&_svg_path]:stroke-text-primary hover:text-error hover:bg-error-bg hover:[&_svg_path]:stroke-error"
                                       title="Remover forma de pagamento"
                                       aria-label="Remover forma de pagamento"
                                     >
@@ -1727,8 +1726,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 </div>
 
                                 {pag.method === 'cash' && (
-                                  <div className="cash-change-calculator">
-                                    <label className="cash-input-field-compact">
+                                  <div className="flex items-center justify-between pt-1 border-none text-xs">
+                                    <label className="flex items-center gap-2 text-xs text-text-primary font-bold [&_span]:text-text-primary [&_span]:font-bold">
                                       <span>Recebido: R$</span>
                                       <input
                                         type="number"
@@ -1743,11 +1742,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                             )
                                           );
                                         }}
-                                        className="cash-received-input-compact"
+                                        className="w-[90px] px-[0.55rem] py-[0.35rem] text-xs font-extrabold text-text-primary bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md text-center [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
                                     </label>
                                     {change > 0 && (
-                                      <div className="cash-change-badge-compact">
+                                      <div className="flex items-center gap-[0.35rem] text-text-primary font-bold [&_strong]:text-text-primary [&_strong]:font-extrabold">
                                         <span>Troco:</span>
                                         <strong>R$ {change.toFixed(2)}</strong>
                                       </div>
@@ -1759,27 +1758,27 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           })}
                         </div>
 
-                        <div className="split-payments-footer">
+                        <div className="flex flex-col gap-3 mt-1">
                           <button
                             type="button"
                             onClick={handleAddPagamentoLinha}
-                            className="btn-add-split-line"
+                            className="inline-flex items-center gap-2 p-[0.75rem_1rem] rounded-lg border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer w-full justify-center transition-all duration-200 hover:bg-brand-lightest hover:brightness-[0.96] hover:-translate-y-px [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary [&_span]:text-text-primary"
                           >
                             <HugeiconsIcon icon={Invoice01Icon} size={15} />
                             <span>Adicionar outra forma de pagamento</span>
                           </button>
-                          <div className="split-summary-bar">
-                            <div className="split-summary-info">
+                          <div className="flex items-center justify-between p-[0.75rem_1rem] rounded-lg bg-brand-lightest border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold">
+                            <div className="flex items-center gap-[0.4rem] text-text-primary text-xs font-bold [&_span]:text-text-primary [&_span]:font-bold [&_strong]:text-text-primary [&_strong]:font-extrabold">
                               <span>Total: <strong>R$ {totalFinal.toFixed(2)}</strong></span>
-                              <span className="comanda-separator-bullet">•</span>
+                              <span className="text-text-primary mx-[0.15rem]">•</span>
                               <span>Pago: <strong>R$ {totalPago.toFixed(2)}</strong></span>
                             </div>
                             {saldoRestante > 0 ? (
-                              <span className="split-missing-alert">
+                              <span className="text-error bg-error-bg px-3 py-1 rounded-full border-none shadow-[0_0_0_0.8px_var(--color-error)] font-bold text-xs">
                                 Falta: R$ {saldoRestante.toFixed(2)}
                               </span>
                             ) : (
-                              <span className="split-complete-alert">
+                              <span className="text-text-primary bg-success-bg px-3 py-1 rounded-full border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] font-bold text-xs">
                                 ✓ Valor total coberto
                               </span>
                             )}
@@ -1793,14 +1792,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="comanda-modal-footer">
+            <div className="p-[1.25rem_1.5rem] border-t border-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary shrink-0 max-md:p-[1rem_1.25rem_max(1.25rem,env(safe-area-inset-bottom,1.25rem))]">
               {isClosed ? (
-                <div className="comanda-footer-closed-actions">
+                <div className="flex items-center justify-between gap-[0.85rem] w-full max-md:flex-col-reverse max-md:gap-[0.65rem]">
                   <button
                     type="button"
                     onClick={() => setReopenConfirmOpen(true)}
                     disabled={isReopening}
-                    className="comanda-btn-reopen"
+                    className="px-5 py-[0.65rem] rounded-full border-[1.5px] border-brand-primary bg-transparent text-brand-primary text-xs font-bold cursor-pointer inline-flex items-center gap-[0.45rem] transition-all duration-200 enabled:hover:bg-brand-lightest enabled:hover:-translate-y-px max-md:w-full max-md:min-h-[44px] max-md:justify-center max-md:text-center max-md:py-[0.65rem] max-md:px-2 max-md:whitespace-nowrap"
                   >
                     <HugeiconsIcon icon={AlertCircleIcon} size={16} />
                     <span>{isReopening ? 'Reabrindo...' : 'Reabrir comanda'}</span>
@@ -1808,18 +1807,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="comanda-btn-primary"
+                    className="px-[1.65rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-bg text-text-primary text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:border-border disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:whitespace-nowrap"
                   >
                     Fechar
                   </button>
                 </div>
               ) : (
-                <div className="comanda-footer-open-actions">
-                  <div className="comanda-footer-left-actions">
+                <div className="flex items-center justify-between gap-[0.85rem] w-full max-md:flex-col-reverse max-md:gap-[0.65rem]">
+                  <div className="flex items-center gap-2 max-md:grid max-md:grid-cols-2 max-md:gap-2 max-md:w-full">
                     <button
                       type="button"
                       onClick={() => setCancelConfirmOpen(true)}
-                      className="comanda-btn-danger-outline"
+                      className="px-[1.15rem] py-3 rounded-full border border-error bg-transparent text-error text-sm font-semibold cursor-pointer transition-[background-color,border-color,color,opacity] duration-150 hover:bg-error-bg hover:border-error hover:text-error active:opacity-80 max-md:w-full max-md:min-h-[44px] max-md:justify-center max-md:text-center max-md:py-[0.65rem] max-md:px-2 max-md:text-xs max-md:whitespace-nowrap max-md:inline-flex max-md:items-center"
                       title="Cancelar este agendamento e comanda"
                     >
                       Cancelar atendimento
@@ -1827,7 +1826,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="comanda-btn-secondary"
+                      className="px-[1.35rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-brand-lightest text-text-primary text-sm font-semibold cursor-pointer transition-all duration-200 hover:brightness-[0.96] hover:-translate-y-px max-md:w-full max-md:min-h-[44px] max-md:justify-center max-md:text-center max-md:py-[0.65rem] max-md:px-2 max-md:text-xs max-md:whitespace-nowrap max-md:inline-flex max-md:items-center"
                     >
                       Fechar
                     </button>
@@ -1836,17 +1835,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
                     onClick={handleFinalizar}
-                    className="comanda-btn-primary"
+                    className="px-[1.65rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-bg text-text-primary text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:border-border disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:text-sm max-md:whitespace-nowrap"
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="comanda-btn-spinner" />
+                        <div className="w-4 h-4 border-2 border-[rgba(45,35,30,0.3)] border-t-text-primary rounded-full animate-spin" />
                         <span>Processando...</span>
                       </>
                     ) : (
                       <>
                         <span>Finalizar e receber</span>
-                        <span className="comanda-btn-amount-badge">R$ {totalFinal.toFixed(2)}</span>
+                        <span className="bg-transparent px-1 py-[0.15rem] rounded-full text-sm font-extrabold text-text-primary">R$ {totalFinal.toFixed(2)}</span>
                       </>
                     )}
                   </button>
@@ -1871,1852 +1870,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       />
 
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes slideUpModal {
-          0% {
-            opacity: 0;
-            transform: translateY(16px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
         @keyframes slideUpMobile {
           from {
             transform: translateY(100%);
           }
           to {
             transform: translateY(0);
-          }
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .comanda-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background-color: rgba(20, 17, 15, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1050;
-          padding: 1.25rem;
-          animation: fadeIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        /* Double-Bezel Container */
-        .comanda-modal-shell {
-          width: 100%;
-          max-width: 640px;
-          max-height: calc(100dvh - 2.5rem);
-          display: flex;
-          flex-direction: column;
-          padding: 4px;
-          border-radius: calc(var(--radius-xl) + 4px);
-          background: rgba(20, 17, 15, 0.08);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.2),
-            0 24px 56px -12px rgba(20, 17, 15, 0.35),
-            var(--shadow-xl);
-          animation: slideUpModal 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-          box-sizing: border-box;
-          font-family: var(--font-family-base);
-        }
-
-        .comanda-modal-card {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-text-primary);
-          border-radius: var(--radius-xl);
-          width: 100%;
-          max-height: 100%;
-          display: flex;
-          flex-direction: column;
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            var(--shadow-lg);
-          overflow: hidden;
-          color: var(--color-text-primary);
-        }
-
-        /* Header */
-        .comanda-modal-header {
-          position: relative;
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          padding: 1.25rem 1.5rem var(--radius-xl);
-          border-bottom: 1px solid var(--color-text-primary);
-          background-color: transparent;
-          background-image: none;
-          flex-shrink: 0;
-        }
-
-        .comanda-modal-header-info {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 0.65rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .comanda-modal-badge-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          padding-right: 2.5rem;
-        }
-
-        .comanda-header-icon-badge {
-          width: 38px;
-          height: 38px;
-          border-radius: var(--radius-md);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .comanda-header-icon-badge svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-header-icon-badge svg path:nth-of-type(1) {
-          fill: var(--color-text-primary);
-          stroke: var(--color-text-primary);
-        }
-
-        .comanda-header-icon-badge svg path:nth-of-type(2),
-        .comanda-header-icon-badge svg path:nth-of-type(3) {
-          stroke: var(--color-bg-secondary);
-        }
-
-        .comanda-header-title-row {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          flex-wrap: wrap;
-          min-height: 38px;
-        }
-
-        .comanda-modal-title {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .comanda-status-pill {
-          font-size: 0.7rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          padding: 0.2rem 0.55rem;
-          border-radius: var(--radius-full);
-          line-height: 1.2;
-        }
-
-        .comanda-status-pill--open {
-          background-color: var(--color-warning-bg);
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .comanda-status-pill--closed {
-          background-color: var(--color-success-bg);
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .comanda-modal-subtitle {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin-top: 0.15rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          width: 100%;
-        }
-
-        .comanda-subtitle-row {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          flex-wrap: wrap;
-        }
-
-        .comanda-subtitle-customer {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .comanda-subtitle-customer span {
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-subtitle-customer strong {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .comanda-subtitle-customer svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-subtitle-customer svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .comanda-customer-phone-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          color: var(--color-text-primary);
-          font-weight: 700;
-          font-size: 0.75rem;
-          background-color: var(--color-warning-bg);
-          padding: 0.25rem 0.6rem;
-          border-radius: var(--radius-sm);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          letter-spacing: 0.01em;
-        }
-
-        .comanda-customer-phone-tag svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-customer-phone-tag svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .comanda-customer-phone-btn {
-          cursor: pointer;
-          background-color: var(--color-warning-bg);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border: none;
-          font-weight: 700;
-          transition: all 0.2s ease;
-          user-select: none;
-        }
-
-        .comanda-customer-phone-btn:hover {
-          background-color: var(--color-warning);
-          color: var(--color-text-primary);
-        }
-
-        .comanda-customer-phone-btn:active {
-          transform: scale(0.97);
-        }
-
-        .comanda-appointment-actions {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          flex-shrink: 0;
-        }
-
-        .comanda-appointment-tag {
-          background-color: var(--color-warning-bg);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border: none;
-          font-weight: 700;
-        }
-
-        .comanda-appointment-tag span {
-          color: var(--color-text-primary);
-        }
-
-        .comanda-appointment-tag svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-appointment-tag svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .comanda-reschedule-btn {
-          background-color: #FEF3C7;
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border: none;
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 0.25rem 0.6rem;
-          border-radius: var(--radius-sm);
-          transition: all 0.15s ease;
-        }
-
-        .comanda-reschedule-btn:hover {
-          filter: brightness(0.95);
-        }
-
-        .comanda-reschedule-btn svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-reschedule-btn svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .comanda-noshow-btn {
-          background-color: var(--color-bg-secondary);
-          color: #F05252;
-          box-shadow: 0 0 0 0.8px #F05252;
-          border: none;
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 0.25rem 0.6rem;
-          border-radius: var(--radius-sm);
-          transition: all 0.15s ease;
-        }
-
-        .comanda-noshow-btn:hover {
-          background-color: var(--color-error-bg);
-        }
-
-        .comanda-noshow-btn svg {
-          height: fit-content;
-          color: #F05252;
-        }
-
-        .comanda-noshow-btn svg path {
-          stroke: #F05252 !important;
-        }
-
-        .inline-phone-icon {
-          color: var(--color-text-primary);
-          flex-shrink: 0;
-        }
-
-        .inline-user-icon {
-          color: var(--color-text-primary);
-          flex-shrink: 0;
-        }
-
-        .comanda-btn-close {
-          position: absolute;
-          top: 1.25rem;
-          right: 1.5rem;
-          width: 38px;
-          height: 38px;
-          border-radius: var(--radius-full);
-          border: 1px solid transparent;
-          background: transparent;
-          color: var(--color-text-primary);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-          flex-shrink: 0;
-        }
-
-        .comanda-btn-close:hover {
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
-          border-color: var(--color-error);
-          transform: scale(1.05);
-        }
-
-        /* Banner de Reabertura */
-        .comanda-reopen-confirm-card {
-          margin: 1rem 1.5rem 0;
-          padding: 0.9rem 1.15rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-warning-bg);
-          border: 1px solid var(--color-warning);
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .comanda-reopen-content {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.65rem;
-        }
-
-        .comanda-reopen-icon {
-          color: var(--color-warning);
-          margin-top: 0.1rem;
-          flex-shrink: 0;
-        }
-
-        .comanda-reopen-title {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .comanda-reopen-desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0.2rem 0 0 0;
-          line-height: 1.4;
-        }
-
-        .comanda-reopen-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.5rem;
-        }
-
-        .comanda-btn-ghost-sm {
-          padding: 0.35rem 0.75rem;
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          background: transparent;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .comanda-btn-ghost-sm:hover {
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-        }
-
-        .comanda-btn-warning-sm {
-          padding: 0.4rem 0.9rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          background-color: var(--color-warning);
-          color: white;
-          border: none;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .comanda-btn-warning-sm:hover:not(:disabled) {
-          filter: brightness(0.92);
-          transform: translateY(-1px);
-        }
-
-        .comanda-no-show-confirm-card,
-        .comanda-cancel-confirm-card {
-          margin: 1rem 1.5rem 0;
-          padding: 0.9rem 1.15rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-error-bg, rgba(239, 68, 68, 0.08));
-          border: 1px solid var(--color-error, #ef4444);
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .comanda-reopen-icon--danger {
-          color: var(--color-error, #ef4444);
-        }
-
-        .comanda-btn-danger-sm {
-          padding: 0.4rem 0.9rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          background-color: var(--color-error, #ef4444);
-          color: white;
-          border: none;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .comanda-btn-danger-sm:hover:not(:disabled) {
-          filter: brightness(0.92);
-          transform: translateY(-1px);
-        }
-
-        /* Body */
-        .comanda-modal-body {
-          flex: 1;
-          overflow-y: auto;
-          overscroll-behavior: contain;
-          padding: 0.9rem 1.5rem 1rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .comanda-loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 4rem 1rem;
-          gap: 1rem;
-          min-height: 280px;
-        }
-
-        .comanda-spinner {
-          width: 34px;
-          height: 34px;
-          border: 3px solid var(--color-brand-soft);
-          border-top-color: var(--color-brand-primary);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        .comanda-loading-text {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .comanda-error-alert {
-          padding: 0.85rem 1.15rem;
-          border-radius: var(--radius-md);
-          background-color: var(--color-error-bg);
-          border: 1px solid var(--color-error);
-          color: var(--color-error);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .comanda-closed-badge-banner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.9rem 1.25rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-success-bg);
-          border: 1px solid var(--color-success);
-          gap: 0.75rem;
-        }
-
-        .comanda-closed-banner-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .comanda-closed-icon-badge {
-          width: 38px;
-          height: 38px;
-          border-radius: var(--radius-full);
-          background-color: white;
-          color: var(--color-success);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .comanda-closed-title {
-          display: block;
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .closed-time-detail {
-          display: block;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin-top: 0.15rem;
-        }
-
-        .comanda-receipt-badge {
-          font-size: 0.7rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          padding: 0.3rem 0.75rem;
-          border-radius: var(--radius-full);
-          background-color: var(--color-success);
-          color: white;
-          flex-shrink: 0;
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* Seção Geral */
-        .comanda-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .comanda-section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          width: 100%;
-        }
-
-        .comanda-section-title-wrap {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-shrink: 0;
-        }
-
-        .comanda-section-title {
-          font-size: var(--font-size-xs);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: #2D231E;
-          margin: 0;
-          line-height: 1;
-          display: inline-flex;
-          align-items: center;
-        }
-
-        .comanda-section-count-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 20px;
-          height: 20px;
-          padding: 0 0.35rem;
-          font-size: 0.72rem;
-          font-weight: 800;
-          border-radius: var(--radius-full);
-          background-color: #2D231E;
-          color: #FFF1E6;
-          line-height: 1;
-          box-sizing: border-box;
-          box-shadow: 0 1px 2px rgba(20, 17, 15, 0.15);
-        }
-
-        .comanda-section-actions {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-        }
-
-        .btn-add-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.35rem 0.85rem;
-          border-radius: 12px;
-          border: 1px solid var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .btn-add-item:hover,
-        .btn-add-item--active {
-          background-color: #F6E7DB;
-          border-color: var(--color-text-primary);
-          color: var(--color-text-primary);
-          transform: translateY(-1px);
-        }
-
-        /* Caixas de Adição */
-        .add-item-box {
-          padding: 1rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1.5px solid var(--color-brand-soft);
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          animation: fadeIn 0.2s ease-out;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .add-item-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-        }
-
-        .add-item-title {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-brand-deep);
-        }
-
-        .btn-cancel-item {
-          background: transparent;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          padding: 0.25rem 0.65rem;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-cancel-item:hover {
-          color: var(--color-error);
-          border-color: var(--color-error);
-          background-color: var(--color-error-bg);
-        }
-
-        .add-item-row {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-        }
-
-        .btn-confirm-item {
-          padding: 0.5rem 1rem;
-          border-radius: var(--radius-md);
-          border: none;
-          background-color: var(--color-brand-primary);
-          color: white;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.2s ease;
-        }
-
-        .btn-confirm-item:hover:not(:disabled) {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-1px);
-        }
-
-        .btn-confirm-item:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        /* Lista de Itens */
-        .comanda-items-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.55rem;
-        }
-
-        .comanda-empty-items {
-          padding: 1.5rem;
-          text-align: center;
-          background-color: var(--color-brand-lightest);
-          border: 1px dashed var(--color-text-primary);
-          border-radius: var(--radius-md);
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-        }
-
-        .comanda-item-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          border-radius: 12px;
-          background-color: var(--color-brand-lightest);
-          border: 1px solid var(--color-text-primary);
-          transition: all 0.2s ease;
-        }
-
-        .comanda-item-info {
-          display: flex;
-          align-items: center;
-          min-width: 0;
-        }
-
-        .comanda-item-text-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          min-width: 0;
-        }
-
-        .comanda-item-name {
-          font-size: var(--font-size-base);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .comanda-item-detail {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--color-text-primary);
-          flex-wrap: wrap;
-        }
-
-        .comanda-type-tag {
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-prof-tag {
-          color: var(--color-text-primary);
-          font-weight: 600;
-        }
-
-        .comanda-item-right {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          flex-shrink: 0;
-        }
-
-        .comanda-item-total {
-          font-size: 1.15rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-item-remove-btn {
-          background: transparent;
-          border: 1px solid #2D231E;
-          color: #2D231E;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          transition: all 0.2s ease;
-        }
-
-        .comanda-item-remove-btn svg path {
-          stroke: #2D231E;
-        }
-
-        .comanda-item-remove-btn:hover {
-          color: var(--color-error);
-          background-color: var(--color-error-bg);
-          border-color: var(--color-error);
-        }
-
-        .comanda-item-remove-btn:hover svg path {
-          stroke: var(--color-error);
-        }
-
-        /* Desconto e Gorjeta */
-        .comanda-discount-tip-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.85rem;
-        }
-
-        .comanda-form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .comanda-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-        }
-
-        .label-icon {
-          color: var(--color-text-primary);
-        }
-
-        .comanda-input-segmented-wrapper {
-          display: flex;
-          gap: 0.4rem;
-        }
-
-        .comanda-segmented-type {
-          display: flex;
-          border: 1px solid var(--color-text-primary);
-          border-radius: 8px;
-          overflow: hidden;
-          background-color: var(--color-brand-lightest);
-          flex-shrink: 0;
-        }
-
-        .seg-type-btn {
-          border: none;
-          background-color: var(--color-brand-lightest);
-          padding: 0.5rem 0.75rem;
-          min-width: 38px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          line-height: 1;
-          transition: all 0.15s ease;
-        }
-
-        .seg-type-btn:hover:not(.seg-type-btn--active) {
-          background-color: rgba(45, 35, 30, 0.08);
-          color: var(--color-text-primary);
-        }
-
-        .seg-type-btn--active {
-          background-color: var(--color-warning);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-        }
-
-        .comanda-input-prefix-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          width: 100%;
-        }
-
-        .comanda-input-prefix {
-          position: absolute;
-          left: 0.85rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          pointer-events: none;
-        }
-
-        .comanda-input-num,
-        .comanda-select {
-          width: 100%;
-          padding: 0.55rem 0.85rem;
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          border: 1px solid var(--color-text-primary);
-          border-radius: 8px;
-          outline: none;
-          transition: all 0.2s ease;
-          font-family: inherit;
-        }
-
-        .comanda-input-num--prefixed {
-          padding-left: 2.2rem;
-        }
-
-        .comanda-input-num:focus,
-        .comanda-select:focus {
-          border-color: var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-        }
-
-        /* Sumário de Totais (Recibo) */
-        .comanda-summary-box {
-          padding: 0.85rem 1.15rem;
-          border-radius: 12px;
-          background-color: var(--color-brand-lightest);
-          border: 1px solid var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-xs);
-        }
-
-        .summary-label {
-          color: var(--color-text-primary);
-          font-weight: 600;
-        }
-
-        .summary-value {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .summary-discount .summary-label,
-        .summary-discount .summary-value {
-          color: var(--color-error);
-          font-weight: 700;
-        }
-
-        .summary-tip .summary-label,
-        .summary-tip .summary-value {
-          color: var(--color-success);
-          font-weight: 700;
-        }
-
-        .summary-divider {
-          height: 1px;
-          background-color: rgba(45, 35, 30, 0.15);
-          margin: 0.2rem 0;
-        }
-
-        .summary-total {
-          padding-top: 0.2rem;
-        }
-
-        .summary-total-label {
-          font-size: var(--font-size-sm);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .summary-total-value {
-          color: var(--color-text-primary);
-          font-size: 1.45rem;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-        }
-
-        /* Formas de Pagamento */
-        .btn-split-toggle {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-text-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          padding: 0.35rem 0.85rem;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-split-toggle:hover {
-          background-color: var(--color-brand-lightest);
-          border-color: var(--color-text-primary);
-          transform: translateY(-1px);
-        }
-
-        .btn-split-cancel {
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          padding: 0.35rem 0.85rem;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-split-cancel:hover {
-          background-color: var(--color-brand-lightest);
-          filter: brightness(0.96);
-          transform: translateY(-1px);
-        }
-
-        .quick-methods-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.65rem;
-        }
-
-        .btn-quick-method {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.35rem;
-          padding: 0.65rem 0.5rem;
-          border: 1px solid var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          border-radius: 12px;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          text-align: center;
-          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .btn-quick-method:hover {
-          border-color: var(--color-text-primary);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .btn-quick-method--active,
-        .btn-quick-method--active:focus,
-        .btn-quick-method.btn-quick-method--active {
-          border: 1.5px solid var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-        }
-
-        .btn-quick-method--active:hover,
-        .btn-quick-method.btn-quick-method--active:hover {
-          border: 1.5px solid var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary), var(--shadow-sm);
-        }
-
-        .quick-method-icon {
-          color: var(--color-text-primary);
-          transition: transform 0.2s ease;
-        }
-
-        .btn-quick-method:hover .quick-method-icon {
-          transform: scale(1.08);
-        }
-
-        /* Dinheiro & Troco */
-        .cash-single-calculator {
-          margin-top: 0.85rem;
-          padding: 1rem 1.15rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-          gap: 0.95rem;
-          animation: fadeIn 0.15s ease-out;
-        }
-
-        .cash-quick-notes {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-
-        .cash-notes-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin-right: 0.25rem;
-        }
-
-        .btn-quick-note {
-          padding: 0.35rem 0.85rem;
-          border-radius: var(--radius-full);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-quick-note:hover {
-          filter: brightness(0.96);
-          transform: translateY(-1px);
-        }
-
-        .btn-quick-note--active {
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-brand-soft);
-          color: var(--color-text-primary);
-        }
-
-        .btn-quick-note--active:hover {
-          background-color: var(--color-brand-soft);
-          filter: brightness(0.96);
-        }
-
-        .cash-input-field {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.75rem;
-        }
-
-        .cash-input-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .cash-input-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-          width: 140px;
-        }
-
-        .cash-prefix {
-          position: absolute;
-          left: 0.85rem;
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          pointer-events: none;
-        }
-
-        .cash-received-input {
-          width: 100%;
-          padding: 0.5rem 0.75rem 0.5rem 2rem;
-          font-size: var(--font-size-sm);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          outline: none;
-          text-align: center;
-          transition: all 0.2s ease;
-          -moz-appearance: textfield;
-        }
-
-        .cash-received-input::-webkit-outer-spin-button,
-        .cash-received-input::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        .cash-received-input:focus {
-          box-shadow: 0 0 0 1.5px var(--color-text-primary);
-        }
-
-        .cash-change-badge {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-        }
-
-        .cash-change-left {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .cash-change-left span {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .cash-change-left svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .cash-change-left svg path,
-        .cash-change-left svg ellipse {
-          stroke: var(--color-text-primary) !important;
-          color: var(--color-text-primary) !important;
-        }
-
-        .cash-change-val {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        /* Recibo de Pagamento */
-        .payment-receipt-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.85rem 1rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          font-size: var(--font-size-sm);
-          transition: all 0.2s ease;
-        }
-
-        .payment-receipt-method {
-          font-weight: 700;
-          color: var(--color-text-primary);
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-        }
-
-        .payment-receipt-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-brand-primary);
-        }
-
-        .payment-receipt-amount {
-          color: var(--color-brand-primary);
-          font-weight: 800;
-          font-size: var(--font-size-sm);
-        }
-
-        /* Split Payments */
-        .split-payments-container {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .comanda-payments-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .payment-row-card {
-          padding: 0.85rem 1rem;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-bg-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .payment-row-main {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .payment-method-select {
-          flex: 1.2;
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: 12px;
-          font-weight: 700;
-          padding: 0.6rem 0.85rem;
-          color: var(--color-text-primary);
-        }
-
-        .payment-amount-input-wrapper {
-          flex: 1;
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .payment-amount-prefix {
-          position: absolute;
-          left: 0.85rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          pointer-events: none;
-        }
-
-        .payment-amount-input {
-          width: 100%;
-          padding: 0.6rem 0.75rem 0.6rem 2rem;
-          font-size: var(--font-size-sm);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: 12px;
-          outline: none;
-          text-align: center;
-          transition: all 0.2s ease;
-          -moz-appearance: textfield;
-        }
-
-        .payment-amount-input::-webkit-outer-spin-button,
-        .payment-amount-input::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        .payment-amount-input:focus {
-          box-shadow: 0 0 0 1.5px var(--color-text-primary);
-        }
-
-        .btn-remove-payment {
-          background: transparent;
-          border: none;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          padding: 0.4rem;
-          border-radius: var(--radius-md);
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .btn-remove-payment svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .btn-remove-payment:hover {
-          color: var(--color-error);
-          background-color: var(--color-error-bg);
-        }
-
-        .btn-remove-payment:hover svg path {
-          stroke: var(--color-error);
-        }
-
-        .cash-change-calculator {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 0.25rem;
-          border: none;
-          font-size: var(--font-size-xs);
-        }
-
-        .cash-input-field-compact {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .cash-input-field-compact span {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .cash-received-input-compact {
-          width: 90px;
-          padding: 0.35rem 0.55rem;
-          font-size: var(--font-size-xs);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: 8px;
-          text-align: center;
-          -moz-appearance: textfield;
-        }
-
-        .cash-received-input-compact::-webkit-outer-spin-button,
-        .cash-received-input-compact::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        .cash-change-badge-compact {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .cash-change-badge-compact strong {
-          color: var(--color-text-primary);
-          font-weight: 800;
-        }
-
-        .split-payments-footer {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          margin-top: 0.25rem;
-        }
-
-        .btn-add-split-line {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          border-radius: 12px;
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          width: 100%;
-          justify-content: center;
-          transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .btn-add-split-line svg {
-          height: fit-content;
-          color: var(--color-text-primary);
-        }
-
-        .btn-add-split-line svg path {
-          stroke: var(--color-text-primary) !important;
-        }
-
-        .btn-add-split-line span {
-          color: var(--color-text-primary);
-        }
-
-        .btn-add-split-line:hover {
-          background-color: var(--color-brand-lightest);
-          filter: brightness(0.96);
-          transform: translateY(-1px);
-        }
-
-        .split-summary-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0.75rem 1rem;
-          border-radius: 12px;
-          background-color: var(--color-brand-lightest);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-        }
-
-        .split-summary-info {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-        }
-
-        .split-summary-info span {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .split-summary-info strong {
-          color: var(--color-text-primary);
-          font-weight: 800;
-        }
-
-        .comanda-separator-bullet {
-          color: var(--color-text-primary);
-          margin: 0 0.15rem;
-        }
-
-        .split-missing-alert {
-          color: var(--color-error);
-          background-color: var(--color-error-bg);
-          padding: 0.25rem 0.75rem;
-          border-radius: var(--radius-full);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-error);
-          font-weight: 700;
-          font-size: var(--font-size-xs);
-        }
-
-        .split-complete-alert {
-          color: var(--color-text-primary);
-          background-color: #E6F4EA;
-          padding: 0.25rem 0.75rem;
-          border-radius: var(--radius-full);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          font-weight: 700;
-          font-size: var(--font-size-xs);
-        }
-
-        /* Footer */
-        .comanda-modal-footer {
-          padding: 1.25rem 1.5rem;
-          border-top: 1px solid var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          flex-shrink: 0;
-        }
-
-        .comanda-footer-open-actions,
-        .comanda-footer-closed-actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.85rem;
-          width: 100%;
-        }
-
-        .comanda-footer-left-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .comanda-btn-danger-outline {
-          padding: 0.75rem 1.15rem;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--color-error);
-          background-color: transparent;
-          color: var(--color-error);
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          cursor: pointer;
-          transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
-        }
-
-        .comanda-btn-danger-outline:hover {
-          background-color: var(--color-error-bg);
-          border-color: var(--color-error);
-          color: var(--color-error);
-        }
-
-        .comanda-btn-danger-outline:active {
-          opacity: 0.8;
-        }
-
-        .comanda-btn-secondary {
-          padding: 0.75rem 1.35rem;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .comanda-btn-secondary:hover {
-          filter: brightness(0.96);
-          transform: translateY(-1px);
-        }
-
-        .comanda-btn-primary {
-          padding: 0.75rem 1.65rem;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-          background-color: var(--color-success-bg);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.65rem;
-          transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .comanda-btn-primary:hover:not(:disabled) {
-          filter: brightness(0.96);
-          transform: translateY(-1px);
-        }
-
-        .comanda-btn-primary:active:not(:disabled) {
-          transform: scale(0.98);
-        }
-
-        .comanda-btn-primary:disabled {
-          background-color: var(--color-border);
-          color: var(--color-text-secondary);
-          border-color: var(--color-border);
-          box-shadow: none;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .comanda-btn-amount-badge {
-          background-color: transparent;
-          padding: 0.15rem 0.25rem;
-          border-radius: var(--radius-full);
-          font-size: var(--font-size-sm);
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-btn-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(45, 35, 30, 0.3);
-          border-top-color: var(--color-text-primary);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        .comanda-btn-reopen {
-          padding: 0.65rem 1.25rem;
-          border-radius: var(--radius-full);
-          border: 1.5px solid var(--color-brand-primary);
-          background-color: transparent;
-          color: var(--color-brand-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          transition: all 0.2s ease;
-        }
-
-        .comanda-btn-reopen:hover:not(:disabled) {
-          background-color: var(--color-brand-lightest);
-          transform: translateY(-1px);
-        }
-
-        .comanda-modal-body::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .comanda-modal-body::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .comanda-modal-body::-webkit-scrollbar-thumb {
-          background-color: var(--color-border);
-          border-radius: var(--radius-full);
-        }
-
-        .comanda-modal-body::-webkit-scrollbar-thumb:hover {
-          background-color: var(--color-brand-soft);
-        }
-
-        .comanda-modal-shell button:focus-visible,
-        .comanda-modal-shell input:focus-visible,
-        .comanda-modal-shell select:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        /* Responsividade Mobile-First */
-        @media (max-width: 768px) {
-          .comanda-modal-overlay {
-            align-items: flex-end;
-            padding: 0;
-          }
-
-          .comanda-modal-shell {
-            max-width: 100%;
-            max-height: 92vh;
-            max-height: 92dvh;
-            border-radius: 24px 24px 0 0;
-            padding: 0;
-            background: transparent;
-            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
-            animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-          }
-
-          .comanda-modal-card {
-            border-radius: 24px 24px 0 0;
-            border-bottom: none;
-          }
-
-          .comanda-modal-header {
-            padding: 1.15rem 1.25rem var(--radius-xl);
-          }
-
-          .comanda-modal-body {
-            padding: 1.15rem 1.25rem;
-          }
-
-          .comanda-section-header {
-            flex-wrap: nowrap;
-            gap: 0.75rem;
-          }
-
-          .comanda-discount-tip-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .quick-methods-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .add-item-row {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .comanda-modal-footer {
-            padding: 1rem 1.25rem max(1.25rem, env(safe-area-inset-bottom, 1.25rem));
-            background-color: var(--color-bg-secondary);
-          }
-
-          .comanda-footer-open-actions,
-          .comanda-footer-closed-actions {
-            flex-direction: column-reverse;
-            gap: 0.65rem;
-            width: 100%;
-          }
-
-          .comanda-footer-left-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            width: 100%;
-          }
-
-          .comanda-btn-primary {
-            width: 100%;
-            min-height: 48px;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            font-size: var(--font-size-sm);
-            white-space: nowrap;
-          }
-
-          .comanda-btn-secondary,
-          .comanda-btn-danger-outline,
-          .comanda-btn-reopen {
-            width: 100%;
-            min-height: 44px;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 0.65rem 0.5rem;
-            font-size: var(--font-size-xs);
-            white-space: nowrap;
           }
         }
       `}</style>
