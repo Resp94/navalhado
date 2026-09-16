@@ -1,4 +1,3 @@
-import '../../components/cliente/cliente.css';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
@@ -576,17 +575,17 @@ export const FluxoAgendamento: React.FC = () => {
   }
 
   return (
-    <div className="cliente-screen">
+    <div className="min-h-dvh bg-brand-lightest text-text-primary font-base pb-28 box-border">
       {/* 01: Topo com Logo Oficial Real (/simbolo.svg) e Nome Limpo */}
       <CatalogoServicosHeader
         tenantName={customerDetails?.tenant_name || publicContext?.tenant_name}
         tenantLogoUrl={publicContext?.logo_url || null}
       />
 
-      <main className="cliente-container">
+      <main className="w-full max-w-[420px] mx-auto px-4 box-border">
         {/* Filtro por Categorias Reais */}
         {categories.length > 1 && (
-          <div className="categorias-bar">
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-2 mb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {['Todos', ...categories].map((cat) => {
               const isCatActive = activeCategory === cat;
               return (
@@ -594,7 +593,11 @@ export const FluxoAgendamento: React.FC = () => {
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`categoria-pill ${isCatActive ? "categoria-pill--active" : ""}`}
+                  className={`py-1.5 px-3.5 rounded-full text-xs font-bold whitespace-nowrap border cursor-pointer transition-all duration-200 ${
+                    isCatActive
+                      ? 'bg-brand-primary border-brand-primary text-brand-lightest shadow-[0_1px_2px_rgba(217,108,0,0.2)]'
+                      : 'bg-white border-border text-text-secondary hover:border-[rgba(217,108,0,0.4)]'
+                  }`}
                 >
                   {cat}
                 </button>
@@ -604,7 +607,7 @@ export const FluxoAgendamento: React.FC = () => {
         )}
 
         {/* Lista de Cards de Serviços */}
-        <div className="servicos-list">
+        <div className="flex flex-col gap-2.5">
           {filteredServices.map((service) => (
             <ServicoCard
               key={service.id}

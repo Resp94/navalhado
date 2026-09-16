@@ -49,14 +49,14 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
   };
 
   return (
-    <div className="modal-backdrop-custom">
-      <div className="modal-dialog-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(20,17,15,0.6)] backdrop-blur-[4px] box-border">
+      <div className="w-full max-w-[390px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl border border-border p-6 shadow-[0_16px_48px_rgba(45,35,30,0.2)] relative box-border">
         {/* Botão Voltar */}
         {onBack && !isRescheduling && (
           <button
             type="button"
             onClick={onBack}
-            className="modal-btn-back"
+            className="absolute top-4 left-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
             aria-label="Voltar para seleção de dias"
           >
             <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={2.5} />
@@ -67,36 +67,38 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="modal-btn-close"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Cabeçalho */}
-        <div style={{ textAlign: 'center', paddingTop: '0.5rem', paddingBottom: '0.75rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
+        <div className="text-center pt-2 pb-3">
+          <h2 className="text-base font-extrabold text-text-primary m-0">
             {service.name}
           </h2>
-          <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: '0.25rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: '#FFF1E6', border: '1px solid rgba(242, 178, 119, 0.6)', fontSize: '0.75rem', fontWeight: 700, color: '#D96C00' }}>
+          <div className="inline-flex items-center mt-1 py-1 px-3 rounded-full bg-brand-lightest border border-[rgba(242,178,119,0.6)] text-xs font-bold text-brand-primary">
             {formatDateTitle(selectedDate)}
           </div>
         </div>
 
-        <div style={{ width: '100%', height: '1px', backgroundColor: '#EADED6', marginBottom: '1rem' }} />
+        <div className="w-full h-px bg-border mb-4" />
 
         {/* Seletor de Profissional */}
-        <div style={{ marginBottom: '1rem' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2D231E', marginBottom: '0.5rem' }}>
+        <div className="mb-4">
+          <p className="text-xs font-bold text-text-primary mb-2">
             Selecione o profissional:
           </p>
-          <div className="profissionais-stack">
+          <div className="flex flex-col gap-1.5">
             {/* Opção Qualquer Profissional Livre */}
             <button
               type="button"
               onClick={() => onSelectProfessional(null, 'Qualquer profissional')}
-              className={`profissional-btn ${
-                selectedProfessional?.id === null ? 'profissional-btn--selected' : ''
+              className={`w-full py-[0.625rem] px-[0.875rem] rounded-xl border bg-white text-xs font-bold text-left cursor-pointer transition-all duration-200 ${
+                selectedProfessional?.id === null
+                  ? 'bg-brand-primary border-brand-primary text-brand-lightest shadow-[0_1px_2px_rgba(217,108,0,0.2)]'
+                  : 'border-border text-text-primary hover:border-[rgba(217,108,0,0.6)]'
               }`}
             >
               Qualquer profissional livre
@@ -110,8 +112,10 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
                   key={prof.id}
                   type="button"
                   onClick={() => onSelectProfessional(prof.id, prof.name)}
-                  className={`profissional-btn ${
-                    isSelected ? 'profissional-btn--selected' : ''
+                  className={`w-full py-[0.625rem] px-[0.875rem] rounded-xl border bg-white text-xs font-bold text-left cursor-pointer transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-brand-primary border-brand-primary text-brand-lightest shadow-[0_1px_2px_rgba(217,108,0,0.2)]'
+                      : 'border-border text-text-primary hover:border-[rgba(217,108,0,0.6)]'
                   }`}
                 >
                   {prof.name}
@@ -122,23 +126,23 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
         </div>
 
         {/* Seletor de Horários */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2D231E', marginBottom: '0.5rem' }}>
+        <div className="mb-6">
+          <p className="text-xs font-bold text-text-primary mb-2">
             Horários disponíveis:
           </p>
 
           {loadingSlots ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 0' }}>
+            <div className="flex items-center justify-center py-8">
               <div className="spinner" style={{ borderTopColor: '#D96C00', borderColor: '#EADED6' }} />
             </div>
           ) : slots.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '1.5rem 0.75rem', backgroundColor: 'rgba(255, 241, 230, 0.5)', borderRadius: '0.75rem', border: '1px solid #EADED6' }}>
-              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#70625B', margin: 0 }}>
+            <div className="text-center py-6 px-3 bg-[rgba(255,241,230,0.5)] rounded-xl border border-border">
+              <p className="text-xs font-semibold text-text-secondary m-0">
                 Nenhum horário disponível para esta data com o profissional selecionado.
               </p>
             </div>
           ) : (
-            <div className="slots-grid-3col">
+            <div className="grid grid-cols-3 gap-2">
               {slots.map((slot) => {
                 const isSelected = selectedSlot === slot;
                 return (
@@ -146,8 +150,10 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
                     key={slot}
                     type="button"
                     onClick={() => onSelectSlot(slot)}
-                    className={`slot-btn ${
-                      isSelected ? 'slot-btn--selected' : ''
+                    className={`p-2 rounded-xl text-xs font-extrabold border bg-white cursor-pointer transition-all duration-200 text-center ${
+                      isSelected
+                        ? 'bg-success border-success text-white shadow-[0_1px_2px_rgba(14,159,110,0.2)]'
+                        : 'border-border text-text-primary hover:border-[rgba(14,159,110,0.6)]'
                     }`}
                   >
                     {slot}
@@ -163,7 +169,7 @@ export const ModalSelecaoHorarios: React.FC<ModalSelecaoHorariosProps> = ({
           type="button"
           onClick={onAdvance}
           disabled={!selectedSlot}
-          className="btn-cliente-primary"
+          className="w-full py-3 px-4 rounded-full text-xs font-extrabold bg-brand-primary text-brand-lightest border-none cursor-pointer shadow-[0_4px_12px_rgba(217,108,0,0.2)] transition-all duration-200 flex items-center justify-center gap-2 hover:not-disabled:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isRescheduling ? 'Confirmar reagendamento' : 'Avançar para identificação →'}
         </button>

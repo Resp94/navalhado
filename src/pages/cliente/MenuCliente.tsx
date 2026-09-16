@@ -1,4 +1,3 @@
-import '../../components/cliente/cliente.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
@@ -228,15 +227,20 @@ export const MenuCliente: React.FC = () => {
     );
   }
 
+  const tabBaseClass =
+    'flex-1 min-h-9 py-2 px-3 rounded-xl bg-transparent text-xs font-extrabold leading-[1.1] cursor-pointer transition-colors duration-200';
+  const tabActiveClass = 'bg-brand-primary text-brand-lightest shadow-xs';
+  const tabInactiveClass = 'text-text-secondary hover:bg-brand-lightest hover:text-text-primary';
+
   return (
-    <div className="cliente-screen">
+    <div className="min-h-dvh bg-brand-lightest text-text-primary font-base pb-28 box-border">
       {/* Topo do Painel */}
-      <header className="cliente-container painel-cliente-header">
+      <header className="w-full max-w-[420px] mx-auto px-4 box-border flex items-center justify-between pt-4 pb-2">
         <div className="flex flex-col">
-          <span className="painel-cliente-header__tag">
+          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-text-secondary">
             {customerDetails?.tenant_name || 'Barbearia Navalhado'}
           </span>
-          <h1 className="painel-cliente-header__name">
+          <h1 className="text-base font-extrabold text-text-primary m-0 tracking-[-0.02em]">
             Olá, {customerDetails?.customer_name || 'Cliente'}
           </h1>
         </div>
@@ -244,7 +248,7 @@ export const MenuCliente: React.FC = () => {
         <button
           type="button"
           onClick={handleLogout}
-          className="btn-logout"
+          className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white border border-border text-text-secondary text-xs font-bold cursor-pointer transition-all duration-200 hover:bg-brand-lightest hover:border-brand-primary hover:text-text-primary"
           title="Encerrar sessão"
         >
           <HugeiconsIcon icon={Logout01Icon} size={14} />
@@ -252,20 +256,20 @@ export const MenuCliente: React.FC = () => {
         </button>
       </header>
 
-      <main className="cliente-container">
+      <main className="w-full max-w-[420px] mx-auto px-4 box-border">
         {/* Banner Destaque Oficial: Novo Agendamento */}
         <BannerNovoAgendamento onNewBooking={handleNewBooking} />
 
         {/* Abas: Próximos horários vs Anteriores */}
-        <div className="cliente-tabs" role="tablist" aria-label="Agendamentos">
+        <div
+          className="flex items-center gap-1 p-1 mt-2 mb-2 border border-border rounded-2xl bg-white"
+          role="tablist"
+          aria-label="Agendamentos"
+        >
           <button
             type="button"
             onClick={() => setActiveTab('ativos')}
-            className={`cliente-tab ${activeTab === 'ativos' ? 'cliente-tab--active' : ''} ${
-              activeTab === 'ativos'
-                ? 'bg-[#D96C00] text-[#FFF1E6] shadow-xs'
-                : 'text-[#70625B] hover:text-[#2D231E]'
-            }`}
+            className={`${tabBaseClass} ${activeTab === 'ativos' ? tabActiveClass : tabInactiveClass}`}
           >
             Próximos horários ({activeAppointments.length})
           </button>
@@ -273,11 +277,7 @@ export const MenuCliente: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('historico')}
-            className={`cliente-tab ${activeTab === 'historico' ? 'cliente-tab--active' : ''} ${
-              activeTab === 'historico'
-                ? 'bg-[#D96C00] text-[#FFF1E6] shadow-xs'
-                : 'text-[#70625B] hover:text-[#2D231E]'
-            }`}
+            className={`${tabBaseClass} ${activeTab === 'historico' ? tabActiveClass : tabInactiveClass}`}
           >
             Anteriores ({historicAppointments.length})
           </button>
@@ -285,7 +285,7 @@ export const MenuCliente: React.FC = () => {
 
         {/* Conteúdo da Aba Ativos */}
         {activeTab === 'ativos' && (
-          <div className="cliente-appointments-list">
+          <div className="flex flex-col gap-2">
             {activeAppointments.length === 0 ? (
               <div className="text-center py-10 px-4 bg-white rounded-2xl border border-[#EADED6] flex flex-col items-center gap-2">
                 <p className="text-xs font-semibold text-[#70625B] m-0">
@@ -335,17 +335,17 @@ export const MenuCliente: React.FC = () => {
         onClose={() => setIsDeadlineModalOpen(false)}
         title="Prazo de alteração expirado"
       >
-        <div className="deadline-modal-content">
-          <div className="deadline-modal-icon">
+        <div className="flex flex-col items-stretch gap-3 text-center">
+          <div className="w-12 h-12 mx-auto mb-0.5 rounded-full flex items-center justify-center bg-warning-bg text-warning">
             <HugeiconsIcon icon={AlertCircleIcon} size={24} />
           </div>
 
-          <p className="deadline-modal-text deadline-modal-text--primary">
+          <p className="m-0 text-xs leading-[1.5] text-text-primary">
             O cancelamento ou reagendamento online é permitido com no mínimo{' '}
             <strong>{formatLeadTime(customerDetails?.min_booking_lead_time_minutes ?? 120)}</strong> de antecedência.
           </p>
 
-          <p className="deadline-modal-text deadline-modal-text--secondary">
+          <p className="m-0 text-xs leading-[1.5] text-text-secondary">
             Para solicitar alterações de última hora, por favor entre em contato diretamente com o estabelecimento:
           </p>
 
@@ -356,13 +356,13 @@ export const MenuCliente: React.FC = () => {
               )}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="deadline-modal-whatsapp"
+              className="w-full min-h-11 py-3 px-4 rounded-full inline-flex items-center justify-center gap-2 text-xs font-extrabold cursor-pointer box-border transition-all duration-200 bg-success border border-success text-white no-underline shadow-[0_4px_12px_rgba(14,159,110,0.18)] hover:bg-[#087A54]"
             >
               <HugeiconsIcon icon={WhatsappIcon} size={16} />
               <span>Falar no WhatsApp</span>
             </a>
           ) : (
-            <p className="deadline-modal-text deadline-modal-text--secondary deadline-modal-text--muted">
+            <p className="m-0 text-xs leading-[1.5] text-text-secondary italic">
               Número de WhatsApp não informado pelo estabelecimento.
             </p>
           )}
@@ -370,7 +370,7 @@ export const MenuCliente: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsDeadlineModalOpen(false)}
-            className="deadline-modal-dismiss"
+            className="w-full min-h-11 py-3 px-4 rounded-full inline-flex items-center justify-center gap-2 text-xs font-extrabold cursor-pointer box-border transition-all duration-200 bg-white border border-border text-text-secondary hover:bg-brand-lightest hover:border-brand-primary hover:text-text-primary"
           >
             Entendido
           </button>
