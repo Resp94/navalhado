@@ -86,21 +86,37 @@ const CheckIcon = () => <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} />
 const AlertIcon = () => <HugeiconsIcon icon={AlertCircleIcon} size={13} />;
 const ClockIcon = () => <HugeiconsIcon icon={Clock01Icon} size={13} />;
 
+// Classes Tailwind reutilizadas entre o skeleton e o card real do profissional
+// (mantidas como constantes para não duplicar strings longas entre os dois usos).
+const PROF_CARD_CLASSES =
+  'bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-5 flex flex-col gap-[0.85rem] transition-[box-shadow,transform] duration-[250ms] ease hover:shadow-[0_0_0_0.5px_var(--color-text-primary),var(--shadow-md)] hover:-translate-y-px max-sm:p-4 max-sm:gap-3';
+const PROF_CARD_HEADER_CLASSES = 'flex justify-between items-start gap-3 flex-wrap';
+const PROF_CARD_TITLE_GROUP_CLASSES = 'flex items-center gap-3 min-w-0 flex-[1_1_180px]';
+const PROF_CARD_SCHEDULE_CLASSES = 'flex flex-col gap-[0.4rem] w-full';
+const SCHEDULE_BADGES_CLASSES = 'grid grid-cols-7 gap-[0.35rem] w-full box-border max-sm:gap-1';
+const PROF_CARD_ACTIONS_CLASSES =
+  'flex justify-between items-center border-t border-border pt-3 flex-wrap gap-[0.65rem] max-sm:flex-col max-sm:items-stretch';
+const ACTION_BUTTONS_CLASSES =
+  'flex items-center gap-2 flex-wrap max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:w-full max-[380px]:grid-cols-1';
+const ACTION_BUTTON_MOBILE_CLASSES = 'max-sm:min-h-[44px] max-sm:text-xs max-sm:py-2 max-sm:px-[0.4rem] max-sm:w-full';
+const LOGIN_STATUS_CLASSES = 'max-sm:flex max-sm:w-full';
+const STATUS_BADGE_MOBILE_CLASSES = 'max-sm:w-full max-sm:justify-center max-sm:min-h-[28px]';
+
 const ProfessionalCardSkeleton: React.FC = () => (
-  <div className="prof-card" aria-hidden="true">
-    <div className="prof-card-header">
-      <div className="prof-card-title-group">
+  <div className={PROF_CARD_CLASSES} aria-hidden="true">
+    <div className={PROF_CARD_HEADER_CLASSES}>
+      <div className={PROF_CARD_TITLE_GROUP_CLASSES}>
         <Skeleton shape="circle" width={40} height={40} />
-        <div className="prof-meta-wrap" style={{ gap: '0.45rem' }}>
+        <div className="flex flex-col gap-[0.45rem] min-w-0">
           <Skeleton shape="text" width={140} height={18} />
           <Skeleton shape="text" width={100} height={14} />
         </div>
       </div>
       <Skeleton shape="rect" width={96} height={26} style={{ borderRadius: 'var(--radius-full)' }} />
     </div>
-    <div className="prof-card-schedule">
+    <div className={PROF_CARD_SCHEDULE_CLASSES}>
       <Skeleton shape="text" width={120} height={14} style={{ marginBottom: '0.5rem' }} />
-      <div className="schedule-badges">
+      <div className={SCHEDULE_BADGES_CLASSES}>
         {[...Array(7)].map((_, i) => (
           <Skeleton
             key={i}
@@ -111,11 +127,11 @@ const ProfessionalCardSkeleton: React.FC = () => (
         ))}
       </div>
     </div>
-    <div className="prof-card-actions">
-      <div className="login-status">
+    <div className={PROF_CARD_ACTIONS_CLASSES}>
+      <div className={LOGIN_STATUS_CLASSES}>
         <Skeleton shape="rect" width={100} height={24} style={{ borderRadius: 'var(--radius-sm)' }} />
       </div>
-      <div className="action-buttons">
+      <div className={ACTION_BUTTONS_CLASSES}>
         <Skeleton shape="rect" width={140} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
         <Skeleton shape="rect" width={130} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
         <Skeleton shape="rect" width={75} height={36} style={{ borderRadius: 'var(--radius-md)' }} />
@@ -568,16 +584,16 @@ export const Profissionais: React.FC = () => {
   };
 
   return (
-    <div className="prof-page">
-      <header className="prof-header-intro">
-        <div className="prof-header-content">
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2 w-full">
+        <div className="flex justify-between items-center gap-6 w-full flex-wrap max-md:flex-col max-md:items-start max-md:gap-4">
           <div>
-            <h2>Equipe e escala da barbearia</h2>
-            <p>
+            <h2 className="text-2xl font-extrabold text-text-primary tracking-[-0.025em] m-0 leading-[1.2]">Equipe e escala da barbearia</h2>
+            <p className="text-sm text-text-secondary m-0 max-w-[72ch] leading-[1.5]">
               Cadastre seus barbeiros, configure a comissão de cada profissional, personalize o tempo de atendimento por corte e organize os horários de atendimento na semana.
             </p>
           </div>
-          <div className="prof-header-actions">
+          <div className="flex items-center gap-3 flex-wrap max-md:w-full">
             <Button
               type="button"
               variant="soft"
@@ -585,6 +601,7 @@ export const Profissionais: React.FC = () => {
               icon={<HugeiconsIcon icon={PlusSignCircleIcon} size={18} />}
               style={{ boxShadow: '0 0 0 1px var(--color-text-primary)' }}
               aria-label="Novo Barbeiro"
+              className="max-md:flex-1"
             >
               Novo Barbeiro
             </Button>
@@ -592,6 +609,7 @@ export const Profissionais: React.FC = () => {
               type="button"
               variant="soft"
               onClick={() => navigate('/profissionais/cadastro-acesso')}
+              className="max-md:flex-1"
             >
               Criar acesso
             </Button>
@@ -600,14 +618,17 @@ export const Profissionais: React.FC = () => {
       </header>
 
       {/* Painel da Listagem */}
-      <section className="list-section card" aria-labelledby="prof-list-heading">
-        <div className="list-header">
-          <div className="list-header-left">
-            <h3 id="prof-list-heading">Membros da equipe</h3>
+      <section
+        className="bg-bg-secondary border border-border rounded-lg p-6 shadow-sm max-sm:p-4 max-sm:rounded-md"
+        aria-labelledby="prof-list-heading"
+      >
+        <div className="flex justify-between items-center gap-4 flex-wrap mb-5 max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
+          <div className="flex items-center gap-3">
+            <h3 id="prof-list-heading" className="text-lg font-extrabold text-text-primary m-0 tracking-[-0.015em]">Membros da equipe</h3>
             {loading ? (
               <Skeleton width={80} height={20} style={{ borderRadius: 'var(--radius-full)' }} />
             ) : (
-              <span className="team-count-chip">
+              <span className="inline-flex items-center py-[2px] px-2 bg-bg-primary text-text-primary text-[11px] font-bold rounded-full border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)]">
                 {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
               </span>
             )}
@@ -615,7 +636,7 @@ export const Profissionais: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="prof-list-container" role="status" aria-busy="true">
+          <div className="flex flex-col gap-4" role="status" aria-busy="true">
             <span className="sr-only">Carregando equipe...</span>
             <ProfessionalCardSkeleton />
             <ProfessionalCardSkeleton />
@@ -638,36 +659,36 @@ export const Profissionais: React.FC = () => {
             }
           />
         ) : (
-          <div className="prof-list-container">
+          <div className="flex flex-col gap-4">
             {professionals.map((prof) => (
               <div
                 key={prof.id}
-                className={`prof-card ${!prof.is_active ? 'prof-card--inactive' : ''}`}
+                className={`${PROF_CARD_CLASSES} ${!prof.is_active ? 'opacity-[0.65] bg-bg-primary' : ''}`}
               >
-                <div className="prof-card-header">
-                  <div className="prof-card-title-group">
+                <div className={PROF_CARD_HEADER_CLASSES}>
+                  <div className={PROF_CARD_TITLE_GROUP_CLASSES}>
                     <Avatar name={prof.name} size="md" />
-                    <div className="prof-meta-wrap">
-                      <div className="prof-name-row">
-                        <h4>{prof.name}</h4>
+                    <div className="flex flex-col gap-[0.15rem] min-w-0">
+                      <div className="flex items-center gap-[0.45rem] flex-wrap">
+                        <h4 className="text-base font-extrabold text-text-primary m-0 tracking-[-0.01em] break-words">{prof.name}</h4>
                         {!prof.is_active && (
                           <Badge variant="neutral">Inativo</Badge>
                         )}
                       </div>
-                      <span className="prof-phone">{prof.phone}</span>
+                      <span className="text-xs text-text-primary font-bold [font-variant-numeric:tabular-nums]">{prof.phone}</span>
                     </div>
                   </div>
 
-                  <div className="prof-commission-badge">
-                    <span>
+                  <div className="text-xs bg-brand-lightest text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.35rem] px-[0.65rem] rounded-full font-semibold whitespace-nowrap shrink-0">
+                    <span className="text-text-primary">
                       Comissão: <strong>{prof.commission_percentage}%</strong>
                     </span>
                   </div>
                 </div>
 
-                <div className="prof-card-schedule">
-                  <h5>Escala de atendimento</h5>
-                  <div className="schedule-badges">
+                <div className={PROF_CARD_SCHEDULE_CLASSES}>
+                  <h5 className="text-[11px] uppercase tracking-[0.05em] text-text-primary m-0 font-bold">Escala de atendimento</h5>
+                  <div className={SCHEDULE_BADGES_CLASSES}>
                     {DAYS_OF_WEEK.map((day) => {
                       const dayData = prof.weekly_schedule?.[day.key] as any;
                       const labelCurto = day.label.substring(0, 3);
@@ -680,22 +701,22 @@ export const Profissionais: React.FC = () => {
                         return (
                           <div
                             key={day.key}
-                            className="badge-schedule-active"
+                            className="bg-brand-lightest shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm py-[0.4rem] px-[0.2rem] max-sm:py-[0.35rem] max-sm:px-[0.1rem] flex flex-col items-center justify-center gap-[0.15rem] min-w-0 w-full box-border text-center transition-[transform,box-shadow] duration-200 ease hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] hover:-translate-y-px"
                             title={`${day.label}: ${dayData.start} às ${dayData.end}${breakInfo}`}
                           >
-                            <span className="badge-day-name">{labelCurto}</span>
-                            <span className="badge-schedule-hours">{dayData.start.substring(0, 5)}</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-bold uppercase text-text-primary leading-none">{labelCurto}</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-extrabold [font-variant-numeric:tabular-nums] text-text-primary leading-[1.1] whitespace-nowrap overflow-hidden text-clip">{dayData.start.substring(0, 5)}</span>
                           </div>
                         );
                       } else {
                         return (
                           <div
                             key={day.key}
-                            className="badge-schedule-inactive"
+                            className="bg-transparent border border-dashed border-border rounded-sm py-[0.4rem] px-[0.2rem] max-sm:py-[0.35rem] max-sm:px-[0.1rem] flex flex-col items-center justify-center gap-[0.15rem] min-w-0 w-full box-border text-center opacity-[0.55]"
                             title={`${day.label}: Folga`}
                           >
-                            <span className="badge-day-name">{labelCurto}</span>
-                            <span className="badge-schedule-hours">Folga</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-bold uppercase text-text-primary leading-none">{labelCurto}</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-extrabold [font-variant-numeric:tabular-nums] text-text-primary leading-[1.1] whitespace-nowrap overflow-hidden text-clip">Folga</span>
                           </div>
                         );
                       }
@@ -703,18 +724,18 @@ export const Profissionais: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="prof-card-actions">
-                  <div className="login-status">
+                <div className={PROF_CARD_ACTIONS_CLASSES}>
+                  <div className={LOGIN_STATUS_CLASSES}>
                     {prof.user_id ? (
                       <span
-                        className="status-badge status-badge--linked"
+                        className={`inline-flex items-center gap-[0.3rem] text-[11px] font-bold py-1 px-2 rounded-full bg-success-bg text-success border border-[rgba(14,159,110,0.25)] ${STATUS_BADGE_MOBILE_CLASSES}`}
                         title="Este barbeiro já possui login de acesso"
                       >
                         <CheckIcon /> Login vinculado
                       </span>
                     ) : (
                       <span
-                        className="status-badge status-badge--unlinked"
+                        className={`inline-flex items-center gap-[0.3rem] text-[11px] font-bold py-1 px-2 rounded-full bg-warning-bg text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] ${STATUS_BADGE_MOBILE_CLASSES}`}
                         title="Este barbeiro ainda não possui acesso ao painel"
                       >
                         <AlertIcon /> Sem login
@@ -722,13 +743,14 @@ export const Profissionais: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="action-buttons">
+                  <div className={ACTION_BUTTONS_CLASSES}>
                     <Button
                       size="sm"
                       variant="soft"
                       onClick={() => handleOpenServicesModal(prof)}
                       icon={<ScissorIcon />}
                       title="Configurar serviços atendidos e tempo de corte deste barbeiro"
+                      className={ACTION_BUTTON_MOBILE_CLASSES}
                     >
                       Serviços e tempos
                     </Button>
@@ -738,6 +760,7 @@ export const Profissionais: React.FC = () => {
                       onClick={() => handleEdit(prof)}
                       icon={<HugeiconsIcon icon={Edit01Icon} size={15} />}
                       title="Editar dados e escala deste barbeiro"
+                      className={ACTION_BUTTON_MOBILE_CLASSES}
                     >
                       Editar Escala/Dados
                     </Button>
@@ -748,7 +771,10 @@ export const Profissionais: React.FC = () => {
                       icon={<HugeiconsIcon icon={Delete02Icon} size={15} />}
                       title="Excluir profissional (mantém histórico)"
                       aria-label={`Excluir profissional ${prof.name}`}
-                      className="btn-prof-delete"
+                      // Override do hover padrão (soft) do Button compartilhado: precisa de vermelho de perigo
+                      // só neste botão. Como não podemos editar components/ui/forms/Button.tsx, usamos o
+                      // modificador `!` do Tailwind para garantir precedência sobre a classe de variante.
+                      className={`hover:!bg-[#F05252] hover:!text-white hover:!shadow-[0_0_0_1px_#F05252] ${ACTION_BUTTON_MOBILE_CLASSES}`}
                     >
                       Excluir
                     </Button>
@@ -763,13 +789,18 @@ export const Profissionais: React.FC = () => {
       {/* DRAWER DE CADASTRO / EDIÇÃO DE PROFISSIONAL */}
       {isDrawerOpen && (
         <div
-          className="prof-drawer-overlay"
+          className="fixed inset-0 bg-black/60 backdrop-blur-[4px] z-[9999] flex justify-end items-stretch animate-fade-in max-md:items-end"
           onClick={(e) => e.target === e.currentTarget && handleCloseDrawer()}
         >
-          <div className="prof-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="prof-drawer-heading">
-            <div className="prof-drawer-header">
-              <div className="prof-drawer-header-info">
-                <h3 id="prof-drawer-heading" className="prof-drawer-title">
+          <div
+            className="bg-bg-primary w-full max-w-[520px] h-full flex flex-col shadow-xl animate-slide-in-right border-l border-border overflow-hidden max-md:max-w-full max-md:h-[90dvh] max-md:max-h-[90dvh] max-md:rounded-t-[20px] max-md:border-l-0 max-md:border-t max-md:animate-[slideUp_0.25s_cubic-bezier(0.16,1,0.3,1)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prof-drawer-heading"
+          >
+            <div className="flex justify-between items-center py-5 px-6 border-b border-border bg-bg-secondary shrink-0">
+              <div className="flex items-center gap-3">
+                <h3 id="prof-drawer-heading" className="text-base font-extrabold text-text-primary m-0">
                   {editingId ? 'Editar Profissional' : 'Novo Profissional'}
                 </h3>
               </div>
@@ -782,10 +813,10 @@ export const Profissionais: React.FC = () => {
               />
             </div>
 
-            <form onSubmit={handleSubmit} className="prof-drawer-form">
-              <div className="prof-drawer-body">
-                <div className="form-group">
-                  <label htmlFor="prof-name">Nome do Barbeiro *</label>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 h-[calc(100%-73px)] overflow-hidden">
+              <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+                <div className="flex flex-col gap-[0.35rem]">
+                  <label htmlFor="prof-name" className="text-xs font-bold uppercase tracking-[0.04em] text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.2]">Nome do Barbeiro *</label>
                   <input
                     id="prof-name"
                     type="text"
@@ -793,12 +824,13 @@ export const Profissionais: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
+                    className="py-[0.65rem] px-[0.85rem] min-h-[42px] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm outline-none transition-[box-shadow,background-color] duration-200 ease w-full focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] placeholder:text-text-secondary placeholder:opacity-65"
                   />
                 </div>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="prof-phone">WhatsApp / Celular *</label>
+                <div className="grid grid-cols-2 gap-3 items-start max-[480px]:grid-cols-1">
+                  <div className="flex flex-col gap-[0.35rem]">
+                    <label htmlFor="prof-phone" className="text-xs font-bold uppercase tracking-[0.04em] text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.2]">WhatsApp / Celular *</label>
                     <input
                       id="prof-phone"
                       type="text"
@@ -806,11 +838,12 @@ export const Profissionais: React.FC = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       required
+                      className="py-[0.65rem] px-[0.85rem] min-h-[42px] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm outline-none transition-[box-shadow,background-color] duration-200 ease w-full focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] placeholder:text-text-secondary placeholder:opacity-65"
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="prof-commission">Comissão Padrão (%) *</label>
+                  <div className="flex flex-col gap-[0.35rem]">
+                    <label htmlFor="prof-commission" className="text-xs font-bold uppercase tracking-[0.04em] text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.2]">Comissão Padrão (%) *</label>
                     <input
                       id="prof-commission"
                       type="number"
@@ -820,17 +853,18 @@ export const Profissionais: React.FC = () => {
                       value={commission}
                       onChange={(e) => setCommission(e.target.value)}
                       required
+                      className="py-[0.65rem] px-[0.85rem] min-h-[42px] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm outline-none transition-[box-shadow,background-color] duration-200 ease w-full focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] placeholder:text-text-secondary placeholder:opacity-65 text-center"
                     />
                   </div>
                 </div>
 
                 {/* SEÇÃO DA ESCALA DE TRABALHO */}
-                <div className="schedule-section">
-                  <div className="schedule-section-header">
+                <div className="bg-bg-primary shadow-[0_0_0_0.3px_var(--color-text-primary)] rounded-md p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-[0.4rem] text-text-primary">
                     <ClockIcon />
-                    <span className="schedule-title">Escala semanal de atendimento</span>
+                    <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-text-primary">Escala semanal de atendimento</span>
                   </div>
-                  <div className="schedule-list">
+                  <div className="flex flex-col gap-2">
                     {DAYS_OF_WEEK.map((day) => {
                       const daySched = schedule[day.key];
                       const dayBusinessHours = getBusinessHoursForDayKey(day.key, tenant.businessHours);
@@ -845,26 +879,27 @@ export const Profissionais: React.FC = () => {
                       return (
                         <div
                           key={day.key}
-                          className={`schedule-day-item ${daySched.active ? 'schedule-day-item--active' : ''}`}
+                          className="bg-bg-secondary shadow-[0_0_0_0.3px_var(--color-text-primary)] rounded-md py-[0.65rem] px-[0.85rem] flex flex-col gap-2 transition-shadow duration-200 ease"
                         >
-                          <div className="day-checkbox">
+                          <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               id={`check-${day.key}`}
                               checked={daySched.active}
                               onChange={() => handleScheduleDayToggle(day.key)}
+                              className="w-[18px] h-[18px] accent-brand-primary cursor-pointer"
                             />
-                            <label htmlFor={`check-${day.key}`}>{day.label}</label>
+                            <label htmlFor={`check-${day.key}`} className="text-sm font-bold cursor-pointer text-text-primary">{day.label}</label>
                           </div>
 
                           {daySched.active && (
-                            <div className="day-schedule-details">
+                            <div className="flex flex-col gap-[0.65rem] pt-[0.65rem] border-t border-dashed border-border">
                               {/* Horário de Trabalho */}
-                              <div className="schedule-row">
-                                <span className="schedule-row-label">Expediente:</span>
-                                <div className="schedule-row-inputs">
+                              <div className="flex items-center justify-between gap-2 w-full max-[480px]:flex-col max-[480px]:items-start max-[480px]:gap-[0.35rem]">
+                                <span className="text-xs font-bold text-text-primary uppercase tracking-[0.04em] shrink-0 min-w-[78px]">Expediente:</span>
+                                <div className="flex items-center gap-[0.4rem] flex-1 min-w-0 justify-end max-[480px]:w-full max-[480px]:justify-between">
                                   <select
-                                    className="day-times-input"
+                                    className="flex-1 min-w-0 max-w-[105px] h-[38px] py-[0.35rem] px-[0.4rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary text-center box-border transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] max-[480px]:max-w-none max-[480px]:w-full max-[480px]:h-[42px] max-[480px]:text-sm"
                                     value={daySched.start}
                                     aria-label={`Início do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'start', e.target.value)}
@@ -873,9 +908,9 @@ export const Profissionais: React.FC = () => {
                                       <option key={option} value={option}>{option}</option>
                                     ))}
                                   </select>
-                                  <span className="schedule-row-sep">às</span>
+                                  <span className="text-text-primary text-[11px] font-bold shrink-0">às</span>
                                   <select
-                                    className="day-times-input"
+                                    className="flex-1 min-w-0 max-w-[105px] h-[38px] py-[0.35rem] px-[0.4rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary text-center box-border transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] max-[480px]:max-w-none max-[480px]:w-full max-[480px]:h-[42px] max-[480px]:text-sm"
                                     value={daySched.end}
                                     aria-label={`Fim do expediente de ${day.label}`}
                                     onChange={(e) => handleScheduleTimeChange(day.key, 'end', e.target.value)}
@@ -888,11 +923,11 @@ export const Profissionais: React.FC = () => {
                               </div>
 
                               {/* Intervalo de Almoço */}
-                              <div className="schedule-row">
-                                <span className="schedule-row-label">Almoço:</span>
-                                <div className="schedule-row-inputs">
+                              <div className="flex items-center justify-between gap-2 w-full max-[480px]:flex-col max-[480px]:items-start max-[480px]:gap-[0.35rem]">
+                                <span className="text-xs font-bold text-text-primary uppercase tracking-[0.04em] shrink-0 min-w-[78px]">Almoço:</span>
+                                <div className="flex items-center gap-[0.4rem] flex-1 min-w-0 justify-end max-[480px]:w-full max-[480px]:justify-between">
                                   <select
-                                    className="day-times-input"
+                                    className="flex-1 min-w-0 max-w-[105px] h-[38px] py-[0.35rem] px-[0.4rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary text-center box-border transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] max-[480px]:max-w-none max-[480px]:w-full max-[480px]:h-[42px] max-[480px]:text-sm"
                                     value={daySched.break_start || ''}
                                     aria-label="Início do Almoço"
                                     onChange={(e) =>
@@ -904,9 +939,9 @@ export const Profissionais: React.FC = () => {
                                       <option key={option} value={option}>{option}</option>
                                     ))}
                                   </select>
-                                  <span className="schedule-row-sep">às</span>
+                                  <span className="text-text-primary text-[11px] font-bold shrink-0">às</span>
                                   <select
-                                    className="day-times-input"
+                                    className="flex-1 min-w-0 max-w-[105px] h-[38px] py-[0.35rem] px-[0.4rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary text-center box-border transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] max-[480px]:max-w-none max-[480px]:w-full max-[480px]:h-[42px] max-[480px]:text-sm"
                                     value={daySched.break_end || ''}
                                     aria-label="Fim do Almoço"
                                     onChange={(e) =>
@@ -929,19 +964,20 @@ export const Profissionais: React.FC = () => {
                 </div>
 
                 {editingId && (
-                  <div className="form-group checkbox-group" style={{ marginTop: '0.5rem' }}>
+                  <div className="flex flex-row items-center gap-2 mt-2">
                     <input
                       type="checkbox"
                       id="prof-active"
                       checked={isActive}
                       onChange={(e) => setIsActive(e.target.checked)}
+                      className="w-[18px] h-[18px] accent-brand-primary cursor-pointer"
                     />
                     <label htmlFor="prof-active">Barbeiro ativo na agenda de clientes</label>
                   </div>
                 )}
               </div>
 
-              <div className="prof-drawer-footer">
+              <div className="flex items-center justify-end gap-3 py-4 px-6 border-t border-border bg-bg-secondary shrink-0">
                 <Button
                   type="button"
                   variant="secondary"
@@ -953,6 +989,10 @@ export const Profissionais: React.FC = () => {
                   type="submit"
                   variant="primary"
                   loading={saving}
+                  // O rodapé do drawer usa um contorno fino (ring) em vez da sombra laranja
+                  // padrão do variant="primary". Como não editamos o Button compartilhado,
+                  // usamos `!` para garantir que este box-shadow vença o da variante.
+                  className="!shadow-[0_0_0_0.8px_var(--color-text-primary)]"
                 >
                   {editingId ? 'Salvar Alterações' : 'Cadastrar Profissional'}
                 </Button>
@@ -977,23 +1017,23 @@ export const Profissionais: React.FC = () => {
 
       {/* MODAL DE ASSOCIAÇÃO DE SERVIÇOS E DURAÇÃO INDIVIDUAL */}
       {isServicesModalOpen && selectedProfForServices && (
-        <div 
-          className="modal-backdrop" 
-          onClick={(e) => { 
-            if (e.target === e.currentTarget) setIsServicesModalOpen(false); 
+        <div
+          className="fixed inset-0 bg-[rgba(20,17,15,0.5)] backdrop-blur-[8px] grid place-items-center z-[1000] p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsServicesModalOpen(false);
           }}
         >
-          <div 
-            className="modal-content shadow-xl animate-spring" 
+          <div
+            className="bg-bg-secondary border border-border rounded-lg w-full overflow-hidden shadow-xl"
             style={{ maxWidth: '680px' }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-services-title"
           >
-            <header className="modal-header">
+            <header className="flex justify-between items-start py-5 px-6 border-b border-border bg-bg-secondary">
               <div>
-                <span className="modal-eyebrow">Tempo e comissão por serviço</span>
-                <h3 id="modal-services-title" className="modal-title">
+                <span className="text-[11px] uppercase tracking-[0.1em] font-extrabold text-text-primary block mb-[0.2rem]">Tempo e comissão por serviço</span>
+                <h3 id="modal-services-title" className="text-base font-extrabold text-text-primary m-0 tracking-[-0.01em]">
                   Serviços atendidos por {selectedProfForServices.name}
                 </h3>
               </div>
@@ -1007,17 +1047,20 @@ export const Profissionais: React.FC = () => {
               />
             </header>
 
-            <div className="modal-body">
-              <p className="modal-desc">
+            <div className="py-5 px-6">
+              <p className="text-sm text-text-secondary mb-4 leading-[1.5]">
                 Defina quais serviços este profissional realiza na barbearia e a duração individual de cada atendimento. O padrão da barbearia é de <strong>40 minutos</strong>.
               </p>
 
-              <div className="modal-services-toolbar">
+              <div className="flex gap-2 mb-4 flex-wrap">
                 <Button
                   type="button"
                   variant="outline"
                   size="xs"
                   onClick={handleEnableAllServices}
+                  // O toolbar precisa de um fundo/anel diferentes do outline padrão do Button
+                  // compartilhado (que usamos sem poder editar); `!` garante a precedência.
+                  className="!bg-bg-secondary !border-0 !text-text-primary !shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:!bg-brand-soft hover:!text-text-primary hover:!shadow-[0_0_0_1px_var(--color-text-primary)]"
                 >
                   Habilitar todos (40 min padrão)
                 </Button>
@@ -1026,13 +1069,14 @@ export const Profissionais: React.FC = () => {
                   variant="outline"
                   size="xs"
                   onClick={handleDisableAllServices}
+                  className="!bg-bg-secondary !border-0 !text-text-primary !shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:!bg-brand-soft hover:!text-text-primary hover:!shadow-[0_0_0_1px_var(--color-text-primary)]"
                 >
                   Desabilitar todos
                 </Button>
               </div>
 
               {loadingProfServices ? (
-                <div className="services-association-table-wrap" role="status" aria-busy="true">
+                <div className="border border-border rounded-md overflow-hidden max-h-[380px] overflow-y-auto overflow-x-auto bg-bg-secondary" role="status" aria-busy="true">
                   <span className="sr-only">Carregando catálogo de serviços...</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem' }}>
                     {[...Array(4)].map((_, i) => (
@@ -1046,45 +1090,46 @@ export const Profissionais: React.FC = () => {
                   </div>
                 </div>
               ) : profServicesList.length === 0 ? (
-                <div className="empty-state">
+                <div>
                   <p>Nenhum serviço cadastrado na barbearia.</p>
                 </div>
               ) : (
-                <div className="services-association-table-wrap">
-                  <table className="services-association-table">
+                <div className="border border-border rounded-md overflow-hidden max-h-[380px] overflow-y-auto overflow-x-auto bg-bg-secondary">
+                  <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr>
-                        <th style={{ width: '48px', textAlign: 'center' }}>Atende?</th>
-                        <th>Serviço</th>
-                        <th style={{ width: '135px' }}>Duração (min)</th>
-                        <th style={{ width: '135px' }}>Comissão (%)</th>
+                        <th style={{ width: '48px', textAlign: 'center' }} className="bg-[#FDF3EA] py-3 px-4 text-[11px] uppercase tracking-[0.05em] font-extrabold text-text-primary border-b border-border sticky top-0 z-[1]">Atende?</th>
+                        <th className="bg-[#FDF3EA] py-3 px-4 text-[11px] uppercase tracking-[0.05em] font-extrabold text-text-primary border-b border-border text-left sticky top-0 z-[1]">Serviço</th>
+                        <th style={{ width: '135px' }} className="bg-[#FDF3EA] py-3 px-4 text-[11px] uppercase tracking-[0.05em] font-extrabold text-text-primary border-b border-border text-left sticky top-0 z-[1]">Duração (min)</th>
+                        <th style={{ width: '135px' }} className="bg-[#FDF3EA] py-3 px-4 text-[11px] uppercase tracking-[0.05em] font-extrabold text-text-primary border-b border-border text-left sticky top-0 z-[1]">Comissão (%)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {profServicesList.map((svc) => (
                         <tr
                           key={svc.service_id}
-                          className={!svc.is_enabled ? 'row-service-disabled' : ''}
+                          className={!svc.is_enabled ? 'opacity-50 bg-bg-primary' : ''}
                         >
-                          <td style={{ textAlign: 'center' }}>
+                          <td style={{ textAlign: 'center' }} className="py-3 px-4 border-b border-border">
                             <input
                               type="checkbox"
                               checked={svc.is_enabled}
                               onChange={() => handleToggleService(svc.service_id)}
                               aria-label={`Habilitar ${svc.service_name}`}
+                              className="w-[18px] h-[18px] accent-brand-primary cursor-pointer"
                             />
                           </td>
-                          <td>
-                            <div className="service-info-cell">
+                          <td className="py-3 px-4 border-b border-border">
+                            <div className="flex flex-col gap-[0.15rem]">
                               <strong>{svc.service_name}</strong>
-                              <span className="text-muted text-xs">
+                              <span className="text-text-secondary text-xs">
                                 R$ {svc.base_price.toFixed(2).replace('.', ',')}{' '}
                                 {svc.service_category && `• ${svc.service_category}`}
                               </span>
                             </div>
                           </td>
-                          <td>
-                            <div className="input-suffix-wrapper">
+                          <td className="py-3 px-4 border-b border-border">
+                            <div className="relative flex items-center">
                               <input
                                 type="number"
                                 min="10"
@@ -1099,14 +1144,14 @@ export const Profissionais: React.FC = () => {
                                     parseInt(e.target.value, 10) || 40
                                   )
                                 }
-                                className="form-control form-control--sm font-mono text-center"
+                                className="font-mono text-center pr-8 min-h-[36px] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary w-full transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] disabled:opacity-60 disabled:shadow-[0_0_0_0.4px_var(--color-border)] disabled:cursor-not-allowed"
                                 placeholder="40"
                               />
-                              <span className="input-suffix">min</span>
+                              <span className="absolute right-[0.6rem] text-[11px] text-text-primary pointer-events-none font-bold">min</span>
                             </div>
                           </td>
-                          <td>
-                            <div className="input-suffix-wrapper">
+                          <td className="py-3 px-4 border-b border-border">
+                            <div className="relative flex items-center">
                               <input
                                 type="number"
                                 min="0"
@@ -1125,10 +1170,10 @@ export const Profissionais: React.FC = () => {
                                     e.target.value === '' ? null : parseFloat(e.target.value)
                                   )
                                 }
-                                className="form-control form-control--sm font-mono text-center"
+                                className="font-mono text-center pr-8 min-h-[36px] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm text-xs font-bold [font-variant-numeric:tabular-nums] bg-bg-secondary text-text-primary w-full transition-shadow duration-200 ease focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] disabled:opacity-60 disabled:shadow-[0_0_0_0.4px_var(--color-border)] disabled:cursor-not-allowed"
                                 placeholder={`${selectedProfForServices.commission_percentage}%`}
                               />
-                              <span className="input-suffix">%</span>
+                              <span className="absolute right-[0.6rem] text-[11px] text-text-primary pointer-events-none font-bold">%</span>
                             </div>
                           </td>
                         </tr>
@@ -1138,11 +1183,12 @@ export const Profissionais: React.FC = () => {
                 </div>
               )}
 
-              <footer className="modal-footer">
+              <footer className="flex justify-end gap-3 pt-5 mt-4 border-t border-border">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsServicesModalOpen(false)}
+                  className="!bg-bg-secondary !border-0 !text-text-primary !shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:!bg-black/4 hover:!text-text-primary hover:!shadow-[0_0_0_1px_var(--color-text-primary)]"
                 >
                   Cancelar
                 </Button>
@@ -1151,6 +1197,9 @@ export const Profissionais: React.FC = () => {
                   variant="primary"
                   onClick={handleSaveServices}
                   loading={savingProfServices}
+                  // O footer do modal usa um destaque "soft" (marrom claro) em vez do laranja
+                  // padrão do variant="primary"; `!` garante precedência sem editar o Button.
+                  className="!bg-brand-soft !text-text-primary !border-0 !shadow-[0_0_0_0.3px_var(--color-text-primary)] hover:!bg-[#f2b277] hover:!text-text-primary hover:!shadow-[0_0_0_0.8px_var(--color-text-primary)] font-extrabold"
                 >
                   Salvar configurações
                 </Button>
@@ -1160,1195 +1209,6 @@ export const Profissionais: React.FC = () => {
         </div>
       )}
 
-      <style>{`
-        .prof-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .prof-header-intro {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          width: 100%;
-        }
-
-        .prof-header-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1.5rem;
-          width: 100%;
-          flex-wrap: wrap;
-        }
-
-        .prof-header-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-
-        .prof-header-actions .ui-btn:hover:not(:disabled) {
-          background-color: #f2b277 !important;
-        }
-
-        .prof-header-intro h2 {
-          font-size: var(--font-size-2xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          letter-spacing: -0.025em;
-          margin: 0;
-          line-height: 1.2;
-        }
-
-        .prof-header-intro p {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          margin: 0;
-          max-width: 72ch;
-          line-height: 1.5;
-        }
-
-        .card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* DRAWER DE CADASTRO / EDIÇÃO */
-        .prof-drawer-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(4px);
-          z-index: 9999;
-          display: flex;
-          justify-content: flex-end;
-          align-items: stretch;
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .prof-drawer-panel {
-          background: var(--color-bg-primary);
-          width: 100%;
-          max-width: 520px;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          box-shadow: var(--shadow-xl);
-          animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          border-left: 1px solid var(--color-border);
-          overflow: hidden;
-        }
-
-        .prof-drawer-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          flex-shrink: 0;
-        }
-
-        .prof-drawer-header-info {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .prof-drawer-icon-badge {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-md);
-          background: rgba(217, 108, 0, 0.1);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .prof-drawer-title {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .prof-drawer-subtitle {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          display: block;
-        }
-
-        .prof-drawer-form {
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-          height: calc(100% - 73px);
-          overflow: hidden;
-        }
-
-        .prof-drawer-body {
-          padding: 1.5rem;
-          overflow-y: auto;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .prof-drawer-footer {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          padding: 1rem 1.5rem;
-          border-top: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          flex-shrink: 0;
-        }
-
-        .prof-drawer-footer .ui-btn--outline,
-        .prof-drawer-footer .ui-btn--secondary {
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .prof-drawer-footer .ui-btn--primary {
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .section-title-wrap {
-          margin-bottom: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .section-title-wrap h3 {
-          font-size: var(--font-size-lg);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.015em;
-        }
-
-        .section-subtitle {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .list-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-          flex-wrap: wrap;
-          margin-bottom: 1.25rem;
-        }
-
-        .list-header-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .list-header-left h3 {
-          font-size: var(--font-size-lg);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.015em;
-        }
-
-        .team-count-chip {
-          display: inline-flex;
-          align-items: center;
-          padding: 2px 8px;
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          font-size: 11px;
-          font-weight: 700;
-          border-radius: var(--radius-full);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .prof-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-          align-items: start;
-        }
-
-        @media (max-width: 480px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.2;
-        }
-
-        .form-group input, .form-group select {
-          padding: 0.65rem 0.85rem;
-          min-height: 42px;
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          outline: none;
-          transition: box-shadow 0.2s ease, background-color 0.2s ease;
-          width: 100%;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-          border-color: transparent;
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
-        }
-
-        .form-group input::placeholder {
-          color: var(--color-text-secondary);
-          opacity: 0.65;
-        }
-
-        #prof-commission {
-          text-align: center;
-        }
-
-        .schedule-section {
-          background: var(--color-bg-primary);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .schedule-section-header {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: var(--color-text-primary);
-        }
-
-        .schedule-section-header svg {
-          stroke: var(--color-text-primary);
-          color: var(--color-text-primary);
-        }
-
-        .schedule-title {
-          font-size: var(--font-size-xs);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-primary);
-        }
-
-        .schedule-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .schedule-day-item {
-          background: var(--color-bg-secondary);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          padding: 0.65rem 0.85rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .schedule-day-item--active {
-          border: 0px solid transparent;
-          border-width: 0px;
-          background: var(--color-bg-secondary);
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-        }
-
-        .day-checkbox {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .day-checkbox input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-        }
-
-        .day-checkbox label {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          color: var(--color-text-primary);
-        }
-
-        .day-schedule-details {
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-          padding-top: 0.65rem;
-          border-top: 1px dashed var(--color-border);
-        }
-
-        .schedule-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          width: 100%;
-        }
-
-        .schedule-row-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          flex-shrink: 0;
-          min-width: 78px;
-        }
-
-        .schedule-row-inputs {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          flex: 1;
-          min-width: 0;
-          justify-content: flex-end;
-        }
-
-        .day-times-input {
-          flex: 1;
-          min-width: 0;
-          max-width: 105px;
-          height: 38px;
-          padding: 0.35rem 0.4rem;
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-sm);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          text-align: center;
-          box-sizing: border-box;
-          transition: box-shadow 0.2s ease;
-        }
-
-        .day-times-input:focus {
-          border-color: transparent;
-          outline: none;
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
-        }
-
-        .schedule-row-sep {
-          color: var(--color-text-primary);
-          font-size: 11px;
-          font-weight: 700;
-          flex-shrink: 0;
-        }
-
-        @media (max-width: 480px) {
-          .schedule-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.35rem;
-          }
-
-          .schedule-row-inputs {
-            width: 100%;
-            justify-content: space-between;
-          }
-
-          .day-times-input {
-            max-width: none;
-            width: 100%;
-            height: 42px;
-            font-size: var(--font-size-sm);
-          }
-        }
-
-        .checkbox-group {
-          flex-direction: row;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        .prof-list-container {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .prof-card {
-          background: var(--color-bg-secondary);
-          border: 0;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-          transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
-        }
-
-        .prof-card:hover {
-          box-shadow: 0 0 0 0.5px var(--color-text-primary), var(--shadow-md);
-          transform: translateY(-1px);
-        }
-
-        .prof-card--inactive {
-          opacity: 0.65;
-          background: var(--color-bg-primary);
-        }
-
-        .prof-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-
-        .prof-card-title-group {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          min-width: 0;
-          flex: 1 1 180px;
-        }
-
-        .prof-meta-wrap {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-        }
-
-        .prof-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          flex-wrap: wrap;
-        }
-
-        .prof-name-row h4 {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.01em;
-          word-break: break-word;
-        }
-
-        .prof-phone {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .prof-commission-badge {
-          font-size: var(--font-size-xs);
-          background: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          padding: 0.35rem 0.65rem;
-          border-radius: var(--radius-full);
-          font-weight: 600;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .prof-commission-badge span {
-          color: var(--color-text-primary);
-        }
-
-        .prof-card-schedule {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          width: 100%;
-        }
-
-        .prof-card-schedule h5 {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-primary);
-          margin: 0;
-          font-weight: 700;
-        }
-
-        .schedule-badges {
-          display: grid;
-          grid-template-columns: repeat(7, minmax(0, 1fr));
-          gap: 0.35rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .badge-schedule-active {
-          background: var(--color-brand-lightest);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-sm);
-          padding: 0.4rem 0.2rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.15rem;
-          min-width: 0;
-          width: 100%;
-          box-sizing: border-box;
-          text-align: center;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .badge-schedule-active:hover {
-          box-shadow: 0 0 0 1.2px var(--color-text-primary);
-          transform: translateY(-1px);
-        }
-
-        .badge-schedule-inactive {
-          background: transparent;
-          border: 1px dashed var(--color-border);
-          border-radius: var(--radius-sm);
-          padding: 0.4rem 0.2rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.15rem;
-          min-width: 0;
-          width: 100%;
-          box-sizing: border-box;
-          text-align: center;
-          opacity: 0.55;
-        }
-
-        .badge-day-name {
-          font-size: clamp(9px, 2.4vw, 11px);
-          font-weight: 700;
-          text-transform: uppercase;
-          color: var(--color-text-primary);
-          line-height: 1;
-        }
-
-        .badge-schedule-hours {
-          font-size: clamp(9px, 2.4vw, 11px);
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          color: var(--color-text-primary);
-          line-height: 1.1;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: clip;
-        }
-
-        .prof-card-actions {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          border-top: 1px solid var(--color-border);
-          padding-top: 0.75rem;
-          flex-wrap: wrap;
-          gap: 0.65rem;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 4px 8px;
-          border-radius: var(--radius-full);
-        }
-
-        .status-badge--linked {
-          background: var(--color-success-bg);
-          color: var(--color-success);
-          border: 1px solid rgba(14, 159, 110, 0.25);
-        }
-
-        .status-badge--unlinked {
-          background: var(--color-warning-bg);
-          color: var(--color-text-primary);
-          border: 0;
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-        }
-
-        .action-buttons {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-        }
-
-        .btn-action {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          font-size: 12px;
-          font-weight: 700;
-          min-height: 40px;
-          padding: 0.45rem 0.85rem;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          border: 1px solid transparent;
-          transition: all 0.2s ease;
-          outline: none;
-        }
-
-        .btn-action:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        .btn-action--services {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          border-color: var(--color-border);
-        }
-
-        .btn-action--services:hover {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
-        }
-
-        .btn-action--edit {
-          background: var(--color-brand-lightest);
-          color: var(--color-brand-deep);
-          border-color: var(--color-brand-soft);
-        }
-
-        .btn-action--edit:hover {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
-        }
-
-        .btn-action--delete {
-          background: rgba(239, 68, 68, 0.08);
-          color: #ef4444;
-          border-color: rgba(239, 68, 68, 0.2);
-        }
-
-        .btn-action--delete:hover {
-          background: #ef4444;
-          color: #ffffff;
-          border-color: #ef4444;
-          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
-        }
-
-        .action-buttons .btn-prof-delete:hover:not(:disabled),
-        .action-buttons button[aria-label^="Excluir profissional"]:hover:not(:disabled) {
-          background-color: #F05252 !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 0 1px #F05252 !important;
-        }
-
-        .action-buttons .btn-prof-delete:hover:not(:disabled) svg,
-        .action-buttons button[aria-label^="Excluir profissional"]:hover:not(:disabled) svg {
-          stroke: #ffffff !important;
-          color: #ffffff !important;
-        }
-
-        @media (max-width: 640px) {
-          .card {
-            padding: 1rem;
-            border-radius: var(--radius-md);
-          }
-
-          .prof-card {
-            padding: 1rem;
-            gap: 0.75rem;
-          }
-
-          .list-header {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.75rem;
-          }
-
-          .list-header .btn {
-            width: 100%;
-            justify-content: center;
-            min-height: 44px;
-          }
-
-          .schedule-badges {
-            gap: 0.25rem;
-          }
-
-          .badge-schedule-active,
-          .badge-schedule-inactive {
-            padding: 0.35rem 0.1rem;
-          }
-
-          .prof-card-actions {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.65rem;
-          }
-
-          .login-status {
-            display: flex;
-            width: 100%;
-          }
-
-          .status-badge {
-            width: 100%;
-            justify-content: center;
-            min-height: 28px;
-          }
-
-          .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            width: 100%;
-          }
-
-          .action-buttons .ui-btn {
-            min-height: 44px;
-            font-size: var(--font-size-xs);
-            padding: 0.5rem 0.4rem;
-            width: 100%;
-          }
-        }
-
-        @media (max-width: 380px) {
-          .action-buttons {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        /* MODAL STYLES */
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(20, 17, 15, 0.5);
-          backdrop-filter: blur(8px);
-          display: grid;
-          place-items: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .modal-content {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          width: 100%;
-          overflow: hidden;
-          box-shadow: var(--shadow-xl);
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-        }
-
-        .modal-eyebrow {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          display: block;
-          margin-bottom: 0.2rem;
-        }
-
-        .modal-title {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .modal-body {
-          padding: 1.25rem 1.5rem;
-        }
-
-        .modal-desc {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          margin-bottom: 1rem;
-          line-height: 1.5;
-        }
-
-        .modal-services-toolbar {
-          display: flex;
-          gap: 0.5rem;
-          margin-bottom: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .modal-services-toolbar .ui-btn {
-          color: var(--color-text-primary);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-        }
-
-        .modal-services-toolbar .ui-btn:hover:not(:disabled) {
-          background-color: var(--color-brand-soft);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-        }
-
-        .services-association-table-wrap {
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          overflow: hidden;
-          max-height: 380px;
-          overflow-y: auto;
-          overflow-x: auto;
-          background: var(--color-bg-secondary);
-        }
-
-        .services-association-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: var(--font-size-sm);
-        }
-
-        .services-association-table th {
-          background: #FDF3EA;
-          padding: 0.75rem 1rem;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          border-bottom: 1px solid var(--color-border);
-          text-align: left;
-          position: sticky;
-          top: 0;
-          z-index: 1;
-        }
-
-        .services-association-table td {
-          padding: 0.75rem 1rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .services-association-table input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-        }
-
-        .row-service-disabled {
-          opacity: 0.5;
-          background: var(--color-bg-primary);
-        }
-
-        .service-info-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .text-muted {
-          color: var(--color-text-secondary);
-        }
-
-        .text-xs {
-          font-size: var(--font-size-xs);
-        }
-
-        .input-suffix-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .input-suffix-wrapper input {
-          padding-right: 2rem !important;
-          min-height: 36px;
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-sm);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          font-variant-numeric: tabular-nums;
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          width: 100%;
-          text-align: center;
-          transition: box-shadow 0.2s ease;
-        }
-
-        .input-suffix-wrapper input:focus {
-          border-color: transparent;
-          outline: none;
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
-        }
-
-        .input-suffix-wrapper input:disabled {
-          opacity: 0.6;
-          box-shadow: 0 0 0 0.4px var(--color-border);
-          cursor: not-allowed;
-        }
-
-        .input-suffix {
-          position: absolute;
-          right: 0.6rem;
-          font-size: 11px;
-          color: var(--color-text-primary);
-          pointer-events: none;
-          font-weight: 700;
-        }
-
-        .modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          padding-top: 1.25rem;
-          margin-top: 1rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .modal-footer .ui-btn--outline,
-        .modal-footer .ui-btn--secondary {
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          border: 0px solid transparent;
-          border-width: 0px;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .modal-footer .ui-btn--outline:hover:not(:disabled),
-        .modal-footer .ui-btn--secondary:hover:not(:disabled) {
-          background-color: rgba(0, 0, 0, 0.04);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 1px var(--color-text-primary);
-        }
-
-        .modal-footer .ui-btn--primary {
-          background-color: var(--color-brand-soft) !important;
-          color: var(--color-text-primary) !important;
-          border: 0px solid transparent !important;
-          border-width: 0px !important;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary) !important;
-        }
-
-        .modal-footer .ui-btn--primary:hover:not(:disabled) {
-          background-color: #f2b277 !important;
-          color: var(--color-text-primary) !important;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-        }
-
-        .modal-footer .ui-btn--primary .ui-btn__text {
-          color: var(--color-text-primary) !important;
-          font-weight: 800;
-        }
-
-        .loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem 1rem;
-          gap: 0.75rem;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-        }
-
-        @keyframes slideInRight {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes slideUpProf {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-
-        @media (max-width: 934px) {
-          .prof-drawer-icon-badge {
-            display: none !important;
-          }
-
-          .prof-drawer-subtitle {
-            display: none !important;
-          }
-
-          .prof-drawer-panel {
-            max-width: min(100%, 520px);
-          }
-
-          .modal-eyebrow {
-            color: var(--color-text-primary) !important;
-          }
-
-          .modal-services-toolbar .ui-btn {
-            color: var(--color-text-primary) !important;
-            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-          }
-
-          .services-association-table th {
-            color: var(--color-text-primary) !important;
-          }
-
-          .input-suffix-wrapper input {
-            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-          }
-
-          .modal-footer .ui-btn--outline,
-          .modal-footer .ui-btn--secondary {
-            color: var(--color-text-primary) !important;
-            box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-          }
-
-          .modal-footer .ui-btn--primary {
-            background-color: var(--color-brand-soft) !important;
-            color: var(--color-text-primary) !important;
-            box-shadow: 0 0 0 0.3px var(--color-text-primary) !important;
-            border-width: 0px !important;
-            border: 0 !important;
-          }
-
-          .modal-footer .ui-btn--primary .ui-btn__text {
-            color: var(--color-text-primary) !important;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .prof-header-content {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-          }
-
-          .prof-header-actions {
-            width: 100%;
-          }
-
-          .prof-header-actions button {
-            flex: 1;
-          }
-
-          .prof-drawer-overlay {
-            align-items: flex-end;
-          }
-
-          .prof-drawer-panel {
-            max-width: 100%;
-            height: 90dvh;
-            max-height: 90dvh;
-            border-radius: 20px 20px 0 0;
-            border-left: none;
-            border-top: 1px solid var(--color-border);
-            animation: slideUpProf 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -150,12 +150,12 @@ export const Comandas: React.FC = () => {
   };
 
   return (
-    <div className="comandas-page">
+    <div className="flex flex-col gap-5 w-full">
       {/* ─── CABEÇALHO DA PÁGINA ─── */}
-      <div className="comandas-header">
-        <div className="comandas-header__titles">
-          <h1 className="comandas-header__title">Comandas e atendimentos</h1>
-          <p className="comandas-header__subtitle">
+      <div className="flex items-center justify-between gap-4 max-[768px]:flex-col max-[768px]:items-stretch">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary m-0">Comandas e atendimentos</h1>
+          <p className="text-sm text-text-secondary mt-1 mb-0">
             Gerencie o consumo de produtos, serviços e checkout rápido de balcão
           </p>
         </div>
@@ -170,7 +170,7 @@ export const Comandas: React.FC = () => {
       </div>
 
       {/* ─── FILTROS E BUSCA ─── */}
-      <div className="comandas-toolbar">
+      <div className="flex gap-4 items-center flex-wrap max-[768px]:flex-col max-[768px]:items-stretch">
         <div style={{ flex: 1, minWidth: '260px' }}>
           <SearchInput
             placeholder="Buscar por cliente, código ou profissional..."
@@ -198,7 +198,7 @@ export const Comandas: React.FC = () => {
 
       {/* ─── LISTAGEM DE COMANDAS ─── */}
       {loading ? (
-        <div className="comandas-loading">
+        <div className="flex flex-col items-center justify-center py-16 px-6 text-center bg-bg-secondary border border-border rounded-lg">
           <div className="spinner" />
           <span>Carregando comandas...</span>
         </div>
@@ -224,7 +224,7 @@ export const Comandas: React.FC = () => {
           }
         />
       ) : (
-        <div className="comandas-grid">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))] max-[768px]:grid-cols-1">
           {filteredComandas.map((cmd) => {
             const isOpen = cmd.status === 'aberta';
             const total = Number(cmd.total_amount || 0);
@@ -233,11 +233,11 @@ export const Comandas: React.FC = () => {
             return (
               <div
                 key={cmd.id}
-                className={`comanda-card ${isOpen ? 'comanda-card--open' : 'comanda-card--paid'}`}
+                className="bg-bg-secondary border border-border rounded-lg p-[1.15rem] flex flex-col gap-3.5 cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-sm hover:border-brand-primary hover:-translate-y-0.5"
                 onClick={() => handleOpenCheckoutModal(cmd)}
               >
-                <div className="comanda-card__header">
-                  <div className="comanda-card__code">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[0.8125rem] font-bold text-text-secondary">
                     <HugeiconsIcon icon={Invoice01Icon} size={16} />
                     <span>{cmd.comanda_number ? `#${cmd.comanda_number}` : `CMD-${cmd.id.slice(0, 5).toUpperCase()}`}</span>
                   </div>
@@ -246,15 +246,15 @@ export const Comandas: React.FC = () => {
                   </Badge>
                 </div>
 
-                <div className="comanda-card__body">
-                  <div className="comanda-card__client">
-                    <HugeiconsIcon icon={UserIcon} size={16} className="comanda-card__client-icon" />
-                    <span className="comanda-card__client-name">{cmd.customer_name}</span>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <HugeiconsIcon icon={UserIcon} size={16} className="text-text-secondary" />
+                    <span className="text-[1.0625rem] font-bold text-text-primary">{cmd.customer_name}</span>
                   </div>
 
                   {cmd.appointment_id ? (
                     <div
-                      className={`comanda-card__origin-badge ${cmd.appointment_is_fitting === true ? 'comanda-card__origin-badge--fitting' : 'comanda-card__origin-badge--appointment'}`}
+                      className={`inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit ${cmd.appointment_is_fitting === true ? 'bg-[rgba(217,108,0,0.12)] text-brand-primary' : 'bg-[rgba(45,35,30,0.06)] text-text-primary'}`}
                       data-testid={`comanda-origin-${cmd.id}`}
                     >
                       <HugeiconsIcon icon={Calendar02Icon} size={13} />
@@ -267,34 +267,37 @@ export const Comandas: React.FC = () => {
                       </span>
                     </div>
                   ) : (
-                    <div className="comanda-card__origin-badge comanda-card__origin-badge--counter">
+                    <div className="inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit bg-[rgba(45,35,30,0.04)] text-text-secondary">
                       <HugeiconsIcon icon={Store01Icon} size={13} />
                       <span>Atendimento Balcão / Avulsa</span>
                     </div>
                   )}
 
-                  <div className="comanda-card__meta">
-                    <span className="comanda-card__prof">{cmd.professional_name}</span>
-                    <span className="comanda-card__itens-count">
+                  <div className="flex items-center gap-3 text-[0.8125rem] text-text-secondary">
+                    <span>{cmd.professional_name}</span>
+                    <span>
                       {itensCount} {itensCount === 1 ? 'item' : 'itens'}
                     </span>
                   </div>
                 </div>
 
-                <div className="comanda-card__footer">
-                  <div className="comanda-card__total">
-                    <span className="comanda-card__total-label">Total</span>
-                    <span className="comanda-card__total-value">R$ {total.toFixed(2)}</span>
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <div>
+                    <span className="text-[0.6875rem] text-text-secondary uppercase block">Total</span>
+                    <span className="text-lg font-extrabold text-brand-primary">R$ {total.toFixed(2)}</span>
                   </div>
 
-                  <div className="comanda-card__actions" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {cmd.customer_phone && (
                       <IconButton
                         aria-label="WhatsApp"
                         title="WhatsApp"
                         variant="ghost"
                         size="sm"
-                        className="comanda-card__action-btn--whatsapp"
+                        // !important needed: IconButton (src/components/ui, not editable here) appends its
+                        // own variant classes after this className, so plain utilities of equal specificity
+                        // would lose to the "ghost" variant's bg/text classes.
+                        className="text-success! bg-[rgba(14,159,110,0.12)]! border! border-[rgba(14,159,110,0.25)]!"
                         onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
                         icon={<HugeiconsIcon icon={WhatsappIcon} size={16} />}
                       />
@@ -346,198 +349,6 @@ export const Comandas: React.FC = () => {
           onFinalizado={handleFinalizado}
         />
       )}
-
-      <style>{`
-        .comandas-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          width: 100%;
-        }
-
-        .comandas-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-        }
-
-        .comandas-header__title {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .comandas-header__subtitle {
-          font-size: 0.875rem;
-          color: var(--color-text-secondary);
-          margin: 0.25rem 0 0;
-        }
-
-        .comandas-toolbar {
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-
-        .comandas-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1rem;
-        }
-
-        .comanda-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 14px);
-          padding: 1.15rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.875rem;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.05));
-        }
-
-        .comanda-card:hover {
-          border-color: var(--color-brand-primary);
-          transform: translateY(-2px);
-        }
-
-        .comanda-card__header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .comanda-card__code {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          font-size: 0.8125rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-        }
-
-        .comanda-card__body {
-          display: flex;
-          flex-direction: column;
-          gap: 0.375rem;
-        }
-
-        .comanda-card__client {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .comanda-card__client-icon {
-          color: var(--color-text-secondary);
-        }
-
-        .comanda-card__client-name {
-          font-size: 1.0625rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .comanda-card__origin-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 3px 8px;
-          border-radius: var(--radius-sm, 6px);
-          font-size: 0.6875rem;
-          font-weight: 600;
-          margin-top: 2px;
-          margin-bottom: 2px;
-          width: fit-content;
-        }
-
-        .comanda-card__origin-badge--fitting {
-          background-color: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary);
-        }
-
-        .comanda-card__origin-badge--appointment {
-          background-color: rgba(45, 35, 30, 0.06);
-          color: var(--color-text-primary);
-        }
-
-        .comanda-card__origin-badge--counter {
-          background-color: rgba(45, 35, 30, 0.04);
-          color: var(--color-text-secondary);
-        }
-
-        .comanda-card__meta {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          font-size: 0.8125rem;
-          color: var(--color-text-secondary);
-        }
-
-        .comanda-card__footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 0.75rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .comanda-card__total-label {
-          font-size: 0.6875rem;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          display: block;
-        }
-
-        .comanda-card__total-value {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-brand-primary);
-        }
-
-        .comanda-card__actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .comanda-card__action-btn--whatsapp {
-          color: var(--color-success) !important;
-          background: rgba(14, 159, 110, 0.12) !important;
-          border: 1px solid rgba(14, 159, 110, 0.25) !important;
-        }
-
-        .comandas-loading {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 4rem 1.5rem;
-          text-align: center;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 16px);
-        }
-
-        @media (max-width: 768px) {
-          .comandas-header {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .comandas-toolbar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .comandas-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </div>
   );
 };
