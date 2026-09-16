@@ -71,7 +71,10 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
   const [openPicker, setOpenPicker] = useState<'start' | 'end' | null>(null);
 
   return (
-    <section className="fluxo-caixa-filtros" aria-label="Filtros do fluxo de caixa projetado">
+    <section
+      className="flex flex-wrap items-center gap-4 bg-bg-secondary border border-border rounded-lg p-4 shadow-sm"
+      aria-label="Filtros do fluxo de caixa projetado"
+    >
       <SegmentedControl<ShortcutOrCustom>
         aria-label="Atalho de período"
         value={shortcut}
@@ -81,12 +84,12 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
         fullWidth={false}
       />
 
-      <div className="fluxo-caixa-datas">
-        <div className="fluxo-caixa-data-campo">
+      <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-[0.4rem] text-xs font-bold text-text-primary">
           <span>De</span>
           <button
             type="button"
-            className="fluxo-caixa-data-btn"
+            className="py-[0.4rem] px-[0.7rem] rounded-sm border border-border bg-bg-primary text-text-primary font-bold text-xs cursor-pointer"
             aria-label="Data inicial do fluxo de caixa"
             onClick={() => setOpenPicker(openPicker === 'start' ? null : 'start')}
           >
@@ -105,11 +108,11 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
           )}
         </div>
 
-        <div className="fluxo-caixa-data-campo">
+        <div className="relative flex items-center gap-[0.4rem] text-xs font-bold text-text-primary">
           <span>Até</span>
           <button
             type="button"
-            className="fluxo-caixa-data-btn"
+            className="py-[0.4rem] px-[0.7rem] rounded-sm border border-border bg-bg-primary text-text-primary font-bold text-xs cursor-pointer"
             aria-label="Data final do fluxo de caixa"
             onClick={() => setOpenPicker(openPicker === 'end' ? null : 'end')}
           >
@@ -130,13 +133,14 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
         </div>
       </div>
 
-      <label className="fluxo-caixa-granularidade">
+      <label className="flex items-center gap-2 text-xs font-bold text-text-primary">
         <span>Granularidade</span>
         <select
           aria-label="Granularidade do agrupamento"
           value={granularity}
           disabled={!isCustom}
           onChange={(event) => onGranularityChange(event.target.value as FluxoCaixaGranularity)}
+          className="py-[0.4rem] px-[0.6rem] rounded-sm border border-border bg-bg-primary text-text-primary font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {GRANULARITY_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -147,7 +151,7 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
       </label>
 
       {mostrarCampoSaldo && (
-        <label className="fluxo-caixa-saldo-campo">
+        <label className="flex items-center gap-2 text-xs font-bold text-text-primary">
           <span>Saldo disponível hoje (opcional)</span>
           <input
             type="text"
@@ -156,6 +160,7 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
             placeholder="R$ 0,00"
             value={saldoInformadoInput}
             onChange={(event) => onSaldoInformadoInputChange(formatCurrencyInput(event.target.value))}
+            className="w-[8.5rem] py-[0.4rem] px-[0.6rem] rounded-sm border border-border bg-bg-primary text-text-primary font-semibold"
           />
         </label>
       )}
