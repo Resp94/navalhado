@@ -26,6 +26,7 @@ describe('SupabaseRelatoriosAdapter', () => {
           products_net: '80.00',
           tips: '30.00',
           closed_comandas: 3,
+          received_total: '450.00',
         },
         previous_totals: {
           gross: '300.00',
@@ -35,7 +36,15 @@ describe('SupabaseRelatoriosAdapter', () => {
           products_net: '40.00',
           tips: '15.00',
           closed_comandas: 2,
+          received_total: '280.00',
         },
+        received_by_method: [
+          { method: 'pix', label: 'PIX', amount: '250.00', payments_count: 3, share: 0.5556 },
+          { method: 'credit_card', label: 'Crédito', amount: '150.00', payments_count: 2, share: 0.3333 },
+          { method: 'debit_card', label: 'Débito', amount: '0.00', payments_count: 0, share: 0 },
+          { method: 'cash', label: 'Dinheiro', amount: '50.00', payments_count: 1, share: 0.1111 },
+          { method: 'other', label: 'Outros', amount: '0.00', payments_count: 0, share: 0 },
+        ],
         buckets: [
           {
             start_date: '2026-06-01',
@@ -47,6 +56,14 @@ describe('SupabaseRelatoriosAdapter', () => {
             products_net: '20.00',
             tips: '10.00',
             closed_comandas: 1,
+            received: '190.00',
+            received_by_method: [
+              { method: 'pix', label: 'PIX', amount: '190.00', payments_count: 2 },
+              { method: 'credit_card', label: 'Crédito', amount: '0.00', payments_count: 0 },
+              { method: 'debit_card', label: 'Débito', amount: '0.00', payments_count: 0 },
+              { method: 'cash', label: 'Dinheiro', amount: '0.00', payments_count: 0 },
+              { method: 'other', label: 'Outros', amount: '0.00', payments_count: 0 },
+            ],
           },
         ],
       },
@@ -77,7 +94,15 @@ describe('SupabaseRelatoriosAdapter', () => {
       products_net: 80,
       tips: 30,
       closed_comandas: 3,
+      received_total: 450,
     });
+    expect(result.received_by_method).toEqual([
+      { method: 'pix', label: 'PIX', amount: 250, payments_count: 3, share: 0.5556 },
+      { method: 'credit_card', label: 'Crédito', amount: 150, payments_count: 2, share: 0.3333 },
+      { method: 'debit_card', label: 'Débito', amount: 0, payments_count: 0, share: 0 },
+      { method: 'cash', label: 'Dinheiro', amount: 50, payments_count: 1, share: 0.1111 },
+      { method: 'other', label: 'Outros', amount: 0, payments_count: 0, share: 0 },
+    ]);
     expect(result.buckets).toHaveLength(1);
     expect(result.buckets[0]).toEqual({
       start_date: '2026-06-01',
@@ -89,7 +114,35 @@ describe('SupabaseRelatoriosAdapter', () => {
       products_net: 20,
       tips: 10,
       closed_comandas: 1,
+      received: 190,
+      received_by_method: [
+        { method: 'pix', label: 'PIX', amount: 190, payments_count: 2 },
+        { method: 'credit_card', label: 'Crédito', amount: 0, payments_count: 0 },
+        { method: 'debit_card', label: 'Débito', amount: 0, payments_count: 0 },
+        { method: 'cash', label: 'Dinheiro', amount: 0, payments_count: 0 },
+        { method: 'other', label: 'Outros', amount: 0, payments_count: 0 },
+      ],
     });
+  });
+
+  it('preserva share nulo (período sem recebimento) sem coagir para zero', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        received_by_method: [
+          { method: 'pix', label: 'PIX', amount: 0, payments_count: 0, share: null },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterFaturamentoPorPeriodo({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      granularity: 'day',
+    });
+
+    expect(result.received_by_method).toEqual([{ method: 'pix', label: 'PIX', amount: 0, payments_count: 0, share: null }]);
   });
 
   it('preenche campos ausentes com zero, string vazia ou lista vazia', async () => {
@@ -119,7 +172,9 @@ describe('SupabaseRelatoriosAdapter', () => {
       products_net: 0,
       tips: 0,
       closed_comandas: 0,
+      received_total: 0,
     });
+    expect(result.received_by_method).toEqual([]);
     expect(result.buckets).toEqual([]);
   });
 

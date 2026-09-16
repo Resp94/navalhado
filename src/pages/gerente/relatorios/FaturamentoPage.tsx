@@ -12,6 +12,7 @@ import { EmptyState } from '../../../components/ui/data-display/EmptyState';
 import { Skeleton } from '../../../components/ui/data-display/Skeleton';
 import { FaturamentoResumo } from './faturamento/FaturamentoResumo';
 import { FaturamentoTabela } from './faturamento/FaturamentoTabela';
+import { FaturamentoRecebidoPorForma } from './faturamento/FaturamentoRecebidoPorForma';
 import './Relatorios.css';
 
 const DATA_QUALITY_LABEL: Record<string, string> = {
@@ -53,6 +54,7 @@ export const FaturamentoPage: React.FC<FaturamentoPageProps> = ({ repository: in
   const previousTotals = data?.previous_totals ?? null;
   const previousPeriod = data?.previous_period ?? null;
   const buckets = data?.buckets ?? [];
+  const receivedByMethod = data?.received_by_method ?? [];
   const dataQualityWarning =
     data && data.data_quality.status !== 'confirmed' ? DATA_QUALITY_LABEL[data.data_quality.status] : null;
   const isEmpty = !loading && !error && data !== null && totals?.closed_comandas === 0;
@@ -116,6 +118,7 @@ export const FaturamentoPage: React.FC<FaturamentoPageProps> = ({ repository: in
             loading={loading}
           />
           <FaturamentoTabela buckets={buckets} />
+          <FaturamentoRecebidoPorForma receivedByMethod={receivedByMethod} />
         </>
       )}
     </div>

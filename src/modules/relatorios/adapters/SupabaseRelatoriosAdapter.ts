@@ -4,6 +4,8 @@ import type {
   RelatorioFaturamento,
   RelatorioFaturamentoBucket,
   RelatorioFaturamentoTotais,
+  RelatorioRecebidoPorForma,
+  RelatorioRecebidoPorFormaBucket,
   RelatoriosAdapter,
   RelatoriosDataQualityStatus,
 } from '../types';
@@ -21,7 +23,9 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function toTotais(value: unknown): RelatorioFaturamentoTotais {
+type BucketTotais = Omit<RelatorioFaturamentoTotais, 'received_total'>;
+
+function toBucketTotais(value: unknown): BucketTotais {
   const raw = (value || {}) as Record<string, unknown>;
   return {
     gross: toNumber(raw.gross),
@@ -32,6 +36,41 @@ function toTotais(value: unknown): RelatorioFaturamentoTotais {
     tips: toNumber(raw.tips),
     closed_comandas: toNumber(raw.closed_comandas),
   };
+}
+
+function toTotais(value: unknown): RelatorioFaturamentoTotais {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    ...toBucketTotais(raw),
+    received_total: toNumber(raw.received_total),
+  };
+}
+
+function toReceivedByMethodBucket(value: unknown): RelatorioRecebidoPorFormaBucket[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      method: raw.method ? String(raw.method) : '',
+      label: raw.label ? String(raw.label) : '',
+      amount: toNumber(raw.amount),
+      payments_count: toNumber(raw.payments_count),
+    };
+  });
+}
+
+/**
+ * `share` é `null` quando o período não teve recebimento (o núcleo do
+ * banco devolve `null` em vez de dividir por zero) -- preservado como
+ * `null`, nunca coagido para `0`, para a tela mostrar "--" e não "0%".
+ */
+function toReceivedByMethod(value: unknown): RelatorioRecebidoPorForma[] {
+  if (!Array.isArray(value)) return [];
+  return toReceivedByMethodBucket(value).map((item, index) => {
+    const raw = ((value as unknown[])[index] || {}) as Record<string, unknown>;
+    const share = raw.share === null || raw.share === undefined ? null : toNumber(raw.share);
+    return { ...item, share };
+  });
 }
 
 /**
@@ -66,6 +105,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       };
       totals?: unknown;
       previous_totals?: unknown;
+      received_by_method?: unknown;
       buckets?: Array<Record<string, unknown>>;
     };
 
@@ -77,7 +117,9 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
     const buckets: RelatorioFaturamentoBucket[] = (Array.isArray(raw.buckets) ? raw.buckets : []).map((bucket) => ({
       start_date: bucket?.start_date ? String(bucket.start_date) : '',
       end_date: bucket?.end_date ? String(bucket.end_date) : '',
-      ...toTotais(bucket),
+      ...toBucketTotais(bucket),
+      received: toNumber(bucket?.received),
+      received_by_method: toReceivedByMethodBucket(bucket?.received_by_method),
     }));
 
     return {
@@ -99,6 +141,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       },
       totals: toTotais(raw.totals),
       previous_totals: toTotais(raw.previous_totals),
+      received_by_method: toReceivedByMethod(raw.received_by_method),
       buckets,
     };
   }

@@ -8,6 +8,7 @@ import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaA
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
 import { ExtratoSessaoCaixaModal } from '../../../components/caixa/ExtratoSessaoCaixaModal';
 import { ReabrirCaixaDialog } from '../../../components/caixa/ReabrirCaixaDialog';
+import { PercentageBar } from '../../../components/ui/data-display/PercentageBar';
 import { formatCurrency } from '../../../lib/currency';
 import { dateInZone } from '../../../lib/timezone';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
@@ -496,20 +497,12 @@ export const CaixaTab: React.FC = () => {
                   {methodsList.map((m) => {
                     const pct = totalRevenueByMethods > 0 ? (m.val / totalRevenueByMethods) * 100 : 0;
                     return (
-                      <div key={m.key} className="payment-method-item">
-                        <div className="payment-method-header">
-                          <span className="payment-method-name">{m.name}</span>
-                          <span className="payment-method-amount">
-                            {formatCurrency(m.val)} ({pct.toFixed(0)}%)
-                          </span>
-                        </div>
-                        <div className="payment-progress-track">
-                          <div
-                            className="payment-progress-bar"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
+                      <PercentageBar
+                        key={m.key}
+                        label={m.name}
+                        value={`${formatCurrency(m.val)} (${pct.toFixed(0)}%)`}
+                        share={pct / 100}
+                      />
                     );
                   })}
                 </div>

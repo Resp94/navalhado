@@ -43,11 +43,37 @@ export interface RelatorioFaturamentoTotais {
   products_net: number;
   tips: number;
   closed_comandas: number;
+  received_total: number;
 }
 
-export interface RelatorioFaturamentoBucket extends RelatorioFaturamentoTotais {
+/**
+ * Recebido por forma de pagamento (spec 038, ticket 02). No nível do
+ * período (`received_by_method`, topo do contrato) `share` é a
+ * participação da forma no recebido total do período -- `null` quando o
+ * período não teve recebimento (nunca divisão por zero). No nível do
+ * agrupamento (`RelatorioFaturamentoBucket.received_by_method`) não há
+ * `share`: a spec só pede participação para o período inteiro.
+ */
+export interface RelatorioRecebidoPorForma {
+  method: string;
+  label: string;
+  amount: number;
+  payments_count: number;
+  share: number | null;
+}
+
+export type RelatorioRecebidoPorFormaBucket = Omit<RelatorioRecebidoPorForma, 'share'>;
+
+/**
+ * Um agrupamento (dia/semana/mês) não tem `received_total`: o campo do
+ * período inteiro é `totals.received_total` (topo do contrato); o
+ * agrupamento tem `received`, o recebido daquele agrupamento específico.
+ */
+export interface RelatorioFaturamentoBucket extends Omit<RelatorioFaturamentoTotais, 'received_total'> {
   start_date: string;
   end_date: string;
+  received: number;
+  received_by_method: RelatorioRecebidoPorFormaBucket[];
 }
 
 /**
@@ -64,6 +90,7 @@ export interface RelatorioFaturamento {
   data_quality: RelatoriosDataQuality;
   totals: RelatorioFaturamentoTotais;
   previous_totals: RelatorioFaturamentoTotais;
+  received_by_method: RelatorioRecebidoPorForma[];
   buckets: RelatorioFaturamentoBucket[];
 }
 

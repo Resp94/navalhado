@@ -235,3 +235,14 @@ a.relatorios-catalogo-item:hover {
 .relatorios-faturamento-tabela-wrap {
   overflow-x: auto;
 }
+
+.relatorios-recebido-card {
+  margin-top: 0;
+}
+
+.relatorios-recebido-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}

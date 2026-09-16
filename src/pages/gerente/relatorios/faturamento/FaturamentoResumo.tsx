@@ -66,6 +66,16 @@ export const FaturamentoResumo: React.FC<FaturamentoResumoProps> = ({
       />
       <StatCard title="Gorjetas" value={formatCurrency(totals?.tips ?? 0)} loading={loading} />
       <StatCard
+        title="Recebido"
+        value={formatCurrency(totals?.received_total ?? 0)}
+        loading={loading}
+        trend={
+          totals && previousTotals
+            ? formatVariacao(totals.received_total, previousTotals.received_total)
+            : undefined
+        }
+      />
+      <StatCard
         title="Comandas fechadas"
         value={totals?.closed_comandas ?? 0}
         loading={loading}

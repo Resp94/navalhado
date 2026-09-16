@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(45);
 
 -- Spec 038 (Modulo de Relatorios), ticket 01: esqueleto do modulo e
 -- Faturamento por periodo, ponta a ponta. Cobre o contrato de leitura
@@ -460,6 +460,288 @@ select throws_ok(
 select throws_ok(
   $$select private.get_revenue_report_core('00000000-0000-0000-0000-000000000001'::uuid, '2026-01-01'::date, '2026-06-15'::date, 'day', '2026-06-15'::date, 'America/Sao_Paulo')$$,
   '22023', 'A granularidade diária só é permitida em períodos de até 92 dias.', 'granularidade diaria acima de 92 dias e recusada'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ticket 02: Recebido por forma de pagamento. Recebido conta pela data do
+-- PAGAMENTO (paid_at), nao pelo fechamento; mesmo predicado de
+-- get_daily_financial_summary (Comanda fechada, sem subtrair
+-- comanda_payment_reversals). Via nucleo (hoje fixo), tenant_a.
+-- ---------------------------------------------------------------------------
+
+-- (a)+(g): total do periodo, por forma, com as 5 formas sempre presentes
+-- (inclusive as sem pagamento, com zero) e participacao correta.
+create temporary table ticket02_metodos_context (
+  comanda_id uuid not null
+) on commit drop;
+insert into ticket02_metodos_context (comanda_id) values (gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 100, 0, 0, '2026-07-01 10:00:00-03'::timestamptz
+from ticket02_metodos_context;
+
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_id, (select tenant_a_id from ticket01_context), 'pix', 50.00, '2026-07-01 10:05:00-03'::timestamptz
+from ticket02_metodos_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_id, (select tenant_a_id from ticket01_context), 'cash', 30.00, '2026-07-01 10:06:00-03'::timestamptz
+from ticket02_metodos_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_id, (select tenant_a_id from ticket01_context), 'credit_card', 20.00, '2026-07-01 10:07:00-03'::timestamptz
+from ticket02_metodos_context;
+
+select is(
+  (
+    select private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-01'::date, '2026-07-01'::date, 'day', '2026-07-01'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total'
+  ),
+  '100.00',
+  'recebido total do periodo soma os pagamentos das 3 formas usadas'
+);
+
+select is(
+  (
+    select private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-01'::date, '2026-07-01'::date, 'day', '2026-07-01'::date, 'America/Sao_Paulo'
+    ) -> 'received_by_method'
+  ),
+  jsonb_build_array(
+    jsonb_build_object('method', 'pix', 'label', 'PIX', 'amount', 50.00, 'payments_count', 1, 'share', 0.5000),
+    jsonb_build_object('method', 'credit_card', 'label', 'Crédito', 'amount', 20.00, 'payments_count', 1, 'share', 0.2000),
+    jsonb_build_object('method', 'debit_card', 'label', 'Débito', 'amount', 0.00, 'payments_count', 0, 'share', 0.0000),
+    jsonb_build_object('method', 'cash', 'label', 'Dinheiro', 'amount', 30.00, 'payments_count', 1, 'share', 0.3000),
+    jsonb_build_object('method', 'other', 'label', 'Outros', 'amount', 0.00, 'payments_count', 0, 'share', 0.0000)
+  ),
+  'recebido_by_method traz as 5 formas sempre, com valor/quantidade/participacao corretos e forma sem pagamento com zero'
+);
+
+-- (b): pagamento as 23h30 locais cai no dia local, nao no dia UTC seguinte.
+create temporary table ticket02_tz_context (
+  comanda_id uuid not null,
+  local_day date not null
+) on commit drop;
+insert into ticket02_tz_context (comanda_id, local_day) values (gen_random_uuid(), '2026-07-05'::date);
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 40, 0, 0, ((local_day + time '20:00:00') at time zone 'America/Sao_Paulo')
+from ticket02_tz_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_id, (select tenant_a_id from ticket01_context), 'pix', 40.00, ((local_day + time '23:30:00') at time zone 'America/Sao_Paulo')
+from ticket02_tz_context;
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context),
+      (select local_day from ticket02_tz_context), (select local_day from ticket02_tz_context),
+      'day', (select local_day from ticket02_tz_context), 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total')::numeric
+  ),
+  40.00,
+  'pagamento as 23h30 locais conta no dia de negocio local, nao no dia UTC seguinte'
+);
+
+-- (c): comanda reaberta (pagamento estornado, linha viva apagada e copiada
+-- para o arquivo de estornos) some do recebido, sem subtrair o arquivo.
+create temporary table ticket02_reabertura_context (
+  comanda_id uuid not null,
+  pagamento_id uuid not null
+) on commit drop;
+insert into ticket02_reabertura_context (comanda_id, pagamento_id) values (gen_random_uuid(), gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 60, 0, 0, '2026-07-06 11:00:00-03'::timestamptz
+from ticket02_reabertura_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select pagamento_id, comanda_id, (select tenant_a_id from ticket01_context), 'cash', 60.00, '2026-07-06 11:05:00-03'::timestamptz
+from ticket02_reabertura_context;
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-06'::date, '2026-07-06'::date, 'day', '2026-07-06'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total')::numeric
+  ),
+  60.00,
+  'antes da reabertura, o pagamento conta no recebido'
+);
+
+-- Simula a reabertura: apaga a linha viva de comanda_pagamentos e copia para
+-- comanda_payment_reversals (o mesmo rastro que reopen_comanda deixa).
+with moved as (
+  delete from public.comanda_pagamentos cp
+  using ticket02_reabertura_context rc
+  where cp.id = rc.pagamento_id
+  returning cp.*
+)
+insert into public.comanda_payment_reversals (
+  id, tenant_id, comanda_id, original_payment_id, cash_session_id, payment_method, amount, paid_at, reversed_by, reason, reversed_at
+)
+select gen_random_uuid(), moved.tenant_id, moved.comanda_id, moved.id, moved.cash_session_id, moved.payment_method, moved.amount, moved.paid_at,
+  (select gerente_a_id from ticket01_context), 'teste ticket02: comanda reaberta', now()
+from moved;
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-06'::date, '2026-07-06'::date, 'day', '2026-07-06'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total')::numeric
+  ),
+  0.00,
+  'depois da reabertura (linha viva apagada e copiada para o arquivo de estornos), o pagamento some do recebido, sem subtrair o arquivo'
+);
+
+-- (d): teste cruzado, o recebido de um dia e igual ao received_total de
+-- get_daily_financial_summary no mesmo dia.
+create temporary table ticket02_cruzado_context (comanda_id uuid not null) on commit drop;
+insert into ticket02_cruzado_context (comanda_id) values (gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_id, (select tenant_a_id from ticket01_context), 'fechada', 80, 0, 0, '2026-07-08 09:00:00-03'::timestamptz
+from ticket02_cruzado_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_id, (select tenant_a_id from ticket01_context), 'cash', 80.00, '2026-07-08 09:05:00-03'::timestamptz
+from ticket02_cruzado_context;
+
+select set_config('request.jwt.claim.sub', (select gerente_a_id::text from ticket01_context), true);
+set local role authenticated;
+select is(
+  (
+    select (elem ->> 'received_total')::numeric
+    from json_array_elements(
+      public.get_daily_financial_summary(
+        '2026-07-08'::date, '2026-07-08'::date, 'America/Sao_Paulo', (select tenant_a_id from ticket01_context)
+      )
+    ) as elem
+    where (elem ->> 'date')::date = '2026-07-08'::date
+  ),
+  80.00,
+  'get_daily_financial_summary confirma o recebido do dia de referencia'
+);
+reset role;
+
+select is(
+  (
+    select (private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-08'::date, '2026-07-08'::date, 'day', '2026-07-08'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total')::numeric
+  ),
+  80.00,
+  'o recebido do relatorio de faturamento e igual ao received_total de get_daily_financial_summary para o mesmo dia'
+);
+
+-- (e): armadilha do produto cartesiano. Duas Comandas fechadas em dois dias
+-- diferentes do MESMO agrupamento (semana), com um pagamento em cada uma
+-- delas nesses mesmos dias: bruto/liquido/Comandas fechadas E recebido nao
+-- podem sair multiplicados (produto cartesiano entre a fonte de
+-- faturamento e a fonte de recebido, ou entre elas e comandas_agg).
+-- item_1/item_2 sao servico (150/250, ja existiam); item_1_produto/
+-- item_2_produto sao produto (20/40, novos) para exercitar services_net e
+-- products_net separados no mesmo cenario, sem dobrar nenhum dos dois.
+-- tip_amount tambem passa a ser diferente de zero nas duas Comandas (15/25)
+-- para exercitar tips sem dobrar. Os pagamentos ja usavam formas diferentes
+-- em cada dia (pix/cash), o que tambem serve para exercitar o
+-- received_by_method por agrupamento (bucket), nao so o total do periodo.
+create temporary table ticket02_cartesiano_context (
+  comanda_1_id uuid not null,
+  comanda_2_id uuid not null,
+  item_1_id uuid not null,
+  item_2_id uuid not null,
+  item_1_produto_id uuid not null,
+  item_2_produto_id uuid not null
+) on commit drop;
+insert into ticket02_cartesiano_context (comanda_1_id, comanda_2_id, item_1_id, item_2_id, item_1_produto_id, item_2_produto_id)
+values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid());
+
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_1_id, (select tenant_a_id from ticket01_context), 'fechada', 185, 0, 15, '2026-07-13 12:00:00-03'::timestamptz
+from ticket02_cartesiano_context;
+insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount, closed_at)
+select comanda_2_id, (select tenant_a_id from ticket01_context), 'fechada', 315, 0, 25, '2026-07-14 12:00:00-03'::timestamptz
+from ticket02_cartesiano_context;
+
+insert into public.comanda_itens (id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price, snapshot_status)
+select item_1_id, comanda_1_id, (select tenant_a_id from ticket01_context), 'servico', 1, 150, 150, 'unavailable'
+from ticket02_cartesiano_context;
+insert into public.comanda_itens (id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price, snapshot_status)
+select item_2_id, comanda_2_id, (select tenant_a_id from ticket01_context), 'servico', 1, 250, 250, 'unavailable'
+from ticket02_cartesiano_context;
+insert into public.comanda_itens (id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price, snapshot_status)
+select item_1_produto_id, comanda_1_id, (select tenant_a_id from ticket01_context), 'produto', 1, 20, 20, 'unavailable'
+from ticket02_cartesiano_context;
+insert into public.comanda_itens (id, comanda_id, tenant_id, item_type, quantity, unit_price, total_price, snapshot_status)
+select item_2_produto_id, comanda_2_id, (select tenant_a_id from ticket01_context), 'produto', 1, 40, 40, 'unavailable'
+from ticket02_cartesiano_context;
+
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_1_id, (select tenant_a_id from ticket01_context), 'pix', 150.00, '2026-07-13 12:05:00-03'::timestamptz
+from ticket02_cartesiano_context;
+insert into public.comanda_pagamentos (id, comanda_id, tenant_id, payment_method, amount, paid_at)
+select gen_random_uuid(), comanda_2_id, (select tenant_a_id from ticket01_context), 'cash', 250.00, '2026-07-14 12:05:00-03'::timestamptz
+from ticket02_cartesiano_context;
+
+select is(
+  (
+    select jsonb_build_object(
+      'gross', tot ->> 'gross', 'net', tot ->> 'net', 'closed_comandas', tot ->> 'closed_comandas',
+      'services_net', tot ->> 'services_net', 'products_net', tot ->> 'products_net', 'tips', tot ->> 'tips'
+    )
+    from (
+      select private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-07-13'::date, '2026-07-19'::date, 'week', '2026-07-19'::date, 'America/Sao_Paulo'
+      ) -> 'totals' as tot
+    ) s
+  ),
+  jsonb_build_object(
+    'gross', '460.00', 'net', '460.00', 'closed_comandas', '2',
+    'services_net', '400.00', 'products_net', '60.00', 'tips', '40.00'
+  ),
+  'duas Comandas fechadas em dois dias do mesmo agrupamento nao multiplicam bruto/liquido/Comandas fechadas/services_net/products_net/tips'
+);
+
+select is(
+  (
+    select bucket -> 'received_by_method'
+    from jsonb_array_elements(
+      private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-07-13'::date, '2026-07-19'::date, 'week', '2026-07-19'::date, 'America/Sao_Paulo'
+      ) -> 'buckets'
+    ) as bucket
+  ),
+  jsonb_build_array(
+    jsonb_build_object('method', 'pix', 'label', 'PIX', 'amount', 150.00, 'payments_count', 1),
+    jsonb_build_object('method', 'credit_card', 'label', 'Crédito', 'amount', 0.00, 'payments_count', 0),
+    jsonb_build_object('method', 'debit_card', 'label', 'Débito', 'amount', 0.00, 'payments_count', 0),
+    jsonb_build_object('method', 'cash', 'label', 'Dinheiro', 'amount', 250.00, 'payments_count', 1),
+    jsonb_build_object('method', 'other', 'label', 'Outros', 'amount', 0.00, 'payments_count', 0)
+  ),
+  'dois pagamentos com formas diferentes em dois dias do mesmo agrupamento (semana) nao multiplicam o received_by_method por agrupamento'
+);
+
+select is(
+  (
+    select private.get_revenue_report_core(
+      (select tenant_a_id from ticket01_context), '2026-07-13'::date, '2026-07-19'::date, 'week', '2026-07-19'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'received_total'
+  ),
+  '400.00',
+  'dois pagamentos em dois dias do mesmo agrupamento nao multiplicam o recebido'
+);
+
+-- (f): participacao nula quando o periodo nao teve recebimento (nunca
+-- divisao por zero).
+select is(
+  (
+    select bool_and((elem -> 'share') = 'null'::jsonb)
+    from jsonb_array_elements(
+      private.get_revenue_report_core(
+        (select tenant_a_id from ticket01_context), '2026-07-20'::date, '2026-07-20'::date, 'day', '2026-07-20'::date, 'America/Sao_Paulo'
+      ) -> 'received_by_method'
+    ) as elem
+  ),
+  true,
+  'participacao de todas as formas e nula quando o periodo nao teve recebimento, nunca divisao por zero'
 );
 
 select * from finish(true);
