@@ -159,20 +159,7 @@ export const AcessoExpirado: React.FC = () => {
   return (
     <div
       ref={pageRef}
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100dvh',
-        padding: '1.5rem',
-        fontFamily: 'var(--font-family-base)',
-        background: `
-          radial-gradient(ellipse 80% 60% at 50% 20%, rgba(217, 108, 0, 0.07) 0%, transparent 70%),
-          radial-gradient(ellipse 120% 80% at 80% 80%, rgba(217, 108, 0, 0.04) 0%, transparent 60%),
-          var(--color-bg-primary)
-        `,
-      }}
+      className="relative flex items-center justify-center min-h-dvh p-6 font-base bg-bg-primary bg-[radial-gradient(ellipse_80%_60%_at_50%_20%,rgba(217,108,0,0.07)_0%,transparent_70%),radial-gradient(ellipse_120%_80%_at_80%_80%,rgba(217,108,0,0.04)_0%,transparent_60%)]"
     >
       {/* ═══ NOISE / GRAIN OVERLAY ═══ */}
       <div className="noise-overlay" />
@@ -180,46 +167,14 @@ export const AcessoExpirado: React.FC = () => {
       {/* ═══ DOUBLE-BEZEL OUTER SHELL ═══ */}
       <div
         ref={shellRef}
-        style={{
-          opacity: 0, /* hidden until GSAP reveals */
-          backgroundColor: 'rgba(45, 35, 30, 0.04)',
-          padding: '10px',
-          borderRadius: '2rem',
-          border: '1px solid rgba(45, 35, 30, 0.06)',
-          maxWidth: '480px',
-          width: '100%',
-          boxShadow: '0 24px 48px -16px rgba(45, 35, 30, 0.1)',
-        }}
+        className="opacity-0 bg-[rgba(45,35,30,0.04)] p-[10px] rounded-[2rem] border border-[rgba(45,35,30,0.06)] max-w-[480px] w-full shadow-[0_24px_48px_-16px_rgba(45,35,30,0.1)]"
       >
         {/* ═══ DOUBLE-BEZEL INNER CORE ═══ */}
-        <div
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderRadius: 'calc(2rem - 10px)',
-            padding: '3.25rem 2.25rem 2.75rem',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '1.75rem',
-            border: '1px solid rgba(255, 255, 255, 0.75)',
-            boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.85)',
-          }}
-        >
+        <div className="bg-bg-secondary rounded-[calc(2rem-10px)] text-center flex flex-col items-center gap-7 pt-13 px-9 pb-11 border border-white/75 shadow-[inset_0_1px_2px_rgba(255,255,255,0.85)]">
           {/* ── Eyebrow Tag ── */}
           <span
             ref={eyebrowRef}
-            style={{
-              fontSize: '0.625rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.28em',
-              fontWeight: 700,
-              color: 'var(--color-brand-primary)',
-              backgroundColor: 'var(--color-brand-lightest)',
-              padding: '6px 16px',
-              borderRadius: '9999px',
-              border: '1px solid rgba(217, 108, 0, 0.12)',
-            }}
+            className="text-[0.625rem] uppercase tracking-[0.28em] font-bold text-brand-primary bg-brand-lightest px-4 py-1.5 rounded-full border border-[rgba(217,108,0,0.12)]"
           >
             Link expirado
           </span>
@@ -227,58 +182,20 @@ export const AcessoExpirado: React.FC = () => {
           {/* ── Icon Circle ── */}
           <div
             ref={iconRef}
-            style={{
-              width: '88px',
-              height: '88px',
-              borderRadius: '9999px',
-              backgroundColor: 'var(--color-error-bg)',
-              color: 'var(--color-error)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: `
-                0 12px 28px -8px rgba(240, 82, 82, 0.18),
-                inset 0 2px 4px rgba(240, 82, 82, 0.04)
-              `,
-              border: '1px solid rgba(240, 82, 82, 0.18)',
-            }}
+            className="w-[88px] h-[88px] rounded-full bg-error-bg text-error flex items-center justify-center border border-[rgba(240,82,82,0.18)] shadow-[0_12px_28px_-8px_rgba(240,82,82,0.18),inset_0_2px_4px_rgba(240,82,82,0.04)]"
           >
             <HugeiconsIcon icon={CancelCircleIcon} size={44} strokeWidth={1.2} />
           </div>
 
           {/* ── Title & Description ── */}
-          <div
-            ref={textRef}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.85rem',
-              maxWidth: '400px',
-            }}
-          >
-            <h1
-              style={{
-                fontSize: '1.75rem',
-                fontWeight: 800,
-                color: 'var(--color-text-primary)',
-                margin: 0,
-                letterSpacing: '-0.025em',
-                lineHeight: 1.15,
-              }}
-            >
+          <div ref={textRef} className="flex flex-col gap-[0.85rem] max-w-[400px]">
+            <h1 className="text-[1.75rem] font-extrabold text-text-primary m-0 tracking-[-0.025em] leading-[1.15]">
               Link de acesso expirado
             </h1>
-            <p
-              style={{
-                fontSize: 'var(--font-size-base)',
-                color: 'var(--color-text-secondary)',
-                lineHeight: 1.7,
-                margin: 0,
-              }}
-            >
+            <p className="text-base text-text-secondary leading-[1.7] m-0">
               Links temporários expiram para proteger seus dados. Para voltar a
               agendar horários na{' '}
-              <strong style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>
+              <strong className="text-text-primary font-semibold">
                 {tenantName}
               </strong>
               , peça um novo link pelo WhatsApp.
@@ -288,27 +205,9 @@ export const AcessoExpirado: React.FC = () => {
           {/* ── Info Card (nested bezel) ── */}
           <div
             ref={infoCardRef}
-            style={{
-              width: '100%',
-              backgroundColor: 'rgba(234, 222, 214, 0.2)',
-              borderRadius: '18px',
-              padding: '1.35rem 1.5rem',
-              border: '1px solid rgba(45, 35, 30, 0.06)',
-              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.6)',
-            }}
+            className="w-full bg-[rgba(234,222,214,0.2)] rounded-[18px] py-[1.35rem] px-6 border border-[rgba(45,35,30,0.06)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                fontWeight: 700,
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-primary)',
-                marginBottom: '0.85rem',
-              }}
-            >
+            <div className="flex items-center justify-center gap-2 font-bold text-sm text-text-primary mb-[0.85rem]">
               <HugeiconsIcon
                 icon={AlertCircleIcon}
                 size={18}
@@ -317,17 +216,7 @@ export const AcessoExpirado: React.FC = () => {
               />
               Como receber um novo link
             </div>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-secondary)',
-                lineHeight: 1.6,
-              }}
-            >
+            <div className="flex flex-col items-center gap-2 text-sm text-text-secondary leading-[1.6]">
               <span>Abra o WhatsApp com um clique.</span>
               <span>Confirme seus dados na conversa.</span>
               <span>Pronto, você recebe o novo link na hora.</span>
@@ -343,41 +232,14 @@ export const AcessoExpirado: React.FC = () => {
             onMouseEnter={handleCtaEnter}
             onMouseLeave={handleCtaLeave}
             onMouseMove={handleCtaMove}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem',
-              width: '100%',
-              backgroundColor: '#25D366',
-              color: '#FFFFFF',
-              textDecoration: 'none',
-              fontWeight: 700,
-              fontSize: 'var(--font-size-base)',
-              padding: '10px 24px',
-              borderRadius: '9999px',
-              cursor: 'pointer',
-              border: 'none',
-              outline: 'none',
-              willChange: 'transform, box-shadow',
-            }}
+            className="flex items-center justify-center gap-3 w-full bg-[#25D366] text-white no-underline font-bold text-base py-2.5 px-6 rounded-full cursor-pointer border-none outline-none [will-change:transform,box-shadow]"
           >
             <span>Falar no WhatsApp</span>
 
             {/* Trailing icon wrapper — button-in-button */}
             <div
               ref={btnIconRef}
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '9999px',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                willChange: 'transform',
-              }}
+              className="w-[38px] h-[38px] rounded-full bg-white/15 flex items-center justify-center shrink-0 [will-change:transform]"
             >
               <HugeiconsIcon
                 icon={ArrowRight01Icon}
@@ -389,15 +251,7 @@ export const AcessoExpirado: React.FC = () => {
           </a>
 
           {/* ── Footer text ── */}
-          <p
-            ref={footerRef}
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              color: 'var(--color-text-secondary)',
-              margin: 0,
-              letterSpacing: '0.01em',
-            }}
-          >
+          <p ref={footerRef} className="text-xs text-text-secondary m-0 tracking-[0.01em]">
             Se precisar de ajuda, entre em contato direto com a barbearia.
           </p>
         </div>
