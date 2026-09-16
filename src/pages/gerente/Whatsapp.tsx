@@ -31,7 +31,6 @@ import {
   validateWhatsappTemplate,
   SAMPLE_MOCK_VARIABLES,
 } from '../../modules/whatsapp/templates';
-import './Whatsapp.css';
 
 interface WhatsappInstance {
   id: string;
@@ -87,6 +86,25 @@ const GATEWAY_STATUSES: GatewayInstanceStatus[] = [
   'hibernated',
   'pairing',
 ];
+
+// Classes utilitárias reutilizadas nos botões da página (ver ticket 10 da migração Tailwind)
+const BTN_BASE =
+  'inline-flex items-center justify-center gap-2 font-bold cursor-pointer transition-all duration-200 ease-in-out border-none text-sm whitespace-nowrap rounded-md px-5 py-[0.65rem] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100';
+const BTN_PRIMARY = `${BTN_BASE} bg-brand-primary text-white enabled:hover:bg-brand-hover enabled:hover:-translate-y-px motion-reduce:hover:translate-y-0`;
+const BTN_OUTLINE = `${BTN_BASE} bg-transparent border border-[rgba(234,222,214,0.9)] text-text-primary enabled:hover:bg-white/90 enabled:hover:border-brand-primary`;
+const BTN_OUTLINE_DANGER = `${BTN_BASE} bg-transparent border border-[rgba(248,180,180,0.5)] text-error hover:bg-[rgba(248,180,180,0.06)] hover:border-error`;
+
+const SPINNER_BASE = 'border-brand-primary border-t-transparent rounded-full animate-spin-fast motion-reduce:animate-none';
+const SPINNER = `w-5 h-5 border-2 ${SPINNER_BASE}`;
+const SPINNER_SM = `w-4 h-4 border-2 ${SPINNER_BASE}`;
+
+const STATUS_PILL_STYLES: Record<WhatsappInstance['status'], string> = {
+  connected: 'bg-success-bg/60 text-success border border-success/20',
+  disconnected: 'bg-error-bg/60 text-error border border-[rgba(248,180,180,0.25)]',
+  connecting: 'bg-warning-bg/60 text-warning border border-warning/20',
+  pairing: 'bg-warning-bg/60 text-warning border border-warning/20',
+  hibernated: 'bg-text-secondary/[0.08] text-text-secondary border border-text-secondary/20',
+};
 
 const toWhatsappInstance = (row: Record<string, unknown>): WhatsappInstance => ({
   id: String(row.id || ''),
@@ -309,11 +327,11 @@ export const Whatsapp: React.FC = () => {
 
   useGSAP(() => {
     if (!loading) {
-      gsap.fromTo('.card-whatsapp', 
+      gsap.fromTo('.card-whatsapp',
         { opacity: 0, y: 20 },
         { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
       );
-      gsap.fromTo('.rule-row', 
+      gsap.fromTo('.rule-row',
         { opacity: 0, x: -10 },
         { opacity: 1, x: 0, duration: 0.35, stagger: 0.05, delay: 0.2, ease: 'cubic-bezier(0.4, 0, 0.2, 1)' }
       );
@@ -372,7 +390,7 @@ export const Whatsapp: React.FC = () => {
     if (!instance) return;
     try {
       setActionLoading(true);
-      
+
       const { data, error } = await supabase
         .from('whatsapp_instances')
         .update({
@@ -673,46 +691,45 @@ export const Whatsapp: React.FC = () => {
   });
 
   return (
-    <div className="whatsapp-page">
-      <div className="whatsapp-header">
-        <h2>Notificações de WhatsApp</h2>
-        <p>Alerte seus clientes automaticamente sobre novos agendamentos, reagendamentos e lembretes de horários.</p>
+    <div className="flex flex-col gap-8">
+      <div>
+        <h2 className="text-xl font-extrabold text-text-primary tracking-[-0.02em]">Notificações de WhatsApp</h2>
+        <p className="text-sm text-text-primary">Alerte seus clientes automaticamente sobre novos agendamentos, reagendamentos e lembretes de horários.</p>
       </div>
 
       {loading ? (
-        <div className="card loading-state">
-          <div className="spinner" style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} />
+        <div className="text-center flex flex-col items-center justify-center gap-3 py-16 px-8 max-[640px]:py-10 max-[640px]:px-4 text-text-secondary border-[1.5px] border-dashed border-border/80 rounded-lg bg-white/25 backdrop-blur-md backdrop-saturate-[1.2] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+          <div className={SPINNER} />
           <p>Carregando status do serviço...</p>
         </div>
       ) : !instance ? (
-        <div className="card empty-state">
-          <div className="icon-badge">
+        <div className="text-center flex flex-col items-center justify-center gap-3 py-16 px-8 max-[640px]:py-10 max-[640px]:px-4 text-text-secondary border-[1.5px] border-dashed border-border/80 rounded-lg bg-white/25 backdrop-blur-md backdrop-saturate-[1.2] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+          <div className="bg-brand-primary/10 text-brand-primary p-4 rounded-full flex items-center justify-center mb-2 shadow-sm">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
           </div>
           <h4>WhatsApp desativado no momento</h4>
           <p>Para ativar os disparos automáticos e notificar seus clientes sobre horários agendados, ative a integração.</p>
-          <button 
-            onClick={handleCreateInstance} 
+          <button
+            onClick={handleCreateInstance}
             disabled={actionLoading}
-            className="btn btn--primary"
-            style={{ marginTop: '1.5rem' }}
+            className={`${BTN_PRIMARY} mt-6`}
           >
-            {actionLoading ? <div className="spinner spinner--sm" /> : 'Ativar Integração do WhatsApp'}
+            {actionLoading ? <div className={SPINNER_SM} /> : 'Ativar Integração do WhatsApp'}
           </button>
         </div>
       ) : (
-        <div className="whatsapp-content-layout">
+        <div className="flex flex-col gap-6">
           {/* ═══ GRID PRINCIPAL: Status + Disparos ═══ */}
-          <div className="whatsapp-grid">
+          <div className="grid grid-cols-2 gap-6 items-start max-[900px]:grid-cols-1">
             {/* ═══ Card: Status da Integração ═══ */}
-            <div className="card-whatsapp">
-              <div className="card-whatsapp__header">
+            <div className="card-whatsapp bg-bg-secondary rounded-lg border border-border/50 shadow-[0_1px_3px_rgba(45,35,30,0.04),0_8px_24px_-8px_rgba(45,35,30,0.06)] transition-all duration-200 ease-in-out overflow-hidden hover:shadow-[0_1px_3px_rgba(45,35,30,0.04),0_16px_40px_-12px_rgba(45,35,30,0.1)] hover:border-brand-primary/[0.12]">
+              <div className="flex justify-between items-start gap-4 px-6 pt-5 max-[640px]:px-4 max-[640px]:pt-4 max-[640px]:gap-2">
                 <div>
-                  <h3 className="card-whatsapp__title">Status da Integração</h3>
+                  <h3 className="text-lg font-extrabold text-text-primary m-0">Status da Integração</h3>
                 </div>
-                <span className={`card-whatsapp__pill card-whatsapp__pill--${instance.status}`}>
+                <span className={`text-xs font-extrabold py-1 px-[0.7rem] rounded-full uppercase tracking-[0.04em] whitespace-nowrap shrink-0 mt-1 ${STATUS_PILL_STYLES[instance.status]}`}>
                   {instance.status === 'connected' && 'Conectado'}
                   {instance.status === 'disconnected' && 'Desconectado'}
                   {(instance.status === 'connecting' || instance.status === 'pairing') && 'Pareando'}
@@ -720,73 +737,74 @@ export const Whatsapp: React.FC = () => {
                 </span>
               </div>
 
-              <div className="card-whatsapp__body">
-                <div className="info-rows">
-                  <div className="info-row">
-                    <span className="info-row__label">Instância</span>
-                    <code className="info-row__value">{instance.instance_name}</code>
+              <div className="pt-5 px-6 pb-6 flex flex-col gap-5 max-[640px]:p-4 max-[640px]:gap-4">
+                <div className="flex flex-col gap-[0.4rem] bg-white/50 px-4 py-[0.85rem] rounded-md border border-border/50">
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="text-xs font-semibold text-text-primary">Instância</span>
+                    <code className="text-sm font-bold text-text-primary bg-white/80 px-[0.4rem] py-[0.15rem] rounded-sm border border-border/50 text-brand-primary">{instance.instance_name}</code>
                   </div>
-                  <div className="info-row">
-                    <span className="info-row__label">API</span>
-                    <span className="info-row__value info-row__value--green">Online</span>
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="text-xs font-semibold text-text-primary">API</span>
+                    <span className="text-sm font-bold text-success">Online</span>
                   </div>
                 </div>
 
                 {instance.status === 'disconnected' && (
-                  <div className="card-whatsapp__actions">
-                    <p className="helper-text">Inicie o pareamento para conectar o celular da barbearia.</p>
-                    <button onClick={handleConnect} disabled={actionLoading} className="btn btn--primary">
-                      {actionLoading ? <div className="spinner spinner--sm" /> : 'Gerar QR Code de Conexão'}
+                  <div className="flex flex-col gap-4">
+                    <p className="text-xs text-text-primary m-0 font-medium">Inicie o pareamento para conectar o celular da barbearia.</p>
+                    <button onClick={handleConnect} disabled={actionLoading} className={BTN_PRIMARY}>
+                      {actionLoading ? <div className={SPINNER_SM} /> : 'Gerar QR Code de Conexão'}
                     </button>
                   </div>
                 )}
 
                 {instance.status === 'hibernated' && (
-                  <div className="card-whatsapp__actions">
-                    <p className="helper-text">A sessão está pausada, mas pode ser retomada sem novo QR Code.</p>
-                    <button onClick={handleResume} disabled={actionLoading} className="btn btn--primary">
-                      {actionLoading ? <div className="spinner spinner--sm" /> : 'Retomar Sessão'}
+                  <div className="flex flex-col gap-4">
+                    <p className="text-xs text-text-primary m-0 font-medium">A sessão está pausada, mas pode ser retomada sem novo QR Code.</p>
+                    <button onClick={handleResume} disabled={actionLoading} className={BTN_PRIMARY}>
+                      {actionLoading ? <div className={SPINNER_SM} /> : 'Retomar Sessão'}
                     </button>
-                    <button onClick={handleDisconnect} disabled={actionLoading} className="btn btn--outline-danger">
+                    <button onClick={handleDisconnect} disabled={actionLoading} className={BTN_OUTLINE_DANGER}>
                       Desconectar Aparelho
                     </button>
                   </div>
                 )}
 
                 {(instance.status === 'connecting' || instance.status === 'pairing') && (
-                  <div className="card-whatsapp__qr">
-                    <p className="qr-label">Leia o QR Code abaixo</p>
-                    <p className="qr-desc">Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar um Aparelho</strong> e aponte a câmera.</p>
-                    <div className="qr-frame">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <p className="text-sm font-extrabold text-brand-primary m-0">Leia o QR Code abaixo</p>
+                    <p className="text-xs text-text-secondary leading-[1.4] font-medium m-0 max-w-[260px]">Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados &gt; Conectar um Aparelho</strong> e aponte a câmera.</p>
+                    <div className="bg-white p-4 rounded-lg border border-border/70 shadow-[0_10px_25px_-5px_rgba(20,17,15,0.08)] w-[200px] h-[200px] flex items-center justify-center">
                       {instance.qr_code ? (
                         <img
                           src={instance.qr_code.startsWith('data:') ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`}
                           alt="QR Code WhatsApp"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
-                        <div className="qr-loading">
-                          <div className="spinner spinner--qr" />
+                        <div className="flex flex-col items-center gap-2 text-xs text-text-secondary">
+                          <div className="w-8 h-8 border-[3px] border-brand-primary border-t-transparent rounded-full animate-spin-fast motion-reduce:animate-none" />
                           <span>Gerando código...</span>
                         </div>
                       )}
                     </div>
-                    <button onClick={handleDisconnect} disabled={actionLoading} className="btn btn--outline-danger">
-                      {actionLoading ? <div className="spinner spinner--sm" /> : 'Cancelar Pareamento'}
+                    <button onClick={handleDisconnect} disabled={actionLoading} className={BTN_OUTLINE_DANGER}>
+                      {actionLoading ? <div className={SPINNER_SM} /> : 'Cancelar Pareamento'}
                     </button>
                   </div>
                 )}
 
                 {instance.status === 'connected' && (
-                  <div className="card-whatsapp__success">
-                    <div className="success-icon">
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="bg-success-bg/50 border-[1.5px] border-success/20 p-3 rounded-full flex items-center justify-center">
                       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" strokeWidth="2">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                         <path d="m9 11 3 3L22 4" />
                       </svg>
                     </div>
-                    <p className="success-msg">Sistema pronto para enviar notificações!</p>
-                    <button onClick={handleDisconnect} disabled={actionLoading} className="btn btn--outline-danger">
-                      {actionLoading ? <div className="spinner spinner--sm" /> : 'Desconectar Aparelho'}
+                    <p className="text-sm font-bold text-text-primary m-0">Sistema pronto para enviar notificações!</p>
+                    <button onClick={handleDisconnect} disabled={actionLoading} className={BTN_OUTLINE_DANGER}>
+                      {actionLoading ? <div className={SPINNER_SM} /> : 'Desconectar Aparelho'}
                     </button>
                   </div>
                 )}
@@ -794,67 +812,69 @@ export const Whatsapp: React.FC = () => {
             </div>
 
             {/* ═══ Card: Configuração de Disparos ═══ */}
-            <div className="card-whatsapp">
-              <div className="card-whatsapp__header">
+            <div className="card-whatsapp bg-bg-secondary rounded-lg border border-border/50 shadow-[0_1px_3px_rgba(45,35,30,0.04),0_8px_24px_-8px_rgba(45,35,30,0.06)] transition-all duration-200 ease-in-out overflow-hidden hover:shadow-[0_1px_3px_rgba(45,35,30,0.04),0_16px_40px_-12px_rgba(45,35,30,0.1)] hover:border-brand-primary/[0.12]">
+              <div className="flex justify-between items-start gap-4 px-6 pt-5 max-[640px]:px-4 max-[640px]:pt-4 max-[640px]:gap-2">
                 <div>
-                  <h3 className="card-whatsapp__title">Configuração de Disparos</h3>
+                  <h3 className="text-lg font-extrabold text-text-primary m-0">Configuração de Disparos</h3>
                 </div>
               </div>
-              <div className="card-whatsapp__body">
-                <div className="rules-list">
-                  <div className="rule-row">
-                    <div className="rule-row__icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <div className="pt-5 px-6 pb-6 flex flex-col gap-5 max-[640px]:p-4 max-[640px]:gap-4">
+                <div className="flex flex-col gap-[0.65rem]">
+                  <div className="rule-row flex items-center gap-[0.85rem] px-4 py-[0.85rem] rounded-lg shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-white/40 transition-all duration-200 ease-in-out hover:bg-white/80 motion-reduce:transition-none">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary)] text-text-primary shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-fit">
                         <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2z" />
                         <path d="M6 6V5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v1" />
                         <path d="M6 6h12l1.5 11.5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3L6 6z" />
                       </svg>
                     </div>
-                    <div className="rule-row__content">
-                      <label htmlFor="send-confirmation" className="rule-row__title">
+                    <div className="flex-1 min-w-0 flex flex-col gap-[0.1rem]">
+                      <label htmlFor="send-confirmation" className="text-sm font-bold text-text-primary cursor-pointer">
                         Confirmação Automática
                       </label>
-                      <span className="rule-row__desc">Envia o link de agendamento por WhatsApp assim que o cliente reserva.</span>
+                      <span className="text-xs text-text-primary leading-[1.3] font-medium">Envia o link de agendamento por WhatsApp assim que o cliente reserva.</span>
                     </div>
-                    <label className="switch">
+                    <label className="relative inline-block w-10 h-6 shrink-0">
                       <input
                         id="send-confirmation"
                         type="checkbox"
                         checked={instance.send_confirmation}
                         onChange={(event) => handleUpdateConfig('send_confirmation', event.target.checked)}
+                        className="peer w-0 h-0 opacity-0"
                       />
-                      <span className="slider" />
+                      <span className="absolute inset-0 cursor-pointer rounded-full bg-border/80 transition-all duration-200 ease-in-out peer-checked:bg-brand-primary peer-focus-visible:shadow-[0_0_0_3px_rgba(217,108,0,0.18)] before:absolute before:bottom-[3px] before:left-[3px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:shadow-[0_1px_3px_rgba(0,0,0,0.15)] before:content-[''] before:transition-all before:duration-200 before:ease-in-out peer-checked:before:translate-x-[16px] motion-reduce:transition-none motion-reduce:before:transition-none" />
                     </label>
                   </div>
 
-                  <div className="rule-row rule-row--reminder">
-                    <div className="rule-row__main">
-                      <div className="rule-row__icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <div className="rule-row flex flex-col items-stretch gap-3 px-4 py-[0.85rem] rounded-lg shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-white/40 transition-all duration-200 ease-in-out hover:bg-white/80 motion-reduce:transition-none">
+                    <div className="flex items-center gap-[0.85rem] w-full">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary)] text-text-primary shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-fit">
                           <circle cx="12" cy="12" r="10" />
                           <polyline points="12 6 12 12 16 14" />
                         </svg>
                       </div>
-                      <div className="rule-row__content">
-                        <label htmlFor="send-reminders" className="rule-row__title">
+                      <div className="flex-1 min-w-0 flex flex-col gap-[0.1rem]">
+                        <label htmlFor="send-reminders" className="text-sm font-bold text-text-primary cursor-pointer">
                           Lembretes de Agendamento
                         </label>
-                        <span className="rule-row__desc">Envia lembrete com opção de cancelamento antes do horário.</span>
+                        <span className="text-xs text-text-primary leading-[1.3] font-medium">Envia lembrete com opção de cancelamento antes do horário.</span>
                       </div>
-                      <label className="switch">
+                      <label className="relative inline-block w-10 h-6 shrink-0">
                         <input
                           id="send-reminders"
                           type="checkbox"
                           checked={instance.send_reminders}
                           onChange={(event) => handleUpdateConfig('send_reminders', event.target.checked)}
+                          className="peer w-0 h-0 opacity-0"
                         />
-                        <span className="slider" />
+                        <span className="absolute inset-0 cursor-pointer rounded-full bg-border/80 transition-all duration-200 ease-in-out peer-checked:bg-brand-primary peer-focus-visible:shadow-[0_0_0_3px_rgba(217,108,0,0.18)] before:absolute before:bottom-[3px] before:left-[3px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:shadow-[0_1px_3px_rgba(0,0,0,0.15)] before:content-[''] before:transition-all before:duration-200 before:ease-in-out peer-checked:before:translate-x-[16px] motion-reduce:transition-none motion-reduce:before:transition-none" />
                       </label>
                     </div>
 
-                    <div className="reminder-settings">
-                      <div className="reminder-settings__field">
-                        <label htmlFor="reminder-hours" className="helper-text">
+                    <div className="flex flex-col items-start gap-1 pl-[2.9rem] max-[640px]:pl-0 max-[640px]:pt-[0.35rem] max-[640px]:border-t max-[640px]:border-dashed max-[640px]:border-border/60 max-[640px]:w-full">
+                      <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:justify-between">
+                        <label htmlFor="reminder-hours" className="text-sm text-text-primary m-0 font-medium">
                           Tempo de antecedência do lembrete:
                         </label>
                         <select
@@ -863,7 +883,7 @@ export const Whatsapp: React.FC = () => {
                           value={instance.reminder_hours}
                           onChange={(event) => handleUpdateConfig('reminder_hours', Number(event.target.value))}
                           disabled={!instance.send_reminders || actionLoading}
-                          className="form-select"
+                          className="px-2 py-1 shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-sm bg-bg-secondary text-text-primary text-sm disabled:cursor-not-allowed disabled:opacity-55 max-[640px]:min-h-11 max-[640px]:text-base"
                         >
                           {[1, 2, 3, 4, 6, 12, 24].map((hours) => (
                             <option key={hours} value={hours}>
@@ -872,55 +892,57 @@ export const Whatsapp: React.FC = () => {
                           ))}
                         </select>
                       </div>
-                      <span className="reminder-settings__summary">
+                      <span className="text-info text-xs font-semibold tracking-[0.01em]">
                         Lembrete enviado {formatHoursToReadable(instance.reminder_hours)} antes do agendamento
                       </span>
                     </div>
                   </div>
 
-                  <div className="rule-row">
-                    <div className="rule-row__icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <div className="rule-row flex items-center gap-[0.85rem] px-4 py-[0.85rem] rounded-lg shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-white/40 transition-all duration-200 ease-in-out hover:bg-white/80 motion-reduce:transition-none">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary)] text-text-primary shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="h-fit">
                         <circle cx="12" cy="12" r="10" />
                         <line x1="15" y1="9" x2="9" y2="15" />
                         <line x1="9" y1="9" x2="15" y2="15" />
                       </svg>
                     </div>
-                    <div className="rule-row__content">
-                      <label htmlFor="send-cancellation" className="rule-row__title">
+                    <div className="flex-1 min-w-0 flex flex-col gap-[0.1rem]">
+                      <label htmlFor="send-cancellation" className="text-sm font-bold text-text-primary cursor-pointer">
                         Alerta de Cancelamento
                       </label>
-                      <span className="rule-row__desc">Notifica se o barbeiro ou cliente cancelar o agendamento.</span>
+                      <span className="text-xs text-text-primary leading-[1.3] font-medium">Notifica se o barbeiro ou cliente cancelar o agendamento.</span>
                     </div>
-                    <label className="switch">
+                    <label className="relative inline-block w-10 h-6 shrink-0">
                       <input
                         id="send-cancellation"
                         type="checkbox"
                         checked={instance.send_cancellation}
                         onChange={(event) => handleUpdateConfig('send_cancellation', event.target.checked)}
+                        className="peer w-0 h-0 opacity-0"
                       />
-                      <span className="slider" />
+                      <span className="absolute inset-0 cursor-pointer rounded-full bg-border/80 transition-all duration-200 ease-in-out peer-checked:bg-brand-primary peer-focus-visible:shadow-[0_0_0_3px_rgba(217,108,0,0.18)] before:absolute before:bottom-[3px] before:left-[3px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:shadow-[0_1px_3px_rgba(0,0,0,0.15)] before:content-[''] before:transition-all before:duration-200 before:ease-in-out peer-checked:before:translate-x-[16px] motion-reduce:transition-none motion-reduce:before:transition-none" />
                     </label>
                   </div>
 
-                  <div className="rule-row">
-                    <div className="rule-row__icon">
+                  <div className="rule-row flex items-center gap-[0.85rem] px-4 py-[0.85rem] rounded-lg shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-white/40 transition-all duration-200 ease-in-out hover:bg-white/80 motion-reduce:transition-none">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary)] text-text-primary shrink-0">
                       <HugeiconsIcon icon={UserAdd01Icon} size={16} />
                     </div>
-                    <div className="rule-row__content">
-                      <label htmlFor="send-welcome-balcao" className="rule-row__title">
+                    <div className="flex-1 min-w-0 flex flex-col gap-[0.1rem]">
+                      <label htmlFor="send-welcome-balcao" className="text-sm font-bold text-text-primary cursor-pointer">
                         Boas-Vindas de Balcão
                       </label>
-                      <span className="rule-row__desc">Envia link de autoatendimento para clientes cadastrados no balcão.</span>
+                      <span className="text-xs text-text-primary leading-[1.3] font-medium">Envia link de autoatendimento para clientes cadastrados no balcão.</span>
                     </div>
-                    <label className="switch">
+                    <label className="relative inline-block w-10 h-6 shrink-0">
                       <input
                         id="send-welcome-balcao"
                         type="checkbox"
                         checked={instance.send_welcome_balcao}
                         onChange={(event) => handleUpdateConfig('send_welcome_balcao', event.target.checked)}
+                        className="peer w-0 h-0 opacity-0"
                       />
-                      <span className="slider" />
+                      <span className="absolute inset-0 cursor-pointer rounded-full bg-border/80 transition-all duration-200 ease-in-out peer-checked:bg-brand-primary peer-focus-visible:shadow-[0_0_0_3px_rgba(217,108,0,0.18)] before:absolute before:bottom-[3px] before:left-[3px] before:w-[18px] before:h-[18px] before:rounded-full before:bg-white before:shadow-[0_1px_3px_rgba(0,0,0,0.15)] before:content-[''] before:transition-all before:duration-200 before:ease-in-out peer-checked:before:translate-x-[16px] motion-reduce:transition-none motion-reduce:before:transition-none" />
                     </label>
                   </div>
                 </div>
@@ -929,18 +951,18 @@ export const Whatsapp: React.FC = () => {
           </div>
 
           {/* ═══ SEÇÃO SPLIT VIEW: Personalização de Mensagens ═══ */}
-          <div className="card-whatsapp template-editor-card">
-            <div className="template-editor-header">
+          <div className="card-whatsapp template-editor-card flex flex-col border border-brand-primary/[0.18] bg-bg-secondary rounded-lg overflow-hidden shadow-[0_1px_3px_rgba(45,35,30,0.04),0_8px_24px_-8px_rgba(45,35,30,0.06)] transition-all duration-200 ease-in-out hover:shadow-[0_1px_3px_rgba(45,35,30,0.04),0_16px_40px_-12px_rgba(45,35,30,0.1)]">
+            <div className="pt-6 px-7 pb-2 max-[640px]:pt-4 max-[640px]:px-4 max-[640px]:pb-1">
               <div>
-                <h3 className="card-whatsapp__title">Modelos de Mensagens do WhatsApp</h3>
-                <p className="template-editor-subtitle">
+                <h3 className="text-lg font-extrabold text-text-primary m-0">Modelos de Mensagens do WhatsApp</h3>
+                <p className="text-xs text-text-primary mt-1">
                   Configure o tom de voz e o formato das mensagens automáticas enviadas pela sua barbearia.
                 </p>
               </div>
             </div>
 
             {/* Seletor de Abas de Eventos */}
-            <div className="template-tabs-container" role="tablist" aria-label="Modelos de mensagens">
+            <div className="flex items-center gap-2 py-3 px-7 overflow-x-auto border-b border-border/60 bg-white/40 max-[640px]:py-2 max-[640px]:px-4 max-[640px]:gap-[0.35rem]" role="tablist" aria-label="Modelos de mensagens">
               {TEMPLATE_CONFIGS.map((config) => {
                 const isActive = activeTab === config.key;
                 return (
@@ -951,36 +973,36 @@ export const Whatsapp: React.FC = () => {
                     aria-controls={`panel-${config.key}`}
                     id={`tab-${config.key}`}
                     onClick={() => setActiveTab(config.key)}
-                    className={`template-tab-btn ${isActive ? 'template-tab-btn--active' : ''}`}
+                    className={`inline-flex items-center gap-2 px-4 py-[0.6rem] rounded-md border border-transparent bg-transparent text-text-secondary text-xs font-bold cursor-pointer transition-all duration-200 ease-in-out whitespace-nowrap hover:bg-white/80 hover:text-text-primary max-[640px]:px-[0.85rem] max-[640px]:min-h-11 max-[640px]:justify-center motion-reduce:transition-none ${isActive ? 'bg-bg-secondary text-brand-primary border-brand-primary/20 shadow-sm' : ''}`}
                   >
-                    <span className="template-tab-icon">{getEventIcon(config.key)}</span>
-                    <span className="template-tab-label">{config.shortTitle}</span>
+                    <span className="flex items-center justify-center">{getEventIcon(config.key)}</span>
+                    <span>{config.shortTitle}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="template-split-view" id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
+            <div className="template-split-view grid grid-cols-[1.15fr_0.85fr] gap-6 pt-6 px-7 pb-7 max-[960px]:grid-cols-1 max-[640px]:p-4 max-[640px]:gap-5" id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
               {/* Coluna Esquerda: Editor e Controles */}
-              <div className="template-editor-column">
-                <div className="template-meta-info">
-                  <h4>{currentConfig.title}</h4>
-                  <p>{currentConfig.description}</p>
+              <div className="flex flex-col gap-5">
+                <div>
+                  <h4 className="text-base font-extrabold text-text-primary mb-[0.2rem]">{currentConfig.title}</h4>
+                  <p className="text-xs text-text-primary leading-[1.4]">{currentConfig.description}</p>
                 </div>
 
                 {/* Barra de Chips de Tags Dinâmicas */}
-                <div className="tags-chips-section">
-                  <span className="tags-label">Tags disponíveis (clique para inserir no texto):</span>
-                  <div className="tags-chips-grid">
+                <div className="flex flex-col gap-[0.4rem]">
+                  <span className="text-xs font-bold uppercase tracking-[0.05em] text-text-primary">Tags disponíveis (clique para inserir no texto):</span>
+                  <div className="flex flex-wrap gap-[0.4rem]">
                     {currentConfig.availableTags.map((tagItem) => (
                       <button
                         key={tagItem.tag}
                         type="button"
                         onClick={() => handleInsertTag(tagItem.tag)}
-                        className={`tag-chip-btn ${tagItem.tag === '{link}' ? 'tag-chip-btn--link' : ''}`}
+                        className={`inline-flex items-center gap-[0.35rem] px-3 py-[0.4rem] min-h-9 rounded-sm border border-border/80 bg-bg-secondary text-text-primary text-xs cursor-pointer transition-all duration-200 ease-in-out touch-manipulation hover:border-brand-primary hover:bg-brand-lightest hover:-translate-y-px max-[480px]:px-3 max-[480px]:py-2 max-[480px]:min-h-11 max-[480px]:justify-center motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${tagItem.tag === '{link}' ? 'border-brand-primary/40 bg-[rgba(255,241,230,0.6)]' : ''}`}
                         title={tagItem.description}
                       >
-                        <code>{tagItem.tag}</code>
+                        <code className="text-brand-primary font-bold bg-brand-primary/[0.06] px-[0.3rem] py-[0.1rem] rounded-sm">{tagItem.tag}</code>
                         <span>{tagItem.label}</span>
                       </button>
                     ))}
@@ -989,8 +1011,8 @@ export const Whatsapp: React.FC = () => {
 
                 {/* Palavras-chave de Ativação (se Primeiro Contato) */}
                 {activeTab === 'first_contact' && (
-                  <div className="keywords-setting-group" style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="auto-reply-keywords" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '0.35rem' }}>
+                  <div className="mb-4">
+                    <label htmlFor="auto-reply-keywords" className="block text-[0.8125rem] font-bold text-text-primary mb-[0.35rem]">
                       Palavras-chave de ativação (separadas por vírgula):
                     </label>
                     <input
@@ -999,26 +1021,16 @@ export const Whatsapp: React.FC = () => {
                       value={keywordsDraft}
                       onChange={(e) => setKeywordsDraft(e.target.value)}
                       placeholder="Ex: agendar, marcar, horario, link, corte, barba, agenda, atendimento"
-                      style={{
-                        width: '100%',
-                        padding: '0.6rem 0.85rem',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--color-border)',
-                        backgroundColor: 'var(--color-bg-primary)',
-                        color: 'var(--color-text-primary)',
-                        fontSize: '0.875rem',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                      }}
+                      className="w-full py-[0.6rem] px-[0.85rem] rounded-md border border-border bg-bg-primary text-text-primary text-sm outline-none box-border"
                     />
-                    <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.35rem' }}>
+                    <span className="block text-xs text-text-secondary mt-[0.35rem]">
                       Na primeira mensagem do dia, o robô responde uma vez mesmo sem palavra-chave. Depois disso, responde somente quando a mensagem contiver uma palavra configurada.
                     </span>
                   </div>
                 )}
 
                 {/* Textarea do Template */}
-                <div className="template-textarea-wrapper">
+                <div className="flex flex-col gap-[0.35rem]">
                   <textarea
                     ref={textareaRef}
                     aria-label={`Editor de mensagem para ${currentConfig.title}`}
@@ -1033,10 +1045,10 @@ export const Whatsapp: React.FC = () => {
                       }));
                     }}
                     placeholder="Digite a mensagem do modelo..."
-                    className={`template-textarea ${!templateValidation.isValid ? 'template-textarea--invalid' : ''}`}
+                    className={`w-full px-4 py-[0.9rem] border rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] leading-[1.5] outline-none resize-y transition-all duration-200 ease-in-out focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.12)] motion-reduce:transition-none ${!templateValidation.isValid ? 'border-warning shadow-[0_0_0_3px_rgba(217,119,6,0.1)]' : 'border-border/80'}`}
                   />
-                  <div className="textarea-footer">
-                    <span className={`char-count ${activeDraftText.length > 1800 ? 'char-count--warning' : ''}`}>
+                  <div className="flex justify-end">
+                    <span className={`text-xs font-medium ${activeDraftText.length > 1800 ? 'text-warning font-bold' : 'text-text-secondary'}`}>
                       {activeDraftText.length} / 2000 caracteres
                     </span>
                   </div>
@@ -1045,40 +1057,28 @@ export const Whatsapp: React.FC = () => {
                 {/* Dica informativa sobre link opcional no primeiro contato */}
                 {!isLinkPresent && currentConfig.audience === 'cliente' && (
                   <div
-                    className="link-info-box"
                     role="status"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '8px',
-                      padding: '10px 12px',
-                      background: 'rgba(2, 132, 199, 0.08)',
-                      border: '1px solid rgba(2, 132, 199, 0.2)',
-                      borderRadius: '8px',
-                      marginTop: '10px',
-                      fontSize: '0.85rem',
-                      color: '#0369A1',
-                    }}
+                    className="flex items-start gap-2 py-[10px] px-3 bg-[rgba(2,132,199,0.08)] border border-[rgba(2,132,199,0.2)] rounded-md mt-[10px] text-[0.85rem] text-[#0369A1]"
                   >
-                    <div className="alert-icon" style={{ color: '#0284C7', marginTop: '2px' }}>
+                    <div className="shrink-0 mt-[2px] text-[#0284C7]">
                       <HugeiconsIcon icon={Alert02Icon} size={18} />
                     </div>
-                    <div className="alert-content">
-                      <strong>Tag {'{link}'} opcional:</strong>
-                      <p style={{ margin: '2px 0 0', lineHeight: 1.4 }}>
-                        Como este modelo não inclui a tag <code>{'{link}'}</code>, o link de autoatendimento não será enviado neste evento. Para incluí-lo, adicione a tag ao modelo.
+                    <div>
+                      <strong className="text-xs block mb-[0.1rem]">Tag {'{link}'} opcional:</strong>
+                      <p className="mt-0.5 mx-0 mb-0 leading-[1.4] text-xs">
+                        Como este modelo não inclui a tag <code className="bg-white/60 px-[0.3rem] py-[0.1rem] rounded-sm font-bold">{'{link}'}</code>, o link de autoatendimento não será enviado neste evento. Para incluí-lo, adicione a tag ao modelo.
                       </p>
                     </div>
                   </div>
                 )}
 
                 {/* Ações do Editor */}
-                <div className="template-editor-actions">
+                <div className="flex justify-end gap-3 mt-2 max-[640px]:grid max-[640px]:grid-cols-2 max-[640px]:gap-2 max-[640px]:w-full max-[480px]:grid-cols-1">
                   <button
                     type="button"
                     onClick={handleResetTemplate}
                     disabled={savingTemplate}
-                    className="btn btn--outline"
+                    className={`${BTN_OUTLINE} max-[640px]:w-full max-[640px]:min-h-11 max-[640px]:justify-center`}
                     title="Restaura o texto canônico de fábrica"
                   >
                     <HugeiconsIcon icon={RotateLeft01Icon} size={16} />
@@ -1088,10 +1088,10 @@ export const Whatsapp: React.FC = () => {
                     type="button"
                     onClick={handleSaveTemplate}
                     disabled={savingTemplate || !templateValidation.isValid}
-                    className="btn btn--primary"
+                    className={`${BTN_PRIMARY} max-[640px]:w-full max-[640px]:min-h-11 max-[640px]:justify-center`}
                   >
                     {savingTemplate ? (
-                      <div className="spinner spinner--sm" />
+                      <div className={SPINNER_SM} />
                     ) : (
                       <>
                         <HugeiconsIcon icon={FloppyDiskIcon} size={16} />
@@ -1103,37 +1103,37 @@ export const Whatsapp: React.FC = () => {
               </div>
 
               {/* Coluna Direita: Simulador de WhatsApp */}
-              <div className="template-preview-column">
-                <div className="phone-preview-card">
+              <div className="flex flex-col">
+                <div className="bg-[#EFEAE2] rounded-lg border border-[rgba(200,190,180,0.6)] overflow-hidden shadow-[0_4px_18px_rgba(0,0,0,0.06)] flex flex-col">
                   {/* Cabeçalho do Celular */}
-                  <div className="phone-preview-header">
-                    <div className="phone-avatar">
+                  <div className="bg-[#005E54] text-white px-4 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                       <HugeiconsIcon icon={SmartPhone01Icon} size={16} />
                     </div>
-                    <div className="phone-contact">
-                      <span className="phone-name">{tenant.tenantName || 'Navalhado Barbearia'}</span>
-                      <span className="phone-status">Online agora</span>
+                    <div className="flex flex-col leading-[1.2]">
+                      <span className="text-sm font-bold text-white">{tenant.tenantName || 'Navalhado Barbearia'}</span>
+                      <span className="text-xs text-white/75">Online agora</span>
                     </div>
                   </div>
 
                   {/* Área de Conversa do WhatsApp */}
-                  <div className="phone-chat-canvas" role="region" aria-label="Simulador de tela do WhatsApp">
-                    <div className="chat-date-pill">Hoje</div>
+                  <div className="py-5 px-4 min-h-[220px] flex flex-col gap-3 bg-[#ECE5DD] bg-[radial-gradient(#d1c7bc_1px,transparent_1px)] bg-[length:16px_16px] max-[640px]:py-4 max-[640px]:px-3" role="region" aria-label="Simulador de tela do WhatsApp">
+                    <div className="self-center bg-white/75 text-text-secondary text-xs font-bold px-[0.6rem] py-[0.2rem] rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.05)]">Hoje</div>
                     <div
-                      className="whatsapp-balloon"
+                      className="whatsapp-balloon self-start max-w-[90%] max-[640px]:max-w-[95%] bg-white rounded-md rounded-tl-none px-[0.85rem] pt-[0.65rem] pb-[0.4rem] shadow-[0_1px_2px_rgba(0,0,0,0.12)] relative"
                       aria-live="polite"
                       aria-atomic="true"
                       aria-label="Prévia da mensagem formatada no WhatsApp"
                     >
                       <div
-                        className="whatsapp-balloon__text"
+                        className="text-sm text-[#111B21] leading-[1.45] break-words [&_strong]:font-bold"
                         dangerouslySetInnerHTML={formatWhatsAppFormattedHtml(renderedPreviewText)}
                       />
-                      <div className="whatsapp-balloon__meta">
-                        <span className="whatsapp-time">
+                      <div className="flex items-center justify-end gap-1 mt-[0.35rem]">
+                        <span className="text-xs text-[#667781]">
                           {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <span className="whatsapp-checks" aria-hidden="true">
+                        <span className="inline-flex text-[#53BDEB] -ml-0.5" aria-hidden="true">
                           <HugeiconsIcon icon={Tick02Icon} size={12} />
                           <HugeiconsIcon icon={Tick02Icon} size={12} />
                         </span>
@@ -1142,13 +1142,13 @@ export const Whatsapp: React.FC = () => {
                   </div>
 
                   {/* Rodapé de Teste Rápido no WhatsApp Real */}
-                  <div className="phone-preview-footer">
-                    <div className="test-action-header-row">
-                      <span className="test-action-label">Testar este modelo no seu celular:</span>
+                  <div className="bg-bg-secondary px-4 py-[0.85rem] border-t border-border/60 flex flex-col gap-[0.4rem] max-[640px]:px-[0.85rem] max-[640px]:py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-text-secondary">Testar este modelo no seu celular:</span>
                       {managerPhone && testPhoneForTemplate !== managerPhone && (
                         <button
                           type="button"
-                          className="btn-use-my-phone"
+                          className="bg-brand-primary/[0.08] text-brand-primary border border-brand-primary/20 rounded-sm text-xs font-bold px-[0.85rem] py-2 min-h-11 inline-flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out touch-manipulation hover:bg-brand-primary hover:text-white motion-reduce:transition-none"
                           onClick={() => setTestPhoneForTemplate(managerPhone)}
                           title="Usar o número do gerente logado"
                         >
@@ -1156,23 +1156,23 @@ export const Whatsapp: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    <div className="test-action-inputs">
+                    <div className="flex gap-2 max-[480px]:flex-col max-[480px]:w-full">
                       <input
                         type="text"
                         placeholder="DDD + Número (ex: 11999999999)"
                         value={testPhoneForTemplate}
                         onChange={(e) => setTestPhoneForTemplate(e.target.value)}
-                        className="test-phone-input"
+                        className="flex-1 px-3 py-[0.45rem] border border-border/80 rounded-md text-xs outline-none text-text-primary focus:border-brand-primary max-[480px]:min-h-11 max-[480px]:text-base max-[480px]:w-full"
                       />
                       <button
                         type="button"
                         onClick={handleSendTemplateTest}
                         disabled={sendingTemplateTest || !templateValidation.isValid || !testPhoneForTemplate.trim()}
-                        className="btn btn--test-send"
+                        className="bg-brand-primary text-white px-[0.85rem] py-[0.45rem] text-xs inline-flex items-center justify-center gap-2 font-bold cursor-pointer transition-all duration-200 ease-in-out border-none whitespace-nowrap rounded-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-55 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px max-[480px]:min-h-11 max-[480px]:w-full max-[480px]:justify-center motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100"
                         title="Enviar mensagem real para o número digitado"
                       >
                         {sendingTemplateTest ? (
-                          <div className="spinner spinner--sm" />
+                          <div className={SPINNER_SM} />
                         ) : (
                           <>
                             <HugeiconsIcon icon={SentIcon} size={14} />
