@@ -59,14 +59,14 @@ export const ModalResumoAgendamento: React.FC<ModalResumoAgendamentoProps> = ({
   };
 
   return (
-    <div className="modal-backdrop-custom">
-      <div className="modal-dialog-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(20,17,15,0.6)] backdrop-blur-[4px] box-border">
+      <div className="w-full max-w-[390px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl border border-border p-6 shadow-[0_16px_48px_rgba(45,35,30,0.2)] relative box-border">
         {/* Botão Voltar */}
         <button
           type="button"
           onClick={onBack}
           disabled={booking}
-          className="modal-btn-back"
+          className="absolute top-4 left-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
           aria-label="Voltar para seleção de horário"
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={2.5} />
@@ -77,69 +77,69 @@ export const ModalResumoAgendamento: React.FC<ModalResumoAgendamentoProps> = ({
           type="button"
           onClick={onClose}
           disabled={booking}
-          className="modal-btn-close"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Cabeçalho */}
-        <div style={{ textAlign: 'center', paddingTop: '0.5rem', paddingBottom: '0.75rem' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#000000', margin: 0 }}>
+        <div className="text-center pt-2 pb-3">
+          <h2 className="text-lg font-extrabold text-black m-0">
             Resumo do agendamento
           </h2>
-          <p style={{ fontSize: '0.75rem', color: '#70625B', marginTop: '0.125rem', marginBottom: 0 }}>
+          <p className="text-xs text-text-secondary mt-0.5 mb-0">
             Confira os dados antes de finalizar o seu horário.
           </p>
         </div>
 
         {/* Comanda Box Limpa (Sem fundo bege, textos em preto e negrito, ícones ampliados) */}
-        <div className="comanda-box">
-          <div className="comanda-row">
-            <span className="comanda-row__label">
+        <div className="bg-transparent border-none py-1 mb-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between text-[0.8125rem]">
+            <span className="flex items-center gap-2 text-black font-bold">
               <HugeiconsIcon icon={AirplaneSeatIcon} size={18} style={{ color: '#000000' }} />
               Serviço:
             </span>
-            <span className="comanda-row__value">
+            <span className="font-extrabold text-black text-right">
               {service.name} ({formattedPrice})
             </span>
           </div>
 
-          <div className="comanda-row">
-            <span className="comanda-row__label">
+          <div className="flex items-center justify-between text-[0.8125rem]">
+            <span className="flex items-center gap-2 text-black font-bold">
               <HugeiconsIcon icon={UserIcon} size={18} style={{ color: '#000000' }} />
               Profissional:
             </span>
-            <span className="comanda-row__value">
+            <span className="font-extrabold text-black text-right">
               {selectedProfessional?.name || 'Qualquer profissional livre'}
             </span>
           </div>
 
-          <div className="comanda-row">
-            <span className="comanda-row__label">
+          <div className="flex items-center justify-between text-[0.8125rem]">
+            <span className="flex items-center gap-2 text-black font-bold">
               <HugeiconsIcon icon={Calendar02Icon} size={18} style={{ color: '#000000' }} />
               Data:
             </span>
-            <span className="comanda-row__value">
+            <span className="font-extrabold text-black text-right">
               {formatDateDisplay(selectedDate)}
             </span>
           </div>
 
-          <div className="comanda-row">
-            <span className="comanda-row__label">
+          <div className="flex items-center justify-between text-[0.8125rem]">
+            <span className="flex items-center gap-2 text-black font-bold">
               <HugeiconsIcon icon={AlarmClockCheckIcon} size={18} style={{ color: '#000000' }} />
               Horário:
             </span>
-            <span className="comanda-row__value">
+            <span className="font-extrabold text-black text-right">
               {selectedSlot} ({service.duration_minutes} min)
             </span>
           </div>
         </div>
 
         {/* Formulário de Identificação */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-          <div className="cliente-input-group">
-            <label className="cliente-input-label">
+        <div className="flex flex-col gap-3 mb-5">
+          <div className="flex flex-col gap-1">
+            <label className="text-[0.6875rem] font-bold text-text-primary uppercase tracking-[0.05em]">
               Nome e sobrenome *
             </label>
             <input
@@ -148,12 +148,12 @@ export const ModalResumoAgendamento: React.FC<ModalResumoAgendamentoProps> = ({
               onChange={(e) => onChangeName(e.target.value)}
               placeholder="Ex: Jonathas Lopes"
               disabled={booking}
-              className="cliente-input"
+              className="w-full py-[0.625rem] px-[0.875rem] rounded-xl border border-border text-xs font-semibold text-text-primary bg-white transition-colors duration-200 box-border focus:border-brand-primary focus:outline-none"
             />
           </div>
 
-          <div className="cliente-input-group">
-            <label className="cliente-input-label">
+          <div className="flex flex-col gap-1">
+            <label className="text-[0.6875rem] font-bold text-text-primary uppercase tracking-[0.05em]">
               Telefone / WhatsApp com DDD *
             </label>
             <input
@@ -162,12 +162,11 @@ export const ModalResumoAgendamento: React.FC<ModalResumoAgendamentoProps> = ({
               onChange={(e) => onChangePhone(e.target.value)}
               placeholder="(92) 99420-4756"
               disabled={booking}
-              className="cliente-input"
-              style={{ borderColor: '#D96C00' }}
+              className="w-full py-[0.625rem] px-[0.875rem] rounded-xl border border-brand-primary text-xs font-semibold text-text-primary bg-white transition-colors duration-200 box-border focus:border-brand-primary focus:outline-none"
             />
           </div>
 
-          <p style={{ fontSize: '0.6875rem', color: '#70625B', textAlign: 'center', margin: 0, lineHeight: 1.3 }}>
+          <p className="text-[0.6875rem] text-text-secondary text-center m-0 leading-[1.3]">
             Enviaremos a confirmação e o lembrete direto no seu WhatsApp.
           </p>
         </div>
@@ -177,7 +176,7 @@ export const ModalResumoAgendamento: React.FC<ModalResumoAgendamentoProps> = ({
           type="button"
           onClick={onConfirmBooking}
           disabled={booking}
-          className="btn-cliente-primary"
+          className="w-full py-3 px-4 rounded-full text-xs font-extrabold bg-brand-primary text-brand-lightest border-none cursor-pointer shadow-[0_4px_12px_rgba(217,108,0,0.2)] transition-all duration-200 flex items-center justify-center gap-2 hover:not-disabled:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {booking ? (
             <>

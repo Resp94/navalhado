@@ -12,8 +12,8 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
 }) => {
   if (appointments.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '2.5rem 1rem', backgroundColor: '#FFFFFF', borderRadius: '1rem', border: '1px solid #EADED6' }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#70625B', margin: 0 }}>
+      <div className="text-center py-10 px-4 bg-white rounded-2xl border border-border">
+        <p className="text-xs font-semibold text-text-secondary m-0">
           Você ainda não possui histórico de agendamentos anteriores.
         </p>
       </div>
@@ -50,12 +50,12 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
   }, []);
 
   return (
-    <div className="timeline-container">
-      <div className="timeline-track-line" />
+    <div className="relative pl-14 flex flex-col gap-4">
+      <div className="absolute left-8 top-8 bottom-3 w-0.5 bg-border" />
 
       {monthGroups.map(([month, monthAppointments]) => (
-        <section key={month} className="timeline-month-group">
-          <h3 className="timeline-month-label">{month}</h3>
+        <section key={month} className="flex flex-col gap-1">
+          <h3 className="m-0 mb-1 text-text-primary text-[0.8125rem] font-extrabold">{month}</h3>
 
           {monthAppointments.map((app) => {
             const isCompleted = app.status === 'completed' || app.status === 'confirmed';
@@ -65,12 +65,14 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
             });
 
             return (
-              <div key={app.appointment_id} className="timeline-entry">
-                <span className="timeline-entry__date">{formatDayMonth(app.start_time)}</span>
+              <div key={app.appointment_id} className="relative pt-5">
+                <span className="absolute -left-14 top-0 text-brand-primary text-[0.6875rem] font-extrabold">
+                  {formatDayMonth(app.start_time)}
+                </span>
 
                 <div
-                  className={`timeline-entry__dot ${
-                    isCompleted ? 'timeline-entry__dot--completed' : 'timeline-entry__dot--canceled'
+                  className={`absolute -left-8 top-6 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[0.5625rem] ${
+                    isCompleted ? 'bg-success text-white' : 'bg-text-secondary text-white'
                   }`}
                 >
                   {isCompleted ? (
@@ -80,41 +82,36 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
                   )}
                 </div>
 
-                <div className="timeline-entry__card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                    <h4 style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
+                <article className="bg-white rounded-2xl border border-border p-4 shadow-[0_1px_3px_rgba(45,35,30,0.04)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-[0.8125rem] font-extrabold text-text-primary m-0">
                       {app.service_name}
                     </h4>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D96C00' }}>
+                    <span className="text-[0.8125rem] font-extrabold text-brand-primary">
                       {formattedPrice}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.25rem', fontSize: '0.6875rem', color: '#70625B' }}>
+                  <div className="flex items-center justify-between mt-1 text-[0.6875rem] text-text-secondary">
                     <span>{app.professional_name || 'Profissional'}</span>
                     <span>{formatTime(app.start_time)}</span>
                   </div>
 
-                  <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <div className="mt-2 flex items-center gap-1.5">
                     <span
-                      style={{
-                        fontSize: '0.625rem',
-                        fontWeight: 700,
-                        padding: '0.125rem 0.5rem',
-                        borderRadius: '9999px',
-                        backgroundColor: isCompleted ? '#E6F4EA' : '#FDE8E8',
-                        color: isCompleted ? '#0E9F6E' : '#F05252',
-                      }}
+                      className={`text-[0.625rem] font-bold py-0.5 px-2 rounded-full ${
+                        isCompleted ? 'bg-success-bg text-success' : 'bg-error-bg text-error'
+                      }`}
                     >
                       {isCompleted ? 'Finalizado' : 'Cancelado'}
                     </span>
                     {app.cancellation_reason && (
-                      <span style={{ fontSize: '0.625rem', color: '#70625B', fontStyle: 'italic' }}>
+                      <span className="text-[0.625rem] text-text-secondary italic">
                         Motivo: {app.cancellation_reason}
                       </span>
                     )}
                   </div>
-                </div>
+                </article>
               </div>
             );
           })}

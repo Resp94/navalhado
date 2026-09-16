@@ -56,53 +56,56 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
     currency: 'BRL',
   });
 
+  const diaBtnBase =
+    'py-[0.625rem] px-2 rounded-xl text-center border bg-white text-text-primary cursor-pointer transition-all duration-200';
+
   return (
-    <div className="modal-backdrop-custom">
-      <div className="modal-dialog-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(20,17,15,0.6)] backdrop-blur-[4px] box-border">
+      <div className="w-full max-w-[390px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl border border-border p-6 shadow-[0_16px_48px_rgba(45,35,30,0.2)] relative box-border">
         {/* Botão Fechar */}
         <button
           type="button"
           onClick={onClose}
-          className="modal-btn-close"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Resumo do Serviço */}
-        <div style={{ textAlign: 'center', paddingTop: '0.25rem', paddingBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
+        <div className="text-center pt-1 pb-4">
+          <h2 className="text-base font-extrabold text-text-primary m-0">
             {service.name}
           </h2>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: '#FFF1E6', border: '1px solid rgba(242, 178, 119, 0.6)', fontSize: '0.75rem', fontWeight: 700, color: '#D96C00' }}>
+          <div className="inline-flex items-center gap-1.5 mt-1.5 py-1 px-3 rounded-full bg-brand-lightest border border-[rgba(242,178,119,0.6)] text-xs font-bold text-brand-primary">
             <span>{formattedPrice}</span>
             <span>•</span>
             <span>{service.duration_minutes} min</span>
           </div>
         </div>
 
-        <div style={{ width: '100%', height: '1px', backgroundColor: '#EADED6', marginBottom: '1rem' }} />
+        <div className="w-full h-px bg-border mb-4" />
 
         {/* Chamada */}
-        <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2D231E', textAlign: 'center', marginBottom: '0.75rem' }}>
+        <p className="text-xs font-bold text-text-primary text-center mb-3">
           Selecione o dia da semana desejado:
         </p>
 
         {/* Navegação e Grade 2x3 */}
-        <div className="semana-nav-row">
+        <div className="flex items-center justify-between gap-1 mb-4">
           {/* Seta Anterior */}
           <button
             type="button"
             onClick={() => setWeekOffset((prev) => Math.max(0, prev - 1))}
             disabled={weekOffset === 0}
-            className="semana-nav-btn"
+            className="w-7 h-7 rounded-full flex items-center justify-center border border-border bg-brand-lightest text-text-secondary cursor-pointer shrink-0 transition-all duration-200 hover:not-disabled:bg-brand-primary hover:not-disabled:border-brand-primary hover:not-disabled:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:border-transparent"
             aria-label="Semana anterior"
           >
             <HugeiconsIcon icon={ArrowLeft01Icon} size={14} strokeWidth={2.5} />
           </button>
 
           {/* Grade 2x3 */}
-          <div className="grid-dias-2x3">
+          <div className="grid grid-cols-2 gap-2 flex-1 mx-1">
             {displayDays.map((d) => {
               const isSelected = selectedDate === d.dateStr;
               return (
@@ -115,19 +118,19 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
                     }
                   }}
                   disabled={d.isPast}
-                  className={`dia-btn ${
+                  className={`${diaBtnBase} ${
                     isSelected
-                      ? 'dia-btn--selected'
+                      ? 'bg-brand-primary border-brand-primary text-brand-lightest shadow-[0_1px_2px_rgba(217,108,0,0.2)]'
                       : d.isPast
-                      ? 'dia-btn--past'
-                      : ''
+                      ? 'bg-[rgba(234,222,214,0.3)] border-transparent text-[rgba(112,98,91,0.4)] cursor-not-allowed'
+                      : 'border-border hover:not-disabled:border-[rgba(217,108,0,0.6)]'
                   }`}
                 >
-                  <div className="dia-btn__number">
+                  <div className="text-sm font-extrabold leading-[1.2]">
                     {d.dayNumber}
                   </div>
                   <div
-                    className="dia-btn__weekday"
+                    className="text-[0.6875rem] font-bold mt-0.5"
                     style={{ color: isSelected ? '#FFF1E6' : '#70625B' }}
                   >
                     {d.weekdayName}
@@ -141,14 +144,14 @@ export const ModalSelecaoDias: React.FC<ModalSelecaoDiasProps> = ({
           <button
             type="button"
             onClick={() => setWeekOffset((prev) => prev + 1)}
-            className="semana-nav-btn"
+            className="w-7 h-7 rounded-full flex items-center justify-center border border-border bg-brand-lightest text-text-secondary cursor-pointer shrink-0 transition-all duration-200 hover:not-disabled:bg-brand-primary hover:not-disabled:border-brand-primary hover:not-disabled:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:border-transparent"
             aria-label="Próxima semana"
           >
             <HugeiconsIcon icon={ArrowRight01Icon} size={14} strokeWidth={2.5} />
           </button>
         </div>
 
-        <p style={{ fontSize: '0.6875rem', color: '#70625B', textAlign: 'center', margin: 0 }}>
+        <p className="text-[0.6875rem] text-text-secondary text-center m-0">
           Toque no dia para escolher barbeiro e horário
         </p>
       </div>
