@@ -46,6 +46,9 @@ interface ListaEsperaDrawerProps {
   esperaRepo?: EsperaRepository;
 }
 
+const INPUT_CLASSES =
+  'w-full h-[42px] px-[0.85rem] text-sm font-[inherit] text-text-primary bg-bg-secondary border-[1.5px] border-zinc-800 rounded-md outline-none transition-colors duration-150 box-border leading-[40px] overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden placeholder:text-gray-400 focus:outline-none focus:border-zinc-800 focus:shadow-none [@media(pointer:coarse)]:min-h-11';
+
 export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   isOpen,
   tenantId,
@@ -185,22 +188,25 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
   return (
     <>
-      <div className="drawer-backdrop" onClick={onClose} />
       <div
-        className="drawer-panel"
+        className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[1055] animate-fade-in overscroll-contain touch-none"
+        onClick={onClose}
+      />
+      <div
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[480px] bg-bg-secondary border-l border-border shadow-[-4px_0_24px_rgba(0,0,0,0.12)] z-[1060] flex flex-col font-base text-text-primary animate-slide-in-right box-border overflow-hidden overscroll-contain"
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-espera-title"
       >
         {/* 1. Header idêntico ao mockup */}
-        <div className="drawer-header">
-          <h3 id="drawer-espera-title" className="drawer-title">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-bg-secondary shrink-0 box-border w-full">
+          <h3 id="drawer-espera-title" className="text-xl font-bold text-text-primary m-0 tracking-[-0.01em]">
             Fila de espera da barbearia
           </h3>
           <button
             onClick={onClose}
             type="button"
-            className="drawer-close-btn"
+            className="w-9 h-9 rounded-md border-none bg-transparent text-text-primary inline-flex items-center justify-center cursor-pointer transition-colors duration-150 outline-none hover:bg-black/5 focus:outline-none focus-visible:outline-none"
             aria-label="Fechar"
           >
             <HugeiconsIcon icon={Cancel01Icon} size={20} />
@@ -208,14 +214,14 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
         </div>
 
         {/* 2. Content */}
-        <div className="drawer-body">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 flex flex-col gap-[0.85rem] bg-bg-secondary box-border w-full [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden overscroll-contain">
           {/* Card: Data da fila */}
-          <div className="drawer-date-card">
-            <label htmlFor="drawer-date-input" className="drawer-date-label">
+          <div className="relative z-20 flex items-center justify-between gap-3 py-[0.85rem] px-5 bg-bg-secondary border-[1.5px] border-zinc-800 rounded-lg box-border">
+            <label htmlFor="drawer-date-input" className="text-[0.925rem] font-bold text-text-primary">
               Data da fila:
             </label>
             <div
-              className="drawer-date-picker-box"
+              className="relative inline-flex items-center gap-2 py-[0.45rem] px-[0.85rem] border-[1.5px] border-zinc-800 rounded-md bg-transparent cursor-pointer box-border h-[38px] select-none transition-colors duration-150 hover:bg-black/[0.04] focus:outline-none focus-visible:outline-none focus-within:outline-none"
               onClick={() => setIsDatePickerOpen((prev) => !prev)}
               role="button"
               tabIndex={0}
@@ -229,8 +235,10 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
               aria-label="Escolher data na agenda"
               aria-expanded={isDatePickerOpen}
             >
-              <span className="drawer-date-text">{formatDateDisplay(activeDate)}</span>
-              <HugeiconsIcon icon={Calendar03Icon} size={16} className="drawer-date-icon" />
+              <span className="text-sm font-bold text-text-primary tracking-[0.02em] pointer-events-none select-none">
+                {formatDateDisplay(activeDate)}
+              </span>
+              <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-text-primary pointer-events-none shrink-0" />
 
               <input
                 id="drawer-date-input"
@@ -241,7 +249,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   setActiveDate(newDate);
                   onDateChange?.(newDate);
                 }}
-                className="drawer-date-native-input"
+                className="absolute inset-0 w-full h-full opacity-0 pointer-events-none border-none bg-transparent p-0 m-0"
                 aria-label="Data da fila:"
                 tabIndex={-1}
                 aria-hidden="true"
@@ -265,26 +273,37 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
           {/* Card: Formulário Novo Cliente na Fila */}
           {showAddForm ? (
-            <form onSubmit={handleAddSubmit} className="espera-add-card">
-              <div className="espera-card-header">
-                <span className="espera-card-title">NOVO CLIENTE NA FILA</span>
+            <form
+              onSubmit={handleAddSubmit}
+              className="p-5 rounded-[14px] bg-bg-secondary border-[1.5px] border-zinc-800 flex flex-col gap-[0.85rem] box-border"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[0.825rem] font-extrabold uppercase tracking-[0.02em] text-text-primary">
+                  NOVO CLIENTE NA FILA
+                </span>
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="espera-btn-cancelar"
+                  className="bg-transparent border-[1.5px] border-zinc-800 rounded-[6px] py-1 px-[0.85rem] text-text-primary text-[0.8rem] font-semibold cursor-pointer transition-colors duration-150 hover:bg-black/5 focus:outline-none focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
                 >
                   Cancelar
                 </button>
               </div>
 
               {errorMsg && (
-                <div className="espera-error-alert" role="alert">
+                <div
+                  className="py-[0.6rem] px-[0.85rem] rounded-md bg-error-bg border border-error text-error text-[0.8rem] font-semibold"
+                  role="alert"
+                >
                   {errorMsg}
                 </div>
               )}
 
-              <div className="espera-form-field">
-                <label htmlFor="espera-nome" className="espera-label">
+              <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
+                <label
+                  htmlFor="espera-nome"
+                  className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
+                >
                   NOME DO CLIENTE *
                 </label>
                 <input
@@ -293,13 +312,16 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Ex: Pedro Henrique"
-                  className="espera-input"
+                  className={INPUT_CLASSES}
                   required
                 />
               </div>
 
-              <div className="espera-form-field">
-                <label htmlFor="espera-telefone" className="espera-label">
+              <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
+                <label
+                  htmlFor="espera-telefone"
+                  className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
+                >
                   WHATSAPP OU CELULAR
                 </label>
                 <input
@@ -308,20 +330,23 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   value={customerPhone}
                   onChange={handlePhoneChange}
                   placeholder="(11) 99999-9999"
-                  className="espera-input"
+                  className={INPUT_CLASSES}
                 />
               </div>
 
-              <div className="espera-form-grid-2">
-                <div className="espera-form-field">
-                  <label htmlFor="espera-prof" className="espera-label">
+              <div className="grid grid-cols-2 gap-3 items-start max-[420px]:grid-cols-1">
+                <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
+                  <label
+                    htmlFor="espera-prof"
+                    className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
+                  >
                     PROFISSIONAL
                   </label>
                   <select
                     id="espera-prof"
                     value={profId}
                     onChange={(e) => setProfId(e.target.value)}
-                    className="espera-select"
+                    className={`${INPUT_CLASSES} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2318181b'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem] pr-9 cursor-pointer whitespace-nowrap text-ellipsis`}
                   >
                     <option value="">Qualquer barbeiro disponível</option>
                     {professionals.map((p) => (
@@ -332,15 +357,18 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   </select>
                 </div>
 
-                <div className="espera-form-field">
-                  <label htmlFor="espera-servico" className="espera-label">
+                <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
+                  <label
+                    htmlFor="espera-servico"
+                    className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
+                  >
                     SERVIÇO
                   </label>
                   <select
                     id="espera-servico"
                     value={servId}
                     onChange={(e) => setServId(e.target.value)}
-                    className="espera-select"
+                    className={`${INPUT_CLASSES} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2318181b'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem] pr-9 cursor-pointer whitespace-nowrap text-ellipsis`}
                   >
                     <option value="">Selecione um serviço...</option>
                     {services.map((s) => (
@@ -352,8 +380,11 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                 </div>
               </div>
 
-              <div className="espera-form-field">
-                <label htmlFor="espera-obs" className="espera-label">
+              <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
+                <label
+                  htmlFor="espera-obs"
+                  className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
+                >
                   OBSERVAÇÕES
                 </label>
                 <input
@@ -362,14 +393,14 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ex: Chegou com pressa, ligar se liberar"
-                  className="espera-input"
+                  className={INPUT_CLASSES}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="espera-btn-submit"
+                className="mt-[0.35rem] w-full py-[0.8rem] px-4 rounded-md border-none bg-[#EAA96B] text-[#18181b] text-sm font-extrabold cursor-pointer inline-flex items-center justify-center gap-2 transition-colors duration-150 enabled:hover:bg-[#df9e60] enabled:active:scale-[0.99] disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-800 focus-visible:outline-offset-2 [@media(pointer:coarse)]:min-h-11"
               >
                 {isSubmitting ? (
                   <span>Salvando...</span>
@@ -381,7 +412,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                       viewBox="0 0 20 20"
                       fill="currentColor"
                       aria-hidden="true"
-                      className="espera-check-icon"
+                      className="shrink-0"
                     >
                       <path
                         fillRule="evenodd"
@@ -398,7 +429,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
             <button
               type="button"
               onClick={() => setShowAddForm(true)}
-              className="btn-add-espera-reopen"
+              className="w-full py-[0.85rem] px-4 border-[1.5px] border-zinc-800 rounded-xl bg-transparent text-text-primary text-[0.85rem] font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors duration-150 box-border hover:bg-black/[0.04] focus:outline-none focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
             >
               <HugeiconsIcon icon={PlusSignIcon} size={16} />
               <span>Novo cliente na fila</span>
@@ -406,19 +437,21 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
           )}
 
           {/* Seção: Aguardando na Casa */}
-          <div className="espera-section">
-            <h4 className="espera-section-heading">
+          <div className="flex flex-col gap-3">
+            <h4 className="text-[0.85rem] font-extrabold uppercase tracking-[0.02em] text-text-primary mt-2 mb-0">
               AGUARDANDO NA CASA ({aguardandoEntries.length})
             </h4>
 
             {loading ? (
-              <div className="espera-empty-card">Carregando lista...</div>
+              <div className="py-9 px-6 text-center text-sm text-zinc-600 bg-bg-secondary rounded-[14px] border-[1.5px] border-zinc-800 font-medium">
+                Carregando lista...
+              </div>
             ) : aguardandoEntries.length === 0 ? (
-              <div className="espera-empty-card">
+              <div className="py-9 px-6 text-center text-sm text-zinc-600 bg-bg-secondary rounded-[14px] border-[1.5px] border-zinc-800 font-medium">
                 Nenhum cliente na fila de espera hoje.
               </div>
             ) : (
-              <div className="espera-cards-list">
+              <div className="flex flex-col gap-3">
                 {aguardandoEntries.map((entry, idx) => {
                   const prof = professionals.find((p) => p.id === entry.professional_id);
                   const serv = services.find((s) => s.id === entry.service_id);
@@ -430,45 +463,50 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                     : '--:--';
 
                   return (
-                    <div key={entry.id} className="espera-entry-card">
-                      <div className="espera-card-top">
-                        <div className="espera-client-info">
-                          <span className="espera-pos-badge">#{idx + 1}</span>
+                    <div
+                      key={entry.id}
+                      className="p-[1.15rem] rounded-lg bg-bg-secondary border-[1.5px] border-zinc-800 flex flex-col gap-[0.65rem]"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-[0.65rem]">
+                          <span className="w-[26px] h-[26px] rounded-full bg-zinc-800 text-white text-xs font-extrabold flex items-center justify-center">
+                            #{idx + 1}
+                          </span>
                           <div>
-                            <strong className="espera-client-name">{entry.customer_name}</strong>
+                            <strong className="block text-sm font-bold text-text-primary">{entry.customer_name}</strong>
                             {entry.customer_phone && (
-                              <span className="espera-client-phone">{entry.customer_phone}</span>
+                              <span className="block text-xs text-zinc-500">{entry.customer_phone}</span>
                             )}
                           </div>
                         </div>
 
-                        <div className="espera-time-tag">
+                        <div className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500">
                           <HugeiconsIcon icon={Clock01Icon} size={13} />
                           <span>{createdTime}</span>
                         </div>
                       </div>
 
-                      <div className="espera-card-meta">
+                      <div className="flex flex-wrap gap-[0.4rem]">
                         {serv && (
-                          <span className="espera-meta-tag espera-meta-service">
+                          <span className="text-[0.7rem] font-bold py-1 px-[0.55rem] rounded-[6px] bg-brand-lightest text-brand-deep">
                             {serv.name}
                           </span>
                         )}
-                        <span className="espera-meta-tag espera-meta-prof">
+                        <span className="text-[0.7rem] font-bold py-1 px-[0.55rem] rounded-[6px] bg-bg-secondary text-text-secondary border border-border">
                           {prof ? `Pref: ${prof.name}` : 'Qualquer barbeiro'}
                         </span>
                       </div>
 
                       {entry.notes && (
-                        <p className="espera-card-notes">"{entry.notes}"</p>
+                        <p className="text-[0.775rem] italic text-zinc-500 m-0">"{entry.notes}"</p>
                       )}
 
-                      <div className="espera-card-actions">
+                      <div className="flex items-center gap-2 pt-[0.35rem]">
                         {entry.customer_phone && (
                           <button
                             type="button"
                             onClick={() => handleNotifyWhatsApp(entry)}
-                            className="espera-action-whatsapp"
+                            className="py-[0.45rem] px-3 rounded-[6px] border-[1.5px] border-success bg-success-bg text-success text-xs font-bold inline-flex items-center gap-[0.3rem] cursor-pointer [@media(pointer:coarse)]:min-h-11"
                             title="Avisar no WhatsApp que a vez chegou"
                           >
                             <HugeiconsIcon icon={WhatsappIcon} size={14} />
@@ -479,7 +517,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                         <button
                           type="button"
                           onClick={() => handleStatusChange(entry.id, 'cancelado')}
-                          className="espera-action-cancel"
+                          className="py-[0.45rem] px-3 rounded-[6px] border-[1.5px] border-border bg-transparent text-error text-xs font-semibold inline-flex items-center gap-[0.3rem] cursor-pointer [@media(pointer:coarse)]:min-h-11"
                           title="Desistiu / Cancelar"
                         >
                           <HugeiconsIcon icon={Cancel01Icon} size={14} />
@@ -489,7 +527,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                         <button
                           type="button"
                           onClick={() => onEncaixar(entry)}
-                          className="espera-action-encaixar"
+                          className="flex-1 py-[0.45rem] px-[0.85rem] rounded-[6px] border-none bg-[#EAA96B] text-[#18181b] text-xs font-extrabold inline-flex items-center justify-center gap-[0.35rem] cursor-pointer transition-colors duration-150 hover:bg-[#df9e60] [@media(pointer:coarse)]:min-h-11"
                           title="Puxar para a cadeira"
                           aria-label="Puxar para a cadeira"
                         >
@@ -506,18 +544,23 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
           {/* Seção Finalizados (Histórico) */}
           {finalizadasEntries.length > 0 && (
-            <div className="espera-section">
-              <h4 className="espera-section-heading">
+            <div className="flex flex-col gap-3">
+              <h4 className="text-[0.85rem] font-extrabold uppercase tracking-[0.02em] text-text-primary mt-2 mb-0">
                 HISTÓRICO DE HOJE ({finalizadasEntries.length})
               </h4>
-              <div className="espera-cards-list">
+              <div className="flex flex-col gap-3">
                 {finalizadasEntries.map((entry) => (
-                  <div key={entry.id} className="espera-card-history">
-                    <div className="flex-between">
-                      <span className="history-client-name">{entry.customer_name}</span>
+                  <div
+                    key={entry.id}
+                    className="py-[0.85rem] px-4 rounded-md bg-bg-secondary border-[1.5px] border-zinc-800 opacity-80"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[0.85rem] font-semibold text-text-primary">{entry.customer_name}</span>
                       <span
-                        className={`history-status-badge ${
-                          entry.status === 'atendido' ? 'history-status-done' : 'history-status-canceled'
+                        className={`text-[0.7rem] font-bold py-[0.2rem] px-2 rounded-[4px] uppercase ${
+                          entry.status === 'atendido'
+                            ? 'bg-success-bg text-success'
+                            : 'bg-error-bg text-error'
                         }`}
                       >
                         {entry.status === 'atendido' ? 'Encaixado' : 'Cancelado'}
@@ -530,654 +573,6 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
           )}
         </div>
       </div>
-
-      <style>{`
-        .drawer-backdrop {
-          position: fixed;
-          inset: 0;
-          background-color: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-          z-index: 1055;
-          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-          overscroll-behavior: contain;
-          touch-action: none;
-        }
-
-        .drawer-panel {
-          position: fixed;
-          top: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          max-width: 480px;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border-left: 1px solid var(--color-border, #EADED6);
-          box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
-          z-index: 1060;
-          display: flex;
-          flex-direction: column;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          color: var(--color-text-primary, #18181b);
-          animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          box-sizing: border-box;
-          overflow: hidden;
-          overscroll-behavior: contain;
-        }
-
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        /* 1. Header */
-        .drawer-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border, #E5E7EB);
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          flex-shrink: 0;
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .drawer-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #18181b);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .drawer-close-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          border: none;
-          background: transparent;
-          color: var(--color-text-primary, #18181b);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background-color 0.15s ease, color 0.15s ease;
-          outline: none;
-        }
-
-        .drawer-close-btn:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .drawer-close-btn:focus,
-        .drawer-close-btn:focus-visible {
-          outline: none !important;
-          border: none !important;
-          box-shadow: none !important;
-        }
-
-        /* 2. Body */
-        .drawer-body {
-          flex: 1;
-          overflow-y: auto;
-          overflow-x: hidden;
-          padding: 1rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-sizing: border-box;
-          width: 100%;
-          scrollbar-width: none; /* Firefox */
-          -ms-overflow-style: none; /* IE e Edge */
-          overscroll-behavior: contain;
-          overscroll-behavior-y: contain;
-        }
-
-        .drawer-body::-webkit-scrollbar {
-          display: none; /* Chrome, Safari, Edge */
-          width: 0;
-          height: 0;
-        }
-
-        /* 3. Card Data da Fila */
-        .drawer-date-card {
-          position: relative;
-          z-index: 20;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.75rem;
-          padding: 0.85rem 1.25rem;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1.5px solid #27272a;
-          border-radius: 12px;
-          box-sizing: border-box;
-        }
-
-        .drawer-date-label {
-          font-size: 0.925rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #18181b);
-        }
-
-        .drawer-date-picker-box {
-          position: relative;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.45rem 0.85rem;
-          border: 1.5px solid #27272a;
-          border-radius: 8px;
-          background-color: transparent;
-          cursor: pointer;
-          box-sizing: border-box;
-          height: 38px;
-          user-select: none;
-          transition: background-color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .drawer-date-picker-box:hover {
-          background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .drawer-date-text {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #18181b);
-          letter-spacing: 0.02em;
-          pointer-events: none;
-          user-select: none;
-        }
-
-        .drawer-date-icon {
-          color: var(--color-text-primary, #18181b);
-          pointer-events: none;
-          flex-shrink: 0;
-        }
-
-        .drawer-date-native-input {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          opacity: 0;
-          pointer-events: none;
-          border: none;
-          background: transparent;
-          padding: 0;
-          margin: 0;
-        }
-
-        .drawer-date-picker-box:focus,
-        .drawer-date-picker-box:focus-visible,
-        .drawer-date-picker-box:focus-within {
-          outline: none !important;
-          border-color: #27272a !important;
-          box-shadow: none !important;
-        }
-
-        /* 4. Card Novo Cliente na Fila */
-        .espera-add-card {
-          padding: 1.25rem;
-          border-radius: 14px;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1.5px solid #27272a;
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-          box-sizing: border-box;
-        }
-
-        .espera-card-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.25rem;
-        }
-
-        .espera-card-title {
-          font-size: 0.825rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: var(--color-text-primary, #18181b);
-        }
-
-        .espera-btn-cancelar {
-          background: transparent;
-          border: 1.5px solid #27272a;
-          border-radius: 6px;
-          padding: 0.25rem 0.85rem;
-          color: var(--color-text-primary, #18181b);
-          font-size: 0.8rem;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background-color 0.15s ease;
-        }
-
-        .espera-btn-cancelar:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .espera-btn-cancelar:focus,
-        .espera-btn-cancelar:focus-visible {
-          outline: none !important;
-          border-color: #27272a !important;
-          box-shadow: none !important;
-        }
-
-        .btn-add-espera-reopen {
-          width: 100%;
-          padding: 0.85rem 1rem;
-          border: 1.5px solid #27272a;
-          border-radius: 12px;
-          background: transparent;
-          color: var(--color-text-primary, #18181b);
-          font-size: 0.85rem;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          transition: background-color 0.15s ease;
-          box-sizing: border-box;
-        }
-
-        .btn-add-espera-reopen:hover {
-          background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .btn-add-espera-reopen:focus,
-        .btn-add-espera-reopen:focus-visible {
-          outline: none !important;
-          border-color: #27272a !important;
-          box-shadow: none !important;
-        }
-
-        .espera-error-alert {
-          padding: 0.6rem 0.85rem;
-          border-radius: 8px;
-          background-color: var(--color-error-bg, #FDE8E8);
-          border: 1px solid var(--color-error, #F05252);
-          color: var(--color-error, #F05252);
-          font-size: 0.8rem;
-          font-weight: 600;
-        }
-
-        .espera-form-field {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .espera-label {
-          font-size: 0.75rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #18181b);
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          line-height: 1.25;
-          min-height: 1.25em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: block;
-        }
-
-        .espera-input,
-        .espera-select {
-          width: 100%;
-          height: 42px;
-          padding: 0 0.85rem;
-          font-size: 0.875rem;
-          font-family: inherit;
-          color: var(--color-text-primary, #18181b);
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1.5px solid #27272a;
-          border-radius: 8px;
-          outline: none;
-          transition: border-color 0.15s ease;
-          box-sizing: border-box;
-          line-height: 40px;
-          overflow: hidden;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-
-        .espera-input::-webkit-scrollbar,
-        .espera-select::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
-        }
-
-        .espera-input::placeholder {
-          color: #9CA3AF;
-        }
-
-        .espera-select {
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2318181b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 0.75rem center;
-          background-size: 1rem;
-          padding-right: 2.25rem;
-          cursor: pointer;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        /* Remove qualquer efeito de stroker / borda laranja ao clicar ou focar */
-        .espera-input:focus,
-        .espera-select:focus,
-        .espera-input:focus-visible,
-        .espera-select:focus-visible {
-          outline: none !important;
-          border-color: #27272a !important;
-          box-shadow: none !important;
-        }
-
-        .espera-form-grid-2 {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-          align-items: start;
-        }
-
-        @media (max-width: 420px) {
-          .espera-form-grid-2 {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        /* 5. Botão Adicionar à Fila (Âmbar idêntico ao print) */
-        .espera-btn-submit {
-          margin-top: 0.35rem;
-          width: 100%;
-          padding: 0.8rem 1rem;
-          border-radius: 8px;
-          border: none;
-          background-color: #EAA96B;
-          color: #18181b;
-          font-size: 0.875rem;
-          font-weight: 800;
-          font-family: inherit;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          transition: background-color 0.15s ease, transform 0.05s ease;
-        }
-
-        .espera-btn-submit:hover:not(:disabled) {
-          background-color: #df9e60;
-        }
-
-        .espera-btn-submit:active:not(:disabled) {
-          transform: scale(0.99);
-        }
-
-        .espera-btn-submit:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-
-        .espera-btn-submit:focus-visible {
-          outline: 2px solid #27272a;
-          outline-offset: 2px;
-        }
-
-        .espera-check-icon {
-          flex-shrink: 0;
-        }
-
-        /* 6. Seção Aguardando na Casa */
-        .espera-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .espera-section-heading {
-          font-size: 0.85rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: var(--color-text-primary, #18181b);
-          margin: 0.5rem 0 0 0;
-        }
-
-        .espera-empty-card {
-          padding: 2.25rem 1.5rem;
-          text-align: center;
-          font-size: 0.875rem;
-          color: #52525B;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border-radius: 14px;
-          border: 1.5px solid #27272a;
-          font-weight: 500;
-        }
-
-        /* 7. Cards de Clientes na Fila */
-        .espera-cards-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .espera-entry-card {
-          padding: 1.15rem;
-          border-radius: 12px;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1.5px solid #27272a;
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-        }
-
-        .espera-card-top {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .espera-client-info {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-        }
-
-        .espera-pos-badge {
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
-          background-color: #27272a;
-          color: #FFFFFF;
-          font-size: 0.75rem;
-          font-weight: 800;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .espera-client-name {
-          display: block;
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #18181b);
-        }
-
-        .espera-client-phone {
-          display: block;
-          font-size: 0.75rem;
-          color: #71717A;
-        }
-
-        .espera-time-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #71717A;
-        }
-
-        .espera-card-meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-
-        .espera-meta-tag {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.55rem;
-          border-radius: 6px;
-        }
-
-        .espera-meta-service {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          color: var(--color-brand-deep, #6A2E00);
-        }
-
-        .espera-meta-prof {
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          color: var(--color-text-secondary, #70625B);
-          border: 1px solid var(--color-border, #EADED6);
-        }
-
-        .espera-card-notes {
-          font-size: 0.775rem;
-          font-style: italic;
-          color: #71717A;
-          margin: 0;
-        }
-
-        .espera-card-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding-top: 0.35rem;
-        }
-
-        .espera-action-whatsapp {
-          padding: 0.45rem 0.75rem;
-          border-radius: 6px;
-          border: 1.5px solid var(--color-success, #0E9F6E);
-          background-color: var(--color-success-bg, #E6F4EA);
-          color: var(--color-success, #0E9F6E);
-          font-size: 0.75rem;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          cursor: pointer;
-        }
-
-        .espera-action-cancel {
-          padding: 0.45rem 0.75rem;
-          border-radius: 6px;
-          border: 1.5px solid var(--color-border, #EADED6);
-          background-color: transparent;
-          color: var(--color-error, #F05252);
-          font-size: 0.75rem;
-          font-weight: 600;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          cursor: pointer;
-        }
-
-        .espera-action-encaixar {
-          flex: 1;
-          padding: 0.45rem 0.85rem;
-          border-radius: 6px;
-          border: none;
-          background-color: #EAA96B;
-          color: #18181b;
-          font-size: 0.75rem;
-          font-weight: 800;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.35rem;
-          cursor: pointer;
-          transition: background-color 0.15s ease;
-        }
-
-        .espera-action-encaixar:hover {
-          background-color: #df9e60;
-        }
-
-        .espera-card-history {
-          padding: 0.85rem 1rem;
-          border-radius: 8px;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1.5px solid #27272a;
-          opacity: 0.8;
-        }
-
-        .flex-between {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .history-client-name {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: var(--color-text-primary, #18181b);
-        }
-
-        .history-status-badge {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
-          text-transform: uppercase;
-        }
-
-        .history-status-done {
-          background-color: var(--color-success-bg, #E6F4EA);
-          color: var(--color-success, #0E9F6E);
-        }
-
-        .history-status-canceled {
-          background-color: var(--color-error-bg, #FDE8E8);
-          color: var(--color-error, #F05252);
-        }
-
-        /* 9. Acessibilidade Mobile e Touch Target */
-        @media (pointer: coarse) {
-          .drawer-close-btn,
-          .espera-btn-cancelar,
-          .espera-btn-submit,
-          .btn-add-espera-reopen,
-          .espera-action-encaixar,
-          .espera-action-cancel,
-          .espera-action-whatsapp {
-            min-height: 44px;
-          }
-          .drawer-date-input,
-          .espera-input,
-          .espera-select {
-            min-height: 44px;
-          }
-        }
-      `}</style>
     </>
   );
 };

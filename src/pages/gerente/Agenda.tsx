@@ -206,26 +206,29 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
           initials: (p.name || 'BA').slice(0, 2).toUpperCase(),
         }));
 
+  const skeletonBoxClass =
+    'bg-[linear-gradient(90deg,rgba(45,35,30,0.05)_0%,rgba(217,108,0,0.12)_50%,rgba(45,35,30,0.05)_100%)] bg-[length:200%_100%] animate-shimmer rounded-sm';
+
   return (
     <div
-      className="agenda-timeline-board agenda-timeline-board--skeleton"
+      className="flex min-w-full w-max relative pointer-events-none select-none animate-fade-in"
       aria-busy="true"
       aria-label="Carregando grade da agenda"
     >
       {/* Coluna Fixa da Régua de Horários */}
-      <div className="timeline-axis-column">
-        <div className="timeline-axis-header">
+      <div className="w-[65px] min-w-[65px] shrink-0 border-r border-border flex flex-col sticky left-0 z-[35] bg-bg-secondary shadow-[2px_0_8px_rgba(0,0,0,0.04)]">
+        <div className="h-[60px] min-h-[60px] border-b border-border flex items-center justify-center text-text-secondary sticky top-0 left-0 z-50 bg-bg-secondary rounded-tl-[calc(var(--radius-lg)-1px)] box-border">
           <HugeiconsIcon icon={Clock01Icon} size={16} />
         </div>
-        <div className="timeline-axis-body">
+        <div className="flex flex-col bg-[inherit]">
           {displaySlots.map((slot) => (
             <div
               key={slot}
-              className="time-slot-label"
+              className="box-border flex items-center justify-center text-xs font-bold text-text-secondary border-b border-dashed border-border/40 bg-[inherit]"
               style={{ height: `${slotHeightPx}px` }}
             >
               <div
-                className="skeleton-box skeleton-time-label"
+                className={skeletonBoxClass}
                 style={{ width: '38px', height: '11px', margin: '0 auto', borderRadius: '4px' }}
               />
             </div>
@@ -234,32 +237,32 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
       </div>
 
       {/* Colunas da Grade com Shimmer */}
-      <div className="professionals-columns-container">
+      <div className="flex flex-1 min-w-0">
         {columns.map((col, colIndex) => (
-          <div key={col.id} className="professional-timeline-column">
+          <div key={col.id} className="flex-1 w-full min-w-[clamp(240px,22vw,640px)] border-r border-border/70 flex flex-col last:border-r-0">
             {/* Cabeçalho Skeleton */}
-            <div className="prof-col-header">
-              <div className="prof-col-avatar skeleton-box" style={{ color: 'transparent' }}>
+            <div className="h-[60px] min-h-[60px] border-b border-border py-2 px-3 flex items-center gap-2.5 sticky top-0 z-30 bg-bg-secondary box-border shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-xs border-[1.5px] border-white/80 ${skeletonBoxClass}`} style={{ color: 'transparent' }}>
                 {col.initials}
               </div>
-              <div className="prof-col-info">
+              <div className="flex flex-col min-w-0">
                 <div
-                  className="skeleton-box skeleton-title"
+                  className={`${skeletonBoxClass} h-3.5 rounded`}
                   style={{ width: viewMode === 'week' ? '56px' : '90px' }}
                 />
                 <div
-                  className="skeleton-box skeleton-subtitle"
+                  className={`${skeletonBoxClass} h-2.5 rounded`}
                   style={{ width: '64px', marginTop: '4px' }}
                 />
               </div>
             </div>
 
             {/* Corpo da Grade com Slots e Cards Fantasmas */}
-            <div className="prof-col-grid-body">
+            <div className="relative flex flex-col">
               {displaySlots.map((slot) => (
                 <div
                   key={slot}
-                  className="grid-slot-cell"
+                  className="w-full flex-none box-border border-b border-dashed border-border/50 relative py-1"
                   style={{ height: `${slotHeightPx}px` }}
                 />
               ))}
@@ -267,33 +270,33 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
               {/* Cards Fantasma de Agendamento em Posições Realistas */}
               {colIndex % 2 === 0 && (
                 <div
-                  className="skeleton-appointment-card"
+                  className="absolute left-1 right-1 rounded-md p-2 box-border bg-white/85 backdrop-blur-[10px] border border-border/80 shadow-[0_2px_8px_rgba(45,35,30,0.04)] flex flex-col gap-1.5 overflow-hidden pointer-events-none z-[5]"
                   style={{ top: `${slotHeightPx * 0.5}px`, height: `${slotHeightPx * 1.5}px` }}
                 >
-                  <div className="skeleton-box skeleton-card-badge" />
-                  <div className="skeleton-box skeleton-card-name" />
-                  <div className="skeleton-box skeleton-card-service" />
+                  <div className={`${skeletonBoxClass} w-11 h-3`} />
+                  <div className={`${skeletonBoxClass} w-[72%] h-[13px]`} />
+                  <div className={`${skeletonBoxClass} w-1/2 h-[11px]`} />
                 </div>
               )}
 
               {colIndex % 3 === 1 && (
                 <div
-                  className="skeleton-appointment-card"
+                  className="absolute left-1 right-1 rounded-md p-2 box-border bg-white/85 backdrop-blur-[10px] border border-border/80 shadow-[0_2px_8px_rgba(45,35,30,0.04)] flex flex-col gap-1.5 overflow-hidden pointer-events-none z-[5]"
                   style={{ top: `${slotHeightPx * 2.6}px`, height: `${slotHeightPx * 1.2}px` }}
                 >
-                  <div className="skeleton-box skeleton-card-badge" />
-                  <div className="skeleton-box skeleton-card-name" />
+                  <div className={`${skeletonBoxClass} w-11 h-3`} />
+                  <div className={`${skeletonBoxClass} w-[72%] h-[13px]`} />
                 </div>
               )}
 
               {colIndex % 2 === 1 && (
                 <div
-                  className="skeleton-appointment-card"
+                  className="absolute left-1 right-1 rounded-md p-2 box-border bg-white/85 backdrop-blur-[10px] border border-border/80 shadow-[0_2px_8px_rgba(45,35,30,0.04)] flex flex-col gap-1.5 overflow-hidden pointer-events-none z-[5]"
                   style={{ top: `${slotHeightPx * 4.6}px`, height: `${slotHeightPx * 1.7}px` }}
                 >
-                  <div className="skeleton-box skeleton-card-badge" />
-                  <div className="skeleton-box skeleton-card-name" />
-                  <div className="skeleton-box skeleton-card-service" />
+                  <div className={`${skeletonBoxClass} w-11 h-3`} />
+                  <div className={`${skeletonBoxClass} w-[72%] h-[13px]`} />
+                  <div className={`${skeletonBoxClass} w-1/2 h-[11px]`} />
                 </div>
               )}
             </div>
@@ -302,6 +305,23 @@ const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
       </div>
     </div>
   );
+};
+
+const CARD_STATUS_TW: Record<string, string> = {
+  pending: 'border-warning/40 bg-warning-bg',
+  confirmed: 'border-brand-primary/30 bg-bg-secondary',
+  fitting: 'border-brand-deep/35 bg-brand-soft/20',
+  'in-progress': 'border-info/40 bg-info-bg',
+  completed: 'border-success/40 bg-success-bg',
+  // Sem token exato para este vermelho mais escuro (distinto de --color-error); mantido em hex literal.
+  'no-show': 'border-[rgba(185,28,28,0.45)] bg-[rgba(254,226,226,0.9)]',
+};
+
+const getAppointmentCardClasses = (cardState: string, isFitting: boolean) => {
+  const statusClass = CARD_STATUS_TW[cardState.replace('_', '-')] || '';
+  // Sem token exato para este âmbar (#b45309), usado apenas na borda esquerda dos cards de encaixe.
+  const borderLeftClass = isFitting ? 'border-l-4 border-l-[#b45309]' : 'border-l';
+  return `absolute rounded-md py-[0.4rem] px-[0.55rem] z-10 flex flex-col justify-start gap-1 min-h-[69px] overflow-hidden box-border bg-bg-secondary shadow-sm border cursor-pointer transition-[box-shadow,border-color] duration-75 hover:shadow-md hover:border-brand-primary/45 hover:z-[15] ${statusClass} ${borderLeftClass}`;
 };
 
 export const Agenda: React.FC = () => {
@@ -2019,9 +2039,9 @@ export const Agenda: React.FC = () => {
   }, [currentTimeMinutes, timeSlots, slotIntervalMinutes, slotHeightPx]);
 
   return (
-    <div className="agenda-page">
+    <div className="flex flex-col w-full h-full max-h-full min-h-0 flex-1 overflow-hidden font-base">
       {/* ─── VISÃO MOBILE (<= 768px) ─── */}
-      <div className="agenda-mobile-view">
+      <div className="hidden max-md:block max-md:w-full max-md:max-w-full max-md:box-border">
         <MobileAgendaView
           timezone={tenant.timezone}
           businessHours={tenant.businessHours}
@@ -2047,13 +2067,13 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* ─── VISÃO DESKTOP (> 768px) ─── */}
-      <div className="agenda-desktop-view">
+      <div className="flex flex-col gap-3 w-full h-full max-h-full min-h-0 flex-1 max-md:hidden">
         {/* 1. HEADER DE CONTROLE OPERACIONAL */}
-        <header className="agenda-header-control">
-          <div className="agenda-header-left">
-            <div className="agenda-header-title">
-              <h2>{formattedDateTitle}</h2>
-              <p className="agenda-header-subtitle">
+        <header className="relative z-50 flex items-center justify-between flex-wrap gap-4 py-4 px-6 shrink-0 bg-white/65 backdrop-blur-2xl backdrop-saturate-125 border border-border/70 rounded-lg shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-xl font-extrabold text-text-primary tracking-tight">{formattedDateTitle}</h2>
+              <p className="hidden text-xs text-text-secondary">
                 {viewMode === 'week'
                   ? visibleProfessionals.length === 1
                     ? `Visão semanal do profissional ${visibleProfessionals[0].name}`
@@ -2063,30 +2083,30 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
 
-        <div className="agenda-header-actions">
+        <div className="flex items-center flex-wrap gap-3">
           {/* Seletor de Escopo Temporal: Dia vs Semana */}
-          <div className="agenda-view-mode-selector">
+          <div className="flex items-center p-[3px] bg-white border border-border rounded-md gap-0.5">
             <button
               type="button"
               onClick={() => handleViewModeChange('day')}
-              className={`btn-view-mode ${viewMode === 'day' ? 'btn-view-mode--active' : ''}`}
+              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
             >
               Dia
             </button>
             <button
               type="button"
               onClick={() => handleViewModeChange('week')}
-              className={`btn-view-mode ${viewMode === 'week' ? 'btn-view-mode--active' : ''}`}
+              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'week' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
             >
               Semana
             </button>
           </div>
 
           {/* Navegação de Datas */}
-          <div className="agenda-date-navigator">
+          <div className="flex items-center bg-white/80 border border-border rounded-md relative">
             <button
               type="button"
-              className="btn-date-nav"
+              className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
               onClick={handlePrevDay}
               title={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
               aria-label={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
@@ -2095,14 +2115,14 @@ export const Agenda: React.FC = () => {
             </button>
             <button
               type="button"
-              className={`btn-date-nav btn-date-today ${isToday ? 'btn-date-today--active' : ''}`}
+              className={`flex items-center justify-center py-[0.55rem] px-[0.9rem] bg-transparent border-l border-r border-border text-text-primary text-xs font-bold cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary ${isToday ? 'text-black font-bold bg-brand-soft hover:bg-brand-soft hover:text-black' : ''}`}
               onClick={handleToday}
             >
               Hoje
             </button>
             <button
               type="button"
-              className="btn-date-nav"
+              className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
               onClick={handleNextDay}
               title={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
               aria-label={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
@@ -2110,9 +2130,9 @@ export const Agenda: React.FC = () => {
               <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
             </button>
 
-            <div className="agenda-date-picker-wrapper" ref={datePickerRef}>
+            <div className="relative flex items-center z-[120]" ref={datePickerRef}>
               <label
-                className="agenda-date-picker-label"
+                className="flex items-center gap-1.5 py-[0.35rem] px-[0.6rem] border-l border-border rounded-tr-md rounded-br-md cursor-pointer relative text-text-secondary transition-colors duration-150 hover:text-text-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   setIsDatePickerOpen((prev) => !prev);
@@ -2121,12 +2141,12 @@ export const Agenda: React.FC = () => {
                 aria-label="Escolher data no calendário"
                 aria-expanded={isDatePickerOpen}
               >
-                <HugeiconsIcon icon={Calendar03Icon} size={16} className="date-icon" />
+                <HugeiconsIcon icon={Calendar03Icon} size={16} />
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                  className="agenda-date-picker-input-hidden"
+                  className="absolute opacity-0 pointer-events-none w-0 h-0 m-0 p-0 border-none"
                   tabIndex={-1}
                   aria-hidden="true"
                 />
@@ -2161,7 +2181,7 @@ export const Agenda: React.FC = () => {
           {/* Botão Fila de Espera */}
           <button
             type="button"
-            className="btn-agenda-espera"
+            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
             onClick={() => setIsEsperaDrawerOpen(true)}
             title="Ver fila de clientes aguardando no balcão"
           >
@@ -2172,7 +2192,7 @@ export const Agenda: React.FC = () => {
           {/* Botão Bloquear Horário */}
           <button
             type="button"
-            className="btn-agenda-bloquear"
+            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-white border border-error rounded-md text-xs font-bold text-error cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:bg-error-bg hover:border-error"
             onClick={() => setIsBloqueioModalOpen(true)}
             title="Pausar horário para almoço, descanso ou saída"
           >
@@ -2183,7 +2203,7 @@ export const Agenda: React.FC = () => {
           {/* Botão Mestre Encaixe */}
           <button
             type="button"
-            className="btn-master-encaixe"
+            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-brand-soft text-black border-none rounded-md font-bold text-xs cursor-pointer shadow-sm box-border whitespace-nowrap hover:bg-brand-soft hover:text-black hover:shadow-sm"
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
             title="Atender cliente que chegou agora sem agendamento"
           >
@@ -2194,7 +2214,7 @@ export const Agenda: React.FC = () => {
       </header>
 
       {/* 2. GRADE TEMPORAL CONTÍNUA */}
-      <div className="agenda-grid-wrapper">
+      <div className="w-full flex-1 min-h-0 max-h-none overflow-auto overscroll-contain bg-bg-secondary border border-border/70 rounded-lg p-0 shadow-sm relative top-0 left-0 [scrollbar-width:thin] [scrollbar-color:rgba(45,35,30,0.25)_transparent] hover:[scrollbar-color:rgba(45,35,30,0.45)_transparent] [&::-webkit-scrollbar]:h-[5px] [&::-webkit-scrollbar]:w-[5px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.15)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.35)]">
         {isViewTransitioning || loading ? (
           <AgendaGridSkeleton
             viewMode={viewMode}
@@ -2204,47 +2224,47 @@ export const Agenda: React.FC = () => {
             slotHeightPx={slotHeightPx}
           />
         ) : visibleProfessionals.length === 0 ? (
-          <div className="agenda-empty-state">
-            <HugeiconsIcon icon={AlertCircleIcon} size={48} className="empty-icon" />
+          <div className="p-16 px-8 flex flex-col items-center justify-center gap-4 text-center">
+            <HugeiconsIcon icon={AlertCircleIcon} size={48} className="text-brand-soft" />
             <h3>Nenhum profissional selecionado</h3>
             <p>Ative ao menos um profissional no filtro acima para visualizar a grade.</p>
             <button
               type="button"
-              className="btn-primary-sm"
+              className="bg-brand-primary text-white border-none py-2 px-4 rounded-md text-xs font-bold cursor-pointer"
               onClick={() => setSelectedProfessionalIds(professionals.map((p) => p.id))}
             >
               Exibir Todos
             </button>
           </div>
         ) : viewMode === 'day' && timeSlots.length === 0 ? (
-          <div className="agenda-empty-state" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', padding: '1rem', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', marginBottom: '1rem' }}>
+          <div className="flex flex-col items-center justify-center gap-4 p-16 px-8 text-center">
+            <div className="inline-flex p-4 rounded-full bg-error-bg text-error mb-4">
               <HugeiconsIcon icon={Calendar03Icon} size={32} />
             </div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--color-text-primary)' }}>Barbearia fechada neste dia</h3>
-            <p style={{ color: 'var(--color-text-secondary)', maxWidth: '440px', margin: '0 auto 1.5rem', fontSize: '0.875rem' }}>
+            <h3 className="text-xl font-bold m-0 mb-2 text-text-primary">Barbearia fechada neste dia</h3>
+            <p className="text-text-secondary max-w-[440px] mx-auto mb-6 text-sm">
               Conforme os horários de funcionamento configurados, o estabelecimento não abre neste dia.
             </p>
             <button
               type="button"
-              className="btn-primary-sm"
+              className="bg-brand-primary text-white border-none py-2 px-4 rounded-md text-xs font-bold cursor-pointer"
               onClick={handleToday}
             >
               Ir para hoje
             </button>
           </div>
         ) : (
-          <div className="agenda-timeline-board">
+          <div className="flex min-w-full w-max relative">
             {/* Coluna Fixa da Régua de Horários */}
-            <div className="timeline-axis-column">
-              <div className="timeline-axis-header">
+            <div className="w-[65px] min-w-[65px] shrink-0 border-r border-border flex flex-col sticky left-0 z-[35] bg-bg-secondary shadow-[2px_0_8px_rgba(0,0,0,0.04)]">
+              <div className="h-[60px] min-h-[60px] border-b border-border flex items-center justify-center text-text-secondary sticky top-0 left-0 z-50 bg-bg-secondary rounded-tl-[calc(var(--radius-lg)-1px)] box-border">
                 <HugeiconsIcon icon={Clock01Icon} size={16} />
               </div>
-              <div className="timeline-axis-body" style={{ position: 'relative' }}>
+              <div className="flex flex-col bg-[inherit] relative">
                 {/* Indicador da Linha Vermelha de Tempo Real na Régua de Horários */}
                 {(viewMode === 'day' ? isToday : isTodayInWeek) && redLineTopPx !== null && (
                   <div
-                    className="timeline-axis-now-badge"
+                    className="absolute left-[3px] right-[3px] -translate-y-1/2 bg-error text-white text-[0.65rem] font-extrabold py-0.5 px-[3px] rounded-sm flex items-center justify-center z-[45] pointer-events-none shadow-[0_1px_4px_rgba(239,68,68,0.4)] whitespace-nowrap tracking-tight"
                     style={{ top: `${redLineTopPx}px` }}
                     title={`Hora atual: ${currentTimeFormatted}`}
                   >
@@ -2254,7 +2274,7 @@ export const Agenda: React.FC = () => {
                 {timeSlots.map((slot) => (
                   <div
                     key={slot}
-                    className="time-slot-label"
+                    className="box-border flex items-center justify-center text-xs font-bold text-text-secondary border-b border-dashed border-border/40 bg-[inherit]"
                     style={{ height: `${slotHeightPx}px` }}
                   >
                     <span>{slot}</span>
@@ -2264,7 +2284,7 @@ export const Agenda: React.FC = () => {
             </div>
 
             {/* Colunas: Visão Dia (por Barbeiro) vs Visão Semana (7 dias para o Barbeiro) */}
-            <div className="professionals-columns-container">
+            <div className="flex flex-1 min-w-0">
               {viewMode === 'day'
                 ? visibleProfessionals.map((prof) => {
                     const profAppointments = appointments.filter(
@@ -2278,24 +2298,24 @@ export const Agenda: React.FC = () => {
                     return (
                       <div
                         key={prof.id}
-                        className="professional-timeline-column"
+                        className="flex-1 w-full min-w-[clamp(240px,22vw,640px)] border-r border-border/70 flex flex-col last:border-r-0 [&:last-child>.prof-col-header]:rounded-tr-[calc(var(--radius-lg)-1px)]"
                         data-testid={`prof-col-${prof.id}`}
                       >
                         {/* Cabeçalho do Barbeiro */}
-                        <div className="prof-col-header">
-                          <div className="prof-col-avatar">
+                        <div className="prof-col-header h-[60px] min-h-[60px] border-b border-border py-2 px-3 flex items-center gap-2.5 sticky top-0 z-30 bg-bg-secondary box-border shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                          <div className="w-9 h-9 rounded-full bg-brand-soft text-brand-deep flex items-center justify-center font-extrabold text-xs border-[1.5px] border-white/80">
                             {prof.name.slice(0, 2).toUpperCase()}
                           </div>
-                          <div className="prof-col-info">
-                            <h4 title={prof.name}>{prof.name}</h4>
-                            <span className="prof-col-count">
+                          <div className="flex flex-col min-w-0">
+                            <h4 title={prof.name} className="text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">{prof.name}</h4>
+                            <span className="text-[0.7rem] text-text-secondary">
                               {profAppointments.length} atendimento(s)
                             </span>
                           </div>
                         </div>
 
                         {/* Corpo da Grade com Slots Clicáveis */}
-                        <div className="prof-col-grid-body">
+                        <div className="relative flex flex-col">
                           {/* Slots de Fundo Interativos */}
                           {timeSlots.map((slot) => {
                             const nowInstant = new Date();
@@ -2329,11 +2349,19 @@ export const Agenda: React.FC = () => {
                               tenant.businessHours
                             );
 
-                            let slotClass = 'grid-slot-cell';
-                            if (isProfBreak) slotClass += ' grid-slot-cell--break';
-                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
-                            else if (isPast) slotClass += ' grid-slot-cell--past';
-                            else if (isOutsideHours || !isProfWorking) slotClass += ' grid-slot-cell--closed';
+                            const slotBaseClass = 'w-full flex-none box-border border-b border-dashed border-border/50 relative py-1';
+                            let slotClass: string;
+                            if (isProfBreak) {
+                              slotClass = `${slotBaseClass} cursor-not-allowed flex items-center justify-center bg-[repeating-linear-gradient(45deg,rgba(217,108,0,0.03),rgba(217,108,0,0.03)_6px,rgba(217,108,0,0.07)_6px,rgba(217,108,0,0.07)_12px)] hover:bg-[repeating-linear-gradient(45deg,rgba(217,108,0,0.05),rgba(217,108,0,0.05)_6px,rgba(217,108,0,0.09)_6px,rgba(217,108,0,0.09)_12px)]`;
+                            } else if (hasOccupancy) {
+                              slotClass = `${slotBaseClass} cursor-default`;
+                            } else if (isPast) {
+                              slotClass = `${slotBaseClass} group cursor-pointer bg-black/[0.03] transition-colors duration-75 hover:bg-brand-primary/[0.08]`;
+                            } else if (isOutsideHours || !isProfWorking) {
+                              slotClass = `${slotBaseClass} cursor-not-allowed opacity-60 bg-[repeating-linear-gradient(-45deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02)_6px,rgba(0,0,0,0.05)_6px,rgba(0,0,0,0.05)_12px)]`;
+                            } else {
+                              slotClass = `${slotBaseClass} group cursor-pointer transition-colors duration-75 hover:bg-brand-primary/[0.06]`;
+                            }
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
@@ -2384,17 +2412,17 @@ export const Agenda: React.FC = () => {
                                 }
                               >
                                 {isProfBreak && (
-                                  <span className="slot-break-label">
+                                  <span className="text-[0.6875rem] font-bold text-brand-primary bg-white/90 py-0.5 px-2 rounded border border-brand-primary/25 pointer-events-none tracking-wide uppercase">
                                     {getProfessionalDaySchedule(prof, selectedDate)?.break_end
                                       ? `Intervalo até ${getProfessionalDaySchedule(prof, selectedDate)?.break_end}`
                                       : 'Intervalo'}
                                   </span>
                                 )}
                                 {!isProfBreak && !hasOccupancy && isPast && (
-                                  <span className="slot-hover-text">Encaixe</span>
+                                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-brand-primary opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100">Encaixe</span>
                                 )}
                                 {!isProfBreak && !hasOccupancy && !isPast && !isOutsideHours && isProfWorking && (
-                                  <span className="slot-hover-text">+ {slot}</span>
+                                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-brand-primary opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100">+ {slot}</span>
                                 )}
                               </div>
                             );
@@ -2403,7 +2431,7 @@ export const Agenda: React.FC = () => {
                           {/* Linha Vermelha de Tempo Real */}
                           {isToday && redLineTopPx !== null && (
                             <div
-                              className="agenda-red-line"
+                              className="absolute left-0 right-0 h-0.5 bg-error z-20 pointer-events-none before:content-[''] before:absolute before:-left-1 before:-top-[3px] before:w-2 before:h-2 before:rounded-full before:bg-error"
                               style={{ top: `${redLineTopPx}px` }}
                               title="Hora Atual"
                             />
@@ -2421,7 +2449,8 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={blk.id}
-                                className="timeline-blocked-card"
+                                className="absolute left-1 right-1 rounded-md py-[0.45rem] px-[0.6rem] z-[5] flex flex-col justify-center overflow-hidden bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.05),rgba(0,0,0,0.05)_10px,rgba(0,0,0,0.1)_10px,rgba(0,0,0,0.1)_20px)] bg-black/[0.15] border border-dashed border-text-secondary text-text-primary cursor-pointer transition-colors duration-75 hover:bg-error/10 hover:border-error"
+                                data-testid="blocked-card"
                                 style={{ top: `${topPx}px`, height: `${heightPx}px` }}
                                 onClick={() => handleRemoveBlock(blk)}
                                 title={`Bloqueio: ${blk.reason} (${tStart} - ${tEnd}). Clique para remover.`}
@@ -2456,11 +2485,11 @@ export const Agenda: React.FC = () => {
                               appointmentStatus: app.status,
                               paymentStatus: app.payment_status,
                             });
-                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
+                                className={getAppointmentCardClasses(cardState, app.is_fitting)}
+                                data-testid="appointment-card"
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -2470,40 +2499,40 @@ export const Agenda: React.FC = () => {
                                   width: layout.width,
                                 }}
                               >
-                                <div className="card-top-row">
-                                  <span className="card-time-badge">
+                                <div className="flex items-center justify-between gap-1" data-testid="card-top-row">
+                                  <span className="text-[0.72rem] font-extrabold text-text-primary whitespace-nowrap shrink-0">
                                     {timeStart} - {timeEnd}
                                   </span>
-                                  <div className="card-badges-row">
+                                  <div className="flex items-center gap-1">
                                     {app.is_fitting && (
-                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-brand-deep text-white" title="Encaixe">
                                         Encaixe
                                       </span>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-[#b91c1c] text-white" title="Não compareceu">
                                         Não compareceu
                                       </span>
                                     )}
                                     {app.status === 'in_progress' && (
-                                      <span className="badge-chip badge-chip--progress" title="Em Atendimento">
+                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-info text-white" title="Em Atendimento">
                                         Atendendo
                                       </span>
                                     )}
                                     {app.payment_status === 'paid' && (
-                                      <span className="badge-chip badge-chip--paid" title="Pago">
+                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-success text-white" title="Pago">
                                         Pago
                                       </span>
                                     )}
                                   </div>
                                 </div>
 
-                                <div className="card-client-row">
-                                  <div className="card-client-info">
-                                    <span className="card-client-name" title={app.customer?.name}>
+                                <div className="flex items-start justify-between gap-1.5 m-0 w-full" data-testid="card-client-row">
+                                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                    <span className="text-[0.85rem] font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-tight" title={app.customer?.name}>
                                       {app.customer?.name || 'Cliente'}
                                     </span>
-                                    <span className="card-service-name" title={app.service?.name}>
+                                    <span className="text-[0.72rem] text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis leading-tight font-medium" title={app.service?.name}>
                                       {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                     </span>
                                   </div>
@@ -2511,8 +2540,8 @@ export const Agenda: React.FC = () => {
                                 </div>
 
                                 {app.payment_status === 'paid' && (
-                                  <div className="card-actions-toolbar">
-                                    <span className="paid-confirmed-label">
+                                  <div className="flex items-center gap-1 mt-auto pt-[0.2rem] border-t border-black/5">
+                                    <span className="text-success flex items-center">
                                       <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Pago
                                     </span>
                                   </div>
@@ -2541,26 +2570,26 @@ export const Agenda: React.FC = () => {
                     return (
                       <div
                         key={day.dateStr}
-                        className="professional-timeline-column week-timeline-column"
+                        className="w-[473px] min-w-[473px] flex-1 border-r border-border/70 flex flex-col last:border-r-0 [&:last-child>.prof-col-header]:rounded-tr-[calc(var(--radius-lg)-1px)]"
                         data-testid={`week-col-${day.dateStr}`}
                       >
-                        <div className="prof-col-header">
-                          <div className="prof-col-info">
-                            <h4 title={day.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div className="prof-col-header h-[60px] min-h-[60px] border-b border-border py-2 px-3 flex items-center gap-2.5 sticky top-0 z-30 bg-bg-secondary box-border shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                          <div className="flex flex-col min-w-0">
+                            <h4 title={day.label} className="flex items-center gap-1 text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                               <span>{day.shortWeekday} • {day.label}</span>
                               {isDayClosed && (
-                                <span style={{ fontSize: '0.6rem', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#EF4444', color: 'white', fontWeight: 800 }}>
+                                <span className="text-[0.6rem] py-px px-[5px] rounded bg-error text-white font-extrabold">
                                   Fechado
                                 </span>
                               )}
                             </h4>
-                            <span className="prof-col-count">
+                            <span className="text-[0.7rem] text-text-secondary">
                               {isDayClosed ? 'Fechado' : `${dayAppointments.length} atendimento(s)`}
                             </span>
                           </div>
                         </div>
 
-                        <div className="prof-col-grid-body">
+                        <div className="relative flex flex-col">
                           {timeSlots.map((slot) => {
                             const nowInstant = new Date();
                             const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
@@ -2591,11 +2620,19 @@ export const Agenda: React.FC = () => {
                               activeWeekProfs.length > 0 &&
                               activeWeekProfs.every((p) => isProfessionalOnBreak(p, day.dateStr, slot));
 
-                            let slotClass = 'grid-slot-cell';
-                            if (allProfsBreak) slotClass += ' grid-slot-cell--break';
-                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
-                            else if (isPast) slotClass += ' grid-slot-cell--past';
-                            else if (isOutsideHours || !anyProfWorking) slotClass += ' grid-slot-cell--closed';
+                            const slotBaseClass = 'w-full flex-none box-border border-b border-dashed border-border/50 relative py-1';
+                            let slotClass: string;
+                            if (allProfsBreak) {
+                              slotClass = `${slotBaseClass} cursor-not-allowed flex items-center justify-center bg-[repeating-linear-gradient(45deg,rgba(217,108,0,0.03),rgba(217,108,0,0.03)_6px,rgba(217,108,0,0.07)_6px,rgba(217,108,0,0.07)_12px)] hover:bg-[repeating-linear-gradient(45deg,rgba(217,108,0,0.05),rgba(217,108,0,0.05)_6px,rgba(217,108,0,0.09)_6px,rgba(217,108,0,0.09)_12px)]`;
+                            } else if (hasOccupancy) {
+                              slotClass = `${slotBaseClass} cursor-default`;
+                            } else if (isPast) {
+                              slotClass = `${slotBaseClass} group cursor-pointer bg-black/[0.03] transition-colors duration-75 hover:bg-brand-primary/[0.08]`;
+                            } else if (isOutsideHours || !anyProfWorking) {
+                              slotClass = `${slotBaseClass} cursor-not-allowed opacity-60 bg-[repeating-linear-gradient(-45deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02)_6px,rgba(0,0,0,0.05)_6px,rgba(0,0,0,0.05)_12px)]`;
+                            } else {
+                              slotClass = `${slotBaseClass} group cursor-pointer transition-colors duration-75 hover:bg-brand-primary/[0.06]`;
+                            }
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
@@ -2649,17 +2686,17 @@ export const Agenda: React.FC = () => {
                                 }
                               >
                                 {allProfsBreak && (
-                                  <span className="slot-break-label">
+                                  <span className="text-[0.6875rem] font-bold text-brand-primary bg-white/90 py-0.5 px-2 rounded border border-brand-primary/25 pointer-events-none tracking-wide uppercase">
                                     {weekProf && getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end
                                       ? `Intervalo até ${getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end}`
                                       : 'Intervalo'}
                                   </span>
                                 )}
                                 {!allProfsBreak && !hasOccupancy && isPast && (
-                                  <span className="slot-hover-text">Encaixe</span>
+                                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-brand-primary opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100">Encaixe</span>
                                 )}
                                 {!allProfsBreak && !hasOccupancy && !isPast && !isOutsideHours && anyProfWorking && (
-                                  <span className="slot-hover-text">+ {slot}</span>
+                                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-brand-primary opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100">+ {slot}</span>
                                 )}
                               </div>
                             );
@@ -2668,7 +2705,7 @@ export const Agenda: React.FC = () => {
                           {/* Linha Vermelha de Tempo Real na Visão Semanal */}
                           {day.dateStr === todayDateStr && redLineTopPx !== null && (
                             <div
-                              className="agenda-red-line"
+                              className="absolute left-0 right-0 h-0.5 bg-error z-20 pointer-events-none before:content-[''] before:absolute before:-left-1 before:-top-[3px] before:w-2 before:h-2 before:rounded-full before:bg-error"
                               style={{ top: `${redLineTopPx}px` }}
                               title={`Hora Atual: ${currentTimeFormatted}`}
                             />
@@ -2686,7 +2723,8 @@ export const Agenda: React.FC = () => {
                             return (
                               <div
                                 key={blk.id}
-                                className="timeline-blocked-card"
+                                className="absolute left-1 right-1 rounded-md py-[0.45rem] px-[0.6rem] z-[5] flex flex-col justify-center overflow-hidden bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.05),rgba(0,0,0,0.05)_10px,rgba(0,0,0,0.1)_10px,rgba(0,0,0,0.1)_20px)] bg-black/[0.15] border border-dashed border-text-secondary text-text-primary cursor-pointer transition-colors duration-75 hover:bg-error/10 hover:border-error"
+                                data-testid="blocked-card"
                                 style={{ top: `${topPx}px`, height: `${heightPx}px` }}
                                 onClick={() => handleRemoveBlock(blk)}
                                 title={`Bloqueio: ${blk.reason} (${tStart} - ${tEnd})`}
@@ -2721,12 +2759,12 @@ export const Agenda: React.FC = () => {
                               appointmentStatus: app.status,
                               paymentStatus: app.payment_status,
                             });
-                            const statusClass = `card-status--${cardState.replace('_', '-')}`;
 
                             return (
                               <div
                                 key={app.id}
-                                className={`timeline-appointment-card ${statusClass} ${app.is_fitting ? 'timeline-appointment-card--fitting' : 'timeline-appointment-card--normal'}`}
+                                className={`${getAppointmentCardClasses(cardState, app.is_fitting)} !py-[0.3rem] !px-[0.45rem] !gap-px !justify-start`}
+                                data-testid="appointment-card"
                                 onClick={() => handleOpenCheckout(app)}
                                 title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
                                 style={{
@@ -2736,33 +2774,33 @@ export const Agenda: React.FC = () => {
                                   width: layout.width,
                                 }}
                               >
-                                <div className="card-top-row">
-                                  <span className="card-time-badge">
+                                <div className="flex items-center justify-between gap-[3px] mb-0.5 min-w-0 flex-wrap" data-testid="card-top-row">
+                                  <span className="text-[0.66rem] font-extrabold whitespace-nowrap shrink-0 leading-none">
                                     {timeStart} - {timeEnd}
                                   </span>
-                                  <div className="card-badges-row">
+                                  <div className="flex items-center gap-0.5 shrink-0">
                                     {app.is_fitting && (
-                                      <span className="badge-chip badge-chip--fitting" title="Encaixe">
+                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-brand-deep text-white" title="Encaixe">
                                         Encaixe
                                       </span>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="badge-chip badge-chip--no-show" title="Não compareceu">
+                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-[#b91c1c] text-white" title="Não compareceu">
                                         Não compareceu
                                       </span>
                                     )}
                                     {app.payment_status === 'paid' && (
-                                      <span className="badge-chip badge-chip--paid" title="Pago">
+                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-success text-white" title="Pago">
                                         Pago
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                                <div className="card-client-row">
-                                  <span className="card-client-name" title={app.customer?.name}>
+                                <div className="flex flex-col items-start gap-px w-full min-w-0" data-testid="card-client-row">
+                                  <span className="text-[0.78rem] font-bold whitespace-nowrap overflow-hidden text-ellipsis w-full block leading-tight text-text-primary" title={app.customer?.name}>
                                     {app.customer?.name || 'Cliente'}
                                   </span>
-                                  <span className="card-service-name" title={app.service?.name}>
+                                  <span className="text-[0.68rem] whitespace-nowrap overflow-hidden text-ellipsis w-full block leading-tight font-medium text-text-secondary" title={app.service?.name}>
                                     {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
                                   </span>
                                 </div>
@@ -2788,26 +2826,26 @@ export const Agenda: React.FC = () => {
         }}
         title={formIsFitting ? 'Novo encaixe rápido' : 'Novo agendamento'}
       >
-        <form onSubmit={handleSaveAppointment} className="modal-agenda-form">
+        <form onSubmit={handleSaveAppointment} className="flex flex-col gap-4 w-full max-w-full min-w-0">
           {/* Seletor de Modo do Cliente */}
-          <div className="form-group-segmented">
+          <div className="flex bg-black/5 p-1 rounded-md gap-1">
             <button
               type="button"
-              className={`segmented-btn ${customerMode === 'existing' ? 'segmented-btn--active' : ''}`}
+              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'existing' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
               onClick={() => setCustomerMode('existing')}
             >
               Cliente cadastrado
             </button>
             <button
               type="button"
-              className={`segmented-btn ${customerMode === 'new' ? 'segmented-btn--active' : ''}`}
+              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'new' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
               onClick={() => setCustomerMode('new')}
             >
               Novo cadastro
             </button>
             <button
               type="button"
-              className={`segmented-btn ${customerMode === 'none' ? 'segmented-btn--active' : ''}`}
+              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'none' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
               onClick={() => setCustomerMode('none')}
             >
               Sem cadastro (Balcão)
@@ -2815,13 +2853,13 @@ export const Agenda: React.FC = () => {
           </div>
 
           {customerMode === 'existing' ? (
-            <div className="form-group">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="select-customer">Cliente</label>
               <select
                 id="select-customer"
                 value={selectedCustomerId}
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
-                className="input-select"
+                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 <option value="">Selecione um cliente...</option>
@@ -2832,14 +2870,14 @@ export const Agenda: React.FC = () => {
                 ))}
               </select>
               {customers.find((c) => c.id === selectedCustomerId)?.phone && (
-                <div className="service-meta-pill">
+                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
                   <span>WhatsApp: <strong>{customers.find((c) => c.id === selectedCustomerId)?.phone}</strong></span>
                 </div>
               )}
             </div>
           ) : customerMode === 'new' ? (
-            <div className="form-row-2col">
-              <div className="form-group">
+            <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
+              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
                 <label htmlFor="new-customer-name">Nome do cliente</label>
                 <input
                   id="new-customer-name"
@@ -2847,11 +2885,11 @@ export const Agenda: React.FC = () => {
                   placeholder="Ex: João da Silva"
                   value={newCustomerName}
                   onChange={(e) => setNewCustomerName(e.target.value)}
-                  className="input-text"
+                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
                 <label htmlFor="new-customer-phone">WhatsApp ou celular</label>
                 <input
                   id="new-customer-phone"
@@ -2859,26 +2897,26 @@ export const Agenda: React.FC = () => {
                   placeholder="(11) 99999-9999"
                   value={newCustomerPhone}
                   onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  className="input-text"
+                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 />
               </div>
             </div>
           ) : (
-            <div className="anonymous-customer-note">
+            <div className="py-3 px-[0.85rem] bg-black/[0.02] border-none rounded-md text-[0.82rem] leading-relaxed text-text-primary mb-2 [&_span]:text-text-primary">
               <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
             </div>
           )}
 
           {/* Seleção de Profissional e Serviço */}
-          <div className="form-row-2col">
-            <div className="form-group">
+          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="select-professional">Profissional</label>
               <select
                 id="select-professional"
                 value={formProfessionalId}
                 onChange={(e) => setFormProfessionalId(e.target.value)}
-                className="input-select"
+                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 {availableProfessionalsForFormTime.length > 0 ? (
@@ -2897,19 +2935,19 @@ export const Agenda: React.FC = () => {
                 )}
               </select>
               {availableProfessionalsForFormTime.length === 0 && (
-                <span className="form-error" style={{ fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                <span className="text-xs mt-1 block">
                   Nenhum barbeiro disponível às {formTime} (intervalo ou folga).
                 </span>
               )}
             </div>
 
-            <div className="form-group">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="select-service">Serviço</label>
               <select
                 id="select-service"
                 value={formServiceId}
                 onChange={(e) => setFormServiceId(e.target.value)}
-                className="input-select"
+                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 {services.map((s) => (
@@ -2919,7 +2957,7 @@ export const Agenda: React.FC = () => {
                 ))}
               </select>
               {services.find((s) => s.id === formServiceId) && (
-                <div className="service-meta-pill">
+                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
                   <span>Duração: <strong>{services.find((s) => s.id === formServiceId)?.duration_minutes} min</strong></span>
                   <span>•</span>
                   <span>Valor: <strong>R$ {Number(services.find((s) => s.id === formServiceId)?.price).toFixed(2)}</strong></span>
@@ -2929,20 +2967,20 @@ export const Agenda: React.FC = () => {
           </div>
 
           {/* Data e Horário */}
-          <div className="form-row-2">
-            <div className="form-group">
+          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="form-date">Data do atendimento</label>
               <input
                 id="form-date"
                 type="date"
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
-                className="input-text"
+                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               />
             </div>
 
-            <div className="form-group">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="form-time">Horário de início</label>
               {formIsFitting && fittingTimeMode === 'custom' ? (
                 <input
@@ -2951,7 +2989,7 @@ export const Agenda: React.FC = () => {
                   step="60"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="input-text"
+                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 />
               ) : modalAvailableTimeSlots.length > 0 ? (
@@ -2959,7 +2997,7 @@ export const Agenda: React.FC = () => {
                   id="form-time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="input-select"
+                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 >
                   {formIsFitting && !modalAvailableTimeSlots.includes(formTime) && (
@@ -2978,7 +3016,7 @@ export const Agenda: React.FC = () => {
                   step="60"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="input-text"
+                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 />
               )}
@@ -2986,16 +3024,16 @@ export const Agenda: React.FC = () => {
           </div>
 
           {/* Card de Encaixe de Balcão */}
-          <div className={`fitting-toggle-card ${formIsFitting ? 'fitting-toggle-card--active' : ''}`}>
-            <div className="fitting-toggle-info">
-              <div className="fitting-toggle-header">
+          <div className="p-3 px-[0.9rem] rounded-md bg-bg-primary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 min-w-0 box-border transition-all duration-200 max-[480px]:grid-cols-[minmax(0,1fr)]">
+            <div className="flex flex-col gap-[0.15rem] min-w-0">
+              <div className="flex items-center gap-[0.4rem] flex-wrap">
                 {isPastFormTime && (
-                  <span className="badge-fitting-active" style={{ background: 'var(--color-bg-tertiary, #f3f4f6)', color: 'var(--color-text-secondary, #4b5563)' }}>
+                  <span className="text-[0.62rem] font-bold py-[0.1rem] px-[0.35rem] rounded-sm uppercase bg-bg-secondary text-text-secondary">
                     Obrigatório (passado)
                   </span>
                 )}
               </div>
-              <span className="fitting-toggle-desc">
+              <span className="text-[0.72rem] text-text-primary">
                 {formIsFitting && fittingTimeMode === 'custom'
                   ? 'Horário personalizado: permite registrar uma exceção fora da grade e do expediente configurado.'
                   : isPastFormTime
@@ -3005,11 +3043,11 @@ export const Agenda: React.FC = () => {
             </div>
             {formIsFitting && (
               <div
-                className="fitting-mode-switch"
+                className="flex items-center justify-end gap-[0.45rem] min-w-0 max-[480px]:justify-start max-[480px]:w-full"
                 role="group"
                 aria-label="Modalidade do horário do encaixe"
               >
-                <span className={`fitting-mode-switch__label ${fittingTimeMode === 'grid' ? 'fitting-mode-switch__label--active' : ''}`}>
+                <span className="text-[0.68rem] font-bold text-text-primary transition-colors duration-200">
                   Grade
                 </span>
                 <button
@@ -3017,14 +3055,14 @@ export const Agenda: React.FC = () => {
                   role="switch"
                   aria-checked={fittingTimeMode === 'custom'}
                   aria-label="Alternar entre horário da grade e personalizado"
-                  className={`fitting-mode-switch__control ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__control--custom' : ''}`}
+                  className={`relative w-[2.55rem] h-[1.35rem] p-[0.15rem] border-0 rounded-full cursor-pointer transition-[background-color,box-shadow] duration-200 box-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${fittingTimeMode === 'custom' ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]' : 'bg-[#D1D5DB] shadow-[0_0_0_0.8px_var(--color-text-primary)]'}`}
                   onClick={() => setFittingTimeMode((current) => current === 'grid' ? 'custom' : 'grid')}
                 >
-                  <span className="fitting-mode-switch__thumb" />
+                  <span className={`block w-[0.95rem] h-[0.95rem] rounded-full bg-bg-secondary shadow-sm transition-transform duration-200 ${fittingTimeMode === 'custom' ? 'translate-x-[1.05rem]' : 'translate-x-0'}`} />
                 </button>
                 <button
                   type="button"
-                  className={`fitting-mode-switch__label fitting-mode-switch__label-button ${fittingTimeMode === 'custom' ? 'fitting-mode-switch__label--active' : ''}`}
+                  className="border-0 p-0 bg-transparent font-[inherit] cursor-pointer text-[0.68rem] font-bold text-text-primary transition-colors duration-200"
                   aria-label="Horário personalizado"
                   onClick={() => setFittingTimeMode('custom')}
                 >
@@ -3032,7 +3070,7 @@ export const Agenda: React.FC = () => {
                 </button>
               </div>
             )}
-            <label className="checkbox-label" style={{ margin: 0, cursor: isPastFormTime ? 'not-allowed' : 'pointer' }}>
+            <label className={`flex items-center gap-2 text-sm m-0 whitespace-nowrap ${isPastFormTime ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 aria-label="Marcar como Encaixe de Balcão"
@@ -3043,12 +3081,12 @@ export const Agenda: React.FC = () => {
                   if (!e.target.checked) setFittingTimeMode('grid');
                 }}
               />
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>Encaixe</span>
+              <span className="text-xs font-bold text-text-primary">Encaixe</span>
             </label>
           </div>
 
           {/* Observações */}
-          <div className="form-group">
+          <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
             <label htmlFor="form-notes">Observações do atendimento (opcional)</label>
             <textarea
               id="form-notes"
@@ -3056,14 +3094,14 @@ export const Agenda: React.FC = () => {
               placeholder="Ex: Cliente prefere tesoura no topo, café sem açúcar..."
               value={formNotes}
               onChange={(e) => setFormNotes(e.target.value)}
-              className="input-textarea"
+              className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
             />
           </div>
 
-          <div className="modal-actions-footer">
+          <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
             <button
               type="button"
-              className="btn-secondary"
+              className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
               onClick={() => {
                 setIsModalOpen(false);
                 clearActionUrl();
@@ -3072,7 +3110,7 @@ export const Agenda: React.FC = () => {
             >
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={savingAppointment}>
+            <button type="submit" className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover" disabled={savingAppointment}>
               {savingAppointment ? (
                 <span>Salvando...</span>
               ) : formIsFitting ? (
@@ -3179,15 +3217,15 @@ export const Agenda: React.FC = () => {
       >
         {noShowAppointment && (
           <div className="cancel-modal-body">
-            <p className="cancel-alert-text">
+            <p className="text-sm text-text-primary leading-relaxed mb-4">
               Deseja marcar o atendimento de{' '}
               <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
               A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
             </p>
-            <div className="modal-actions-footer">
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
               <button
                 type="button"
-                className="btn-secondary"
+                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
                 onClick={() => {
                   setIsNoShowModalOpen(false);
                   setNoShowAppointment(null);
@@ -3197,7 +3235,7 @@ export const Agenda: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="btn-danger"
+                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
                 onClick={() => void handleConfirmNoShow()}
               >
                 Sim, não compareceu
@@ -3215,13 +3253,13 @@ export const Agenda: React.FC = () => {
       >
         {targetAppointment && (
           <div className="cancel-modal-body">
-            <p className="cancel-alert-text">
+            <p className="text-sm text-text-primary leading-relaxed mb-4">
               Deseja realmente cancelar o agendamento de{' '}
               <strong>{targetAppointment.customer?.name}</strong> para o serviço{' '}
               <strong>{targetAppointment.service?.name}</strong>?
             </p>
 
-            <div className="form-group">
+            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
               <label htmlFor="cancel-reason">Motivo do Cancelamento (Opcional)</label>
               <textarea
                 id="cancel-reason"
@@ -3229,14 +3267,14 @@ export const Agenda: React.FC = () => {
                 placeholder="Ex: Cliente solicitou reagendamento por telefone..."
                 value={cancellationReason}
                 onChange={(e) => setCancellationReason(e.target.value)}
-                className="input-textarea"
+                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
               />
             </div>
 
-            <div className="modal-actions-footer">
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
               <button
                 type="button"
-                className="btn-secondary"
+                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
                 onClick={() => setIsCancelModalOpen(false)}
                 disabled={cancelingAppointment}
               >
@@ -3244,7 +3282,7 @@ export const Agenda: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="btn-danger"
+                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
                 onClick={handleConfirmCancellation}
                 disabled={cancelingAppointment}
               >
@@ -3325,10 +3363,10 @@ export const Agenda: React.FC = () => {
               </select>
             </div>
 
-            <div className="modal-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
               <button
                 type="button"
-                className="btn-secondary"
+                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
                 onClick={() => {
                   setIsAgendaRescheduleModalOpen(false);
                   setAgendaRescheduleAppointment(null);
@@ -3339,7 +3377,7 @@ export const Agenda: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="btn-primary"
+                className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover"
                 onClick={handleConfirmAgendaReschedule}
                 disabled={isAgendaRescheduling}
               >
@@ -3367,170 +3405,15 @@ export const Agenda: React.FC = () => {
 
       {/* 8. ESTILOS EMBUTIDOS DA AGENDA */}
       <style>{`
-        .agenda-page {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-          width: 100%;
-          height: 100%;
-          max-height: 100%;
-          min-height: 0;
-          flex: 1;
-          overflow: hidden;
-          font-family: var(--font-family-base);
-        }
-
-        /* HEADER DE CONTROLE */
-        .agenda-header-control {
-          position: relative;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 1rem;
-          padding: 1rem 1.5rem;
-          flex-shrink: 0;
-          background-color: rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(16px) saturate(120%);
-          -webkit-backdrop-filter: blur(16px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.7);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .agenda-header-title h2 {
-          font-size: var(--font-size-xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          letter-spacing: -0.02em;
-        }
-
-        .agenda-header-subtitle {
-          display: none;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .agenda-header-actions {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-
-        /* SELETOR DE MODO DE VISÃO (DIA VS SEMANA) */
-        .agenda-view-mode-selector {
-          display: flex;
-          align-items: center;
-          padding: 3px;
-          background-color: #ffffff;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          gap: 2px;
-        }
-
-        .btn-view-mode {
-          padding: 0.4rem 0.85rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          border: none;
-          border-radius: var(--radius-sm);
-          background: transparent;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-view-mode:hover {
-          color: var(--color-text-primary);
-        }
-
-        .btn-view-mode--active,
-        .btn-view-mode--active:hover {
-          background-color: #f2b277;
-          color: #000000;
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* NAVEGADOR DE DATAS */
-        .agenda-date-navigator {
-          display: flex;
-          align-items: center;
-          background-color: rgba(255, 255, 255, 0.8);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          position: relative;
-        }
-
-        .btn-date-nav {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.55rem 0.75rem;
-          background: none;
-          border: none;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
-
-        .btn-date-nav:hover {
-          background-color: rgba(217, 108, 0, 0.08);
-          color: var(--color-brand-primary);
-        }
-
-        .btn-date-today {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          padding: 0.55rem 0.9rem;
-          border-left: 1px solid var(--color-border);
-          border-right: 1px solid var(--color-border);
-        }
-
-        .btn-date-today--active,
-        .btn-date-today--active:hover {
-          color: #000000 !important;
-          font-weight: 700 !important;
-          background-color: #f2b277 !important;
-        }
-
-        /* CUSTOM DATEPICKER */
-        .agenda-date-picker-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          z-index: 120;
-        }
-
-        .agenda-date-picker-label {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.35rem 0.6rem;
-          border-left: 1px solid var(--color-border);
-          border-top-right-radius: var(--radius-md);
-          border-bottom-right-radius: var(--radius-md);
-          cursor: pointer;
-          position: relative;
-          color: var(--color-text-secondary);
-          transition: color 0.15s ease;
-        }
-
-        .agenda-date-picker-label:hover {
-          color: var(--color-text-primary);
-        }
-
-        .agenda-date-picker-input-hidden {
-          position: absolute;
-          opacity: 0;
-          pointer-events: none;
-          width: 0;
-          height: 0;
-          margin: 0;
-          padding: 0;
-          border: none;
-        }
+        /*
+         * Ticket 11 (spec 039) — as regras abaixo (custom-datepicker-* e
+         * agenda-filter-*/btn-agenda-filter/filter-checkbox-item/btn-link-xs)
+         * pertencem a componentes filhos que renderizam este JSX em outros
+         * arquivos (src/components/CustomDatePicker.tsx e
+         * src/pages/gerente/AgendaEquipeFilter.tsx) e não fazem parte do
+         * escopo desta migração. Todo o restante do <style> da Agenda
+         * desktop foi convertido para utilitários Tailwind e removido.
+         */
 
         .custom-datepicker-dropdown {
           position: absolute;
@@ -3818,1321 +3701,6 @@ export const Agenda: React.FC = () => {
           }
         }
 
-        /* BOTÕES DE AÇÃO DO HEADER */
-        .btn-agenda-espera {
-          width: 128px;
-          min-width: 128px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0 0.5rem;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-sizing: border-box;
-          white-space: nowrap;
-        }
-
-        .btn-agenda-espera:hover {
-          border-color: #d96c00;
-        }
-
-        .btn-agenda-bloquear {
-          width: 128px;
-          min-width: 128px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0 0.5rem;
-          background-color: #FFFFFF;
-          border: 1px solid #F05252;
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: #F05252;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-sizing: border-box;
-          white-space: nowrap;
-        }
-
-        .btn-agenda-bloquear:hover {
-          background-color: #FFF5F5;
-          border-color: #F05252;
-        }
-
-        /* BOTÃO MESTRE + ENCAIXE */
-        .btn-master-encaixe {
-          width: 128px;
-          min-width: 128px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0 0.5rem;
-          background-color: #F2B277;
-          color: #000000;
-          border: none;
-          border-radius: var(--radius-md);
-          font-weight: 700;
-          font-size: var(--font-size-xs);
-          cursor: pointer;
-          box-shadow: var(--shadow-sm);
-          box-sizing: border-box;
-          white-space: nowrap;
-        }
-
-        .btn-master-encaixe:hover {
-          background-color: #F2B277;
-          color: #000000;
-          transform: none;
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* GRADE DA TIMELINE */
-        .agenda-grid-wrapper {
-          width: 100%;
-          flex: 1;
-          min-height: 0;
-          max-height: none;
-          overflow: auto;
-          overscroll-behavior: contain;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border: 1px solid rgba(234, 222, 214, 0.7);
-          border-radius: var(--radius-lg);
-          padding: 0;
-          box-shadow: var(--shadow-sm);
-          scrollbar-width: thin;
-          scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
-          transition: scrollbar-color 0.2s ease;
-          position: relative;
-          top: 0;
-          left: 0;
-        }
-
-        .agenda-grid-wrapper:hover {
-          scrollbar-color: rgba(45, 35, 30, 0.45) transparent;
-        }
-
-        .agenda-grid-wrapper::-webkit-scrollbar {
-          height: 5px;
-          width: 5px;
-        }
-
-        .agenda-grid-wrapper::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .agenda-grid-wrapper::-webkit-scrollbar-thumb {
-          background: rgba(45, 35, 30, 0.15);
-          border-radius: 9999px;
-          transition: background-color 0.2s ease;
-        }
-
-        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
-          background: rgba(45, 35, 30, 0.35);
-        }
-
-        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(45, 35, 30, 0.55);
-        }
-
-        .agenda-timeline-board {
-          display: flex;
-          min-width: 100%;
-          width: max-content;
-          position: relative;
-        }
-
-        /* Eixo de Horários (Coluna Fixa à Esquerda no Scroll Horizontal) */
-        .timeline-axis-column {
-          width: 65px;
-          min-width: 65px;
-          flex-shrink: 0;
-          border-right: 1px solid var(--color-border);
-          display: flex;
-          flex-direction: column;
-          position: sticky;
-          left: 0;
-          z-index: 35;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
-        }
-
-        /* Canto Superior Esquerdo - Interseção Horários x Datas */
-        .timeline-axis-header {
-          height: 60px;
-          min-height: 60px;
-          border-bottom: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-text-secondary);
-          position: sticky;
-          top: 0;
-          left: 0;
-          z-index: 50; /* Maior z-index de toda a estrutura */
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          border-top-left-radius: calc(var(--radius-lg) - 1px);
-          box-sizing: border-box;
-        }
-
-        .timeline-axis-body {
-          display: flex;
-          flex-direction: column;
-          background-color: inherit;
-        }
-
-        /* Indicador de Tempo Real na Régua de Horários */
-        .timeline-axis-now-badge {
-          position: absolute;
-          left: 3px;
-          right: 3px;
-          transform: translateY(-50%);
-          background-color: var(--color-error, #EF4444);
-          color: #FFFFFF;
-          font-size: 0.65rem;
-          font-weight: 800;
-          padding: 2px 3px;
-          border-radius: var(--radius-sm, 4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 45;
-          pointer-events: none;
-          box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
-          white-space: nowrap;
-          letter-spacing: -0.02em;
-        }
-
-        .time-slot-label {
-          height: 76px;
-          min-height: 76px;
-          box-sizing: border-box;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          border-bottom: 1px dashed rgba(234, 222, 214, 0.4);
-          background-color: inherit;
-        }
-
-        /* Colunas dos Barbeiros */
-        .professionals-columns-container {
-          display: flex;
-          flex: 1 1 auto;
-          min-width: 0;
-        }
-
-        .professional-timeline-column {
-          flex: 1 1 0;
-          width: 100%;
-          min-width: clamp(240px, 22vw, 640px);
-          border-right: 1px solid rgba(234, 222, 214, 0.7);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .week-timeline-column {
-          width: 473px;
-          min-width: 473px;
-          flex: 1;
-        }
-
-        .professional-timeline-column:last-child {
-          border-right: none;
-        }
-
-        .professional-timeline-column:last-child .prof-col-header {
-          border-top-right-radius: calc(var(--radius-lg) - 1px);
-        }
-
-        /* Header das Datas e Profissionais (Fixo no Topo no Scroll Vertical) */
-        .prof-col-header {
-          height: 60px;
-          min-height: 60px;
-          border-bottom: 1px solid var(--color-border);
-          padding: 0.5rem 0.75rem;
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          position: sticky;
-          top: 0;
-          z-index: 30;
-          background-color: var(--color-bg-secondary, #FFFFFF);
-          box-sizing: border-box;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .prof-col-avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-full);
-          background-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: var(--font-size-xs);
-          border: 1.5px solid rgba(255, 255, 255, 0.8);
-        }
-
-        .prof-col-info h4 {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .prof-col-count {
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
-        }
-
-        .prof-col-grid-body {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .grid-slot-cell {
-          width: 100%;
-          flex: 0 0 auto;
-          height: 76px;
-          min-height: 76px;
-          box-sizing: border-box;
-          border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
-          cursor: pointer;
-          position: relative;
-          transition: background-color 0.08s ease;
-          padding-top: var(--radius-sm, 4px);
-          padding-bottom: var(--radius-sm, 4px);
-        }
-
-        .grid-slot-cell:hover {
-          background-color: rgba(217, 108, 0, 0.06);
-        }
-
-        .grid-slot-cell--past {
-          background-color: rgba(0, 0, 0, 0.03);
-          cursor: pointer;
-        }
-
-        .grid-slot-cell--past:hover {
-          background-color: rgba(217, 108, 0, 0.08) !important;
-        }
-
-        .grid-slot-cell--break {
-          background: repeating-linear-gradient(
-            45deg,
-            rgba(217, 108, 0, 0.03),
-            rgba(217, 108, 0, 0.03) 6px,
-            rgba(217, 108, 0, 0.07) 6px,
-            rgba(217, 108, 0, 0.07) 12px
-          );
-          cursor: not-allowed;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .grid-slot-cell--break:hover {
-          background: repeating-linear-gradient(
-            45deg,
-            rgba(217, 108, 0, 0.05),
-            rgba(217, 108, 0, 0.05) 6px,
-            rgba(217, 108, 0, 0.09) 6px,
-            rgba(217, 108, 0, 0.09) 12px
-          ) !important;
-        }
-
-        .slot-break-label {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          color: var(--color-brand-primary, #d96c00);
-          background: rgba(255, 255, 255, 0.9);
-          padding: 2px 8px;
-          border-radius: 4px;
-          border: 1px solid rgba(217, 108, 0, 0.25);
-          pointer-events: none;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-        }
-
-        .grid-slot-cell--closed {
-          background: repeating-linear-gradient(
-            -45deg,
-            rgba(0, 0, 0, 0.02),
-            rgba(0, 0, 0, 0.02) 6px,
-            rgba(0, 0, 0, 0.05) 6px,
-            rgba(0, 0, 0, 0.05) 12px
-          );
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .grid-slot-cell--closed:hover {
-          background: repeating-linear-gradient(
-            -45deg,
-            rgba(0, 0, 0, 0.02),
-            rgba(0, 0, 0, 0.02) 6px,
-            rgba(0, 0, 0, 0.05) 6px,
-            rgba(0, 0, 0, 0.05) 12px
-          ) !important;
-        }
-
-        .grid-slot-cell--occupied,
-        .grid-slot-cell--full {
-          cursor: default;
-        }
-
-        .grid-slot-cell--occupied:hover,
-        .grid-slot-cell--full:hover {
-          background-color: transparent !important;
-        }
-
-        .grid-slot-cell--occupied .slot-hover-text,
-        .grid-slot-cell--full .slot-hover-text {
-          display: none !important;
-        }
-
-        .slot-hover-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--color-brand-primary);
-          opacity: 0;
-          transition: opacity 0.15s ease;
-          pointer-events: none;
-        }
-
-        .grid-slot-cell:hover .slot-hover-text {
-          opacity: 1;
-        }
-
-        /* LINHA VERMELHA TEMPO REAL */
-        .agenda-red-line {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background-color: var(--color-error);
-          z-index: 20;
-          pointer-events: none;
-        }
-
-        .agenda-red-line::before {
-          content: '';
-          position: absolute;
-          left: -4px;
-          top: -3px;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background-color: var(--color-error);
-        }
-
-        /* CARDS DE BLOQUEIO NA GRADE */
-        .timeline-blocked-card {
-          position: absolute;
-          left: 4px;
-          right: 4px;
-          border-radius: var(--radius-md);
-          padding: 0.45rem 0.6rem;
-          z-index: 5;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          overflow: hidden;
-          background: repeating-linear-gradient(
-            45deg,
-            rgba(0, 0, 0, 0.05),
-            rgba(0, 0, 0, 0.05) 10px,
-            rgba(0, 0, 0, 0.1) 10px,
-            rgba(0, 0, 0, 0.1) 20px
-          );
-          background-color: rgba(60, 60, 65, 0.15);
-          border: 1px dashed var(--color-text-secondary);
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: background-color 0.08s ease, border-color 0.08s ease;
-        }
-
-        .timeline-blocked-card:hover {
-          background-color: rgba(239, 68, 68, 0.1);
-          border-color: var(--color-error);
-        }
-
-        /* CARDS DE AGENDAMENTO FLUTUANTES */
-        .timeline-appointment-card {
-          position: absolute;
-          border-radius: var(--radius-md);
-          padding: 0.4rem 0.55rem;
-          z-index: 10;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          gap: 4px;
-          min-height: 69px;
-          overflow: hidden;
-          box-sizing: border-box;
-          background-color: var(--color-bg-secondary);
-          box-shadow: var(--shadow-sm);
-          border: 1px solid var(--color-border);
-          cursor: pointer;
-          transition: box-shadow 0.08s ease, border-color 0.08s ease;
-        }
-
-        .timeline-appointment-card:hover {
-          box-shadow: var(--shadow-md);
-          border-color: rgba(217, 108, 0, 0.45);
-          z-index: 15;
-        }
-
-        /* Status Visual Semântico */
-        .card-status--pending {
-          border-color: rgba(217, 119, 6, 0.4);
-          background-color: var(--color-warning-bg);
-        }
-
-        .card-status--confirmed {
-          border-color: rgba(217, 108, 0, 0.3);
-          background-color: var(--color-bg-secondary);
-        }
-
-        .card-status--fitting {
-          border-color: rgba(106, 46, 0, 0.35);
-          background-color: rgba(242, 178, 119, 0.2);
-        }
-
-        .timeline-appointment-card--fitting {
-          border-left: 4px solid #b45309;
-        }
-
-        .timeline-appointment-card--normal {
-          border-left-width: 1px;
-        }
-
-        .card-status--in-progress {
-          border-color: rgba(63, 131, 248, 0.4);
-          background-color: var(--color-info-bg);
-        }
-
-        .card-status--completed {
-          border-color: rgba(14, 159, 110, 0.4);
-          background-color: var(--color-success-bg);
-        }
-
-        .card-status--no-show {
-          border-color: rgba(185, 28, 28, 0.45);
-          background-color: rgba(254, 226, 226, 0.9);
-        }
-
-        .badge-chip--no-show {
-          background: #b91c1c;
-          color: #fff;
-        }
-
-        .card-top-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.25rem;
-        }
-
-        .card-time-badge {
-          font-size: 0.72rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .card-badges-row {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-        }
-
-        .badge-chip {
-          font-size: 0.6rem;
-          font-weight: 700;
-          padding: 0.1rem 0.35rem;
-          border-radius: var(--radius-sm);
-          text-transform: uppercase;
-          white-space: nowrap;
-          line-height: 1.2;
-        }
-
-        .badge-chip--fitting {
-          background-color: var(--color-brand-deep);
-          color: white;
-        }
-
-        .badge-chip--progress {
-          background-color: var(--color-info);
-          color: white;
-        }
-
-        .badge-chip--paid {
-          background-color: var(--color-success);
-          color: white;
-        }
-
-        .card-client-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 6px;
-          margin: 0;
-          width: 100%;
-        }
-
-        .card-client-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          min-width: 0;
-          flex: 1;
-        }
-
-        .card-client-name {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.15;
-        }
-
-        .card-service-name {
-          font-size: 0.72rem;
-          color: var(--color-text-secondary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1.15;
-          font-weight: 500;
-        }
-
-        /* REGRAS ESPECÍFICAS DA VISÃO SEMANAL */
-        .week-timeline-column .timeline-appointment-card {
-          padding: 0.3rem 0.45rem;
-          gap: 1px;
-          justify-content: flex-start;
-        }
-
-        .week-timeline-column .card-top-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 3px;
-          margin-bottom: 2px;
-          min-width: 0;
-          flex-wrap: wrap;
-        }
-
-        .week-timeline-column .card-time-badge {
-          font-size: 0.66rem;
-          font-weight: 800;
-          white-space: nowrap;
-          flex-shrink: 0;
-          line-height: 1;
-        }
-
-        .week-timeline-column .card-badges-row {
-          display: flex;
-          align-items: center;
-          gap: 2px;
-          flex-shrink: 0;
-        }
-
-        .week-timeline-column .badge-chip {
-          font-size: 0.52rem;
-          padding: 1px 3px;
-          white-space: nowrap;
-          line-height: 1;
-          letter-spacing: 0.2px;
-        }
-
-        .week-timeline-column .card-client-row {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 1px;
-          width: 100%;
-          min-width: 0;
-        }
-
-        .week-timeline-column .card-client-name {
-          font-size: 0.78rem;
-          font-weight: 700;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-          display: block;
-          line-height: 1.15;
-        }
-
-        .week-timeline-column .card-service-name {
-          font-size: 0.68rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          width: 100%;
-          display: block;
-          line-height: 1.15;
-          font-weight: 500;
-        }
-
-        .card-notes-snippet {
-          font-size: 0.62rem;
-          color: var(--color-brand-primary);
-          font-style: italic;
-          display: flex;
-          align-items: center;
-          gap: 0.2rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          line-height: 1;
-          margin-top: 1px;
-        }
-
-        /* Toolbar de Ações Rápidas */
-        .card-actions-toolbar {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          margin-top: auto;
-          padding-top: 0.2rem;
-          border-top: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .btn-card-action {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.25rem;
-          border: none;
-          border-radius: var(--radius-sm);
-          padding: 0.25rem 0.5rem;
-          font-size: 0.72rem;
-          font-weight: 700;
-          font-family: var(--font-family-base);
-          line-height: 1;
-          height: 24px;
-          box-sizing: border-box;
-          vertical-align: middle;
-          cursor: pointer;
-          transition: background-color 0.08s ease, color 0.08s ease;
-        }
-
-        .btn-card-action span {
-          font-size: 0.72rem;
-          font-weight: 700;
-          line-height: 1;
-        }
-
-        .btn-card-action svg {
-          display: block;
-          flex-shrink: 0;
-        }
-
-        .btn-action-whatsapp {
-          background-color: #25D366;
-          color: white;
-        }
-
-        .btn-action-whatsapp:hover {
-          background-color: #128C7E;
-        }
-
-        .btn-action-start {
-          background-color: var(--color-info);
-          color: white;
-        }
-
-        .btn-action-start:hover {
-          background-color: #1A56DB;
-        }
-
-        .btn-action-pay {
-          background-color: var(--color-brand-primary);
-          color: white;
-        }
-
-        .btn-action-pay:hover {
-          background-color: var(--color-brand-hover);
-        }
-
-        .btn-action-cancel {
-          background-color: transparent;
-          color: var(--color-text-secondary);
-          margin-left: auto;
-        }
-
-        .btn-action-cancel:hover {
-          color: var(--color-error);
-          background-color: var(--color-error-bg);
-        }
-
-        .paid-confirmed-label {
-          color: var(--color-success);
-          display: flex;
-          align-items: center;
-        }
-
-        /* FORMULÁRIO DO MODAL */
-        .modal-agenda-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          width: 100%;
-          max-width: 100%;
-          min-width: 0;
-        }
-
-        .form-row-2 {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.75rem;
-          width: 100%;
-          min-width: 0;
-        }
-
-        .form-group-segmented {
-          display: flex;
-          background-color: rgba(0, 0, 0, 0.05);
-          padding: 0.25rem;
-          border-radius: var(--radius-md);
-          gap: 0.25rem;
-        }
-
-        .segmented-btn {
-          flex: 1;
-          border: none;
-          padding: 0.5rem 0.6rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          border-radius: var(--radius-sm);
-          background: none;
-          color: var(--color-text-primary);
-          box-shadow: none;
-          cursor: pointer;
-          transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          min-height: 40px;
-        }
-
-        .segmented-btn--active {
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 1px #000000, 0 1px 2px rgba(45, 35, 30, 0.06);
-          border: none;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-          min-width: 0;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .form-row-2col {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.75rem;
-          min-width: 0;
-        }
-
-        .input-text,
-        .input-select,
-        .input-textarea {
-          width: 100%;
-          min-width: 0;
-          max-width: 100%;
-          padding: 0.65rem 0.85rem;
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-family: inherit;
-          box-sizing: border-box;
-          inline-size: 100%;
-          transition: box-shadow 0.15s ease;
-        }
-
-        #form-date,
-        #form-time {
-          min-inline-size: 0;
-          max-inline-size: 100%;
-          width: 100%;
-        }
-
-        .input-textarea {
-          resize: vertical;
-          min-height: 60px;
-          max-height: 160px;
-          line-height: 1.4;
-        }
-
-        .input-text:focus,
-        .input-select:focus,
-        .input-textarea:focus {
-          outline: none;
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
-        }
-
-        .service-meta-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          margin-top: 0.25rem;
-          font-size: 0.75rem;
-          color: var(--color-text-primary);
-        }
-
-        .service-meta-pill span {
-          color: var(--color-text-primary);
-        }
-
-        .service-meta-pill strong {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .anonymous-customer-note {
-          padding: 0.75rem 0.85rem;
-          background: rgba(0, 0, 0, 0.02);
-          border: none;
-          border-radius: var(--radius-md);
-          font-size: 0.82rem;
-          line-height: 1.45;
-          color: var(--color-text-primary);
-          margin-bottom: 0.5rem;
-        }
-
-        .anonymous-customer-note span {
-          color: var(--color-text-primary);
-        }
-
-        .fitting-toggle-card {
-          padding: 0.75rem 0.9rem;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-primary);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 0.75rem;
-          min-width: 0;
-          box-sizing: border-box;
-          transition: all 0.2s ease;
-        }
-
-        .fitting-toggle-card--active {
-          background-color: var(--color-bg-primary);
-          border-color: transparent;
-        }
-
-        .fitting-toggle-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-        }
-
-        .fitting-toggle-header {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          flex-wrap: wrap;
-        }
-
-        .fitting-toggle-title {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .badge-fitting-active {
-          font-size: 0.62rem;
-          font-weight: 700;
-          padding: 0.1rem 0.35rem;
-          border-radius: var(--radius-sm);
-          background-color: var(--color-brand-primary);
-          color: white;
-          text-transform: uppercase;
-        }
-
-        .fitting-toggle-desc {
-          font-size: 0.72rem;
-          color: var(--color-text-primary);
-        }
-
-        .fitting-mode-switch {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.45rem;
-          min-width: 0;
-        }
-
-        .fitting-mode-switch__label {
-          font-size: 0.68rem;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          transition: color 0.2s ease;
-        }
-
-        .fitting-mode-switch__label--active {
-          color: var(--color-text-primary);
-        }
-
-        .fitting-mode-switch__label-button {
-          border: 0;
-          padding: 0;
-          background: transparent;
-          font-family: inherit;
-          cursor: pointer;
-        }
-
-        .fitting-mode-switch__control {
-          position: relative;
-          width: 2.55rem;
-          height: 1.35rem;
-          padding: 0.15rem;
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: 999px;
-          background: #D1D5DB;
-          cursor: pointer;
-          transition: background-color 0.2s ease, box-shadow 0.2s ease;
-          box-sizing: border-box;
-        }
-
-        .fitting-mode-switch__control--custom {
-          background: var(--color-brand-primary);
-          box-shadow: 0 0 0 0.8px var(--color-brand-primary);
-        }
-
-        .fitting-mode-switch__control:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        .fitting-mode-switch__thumb {
-          display: block;
-          width: 0.95rem;
-          height: 0.95rem;
-          border-radius: 50%;
-          background: var(--color-bg-secondary);
-          box-shadow: var(--shadow-sm);
-          transform: translateX(0);
-          transition: transform 0.2s ease;
-        }
-
-        .fitting-mode-switch__control--custom .fitting-mode-switch__thumb {
-          transform: translateX(1.05rem);
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: var(--font-size-sm);
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        @media (max-width: 480px) {
-          .modal-agenda-form .form-row-2col,
-          .modal-agenda-form .form-row-2 {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .fitting-toggle-card {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .fitting-mode-switch {
-            justify-content: flex-start;
-            width: 100%;
-          }
-
-          #form-date,
-          #form-time {
-            display: block;
-            min-inline-size: 0;
-            max-inline-size: 100%;
-            width: 100%;
-          }
-        }
-
-        .modal-actions-footer {
-          display: flex;
-          justify-content: flex-end;
-          align-items: center;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-          flex-wrap: wrap;
-        }
-
-        .btn-secondary {
-          background-color: var(--color-bg-secondary);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          padding: 0.6rem 1.25rem;
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          min-height: 44px;
-          box-sizing: border-box;
-          transition: background-color 0.15s ease, opacity 0.15s ease;
-        }
-
-        .btn-secondary:hover {
-          background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .btn-primary {
-          background-color: var(--color-brand-primary);
-          color: var(--color-bg-secondary);
-          border: none;
-          padding: 0.6rem 1.5rem;
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          min-height: 44px;
-          box-sizing: border-box;
-          transition: background-color 0.15s ease, transform 0.15s ease;
-        }
-
-        .btn-primary:hover {
-          background-color: var(--color-brand-hover);
-        }
-
-        .btn-danger {
-          background-color: var(--color-error);
-          color: white;
-          border: none;
-          padding: 0.6rem 1.5rem;
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          min-height: 44px;
-          box-sizing: border-box;
-        }
-
-        @media (max-width: 480px) {
-          .modal-actions-footer {
-            flex-direction: column-reverse;
-            width: 100%;
-          }
-          .modal-actions-footer button {
-            width: 100%;
-          }
-          .form-row-2col {
-            grid-template-columns: 1fr !important;
-          }
-        }
-
-        .cancel-alert-text {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-primary);
-          line-height: 1.5;
-          margin-bottom: 1rem;
-        }
-
-        /* SKELETON LOADING DA GRADE DA AGENDA */
-        @keyframes skeletonShimmer {
-          0% {
-            background-position: -200% 0;
-          }
-          100% {
-            background-position: 200% 0;
-          }
-        }
-
-        .agenda-timeline-board--skeleton {
-          pointer-events: none;
-          user-select: none;
-          animation: skeletonFadeIn 0.2s ease-out;
-        }
-
-        @keyframes skeletonFadeIn {
-          from {
-            opacity: 0.6;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        .skeleton-box {
-          background: linear-gradient(
-            90deg,
-            rgba(45, 35, 30, 0.05) 0%,
-            rgba(217, 108, 0, 0.12) 50%,
-            rgba(45, 35, 30, 0.05) 100%
-          );
-          background-size: 200% 100%;
-          animation: skeletonShimmer 1.5s ease-in-out infinite;
-          border-radius: var(--radius-sm, 6px);
-        }
-
-        .skeleton-title {
-          height: 14px;
-          border-radius: 4px;
-        }
-
-        .skeleton-subtitle {
-          height: 10px;
-          border-radius: 4px;
-        }
-
-        .skeleton-appointment-card {
-          position: absolute;
-          left: 4px;
-          right: 4px;
-          border-radius: var(--radius-md, 8px);
-          padding: 0.5rem;
-          box-sizing: border-box;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(234, 222, 214, 0.8);
-          box-shadow: 0 2px 8px rgba(45, 35, 30, 0.04);
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          overflow: hidden;
-          pointer-events: none;
-          z-index: 5;
-        }
-
-        .skeleton-card-badge {
-          width: 44px;
-          height: 12px;
-          border-radius: 4px;
-        }
-
-        .skeleton-card-name {
-          width: 72%;
-          height: 13px;
-          border-radius: 4px;
-        }
-
-        .skeleton-card-service {
-          width: 50%;
-          height: 11px;
-          border-radius: 4px;
-        }
-
-        /* EMPTY STATE */
-        .agenda-empty-state {
-          padding: 4rem 2rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 1rem;
-          text-align: center;
-        }
-
-        .empty-icon {
-          color: var(--color-brand-soft);
-        }
-
-        .btn-primary-sm {
-          background-color: var(--color-brand-primary);
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .agenda-mobile-view {
-          display: none;
-        }
-
-        .agenda-desktop-view {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          width: 100%;
-          height: 100%;
-          max-height: 100%;
-          min-height: 0;
-          flex: 1;
-        }
-
-        @media (max-width: 1024px) {
-          .agenda-header-subtitle {
-            display: none;
-          }
-          .card-notes-snippet {
-            display: none;
-          }
-          .grid-slot-cell {
-            padding-top: var(--radius-sm, 4px);
-            padding-bottom: var(--radius-sm, 4px);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .agenda-mobile-view {
-            display: block;
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-          }
-          .agenda-desktop-view {
-            display: none !important;
-          }
-        }
       `}</style>
     </div>
   );
