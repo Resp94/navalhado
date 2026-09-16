@@ -35,6 +35,10 @@ class FakeRelatoriosAdapter implements RelatoriosAdapter {
   obterEquipeEServicos(input: ObterEquipeEServicosInput): Promise<RelatorioEquipeServicos> {
     return this.handler(input);
   }
+
+  obterAgenda(): Promise<never> {
+    throw new Error('Não usado neste teste.');
+  }
 }
 
 function respostaBase(overrides: Partial<RelatorioEquipeServicos> = {}): RelatorioEquipeServicos {

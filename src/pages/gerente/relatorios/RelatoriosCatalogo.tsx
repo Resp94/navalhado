@@ -19,8 +19,8 @@ interface CatalogoGrupo {
  * "Catálogo sem números"): lista os dez relatórios agrupados pelas cinco
  * páginas, cada um com uma frase de pergunta, sem nenhum número -- não
  * chama nenhum contrato. Faturamento por período (ticket 01) e Equipe e
- * Serviços (ticket 05) têm link real; os demais aparecem marcados "em
- * breve" até seus tickets.
+ * Serviços (ticket 05) e o primeiro relatório de Agenda (ticket 07) têm
+ * link real; os demais aparecem marcados "em breve" até seus tickets.
  */
 const CATALOGO: CatalogoGrupo[] = [
   {
@@ -41,7 +41,7 @@ const CATALOGO: CatalogoGrupo[] = [
   {
     page: 'Agenda',
     reports: [
-      { question: 'Quantos agendamentos viraram atendimento, cancelamento ou falta?' },
+      { question: 'Quantos agendamentos viraram atendimento, cancelamento ou falta?', path: '/relatorios/agenda' },
       { question: 'Quais dias e horários têm mais demanda?' },
     ],
   },

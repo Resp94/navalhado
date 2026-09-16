@@ -538,3 +538,202 @@ describe('SupabaseRelatoriosAdapter.obterEquipeEServicos', () => {
     ).rejects.toThrow('Acesso negado.');
   });
 });
+
+describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
+  it('chama get_schedule_report com o contrato atual e converte números', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        timezone: 'America/Sao_Paulo',
+        business_today: '2026-06-15',
+        period: { start: '2026-06-01', end: '2026-06-15' },
+        previous_period: { start: '2026-05-16', end: '2026-05-31' },
+        status_totals: {
+          total: 10,
+          completed: 6,
+          no_show: 1,
+          canceled: 2,
+          unresolved: 1,
+          future: 0,
+          attendance_rate: 0.8571,
+          cancellation_rate: 0.2,
+        },
+        previous_status_totals: {
+          total: 8,
+          completed: 5,
+          no_show: 1,
+          canceled: 1,
+          unresolved: 1,
+          future: 0,
+          attendance_rate: 0.8333,
+          cancellation_rate: 0.1429,
+        },
+        by_origin: [
+          {
+            origin: 'manual',
+            total: 5,
+            completed: 3,
+            no_show: 1,
+            canceled: 1,
+            unresolved: 0,
+            attendance_rate: 0.75,
+          },
+        ],
+        by_professional: [
+          {
+            professional_id: 'prof-1',
+            name: 'Carlos',
+            is_active: true,
+            archived: false,
+            total: 5,
+            completed: 3,
+            no_show: 1,
+            canceled: 1,
+            unresolved: 0,
+            attendance_rate: 0.75,
+          },
+        ],
+        cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_schedule_report', {
+      p_tenant_id: 'tenant-1',
+      p_start_date: '2026-06-01',
+      p_end_date: '2026-06-15',
+      p_professional_id: null,
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.status_totals).toEqual({
+      total: 10,
+      completed: 6,
+      no_show: 1,
+      canceled: 2,
+      unresolved: 1,
+      future: 0,
+      attendance_rate: 0.8571,
+      cancellation_rate: 0.2,
+    });
+    expect(result.by_origin).toEqual([
+      { origin: 'manual', total: 5, completed: 3, no_show: 1, canceled: 1, unresolved: 0, attendance_rate: 0.75 },
+    ]);
+    expect(result.by_professional).toEqual([
+      {
+        professional_id: 'prof-1',
+        name: 'Carlos',
+        is_active: true,
+        archived: false,
+        total: 5,
+        completed: 3,
+        no_show: 1,
+        canceled: 1,
+        unresolved: 0,
+        attendance_rate: 0.75,
+      },
+    ]);
+    expect(result.cancellation_reasons).toEqual([{ reason: 'cliente desistiu', count: 2 }]);
+  });
+
+  it('passa p_professional_id quando informado', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: 'prof-1',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_schedule_report', {
+      p_tenant_id: 'tenant-1',
+      p_start_date: '2026-06-01',
+      p_end_date: '2026-06-15',
+      p_professional_id: 'prof-1',
+    });
+  });
+
+  it('preserva attendance_rate e cancellation_rate nulos (denominador zero) sem coagir para zero', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        status_totals: { attendance_rate: null, cancellation_rate: null },
+        previous_status_totals: { attendance_rate: null, cancellation_rate: null },
+        by_origin: [{ origin: 'online', total: 0, completed: 0, no_show: 0, canceled: 0, unresolved: 0, attendance_rate: null }],
+        by_professional: [
+          {
+            professional_id: 'prof-1',
+            name: 'Carlos',
+            is_active: true,
+            archived: false,
+            total: 0,
+            completed: 0,
+            no_show: 0,
+            canceled: 0,
+            unresolved: 0,
+            attendance_rate: null,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.status_totals.attendance_rate).toBeNull();
+    expect(result.status_totals.cancellation_rate).toBeNull();
+    expect(result.previous_status_totals.attendance_rate).toBeNull();
+    expect(result.previous_status_totals.cancellation_rate).toBeNull();
+    expect(result.by_origin[0].attendance_rate).toBeNull();
+    expect(result.by_professional[0].attendance_rate).toBeNull();
+  });
+
+  it('preenche campos ausentes com zero, string vazia ou lista vazia', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.business_today).toBe('');
+    expect(result.period).toEqual({ start: '', end: '' });
+    expect(result.previous_period).toEqual({ start: '', end: '' });
+    expect(result.status_totals).toEqual({
+      total: 0,
+      completed: 0,
+      no_show: 0,
+      canceled: 0,
+      unresolved: 0,
+      future: 0,
+      attendance_rate: null,
+      cancellation_rate: null,
+    });
+    expect(result.by_origin).toEqual([]);
+    expect(result.by_professional).toEqual([]);
+    expect(result.cancellation_reasons).toEqual([]);
+  });
+
+  it('lança erro quando a RPC devolve erro', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Acesso negado.' } });
+
+    await expect(
+      new SupabaseRelatoriosAdapter().obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+      })
+    ).rejects.toThrow('Acesso negado.');
+  });
+});

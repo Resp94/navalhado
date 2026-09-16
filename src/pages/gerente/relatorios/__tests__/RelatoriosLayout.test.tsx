@@ -5,6 +5,7 @@ import { RelatoriosLayout } from '../RelatoriosLayout';
 
 const mockObterFaturamentoPorPeriodo = vi.fn();
 const mockObterEquipeEServicos = vi.fn();
+const mockObterAgenda = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -26,6 +27,7 @@ vi.mock('../../../../modules/relatorios/adapters/SupabaseRelatoriosAdapter', () 
   SupabaseRelatoriosAdapter: vi.fn().mockImplementation(() => ({
     obterFaturamentoPorPeriodo: mockObterFaturamentoPorPeriodo,
     obterEquipeEServicos: mockObterEquipeEServicos,
+    obterAgenda: mockObterAgenda,
   })),
 }));
 

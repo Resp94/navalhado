@@ -1,8 +1,15 @@
 import { supabase } from '../../../lib/supabase';
 import type {
+  ObterAgendaInput,
   ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
   ProfissionalRanking,
+  RelatorioAgenda,
+  RelatorioAgendaMotivoCancelamento,
+  RelatorioAgendaOrigem,
+  RelatorioAgendaOrigemTotais,
+  RelatorioAgendaProfissionalTotais,
+  RelatorioAgendaStatusTotais,
   RelatorioEquipeServicos,
   RelatorioEquipeServicosTotais,
   RelatorioFaturamento,
@@ -15,6 +22,8 @@ import type {
   ServicoRanking,
   TicketPorProfissional,
 } from '../types';
+
+const AGENDA_ORIGINS: RelatorioAgendaOrigem[] = ['manual', 'whatsapp', 'client_channel', 'online'];
 
 const DATA_QUALITY_STATUSES: RelatoriosDataQualityStatus[] = [
   'confirmed',
@@ -153,6 +162,74 @@ function toEquipeServicosTotais(value: unknown): RelatorioEquipeServicosTotais {
 }
 
 /**
+ * Totais por status da Agenda (spec 038, ticket 07): `attendance_rate` e
+ * `cancellation_rate` preservam `null` (denominador zero no núcleo do
+ * banco), nunca coagidos para `0` -- mesmo padrão de `share`/`average_ticket`.
+ */
+function toAgendaStatusTotais(value: unknown): RelatorioAgendaStatusTotais {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    total: toNumber(raw.total),
+    completed: toNumber(raw.completed),
+    no_show: toNumber(raw.no_show),
+    canceled: toNumber(raw.canceled),
+    unresolved: toNumber(raw.unresolved),
+    future: toNumber(raw.future),
+    attendance_rate: toNullableNumber(raw.attendance_rate),
+    cancellation_rate: toNullableNumber(raw.cancellation_rate),
+  };
+}
+
+function toAgendaByOrigin(value: unknown): RelatorioAgendaOrigemTotais[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    const origin = AGENDA_ORIGINS.includes(raw.origin as RelatorioAgendaOrigem)
+      ? (raw.origin as RelatorioAgendaOrigem)
+      : 'manual';
+    return {
+      origin,
+      total: toNumber(raw.total),
+      completed: toNumber(raw.completed),
+      no_show: toNumber(raw.no_show),
+      canceled: toNumber(raw.canceled),
+      unresolved: toNumber(raw.unresolved),
+      attendance_rate: toNullableNumber(raw.attendance_rate),
+    };
+  });
+}
+
+function toAgendaByProfessional(value: unknown): RelatorioAgendaProfissionalTotais[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      professional_id: raw.professional_id ? String(raw.professional_id) : '',
+      name: raw.name ? String(raw.name) : '',
+      is_active: raw.is_active === true,
+      archived: raw.archived === true,
+      total: toNumber(raw.total),
+      completed: toNumber(raw.completed),
+      no_show: toNumber(raw.no_show),
+      canceled: toNumber(raw.canceled),
+      unresolved: toNumber(raw.unresolved),
+      attendance_rate: toNullableNumber(raw.attendance_rate),
+    };
+  });
+}
+
+function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCancelamento[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item || {}) as Record<string, unknown>;
+    return {
+      reason: raw.reason ? String(raw.reason) : '',
+      count: toNumber(raw.count),
+    };
+  });
+}
+
+/**
  * Adaptador Supabase do Faturamento por período (`get_revenue_report`,
  * spec 038, ticket 01): converte o `jsonb` da RPC em números e tipos do
  * domínio. Campos ausentes viram zero, string vazia ou lista vazia, nunca
@@ -281,6 +358,56 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       professionals: toProfessionalsRanking(raw.professionals),
       services: toServicesRanking(raw.services),
       totals: toEquipeServicosTotais(raw.totals),
+    };
+  }
+
+  /**
+   * Agenda (`get_schedule_report`, spec 038, ticket 07): comparecimento,
+   * cancelamento e no-show. `p_professional_id` é omitido (`undefined`)
+   * quando não filtrado -- a RPC tem `default null` e filtra
+   * status_totals/by_origin/cancellation_reasons, mas NUNCA by_professional
+   * (inverso da regra do ticket 05/06).
+   */
+  async obterAgenda(input: ObterAgendaInput): Promise<RelatorioAgenda> {
+    const { data, error } = await supabase.rpc('get_schedule_report', {
+      p_tenant_id: input.tenantId,
+      p_start_date: input.startDate,
+      p_end_date: input.endDate,
+      p_professional_id: input.professionalId || null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao buscar o relatório de Agenda.');
+    }
+
+    const raw = (data || {}) as {
+      timezone?: string;
+      business_today?: string;
+      period?: { start?: unknown; end?: unknown };
+      previous_period?: { start?: unknown; end?: unknown };
+      status_totals?: unknown;
+      previous_status_totals?: unknown;
+      by_origin?: unknown;
+      by_professional?: unknown;
+      cancellation_reasons?: unknown;
+    };
+
+    return {
+      timezone: raw.timezone || 'America/Sao_Paulo',
+      business_today: raw.business_today ? String(raw.business_today) : '',
+      period: {
+        start: raw.period?.start ? String(raw.period.start) : '',
+        end: raw.period?.end ? String(raw.period.end) : '',
+      },
+      previous_period: {
+        start: raw.previous_period?.start ? String(raw.previous_period.start) : '',
+        end: raw.previous_period?.end ? String(raw.previous_period.end) : '',
+      },
+      status_totals: toAgendaStatusTotais(raw.status_totals),
+      previous_status_totals: toAgendaStatusTotais(raw.previous_status_totals),
+      by_origin: toAgendaByOrigin(raw.by_origin),
+      by_professional: toAgendaByProfessional(raw.by_professional),
+      cancellation_reasons: toAgendaCancellationReasons(raw.cancellation_reasons),
     };
   }
 }

@@ -35,11 +35,11 @@ const GRANULARITY_OPTIONS: { id: RelatoriosGranularity; label: string }[] = [
   { id: 'month', label: 'Mês' },
 ];
 
-/** As cinco páginas do módulo (spec 038). Faturamento (ticket 01) e Equipe e Serviços (ticket 05) já existem. */
+/** As cinco páginas do módulo (spec 038). Faturamento (ticket 01), Equipe e Serviços (ticket 05) e Agenda (ticket 07) já existem. */
 const REPORT_PAGES: { path: string; label: string; enabled: boolean }[] = [
   { path: '/relatorios/faturamento', label: 'Faturamento', enabled: true },
   { path: '/relatorios/equipe-e-servicos', label: 'Equipe e Serviços', enabled: true },
-  { path: '/relatorios/agenda', label: 'Agenda', enabled: false },
+  { path: '/relatorios/agenda', label: 'Agenda', enabled: true },
   { path: '/relatorios/clientes', label: 'Clientes', enabled: false },
   { path: '/relatorios/clientes-sem-retorno', label: 'Clientes sem Retorno', enabled: false },
 ];

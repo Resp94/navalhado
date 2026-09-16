@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RelatoriosRepository, RelatoriosValidationError } from '../RelatoriosRepository';
 import type { RelatoriosAdapter } from '../types';
 
+function mockAdapterFactory(): RelatoriosAdapter {
+  return {
+    obterFaturamentoPorPeriodo: vi.fn(),
+    obterEquipeEServicos: vi.fn(),
+    obterAgenda: vi.fn(),
+  };
+}
+
 const faturamentoFixture = {
   timezone: 'America/Sao_Paulo',
   business_today: '2026-06-15',
@@ -39,6 +47,7 @@ describe('RelatoriosRepository', () => {
   const mockAdapter: RelatoriosAdapter = {
     obterFaturamentoPorPeriodo: vi.fn(),
     obterEquipeEServicos: vi.fn(),
+    obterAgenda: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -193,6 +202,7 @@ describe('RelatoriosRepository.obterEquipeEServicos', () => {
   const mockAdapter: RelatoriosAdapter = {
     obterFaturamentoPorPeriodo: vi.fn(),
     obterEquipeEServicos: vi.fn(),
+    obterAgenda: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -308,6 +318,159 @@ describe('RelatoriosRepository.obterEquipeEServicos', () => {
 
     await expect(
       repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2025-06-16',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).resolves.toBeTruthy();
+  });
+});
+
+const agendaFixture = {
+  timezone: 'America/Sao_Paulo',
+  business_today: '2026-06-15',
+  period: { start: '2026-06-01', end: '2026-06-15' },
+  previous_period: { start: '2026-05-16', end: '2026-05-31' },
+  status_totals: {
+    total: 10,
+    completed: 6,
+    no_show: 1,
+    canceled: 2,
+    unresolved: 1,
+    future: 0,
+    attendance_rate: 6 / 7,
+    cancellation_rate: 0.2,
+  },
+  previous_status_totals: {
+    total: 8,
+    completed: 5,
+    no_show: 1,
+    canceled: 1,
+    unresolved: 1,
+    future: 0,
+    attendance_rate: 5 / 6,
+    cancellation_rate: 1 / 7,
+  },
+  by_origin: [],
+  by_professional: [],
+  cancellation_reasons: [],
+};
+
+describe('RelatoriosRepository.obterAgenda', () => {
+  const mockAdapter: RelatoriosAdapter = mockAdapterFactory();
+
+  const repository = new RelatoriosRepository(mockAdapter);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('repassa ao adaptador um pedido válido, sem professionalId quando não informado', async () => {
+    vi.mocked(mockAdapter.obterAgenda).mockResolvedValueOnce(agendaFixture);
+
+    const result = await repository.obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      today: '2026-06-15',
+    });
+
+    expect(mockAdapter.obterAgenda).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: undefined,
+    });
+    expect(result.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('repassa professionalId quando informado', async () => {
+    vi.mocked(mockAdapter.obterAgenda).mockResolvedValueOnce(agendaFixture);
+
+    await repository.obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: 'prof-1',
+      today: '2026-06-15',
+    });
+
+    expect(mockAdapter.obterAgenda).toHaveBeenCalledWith(expect.objectContaining({ professionalId: 'prof-1' }));
+  });
+
+  it('rejeita sem tenant informado', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: '',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow(RelatoriosValidationError);
+    expect(mockAdapter.obterAgenda).not.toHaveBeenCalled();
+  });
+
+  it('rejeita datas ausentes', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('As datas de início e fim do período são obrigatórias.');
+  });
+
+  it('rejeita fim antes do início', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-15',
+        endDate: '2026-06-01',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser anterior à data inicial.');
+  });
+
+  it('rejeita fim depois de hoje', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-20',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser posterior a hoje.');
+  });
+
+  it('rejeita início mais de 730 dias antes de hoje', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '2024-01-01',
+        endDate: '2024-01-10',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data inicial não pode ser mais de 730 dias antes de hoje.');
+  });
+
+  it('rejeita período acima de 366 dias', async () => {
+    await expect(
+      repository.obterAgenda({
+        tenantId: 'tenant-1',
+        startDate: '2025-06-01',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('O período não pode ter mais de 366 dias.');
+  });
+
+  it('aceita período de até 366 dias sem exigir granularidade (relatório sem agrupamento)', async () => {
+    vi.mocked(mockAdapter.obterAgenda).mockResolvedValueOnce(agendaFixture);
+
+    await expect(
+      repository.obterAgenda({
         tenantId: 'tenant-1',
         startDate: '2025-06-16',
         endDate: '2026-06-15',

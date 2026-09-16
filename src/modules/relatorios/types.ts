@@ -210,6 +210,103 @@ export interface ObterEquipeEServicosInput {
 }
 
 /**
+ * Totais por status de um período (atual ou anterior) do relatório de
+ * Agenda (`get_schedule_report`, spec 038, ticket 07). `unresolved`
+ * (Agendamento sem Desfecho) é o pendente/confirmado/em andamento com
+ * início já passado -- fica fora das duas taxas. `future` é o mesmo grupo
+ * de status com início ainda não chegado -- também fora das taxas.
+ * `attendance_rate` = concluídos / (concluídos + faltas); `cancellation_rate`
+ * = cancelados / (total - futuros); ambas `null` com denominador zero,
+ * nunca `0`.
+ */
+export interface RelatorioAgendaStatusTotais {
+  total: number;
+  completed: number;
+  no_show: number;
+  canceled: number;
+  unresolved: number;
+  future: number;
+  attendance_rate: number | null;
+  cancellation_rate: number | null;
+}
+
+export type RelatorioAgendaOrigem = 'manual' | 'whatsapp' | 'client_channel' | 'online';
+
+/**
+ * Totais por origem do Agendamento (spec 038, ticket 07): sem `future` (a
+ * spec não pede futuros por origem) e sem `cancellation_rate` (a taxa de
+ * cancelamento só existe no nível do período inteiro).
+ */
+export interface RelatorioAgendaOrigemTotais {
+  origin: RelatorioAgendaOrigem;
+  total: number;
+  completed: number;
+  no_show: number;
+  canceled: number;
+  unresolved: number;
+  attendance_rate: number | null;
+}
+
+/**
+ * Totais por profissional do relatório de Agenda: SEMPRE a lista inteira
+ * do tenant no período, nunca filtrada por `p_professional_id` -- o
+ * inverso da regra do ticket 05/06 (lá, o filtro nunca atingia o ranking
+ * de profissionais; aqui, o filtro atinge tudo, menos esta lista).
+ * Inativos e arquivados com Agendamento no período aparecem marcados.
+ */
+export interface RelatorioAgendaProfissionalTotais {
+  professional_id: string;
+  name: string;
+  is_active: boolean;
+  archived: boolean;
+  total: number;
+  completed: number;
+  no_show: number;
+  canceled: number;
+  unresolved: number;
+  attendance_rate: number | null;
+}
+
+/**
+ * Motivo de cancelamento normalizado (trim + minúsculas) e contado (spec
+ * 038, ticket 07): vazio vira "sem motivo informado", dez primeiros mais
+ * frequentes seguidos de "outros" quando sobra resto.
+ */
+export interface RelatorioAgendaMotivoCancelamento {
+  reason: string;
+  count: number;
+}
+
+/**
+ * Contrato de leitura da Agenda (`get_schedule_report`, spec 038,
+ * relatórios 6-7, ticket 07): comparecimento, cancelamento e no-show do
+ * período. Sem `granularity` (ranking/totais de período único, como
+ * Equipe e Serviços) mas COM `previous_period`/`previous_status_totais`
+ * (as taxas comparam com o período anterior, como o Faturamento). Sem
+ * `data_quality`: esse conceito é da Receita Reconhecida de Comanda, sem
+ * uso aqui.
+ */
+export interface RelatorioAgenda {
+  timezone: string;
+  business_today: string;
+  period: RelatoriosPeriodo;
+  previous_period: RelatoriosPeriodo;
+  status_totals: RelatorioAgendaStatusTotais;
+  previous_status_totals: RelatorioAgendaStatusTotais;
+  by_origin: RelatorioAgendaOrigemTotais[];
+  by_professional: RelatorioAgendaProfissionalTotais[];
+  cancellation_reasons: RelatorioAgendaMotivoCancelamento[];
+}
+
+export interface ObterAgendaInput {
+  tenantId: string;
+  startDate: string;
+  endDate: string;
+  /** Filtra status_totals/by_origin/cancellation_reasons, mas NUNCA by_professional. */
+  professionalId?: string;
+}
+
+/**
  * Interface do adaptador do módulo de Relatórios: uma consulta por
  * contrato de leitura (spec 038, "Módulo `src/modules/relatorios/`"). Só
  * leitura -- sem adaptador em memória, como a 037: um `vi.fn()` cobre
@@ -218,4 +315,5 @@ export interface ObterEquipeEServicosInput {
 export interface RelatoriosAdapter {
   obterFaturamentoPorPeriodo(input: ObterFaturamentoPorPeriodoInput): Promise<RelatorioFaturamento>;
   obterEquipeEServicos(input: ObterEquipeEServicosInput): Promise<RelatorioEquipeServicos>;
+  obterAgenda(input: ObterAgendaInput): Promise<RelatorioAgenda>;
 }

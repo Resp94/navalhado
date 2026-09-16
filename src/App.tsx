@@ -23,6 +23,7 @@ import { RelatoriosLayout } from './pages/gerente/relatorios/RelatoriosLayout';
 import { RelatoriosCatalogo } from './pages/gerente/relatorios/RelatoriosCatalogo';
 import { FaturamentoPage } from './pages/gerente/relatorios/FaturamentoPage';
 import { EquipeServicosPage } from './pages/gerente/relatorios/EquipeServicosPage';
+import { AgendaPage } from './pages/gerente/relatorios/AgendaPage';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -90,6 +91,7 @@ function App() {
               <Route index element={<RelatoriosCatalogo />} />
               <Route path="faturamento" element={<FaturamentoPage />} />
               <Route path="equipe-e-servicos" element={<EquipeServicosPage />} />
+              <Route path="agenda" element={<AgendaPage />} />
               <Route path="*" element={<Navigate to="/relatorios" replace />} />
             </Route>
 
