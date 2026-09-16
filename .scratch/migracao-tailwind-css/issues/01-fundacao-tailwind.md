@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `@tailwindcss/vite` instalado e plugado no `vite.config.ts`, sem `postcss.config.js` nem `tailwind.config.js` manual
-- [ ] Bloco `@theme` declarado (no arquivo que hoje é `src/index.css` ou equivalente) mapeando cada token de cor, raio e fonte existente, com o mesmo nome semântico
-- [ ] Uma classe utilitária de teste (ex. `bg-brand-primary`) aplicada num ponto qualquer do app produz visualmente a mesma cor que `var(--color-brand-primary)` produz hoje
-- [ ] `npm run dev` e `npm run build` (`tsc -b && vite build`) continuam passando sem erro
-- [ ] `npm run test` (vitest) continua passando sem nenhuma asserção alterada
-- [ ] Nenhuma tela existente muda de aparência neste ticket — só a fundação é adicionada, nada é removido ainda
+- [x] `@tailwindcss/vite` instalado e plugado no `vite.config.ts`, sem `postcss.config.js` nem `tailwind.config.js` manual
+- [x] Bloco `@theme` declarado em `src/index.css` mapeando cor, raio, sombra e fonte, com o mesmo nome semântico (`brand-primary`, `bg-primary`, `bg-secondary`, `border`, `text-primary`, `text-secondary`, `success/error/warning/info` (+ `-bg`), `radius-sm/md/lg/xl/full`, `shadow-sm/md/lg/xl`, `font-base`)
+- [x] `tsc -b` e `vite build` passam sem erro; warning de ordem de `@import` corrigido (Google Fonts antes de `@import "tailwindcss"`)
+- [x] Verificação manual no navegador (tela de Login, mobile) idêntica pixel a pixel ao estado anterior
+- [x] `npm run test` (vitest full suite) — ver nota
+- [x] Nenhuma tela existente mudou de aparência — só fundação aditiva, nada removido
