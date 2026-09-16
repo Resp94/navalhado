@@ -25,6 +25,18 @@ import type { PainelContext } from './types';
 
 const EMPTY_TURN_SUMMARY: TurnPaymentsSummary = { total: 0, dinheiro: 0, pix: 0, cartao: 0, outros: 0, count: 0 };
 
+// Tabelas do Hub Financeiro (ticket 08/039): classes compartilhadas entre CaixaTab e
+// ComissoesTab, únicas consumidoras de `.financeiro-data-table` e afins em Financeiro.css.
+const TABLE_WRAP_CLASSES = 'border border-border rounded-md overflow-x-auto bg-bg-secondary';
+const TABLE_CLASSES = 'w-full border-collapse text-sm text-left';
+const TH_CLASSES = 'bg-bg-primary px-4 py-3 text-[11px] uppercase tracking-wide font-bold text-text-primary border-b border-border whitespace-nowrap';
+const TBODY_CLASSES = 'divide-y divide-border';
+const TR_HOVER_CLASSES = 'hover:bg-[rgba(217,108,0,0.025)]';
+const TD_CLASSES = 'px-4 py-[0.85rem] text-text-primary';
+const TABLE_EMPTY_NOTICE_CLASSES = 'px-4 py-10 text-center text-xs text-text-secondary';
+const BTN_TABLE_ACTION_GHOST_CLASSES =
+  'inline-flex items-center gap-[0.35rem] px-3 py-[0.4rem] rounded-sm text-[11px] font-bold cursor-pointer border-0 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 bg-transparent text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:bg-[rgba(45,35,30,0.05)] hover:text-text-primary hover:shadow-[0_0_0_0.5px_var(--color-text-primary)] [@media(pointer:coarse)]:min-h-[38px] [@media(pointer:coarse)]:px-[0.85rem] [@media(pointer:coarse)]:py-2';
+
 function formatLocalDay(date: string, timeZone: string) {
   return new Intl.DateTimeFormat('pt-BR', {
     timeZone,
@@ -324,23 +336,24 @@ export const CaixaTab: React.FC = () => {
       {/* ─── VISÃO DESKTOP (> 768px) ─── */}
       <div className="financeiro-desktop-view financeiro-tab-content">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Banner de Sessão Ativa */}
-            <div className="turn-banner">
-              <div className="turn-banner-info">
+            {/* Banner de Sessão Ativa. Mantém a classe `turn-banner` sem estilo próprio (token
+                inerte) porque `PainelLayout` anima `.turn-banner` na entrada via seletor gsap. */}
+            <div className="turn-banner bg-bg-secondary border border-border rounded-lg p-6 flex flex-col gap-5 shadow-sm md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
                 <div>
-                  <div className="turn-banner-title-row">
-                    <h3 className="turn-banner-title">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-base font-extrabold text-text-primary m-0">
                       {activeSession ? 'Caixa aberto no turno atual' : 'Caixa fechado no momento'}
                     </h3>
                     <span
-                      className={`turn-status-badge ${
-                        activeSession ? 'turn-status-badge--active' : 'turn-status-badge--closed'
+                      className={`inline-block px-[0.6rem] py-[0.2rem] rounded-full text-[11px] font-bold ${
+                        activeSession ? 'bg-success text-bg-secondary' : 'bg-error text-bg-secondary shadow-none'
                       }`}
                     >
                       {activeSession ? 'Turno ativo' : 'Aguardando abertura'}
                     </span>
                   </div>
-                  <p className="turn-banner-desc">
+                  <p className="text-xs text-text-primary mt-[0.35rem] leading-[1.4]">
                     {activeSession
                       ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${expectedDrawerAmount === undefined ? 'indisponível no momento' : formatCurrency(expectedDrawerAmount)}`
                       : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
@@ -354,7 +367,7 @@ export const CaixaTab: React.FC = () => {
                   <button
                     onClick={() => setIsFechamentoModalOpen(true)}
                     type="button"
-                    className="btn-turn-action btn-turn-action--close"
+                    className="inline-flex items-center gap-2 px-5 py-3 min-h-[44px] rounded-md text-sm font-bold cursor-pointer border-none transition-all duration-200 whitespace-nowrap bg-error text-white shadow-sm hover:bg-[#d83a3a] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(240,82,82,0.25)]"
                   >
                     <LockIcon size={16} />
                     Fechar caixa do turno
@@ -363,7 +376,7 @@ export const CaixaTab: React.FC = () => {
                   <button
                     onClick={() => setIsAberturaModalOpen(true)}
                     type="button"
-                    className="btn-turn-action btn-turn-action--open"
+                    className="inline-flex items-center gap-2 px-5 py-3 min-h-[44px] rounded-md text-sm font-bold cursor-pointer border-none transition-all duration-200 whitespace-nowrap bg-brand-lightest text-text-primary shadow-[0_0_0_0.8px_#000000] hover:bg-[#D97706] hover:translate-y-0 hover:shadow-none [&_svg]:stroke-text-primary [&_svg]:text-text-primary"
                   >
                     <HugeiconsIcon icon={PlusSignIcon} size={16} />
                     Abrir caixa do turno
@@ -373,18 +386,26 @@ export const CaixaTab: React.FC = () => {
             </div>
 
             {/* Resumo financeiro diário: faturamento realizado separado das entradas */}
-            <section className="daily-financial-panel" aria-labelledby="daily-financial-title">
-              <div className="daily-financial-header">
+            <section
+              className="bg-bg-secondary border border-border rounded-lg p-6 flex flex-col gap-5 shadow-sm min-w-0 box-border max-md:p-4"
+              aria-labelledby="daily-financial-title"
+            >
+              <div className="flex items-start justify-between gap-6 min-w-0 max-md:flex-col max-md:gap-4">
                 <div>
                   <h3 id="daily-financial-title" className="card-panel-title">
-                    <HugeiconsIcon icon={Coins01Icon} size={18} />
+                    <span className="text-text-primary inline-flex h-fit">
+                      <HugeiconsIcon icon={Coins01Icon} size={18} />
+                    </span>
                     Resumo por dia
                   </h3>
                   <p className="card-panel-subtitle">
                     Faturamento realizado e valores recebidos, separados por data local da barbearia.
                   </p>
                 </div>
-                <div className="daily-financial-filters" aria-label="Filtros do resumo diário">
+                <div
+                  className="flex items-end gap-3 flex-wrap min-w-0 max-md:grid max-md:grid-cols-2 max-md:w-full max-md:gap-3 [&_label]:flex [&_label]:flex-col [&_label]:gap-[0.3rem] [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary max-md:[&_label]:min-w-0 max-md:[&_label]:w-full max-md:[&_label:last-child]:col-span-full [&_input]:min-w-0 [&_input]:max-w-full [&_input]:min-h-[38px] [&_input]:px-[0.6rem] [&_input]:py-[0.45rem] [&_input]:border-none [&_input]:shadow-[0_0_0_0.888889px_var(--color-text-primary)] [&_input]:rounded-sm [&_input]:bg-transparent [&_input]:text-text-primary [&_input]:font-semibold [&_input]:box-border [&_select]:min-w-[190px] [&_select]:max-w-full [&_select]:min-h-[38px] [&_select]:px-[0.6rem] [&_select]:py-[0.45rem] [&_select]:border-none [&_select]:shadow-[0_0_0_0.888889px_var(--color-text-primary)] [&_select]:rounded-sm [&_select]:bg-transparent [&_select]:text-text-primary [&_select]:font-semibold [&_select]:box-border max-md:[&_input]:w-full max-md:[&_select]:w-full max-md:[&_select]:min-w-0"
+                  aria-label="Filtros do resumo diário"
+                >
                   <label>
                     <span>De</span>
                     <input
@@ -427,13 +448,13 @@ export const CaixaTab: React.FC = () => {
                 </div>
               </div>
 
-              <div className="daily-financial-kpis">
-                <div className="daily-financial-kpi daily-financial-kpi--revenue">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-[0.2rem] p-4 rounded-md shadow-[0_0_0_0.888889px_var(--color-text-primary)] bg-transparent [&_span]:text-text-primary [&_span]:text-xs [&_small]:text-text-primary [&_small]:text-xs [&_strong]:text-brand-primary [&_strong]:text-[1.4rem] [&_strong]:tabular-nums">
                   <span>Faturamento realizado</span>
                   <strong>{formatCurrency(dailyTotals.realized)}</strong>
                   <small>{dailySummary.reduce((count, item) => count + item.closed_comandas_count, 0)} comandas fechadas</small>
                 </div>
-                <div className="daily-financial-kpi daily-financial-kpi--received">
+                <div className="flex flex-col gap-[0.2rem] p-4 rounded-md shadow-[0_0_0_0.888889px_var(--color-text-primary)] bg-transparent [&_span]:text-text-primary [&_span]:text-xs [&_small]:text-text-primary [&_small]:text-xs [&_strong]:text-success [&_strong]:text-[1.4rem] [&_strong]:tabular-nums">
                   <span>Entradas no caixa</span>
                   <strong>{formatCurrency(dailyTotals.received)}</strong>
                   <small>{dailySummary.reduce((count, item) => count + item.payment_count, 0)} pagamentos registrados</small>
@@ -441,37 +462,37 @@ export const CaixaTab: React.FC = () => {
               </div>
 
               {dailySummaryLoading ? (
-                <div className="table-empty-notice" role="status">Carregando resumo por dia...</div>
+                <div className={TABLE_EMPTY_NOTICE_CLASSES} role="status">Carregando resumo por dia...</div>
               ) : dailySummaryError ? (
-                <div className="table-empty-notice daily-financial-error" role="alert">{dailySummaryError}</div>
+                <div className={`${TABLE_EMPTY_NOTICE_CLASSES} text-error`} role="alert">{dailySummaryError}</div>
               ) : (
-                <div className="table-responsive-container">
-                  <table className="financeiro-data-table daily-financial-table">
+                <div className={TABLE_WRAP_CLASSES}>
+                  <table className={`${TABLE_CLASSES} [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap`}>
                     <thead>
                       <tr>
-                        <th>Data</th>
-                        <th>Faturado</th>
-                        <th>Recebido</th>
-                        <th>Dinheiro</th>
-                        <th>PIX</th>
-                        <th>Cartão</th>
-                        <th>Outros</th>
-                        <th>Comandas</th>
-                        <th>Pagamentos</th>
+                        <th className={TH_CLASSES}>Data</th>
+                        <th className={TH_CLASSES}>Faturado</th>
+                        <th className={TH_CLASSES}>Recebido</th>
+                        <th className={TH_CLASSES}>Dinheiro</th>
+                        <th className={TH_CLASSES}>PIX</th>
+                        <th className={TH_CLASSES}>Cartão</th>
+                        <th className={TH_CLASSES}>Outros</th>
+                        <th className={TH_CLASSES}>Comandas</th>
+                        <th className={TH_CLASSES}>Pagamentos</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className={TBODY_CLASSES}>
                       {dailySummary.map((summary) => (
-                        <tr key={summary.date}>
-                          <td style={{ fontWeight: 700 }}>{formatLocalDay(summary.date, tenant.timezone)}</td>
-                          <td className="daily-financial-value">{formatCurrency(summary.realized_revenue)}</td>
-                          <td className="daily-financial-value">{formatCurrency(summary.received_total)}</td>
-                          <td>{formatCurrency(summary.by_method.dinheiro)}</td>
-                          <td>{formatCurrency(summary.by_method.pix)}</td>
-                          <td>{formatCurrency(summary.by_method.cartao)}</td>
-                          <td>{formatCurrency(summary.by_method.outros)}</td>
-                          <td>{summary.closed_comandas_count}</td>
-                          <td>{summary.payment_count}</td>
+                        <tr key={summary.date} className={TR_HOVER_CLASSES}>
+                          <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{formatLocalDay(summary.date, tenant.timezone)}</td>
+                          <td className={`${TD_CLASSES} font-extrabold tabular-nums`}>{formatCurrency(summary.realized_revenue)}</td>
+                          <td className={`${TD_CLASSES} font-extrabold tabular-nums`}>{formatCurrency(summary.received_total)}</td>
+                          <td className={TD_CLASSES}>{formatCurrency(summary.by_method.dinheiro)}</td>
+                          <td className={TD_CLASSES}>{formatCurrency(summary.by_method.pix)}</td>
+                          <td className={TD_CLASSES}>{formatCurrency(summary.by_method.cartao)}</td>
+                          <td className={TD_CLASSES}>{formatCurrency(summary.by_method.outros)}</td>
+                          <td className={TD_CLASSES}>{summary.closed_comandas_count}</td>
+                          <td className={TD_CLASSES}>{summary.payment_count}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -481,7 +502,7 @@ export const CaixaTab: React.FC = () => {
             </section>
 
             {/* Grid Intermediário: Métodos de Pagamento e Histórico de Sessões */}
-            <div className="financeiro-split-grid">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_2fr]">
               {/* Métodos de Pagamento */}
               <div className="card-panel">
                 <div className="card-panel-header">
@@ -493,7 +514,7 @@ export const CaixaTab: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="payment-methods-list">
+                <div className="flex flex-col gap-4">
                   {methodsList.map((m) => {
                     const pct = totalRevenueByMethods > 0 ? (m.val / totalRevenueByMethods) * 100 : 0;
                     return (
@@ -520,26 +541,26 @@ export const CaixaTab: React.FC = () => {
                 </div>
 
                 {historySessions.length === 0 ? (
-                  <div className="table-empty-notice">
+                  <div className={TABLE_EMPTY_NOTICE_CLASSES}>
                     Nenhum fechamento de caixa registrado para o período.
                   </div>
                 ) : (
-                  <div className="table-responsive-container">
-                    <table className="financeiro-data-table">
+                  <div className={TABLE_WRAP_CLASSES}>
+                    <table className={TABLE_CLASSES}>
                       <thead>
                         <tr>
-                          <th>Abertura</th>
-                          <th>Fechamento</th>
-                          <th>Operador</th>
-                          <th>Arrecadado no turno</th>
-                          <th>Troco inicial</th>
-                          <th>Valor fechado</th>
-                          <th>Observações</th>
-                          <th>Status</th>
-                          <th>Ações</th>
+                          <th className={TH_CLASSES}>Abertura</th>
+                          <th className={TH_CLASSES}>Fechamento</th>
+                          <th className={TH_CLASSES}>Operador</th>
+                          <th className={TH_CLASSES}>Arrecadado no turno</th>
+                          <th className={TH_CLASSES}>Troco inicial</th>
+                          <th className={TH_CLASSES}>Valor fechado</th>
+                          <th className={TH_CLASSES}>Observações</th>
+                          <th className={TH_CLASSES}>Status</th>
+                          <th className={TH_CLASSES}>Ações</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className={TBODY_CLASSES}>
                         {historySessions.map((sess) => {
                           const isCurrentActive = activeSession?.id === sess.id;
                           const revenue = isCurrentActive
@@ -547,38 +568,38 @@ export const CaixaTab: React.FC = () => {
                             : (sess.total_revenue || 0);
 
                           return (
-                            <tr key={sess.id}>
-                              <td style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
-                              <td style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
-                              <td style={{ fontWeight: 600 }}>
+                            <tr key={sess.id} className={TR_HOVER_CLASSES}>
+                              <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
+                              <td className={TD_CLASSES} style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
+                              <td className={TD_CLASSES} style={{ fontWeight: 600 }}>
                                 {sess.opened_by_name || sess.closed_by_name || 'Operador'}
                               </td>
-                              <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: 'var(--color-brand-primary)' }}>
+                              <td className={TD_CLASSES} style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: 'var(--color-brand-primary)' }}>
                                 {formatCurrency(revenue)}
                               </td>
-                              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
-                              <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                              <td className={TD_CLASSES} style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(sess.initial_amount)}</td>
+                              <td className={TD_CLASSES} style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
                                 {sess.closing_amount !== null ? formatCurrency(sess.closing_amount) : '-'}
                               </td>
-                              <td style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
+                              <td className={TD_CLASSES} style={{ color: 'var(--color-text-secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={sess.notes || ''}>
                                 {sess.notes || '-'}
                               </td>
-                              <td>
+                              <td className={TD_CLASSES}>
                                 <span
-                                  className={`turn-status-badge ${
+                                  className={`inline-block px-[0.6rem] py-[0.2rem] rounded-full text-[11px] font-bold ${
                                     sess.status === 'open'
-                                      ? 'turn-status-badge--active'
-                                      : 'turn-status-badge--closed'
+                                      ? 'bg-success text-bg-secondary'
+                                      : 'bg-error text-bg-secondary shadow-none'
                                   }`}
                                 >
                                   {sess.status === 'open' ? 'Aberto' : 'Encerrado'}
                                 </span>
                               </td>
-                              <td style={{ display: 'flex', gap: '0.5rem' }}>
+                              <td className={TD_CLASSES} style={{ display: 'flex', gap: '0.5rem' }}>
                                 {sess.status !== 'open' && (
                                   <button
                                     type="button"
-                                    className="btn-table-action btn-table-action--ghost"
+                                    className={BTN_TABLE_ACTION_GHOST_CLASSES}
                                     onClick={() => setExtratoSession(sess)}
                                   >
                                     Extrato
@@ -587,7 +608,7 @@ export const CaixaTab: React.FC = () => {
                                 {sess.status !== 'open' && !activeSession && (
                                   <button
                                     type="button"
-                                    className="btn-table-action btn-table-action--ghost"
+                                    className={BTN_TABLE_ACTION_GHOST_CLASSES}
                                     onClick={() => setReabrirSession(sess)}
                                   >
                                     Reabrir

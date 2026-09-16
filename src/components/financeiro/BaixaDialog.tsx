@@ -145,8 +145,8 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
 
   return (
     <Drawer isOpen={isOpen} onClose={onCancelar} title="Dar Baixa">
-      <form className="baixa-dialog-form" onSubmit={handleSubmit}>
-        <p className="baixa-dialog-saldo">Saldo restante: {formatarMoeda(saldoRestante)}</p>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <p className="m-0 text-sm font-bold text-text-primary">Saldo restante: {formatarMoeda(saldoRestante)}</p>
 
         {!carregandoSessao && sessaoAbertaId && (
           <SegmentedControl
@@ -161,7 +161,7 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
         )}
 
         {pelaGaveta && (
-          <p className="baixa-dialog-disponivel">
+          <p className="m-0 text-sm text-text-secondary">
             Disponível na gaveta: {disponivelGaveta != null ? formatarMoeda(disponivelGaveta) : '...'}
           </p>
         )}
@@ -220,12 +220,12 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
         )}
 
         {error && (
-          <div className="baixa-dialog-error" role="alert">
+          <div className="bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem] text-sm text-text-primary" role="alert">
             {error}
           </div>
         )}
 
-        <div className="baixa-dialog-actions">
+        <div className="flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={saving}>
             Cancelar
           </Button>
@@ -234,42 +234,6 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
           </Button>
         </div>
       </form>
-
-      <style>{`
-        .baixa-dialog-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .baixa-dialog-saldo {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .baixa-dialog-disponivel {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .baixa-dialog-error {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .baixa-dialog-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-        }
-      `}</style>
     </Drawer>
   );
 };

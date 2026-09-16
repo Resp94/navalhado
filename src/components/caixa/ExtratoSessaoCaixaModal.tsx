@@ -56,6 +56,9 @@ const MOVEMENT_LABELS: Record<string, string> = Object.fromEntries(
 
 const KNOWN_MOVEMENT_TYPES = new Set(MOVEMENT_SECTIONS.map((section) => section.type));
 
+// Única consumidora restante de `.table-empty-notice` fora de CaixaTab/ComissoesTab (ticket 08/039).
+const TABLE_EMPTY_NOTICE_CLASSES = 'px-4 py-10 text-center text-xs text-text-secondary';
+
 function genericLabelByDirection(direction: string | undefined): string {
   return direction === 'entrada' ? 'Outra entrada' : 'Outra saída';
 }
@@ -144,60 +147,65 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
   const handlePrint = () => window.print();
 
   return (
-    <div className="extrato-caixa-overlay" role="dialog" aria-modal="true" aria-labelledby="extrato-caixa-title">
-      <div className="extrato-caixa-shell">
-        <div className="extrato-caixa-header no-print">
-          <h3 id="extrato-caixa-title" className="extrato-caixa-title">
+    <div
+      className="fixed inset-0 bg-[rgba(15,15,20,0.55)] flex items-center justify-center z-[1000] p-4 print:static print:bg-none print:p-0"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="extrato-caixa-title"
+    >
+      <div className="bg-bg-secondary rounded-xl w-full max-w-[420px] max-h-[90vh] overflow-y-auto p-[1rem_1.25rem_1.5rem] print:max-w-none print:max-h-none print:overflow-visible print:rounded-none print:shadow-none print:p-0">
+        <div className="flex items-center justify-between mb-3 print:hidden">
+          <h3 id="extrato-caixa-title" className="flex items-center gap-[0.4rem] text-base m-0">
             <HugeiconsIcon icon={Invoice01Icon} size={18} />
             Extrato da Sessão de Caixa
           </h3>
-          <div className="extrato-caixa-header-actions">
+          <div className="flex gap-2 items-center">
             <button
               type="button"
               onClick={handlePrint}
               disabled={loading || !!errorMsg || !statement}
-              className="extrato-caixa-print-btn"
+              className="border border-brand-primary bg-brand-primary text-white rounded-lg px-[0.9rem] py-[0.4rem] cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Imprimir
             </button>
-            <button type="button" onClick={onClose} aria-label="Fechar extrato" className="extrato-caixa-close-btn">
+            <button type="button" onClick={onClose} aria-label="Fechar extrato" className="border-none bg-transparent cursor-pointer inline-flex">
               <HugeiconsIcon icon={Cancel01Icon} size={20} />
             </button>
           </div>
         </div>
 
         {loading && (
-          <div className="table-empty-notice no-print" role="status">
+          <div className={`${TABLE_EMPTY_NOTICE_CLASSES} print:hidden`} role="status">
             Carregando extrato...
           </div>
         )}
         {errorMsg && (
-          <div className="table-empty-notice no-print" role="alert">
+          <div className={`${TABLE_EMPTY_NOTICE_CLASSES} print:hidden`} role="alert">
             {errorMsg}
           </div>
         )}
 
         {statement && (
-          <div className="extrato-caixa-print-area">
-            <header className="extrato-caixa-print-header">
+          <div className="extrato-caixa-print-area print:absolute print:top-0 print:left-0 print:w-[80mm] print:text-[11px]">
+            <header className="flex flex-col mb-2 text-center">
               <strong>{tenantName || 'Barbearia'}</strong>
               <span>Extrato de Sessão de Caixa</span>
             </header>
 
-            <section className="extrato-caixa-section">
+            <section className="mb-[0.85rem]">
               <p>Abertura: {formatDateTime(session.opened_at)}</p>
               <p>Fechamento: {formatDateTime(session.closed_at)}</p>
               <p>Operador: {session.closed_by_name || session.opened_by_name || '-'}</p>
               {hasAdjustment && (
-                <p className="extrato-caixa-adjustment-flag" role="note">
+                <p className="text-[0.8rem] font-semibold text-[#a15c00]" role="note">
                   Sessão ajustada após o fechamento — valores abaixo já refletem o ajuste
                 </p>
               )}
             </section>
 
-            <section className="extrato-caixa-section">
-              <h4>Recebido por forma de pagamento</h4>
-              <ul className="extrato-caixa-list">
+            <section className="mb-[0.85rem]">
+              <h4 className="m-0 mb-[0.35rem] text-[0.85rem] uppercase tracking-wide text-text-secondary">Recebido por forma de pagamento</h4>
+              <ul className="list-none m-0 p-0 text-[0.9rem] [&>li]:flex [&>li]:justify-between [&>li]:py-[0.15rem]">
                 <li>
                   <span>Dinheiro</span>
                   <span>{formatCurrency(session.cash_received_amount || 0)}</span>
@@ -220,12 +228,12 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
             {MOVEMENT_SECTIONS.map((section) => {
               const items = activeMovements.filter((m) => m.type === section.type);
               return (
-                <section className="extrato-caixa-section" key={section.type}>
-                  <h4>{section.title}</h4>
+                <section className="mb-[0.85rem]" key={section.type}>
+                  <h4 className="m-0 mb-[0.35rem] text-[0.85rem] uppercase tracking-wide text-text-secondary">{section.title}</h4>
                   {items.length === 0 ? (
-                    <p className="extrato-caixa-empty">{section.emptyLabel}</p>
+                    <p className="text-[0.85rem] text-text-secondary m-0">{section.emptyLabel}</p>
                   ) : (
-                    <ul className="extrato-caixa-list">
+                    <ul className="list-none m-0 p-0 text-[0.9rem] [&>li]:flex [&>li]:justify-between [&>li]:py-[0.15rem]">
                       {items.map((m) => (
                         <li key={m.id}>
                           <span>
@@ -243,9 +251,9 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
             })}
 
             {outrasMovimentacoes.length > 0 && (
-              <section className="extrato-caixa-section">
-                <h4>Outras movimentações</h4>
-                <ul className="extrato-caixa-list">
+              <section className="mb-[0.85rem]">
+                <h4 className="m-0 mb-[0.35rem] text-[0.85rem] uppercase tracking-wide text-text-secondary">Outras movimentações</h4>
+                <ul className="list-none m-0 p-0 text-[0.9rem] [&>li]:flex [&>li]:justify-between [&>li]:py-[0.15rem]">
                   {outrasMovimentacoes.map((m) => (
                     <li key={m.id}>
                       <span>{m.reason || MOVEMENT_LABELS[m.type] || genericLabelByDirection(m.direction)}</span>
@@ -256,9 +264,9 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
               </section>
             )}
 
-            <section className="extrato-caixa-section">
-              <h4>Fechamento</h4>
-              <ul className="extrato-caixa-list">
+            <section className="mb-[0.85rem]">
+              <h4 className="m-0 mb-[0.35rem] text-[0.85rem] uppercase tracking-wide text-text-secondary">Fechamento</h4>
+              <ul className="list-none m-0 p-0 text-[0.9rem] [&>li]:flex [&>li]:justify-between [&>li]:py-[0.15rem]">
                 <li>
                   <span>Fundo de troco inicial</span>
                   <span>{formatCurrency(session.initial_amount)}</span>
@@ -275,10 +283,10 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
               <p
                 className={
                   differenceAmount < 0
-                    ? 'extrato-caixa-quebra'
+                    ? 'font-bold text-[#c0392b]'
                     : differenceAmount > 0
-                      ? 'extrato-caixa-sobra'
-                      : 'extrato-caixa-sem-diferenca'
+                      ? 'font-bold text-[#1e7e34]'
+                      : 'font-bold'
                 }
               >
                 {differenceAmount < 0 ? 'Quebra de caixa' : differenceAmount > 0 ? 'Sobra de caixa' : 'Sem diferença'}:{' '}
@@ -289,112 +297,10 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
         )}
       </div>
 
+      {/* Isolamento de impressão: esconder tudo no `body` fora da área imprimível é uma regra de
+          documento inteiro (seletor `body *`), sem equivalente em utilitário Tailwind aplicado
+          nesta árvore. Único `<style>` mantido neste modal, por essa razão. */}
       <style>{`
-        .extrato-caixa-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(15, 15, 20, 0.55);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-        .extrato-caixa-shell {
-          background: var(--color-surface, #fff);
-          border-radius: 12px;
-          width: 100%;
-          max-width: 420px;
-          max-height: 90vh;
-          overflow-y: auto;
-          padding: 1rem 1.25rem 1.5rem;
-        }
-        .extrato-caixa-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.75rem;
-        }
-        .extrato-caixa-title {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 1rem;
-          margin: 0;
-        }
-        .extrato-caixa-header-actions {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-        }
-        .extrato-caixa-print-btn {
-          border: 1px solid var(--color-brand-primary, #333);
-          background: var(--color-brand-primary, #333);
-          color: #fff;
-          border-radius: 8px;
-          padding: 0.4rem 0.9rem;
-          cursor: pointer;
-          font-weight: 600;
-        }
-        .extrato-caixa-print-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .extrato-caixa-close-btn {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          display: inline-flex;
-        }
-        .extrato-caixa-section {
-          margin-bottom: 0.85rem;
-        }
-        .extrato-caixa-section h4 {
-          margin: 0 0 0.35rem;
-          font-size: 0.85rem;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          color: var(--color-text-secondary, #666);
-        }
-        .extrato-caixa-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          font-size: 0.9rem;
-        }
-        .extrato-caixa-list li {
-          display: flex;
-          justify-content: space-between;
-          padding: 0.15rem 0;
-        }
-        .extrato-caixa-empty {
-          font-size: 0.85rem;
-          color: var(--color-text-secondary, #666);
-          margin: 0;
-        }
-        .extrato-caixa-adjustment-flag {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #a15c00;
-        }
-        .extrato-caixa-quebra {
-          font-weight: 700;
-          color: #c0392b;
-        }
-        .extrato-caixa-sobra {
-          font-weight: 700;
-          color: #1e7e34;
-        }
-        .extrato-caixa-sem-diferenca {
-          font-weight: 700;
-        }
-        .extrato-caixa-print-header {
-          display: flex;
-          flex-direction: column;
-          margin-bottom: 0.5rem;
-          text-align: center;
-        }
-
         @media print {
           body * {
             visibility: hidden;
@@ -402,29 +308,6 @@ export const ExtratoSessaoCaixaModal: React.FC<ExtratoSessaoCaixaModalProps> = (
           .extrato-caixa-print-area,
           .extrato-caixa-print-area * {
             visibility: visible;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .extrato-caixa-overlay {
-            position: static;
-            background: none;
-            padding: 0;
-          }
-          .extrato-caixa-shell {
-            max-width: none;
-            max-height: none;
-            overflow: visible;
-            border-radius: 0;
-            box-shadow: none;
-            padding: 0;
-          }
-          .extrato-caixa-print-area {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 80mm;
-            font-size: 11px;
           }
         }
       `}</style>

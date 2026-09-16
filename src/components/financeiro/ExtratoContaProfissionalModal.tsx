@@ -40,11 +40,11 @@ function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
-function statusClass(status: string): string {
-  if (status === 'reversed') return 'extrato-conta-status--reversed';
-  if (status === 'settled' || status === 'paid') return 'extrato-conta-status--settled';
-  if (status === 'partially_paid') return 'extrato-conta-status--partial';
-  return 'extrato-conta-status--open';
+function statusClasses(status: string): string {
+  if (status === 'reversed') return 'bg-[rgba(240,82,82,0.12)] text-error';
+  if (status === 'settled' || status === 'paid') return 'bg-[rgba(14,159,110,0.12)] text-success';
+  if (status === 'partially_paid') return 'bg-[rgba(217,108,0,0.12)] text-brand-primary';
+  return 'bg-[rgba(217,108,0,0.12)] text-brand-primary';
 }
 
 const EntryRow: React.FC<{ entry: ProfessionalAccountStatementEntry }> = ({ entry }) => {
@@ -53,28 +53,28 @@ const EntryRow: React.FC<{ entry: ProfessionalAccountStatementEntry }> = ({ entr
   const statusLabel = STATUS_LABELS[entry.status] || entry.status;
 
   return (
-    <li className={`extrato-conta-entry ${isReversed ? 'extrato-conta-entry--reversed' : ''}`}>
-      <div className="extrato-conta-entry-main">
-        <div className="extrato-conta-entry-kind">
-          <span className="extrato-conta-kind-tag">{kindLabel}</span>
-          <span className={`extrato-conta-status ${statusClass(entry.status)}`}>{statusLabel}</span>
+    <li className={`border border-border rounded-md px-[0.85rem] py-[0.65rem] ${isReversed ? 'opacity-75 bg-bg-primary' : ''}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wide text-text-primary">{kindLabel}</span>
+          <span className={`text-[0.7rem] font-bold px-2 py-[0.1rem] rounded-full ${statusClasses(entry.status)}`}>{statusLabel}</span>
         </div>
-        <span className={`extrato-conta-amount extrato-conta-amount--${entry.direction}`}>
+        <span className={`font-extrabold tabular-nums whitespace-nowrap ${entry.direction === 'credit' ? 'text-success' : 'text-error'}`}>
           {entry.direction === 'credit' ? '+' : '−'} {formatCurrency(entry.amount)}
         </span>
       </div>
-      <div className="extrato-conta-entry-meta">
+      <div className="flex items-center justify-between gap-2 mt-[0.35rem] text-xs text-text-secondary">
         <span>{entry.reason || 'Sem motivo registrado'}</span>
-        <span className="extrato-conta-entry-date">{formatDateTime(entry.created_at)}</span>
+        <span className="whitespace-nowrap">{formatDateTime(entry.created_at)}</span>
       </div>
       {entry.kind === 'quitacao' && (entry.advance_amount || entry.credit_amount) ? (
-        <div className="extrato-conta-entry-breakdown">
+        <div className="flex gap-3 mt-[0.35rem] text-xs text-text-secondary">
           {!!entry.advance_amount && <span>Abateu {formatCurrency(entry.advance_amount)} de vale</span>}
           {!!entry.credit_amount && <span>Recebeu {formatCurrency(entry.credit_amount)} de gorjeta</span>}
         </div>
       ) : null}
       {isReversed && (
-        <div className="extrato-conta-entry-reversal">
+        <div className="mt-[0.35rem] text-xs font-semibold text-error">
           Estornado em {formatDateTime(entry.reversed_at)}
           {entry.reversal_reason ? `: ${entry.reversal_reason}` : ''}
         </div>
@@ -134,56 +134,61 @@ export const ExtratoContaProfissionalModal: React.FC<ExtratoContaProfissionalMod
   const balance = statement?.current_balance;
 
   return (
-    <div className="extrato-conta-overlay" role="dialog" aria-modal="true" aria-labelledby="extrato-conta-title">
-      <div className="extrato-conta-shell">
-        <div className="extrato-conta-header">
+    <div
+      className="fixed inset-0 z-[9999] bg-[rgba(20,17,15,0.55)] backdrop-blur-[8px] flex items-center justify-center p-4 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="extrato-conta-title"
+    >
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-[560px] max-h-[88vh] overflow-y-auto shadow-xl px-6 pt-5 pb-6 animate-dialog-in">
+        <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h3 id="extrato-conta-title" className="extrato-conta-title">
+            <h3 id="extrato-conta-title" className="flex items-center gap-[0.4rem] text-lg font-extrabold text-text-primary m-0">
               <HugeiconsIcon icon={Coins01Icon} size={18} />
               Extrato da conta
             </h3>
-            <p className="extrato-conta-subtitle">
+            <p className="text-xs text-text-secondary mt-1">
               Vales, gorjetas e quitações de <strong>{professional.name}</strong>, em ordem cronológica.
             </p>
           </div>
-          <button type="button" onClick={onClose} className="extrato-conta-close-btn" aria-label="Fechar extrato">
+          <button type="button" onClick={onClose} className="text-text-secondary p-[0.35rem] rounded-sm bg-transparent border-none cursor-pointer flex items-center justify-center shrink-0 hover:text-text-primary hover:bg-bg-primary" aria-label="Fechar extrato">
             <HugeiconsIcon icon={Cancel01Icon} size={20} />
           </button>
         </div>
 
         {loading && (
-          <div className="extrato-conta-notice" role="status">
+          <div className="text-sm text-text-secondary p-3 text-center" role="status">
             Carregando extrato...
           </div>
         )}
         {errorMsg && (
-          <div className="extrato-conta-notice extrato-conta-notice--error" role="alert">
+          <div className="text-sm text-error p-3 text-center" role="alert">
             {errorMsg}
           </div>
         )}
 
         {balance && (
-          <div className="extrato-conta-balance">
-            <div className="extrato-conta-balance-item">
+          <div className="grid grid-cols-3 gap-3 bg-bg-primary border border-border rounded-md px-4 py-3 mb-4">
+            <div className="flex flex-col gap-[0.15rem] text-xs text-text-secondary">
               <span>Vale em aberto</span>
-              <strong>{formatCurrency(balance.advances_open_amount || 0)}</strong>
+              <strong className="text-sm text-text-primary tabular-nums">{formatCurrency(balance.advances_open_amount || 0)}</strong>
             </div>
-            <div className="extrato-conta-balance-item">
+            <div className="flex flex-col gap-[0.15rem] text-xs text-text-secondary">
               <span>Gorjeta em aberto</span>
-              <strong>{formatCurrency(balance.credits_open_amount || 0)}</strong>
+              <strong className="text-sm text-text-primary tabular-nums">{formatCurrency(balance.credits_open_amount || 0)}</strong>
             </div>
-            <div className="extrato-conta-balance-item extrato-conta-balance-item--highlight">
+            <div className="flex flex-col gap-[0.15rem] text-xs text-text-secondary">
               <span>Líquido sugerido</span>
-              <strong>{formatCurrency(balance.suggested_net_amount ?? balance.current_open_balance)}</strong>
+              <strong className="text-sm text-brand-primary font-extrabold tabular-nums">{formatCurrency(balance.suggested_net_amount ?? balance.current_open_balance)}</strong>
             </div>
           </div>
         )}
 
         {statement && (
           statement.entries.length === 0 ? (
-            <p className="extrato-conta-empty">Nenhum lançamento na conta deste profissional ainda.</p>
+            <p className="text-sm text-text-secondary text-center py-6">Nenhum lançamento na conta deste profissional ainda.</p>
           ) : (
-            <ul className="extrato-conta-list">
+            <ul className="list-none m-0 p-0 flex flex-col gap-[0.6rem]">
               {statement.entries.map((entry) => (
                 <EntryRow key={`${entry.kind}-${entry.id}`} entry={entry} />
               ))}
@@ -191,202 +196,6 @@ export const ExtratoContaProfissionalModal: React.FC<ExtratoContaProfissionalMod
           )
         )}
       </div>
-
-      <style>{`
-        .extrato-conta-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: rgba(20, 17, 15, 0.55);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-        .extrato-conta-shell {
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-lg, 1rem);
-          width: 100%;
-          max-width: 560px;
-          max-height: 88vh;
-          overflow-y: auto;
-          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-          padding: 1.25rem 1.5rem 1.5rem;
-        }
-        .extrato-conta-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-        .extrato-conta-title {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0;
-        }
-        .extrato-conta-subtitle {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-          margin-top: 0.25rem;
-        }
-        .extrato-conta-close-btn {
-          color: var(--color-text-secondary, #70625B);
-          padding: 0.35rem;
-          border-radius: var(--radius-sm, 0.375rem);
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .extrato-conta-close-btn:hover {
-          color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-        }
-        .extrato-conta-notice {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-          padding: 0.75rem;
-          text-align: center;
-        }
-        .extrato-conta-notice--error {
-          color: var(--color-error, #F05252);
-        }
-        .extrato-conta-balance {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.75rem;
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.75rem 1rem;
-          margin-bottom: 1rem;
-        }
-        .extrato-conta-balance-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-        .extrato-conta-balance-item strong {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-          font-variant-numeric: tabular-nums;
-        }
-        .extrato-conta-balance-item--highlight strong {
-          color: var(--color-brand-primary, #D96C00);
-          font-weight: 800;
-        }
-        .extrato-conta-empty {
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-          text-align: center;
-          padding: 1.5rem 0;
-        }
-        .extrato-conta-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-        }
-        .extrato-conta-entry {
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.65rem 0.85rem;
-        }
-        .extrato-conta-entry--reversed {
-          opacity: 0.75;
-          background: var(--color-bg-primary, #FFF1E6);
-        }
-        .extrato-conta-entry-main {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-        }
-        .extrato-conta-entry-kind {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .extrato-conta-kind-tag {
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: var(--color-text-primary, #2D231E);
-        }
-        .extrato-conta-status {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.1rem 0.5rem;
-          border-radius: 999px;
-        }
-        .extrato-conta-status--open {
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary, #D96C00);
-        }
-        .extrato-conta-status--partial {
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary, #D96C00);
-        }
-        .extrato-conta-status--settled {
-          background: rgba(14, 159, 110, 0.12);
-          color: var(--color-success, #0E9F6E);
-        }
-        .extrato-conta-status--reversed {
-          background: rgba(240, 82, 82, 0.12);
-          color: var(--color-error, #F05252);
-        }
-        .extrato-conta-amount {
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          white-space: nowrap;
-        }
-        .extrato-conta-amount--credit {
-          color: var(--color-success, #0E9F6E);
-        }
-        .extrato-conta-amount--debit {
-          color: var(--color-error, #F05252);
-        }
-        .extrato-conta-entry-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-          margin-top: 0.35rem;
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-        .extrato-conta-entry-date {
-          white-space: nowrap;
-        }
-        .extrato-conta-entry-breakdown {
-          display: flex;
-          gap: 0.75rem;
-          margin-top: 0.35rem;
-          font-size: 0.75rem;
-          color: var(--color-text-secondary, #70625B);
-        }
-        .extrato-conta-entry-reversal {
-          margin-top: 0.35rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-error, #F05252);
-        }
-      `}</style>
     </div>
   );
 };
