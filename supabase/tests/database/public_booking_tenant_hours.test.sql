@@ -24,5 +24,5 @@ exception when sqlstate '23P01' then
 end $$;
 select ok((select passed from confirmation_result),'confirmacao rejeita horario fora do expediente do tenant');
 
-select * from finish();
+select * from finish(true);
 rollback;

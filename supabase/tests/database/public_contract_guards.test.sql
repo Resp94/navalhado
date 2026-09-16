@@ -23,5 +23,5 @@ select is((select count(*)::integer from public.get_services_by_public_slug('unp
 select is((select count(*)::integer from public.get_professionals_by_public_slug('unpublished-test','69000000-0000-0000-0000-000000000012')),0,'servico inativo nao expõe profissional');
 select is((select count(*)::integer from public.get_public_schedule_by_slug('unpublished-test','2040-01-02','69000000-0000-0000-0000-000000000011',null)),0,'tenant nao publicado nao expõe grade');
 
-select * from finish();
+select * from finish(true);
 rollback;

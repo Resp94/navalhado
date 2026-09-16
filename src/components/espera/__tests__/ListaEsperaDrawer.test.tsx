@@ -67,7 +67,7 @@ describe('ListaEsperaDrawer', () => {
       />
     );
 
-    expect(screen.getByText(/Fila de espera/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Fila de espera da barbearia/i })).toBeInTheDocument();
     expect(await screen.findByText('Marcos Paulo')).toBeInTheDocument();
   });
 
@@ -133,6 +133,83 @@ describe('ListaEsperaDrawer', () => {
 
     expect(mockOnDateChange).toHaveBeenCalledWith('2026-08-18');
     expect(mockAdapter.listarPorData).toHaveBeenCalledWith('t-1', '2026-08-18');
+  });
+
+  it('renderiza o formulário NOVO CLIENTE NA FILA e o empty state exatamente como no mockup', async () => {
+    vi.mocked(mockAdapter.listarPorData).mockResolvedValueOnce([]);
+
+    render(
+      <ListaEsperaDrawer
+        isOpen={true}
+        tenantId="t-1"
+        currentDateIso="2026-09-03"
+        professionals={professionals}
+        services={services}
+        onClose={mockOnClose}
+        onEncaixar={mockOnEncaixar}
+        esperaRepo={mockRepo}
+      />
+    );
+
+    // Cabeçalho e Seletor de data
+    expect(screen.getByRole('heading', { name: /Fila de espera da barbearia/i })).toBeInTheDocument();
+    expect(screen.getByText(/Data da fila:/i)).toBeInTheDocument();
+    expect(screen.getByText('03/09/2026')).toBeInTheDocument();
+
+    // Card de Formulário
+    expect(screen.getByText('NOVO CLIENTE NA FILA')).toBeInTheDocument();
+    expect(screen.getByText('NOME DO CLIENTE *')).toBeInTheDocument();
+    expect(screen.getByText('WHATSAPP OU CELULAR')).toBeInTheDocument();
+    expect(screen.getByText('PROFISSIONAL')).toBeInTheDocument();
+    expect(screen.getByText('SERVIÇO')).toBeInTheDocument();
+    expect(screen.getByText('OBSERVAÇÕES')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Adicionar à fila de espera/i })).toBeInTheDocument();
+
+    // Seção Aguardando na casa e Empty State
+    expect(screen.getByText('AGUARDANDO NA CASA (0)')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum cliente na fila de espera hoje.')).toBeInTheDocument();
+
+    // Botão Cancelar fecha o formulário e permite reabrir
+    const cancelarBtn = screen.getByRole('button', { name: /Cancelar/i });
+    fireEvent.click(cancelarBtn);
+    expect(screen.queryByText('NOVO CLIENTE NA FILA')).toBeNull();
+
+    const reabrirBtn = screen.getByRole('button', { name: /Novo cliente na fila/i });
+    fireEvent.click(reabrirBtn);
+    expect(screen.getByText('NOVO CLIENTE NA FILA')).toBeInTheDocument();
+  });
+
+  it('abre o CustomDatePicker ao clicar na caixa de data e permite selecionar novo dia', async () => {
+    const mockOnDateChange = vi.fn();
+
+    render(
+      <ListaEsperaDrawer
+        isOpen={true}
+        tenantId="t-1"
+        currentDateIso="2026-09-03"
+        professionals={professionals}
+        services={services}
+        onClose={mockOnClose}
+        onEncaixar={mockOnEncaixar}
+        onDateChange={mockOnDateChange}
+        esperaRepo={mockRepo}
+      />
+    );
+
+    const datePickerBox = screen.getByLabelText(/Escolher data na agenda/i);
+    expect(screen.queryByRole('dialog', { name: /Seletor de data/i })).toBeNull();
+
+    // Clica para abrir o datepicker customizado
+    fireEvent.click(datePickerBox);
+    expect(screen.getByRole('dialog', { name: /Seletor de data/i })).toBeInTheDocument();
+
+    // Clica no dia 15 no calendário
+    const dayBtn = screen.getByRole('button', { name: '15' });
+    fireEvent.click(dayBtn);
+
+    // Deve acionar onDateChange e fechar o datepicker
+    expect(mockOnDateChange).toHaveBeenCalledWith('2026-09-15');
+    expect(screen.queryByRole('dialog', { name: /Seletor de data/i })).toBeNull();
   });
 });
 

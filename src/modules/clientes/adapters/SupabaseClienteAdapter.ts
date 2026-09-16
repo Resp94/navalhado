@@ -119,9 +119,9 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
       .from('comandas')
       .select(`
         id,
+        appointment_id,
         status,
         total_amount,
-        discount_amount,
         tip_amount,
         closed_at,
         created_at,
@@ -141,14 +141,14 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
     if (error) throw error;
 
     return (data || []).map((row: any, index: number) => {
-      const totalFinal =
-        Number(row.total_amount || 0) - Number(row.discount_amount || 0) + Number(row.tip_amount || 0);
-
       return {
         id: row.id,
         comanda_number: index + 1,
+        appointment_id: row.appointment_id ?? null,
         status: row.status,
-        total_final: totalFinal,
+        // finalizar_comanda já grava total_amount com desconto e gorjeta aplicados
+        total_final: Number(row.total_amount || 0),
+        tip_amount: Number(row.tip_amount || 0),
         closed_at: row.closed_at,
         created_at: row.created_at,
         items: (row.comanda_itens || []).map((item: any) => {

@@ -50,5 +50,5 @@ select is(
   'token-scoped slot function has an empty search path'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

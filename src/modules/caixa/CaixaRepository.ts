@@ -1,12 +1,18 @@
 import type {
   AbrirCaixaInput,
+  AjusteCaixaRegistrado,
   CashMovement,
   CashSession,
+  CashSessionExpectedAmount,
+  CashSessionStatement,
   DailyFinancialSummary,
   DailyFinancialSummaryQuery,
   FecharCaixaInput,
   ICaixaAdapter,
+  ReabrirCaixaInput,
+  RegistrarAjusteCaixaInput,
   RegistrarMovimentacaoInput,
+  RegistrarMovimentoManualInput,
   TurnPaymentsSummary,
 } from './types';
 
@@ -56,11 +62,28 @@ export class CaixaRepository {
     if (!input.session_id || !input.session_id.trim()) {
       throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
     }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
     if (input.closing_amount < 0) {
       throw new CaixaValidationError('O valor de fechamento não pode ser negativo.');
     }
 
     return await this.adapter.fecharCaixa(input);
+  }
+
+  async reopenSession(input: ReabrirCaixaInput): Promise<CashSession> {
+    if (!input.session_id || !input.session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.reason || input.reason.trim().length < 5) {
+      throw new CaixaValidationError('Informe uma justificativa com pelo menos cinco caracteres.');
+    }
+
+    return await this.adapter.reabrirCaixa(input);
   }
 
   async listHistory(tenantId: string, limit = 20): Promise<CashSession[]> {
@@ -122,6 +145,27 @@ export class CaixaRepository {
     return await this.adapter.registrarMovimentacao(input);
   }
 
+  // Ticket 03 da spec 036: sangria e suprimento lancados por RPC, sem autor
+  // enviado pelo navegador (a RPC tira o autor da sessao autenticada) e com
+  // a trava de saldo da gaveta aplicada no servidor -- a validacao de saldo
+  // em si nao e duplicada aqui, so o formato basico do input.
+  async registerManualMovement(input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.cash_session_id || !input.cash_session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (input.amount <= 0) {
+      throw new CaixaValidationError('O valor da movimentação deve ser maior que zero.');
+    }
+    if (!input.reason || !input.reason.trim()) {
+      throw new CaixaValidationError('O motivo da movimentação é obrigatório.');
+    }
+
+    return await this.adapter.registrarMovimentoManual(input);
+  }
+
   async listMovements(sessionId: string): Promise<CashMovement[]> {
     if (!sessionId || !sessionId.trim()) {
       throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
@@ -136,6 +180,50 @@ export class CaixaRepository {
     return await this.adapter.obterResumoMovimentacoes(sessionId);
   }
 
+  async registerAdjustment(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    if (!input.session_id || !input.session_id.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!input.tenant_id || !input.tenant_id.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+    if (!input.adjustment_amount) {
+      throw new CaixaValidationError('O valor do ajuste deve ser diferente de zero.');
+    }
+    if (!input.reason || input.reason.trim().length < 5) {
+      throw new CaixaValidationError('Informe uma justificativa com pelo menos cinco caracteres.');
+    }
+
+    return await this.adapter.registrarAjuste(input);
+  }
+
+  async getSessionStatement(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
+    if (!sessionId || !sessionId.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+
+    return await this.adapter.obterExtrato(sessionId, tenantId);
+  }
+
+  /**
+   * Prévia do valor esperado da gaveta, lida do contrato único de apuração do banco (ticket
+   * 01/036). Só existe para sessão ABERTA. Substitui a antiga função de domínio
+   * `calculateExpectedDrawerCash`, removida por não descontar repasses de comissão nem vales.
+   */
+  async getExpectedDrawerAmount(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount> {
+    if (!sessionId || !sessionId.trim()) {
+      throw new CaixaValidationError('ID da sessão de caixa é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new CaixaValidationError('ID da barbearia (tenant) é obrigatório.');
+    }
+
+    return await this.adapter.obterValorEsperadoGaveta(sessionId, tenantId);
+  }
+
   // Aliases para compatibilidade total (pt-BR e en)
   async obterSessaoAtiva(tenantId: string): Promise<CashSession | null> {
     return await this.getActiveSession(tenantId);
@@ -147,6 +235,10 @@ export class CaixaRepository {
 
   async fecharCaixa(input: FecharCaixaInput): Promise<CashSession> {
     return await this.closeSession(input);
+  }
+
+  async reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession> {
+    return await this.reopenSession(input);
   }
 
   async listarHistorico(tenantId: string, limit = 20): Promise<CashSession[]> {
@@ -165,6 +257,10 @@ export class CaixaRepository {
     return await this.registerMovement(input);
   }
 
+  async registrarMovimentoManual(input: RegistrarMovimentoManualInput): Promise<CashMovement> {
+    return await this.registerManualMovement(input);
+  }
+
   async listarMovimentacoes(sessionId: string): Promise<CashMovement[]> {
     return await this.listMovements(sessionId);
   }
@@ -176,17 +272,17 @@ export class CaixaRepository {
   async obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]> {
     return await this.getDailyFinancialSummary(query);
   }
-}
 
-/**
- * Função de domínio pura para calcular o saldo esperado em gaveta física de dinheiro.
- */
-export function calculateExpectedDrawerCash(
-  initialAmount: number,
-  cashReceipts: number,
-  suprimentos: number = 0,
-  sangrias: number = 0
-): number {
-  return Number(initialAmount || 0) + Number(cashReceipts || 0) + Number(suprimentos || 0) - Number(sangrias || 0);
+  async registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado> {
+    return await this.registerAdjustment(input);
+  }
+
+  async obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement> {
+    return await this.getSessionStatement(sessionId, tenantId);
+  }
+
+  async obterValorEsperadoGaveta(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount> {
+    return await this.getExpectedDrawerAmount(sessionId, tenantId);
+  }
 }
 

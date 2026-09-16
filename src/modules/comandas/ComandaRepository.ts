@@ -116,19 +116,36 @@ export class ComandaRepository {
   }
 
   async settleComanda(input: LiquidarComandaInput): Promise<Comanda> {
-    if (!input.comanda_id || !input.comanda_id.trim()) {
-      throw new ComandaValidationError('ID da comanda é obrigatório.');
+    if (input.comanda_id !== undefined && input.comanda_id !== null && !input.comanda_id.trim()) {
+      throw new ComandaValidationError('ID da comanda inválido.');
     }
     if (!input.tenant_id || !input.tenant_id.trim()) {
       throw new ComandaValidationError('ID da barbearia é obrigatório.');
     }
-    if (!input.pagamentos || input.pagamentos.length === 0) {
-      throw new ComandaValidationError('Pelo menos uma forma de pagamento deve ser informada.');
+
+    if (!input.itens || input.itens.length === 0) {
+      throw new ComandaValidationError('A comanda deve conter pelo menos um item.');
     }
 
-    const totalPago = input.pagamentos.reduce((acc, p) => acc + p.amount, 0);
-    if (totalPago <= 0) {
-      throw new ComandaValidationError('O valor total pago deve ser maior que zero.');
+    // Comanda de cortesia (desconto integral) fecha com total zero e sem
+    // forma de pagamento; qualquer outro total exige pagamento(s) que somem
+    // exatamente o valor devido.
+    const { total } = this.calculateTotals(input.itens, input.discount_amount ?? 0, input.tip_amount ?? 0);
+
+    if (total === 0) {
+      if (input.pagamentos && input.pagamentos.length > 0) {
+        throw new ComandaValidationError(
+          'Comanda de cortesia com total zero não deve informar forma de pagamento.'
+        );
+      }
+    } else {
+      if (!input.pagamentos || input.pagamentos.length === 0) {
+        throw new ComandaValidationError('Pelo menos uma forma de pagamento deve ser informada.');
+      }
+      const totalPago = input.pagamentos.reduce((acc, p) => acc + p.amount, 0);
+      if (totalPago <= 0) {
+        throw new ComandaValidationError('O valor total pago deve ser maior que zero.');
+      }
     }
 
     return await this.adapter.liquidarComanda(input);

@@ -22,9 +22,14 @@ describe('FechamentoCaixaModal', () => {
     obterEntradasDinheiro: vi.fn(),
     obterResumoTurno: vi.fn(),
     registrarMovimentacao: vi.fn(),
+    registrarMovimentoManual: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    reabrirCaixa: vi.fn(),
+    registrarAjuste: vi.fn(),
+    obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const mockRepo = new CaixaRepository(mockAdapter);
@@ -82,6 +87,7 @@ describe('FechamentoCaixaModal', () => {
         isOpen={true}
         session={fakeActiveSession}
         cashReceipts={150.0}
+        expectedDrawerAmount={150.0}
         onCaixaFechado={mockOnCaixaFechado}
         onClose={mockOnClose}
         caixaRepo={mockRepo}
@@ -106,11 +112,98 @@ describe('FechamentoCaixaModal', () => {
     await waitFor(() => {
       expect(mockAdapter.fecharCaixa).toHaveBeenCalledWith({
         session_id: 'sess-100',
+        tenant_id: 'tenant-123',
         closed_by: 'user-operator',
         closing_amount: 250.0,
         notes: 'Fechado sem problemas',
       });
       expect(mockOnCaixaFechado).toHaveBeenCalledWith(closedSession);
+    });
+  });
+
+  it('mostra o valor esperado apurado pelo contrato do banco, não recomposto no navegador (ticket 02/036)', async () => {
+    // Repasse de comissão e vale em dinheiro não chegam como suprimento/sangria: só o contrato do
+    // banco os desconta. Se o modal ainda recompusesse a fórmula com initial+cashReceipts, o
+    // valor exibido seria 100 + 300 = 400, não os 150 apurados pelo contrato.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce({
+      session_id: 'sess-100',
+      tenant_id: 'tenant-123',
+      initial_amount: 100,
+      cash_received: 300,
+      inflow_amount: 0,
+      outflow_amount: 250,
+      expected_amount: 150,
+      movements_by_type: [
+        { type: 'repasse_comissao', direction: 'saida', amount: 200 },
+        { type: 'vale_profissional', direction: 'saida', amount: 50 },
+      ],
+    });
+
+    render(
+      <FechamentoCaixaModal
+        isOpen={true}
+        session={fakeActiveSession}
+        cashReceipts={300}
+        onCaixaFechado={mockOnCaixaFechado}
+        onClose={mockOnClose}
+        caixaRepo={mockRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockAdapter.obterValorEsperadoGaveta).toHaveBeenCalledWith('sess-100', 'tenant-123');
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector('.caixa-val-highlight')).toHaveTextContent(/R\$\s*150,00/);
+    });
+    expect(screen.queryByText(/R\$\s*400,00/)).not.toBeInTheDocument();
+  });
+
+  it('bloqueia o fechamento quando a apuração do valor esperado falha (achado de revisão pós-merge)', async () => {
+    // Um R$ 0,00 falso numa tela de conferência de dinheiro físico é o defeito que este teste
+    // impede de voltar: sem apuração confiável, "Encerrar turno e fechar caixa" fica desabilitado.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockRejectedValueOnce(
+      new Error('Erro ao apurar valor esperado da gaveta: falha de rede.')
+    );
+
+    render(
+      <FechamentoCaixaModal
+        isOpen={true}
+        session={fakeActiveSession}
+        cashReceipts={150.0}
+        onCaixaFechado={mockOnCaixaFechado}
+        onClose={mockOnClose}
+        caixaRepo={mockRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível apurar o valor esperado da gaveta/i)).toBeDefined();
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Encerrar turno e fechar caixa/i });
+    expect(submitBtn).toBeDisabled();
+
+    fireEvent.click(submitBtn);
+    expect(mockAdapter.fecharCaixa).not.toHaveBeenCalled();
+
+    // Tentar de novo com sucesso libera o fechamento.
+    vi.mocked(mockAdapter.obterValorEsperadoGaveta).mockResolvedValueOnce({
+      session_id: 'sess-100',
+      tenant_id: 'tenant-123',
+      initial_amount: 100,
+      cash_received: 50,
+      inflow_amount: 0,
+      outflow_amount: 0,
+      expected_amount: 150,
+      movements_by_type: [],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Tentar novamente/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Encerrar turno e fechar caixa/i })).not.toBeDisabled();
     });
   });
 });

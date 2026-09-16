@@ -41,10 +41,24 @@ describe('Login', () => {
   it('encerra a sessao e nao infere privilegios quando o perfil falha', async () => {
     render(<Login />);
     fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'admin@navalhado.com' } });
-    fireEvent.change(screen.getByPlaceholderText(/8 caracteres/), { target: { value: 'senha-segura' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Acessar plataforma' }));
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha-segura' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('renderiza os elementos da tela dividida replicada: logo oficial, títulos, campos e rodapé', () => {
+    render(<Login />);
+    expect(screen.getAllByRole('heading', { name: 'Navalhado' })[0]).toBeInTheDocument();
+    expect(screen.getAllByAltText('Navalhado')[0]).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Acesse sua conta' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('seu@email.com')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Digite sua senha')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Acessar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Esqueci a senha' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Criar conta' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Termos de uso' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Privacidade (LGPD)' })).toBeInTheDocument();
   });
 });

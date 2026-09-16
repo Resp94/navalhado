@@ -35,5 +35,5 @@ select is(
   'connecting update does not enqueue a duplicate Edge Function invocation'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

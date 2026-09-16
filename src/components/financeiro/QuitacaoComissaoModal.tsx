@@ -4,9 +4,24 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
-import { supabase } from '../../lib/supabase';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
 import type { PaymentMethod } from '../../modules/caixa/types';
+import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
+import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
+import type { SaldoComissaoProfissional } from '../../modules/comissoes/types';
+
+const comissaoRepository = new ComissaoRepository(new SupabaseComissaoAdapter());
+
+/**
+ * Maior abate de vale que ainda deixa pelo menos um centavo de repasse: o backend
+ * exige um valor de repasse maior que zero, então nunca sugerimos um abate que
+ * zere o campo sozinho (aconteceria sempre que o vale em aberto cobrisse o total
+ * devido ao profissional).
+ */
+function maxSafeAdvance(valeAberto: number, orcamentoDisponivel: number): number {
+  if (orcamentoDisponivel <= 0) return 0;
+  return Math.min(valeAberto, Math.max(0, orcamentoDisponivel - 0.01));
+}
 
 interface QuitacaoComissaoModalProps {
   isOpen: boolean;
@@ -20,6 +35,8 @@ interface QuitacaoComissaoModalProps {
     paid_sum: number;
   } | null;
   tenantId?: string;
+  /** ID da sessão de caixa aberta no turno atual, se houver. */
+  activeCashSessionId?: string | null;
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -28,28 +45,69 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
   isOpen,
   professional,
   tenantId,
+  activeCashSessionId,
   onSuccess,
   onClose,
 }) => {
   const [amount, setAmount] = useState<string>('0,00');
+  const [advanceAmount, setAdvanceAmount] = useState<string>('0,00');
+  const [creditAmount, setCreditAmount] = useState<string>('0,00');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [paidAtDate, setPaidAtDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [balance, setBalance] = useState<SaldoComissaoProfissional | null>(null);
 
   const profId = professional?.professional_id || professional?.id || '';
   const profName = professional?.professional_name || professional?.name || 'Profissional';
+  const valeAberto = Math.max(0, balance?.advances_open_amount || 0);
+  const gorjetaAberta = Math.max(0, balance?.credits_open_amount || 0);
 
   // Inicializar com o valor pendente quando o modal abrir
   React.useEffect(() => {
     if (professional) {
       const initialVal = Math.max(0, professional.pending_sum || 0);
       setAmount(formatCurrencyInput(initialVal));
+      setAdvanceAmount('0,00');
+      setCreditAmount('0,00');
       setPaidAtDate(new Date().toISOString().split('T')[0]);
       setErrorMsg(null);
       setNotes('');
+      setBalance(null);
     }
+  }, [professional, isOpen]);
+
+  // Consultar vale/gorjeta em aberto e líquido sugerido do profissional
+  React.useEffect(() => {
+    if (!professional || !profId) return;
+    let cancelled = false;
+
+    comissaoRepository
+      .getProfessionalBalance({ professional_id: profId, tenant_id: tenantId || null })
+      .then((saldo) => {
+        if (cancelled) return;
+        setBalance(saldo);
+
+        const valeEmAberto = Math.max(0, saldo.advances_open_amount || 0);
+        const creditoEmAberto = Math.max(0, saldo.credits_open_amount || 0);
+        if (valeEmAberto > 0 || creditoEmAberto > 0) {
+          const pendente = Math.max(0, professional.pending_sum || 0);
+          const abateSugerido = maxSafeAdvance(valeEmAberto, pendente + creditoEmAberto);
+          const liquidoSugerido = Math.max(0, pendente - abateSugerido + creditoEmAberto);
+          setAdvanceAmount(formatCurrencyInput(abateSugerido));
+          setCreditAmount(formatCurrencyInput(creditoEmAberto));
+          setAmount(formatCurrencyInput(liquidoSugerido));
+        }
+      })
+      .catch(() => {
+        // Falha ao consultar vale/gorjeta em aberto não deve bloquear a quitação normal.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [professional, isOpen]);
 
   if (!isOpen || !professional) return null;
@@ -58,9 +116,32 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
     setAmount(formatCurrencyInput(e.target.value));
   };
 
+  const handleAdvanceAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAdvanceAmount(formatCurrencyInput(e.target.value));
+  };
+
+  const handleCreditAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCreditAmount(formatCurrencyInput(e.target.value));
+  };
+
   const handleQuitarTudo = () => {
     const totalPendente = Math.max(0, professional.pending_sum || 0);
     setAmount(formatCurrencyInput(totalPendente));
+  };
+
+  const handleAbaterValeTudo = () => {
+    const totalPendente = Math.max(0, professional.pending_sum || 0);
+    const credito = parseCurrencyInput(creditAmount);
+    const abate = maxSafeAdvance(valeAberto, totalPendente + credito);
+    setAdvanceAmount(formatCurrencyInput(abate));
+    setAmount(formatCurrencyInput(Math.max(0, totalPendente - abate + credito)));
+  };
+
+  const handleReceberGorjetaTudo = () => {
+    const totalPendente = Math.max(0, professional.pending_sum || 0);
+    const abate = parseCurrencyInput(advanceAmount);
+    setCreditAmount(formatCurrencyInput(gorjetaAberta));
+    setAmount(formatCurrencyInput(Math.max(0, totalPendente - abate + gorjetaAberta)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,9 +150,35 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
     setIsSubmitting(true);
 
     const valorNumerico = parseCurrencyInput(amount);
+    const abateNumerico = parseCurrencyInput(advanceAmount);
+    const creditoNumerico = parseCurrencyInput(creditAmount);
 
-    if (valorNumerico <= 0) {
-      setErrorMsg('Informe um valor de quitação maior que zero.');
+    if (valorNumerico <= 0 && abateNumerico <= 0) {
+      setErrorMsg('Informe um valor de quitação ou de abate de vale maior que zero.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (abateNumerico > valeAberto) {
+      setErrorMsg('O valor do abate excede o saldo de vale em aberto do profissional.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (creditoNumerico > gorjetaAberta) {
+      setErrorMsg('O valor do crédito excede o saldo de gorjeta em aberto do profissional.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (creditoNumerico > valorNumerico) {
+      setErrorMsg('O valor do crédito de gorjeta não pode exceder o valor total do repasse.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (paymentMethod === 'cash' && !activeCashSessionId) {
+      setErrorMsg('Abra o caixa do turno antes de quitar comissão em dinheiro.');
       setIsSubmitting(false);
       return;
     }
@@ -81,18 +188,17 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         ? new Date(`${paidAtDate}T12:00:00Z`).toISOString()
         : new Date().toISOString();
 
-      const { error } = await supabase.rpc('register_commission_payout', {
-        p_professional_id: profId,
-        p_amount: valorNumerico,
-        p_payment_method: paymentMethod,
-        p_notes: notes.trim() || null,
-        p_paid_at: dateTimestamp,
-        p_tenant_id: tenantId || null,
+      await comissaoRepository.registerPayout({
+        professional_id: profId,
+        amount: valorNumerico,
+        payment_method: paymentMethod,
+        notes: notes.trim() || null,
+        paid_at: dateTimestamp,
+        tenant_id: tenantId || null,
+        cash_session_id: paymentMethod === 'cash' ? activeCashSessionId : null,
+        advance_amount: abateNumerico,
+        credit_amount: creditoNumerico,
       });
-
-      if (error) {
-        throw new Error(error.message || 'Erro ao registrar quitação de comissão.');
-      }
 
       onSuccess();
     } catch (err: any) {
@@ -145,6 +251,26 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
               {formatCurrency(professional.pending_sum)}
             </span>
           </div>
+          {valeAberto > 0 && (
+            <div className="comissao-summary-item">
+              <span className="comissao-summary-label">Vale em aberto do profissional:</span>
+              <span className="comissao-summary-val">{formatCurrency(valeAberto)}</span>
+            </div>
+          )}
+          {gorjetaAberta > 0 && (
+            <div className="comissao-summary-item">
+              <span className="comissao-summary-label">Gorjeta em aberto do profissional:</span>
+              <span className="comissao-summary-val comissao-summary-val--paid">{formatCurrency(gorjetaAberta)}</span>
+            </div>
+          )}
+          {(valeAberto > 0 || gorjetaAberta > 0) && (
+            <div className="comissao-summary-item highlight">
+              <span className="comissao-summary-label font-semibold">Líquido sugerido (comissão + gorjeta − vale):</span>
+              <span className="comissao-summary-val comissao-summary-val--pending">
+                {formatCurrency(Math.max(0, balance?.suggested_net_amount ?? professional.pending_sum))}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Formulário de Quitação */}
@@ -177,6 +303,62 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
             </div>
           </div>
 
+          {valeAberto > 0 && (
+            <div className="comissao-field-group">
+              <div className="flex items-center justify-between">
+                <label htmlFor="payout-advance-input" className="comissao-label">
+                  Abater vale em aberto (R$)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAbaterValeTudo}
+                  className="comissao-quick-action"
+                >
+                  Abater vale total ({formatCurrency(valeAberto)})
+                </button>
+              </div>
+              <div className="comissao-input-container">
+                <span className="comissao-input-prefix">R$</span>
+                <input
+                  id="payout-advance-input"
+                  type="text"
+                  className="comissao-input"
+                  value={advanceAmount}
+                  onChange={handleAdvanceAmountChange}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+          )}
+
+          {gorjetaAberta > 0 && (
+            <div className="comissao-field-group">
+              <div className="flex items-center justify-between">
+                <label htmlFor="payout-credit-input" className="comissao-label">
+                  Receber gorjeta em aberto (R$)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleReceberGorjetaTudo}
+                  className="comissao-quick-action"
+                >
+                  Receber gorjeta total ({formatCurrency(gorjetaAberta)})
+                </button>
+              </div>
+              <div className="comissao-input-container">
+                <span className="comissao-input-prefix">R$</span>
+                <input
+                  id="payout-credit-input"
+                  type="text"
+                  className="comissao-input"
+                  value={creditAmount}
+                  onChange={handleCreditAmountChange}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="comissao-field-group">
               <label htmlFor="payout-method-select" className="comissao-label">
@@ -190,7 +372,9 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
                 required
               >
                 <option value="pix">PIX (transferência instantânea)</option>
-                <option value="cash">Dinheiro em espécie (retirado da gaveta)</option>
+                <option value="cash" disabled={!activeCashSessionId}>
+                  Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+                </option>
                 <option value="transfer">Transferência bancária (TED ou DOC)</option>
                 <option value="other">Outra forma de pagamento</option>
               </select>

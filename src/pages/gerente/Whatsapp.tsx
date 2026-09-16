@@ -710,7 +710,6 @@ export const Whatsapp: React.FC = () => {
             <div className="card-whatsapp">
               <div className="card-whatsapp__header">
                 <div>
-                  <span className="card-whatsapp__eyebrow">Conexão</span>
                   <h3 className="card-whatsapp__title">Status da Integração</h3>
                 </div>
                 <span className={`card-whatsapp__pill card-whatsapp__pill--${instance.status}`}>
@@ -798,7 +797,6 @@ export const Whatsapp: React.FC = () => {
             <div className="card-whatsapp">
               <div className="card-whatsapp__header">
                 <div>
-                  <span className="card-whatsapp__eyebrow">Notificações</span>
                   <h3 className="card-whatsapp__title">Configuração de Disparos</h3>
                 </div>
               </div>
@@ -934,7 +932,6 @@ export const Whatsapp: React.FC = () => {
           <div className="card-whatsapp template-editor-card">
             <div className="template-editor-header">
               <div>
-                <span className="card-whatsapp__eyebrow">Personalização</span>
                 <h3 className="card-whatsapp__title">Modelos de Mensagens do WhatsApp</h3>
                 <p className="template-editor-subtitle">
                   Configure o tom de voz e o formato das mensagens automáticas enviadas pela sua barbearia.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { useToast } from '../../components/Toast';
 import { useClientes } from '../../modules/clientes/useClientes';
@@ -10,6 +10,7 @@ import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } fr
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import './Clientes.css';
+import { Button, Input, Select, Textarea } from '../../components/ui';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -39,9 +40,11 @@ const ReceiptIcon = () => <HugeiconsIcon icon={Invoice01Icon} size={14} />;
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addToast } = useToast();
 
   const {
+    customers,
     filteredCustomers,
     stats,
     loading,
@@ -59,7 +62,7 @@ export const Clientes: React.FC = () => {
     saveCustomer,
     deleteCustomer,
     loadHistorico,
-  } = useClientes(tenant.tenantId);
+  } = useClientes(tenant.tenantId, tenant.timezone);
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -300,6 +303,24 @@ export const Clientes: React.FC = () => {
     loadHistorico(customer.id);
   };
 
+  // Abre a Central 360º direto para um cliente vindo de outra tela (spec 038,
+  // ticket 09: ação "Central 360º" da página Clientes sem Retorno) via
+  // `?customerId=...` na URL -- mesma gaveta usada pelo clique numa linha
+  // desta tabela, sem duplicar UI. Remove o parâmetro da URL depois de abrir,
+  // para um F5 na página não reabrir a gaveta sozinho.
+  useEffect(() => {
+    const customerId = searchParams.get('customerId');
+    if (!customerId || loading) return;
+    const customer = customers.find((c) => c.id === customerId);
+    if (customer) {
+      handleOpenDrawer(customer);
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('customerId');
+    setSearchParams(nextParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, customers, loading]);
+
   const handleCopyLink = (token: string) => {
     const link = tenant.slug
       ? `${window.location.origin}/${tenant.slug}`
@@ -463,7 +484,7 @@ export const Clientes: React.FC = () => {
                   <th scope="col">Nome e perfil</th>
                   <th scope="col">Telefone</th>
                   <th scope="col">Tags</th>
-                  <th scope="col">Status</th>
+                  <th scope="col" className="th-status">Status</th>
                   <th scope="col">Cadastrado em</th>
                   <th scope="col" style={{ textAlign: 'right' }}>
                     Ações
@@ -562,9 +583,6 @@ export const Clientes: React.FC = () => {
           >
             <header className="modal-header">
               <div className="modal-title-group">
-                <span className="modal-eyebrow">
-                  {editingCustomer ? 'Perfil do cliente' : 'Novo cadastro'}
-                </span>
                 <h3 id="modal-title" className="modal-title">
                   {editingCustomer ? 'Editar dados do cliente' : 'Cadastrar novo cliente'}
                 </h3>
@@ -590,42 +608,33 @@ export const Clientes: React.FC = () => {
                 <span className="modal-card-title">
                   <HugeiconsIcon icon={UserAdd01Icon} size={14} /> Dados principais
                 </span>
-                <div className="form-group">
-                  <label htmlFor="name-input">Nome e sobrenome *</label>
-                  <input
-                    id="name-input"
-                    type="text"
-                    required
-                    placeholder="Ex: João da Silva"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
+                <Input
+                  id="name-input"
+                  label="Nome e sobrenome *"
+                  type="text"
+                  required
+                  placeholder="Ex: João da Silva"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
 
                 <div className="form-group-row">
-                  <div className="form-group">
-                    <label htmlFor="phone-input">Telefone (WhatsApp) *</label>
-                    <input
-                      id="phone-input"
-                      type="text"
-                      required
-                      placeholder="Ex: 11999998888"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="birthdate-input">Data de nascimento</label>
-                    <input
-                      id="birthdate-input"
-                      type="date"
-                      value={formData.birth_date}
-                      onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
+                  <Input
+                    id="phone-input"
+                    label="Telefone (WhatsApp) *"
+                    type="text"
+                    required
+                    placeholder="Ex: 11999998888"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                  <Input
+                    id="birthdate-input"
+                    label="Data de nascimento"
+                    type="date"
+                    value={formData.birth_date}
+                    onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                  />
                 </div>
               </div>
 
@@ -635,47 +644,39 @@ export const Clientes: React.FC = () => {
                   <HugeiconsIcon icon={Invoice01Icon} size={14} /> Documentação e origem
                 </span>
                 <div className="form-group-row">
-                  <div className="form-group">
-                    <label htmlFor="email-input">E-mail (opcional)</label>
-                    <input
-                      id="email-input"
-                      type="email"
-                      placeholder="Ex: joao@email.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="cpf-input">CPF (opcional)</label>
-                    <input
-                      id="cpf-input"
-                      type="text"
-                      placeholder="Ex: 000.000.000-00"
-                      value={formData.cpf}
-                      onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                      className="form-control"
-                    />
-                  </div>
+                  <Input
+                    id="email-input"
+                    label="E-mail (opcional)"
+                    type="email"
+                    placeholder="Ex: joao@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                  <Input
+                    id="cpf-input"
+                    label="CPF (opcional)"
+                    type="text"
+                    placeholder="Ex: 000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                  />
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="channel-select">Como conheceu a barbearia?</label>
-                  <select
-                    id="channel-select"
-                    value={formData.acquisition_channel}
-                    onChange={(e) => setFormData({ ...formData, acquisition_channel: e.target.value })}
-                    className="form-control"
-                  >
-                    <option value="">Selecione uma opção...</option>
-                    <option value="Instagram">Instagram ou redes sociais</option>
-                    <option value="Indicação">Indicação de amigo</option>
-                    <option value="Google">Google ou pesquisa no Maps</option>
-                    <option value="Passagem">Passou em frente</option>
-                    <option value="Tráfego Pago">Anúncio online</option>
-                    <option value="Outro">Outro canal</option>
-                  </select>
-                </div>
+                <Select
+                  id="channel-select"
+                  label="Como conheceu a barbearia?"
+                  value={formData.acquisition_channel}
+                  onChange={(e) => setFormData({ ...formData, acquisition_channel: e.target.value })}
+                  options={[
+                    { value: '', label: 'Selecione uma opção...' },
+                    { value: 'Instagram', label: 'Instagram ou redes sociais' },
+                    { value: 'Indicação', label: 'Indicação de amigo' },
+                    { value: 'Google', label: 'Google ou pesquisa no Maps' },
+                    { value: 'Passagem', label: 'Passou em frente' },
+                    { value: 'Tráfego Pago', label: 'Anúncio online' },
+                    { value: 'Outro', label: 'Outro canal' },
+                  ]}
+                />
               </div>
 
               {/* Card 3: Preferências e atendimento */}
@@ -683,30 +684,32 @@ export const Clientes: React.FC = () => {
                 <span className="modal-card-title">
                   <HugeiconsIcon icon={Tag01Icon} size={14} /> Preferências e atendimento
                 </span>
-                <div className="form-group">
-                  <label htmlFor="notes-textarea">Observações do barbeiro</label>
-                  <textarea
-                    id="notes-textarea"
-                    rows={2}
-                    placeholder="Preferências de corte, formato da barba, café favorito ou restrições..."
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="form-control"
-                  />
-                </div>
+                <Textarea
+                  id="notes-textarea"
+                  label="Observações do barbeiro"
+                  rows={2}
+                  placeholder="Preferências de corte, formato da barba, café favorito ou restrições..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
               </div>
 
               <footer className="modal-footer">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn btn--outline"
                 >
                   Cancelar
-                </button>
-                <button type="submit" disabled={isSaving} className="btn btn--primary">
-                  {isSaving ? 'Salvando...' : editingCustomer ? 'Salvar alterações' : 'Salvar cliente'}
-                </button>
+                </Button>
+                <Button
+                  type="submit"
+                  variant="warning"
+                  disabled={isSaving}
+                  loading={isSaving}
+                >
+                  {editingCustomer ? 'Salvar alterações' : 'Salvar cliente'}
+                </Button>
               </footer>
             </form>
           </div>
@@ -1032,8 +1035,14 @@ export const Clientes: React.FC = () => {
                               <span className="timeline-type-badge">
                                 <ReceiptIcon /> Comanda #{cmd.comanda_number}
                               </span>
-                              <span className={`badge badge--appt-${cmd.status === 'closed' ? 'completed' : 'pending'}`}>
-                                {cmd.status === 'closed' ? 'Paga' : 'Em aberto'}
+                              <span
+                                className={`badge badge--appt-${
+                                  cmd.status === 'fechada' ? 'completed' : cmd.status === 'cancelada' ? 'canceled' : 'pending'
+                                }`}
+                              >
+                                {cmd.status === 'fechada' && 'Paga'}
+                                {cmd.status === 'aberta' && 'Em aberto'}
+                                {cmd.status === 'cancelada' && 'Cancelada'}
                               </span>
                             </div>
                             <div className="timeline-card__body">
@@ -1149,8 +1158,10 @@ export const Clientes: React.FC = () => {
                       <span className="text-sm text-secondary">
                         Último atendimento registrado em:{' '}
                         <strong>
-                          {new Date(ltvMetrics.lastVisitDate).toLocaleDateString('pt-BR', {
+                          {/* lastVisitDate já é o dia de negócio; meio-dia UTC evita virar o dia ao formatar */}
+                          {new Date(`${ltvMetrics.lastVisitDate}T12:00:00Z`).toLocaleDateString('pt-BR', {
                             dateStyle: 'long',
+                            timeZone: 'UTC',
                           })}
                         </strong>
                       </span>

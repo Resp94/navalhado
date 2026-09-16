@@ -87,8 +87,4 @@ Desktop.ini
 # Project-specific development fixtures and notes
 supabase/seed.sql
 docs/superpowers/
-docs/user.test
-verificacoes/
-snapshot/
-relatorios/
 .playwright-mcp/

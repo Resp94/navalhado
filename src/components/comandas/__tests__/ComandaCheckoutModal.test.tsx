@@ -8,14 +8,21 @@ import type { IComandaAdapter } from '../../../modules/comandas/types';
 import type { ICaixaAdapter } from '../../../modules/caixa/types';
 import type { IProdutoAdapter } from '../../../modules/produtos/types';
 
-const mockSupabaseUpdate = vi.fn().mockReturnValue({
+const { mockSupabaseUpdate, mockSupabaseRpc } = vi.hoisted(() => ({
+  mockSupabaseUpdate: vi.fn(),
+  mockSupabaseRpc: vi.fn(),
+}));
+
+mockSupabaseUpdate.mockReturnValue({
   eq: vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
   }),
 });
+mockSupabaseRpc.mockResolvedValue({ data: null, error: null });
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
+    rpc: mockSupabaseRpc,
     from: vi.fn().mockImplementation((table: string) => {
       if (table === 'appointments') {
         return {
@@ -51,9 +58,14 @@ describe('ComandaCheckoutModal', () => {
     obterEntradasDinheiro: vi.fn(),
     obterResumoTurno: vi.fn(),
     registrarMovimentacao: vi.fn(),
+    registrarMovimentoManual: vi.fn(),
     listarMovimentacoes: vi.fn(),
     obterResumoMovimentacoes: vi.fn(),
+    reabrirCaixa: vi.fn(),
+    registrarAjuste: vi.fn(),
+    obterExtrato: vi.fn(),
     obterResumoFinanceiroDiario: vi.fn(),
+    obterValorEsperadoGaveta: vi.fn(),
   };
 
   const mockProdutoAdapter: IProdutoAdapter = {
@@ -73,6 +85,12 @@ describe('ComandaCheckoutModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSupabaseUpdate.mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    });
+    mockSupabaseRpc.mockResolvedValue({ data: null, error: null });
     const defaultProducts = [
       {
         id: 'prod-1',
@@ -140,7 +158,7 @@ describe('ComandaCheckoutModal', () => {
       pagamentos: [],
     }));
     vi.mocked(mockComandaAdapter.liquidarComanda).mockImplementation(async (input) => ({
-      id: input.comanda_id,
+      id: input.comanda_id || 'com-liquidada',
       tenant_id: input.tenant_id,
       appointment_id: null,
       customer_id: null,
@@ -153,7 +171,7 @@ describe('ComandaCheckoutModal', () => {
       closed_at: new Date().toISOString(),
       itens: (input.itens || []).map((it, idx) => ({
         id: `item-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         item_type: it.item_type,
         service_id: it.service_id || null,
@@ -165,7 +183,7 @@ describe('ComandaCheckoutModal', () => {
       })),
       pagamentos: input.pagamentos.map((p, idx) => ({
         id: `pag-liq-${idx}`,
-        comanda_id: input.comanda_id,
+        comanda_id: input.comanda_id || 'com-liquidada',
         tenant_id: input.tenant_id,
         cash_session_id: input.cash_session_id ?? null,
         payment_method: p.payment_method,
@@ -312,6 +330,83 @@ describe('ComandaCheckoutModal', () => {
     await waitFor(() => {
       expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalled();
       expect(mockOnFinalizado).toHaveBeenCalled();
+    });
+  });
+
+  it('atribui a gorjeta automaticamente ao único profissional da comanda (ticket 04)', async () => {
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 35.0, professional_id: 'prof-1' },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Valor da gorjeta'), { target: { value: '10' } });
+
+    expect(screen.queryByLabelText('Profissional que recebe a gorjeta')).not.toBeInTheDocument();
+
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({ tip_amount: 10, tip_professional_id: 'prof-1' })
+      );
+    });
+  });
+
+  it('pede a escolha do profissional quando a comanda tem mais de um (ticket 04)', async () => {
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 35.0, professional_id: 'prof-1' },
+          { service_id: 'srv-2', name: 'Barba', price: 25.0, professional_id: 'prof-2' },
+        ]}
+        availableProfessionals={[
+          { id: 'prof-1', name: 'Carlos Barbeiro' },
+          { id: 'prof-2', name: 'Marcos Barbeiro' },
+        ]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Valor da gorjeta'), { target: { value: '10' } });
+
+    const seletor = await screen.findByLabelText('Profissional que recebe a gorjeta');
+    fireEvent.change(seletor, { target: { value: 'prof-2' } });
+
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({ tip_amount: 10, tip_professional_id: 'prof-2' })
+      );
     });
   });
 
@@ -518,22 +613,6 @@ describe('ComandaCheckoutModal', () => {
       notes: null,
     });
 
-    vi.mocked(mockComandaAdapter.criarComanda).mockResolvedValueOnce({
-      id: 'com-balcao-1',
-      tenant_id: 't-1',
-      appointment_id: null,
-      customer_id: null,
-      status: 'aberta',
-      total_amount: 30.0,
-      discount_amount: 0,
-      tip_amount: 0,
-      notes: null,
-      created_at: new Date().toISOString(),
-      closed_at: null,
-      itens: [],
-      pagamentos: [],
-    });
-
     vi.mocked(mockComandaAdapter.liquidarComanda).mockResolvedValueOnce({
       id: 'com-balcao-1',
       tenant_id: 't-1',
@@ -577,13 +656,61 @@ describe('ComandaCheckoutModal', () => {
     fireEvent.click(btnFinalizar);
 
     await waitFor(() => {
-      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
         expect.objectContaining({
+          comanda_id: null,
           tenant_id: 't-1',
+          appointment_id: null,
           customer_id: null,
         })
       );
+      expect(mockComandaAdapter.criarComanda).not.toHaveBeenCalled();
     });
+  });
+
+  it('cria a comanda antes de persistir o primeiro item de um checkout novo', async () => {
+    vi.mocked(mockCaixaAdapter.obterSessaoAtiva).mockResolvedValue({
+      id: 'sess-1',
+      tenant_id: 't-1',
+      opened_by: null,
+      closed_by: null,
+      opened_at: new Date().toISOString(),
+      closed_at: null,
+      initial_amount: 50,
+      closing_amount: null,
+      status: 'open',
+      notes: null,
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        availableServices={[{ id: 'srv-1', name: 'Corte', price: 40 }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText(/Nenhum item adicionado/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Serviço/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Selecionar serviço/i }), {
+      target: { value: 'srv-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/i }));
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.criarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: 't-1',
+          itens: [expect.objectContaining({ service_id: 'srv-1', unit_price: 40 })],
+        })
+      );
+    });
+    expect(mockComandaAdapter.adicionarItem).not.toHaveBeenCalled();
   });
 
   it('persiste imediatamente novo serviço ou produto adicionado em comanda aberta', async () => {
@@ -699,6 +826,7 @@ describe('ComandaCheckoutModal', () => {
 
   it('deve permitir abrir painel de reagendamento direto e salvar novo horário mantendo a comanda aberta', async () => {
     const mockOnRescheduled = vi.fn();
+    const mockOnMarkNoShow = vi.fn();
     mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
       id: 'com-123',
       tenant_id: 't-1',
@@ -737,6 +865,7 @@ describe('ComandaCheckoutModal', () => {
         onClose={mockOnClose}
         onFinalizado={mockOnFinalizado}
         onRescheduled={mockOnRescheduled}
+        onMarkNoShow={mockOnMarkNoShow}
         comandaRepo={comandaRepo}
         caixaRepo={caixaRepo}
         produtoRepo={produtoRepo}
@@ -746,6 +875,7 @@ describe('ComandaCheckoutModal', () => {
     await waitFor(() => {
       expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Reagendar atendimento/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
     });
 
     // 1. Clicar no botão "Reagendar"
@@ -758,6 +888,9 @@ describe('ComandaCheckoutModal', () => {
     const timeInput = screen.getByLabelText(/Novo Horário:/i);
 
     fireEvent.change(dateInput, { target: { value: '2026-08-29' } });
+    await waitFor(() => {
+      expect(timeInput.querySelector('option[value="16:30"]')).not.toBeNull();
+    });
     fireEvent.change(timeInput, { target: { value: '16:30' } });
 
     // 3. Confirmar Reagendamento
@@ -773,6 +906,84 @@ describe('ComandaCheckoutModal', () => {
         })
       );
       expect(mockOnRescheduled).toHaveBeenCalled();
+    });
+  });
+
+  it('exibe o painel inline de confirmação de Não Comparecimento e executa a confirmação', async () => {
+    const mockOnClose = vi.fn();
+    const mockOnFinalizado = vi.fn();
+    const mockOnRescheduled = vi.fn();
+    const mockOnMarkNoShow = vi.fn().mockResolvedValue(undefined);
+
+    mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
+      id: 'cmd-999',
+      tenant_id: 't-1',
+      comanda_number: 105,
+      status: 'aberta',
+      subtotal: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      final_amount: 35.0,
+      created_at: '2026-08-28T14:00:00.000Z',
+      itens: [
+        {
+          id: 'item-1',
+          comanda_id: 'cmd-999',
+          item_type: 'service',
+          service_id: 'srv-1',
+          name: 'Corte Tradicional',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+          professional_id: 'prof-1',
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="app-999"
+        appointmentStartTime="2026-08-28T14:00:00.000Z"
+        appointmentServiceName="Corte Tradicional"
+        customerName="Carlos Silva"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        onRescheduled={mockOnRescheduled}
+        onMarkNoShow={mockOnMarkNoShow}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
+    });
+
+    // 1. Clicar no botão "Não compareceu"
+    fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
+
+    // 2. Painel inline de confirmação de Não Comparecimento abre
+    const confirmPanel = screen.getByRole('region', { name: /Painel de Confirmação de Não Comparecimento/i });
+    expect(confirmPanel).toBeInTheDocument();
+    expect(screen.getByText(/Deseja marcar o atendimento de/i)).toBeInTheDocument();
+
+    // 3. Clicar em "Voltar" deve fechar o painel inline
+    const backBtn = screen.getByRole('button', { name: /Voltar/i });
+    fireEvent.click(backBtn);
+    expect(screen.queryByRole('region', { name: /Painel de Confirmação de Não Comparecimento/i })).toBeNull();
+
+    // 4. Abrir novamente e confirmar
+    fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
+    const confirmBtn = screen.getByRole('button', { name: /Sim, não compareceu/i });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(mockOnMarkNoShow).toHaveBeenCalledTimes(1);
     });
   });
 });

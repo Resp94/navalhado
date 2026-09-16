@@ -26,5 +26,5 @@ select is((select name from public.get_services_by_public_slug('catalog-test')),
 select is((select count(*)::integer from public.get_professionals_by_public_slug('catalog-test','58000000-0000-0000-0000-000000000011')),1,'professionals are filtered by service');
 select is((select count(*)::integer from public.get_professionals_by_public_slug('catalog-test','58000000-0000-0000-0000-000000000012')),0,'professionals are not returned for another service');
 
-select * from finish();
+select * from finish(true);
 rollback;

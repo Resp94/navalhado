@@ -100,17 +100,15 @@ export const Modal: React.FC<ModalProps> = ({
 
         .modal-shell {
           width: 100%;
-          max-width: 480px;
+          max-width: min(92vw, 540px);
           max-height: calc(100vh - 2rem);
           max-height: calc(100dvh - 2rem);
           display: flex;
           flex-direction: column;
-          padding: 4px;
-          border-radius: calc(var(--radius-lg) + 4px);
-          background: rgba(20, 17, 15, 0.08);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.15),
-            0 8px 32px rgba(20, 17, 15, 0.25);
+          padding: 0;
+          border-radius: var(--radius-lg, 16px);
+          background: transparent;
+          box-shadow: 0 16px 48px -8px rgba(20, 17, 15, 0.28);
           animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
           box-sizing: border-box;
           touch-action: pan-y;
@@ -119,16 +117,14 @@ export const Modal: React.FC<ModalProps> = ({
 
         .modal-card {
           background-color: var(--color-bg-secondary);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-lg, 16px);
           width: 100%;
           max-height: 100%;
           min-width: 0;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            var(--shadow-lg);
+          box-shadow: none;
           overflow: hidden;
           touch-action: pan-y;
           overscroll-behavior: contain;
@@ -138,7 +134,8 @@ export const Modal: React.FC<ModalProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 1.25rem 1.5rem 0.75rem;
+          padding: 1.25rem 1.5rem 1rem;
+          border-bottom: 1px solid var(--color-text-primary);
           flex-shrink: 0;
           user-select: none;
           -webkit-user-select: none;
@@ -147,7 +144,7 @@ export const Modal: React.FC<ModalProps> = ({
         .modal-header__title {
           font-size: var(--font-size-lg);
           color: var(--color-text-primary);
-          font-weight: 600;
+          font-weight: 700;
           margin: 0;
         }
 
@@ -161,7 +158,7 @@ export const Modal: React.FC<ModalProps> = ({
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           outline: none;
         }
@@ -180,7 +177,7 @@ export const Modal: React.FC<ModalProps> = ({
         }
 
         .modal-body {
-          padding: 0.75rem 1.5rem 1.5rem;
+          padding: 1.25rem 1.5rem 1.5rem;
           display: flex;
           flex-direction: column;
           gap: 1rem;
@@ -201,29 +198,30 @@ export const Modal: React.FC<ModalProps> = ({
 
           .modal-shell {
             max-width: 100%;
-            max-height: 88vh;
-            max-height: 88dvh;
+            max-height: 90vh;
+            max-height: 90dvh;
             border-radius: 20px 20px 0 0;
             padding: 0;
             margin: 0;
             background: transparent;
-            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
             animation: slideUpMobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
           }
 
           .modal-card {
             border-radius: 20px 20px 0 0;
             border-bottom: none;
-            max-height: 88dvh;
+            max-height: 90dvh;
             padding-bottom: env(safe-area-inset-bottom, 1rem);
           }
 
           .modal-header {
-            padding: 1rem 1.25rem 0.5rem;
+            padding: 1.15rem 1.25rem 0.85rem;
+            border-bottom: 1px solid var(--color-text-primary);
           }
 
           .modal-body {
-            padding: 0.75rem 1.25rem 1.25rem;
+            padding: 1rem 1.25rem 1.25rem;
             overflow-x: hidden;
           }
         }

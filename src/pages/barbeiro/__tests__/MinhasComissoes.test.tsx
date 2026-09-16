@@ -16,6 +16,7 @@ const {
   mockNavigate,
   mockPaymentResult,
   mockProfileSingle,
+  mockAdvancesResult,
   mockSupabaseClient,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
@@ -23,6 +24,7 @@ const {
   const mockNavigate = vi.fn();
   const mockPaymentResult = vi.fn();
   const mockProfileSingle = vi.fn();
+  const mockAdvancesResult = vi.fn();
 
   return {
     mockAddToast,
@@ -30,6 +32,7 @@ const {
     mockNavigate,
     mockPaymentResult,
     mockProfileSingle,
+    mockAdvancesResult,
     mockSupabaseClient: {
       auth: {
         getSession: mockGetSession,
@@ -71,6 +74,7 @@ describe('MinhasComissoes', () => {
       data: { session: { user: { id: 'user-1', email: 'barbeiro@example.com' } } },
     });
     mockPaymentResult.mockReturnValue({ data: [], error: null });
+    mockAdvancesResult.mockReturnValue({ data: [], error: null });
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'professionals') {
         return {
@@ -81,6 +85,15 @@ describe('MinhasComissoes', () => {
       }
       if (table === 'comanda_itens') {
         return createComandaItensBuilder();
+      }
+      if (table === 'professional_account_entries') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({ order: () => Promise.resolve(mockAdvancesResult()) }),
+            }),
+          }),
+        };
       }
       throw new Error(`Tabela inesperada: ${table}`);
     });
@@ -203,5 +216,67 @@ describe('MinhasComissoes', () => {
     expect(screen.getAllByText('Lucas Silva').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Corte Degradê').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Pomada Matte').length).toBeGreaterThan(0);
+  });
+
+  it('exibe os vales em aberto do próprio profissional (ticket 05)', async () => {
+    mockProfileSingle.mockResolvedValue({
+      data: {
+        id: 'prof-1',
+        name: 'Carlos',
+        tenant_id: 'tenant-1',
+        commission_percentage: 40,
+      },
+      error: null,
+    });
+    mockAdvancesResult.mockReturnValue({
+      data: [
+        {
+          id: 'entry-1',
+          tenant_id: 'tenant-1',
+          professional_id: 'prof-1',
+          entry_type: 'vale',
+          direction: 'debit',
+          amount: 30,
+          settled_amount: 0,
+          status: 'open',
+          reason: 'Adiantamento para material de trabalho',
+          comanda_id: null,
+          cash_movement_id: null,
+          created_by: 'user-1',
+          created_at: '2026-09-12T10:00:00Z',
+          reversed_at: null,
+          reversed_by: null,
+          reversal_reason: null,
+        },
+      ],
+      error: null,
+    });
+
+    render(<MinhasComissoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Vales em aberto')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Adiantamento para material de trabalho')).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*30,00/)).toBeInTheDocument();
+  });
+
+  it('não exibe a seção de vales quando não há nenhum em aberto', async () => {
+    mockProfileSingle.mockResolvedValue({
+      data: {
+        id: 'prof-1',
+        name: 'Carlos',
+        tenant_id: 'tenant-1',
+        commission_percentage: 40,
+      },
+      error: null,
+    });
+
+    render(<MinhasComissoes />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/R\$\s*0,00/)).toHaveLength(2);
+    });
+    expect(screen.queryByText('Vales em aberto')).not.toBeInTheDocument();
   });
 });

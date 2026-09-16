@@ -12,7 +12,6 @@ import type { ComandaEnriched } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Invoice01Icon,
-  Search01Icon,
   PlusSignIcon,
   Money01Icon,
   CheckmarkCircle02Icon,
@@ -21,6 +20,14 @@ import {
   Calendar02Icon,
   Store01Icon,
 } from '@hugeicons/core-free-icons';
+import {
+  Button,
+  IconButton,
+  SearchInput,
+  SegmentedControl,
+  EmptyState,
+  Badge,
+} from '../../components/ui';
 
 export const Comandas: React.FC = () => {
   const { tenantId, tenantName, timezone } = useOutletContext<TenantContextType>();
@@ -153,55 +160,40 @@ export const Comandas: React.FC = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="comandas-header__btn-nova"
+        <Button
+          variant="primary"
+          icon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
           onClick={handleOpenNovaAvulsa}
         >
-          <HugeiconsIcon icon={PlusSignIcon} size={18} />
-          <span>Nova comanda avulsa</span>
-        </button>
+          Nova comanda avulsa
+        </Button>
       </div>
 
       {/* ─── FILTROS E BUSCA ─── */}
       <div className="comandas-toolbar">
-        <div className="comandas-search">
-          <HugeiconsIcon icon={Search01Icon} size={18} className="comandas-search__icon" />
-          <input
-            type="text"
+        <div style={{ flex: 1, minWidth: '260px' }}>
+          <SearchInput
             placeholder="Buscar por cliente, código ou profissional..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="comandas-search__input"
+            onChange={setSearchTerm}
+            onClear={() => setSearchTerm('')}
           />
         </div>
 
-        <div className="comandas-tabs">
-          <button
-            type="button"
-            className={`comandas-tab ${statusFilter === 'aberta' ? 'comandas-tab--active' : ''}`}
-            onClick={() => setStatusFilter('aberta')}
-          >
-            <span>Abertas</span>
-            <span className="comandas-tab__badge">
-              {comandas.filter((c) => c.status === 'aberta').length}
-            </span>
-          </button>
-          <button
-            type="button"
-            className={`comandas-tab ${statusFilter === 'fechada' ? 'comandas-tab--active' : ''}`}
-            onClick={() => setStatusFilter('fechada')}
-          >
-            <span>Pagas</span>
-          </button>
-          <button
-            type="button"
-            className={`comandas-tab ${statusFilter === 'all' ? 'comandas-tab--active' : ''}`}
-            onClick={() => setStatusFilter('all')}
-          >
-            <span>Todas</span>
-          </button>
-        </div>
+        <SegmentedControl<'aberta' | 'fechada' | 'all'>
+          value={statusFilter}
+          onChange={setStatusFilter}
+          fullWidth={false}
+          options={[
+            {
+              id: 'aberta',
+              label: 'Abertas',
+              count: comandas.filter((c) => c.status === 'aberta').length,
+            },
+            { id: 'fechada', label: 'Pagas' },
+            { id: 'all', label: 'Todas' },
+          ]}
+        />
       </div>
 
       {/* ─── LISTAGEM DE COMANDAS ─── */}
@@ -211,27 +203,26 @@ export const Comandas: React.FC = () => {
           <span>Carregando comandas...</span>
         </div>
       ) : filteredComandas.length === 0 ? (
-        <div className="comandas-empty">
-          <div className="comandas-empty__icon">
-            <HugeiconsIcon icon={Invoice01Icon} size={36} />
-          </div>
-          <h3>Nenhuma comanda encontrada</h3>
-          <p>
-            {searchTerm
+        <EmptyState
+          icon={<HugeiconsIcon icon={Invoice01Icon} size={32} />}
+          title="Nenhuma comanda encontrada"
+          description={
+            searchTerm
               ? 'Nenhum resultado para os termos pesquisados.'
               : statusFilter === 'aberta'
               ? 'Não há comandas abertas no momento.'
-              : 'Nenhum registro de comanda nesta categoria.'}
-          </p>
-          <button
-            type="button"
-            className="comandas-empty__btn"
-            onClick={handleOpenNovaAvulsa}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} size={16} />
-            Abrir comanda avulsa
-          </button>
-        </div>
+              : 'Nenhum registro de comanda nesta categoria.'
+          }
+          action={
+            <Button
+              variant="primary"
+              icon={<HugeiconsIcon icon={PlusSignIcon} size={16} />}
+              onClick={handleOpenNovaAvulsa}
+            >
+              Abrir comanda avulsa
+            </Button>
+          }
+        />
       ) : (
         <div className="comandas-grid">
           {filteredComandas.map((cmd) => {
@@ -250,9 +241,9 @@ export const Comandas: React.FC = () => {
                     <HugeiconsIcon icon={Invoice01Icon} size={16} />
                     <span>{cmd.comanda_number ? `#${cmd.comanda_number}` : `CMD-${cmd.id.slice(0, 5).toUpperCase()}`}</span>
                   </div>
-                  <span className={`comanda-card__status ${isOpen ? 'status--open' : 'status--paid'}`}>
+                  <Badge variant={isOpen ? 'brand' : 'success'} size="xs">
                     {isOpen ? 'Aberta' : 'Paga'}
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="comanda-card__body">
@@ -298,34 +289,35 @@ export const Comandas: React.FC = () => {
 
                   <div className="comanda-card__actions" onClick={(e) => e.stopPropagation()}>
                     {cmd.customer_phone && (
-                      <button
-                        type="button"
-                        className="comanda-card__action-btn comanda-card__action-btn--whatsapp"
-                        onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
+                      <IconButton
+                        aria-label="WhatsApp"
                         title="WhatsApp"
-                      >
-                        <HugeiconsIcon icon={WhatsappIcon} size={16} />
-                      </button>
+                        variant="ghost"
+                        size="sm"
+                        className="comanda-card__action-btn--whatsapp"
+                        onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
+                        icon={<HugeiconsIcon icon={WhatsappIcon} size={16} />}
+                      />
                     )}
 
                     {isOpen ? (
-                      <button
-                        type="button"
-                        className="comanda-card__action-btn comanda-card__action-btn--checkout"
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<HugeiconsIcon icon={Money01Icon} size={16} />}
                         onClick={() => handleOpenCheckoutModal(cmd)}
                       >
-                        <HugeiconsIcon icon={Money01Icon} size={16} />
-                        <span>Cobrar</span>
-                      </button>
+                        Cobrar
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
-                        className="comanda-card__action-btn comanda-card__action-btn--view"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />}
                         onClick={() => handleOpenCheckoutModal(cmd)}
                       >
-                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-                        <span>Ver detalhes</span>
-                      </button>
+                        Ver detalhes
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -383,94 +375,11 @@ export const Comandas: React.FC = () => {
           margin: 0.25rem 0 0;
         }
 
-        .comandas-header__btn-nova {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          border: none;
-          padding: 0.65rem 1.15rem;
-          border-radius: var(--radius-md, 10px);
-          font-size: 0.875rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          flex-shrink: 0;
-        }
-
-        .comandas-header__btn-nova:hover {
-          background: var(--color-brand-hover);
-        }
-
         .comandas-toolbar {
           display: flex;
           gap: 1rem;
           align-items: center;
           flex-wrap: wrap;
-        }
-
-        .comandas-search {
-          flex: 1;
-          min-width: 260px;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md, 10px);
-          padding: 0.6rem 0.875rem;
-        }
-
-        .comandas-search__icon {
-          color: var(--color-text-secondary);
-        }
-
-        .comandas-search__input {
-          background: transparent;
-          border: none;
-          color: var(--color-text-primary);
-          font-size: 0.875rem;
-          width: 100%;
-          outline: none;
-        }
-
-        .comandas-tabs {
-          display: flex;
-          gap: 0.375rem;
-          background: var(--color-bg-secondary);
-          padding: 3px;
-          border-radius: var(--radius-md, 10px);
-          border: 1px solid var(--color-border);
-        }
-
-        .comandas-tab {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          padding: 0.45rem 0.85rem;
-          border-radius: var(--radius-sm, 8px);
-          border: none;
-          background: transparent;
-          color: var(--color-text-secondary);
-          font-size: 0.8125rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .comandas-tab--active {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
-        }
-
-        .comandas-tab__badge {
-          font-size: 0.6875rem;
-          background: rgba(217, 108, 0, 0.15);
-          color: var(--color-brand-primary);
-          padding: 1px 6px;
-          border-radius: var(--radius-full, 9999px);
         }
 
         .comandas-grid {
@@ -510,24 +419,6 @@ export const Comandas: React.FC = () => {
           font-size: 0.8125rem;
           font-weight: 700;
           color: var(--color-text-secondary);
-        }
-
-        .comanda-card__status {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          padding: 2px 8px;
-          border-radius: var(--radius-sm, 6px);
-        }
-
-        .status--open {
-          background: rgba(217, 108, 0, 0.15);
-          color: var(--color-brand-primary);
-        }
-
-        .status--paid {
-          background: rgba(14, 159, 110, 0.15);
-          color: var(--color-success);
         }
 
         .comanda-card__body {
@@ -615,40 +506,13 @@ export const Comandas: React.FC = () => {
           gap: 0.5rem;
         }
 
-        .comanda-card__action-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          padding: 0.5rem 0.875rem;
-          border-radius: var(--radius-sm, 8px);
-          font-size: 0.8125rem;
-          font-weight: 600;
-          border: none;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
         .comanda-card__action-btn--whatsapp {
-          background: rgba(14, 159, 110, 0.12);
-          color: var(--color-success);
-          border: 1px solid rgba(14, 159, 110, 0.25);
-          padding: 0.5rem;
+          color: var(--color-success) !important;
+          background: rgba(14, 159, 110, 0.12) !important;
+          border: 1px solid rgba(14, 159, 110, 0.25) !important;
         }
 
-        .comanda-card__action-btn--checkout {
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          font-weight: 700;
-        }
-
-        .comanda-card__action-btn--view {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          border: 1px solid var(--color-border);
-        }
-
-        .comandas-loading,
-        .comandas-empty {
+        .comandas-loading {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -660,41 +524,10 @@ export const Comandas: React.FC = () => {
           border-radius: var(--radius-lg, 16px);
         }
 
-        .comandas-empty__icon {
-          color: var(--color-text-secondary);
-          margin-bottom: 0.75rem;
-        }
-
-        .comandas-empty__btn {
-          margin-top: 1rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          padding: 0.65rem 1.25rem;
-          border-radius: var(--radius-md, 10px);
-          border: none;
-          font-weight: 700;
-          font-size: 0.875rem;
-          cursor: pointer;
-          transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .comandas-empty__btn:hover {
-          background: var(--color-brand-hover);
-        }
-
         @media (max-width: 768px) {
           .comandas-header {
             flex-direction: column;
             align-items: stretch;
-          }
-          .comandas-header__btn-nova {
-            justify-content: center;
-            padding: 0.85rem;
-            font-size: 0.9375rem;
-            min-height: 48px;
           }
           .comandas-toolbar {
             flex-direction: column;

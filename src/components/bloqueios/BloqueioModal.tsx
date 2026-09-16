@@ -7,6 +7,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
+import { Button, IconButton, Select, Input, Checkbox, EmptyState } from '../ui';
 import { supabase } from '../../lib/supabase';
 import { localDateTimeToIso, localDayUtcRange, dateInZone, formatTimeInZone } from '../../lib/timezone';
 import {
@@ -364,9 +365,6 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
       <div className="bloqueio-modal-shell">
         <div className="bloqueio-modal-header">
           <div className="bloqueio-header-left">
-            <div className="bloqueio-icon-badge">
-              <HugeiconsIcon icon={Cancel01Icon} size={20} />
-            </div>
             <div>
               <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
                 Bloquear horário do barbeiro
@@ -376,14 +374,12 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <IconButton
+            icon={<HugeiconsIcon icon={Cancel01Icon} size={20} />}
             onClick={onClose}
-            type="button"
-            className="bloqueio-close-btn"
             aria-label="Fechar"
-          >
-            <HugeiconsIcon icon={Cancel01Icon} size={20} />
-          </button>
+            variant="ghost"
+          />
         </div>
 
         {errorMsg && (
@@ -393,17 +389,14 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="bloqueio-modal-form">
-          <div className="bloqueio-form-group">
-            <label className="bloqueio-label">
-              Profissional *
-            </label>
-            <select
+          <div className="bloqueio-form-row">
+            <Select
+              label="Profissional *"
               value={selectedProfId}
               onChange={(e) => {
                 setSelectedProfId(e.target.value);
                 setSelectedSlots([]);
               }}
-              className="bloqueio-select"
               required
             >
               <option value="">Selecione o profissional...</option>
@@ -412,17 +405,12 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
                   {p.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
 
-          <div className="bloqueio-form-group">
-            <label className="bloqueio-label">
-              Motivo do bloqueio *
-            </label>
-            <select
+            <Select
+              label="Motivo do bloqueio *"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="bloqueio-select"
             >
               <option value="Almoço">Almoço</option>
               <option value="Folga do dia">Folga do dia</option>
@@ -430,69 +418,63 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
               <option value="Manutenção de equipamento">Manutenção de equipamento</option>
               <option value="Treinamento">Treinamento</option>
               <option value="Outro">Outro</option>
-            </select>
+            </Select>
           </div>
 
-          <div className="bloqueio-form-group">
-            <label className="bloqueio-label">
-              Data *
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setSelectedSlots([]);
-              }}
-              className="bloqueio-input-date"
-              required
-            />
-          </div>
+          <Input
+            type="date"
+            label="Data *"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setSelectedSlots([]);
+            }}
+            required
+          />
 
-          <div className="bloqueio-checkbox-group">
-            <input
-              type="checkbox"
+          <div className="bloqueio-checkbox-box">
+            <Checkbox
               id="isAllDay"
               checked={isAllDay}
               onChange={(e) => setIsAllDay(e.target.checked)}
-              className="bloqueio-checkbox"
+              label="Bloquear o expediente inteiro deste dia"
             />
-            <label htmlFor="isAllDay" className="bloqueio-checkbox-label">
-              Bloquear o expediente inteiro deste dia
-            </label>
           </div>
 
           {!isAllDay && (
             <div className="bloqueio-slots-section">
               <div className="bloqueio-slots-header">
-                <label className="bloqueio-label">
+                <span className="bloqueio-slots-title">
                   Horários para bloqueio * ({selectedSlots.length} selecionado{selectedSlots.length === 1 ? '' : 's'})
-                </label>
+                </span>
                 {availableSlots.length > 0 && (
                   <div className="bloqueio-slots-actions">
-                    <button
+                    <Button
+                      size="xs"
+                      variant="outline"
                       type="button"
                       onClick={handleSelectAllSlots}
-                      className="btn-slot-quick-action"
                     >
                       Todos
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
                       type="button"
                       onClick={handleClearSlots}
-                      className="btn-slot-quick-action"
                     >
                       Limpar
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
 
               {availableSlots.length === 0 ? (
-                <div className="bloqueio-no-slots">
-                  <HugeiconsIcon icon={Clock01Icon} size={18} />
-                  <span>Nenhum horário disponível para bloqueio nesta data (folga, barbearia fechada ou horários já ocupados por agendamentos/bloqueios).</span>
-                </div>
+                <EmptyState
+                  icon={<HugeiconsIcon icon={Clock01Icon} size={24} />}
+                  title="Nenhum horário disponível"
+                  description="Nenhum horário disponível para bloqueio nesta data (folga, barbearia fechada ou horários já ocupados por agendamentos/bloqueios)."
+                />
               ) : (
                 <div className="bloqueio-slots-grid">
                   {availableSlots.map((slot) => {
@@ -524,27 +506,24 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           )}
 
           <div className="bloqueio-actions-footer">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
-              className="bloqueio-btn-secondary"
+              fullWidth
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="danger"
+              loading={isSubmitting}
               disabled={isSubmitting || (!isAllDay && availableSlots.length === 0)}
-              className="bloqueio-btn-danger"
+              fullWidth
+              leftIcon={<HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} />}
             >
-              {isSubmitting ? (
-                <span>Salvando...</span>
-              ) : (
-                <>
-                  <HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} />
-                  <span>Confirmar bloqueio</span>
-                </>
-              )}
-            </button>
+              Confirmar bloqueio
+            </Button>
           </div>
         </form>
       </div>
@@ -569,17 +548,17 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           width: 100%;
           max-width: 520px;
           background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          border: 1px solid var(--color-text-primary);
           border-radius: var(--radius-xl);
-          box-shadow: var(--shadow-xl);
-          padding: 1.5rem;
+          box-shadow: var(--shadow-xl), 0 0 0 0.8px var(--color-text-primary);
+          padding: 1.25rem;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0.85rem;
           font-family: var(--font-family-base);
           color: var(--color-text-primary);
           box-sizing: border-box;
-          max-height: 90vh;
+          max-height: calc(100vh - 2rem);
           overflow-y: auto;
           overflow-x: hidden;
         }
@@ -588,8 +567,8 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid var(--color-border);
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
           box-sizing: border-box;
           width: 100%;
         }
@@ -600,51 +579,22 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           gap: 0.75rem;
         }
 
-        .bloqueio-icon-badge {
-          width: 40px;
-          height: 40px;
-          border-radius: var(--radius-lg);
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
         .bloqueio-modal-title {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
+          font-size: 1.1rem;
+          font-weight: 800;
           color: var(--color-text-primary);
           margin: 0;
+          letter-spacing: -0.01em;
         }
 
         .bloqueio-modal-subtitle {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          margin: 0.2rem 0 0 0;
-        }
-
-        .bloqueio-close-btn {
-          min-width: 44px;
-          min-height: 44px;
-          border-radius: var(--radius-full);
-          border: none;
-          background: transparent;
-          color: var(--color-text-secondary);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .bloqueio-close-btn:hover {
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
+          margin: 0.15rem 0 0 0;
         }
 
         .bloqueio-error-alert {
-          padding: 0.75rem 1rem;
+          padding: 0.65rem 0.85rem;
           border-radius: var(--radius-md);
           background-color: var(--color-error-bg);
           border: 1px solid var(--color-error);
@@ -658,89 +608,45 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         .bloqueio-modal-form {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.75rem;
           width: 100%;
-          max-width: 100%;
           box-sizing: border-box;
-          min-width: 0;
         }
 
-        .bloqueio-form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
+        .bloqueio-form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
           width: 100%;
-          max-width: 100%;
           box-sizing: border-box;
-          min-width: 0;
         }
 
-        .bloqueio-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+        @media (max-width: 480px) {
+          .bloqueio-form-row {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+          }
         }
 
-        .bloqueio-select,
-        .bloqueio-input-date {
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-          padding: 0.65rem 0.85rem;
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .bloqueio-select:focus,
-        .bloqueio-input-date:focus {
-          border-color: var(--color-brand-primary);
-        }
-
-        .bloqueio-checkbox-group {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
+        .bloqueio-checkbox-box {
           padding: 0.5rem 0.75rem;
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
+          background-color: var(--color-brand-lightest);
+          border-radius: 8px;
+          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
           box-sizing: border-box;
           width: 100%;
-          max-width: 100%;
-        }
-
-        .bloqueio-checkbox {
-          width: 16px;
-          height: 16px;
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-
-        .bloqueio-checkbox-label {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          cursor: pointer;
         }
 
         .bloqueio-slots-section {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.85rem;
+          background: var(--color-brand-lightest);
+          border-radius: 12px;
+          padding: 0.75rem;
+          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
+          box-sizing: border-box;
+          width: 100%;
         }
 
         .bloqueio-slots-header {
@@ -749,69 +655,49 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           align-items: center;
         }
 
+        .bloqueio-slots-title {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
         .bloqueio-slots-actions {
           display: flex;
           gap: 0.35rem;
         }
 
-        .btn-slot-quick-action {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 3px 8px;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-secondary);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-slot-quick-action:hover {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
-        }
-
-        .bloqueio-no-slots {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          background: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.2);
-          border-radius: var(--radius-sm);
-          color: var(--color-text-secondary);
-          font-size: 12px;
-        }
-
         .bloqueio-slots-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-          gap: 0.5rem;
-          max-height: 220px;
+          grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+          gap: 0.4rem;
+          max-height: 180px;
           overflow-y: auto;
           padding: 2px;
+          box-sizing: border-box;
         }
 
         .bloqueio-slot-card {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.45rem 0.6rem;
+          gap: 0.45rem;
+          padding: 0.35rem 0.55rem;
           background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.1));
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
           user-select: none;
         }
 
         .bloqueio-slot-card:hover {
-          border-color: rgba(217, 108, 0, 0.4);
+          border-color: var(--color-text-primary);
         }
 
         .bloqueio-slot-card--selected {
-          background: rgba(217, 72, 72, 0.12);
+          background: rgba(217, 72, 72, 0.1);
           border-color: var(--color-error);
         }
 
@@ -834,54 +720,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           gap: 0.75rem;
           padding-top: 0.5rem;
           width: 100%;
-          max-width: 100%;
           box-sizing: border-box;
-        }
-
-        .bloqueio-btn-secondary {
-          flex: 1;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          white-space: nowrap;
-          text-align: center;
-        }
-
-        .bloqueio-btn-secondary:hover {
-          background-color: var(--color-border);
-        }
-
-        .bloqueio-btn-danger {
-          flex: 1;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-lg);
-          border: none;
-          background-color: var(--color-error);
-          color: white;
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          transition: all 0.2s ease;
-          white-space: nowrap;
-        }
-
-        .bloqueio-btn-danger:hover:not(:disabled) {
-          background-color: #d33838;
-        }
-
-        .bloqueio-btn-danger:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
         }
       `}</style>
     </div>

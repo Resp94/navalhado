@@ -177,7 +177,7 @@ select is(
   '10:00',
   'free-choice schedule begins at the professional effective start');
 
-select * from finish();
+select * from finish(true);
 rollback;
 
 begin;
@@ -265,5 +265,5 @@ select ok(exists(
   where slot_time = '09:00' and available is true
 ), 'public free-choice schedule reflects the professional 09:00 start');
 
-select * from finish();
+select * from finish(true);
 rollback;

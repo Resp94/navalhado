@@ -121,10 +121,12 @@ describe('ClienteRepository', () => {
       {
         id: 'cmd1',
         comanda_number: 101,
-        status: 'closed',
+        appointment_id: 'a1',
+        status: 'fechada' as const,
         total_final: 80,
-        closed_at: '2026-02-10T11:00:00Z',
-        created_at: '2026-02-10T10:00:00Z',
+        tip_amount: 0,
+        closed_at: '2026-01-10T11:00:00Z',
+        created_at: '2026-01-10T10:00:00Z',
         items: [
           { id: 'i1', name: 'Corte', quantity: 1, unit_price: 50, item_type: 'service' as const },
           { id: 'i2', name: 'Pomada', quantity: 1, unit_price: 30, item_type: 'product' as const },

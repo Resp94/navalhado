@@ -1,4 +1,5 @@
 export type CaixaStatus = 'open' | 'closed';
+export type CashSessionFinancialState = 'open' | 'closed' | 'closed_with_adjustment';
 
 export type PaymentMethod =
   | 'pix'
@@ -46,13 +47,24 @@ export interface CashSession {
   closed_at: string | null;
   initial_amount: number;
   closing_amount: number | null;
+  expected_amount?: number | null;
+  difference_amount?: number | null;
+  cash_received_amount?: number | null;
+  pix_received_amount?: number | null;
+  card_received_amount?: number | null;
+  other_received_amount?: number | null;
+  payment_count?: number | null;
+  supplies_amount?: number | null;
+  withdrawals_amount?: number | null;
+  calculation_version?: string | null;
+  adjustment_count?: number;
+  financial_state?: CashSessionFinancialState;
   status: CaixaStatus;
   notes: string | null;
   created_at?: string;
   opened_by_name?: string;
   closed_by_name?: string;
   total_revenue?: number;
-  payment_count?: number;
 }
 
 export interface AbrirCaixaInput {
@@ -64,9 +76,16 @@ export interface AbrirCaixaInput {
 
 export interface FecharCaixaInput {
   session_id: string;
+  tenant_id: string;
   closed_by?: string | null;
   closing_amount: number;
   notes?: string | null;
+}
+
+export interface ReabrirCaixaInput {
+  session_id: string;
+  tenant_id: string;
+  reason: string;
 }
 
 export type CashMovementType = 'sangria' | 'suprimento';
@@ -89,6 +108,19 @@ export interface RegistrarMovimentacaoInput {
   amount: number;
   reason: string;
   performed_by?: string | null;
+}
+
+// Ticket 03 da spec 036: movimento manual (sangria/suprimento) por RPC, com
+// trava de saldo na gaveta e autor tirado da sessao autenticada no servidor
+// -- por isso este input, ao contrario de RegistrarMovimentacaoInput, nao tem
+// performed_by. A insercao direta em cash_movements (registrarMovimentacao
+// acima) continua existindo ate o ticket 04 revogar a politica.
+export interface RegistrarMovimentoManualInput {
+  tenant_id: string;
+  cash_session_id: string;
+  type: CashMovementType;
+  amount: number;
+  reason: string;
 }
 
 export interface TurnPaymentsSummary {
@@ -117,6 +149,109 @@ export interface DailyFinancialSummary {
   payment_count: number;
 }
 
+export interface RegistrarAjusteCaixaInput {
+  session_id: string;
+  tenant_id: string;
+  adjustment_amount: number;
+  reason: string;
+}
+
+export interface AjusteCaixaRegistrado {
+  success: boolean;
+  adjustment_id: string;
+  cash_session_id: string;
+  original_expected_amount: number;
+  original_closing_amount: number;
+  original_difference_amount: number;
+  previous_adjustment_amount: number;
+  adjusted_closing_amount: number;
+  adjusted_difference_amount: number;
+}
+
+export interface CashSessionAdjustmentEntry {
+  id: string;
+  created_by: string | null;
+  reason: string;
+  adjustment_amount: number;
+  original_expected_amount: number;
+  original_closing_amount: number;
+  original_difference_amount: number;
+  adjusted_expected_amount: number;
+  adjusted_closing_amount: number;
+  adjusted_difference_amount: number;
+  created_at: string;
+}
+
+export interface CashSessionReopeningEntry {
+  id: string;
+  reopened_by: string | null;
+  reopened_at: string;
+  reason: string;
+  original_closing_amount: number | null;
+  original_expected_amount: number | null;
+  original_difference_amount: number | null;
+  original_closed_by: string | null;
+  original_closed_at: string | null;
+}
+
+export interface CashSessionMovementEntry {
+  id: string;
+  type: string;
+  /**
+   * Sentido do movimento na gaveta ('entrada' ou 'saida'), materializado pelo
+   * ticket 01 da spec 036 (cash_movements.direction). Chave aditiva: um tipo
+   * futuro sem rótulo conhecido ainda tem sentido, então o extrato cai num
+   * rótulo genérico em vez de omitir a linha.
+   */
+  direction: 'entrada' | 'saida';
+  amount: number;
+  reason: string | null;
+  performed_by: string | null;
+  payout_id: string | null;
+  /** Vínculo com o profissional, usado hoje pelo vale (ticket 05 da spec 034/036). */
+  professional_id: string | null;
+  /** Vínculo com a Baixa de Conta a Pagar pela gaveta (ticket 15/036). */
+  payable_settlement_id: string | null;
+  /** Descrição da Conta a Pagar, para o extrato mostrar rótulo próprio no pagamento pela gaveta (ticket 15/036). */
+  payable_description: string | null;
+  created_at: string;
+  reversed_at: string | null;
+  reversed_by: string | null;
+  reversal_reason: string | null;
+}
+
+export interface CashSessionStatement {
+  session: CashSession;
+  adjustments: CashSessionAdjustmentEntry[];
+  adjusted_difference_amount: number;
+  movements: CashSessionMovementEntry[];
+  reopenings: CashSessionReopeningEntry[];
+}
+
+export type CashMovementDirection = 'entrada' | 'saida';
+
+export interface CashSessionMovementTypeAmount {
+  type: string;
+  direction: CashMovementDirection;
+  amount: number;
+}
+
+/**
+ * Prévia do valor esperado da gaveta, lida do contrato único de apuração do banco
+ * (`public.get_cash_session_expected_amount`, ticket 01/036). Só existe para sessão ABERTA:
+ * sessão fechada mostra a fotografia persistida no fechamento, não este contrato.
+ */
+export interface CashSessionExpectedAmount {
+  session_id: string;
+  tenant_id: string;
+  initial_amount: number;
+  cash_received: number;
+  inflow_amount: number;
+  outflow_amount: number;
+  expected_amount: number;
+  movements_by_type: CashSessionMovementTypeAmount[];
+}
+
 export interface ICaixaAdapter {
   obterSessaoAtiva(tenantId: string): Promise<CashSession | null>;
   abrirCaixa(input: AbrirCaixaInput): Promise<CashSession>;
@@ -126,6 +261,11 @@ export interface ICaixaAdapter {
   obterResumoTurno(tenantId: string, sinceDate: string, sessionId?: string): Promise<TurnPaymentsSummary>;
   obterResumoFinanceiroDiario(query: DailyFinancialSummaryQuery): Promise<DailyFinancialSummary[]>;
   registrarMovimentacao(input: RegistrarMovimentacaoInput): Promise<CashMovement>;
+  registrarMovimentoManual(input: RegistrarMovimentoManualInput): Promise<CashMovement>;
   listarMovimentacoes(sessionId: string): Promise<CashMovement[]>;
   obterResumoMovimentacoes(sessionId: string): Promise<{ suprimentos: number; sangrias: number }>;
+  reabrirCaixa(input: ReabrirCaixaInput): Promise<CashSession>;
+  registrarAjuste(input: RegistrarAjusteCaixaInput): Promise<AjusteCaixaRegistrado>;
+  obterExtrato(sessionId: string, tenantId: string): Promise<CashSessionStatement>;
+  obterValorEsperadoGaveta(sessionId: string, tenantId: string): Promise<CashSessionExpectedAmount>;
 }

@@ -8,6 +8,7 @@ import {
   WarningIcon, 
   SuccessIcon 
 } from '../../components/Icons';
+import { StatCard, Button, Skeleton } from '../../components/ui';
 
 // Tipagem dos dados retornados da RPC
 interface RevenueTrendItem {
@@ -275,14 +276,16 @@ export const Dashboard: React.FC = () => {
   };
 
   if (loading || !metrics) {
-    // Retorna o esqueleto de carregamento
+    // Retorna o esqueleto de carregamento com o componente Skeleton do Design System
     return (
-      <div className="skeleton-container" style={{ padding: '2rem' }}>
-        <header className="skeleton-header" style={{ height: '50px', borderBottom: '1px solid var(--color-border)' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '2rem' }}>
-          {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: '120px' }} />)}
+      <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <Skeleton height="50px" style={{ width: '100%', borderRadius: '8px' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} height="130px" style={{ borderRadius: '12px' }} />
+          ))}
         </div>
-        <div className="skeleton" style={{ height: '300px', marginTop: '2rem' }} />
+        <Skeleton height="300px" style={{ borderRadius: '12px' }} />
       </div>
     );
   }
@@ -324,9 +327,9 @@ export const Dashboard: React.FC = () => {
               <span className="admin-header__user-name">{adminName}</span>
               <span className="admin-header__user-role">Proprietário</span>
             </div>
-            <button onClick={handleLogout} className="btn btn--outline-danger btn--sm">
+            <Button variant="danger-outline" size="sm" onClick={handleLogout}>
               Sair
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -338,47 +341,35 @@ export const Dashboard: React.FC = () => {
             <p>Visão consolidada do faturamento e da ativação da sua plataforma.</p>
           </section>
 
-          {/* GRID DE MÉTRICAS CARD */}
+          {/* GRID DE MÉTRICAS CARD COM DESIGN SYSTEM */}
           <section className="metrics-grid">
-            {/* Card 1: MRR */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Receita Recorrente (MRR)</span>
-                <span className="metric-card__icon text-brand"><InfoIcon size={20} /></span>
-              </div>
-              <div className="metric-card__value">{formatCurrency(metrics.mrr)}</div>
-              <p className="metric-card__desc">Valor total das assinaturas ativas</p>
-            </div>
+            <StatCard
+              title="Receita Recorrente (MRR)"
+              value={formatCurrency(metrics.mrr)}
+              subtitle="Valor total das assinaturas ativas"
+              icon={<span className="text-brand"><InfoIcon size={20} /></span>}
+            />
 
-            {/* Card 2: Faturamento do Mês */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Faturamento do Mês</span>
-                <span className="metric-card__icon text-success"><SuccessIcon size={20} /></span>
-              </div>
-              <div className="metric-card__value">{formatCurrency(metrics.revenue_this_month)}</div>
-              <p className="metric-card__desc">Cobranças pagas neste mês</p>
-            </div>
+            <StatCard
+              title="Faturamento do Mês"
+              value={formatCurrency(metrics.revenue_this_month)}
+              subtitle="Cobranças pagas neste mês"
+              icon={<span className="text-success"><SuccessIcon size={20} /></span>}
+            />
 
-            {/* Card 3: Tenants Ativos */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Barbearias Ativas</span>
-                <span className="metric-card__icon text-success"><SuccessIcon size={20} /></span>
-              </div>
-              <div className="metric-card__value">{metrics.active_tenants}</div>
-              <p className="metric-card__desc">Contratos ativos com acesso liberado</p>
-            </div>
+            <StatCard
+              title="Barbearias Ativas"
+              value={metrics.active_tenants}
+              subtitle="Contratos ativos com acesso liberado"
+              icon={<span className="text-success"><SuccessIcon size={20} /></span>}
+            />
 
-            {/* Card 4: Tenants Suspensos */}
-            <div className="metric-card">
-              <div className="metric-card__header">
-                <span className="metric-card__title">Inadimplentes / Suspensas</span>
-                <span className="metric-card__icon text-error"><WarningIcon size={20} /></span>
-              </div>
-              <div className="metric-card__value">{metrics.suspended_tenants}</div>
-              <p className="metric-card__desc">Barbearias com acesso suspenso</p>
-            </div>
+            <StatCard
+              title="Inadimplentes / Suspensas"
+              value={metrics.suspended_tenants}
+              subtitle="Barbearias com acesso suspenso"
+              icon={<span className="text-error"><WarningIcon size={20} /></span>}
+            />
           </section>
 
           {/* SEÇÃO GRÁFICO HISTÓRICO */}
@@ -389,12 +380,14 @@ export const Dashboard: React.FC = () => {
                 <p>Faturamento mensal dos últimos 12 meses</p>
               </div>
               
-              <button onClick={() => navigate('/admin/tenants')} className="btn btn--primary btn--sm">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate('/admin/tenants')}
+                rightIcon={<ArrowRightIcon size={12} />}
+              >
                 Ir para barbearias
-                <span className="btn__icon" style={{ width: '1.25rem', height: '1.25rem' }}>
-                  <ArrowRightIcon size={12} />
-                </span>
-              </button>
+              </Button>
             </div>
             
             {renderSVGChart()}
@@ -587,54 +580,6 @@ export const Dashboard: React.FC = () => {
           width: 100%;
         }
 
-        .metric-card {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-          box-shadow: var(--shadow-sm);
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .metric-card:hover {
-          transform: translateY(-3px);
-          box-shadow: var(--shadow-md);
-        }
-
-        .metric-card__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 0.5rem;
-        }
-
-        .metric-card__title {
-          font-size: var(--font-size-xs);
-          text-transform: uppercase;
-          font-weight: 600;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
-        }
-
-        .metric-card__icon {
-          display: flex;
-          align-items: center;
-        }
-
-        .metric-card__value {
-          font-size: var(--font-size-2xl);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          letter-spacing: -0.01em;
-          margin-bottom: 0.25rem;
-        }
-
-        .metric-card__desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
         .text-brand { color: var(--color-brand-primary); }
         .text-success { color: var(--color-success); }
         .text-error { color: var(--color-error); }
@@ -673,40 +618,6 @@ export const Dashboard: React.FC = () => {
           width: 100%;
           height: 240px;
           overflow: visible;
-        }
-
-        .btn--outline-danger {
-          border: 1px solid var(--color-error);
-          background: transparent;
-          color: var(--color-error);
-          transition: all 0.2s ease;
-        }
-
-        .btn--outline-danger:hover {
-          background-color: var(--color-error-bg);
-        }
-
-        .btn--sm {
-          padding: 0.5rem 1rem;
-          font-size: var(--font-size-xs);
-        }
-
-        /* Skeleton Styles */
-        .skeleton {
-          background: linear-gradient(
-            90deg,
-            var(--color-bg-secondary) 25%,
-            var(--color-border) 37%,
-            var(--color-bg-secondary) 63%
-          );
-          background-size: 400% 100%;
-          animation: skeleton-loading 1.4s ease infinite;
-          border-radius: var(--radius-md);
-        }
-
-        @keyframes skeleton-loading {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
         }
 
         @media (max-width: 768px) {

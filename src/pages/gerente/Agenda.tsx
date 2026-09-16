@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
@@ -17,29 +17,29 @@ import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutM
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
+import { CustomDatePicker } from '../../components/CustomDatePicker';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
 import { getAppointmentCardState } from '../../lib/appointment-card-state';
+import { calculateAgendaHorizontalLayout } from '../../lib/agenda-layout';
 import type { WaitingListEntry } from '../../modules/espera/types';
 import type { BlockedSlot } from '../../modules/bloqueios/types';
 import type { Comanda } from '../../modules/comandas/types';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Calendar02Icon,
   Calendar03Icon,
   Clock01Icon,
-  PlusSignIcon,
+  AddCircleIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
-  FilterIcon,
   CheckmarkCircle02Icon,
-  Note01Icon,
   AlertCircleIcon,
   UnavailableIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 import { MobileAgendaView } from './mobile/MobileAgendaView';
+import { AgendaEquipeFilter } from './AgendaEquipeFilter';
 import {
   getProfessionalDaySchedule,
   isProfessionalOnBreak,
@@ -55,6 +55,7 @@ import {
   getEffectiveProfessionalDaySchedule,
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
+  timeToMinutes,
 } from '../../lib/schedule';
 import type {
   FittingTimeMode,
@@ -151,7 +152,7 @@ interface CardLayout {
 // Mapeamento e auxílio de horários de funcionamento por dia da semana
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
-const DEFAULT_SLOT_HEIGHT_PX = 104;
+const DEFAULT_SLOT_HEIGHT_PX = 76;
 const ANY_PROFESSIONAL = 'any';
 
 const toScheduleGridSegment = (
@@ -165,6 +166,142 @@ const toScheduleGridSegment = (
     breakStart: schedule.break_start,
     breakEnd: schedule.break_end,
   };
+};
+
+interface AgendaGridSkeletonProps {
+  viewMode: 'day' | 'week';
+  professionals: Professional[];
+  weekDays: Array<{ dateStr: string; label: string; shortWeekday: string }>;
+  timeSlots: string[];
+  slotHeightPx: number;
+}
+
+const AgendaGridSkeleton: React.FC<AgendaGridSkeletonProps> = ({
+  viewMode,
+  professionals,
+  weekDays,
+  timeSlots,
+  slotHeightPx,
+}) => {
+  const displaySlots =
+    timeSlots.length > 0
+      ? timeSlots
+      : ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
+  const columns =
+    viewMode === 'week'
+      ? weekDays.map((d) => ({
+          id: d.dateStr,
+          initials: d.shortWeekday.slice(0, 2),
+        }))
+      : (professionals.length > 0
+          ? professionals
+          : [
+              { id: 'sk-1', name: 'Barbeiro 1' },
+              { id: 'sk-2', name: 'Barbeiro 2' },
+              { id: 'sk-3', name: 'Barbeiro 3' },
+            ]
+        ).map((p) => ({
+          id: p.id,
+          initials: (p.name || 'BA').slice(0, 2).toUpperCase(),
+        }));
+
+  return (
+    <div
+      className="agenda-timeline-board agenda-timeline-board--skeleton"
+      aria-busy="true"
+      aria-label="Carregando grade da agenda"
+    >
+      {/* Coluna Fixa da Régua de Horários */}
+      <div className="timeline-axis-column">
+        <div className="timeline-axis-header">
+          <HugeiconsIcon icon={Clock01Icon} size={16} />
+        </div>
+        <div className="timeline-axis-body">
+          {displaySlots.map((slot) => (
+            <div
+              key={slot}
+              className="time-slot-label"
+              style={{ height: `${slotHeightPx}px` }}
+            >
+              <div
+                className="skeleton-box skeleton-time-label"
+                style={{ width: '38px', height: '11px', margin: '0 auto', borderRadius: '4px' }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Colunas da Grade com Shimmer */}
+      <div className="professionals-columns-container">
+        {columns.map((col, colIndex) => (
+          <div key={col.id} className="professional-timeline-column">
+            {/* Cabeçalho Skeleton */}
+            <div className="prof-col-header">
+              <div className="prof-col-avatar skeleton-box" style={{ color: 'transparent' }}>
+                {col.initials}
+              </div>
+              <div className="prof-col-info">
+                <div
+                  className="skeleton-box skeleton-title"
+                  style={{ width: viewMode === 'week' ? '56px' : '90px' }}
+                />
+                <div
+                  className="skeleton-box skeleton-subtitle"
+                  style={{ width: '64px', marginTop: '4px' }}
+                />
+              </div>
+            </div>
+
+            {/* Corpo da Grade com Slots e Cards Fantasmas */}
+            <div className="prof-col-grid-body">
+              {displaySlots.map((slot) => (
+                <div
+                  key={slot}
+                  className="grid-slot-cell"
+                  style={{ height: `${slotHeightPx}px` }}
+                />
+              ))}
+
+              {/* Cards Fantasma de Agendamento em Posições Realistas */}
+              {colIndex % 2 === 0 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 0.5}px`, height: `${slotHeightPx * 1.5}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                  <div className="skeleton-box skeleton-card-service" />
+                </div>
+              )}
+
+              {colIndex % 3 === 1 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 2.6}px`, height: `${slotHeightPx * 1.2}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                </div>
+              )}
+
+              {colIndex % 2 === 1 && (
+                <div
+                  className="skeleton-appointment-card"
+                  style={{ top: `${slotHeightPx * 4.6}px`, height: `${slotHeightPx * 1.7}px` }}
+                >
+                  <div className="skeleton-box skeleton-card-badge" />
+                  <div className="skeleton-box skeleton-card-name" />
+                  <div className="skeleton-box skeleton-card-service" />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export const Agenda: React.FC = () => {
@@ -184,6 +321,8 @@ export const Agenda: React.FC = () => {
 
   // Estados de Controle de Escopo Temporal (Dia vs Semana)
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [isViewTransitioning, setIsViewTransitioning] = useState(false);
+  const isViewTransitioningRef = useRef(false);
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
 
   // Estados de Controle de Data e Filtro
@@ -201,7 +340,22 @@ export const Agenda: React.FC = () => {
 
   // Estados de Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  const handleViewModeChange = useCallback((mode: 'day' | 'week') => {
+    if (mode === viewMode) return;
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
+    if (mode === 'week') {
+      if (selectedProfessionalIds.length === 1 && selectedProfessionalIds[0] !== selectedWeekProfId) {
+        setSelectedWeekProfId(selectedProfessionalIds[0]);
+      } else if (!selectedWeekProfId && professionals.length > 0) {
+        setSelectedWeekProfId(professionals[0].id);
+      }
+    }
+    setViewMode(mode);
+  }, [viewMode, selectedProfessionalIds, selectedWeekProfId, professionals]);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isBloqueioModalOpen, setIsBloqueioModalOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -211,6 +365,27 @@ export const Agenda: React.FC = () => {
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
   const [isRemovingBlock, setIsRemovingBlock] = useState(false);
+
+  // Fechar o DatePicker ao clicar fora ou pressionar ESC
+  useEffect(() => {
+    if (!isDatePickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDatePickerOpen]);
 
   // Estados do Formulário de Agendamento / Encaixe
   const [formDate, setFormDate] = useState(selectedDate);
@@ -326,132 +501,119 @@ export const Agenda: React.FC = () => {
     DEFAULT_SLOT_DURATION_MINUTES
   );
   const slotHeightPx = Math.max(50, Math.round((slotIntervalMinutes / 30) * DEFAULT_SLOT_HEIGHT_PX));
-  const pxPerMinute = slotHeightPx / slotIntervalMinutes;
 
-  // Horários de Início e Término da Grade Dinâmicos Conforme Funcionamento da Barbearia
-  const { gridStartTotalMin, gridEndTotalMin } = useMemo(() => {
+  // Gerar Slots de Horário da Régua Dinamicamente
+  const timeSlots = useMemo(() => {
+    const schedules: ScheduleGridSegment[] = [];
+
+    if (selectedProfessionalIds.length === 0) {
+      return [];
+    }
+
+    const filteredProfessionals = professionals.filter((p) =>
+      selectedProfessionalIds.includes(p.id) && p.is_active
+    );
+
     if (viewMode === 'week') {
-      let minOpen = 24 * 60;
-      let maxClose = 0;
-      let anyActive = false;
-
       weekDays.forEach((d) => {
-        const bh = getDayBusinessHours(d.dateStr, tenant.businessHours);
-        if (bh.active) {
-          anyActive = true;
-          const [oh, om] = bh.open.split(':').map(Number);
-          const [ch, cm] = bh.close.split(':').map(Number);
-          minOpen = Math.min(minOpen, oh * 60 + om);
-          maxClose = Math.max(maxClose, ch * 60 + cm);
+        const dayBh = getDayBusinessHours(d.dateStr, tenant.businessHours);
+        if (!dayBh.active) return;
+
+        filteredProfessionals.forEach((p) => {
+          const sched = getEffectiveProfessionalDaySchedule(p, d.dateStr, tenant.businessHours);
+          if (sched) {
+            const segment = toScheduleGridSegment(sched);
+            if (segment) schedules.push(segment);
+          } else if (!p.weekly_schedule) {
+            // Apenas se o profissional não tiver escala configurada, adota horário do dia da barbearia
+            schedules.push({
+              start: dayBh.open || '08:00',
+              end: dayBh.close || '20:00',
+            });
+          }
+        });
+      });
+
+      // Incluir horários de agendamentos e bloqueios existentes dos profissionais selecionados na semana
+      appointments.forEach((a) => {
+        if (selectedProfessionalIds.includes(a.professional_id)) {
+          const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
+          if (weekDays.some((d) => d.dateStr === aDate)) {
+            schedules.push({
+              start: formatTimeInZone(a.start_time, tenant.timezone),
+              end: formatTimeInZone(a.end_time, tenant.timezone),
+            });
+          }
         }
       });
 
-      if (!anyActive) {
-        minOpen = 9 * 60;
-        maxClose = 18 * 60;
+      blockedSlots.forEach((b) => {
+        if (selectedProfessionalIds.includes(b.professional_id)) {
+          const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
+          if (weekDays.some((d) => d.dateStr === bDate)) {
+            schedules.push({
+              start: formatTimeInZone(b.start_time, tenant.timezone),
+              end: formatTimeInZone(b.end_time, tenant.timezone),
+            });
+          }
+        }
+      });
+
+      if (schedules.length === 0) {
+        return [];
       }
 
-      // Expandir se houver agendamentos ou bloqueios pontuais fora da grade regular
-      appointments.forEach((a) => {
-        const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
-        const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
-        minOpen = Math.min(minOpen, ah * 60 + am);
-        maxClose = Math.max(maxClose, eh * 60 + em);
-      });
-      blockedSlots.forEach((b) => {
-        const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
-        const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
-        minOpen = Math.min(minOpen, bh * 60 + bm);
-        maxClose = Math.max(maxClose, eh * 60 + em);
-      });
-
-      return { gridStartTotalMin: minOpen, gridEndTotalMin: maxClose };
+      return generateScheduleGridSlots(schedules, slotIntervalMinutes);
     }
 
     // Visão Diária
     const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
-    if (!dayBh.active) {
-      if (appointments.length === 0 && blockedSlots.length === 0) {
-        return { gridStartTotalMin: 9 * 60, gridEndTotalMin: 18 * 60 };
+
+    filteredProfessionals.forEach((p) => {
+      const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
+      if (sched) {
+        const segment = toScheduleGridSegment(sched);
+        if (segment) schedules.push(segment);
+      } else if (!p.weekly_schedule && dayBh.active) {
+        // Apenas se o profissional não tiver escala configurada, adota horário da barbearia
+        schedules.push({
+          start: dayBh.open || '08:00',
+          end: dayBh.close || '20:00',
+        });
       }
-    }
+    });
 
-    const [oh, om] = dayBh.open.split(':').map(Number);
-    const [ch, cm] = dayBh.close.split(':').map(Number);
-    let startMin = oh * 60 + om;
-    let endMin = ch * 60 + cm;
-
+    // Incluir horários de agendamentos e bloqueios pontuais fora da grade regular
     appointments.forEach((a) => {
-      const [ah, am] = formatTimeInZone(a.start_time, tenant.timezone).split(':').map(Number);
-      const [eh, em] = formatTimeInZone(a.end_time, tenant.timezone).split(':').map(Number);
-      startMin = Math.min(startMin, ah * 60 + am);
-      endMin = Math.max(endMin, eh * 60 + em);
+      if (selectedProfessionalIds.includes(a.professional_id)) {
+        const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
+        if (aDate === selectedDate) {
+          schedules.push({
+            start: formatTimeInZone(a.start_time, tenant.timezone),
+            end: formatTimeInZone(a.end_time, tenant.timezone),
+          });
+        }
+      }
     });
+
     blockedSlots.forEach((b) => {
-      const [bh, bm] = formatTimeInZone(b.start_time, tenant.timezone).split(':').map(Number);
-      const [eh, em] = formatTimeInZone(b.end_time, tenant.timezone).split(':').map(Number);
-      startMin = Math.min(startMin, bh * 60 + bm);
-      endMin = Math.max(endMin, eh * 60 + em);
+      if (selectedProfessionalIds.includes(b.professional_id)) {
+        const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
+        if (bDate === selectedDate) {
+          schedules.push({
+            start: formatTimeInZone(b.start_time, tenant.timezone),
+            end: formatTimeInZone(b.end_time, tenant.timezone),
+          });
+        }
+      }
     });
 
-    return { gridStartTotalMin: startMin, gridEndTotalMin: endMin };
-  }, [viewMode, selectedDate, weekDays, tenant.businessHours, appointments, blockedSlots, tenant.timezone]);
-
-  const totalGridMinutes = Math.max(slotIntervalMinutes, gridEndTotalMin - gridStartTotalMin);
-
-  // Gerar Slots de Horário da Régua Dinamicamente
-  const timeSlots = useMemo(() => {
-    const dayBh = getDayBusinessHours(selectedDate, tenant.businessHours);
-    if (viewMode === 'day' && !dayBh.active && appointments.length === 0 && blockedSlots.length === 0) {
+    if (schedules.length === 0) {
       return [];
     }
 
-    const schedules: ScheduleGridSegment[] = [];
-
-    if (selectedProfessionalIds.length === 1) {
-      const selectedProf = professionals.find((p) => p.id === selectedProfessionalIds[0]);
-      const profSchedule = selectedProf
-        ? getEffectiveProfessionalDaySchedule(selectedProf, selectedDate, tenant.businessHours)
-        : null;
-      if (profSchedule) {
-        const segment = toScheduleGridSegment(profSchedule);
-        if (segment) schedules.push(segment);
-      } else {
-        schedules.push({
-          start: dayBh.open || '08:00',
-          end: dayBh.close || '20:00',
-        });
-      }
-    } else if (selectedProfessionalIds.length > 1) {
-      let hasProfessionalWithoutExplicitSchedule = false;
-      professionals.filter((p) => selectedProfessionalIds.includes(p.id)).forEach((p) => {
-        if (!p.is_active) return;
-        const sched = getEffectiveProfessionalDaySchedule(p, selectedDate, tenant.businessHours);
-        if (!sched) {
-          hasProfessionalWithoutExplicitSchedule = true;
-          return;
-        }
-        const segment = toScheduleGridSegment(sched);
-        if (segment) schedules.push(segment);
-      });
-
-      if (hasProfessionalWithoutExplicitSchedule) {
-        schedules.push({
-          start: dayBh.open || '08:00',
-          end: dayBh.close || '20:00',
-        });
-      }
-    }
-
-    if (schedules.length === 0 && selectedProfessionalIds.length > 0) {
-      schedules.push({
-        start: dayBh.open || '08:00',
-        end: dayBh.close || '20:00',
-      });
-    }
-
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
-  }, [selectedDate, tenant.businessHours, viewMode, appointments.length, blockedSlots.length, selectedProfessionalIds, professionals, slotIntervalMinutes]);
+  }, [selectedDate, tenant.businessHours, viewMode, appointments, blockedSlots, selectedProfessionalIds, professionals, slotIntervalMinutes, weekDays, tenant.timezone]);
 
   // Slots de Horário válidos para seleção no Modal de Novo Agendamento
   const modalAvailableTimeSlots = useMemo(() => {
@@ -704,23 +866,20 @@ export const Agenda: React.FC = () => {
     }
   }, [selectedDate, viewMode, weekDays]);
 
+  const todayDateStr = useMemo(() => dateInZone(new Date(), tenant.timezone), [tenant.timezone]);
   const isToday = useMemo(() => {
-    const todayStr = dateInZone(new Date(), tenant.timezone);
-    return selectedDate === todayStr;
-  }, [selectedDate, tenant.timezone]);
+    return selectedDate === todayDateStr;
+  }, [selectedDate, todayDateStr]);
 
-  // Fechar dropdown de filtro ao clicar fora
-  useEffect(() => {
-    if (!isFilterOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.agenda-filter-container')) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isFilterOpen]);
+  const isTodayInWeek = useMemo(() => {
+    return weekDays.some((d) => d.dateStr === todayDateStr);
+  }, [weekDays, todayDateStr]);
+
+  const currentTimeFormatted = useMemo(() => {
+    const h = String(Math.floor(currentTimeMinutes / 60)).padStart(2, '0');
+    const m = String(currentTimeMinutes % 60).padStart(2, '0');
+    return `${h}:${m}`;
+  }, [currentTimeMinutes]);
 
   // Carregar dados de Apoio (Profissionais, Serviços, Clientes)
   const loadInitialData = useCallback(async () => {
@@ -897,6 +1056,12 @@ export const Agenda: React.FC = () => {
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
       setLoading(false);
+      if (isViewTransitioningRef.current) {
+        setTimeout(() => {
+          isViewTransitioningRef.current = false;
+          setIsViewTransitioning(false);
+        }, 320);
+      }
     }
   }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
 
@@ -944,16 +1109,22 @@ export const Agenda: React.FC = () => {
 
   // Controles de Navegação de Data
   const handlePrevDay = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? -7 : -1;
     setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleNextDay = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? 7 : 1;
     setSelectedDate((prev) => shiftCalendarDate(prev, shift));
   };
 
   const handleToday = () => {
+    isViewTransitioningRef.current = true;
+    setIsViewTransitioning(true);
     setSelectedDate(dateInZone(new Date(), tenant.timezone));
   };
 
@@ -1474,14 +1645,25 @@ export const Agenda: React.FC = () => {
     setIsNoShowModalOpen(true);
   };
 
-  const handleConfirmNoShow = async () => {
-    if (!noShowAppointment) return;
+  const handleConfirmNoShow = async (appToMark?: Appointment) => {
+    const target = appToMark || noShowAppointment;
+    if (!target) return;
+
+    if (!['pending', 'confirmed'].includes(target.status)) {
+      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
+      return;
+    }
+
+    if (new Date(target.start_time).getTime() > Date.now()) {
+      addToast('O atendimento ainda não começou.', 'warning');
+      return;
+    }
 
     try {
       const { data, error } = await supabase
         .from('appointments')
         .update({ status: 'no_show', updated_at: new Date().toISOString() })
-        .eq('id', noShowAppointment.id)
+        .eq('id', target.id)
         .eq('tenant_id', tenant.tenantId)
         .in('status', ['pending', 'confirmed'])
         .select('id')
@@ -1498,11 +1680,13 @@ export const Agenda: React.FC = () => {
 
       setAppointments((previous) =>
         previous.map((appointment) =>
-          appointment.id === noShowAppointment.id ? { ...appointment, status: 'no_show' } : appointment
+          appointment.id === target.id ? { ...appointment, status: 'no_show' } : appointment
         )
       );
       setIsNoShowModalOpen(false);
       setNoShowAppointment(null);
+      setIsCheckoutModalOpen(false);
+      setCheckoutAppointment(null);
       addToast('Atendimento marcado como não compareceu.', 'success');
       fetchAppointments();
     } catch (err: any) {
@@ -1682,73 +1866,132 @@ export const Agenda: React.FC = () => {
   const calculateCardPosition = (startTimeIso: string, endTimeIso: string) => {
     const timeStr = formatTimeInZone(startTimeIso, tenant.timezone);
     const [h, m] = timeStr.split(':').map(Number);
-    const startMinutesFromGridStart = (h * 60 + m) - gridStartTotalMin;
+    const appMinutes = h * 60 + m;
 
-    const topPx = startMinutesFromGridStart * pxPerMinute;
+    let topPx = 0;
+    if (timeSlots.length > 0) {
+      const firstSlotMin = timeToMinutes(timeSlots[0]);
+      const lastSlotMin = timeToMinutes(timeSlots[timeSlots.length - 1]);
+      const regularEndMin = lastSlotMin + slotIntervalMinutes;
+
+      if (appMinutes < firstSlotMin) {
+        // Antes do início da grade regular
+        const diff = appMinutes - firstSlotMin;
+        topPx = Math.max(0, (diff / slotIntervalMinutes) * slotHeightPx);
+      } else if (appMinutes >= regularEndMin) {
+        // Após o horário de funcionamento regular: fica no final da grade
+        const diff = appMinutes - regularEndMin;
+        topPx = timeSlots.length * slotHeightPx + (diff / slotIntervalMinutes) * slotHeightPx;
+      } else {
+        // Dentro do horário da grade: alinhamento direto com os slots correspondentes
+        let baseIndex = 0;
+        for (let i = timeSlots.length - 1; i >= 0; i--) {
+          if (timeToMinutes(timeSlots[i]) <= appMinutes) {
+            baseIndex = i;
+            break;
+          }
+        }
+        const baseSlotMin = timeToMinutes(timeSlots[baseIndex]);
+        const minutesAfterSlot = appMinutes - baseSlotMin;
+        topPx = baseIndex * slotHeightPx + (minutesAfterSlot / slotIntervalMinutes) * slotHeightPx;
+      }
+    }
 
     // Calcular duração
     const endTimeStr = formatTimeInZone(endTimeIso, tenant.timezone);
     const [eh, em] = endTimeStr.split(':').map(Number);
     const durationMinutes = Math.max(slotIntervalMinutes, eh * 60 + em - (h * 60 + m));
-    const heightPx = durationMinutes * pxPerMinute - 4;
+    const durationSlots = durationMinutes / slotIntervalMinutes;
+    const heightPx =
+      durationMinutes <= slotIntervalMinutes
+        ? 69
+        : Math.max(69, Math.round(durationSlots * slotHeightPx - (slotHeightPx - 69)));
 
-    return { topPx: Math.max(0, topPx), heightPx: Math.max(36, heightPx) };
+    // Centralização vertical dentro do slot (não colado ao slot de cima e alinhado entre as linhas da grade)
+    const verticalOffset = Math.max(0, Math.round((slotHeightPx - 69) / 2));
+
+    return { topPx: Math.max(0, Math.round(topPx + verticalOffset)), heightPx };
   };
 
-  // Algoritmo de posicionamento com detecção de colisões para Split Grid 50%/50%
   const calculateAppointmentsLayout = (
-    appointmentsList: Appointment[]
+    appointmentsList: Appointment[],
+    isWeekView = false,
   ): Map<string, CardLayout> => {
     const layoutMap = new Map<string, CardLayout>();
 
-    const sorted = [...appointmentsList].sort(
-      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-    );
+    if (isWeekView) {
+      const sorted = [...appointmentsList].sort(
+        (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+      );
 
-    for (let i = 0; i < sorted.length; i++) {
-      const app = sorted[i];
-      const pos = calculateCardPosition(app.start_time, app.end_time);
-      const appStart = new Date(app.start_time).getTime();
-      const appEnd = new Date(app.end_time).getTime();
+      for (let i = 0; i < sorted.length; i++) {
+        const app = sorted[i];
+        const pos = calculateCardPosition(app.start_time, app.end_time);
+        const appStart = new Date(app.start_time).getTime();
+        const appEnd = new Date(app.end_time).getTime();
 
-      let hasOverlap = false;
-      let isSecondSlot = false;
+        let hasOverlap = false;
+        let isSecondSlot = false;
 
-      for (let j = 0; j < sorted.length; j++) {
-        if (i !== j) {
-          const other = sorted[j];
-          const otherStart = new Date(other.start_time).getTime();
-          const otherEnd = new Date(other.end_time).getTime();
+        for (let j = 0; j < sorted.length; j++) {
+          if (i !== j) {
+            const other = sorted[j];
+            const otherStart = new Date(other.start_time).getTime();
+            const otherEnd = new Date(other.end_time).getTime();
 
-          if (appStart < otherEnd && appEnd > otherStart) {
-            hasOverlap = true;
-            if (app.is_fitting && !other.is_fitting) {
-              isSecondSlot = true;
-            } else if (!app.is_fitting && other.is_fitting) {
-              isSecondSlot = false;
-            } else if (appStart > otherStart || (appStart === otherStart && i > j)) {
-              isSecondSlot = true;
+            if (appStart < otherEnd && appEnd > otherStart) {
+              hasOverlap = true;
+              if (app.is_fitting && !other.is_fitting) {
+                isSecondSlot = true;
+              } else if (!app.is_fitting && other.is_fitting) {
+                isSecondSlot = false;
+              } else if (appStart > otherStart || (appStart === otherStart && i > j)) {
+                isSecondSlot = true;
+              }
+              break;
             }
-            break;
           }
+        }
+
+        if (hasOverlap) {
+          layoutMap.set(app.id, {
+            topPx: pos.topPx,
+            heightPx: pos.heightPx,
+            left: isSecondSlot ? '239px' : '3px',
+            width: '231px',
+          });
+        } else {
+          layoutMap.set(app.id, {
+            topPx: pos.topPx,
+            heightPx: pos.heightPx,
+            left: '5px',
+            width: '463px',
+          });
         }
       }
 
-      if (hasOverlap) {
-        layoutMap.set(app.id, {
-          topPx: pos.topPx,
-          heightPx: pos.heightPx,
-          left: isSecondSlot ? 'calc(50% + 2px)' : '4px',
-          width: 'calc(50% - 6px)',
-        });
-      } else {
-        layoutMap.set(app.id, {
-          topPx: pos.topPx,
-          heightPx: pos.heightPx,
-          left: '4px',
-          width: 'calc(100% - 8px)',
-        });
-      }
+      return layoutMap;
+    }
+
+    const horizontalLayout = calculateAgendaHorizontalLayout(
+      appointmentsList.map((appointment) => ({
+        id: appointment.id,
+        startMs: new Date(appointment.start_time).getTime(),
+        endMs: new Date(appointment.end_time).getTime(),
+        isFitting: appointment.is_fitting,
+      })),
+    );
+
+    for (const app of appointmentsList) {
+      const pos = calculateCardPosition(app.start_time, app.end_time);
+      const horizontal = horizontalLayout.get(app.id);
+
+      layoutMap.set(app.id, {
+        topPx: pos.topPx,
+        heightPx: pos.heightPx,
+        left: horizontal?.left ?? '4px',
+        width: horizontal?.width ?? 'calc(100% - 8px)',
+      });
     }
 
     return layoutMap;
@@ -1756,10 +1999,24 @@ export const Agenda: React.FC = () => {
 
   // Posição da Linha Vermelha de Tempo Real
   const redLineTopPx = useMemo(() => {
-    const minutesFromStart = currentTimeMinutes - gridStartTotalMin;
-    if (minutesFromStart < 0 || minutesFromStart > totalGridMinutes) return null;
-    return minutesFromStart * pxPerMinute;
-  }, [currentTimeMinutes, gridStartTotalMin, totalGridMinutes, pxPerMinute]);
+    if (timeSlots.length === 0) return null;
+    const firstSlotMin = timeToMinutes(timeSlots[0]);
+    const lastSlotMin = timeToMinutes(timeSlots[timeSlots.length - 1]);
+    const regularEndMin = lastSlotMin + slotIntervalMinutes;
+
+    if (currentTimeMinutes < firstSlotMin || currentTimeMinutes > regularEndMin) return null;
+
+    let baseIndex = 0;
+    for (let i = timeSlots.length - 1; i >= 0; i--) {
+      if (timeToMinutes(timeSlots[i]) <= currentTimeMinutes) {
+        baseIndex = i;
+        break;
+      }
+    }
+    const baseSlotMin = timeToMinutes(timeSlots[baseIndex]);
+    const minutesAfterSlot = currentTimeMinutes - baseSlotMin;
+    return Math.round(baseIndex * slotHeightPx + (minutesAfterSlot / slotIntervalMinutes) * slotHeightPx);
+  }, [currentTimeMinutes, timeSlots, slotIntervalMinutes, slotHeightPx]);
 
   return (
     <div className="agenda-page">
@@ -1798,7 +2055,9 @@ export const Agenda: React.FC = () => {
               <h2>{formattedDateTitle}</h2>
               <p className="agenda-header-subtitle">
                 {viewMode === 'week'
-                  ? `Visão semanal do profissional ${professionals.find((p) => p.id === selectedWeekProfId)?.name || ''}`
+                  ? visibleProfessionals.length === 1
+                    ? `Visão semanal do profissional ${visibleProfessionals[0].name}`
+                    : `Visão semanal de ${visibleProfessionals.length} profissional(is)`
                   : `${visibleProfessionals.length} profissional(is) em atendimento`}
               </p>
             </div>
@@ -1809,14 +2068,14 @@ export const Agenda: React.FC = () => {
           <div className="agenda-view-mode-selector">
             <button
               type="button"
-              onClick={() => setViewMode('day')}
+              onClick={() => handleViewModeChange('day')}
               className={`btn-view-mode ${viewMode === 'day' ? 'btn-view-mode--active' : ''}`}
             >
               Dia
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('week')}
+              onClick={() => handleViewModeChange('week')}
               className={`btn-view-mode ${viewMode === 'week' ? 'btn-view-mode--active' : ''}`}
             >
               Semana
@@ -1851,77 +2110,53 @@ export const Agenda: React.FC = () => {
               <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
             </button>
 
-            <label className="agenda-date-picker-label">
-              <HugeiconsIcon icon={Calendar03Icon} size={16} className="date-icon" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="agenda-date-picker-input"
-              />
-            </label>
-          </div>
-
-          {/* Filtro de Barbeiros na Visão Dia / Seletor de Barbeiro na Visão Semana */}
-          {viewMode === 'day' ? (
-            <div className="agenda-filter-container">
-              <button
-                type="button"
-                className={`btn-agenda-filter ${isFilterOpen ? 'btn-agenda-filter--active' : ''}`}
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                title="Filtrar Equipe"
+            <div className="agenda-date-picker-wrapper" ref={datePickerRef}>
+              <label
+                className="agenda-date-picker-label"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsDatePickerOpen((prev) => !prev);
+                }}
+                title="Escolher data no calendário"
+                aria-label="Escolher data no calendário"
+                aria-expanded={isDatePickerOpen}
               >
-                <HugeiconsIcon icon={FilterIcon} size={16} />
-                <span>Equipe ({selectedProfessionalIds.length})</span>
-              </button>
+                <HugeiconsIcon icon={Calendar03Icon} size={16} className="date-icon" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                  className="agenda-date-picker-input-hidden"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </label>
 
-              {isFilterOpen && (
-                <div className="agenda-filter-dropdown">
-                  <div className="agenda-filter-dropdown__header">
-                    <strong>Exibir Barbeiros</strong>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedProfessionalIds(professionals.map((p) => p.id))
-                      }
-                      className="btn-link-xs"
-                    >
-                      Todos
-                    </button>
-                  </div>
-                  <div className="agenda-filter-dropdown__list">
-                    {professionals.map((prof) => {
-                      const isChecked = selectedProfessionalIds.includes(prof.id);
-                      return (
-                        <label key={prof.id} className="filter-checkbox-item">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleProfessionalFilter(prof.id)}
-                          />
-                          <span>{prof.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
+              {isDatePickerOpen && (
+                <CustomDatePicker
+                  selectedDate={selectedDate}
+                  timezone={tenant.timezone}
+                  onSelectDate={(newDate) => {
+                    isViewTransitioningRef.current = true;
+                    setIsViewTransitioning(true);
+                    setSelectedDate(newDate);
+                    setIsDatePickerOpen(false);
+                  }}
+                  onClose={() => setIsDatePickerOpen(false)}
+                />
               )}
             </div>
-          ) : (
-            <div className="agenda-week-prof-select-wrapper">
-              <select
-                value={selectedWeekProfId}
-                onChange={(e) => setSelectedWeekProfId(e.target.value)}
-                className="agenda-week-prof-select"
-              >
-                {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          </div>
+
+          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) */}
+          <AgendaEquipeFilter
+            professionals={professionals}
+            selectedProfessionalIds={selectedProfessionalIds}
+            onToggleProfessional={toggleProfessionalFilter}
+            onSelectAllProfessionals={() =>
+              setSelectedProfessionalIds(professionals.map((p) => p.id))
+            }
+          />
 
           {/* Botão Fila de Espera */}
           <button
@@ -1952,7 +2187,7 @@ export const Agenda: React.FC = () => {
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
             title="Atender cliente que chegou agora sem agendamento"
           >
-            <HugeiconsIcon icon={PlusSignIcon} size={18} />
+            <HugeiconsIcon icon={AddCircleIcon} size={18} />
             <span>Encaixe</span>
           </button>
         </div>
@@ -1960,12 +2195,15 @@ export const Agenda: React.FC = () => {
 
       {/* 2. GRADE TEMPORAL CONTÍNUA */}
       <div className="agenda-grid-wrapper">
-        {loading ? (
-          <div className="agenda-skeleton-loading">
-            <div className="spinner-brand" />
-            <p>Carregando escala...</p>
-          </div>
-        ) : viewMode === 'day' && visibleProfessionals.length === 0 ? (
+        {isViewTransitioning || loading ? (
+          <AgendaGridSkeleton
+            viewMode={viewMode}
+            professionals={visibleProfessionals}
+            weekDays={weekDays}
+            timeSlots={timeSlots}
+            slotHeightPx={slotHeightPx}
+          />
+        ) : visibleProfessionals.length === 0 ? (
           <div className="agenda-empty-state">
             <HugeiconsIcon icon={AlertCircleIcon} size={48} className="empty-icon" />
             <h3>Nenhum profissional selecionado</h3>
@@ -2002,7 +2240,17 @@ export const Agenda: React.FC = () => {
               <div className="timeline-axis-header">
                 <HugeiconsIcon icon={Clock01Icon} size={16} />
               </div>
-              <div className="timeline-axis-body">
+              <div className="timeline-axis-body" style={{ position: 'relative' }}>
+                {/* Indicador da Linha Vermelha de Tempo Real na Régua de Horários */}
+                {(viewMode === 'day' ? isToday : isTodayInWeek) && redLineTopPx !== null && (
+                  <div
+                    className="timeline-axis-now-badge"
+                    style={{ top: `${redLineTopPx}px` }}
+                    title={`Hora atual: ${currentTimeFormatted}`}
+                  >
+                    <span>{currentTimeFormatted}</span>
+                  </div>
+                )}
                 {timeSlots.map((slot) => (
                   <div
                     key={slot}
@@ -2070,10 +2318,7 @@ export const Agenda: React.FC = () => {
                                 ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
                                 formatTimeInZone(app.start_time, tenant.timezone) === slot
                             );
-                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
-                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
-                            const isFittingFull = fittingCount >= 1;
-                            const isSlotFull = standardCount >= 1 && isFittingFull;
+                            const hasOccupancy = slotApps.length > 0;
 
                             const isProfBreak = isProfessionalOnBreak(prof, selectedDate, slot);
                             const isProfWorking = isProfessionalWorkingAt(
@@ -2086,9 +2331,9 @@ export const Agenda: React.FC = () => {
 
                             let slotClass = 'grid-slot-cell';
                             if (isProfBreak) slotClass += ' grid-slot-cell--break';
+                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
                             else if (isPast) slotClass += ' grid-slot-cell--past';
                             else if (isOutsideHours || !isProfWorking) slotClass += ' grid-slot-cell--closed';
-                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
@@ -2107,19 +2352,14 @@ export const Agenda: React.FC = () => {
                                 addToast(`O profissional ${prof.name} não está atendendo neste horário.`, 'warning');
                                 return;
                               }
-                              if (isSlotFull) {
-                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                              if (hasOccupancy) {
                                 return;
                               }
                               if (isPast) {
                                 handleOpenNewAppointment(prof.id, slot, true, selectedDate);
                                 return;
                               }
-                              if (standardCount >= 1 && !isFittingFull) {
-                                handleOpenNewAppointment(prof.id, slot, true, selectedDate);
-                              } else {
-                                handleOpenNewAppointment(prof.id, slot, false, selectedDate);
-                              }
+                              handleOpenNewAppointment(prof.id, slot, false, selectedDate);
                             };
 
                             return (
@@ -2134,12 +2374,12 @@ export const Agenda: React.FC = () => {
                                     ? `Barbearia fechada neste dia (${slot})`
                                     : isProfBreak
                                     ? `Intervalo do profissional ${prof.name} (${slot})`
+                                    : hasOccupancy
+                                    ? `Horário ocupado (${slot})`
                                     : isPast
                                     ? `Horário decorrido (${slot}) - Clique para registrar encaixe`
                                     : isOutsideHours || !isProfWorking
                                     ? `Fora do expediente/atendimento de ${prof.name} (${slot})`
-                                    : isSlotFull
-                                    ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} com ${prof.name}`
                                 }
                               >
@@ -2150,10 +2390,10 @@ export const Agenda: React.FC = () => {
                                       : 'Intervalo'}
                                   </span>
                                 )}
-                                {!isProfBreak && isPast && (
+                                {!isProfBreak && !hasOccupancy && isPast && (
                                   <span className="slot-hover-text">Encaixe</span>
                                 )}
-                                {!isProfBreak && !isPast && !isOutsideHours && isProfWorking && !isSlotFull && (
+                                {!isProfBreak && !hasOccupancy && !isPast && !isOutsideHours && isProfWorking && (
                                   <span className="slot-hover-text">+ {slot}</span>
                                 )}
                               </div>
@@ -2199,11 +2439,11 @@ export const Agenda: React.FC = () => {
                             );
                           })}
 
-                          {/* Cards de Agendamento Flutuantes (Split Grid 50%/50%) */}
+                          {/* Cards de Agendamento Flutuantes (lanes percentuais genéricas) */}
                           {profAppointments.map((app) => {
                             const layout = layoutMap.get(app.id) || {
-                              topPx: 0,
-                              heightPx: 36,
+                              topPx: 4,
+                              heightPx: 69,
                               left: '4px',
                               width: 'calc(100% - 8px)',
                             };
@@ -2217,7 +2457,6 @@ export const Agenda: React.FC = () => {
                               paymentStatus: app.payment_status,
                             });
                             const statusClass = `card-status--${cardState.replace('_', '-')}`;
-
                             return (
                               <div
                                 key={app.id}
@@ -2260,62 +2499,15 @@ export const Agenda: React.FC = () => {
                                 </div>
 
                                 <div className="card-client-row">
-                                  <span className="card-client-name" title={app.customer?.name}>
-                                    {app.customer?.name || 'Cliente'}
-                                  </span>
-                                  <span className="card-service-name" title={app.service?.name}>
-                                    {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
-                                  </span>
-                                  {app.notes && (
-                                    <p className="card-notes-snippet" title={app.notes}>
-                                      <HugeiconsIcon icon={Note01Icon} size={12} /> {app.notes}
-                                    </p>
-                                  )}
-                                  {(app.status === 'pending' || app.status === 'confirmed') &&
-                                    new Date(app.start_time).getTime() <= Date.now() && (
-                                      <button
-                                        type="button"
-                                        className="card-quick-no-show-btn"
-                                        title="Marcar atendimento como não compareceu"
-                                        aria-label={`Marcar ${app.customer?.name || 'cliente'} como não compareceu`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void handleMarkNoShow(app);
-                                        }}
-                                      >
-                                        Não compareceu
-                                      </button>
-                                    )}
-                                  {app.status !== 'canceled' && (
-                                    <button
-                                      type="button"
-                                      className="card-quick-reagendar-btn"
-                                      title="Reagendar horário deste agendamento"
-                                      aria-label="Reagendar horário"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenRescheduleModal(app);
-                                      }}
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '3px',
-                                        background: 'rgba(255, 255, 255, 0.9)',
-                                        border: '1px solid rgba(2, 132, 199, 0.3)',
-                                        borderRadius: '4px',
-                                        padding: '2px 6px',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 500,
-                                        cursor: 'pointer',
-                                        color: '#0284C7',
-                                        marginTop: '4px',
-                                        width: 'fit-content',
-                                      }}
-                                    >
-                                      <HugeiconsIcon icon={Calendar02Icon} size={11} />
-                                      <span>Reagendar</span>
-                                    </button>
-                                  )}
+                                  <div className="card-client-info">
+                                    <span className="card-client-name" title={app.customer?.name}>
+                                      {app.customer?.name || 'Cliente'}
+                                    </span>
+                                    <span className="card-service-name" title={app.service?.name}>
+                                      {app.service?.name} (R$ {Number(app.service?.price || 0).toFixed(2)})
+                                    </span>
+                                  </div>
+
                                 </div>
 
                                 {app.payment_status === 'paid' && (
@@ -2335,13 +2527,13 @@ export const Agenda: React.FC = () => {
                 : weekDays.map((day) => {
                     const dayAppointments = appointments.filter((a) => {
                       const aDate = dateInZone(new Date(a.start_time), tenant.timezone);
-                      return aDate === day.dateStr && a.professional_id === selectedWeekProfId;
+                      return aDate === day.dateStr && selectedProfessionalIds.includes(a.professional_id);
                     });
                     const dayBlocked = blockedSlots.filter((b) => {
                       const bDate = dateInZone(new Date(b.start_time), tenant.timezone);
-                      return bDate === day.dateStr && b.professional_id === selectedWeekProfId;
+                      return bDate === day.dateStr && selectedProfessionalIds.includes(b.professional_id);
                     });
-                    const layoutMap = calculateAppointmentsLayout(dayAppointments);
+                    const layoutMap = calculateAppointmentsLayout(dayAppointments, true);
 
                     const dayBh = getDayBusinessHours(day.dateStr, tenant.businessHours);
                     const isDayClosed = !dayBh.active;
@@ -2387,29 +2579,30 @@ export const Agenda: React.FC = () => {
                                 ['pending', 'confirmed', 'in_progress'].includes(app.status) &&
                                 formatTimeInZone(app.start_time, tenant.timezone) === slot
                             );
-                            const fittingCount = slotApps.filter((a) => a.is_fitting).length;
-                            const standardCount = slotApps.filter((a) => !a.is_fitting).length;
-                            const isFittingFull = fittingCount >= 1;
-                            const isSlotFull = standardCount >= 1 && isFittingFull;
+                            const hasOccupancy = slotApps.length > 0;
 
-                            const weekProf = professionals.find((p) => p.id === selectedWeekProfId);
-                            const isProfBreak = weekProf ? isProfessionalOnBreak(weekProf, day.dateStr, slot) : false;
-                            const isProfWorking = weekProf
-                              ? isProfessionalWorkingAt(weekProf, day.dateStr, slot, 0, tenant.businessHours)
-                              : true;
+                            const activeWeekProfs = visibleProfessionals;
+                            const defaultTargetProfId = activeWeekProfs[0]?.id || professionals[0]?.id;
+                            const weekProf = activeWeekProfs[0] || professionals.find((p) => p.id === defaultTargetProfId);
+                            const anyProfWorking = activeWeekProfs.length === 0 || activeWeekProfs.some((p) =>
+                              isProfessionalWorkingAt(p, day.dateStr, slot, 0, tenant.businessHours)
+                            );
+                            const allProfsBreak =
+                              activeWeekProfs.length > 0 &&
+                              activeWeekProfs.every((p) => isProfessionalOnBreak(p, day.dateStr, slot));
 
                             let slotClass = 'grid-slot-cell';
-                            if (isProfBreak) slotClass += ' grid-slot-cell--break';
+                            if (allProfsBreak) slotClass += ' grid-slot-cell--break';
+                            else if (hasOccupancy) slotClass += ' grid-slot-cell--occupied';
                             else if (isPast) slotClass += ' grid-slot-cell--past';
-                            else if (isOutsideHours || !isProfWorking) slotClass += ' grid-slot-cell--closed';
-                            else if (isSlotFull) slotClass += ' grid-slot-cell--full';
+                            else if (isOutsideHours || !anyProfWorking) slotClass += ' grid-slot-cell--closed';
 
                             const handleCellClick = () => {
                               if (isDayClosed) {
                                 addToast('A barbearia não abre neste dia conforme as configurações.', 'warning');
                                 return;
                               }
-                              if (isProfBreak) {
+                              if (allProfsBreak) {
                                 if (weekProf) {
                                   addToast(getProfessionalBreakMessage(weekProf, day.dateStr), 'warning');
                                 }
@@ -2419,24 +2612,19 @@ export const Agenda: React.FC = () => {
                                 addToast(`Horário fora do funcionamento da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
                                 return;
                               }
-                              if (!isProfWorking) {
-                                addToast(`O profissional ${weekProf?.name || 'selecionado'} não está atendendo neste horário.`, 'warning');
+                              if (!anyProfWorking) {
+                                addToast(`Nenhum dos profissionais selecionados está atendendo neste horário.`, 'warning');
                                 return;
                               }
-                              if (isSlotFull) {
-                                addToast('Capacidade máxima atingida para este horário (1 agendamento + 1 encaixe).', 'warning');
+                              if (hasOccupancy) {
                                 return;
                               }
                               setSelectedDate(day.dateStr);
                               if (isPast) {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, true, day.dateStr);
+                                handleOpenNewAppointment(defaultTargetProfId, slot, true, day.dateStr);
                                 return;
                               }
-                              if (standardCount >= 1 && !isFittingFull) {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, true, day.dateStr);
-                              } else {
-                                handleOpenNewAppointment(selectedWeekProfId, slot, false, day.dateStr);
-                              }
+                              handleOpenNewAppointment(defaultTargetProfId, slot, false, day.dateStr);
                             };
 
                             return (
@@ -2449,33 +2637,42 @@ export const Agenda: React.FC = () => {
                                 title={
                                   isDayClosed
                                     ? `Barbearia fechada neste dia (${slot})`
-                                    : isProfBreak
+                                    : allProfsBreak
                                     ? `Intervalo do profissional ${weekProf?.name || ''} (${slot})`
+                                    : hasOccupancy
+                                    ? `Horário ocupado (${slot})`
                                     : isPast
                                     ? `Horário decorrido (${slot}) - Clique para registrar encaixe`
-                                    : isOutsideHours || !isProfWorking
+                                    : isOutsideHours || !anyProfWorking
                                     ? `Fora do expediente/atendimento (${slot})`
-                                    : isSlotFull
-                                    ? `Horário lotado (${slot})`
                                     : `Clique para agendar às ${slot} em ${day.label}`
                                 }
                               >
-                                {isProfBreak && (
+                                {allProfsBreak && (
                                   <span className="slot-break-label">
                                     {weekProf && getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end
                                       ? `Intervalo até ${getProfessionalDaySchedule(weekProf, day.dateStr)?.break_end}`
                                       : 'Intervalo'}
                                   </span>
                                 )}
-                                {!isProfBreak && isPast && (
+                                {!allProfsBreak && !hasOccupancy && isPast && (
                                   <span className="slot-hover-text">Encaixe</span>
                                 )}
-                                {!isProfBreak && !isPast && !isOutsideHours && isProfWorking && !isSlotFull && (
+                                {!allProfsBreak && !hasOccupancy && !isPast && !isOutsideHours && anyProfWorking && (
                                   <span className="slot-hover-text">+ {slot}</span>
                                 )}
                               </div>
                             );
                           })}
+
+                          {/* Linha Vermelha de Tempo Real na Visão Semanal */}
+                          {day.dateStr === todayDateStr && redLineTopPx !== null && (
+                            <div
+                              className="agenda-red-line"
+                              style={{ top: `${redLineTopPx}px` }}
+                              title={`Hora Atual: ${currentTimeFormatted}`}
+                            />
+                          )}
 
                           {/* Bloqueios do Dia */}
                           {dayBlocked.map((blk) => {
@@ -2510,10 +2707,10 @@ export const Agenda: React.FC = () => {
                           {/* Cards do Dia */}
                           {dayAppointments.map((app) => {
                             const layout = layoutMap.get(app.id) || {
-                              topPx: 0,
-                              heightPx: 36,
-                              left: '4px',
-                              width: 'calc(100% - 8px)',
+                              topPx: 4,
+                              heightPx: 69,
+                              left: '5px',
+                              width: '463px',
                             };
 
                             const timeStart = formatTimeInZone(app.start_time, tenant.timezone);
@@ -2668,7 +2865,7 @@ export const Agenda: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="anonymous-customer-note" style={{ padding: '0.75rem 1rem', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '0.5rem', border: '1px dashed rgba(255, 255, 255, 0.15)', fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', marginBottom: '1rem' }}>
+            <div className="anonymous-customer-note">
               <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
             </div>
           )}
@@ -2926,6 +3123,7 @@ export const Agenda: React.FC = () => {
             addToast('Atendimento reagendado com sucesso!', 'success');
             fetchAppointments();
           }}
+          onMarkNoShow={() => handleConfirmNoShow(checkoutAppointment)}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
             fetchAppointments();
@@ -3172,8 +3370,13 @@ export const Agenda: React.FC = () => {
         .agenda-page {
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0;
           width: 100%;
+          height: 100%;
+          max-height: 100%;
+          min-height: 0;
+          flex: 1;
+          overflow: hidden;
           font-family: var(--font-family-base);
         }
 
@@ -3186,7 +3389,8 @@ export const Agenda: React.FC = () => {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 1rem;
-          padding: 1.25rem 1.75rem;
+          padding: 1rem 1.5rem;
+          flex-shrink: 0;
           background-color: rgba(255, 255, 255, 0.65);
           backdrop-filter: blur(16px) saturate(120%);
           -webkit-backdrop-filter: blur(16px) saturate(120%);
@@ -3203,6 +3407,7 @@ export const Agenda: React.FC = () => {
         }
 
         .agenda-header-subtitle {
+          display: none;
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
         }
@@ -3219,7 +3424,7 @@ export const Agenda: React.FC = () => {
           display: flex;
           align-items: center;
           padding: 3px;
-          background-color: var(--color-bg-primary);
+          background-color: #ffffff;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           gap: 2px;
@@ -3241,9 +3446,10 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary);
         }
 
-        .btn-view-mode--active {
-          background-color: var(--color-brand-primary);
-          color: white;
+        .btn-view-mode--active,
+        .btn-view-mode--active:hover {
+          background-color: #f2b277;
+          color: #000000;
           box-shadow: var(--shadow-sm);
         }
 
@@ -3254,7 +3460,7 @@ export const Agenda: React.FC = () => {
           background-color: rgba(255, 255, 255, 0.8);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          overflow: hidden;
+          position: relative;
         }
 
         .btn-date-nav {
@@ -3282,9 +3488,26 @@ export const Agenda: React.FC = () => {
           border-right: 1px solid var(--color-border);
         }
 
-        .btn-date-today--active {
-          color: var(--color-brand-primary);
-          background-color: rgba(217, 108, 0, 0.06);
+        .btn-date-today--active,
+        .btn-date-today--active:hover {
+          color: #000000 !important;
+          font-weight: 700 !important;
+          background-color: #f2b277 !important;
+        }
+
+        .dark-theme .btn-date-today--active,
+        .dark-theme .btn-date-today--active:hover {
+          color: #000000 !important;
+          font-weight: 700 !important;
+          background-color: #f2b277 !important;
+        }
+
+        /* CUSTOM DATEPICKER */
+        .agenda-date-picker-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          z-index: 120;
         }
 
         .agenda-date-picker-label {
@@ -3293,16 +3516,230 @@ export const Agenda: React.FC = () => {
           gap: 0.4rem;
           padding: 0.35rem 0.6rem;
           border-left: 1px solid var(--color-border);
+          border-top-right-radius: var(--radius-md);
+          border-bottom-right-radius: var(--radius-md);
           cursor: pointer;
           position: relative;
+          color: var(--color-text-secondary);
+          transition: color 0.15s ease;
         }
 
-        .agenda-date-picker-input {
+        .agenda-date-picker-label:hover {
+          color: var(--color-text-primary);
+        }
+
+        .agenda-date-picker-input-hidden {
           position: absolute;
-          inset: 0;
           opacity: 0;
+          pointer-events: none;
+          width: 0;
+          height: 0;
+          margin: 0;
+          padding: 0;
+          border: none;
+        }
+
+        .custom-datepicker-dropdown {
+          position: absolute;
+          top: calc(100% + 10px);
+          right: 0;
+          width: 312px;
+          background: #ffffff;
+          border-radius: 20px;
+          padding: 18px 18px 20px 18px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          z-index: 1000;
+          box-sizing: border-box;
+          user-select: none;
+          animation: datepickerFadeIn 0.15s ease-out;
+        }
+
+        .dark-theme .custom-datepicker-dropdown {
+          background: #1c1917;
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+        }
+
+        @keyframes datepickerFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .custom-datepicker-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .custom-datepicker-title-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--color-text-primary, #1e293b);
+        }
+
+        .custom-datepicker-title {
+          font-size: 1.0625rem;
+          font-weight: 700;
+          color: var(--color-text-primary, #1e293b);
+          font-family: var(--font-family-base);
+          letter-spacing: -0.01em;
+        }
+
+        .dark-theme .custom-datepicker-title {
+          color: #ffffff;
+        }
+
+        .custom-datepicker-chevron {
+          color: #0084ff;
+          margin-top: 1px;
+        }
+
+        .custom-datepicker-arrows {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .custom-datepicker-arrow-btn {
+          background: transparent;
+          border: none;
           cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0084ff;
+          border-radius: 6px;
+          transition: background-color 0.15s ease, opacity 0.15s ease;
+        }
+
+        .custom-datepicker-arrow-btn:hover {
+          background-color: rgba(0, 132, 255, 0.08);
+        }
+
+        .custom-datepicker-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+          margin-bottom: 8px;
           width: 100%;
+          box-sizing: border-box;
+        }
+
+        .custom-datepicker-weekday {
+          text-align: center;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #64748b;
+          font-family: var(--font-family-base);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          margin: 0 auto;
+        }
+
+        .dark-theme .custom-datepicker-weekday {
+          color: #a8a29e;
+        }
+
+        .custom-datepicker-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+          row-gap: 6px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .custom-datepicker-cell {
+          aspect-ratio: 1;
+          width: 36px;
+          height: 36px;
+          max-width: 100%;
+          margin: 0 auto;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: #1e293b;
+          background: transparent;
+          border: 2px solid transparent;
+          cursor: pointer;
+          padding: 0;
+          outline: none;
+          font-family: var(--font-family-base);
+          transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 380px) {
+          .custom-datepicker-dropdown {
+            width: calc(100vw - 24px);
+            right: -12px;
+            padding: 16px 12px 18px 12px;
+          }
+          .custom-datepicker-weekday,
+          .custom-datepicker-cell {
+            width: 32px;
+            height: 32px;
+            font-size: 0.85rem;
+          }
+        }
+
+        .dark-theme .custom-datepicker-cell {
+          color: #f5f5f4;
+        }
+
+        .custom-datepicker-cell:hover {
+          background-color: #f1f5f9;
+        }
+
+        .dark-theme .custom-datepicker-cell:hover {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .custom-datepicker-cell--outside {
+          color: #94a3b8;
+          font-weight: 400;
+        }
+
+        .dark-theme .custom-datepicker-cell--outside {
+          color: #78716c;
+        }
+
+        .custom-datepicker-cell--today {
+          background-color: #f1f5f9;
+          font-weight: 600;
+        }
+
+        .dark-theme .custom-datepicker-cell--today {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Selected Day: Anel azul com preenchimento suave */
+        .custom-datepicker-cell--selected {
+          border: 2px solid #0084ff !important;
+          background-color: #e5f2fe !important;
+          color: #0070d2 !important;
+          font-weight: 700 !important;
+        }
+
+        .dark-theme .custom-datepicker-cell--selected {
+          border-color: #38bdf8 !important;
+          background-color: rgba(56, 189, 248, 0.22) !important;
+          color: #38bdf8 !important;
         }
 
         /* FILTRO DE EQUIPE */
@@ -3312,24 +3749,46 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-agenda-filter {
-          display: flex;
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
+          display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.55rem 1rem;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0 0.5rem;
           background-color: rgba(255, 255, 255, 0.8);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-xs);
           font-weight: 600;
           color: var(--color-text-primary);
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-filter:hover,
         .btn-agenda-filter--active {
           border-color: var(--color-brand-primary);
-          color: var(--color-brand-primary);
+          color: #000000;
+        }
+
+        .btn-agenda-filter:focus-visible {
+          outline: 2px solid var(--color-brand-primary);
+          outline-offset: 2px;
+        }
+
+        .dark-theme .btn-agenda-filter {
+          background-color: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .dark-theme .btn-agenda-filter:hover,
+        .dark-theme .btn-agenda-filter--active {
+          border-color: var(--color-brand-primary);
+          color: #FFFFFF;
         }
 
         .agenda-filter-dropdown {
@@ -3360,10 +3819,19 @@ export const Agenda: React.FC = () => {
         .btn-link-xs {
           background: none;
           border: none;
-          color: var(--color-brand-primary);
+          color: #000000;
           font-size: var(--font-size-xs);
           cursor: pointer;
           font-weight: 600;
+        }
+
+        .btn-link-xs:hover {
+          color: #000000;
+          text-decoration: underline;
+        }
+
+        .dark-theme .btn-link-xs {
+          color: #FFFFFF;
         }
 
         .agenda-filter-dropdown__list {
@@ -3380,37 +3848,48 @@ export const Agenda: React.FC = () => {
           gap: 0.5rem;
           font-size: var(--font-size-sm);
           cursor: pointer;
+          padding: 4px 6px;
+          border-radius: var(--radius-sm);
+          transition: background-color 0.15s ease;
         }
 
-        /* SELETOR DE BARBEIRO NA SEMANA */
-        .agenda-week-prof-select-wrapper {
-          display: flex;
-          align-items: center;
+        .filter-checkbox-item:hover {
+          background-color: rgba(0, 0, 0, 0.05);
         }
 
-        .agenda-week-prof-select {
-          padding: 0.55rem 0.9rem;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          outline: none;
+        .dark-theme .filter-checkbox-item:hover {
+          background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .filter-checkbox-item input[type="radio"],
+        .filter-checkbox-item input[type="checkbox"] {
+          accent-color: var(--color-brand-primary);
           cursor: pointer;
+          width: 16px;
+          height: 16px;
         }
 
-        .agenda-week-prof-select:focus {
-          border-color: var(--color-brand-primary);
+        @media (pointer: coarse) {
+          .btn-agenda-filter {
+            min-height: 44px;
+            min-width: 44px;
+          }
+          .filter-checkbox-item {
+            min-height: 44px;
+            padding: 8px 6px;
+          }
         }
 
         /* BOTÕES DE AÇÃO DO HEADER */
         .btn-agenda-espera {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 0.95rem;
+          padding: 0 0.5rem;
           background-color: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -3419,134 +3898,255 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary);
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-espera:hover {
-          background-color: var(--color-brand-lightest);
-          border-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
+          border-color: #d96c00;
         }
 
         .btn-agenda-bloquear {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 0.95rem;
-          background-color: var(--color-error-bg);
-          border: 1px solid rgba(240, 82, 82, 0.3);
+          padding: 0 0.5rem;
+          background-color: #FFFFFF;
+          border: 1px solid #F05252;
           border-radius: var(--radius-md);
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-error);
+          color: #F05252;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-agenda-bloquear:hover {
-          background-color: #fbd5d5;
-          border-color: var(--color-error);
+          background-color: #FFF5F5;
+          border-color: #F05252;
         }
 
         /* BOTÃO MESTRE + ENCAIXE */
         .btn-master-encaixe {
+          width: 128px;
+          min-width: 128px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          padding: 0.55rem 1.15rem;
-          background-color: var(--color-brand-primary);
-          color: white;
+          padding: 0 0.5rem;
+          background-color: #F2B277;
+          color: #000000;
           border: none;
           border-radius: var(--radius-md);
           font-weight: 700;
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-xs);
           cursor: pointer;
           box-shadow: var(--shadow-sm);
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-sizing: border-box;
+          white-space: nowrap;
         }
 
         .btn-master-encaixe:hover {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
-        }
-
-        .btn-master-encaixe:active {
-          transform: scale(0.97);
+          background-color: #F2B277;
+          color: #000000;
+          transform: none;
+          box-shadow: var(--shadow-sm);
         }
 
         /* GRADE DA TIMELINE */
         .agenda-grid-wrapper {
           width: 100%;
-          overflow-x: auto;
-          background-color: rgba(255, 255, 255, 0.45);
-          backdrop-filter: blur(12px) saturate(120%);
-          -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(234, 222, 214, 0.6);
+          flex: 1;
+          min-height: 0;
+          max-height: none;
+          overflow: auto;
+          overscroll-behavior: contain;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          border: 1px solid rgba(234, 222, 214, 0.7);
           border-radius: var(--radius-lg);
-          padding: 1rem;
+          padding: 0;
           box-shadow: var(--shadow-sm);
+          scrollbar-width: thin;
+          scrollbar-color: rgba(45, 35, 30, 0.25) transparent;
+          transition: scrollbar-color 0.2s ease;
+          position: relative;
+          top: 0;
+          left: 0;
+        }
+
+        .agenda-grid-wrapper:hover {
+          scrollbar-color: rgba(45, 35, 30, 0.45) transparent;
+        }
+
+        .dark-theme .agenda-grid-wrapper {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-color: var(--color-border);
+          scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover {
+          scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar {
+          height: 5px;
+          width: 5px;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .agenda-grid-wrapper::-webkit-scrollbar-thumb {
+          background: rgba(45, 35, 30, 0.15);
+          border-radius: 9999px;
+          transition: background-color 0.2s ease;
+        }
+
+        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
+          background: rgba(45, 35, 30, 0.35);
+        }
+
+        .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(45, 35, 30, 0.55);
+        }
+
+        .dark-theme .agenda-grid-wrapper::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.15);
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.35);
+        }
+
+        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.55);
         }
 
         .agenda-timeline-board {
           display: flex;
-          min-width: 800px;
+          min-width: 100%;
+          width: max-content;
           position: relative;
         }
 
-        /* Eixo de Horários */
+        /* Eixo de Horários (Coluna Fixa à Esquerda no Scroll Horizontal) */
         .timeline-axis-column {
           width: 65px;
+          min-width: 65px;
           flex-shrink: 0;
           border-right: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
+          position: sticky;
+          left: 0;
+          z-index: 35;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
         }
 
+        .dark-theme .timeline-axis-column {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-right-color: var(--color-border);
+          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Canto Superior Esquerdo - Interseção Horários x Datas */
         .timeline-axis-header {
           height: 60px;
+          min-height: 60px;
           border-bottom: 1px solid var(--color-border);
           display: flex;
           align-items: center;
           justify-content: center;
           color: var(--color-text-secondary);
+          position: sticky;
+          top: 0;
+          left: 0;
+          z-index: 50; /* Maior z-index de toda a estrutura */
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          border-top-left-radius: calc(var(--radius-lg) - 1px);
+          box-sizing: border-box;
+        }
+
+        .dark-theme .timeline-axis-header {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-bottom-color: var(--color-border);
         }
 
         .timeline-axis-body {
           display: flex;
           flex-direction: column;
+          background-color: inherit;
+        }
+
+        /* Indicador de Tempo Real na Régua de Horários */
+        .timeline-axis-now-badge {
+          position: absolute;
+          left: 3px;
+          right: 3px;
+          transform: translateY(-50%);
+          background-color: var(--color-error, #EF4444);
+          color: #FFFFFF;
+          font-size: 0.65rem;
+          font-weight: 800;
+          padding: 2px 3px;
+          border-radius: var(--radius-sm, 4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 45;
+          pointer-events: none;
+          box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+          white-space: nowrap;
+          letter-spacing: -0.02em;
         }
 
         .time-slot-label {
-          min-height: 50px;
+          height: 76px;
+          min-height: 76px;
           box-sizing: border-box;
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: center;
-          padding-top: 6px;
           font-size: 0.75rem;
           font-weight: 700;
           color: var(--color-text-secondary);
           border-bottom: 1px dashed rgba(234, 222, 214, 0.4);
+          background-color: inherit;
+        }
+
+        .dark-theme .time-slot-label {
+          border-bottom-color: rgba(255, 255, 255, 0.06);
         }
 
         /* Colunas dos Barbeiros */
         .professionals-columns-container {
           display: flex;
-          flex: 1;
+          flex: 1 1 auto;
+          min-width: 0;
         }
 
         .professional-timeline-column {
-          flex: 1;
-          min-width: 240px;
+          flex: 1 1 0;
+          width: 100%;
+          min-width: clamp(240px, 22vw, 640px);
           border-right: 1px solid rgba(234, 222, 214, 0.7);
           display: flex;
           flex-direction: column;
         }
 
         .week-timeline-column {
-          min-width: 140px;
+          width: 473px;
+          min-width: 473px;
           flex: 1;
         }
 
@@ -3554,14 +4154,31 @@ export const Agenda: React.FC = () => {
           border-right: none;
         }
 
+        .professional-timeline-column:last-child .prof-col-header {
+          border-top-right-radius: calc(var(--radius-lg) - 1px);
+        }
+
+        /* Header das Datas e Profissionais (Fixo no Topo no Scroll Vertical) */
         .prof-col-header {
           height: 60px;
+          min-height: 60px;
           border-bottom: 1px solid var(--color-border);
           padding: 0.5rem 0.75rem;
           display: flex;
           align-items: center;
           gap: 0.6rem;
-          background-color: rgba(255, 255, 255, 0.4);
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background-color: var(--color-bg-secondary, #FFFFFF);
+          box-sizing: border-box;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark-theme .prof-col-header {
+          background-color: var(--color-bg-secondary, #1E1B18);
+          border-bottom-color: var(--color-border);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
         }
 
         .prof-col-avatar {
@@ -3599,12 +4216,17 @@ export const Agenda: React.FC = () => {
         }
 
         .grid-slot-cell {
-          min-height: 50px;
+          width: 100%;
+          flex: 0 0 auto;
+          height: 76px;
+          min-height: 76px;
           box-sizing: border-box;
           border-bottom: 1px dashed rgba(234, 222, 214, 0.5);
           cursor: pointer;
           position: relative;
-          transition: background-color 0.15s ease;
+          transition: background-color 0.08s ease;
+          padding-top: var(--radius-sm, 4px);
+          padding-bottom: var(--radius-sm, 4px);
         }
 
         .grid-slot-cell:hover {
@@ -3679,9 +4301,19 @@ export const Agenda: React.FC = () => {
           ) !important;
         }
 
+        .grid-slot-cell--occupied,
         .grid-slot-cell--full {
-          background-color: rgba(217, 108, 0, 0.08);
-          cursor: not-allowed;
+          cursor: default;
+        }
+
+        .grid-slot-cell--occupied:hover,
+        .grid-slot-cell--full:hover {
+          background-color: transparent !important;
+        }
+
+        .grid-slot-cell--occupied .slot-hover-text,
+        .grid-slot-cell--full .slot-hover-text {
+          display: none !important;
         }
 
         .slot-hover-text {
@@ -3746,7 +4378,7 @@ export const Agenda: React.FC = () => {
           border: 1px dashed var(--color-text-secondary);
           color: var(--color-text-primary);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.08s ease, border-color 0.08s ease;
         }
 
         .timeline-blocked-card:hover {
@@ -3762,20 +4394,21 @@ export const Agenda: React.FC = () => {
           z-index: 10;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
+          justify-content: flex-start;
+          gap: 4px;
+          min-height: 69px;
           overflow: hidden;
           box-sizing: border-box;
           background-color: var(--color-bg-secondary);
           box-shadow: var(--shadow-sm);
           border: 1px solid var(--color-border);
           cursor: pointer;
-          transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
+          transition: box-shadow 0.08s ease, border-color 0.08s ease;
         }
 
         .timeline-appointment-card:hover {
-          transform: translateY(-2px);
           box-shadow: var(--shadow-md);
-          filter: brightness(1.02);
+          border-color: rgba(217, 108, 0, 0.45);
           z-index: 15;
         }
 
@@ -3823,20 +4456,6 @@ export const Agenda: React.FC = () => {
           color: #fff;
         }
 
-        .card-quick-no-show-btn {
-          display: inline-flex;
-          align-items: center;
-          border: 1px solid rgba(185, 28, 28, 0.35);
-          border-radius: 4px;
-          padding: 2px 6px;
-          margin-top: 4px;
-          background: rgba(255, 255, 255, 0.9);
-          color: #b91c1c;
-          font-size: 0.72rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
         .card-top-row {
           display: flex;
           align-items: center;
@@ -3848,6 +4467,8 @@ export const Agenda: React.FC = () => {
           font-size: 0.72rem;
           font-weight: 800;
           color: var(--color-text-primary);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .card-badges-row {
@@ -3862,6 +4483,8 @@ export const Agenda: React.FC = () => {
           padding: 0.1rem 0.35rem;
           border-radius: var(--radius-sm);
           text-transform: uppercase;
+          white-space: nowrap;
+          line-height: 1.2;
         }
 
         .badge-chip--fitting {
@@ -3881,9 +4504,19 @@ export const Agenda: React.FC = () => {
 
         .card-client-row {
           display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 6px;
+          margin: 0;
+          width: 100%;
+        }
+
+        .card-client-info {
+          display: flex;
           flex-direction: column;
-          gap: 0.05rem;
-          margin: 0.1rem 0;
+          gap: 2px;
+          min-width: 0;
+          flex: 1;
         }
 
         .card-client-name {
@@ -3902,6 +4535,77 @@ export const Agenda: React.FC = () => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.15;
+          font-weight: 500;
+        }
+
+        /* REGRAS ESPECÍFICAS DA VISÃO SEMANAL */
+        .week-timeline-column .timeline-appointment-card {
+          padding: 0.3rem 0.45rem;
+          gap: 1px;
+          justify-content: flex-start;
+        }
+
+        .week-timeline-column .card-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 3px;
+          margin-bottom: 2px;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+
+        .week-timeline-column .card-time-badge {
+          font-size: 0.66rem;
+          font-weight: 800;
+          white-space: nowrap;
+          flex-shrink: 0;
+          line-height: 1;
+        }
+
+        .week-timeline-column .card-badges-row {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          flex-shrink: 0;
+        }
+
+        .week-timeline-column .badge-chip {
+          font-size: 0.52rem;
+          padding: 1px 3px;
+          white-space: nowrap;
+          line-height: 1;
+          letter-spacing: 0.2px;
+        }
+
+        .week-timeline-column .card-client-row {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1px;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .week-timeline-column .card-client-name {
+          font-size: 0.78rem;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          display: block;
+          line-height: 1.15;
+        }
+
+        .week-timeline-column .card-service-name {
+          font-size: 0.68rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          display: block;
           line-height: 1.15;
           font-weight: 500;
         }
@@ -3946,7 +4650,7 @@ export const Agenda: React.FC = () => {
           box-sizing: border-box;
           vertical-align: middle;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: background-color 0.08s ease, color 0.08s ease;
         }
 
         .btn-card-action span {
@@ -4033,20 +4737,27 @@ export const Agenda: React.FC = () => {
         .segmented-btn {
           flex: 1;
           border: none;
-          padding: 0.45rem;
+          padding: 0.5rem 0.6rem;
           font-size: var(--font-size-xs);
           font-weight: 700;
           border-radius: var(--radius-sm);
           background: none;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
+          box-shadow: none;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          min-height: 40px;
         }
 
         .segmented-btn--active {
           background-color: var(--color-bg-secondary);
-          color: var(--color-brand-primary);
-          box-shadow: var(--shadow-sm);
+          color: var(--color-text-primary);
+          box-shadow: 0 0 0 1px #000000, 0 1px 2px rgba(45, 35, 30, 0.06);
+          border: none;
         }
 
         .form-group {
@@ -4077,8 +4788,9 @@ export const Agenda: React.FC = () => {
           width: 100%;
           min-width: 0;
           max-width: 100%;
-          padding: 0.6rem 0.8rem;
-          border: 1px solid var(--color-border);
+          padding: 0.65rem 0.85rem;
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: var(--radius-md);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
@@ -4086,6 +4798,7 @@ export const Agenda: React.FC = () => {
           font-family: inherit;
           box-sizing: border-box;
           inline-size: 100%;
+          transition: box-shadow 0.15s ease;
         }
 
         #form-date,
@@ -4106,7 +4819,7 @@ export const Agenda: React.FC = () => {
         .input-select:focus,
         .input-textarea:focus {
           outline: none;
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
         }
 
         .service-meta-pill {
@@ -4114,19 +4827,40 @@ export const Agenda: React.FC = () => {
           align-items: center;
           gap: 0.4rem;
           margin-top: 0.25rem;
-          font-size: 0.72rem;
-          color: var(--color-text-secondary);
+          font-size: 0.75rem;
+          color: var(--color-text-primary);
+        }
+
+        .service-meta-pill span {
+          color: var(--color-text-primary);
         }
 
         .service-meta-pill strong {
-          color: var(--color-brand-primary);
+          color: var(--color-text-primary);
+          font-weight: 700;
+        }
+
+        .anonymous-customer-note {
+          padding: 0.75rem 0.85rem;
+          background: rgba(0, 0, 0, 0.02);
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: 0.82rem;
+          line-height: 1.45;
+          color: var(--color-text-primary);
+          margin-bottom: 0.5rem;
+        }
+
+        .anonymous-customer-note span {
+          color: var(--color-text-primary);
         }
 
         .fitting-toggle-card {
           padding: 0.75rem 0.9rem;
           border-radius: var(--radius-md);
           background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
           align-items: center;
@@ -4137,8 +4871,8 @@ export const Agenda: React.FC = () => {
         }
 
         .fitting-toggle-card--active {
-          background-color: rgba(242, 178, 119, 0.15);
-          border-color: var(--color-brand-soft);
+          background-color: var(--color-bg-primary);
+          border-color: transparent;
         }
 
         .fitting-toggle-info {
@@ -4172,8 +4906,8 @@ export const Agenda: React.FC = () => {
         }
 
         .fitting-toggle-desc {
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
+          font-size: 0.72rem;
+          color: var(--color-text-primary);
         }
 
         .fitting-mode-switch {
@@ -4187,7 +4921,7 @@ export const Agenda: React.FC = () => {
         .fitting-mode-switch__label {
           font-size: 0.68rem;
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           transition: color 0.2s ease;
         }
 
@@ -4208,17 +4942,18 @@ export const Agenda: React.FC = () => {
           width: 2.55rem;
           height: 1.35rem;
           padding: 0.15rem;
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           border-radius: 999px;
-          background: var(--color-border);
+          background: #D1D5DB;
           cursor: pointer;
-          transition: background-color 0.2s ease, border-color 0.2s ease;
+          transition: background-color 0.2s ease, box-shadow 0.2s ease;
           box-sizing: border-box;
         }
 
         .fitting-mode-switch__control--custom {
           background: var(--color-brand-primary);
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 0.8px var(--color-brand-primary);
         }
 
         .fitting-mode-switch__control:focus-visible {
@@ -4284,21 +5019,27 @@ export const Agenda: React.FC = () => {
         }
 
         .btn-secondary {
-          background: none;
-          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          border: 0;
+          box-shadow: 0 0 0 0.8px var(--color-text-primary);
           padding: 0.6rem 1.25rem;
           border-radius: var(--radius-md);
           font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-secondary);
+          font-weight: 700;
+          color: var(--color-text-primary);
           cursor: pointer;
           min-height: 44px;
           box-sizing: border-box;
+          transition: background-color 0.15s ease, opacity 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+          background-color: rgba(0, 0, 0, 0.04);
         }
 
         .btn-primary {
           background-color: var(--color-brand-primary);
-          color: white;
+          color: var(--color-bg-secondary);
           border: none;
           padding: 0.6rem 1.5rem;
           border-radius: var(--radius-md);
@@ -4307,6 +5048,7 @@ export const Agenda: React.FC = () => {
           cursor: pointer;
           min-height: 44px;
           box-sizing: border-box;
+          transition: background-color 0.15s ease, transform 0.15s ease;
         }
 
         .btn-primary:hover {
@@ -4346,8 +5088,108 @@ export const Agenda: React.FC = () => {
           margin-bottom: 1rem;
         }
 
-        /* EMPTY STATE E SKELETON */
-        .agenda-skeleton-loading,
+        /* SKELETON LOADING DA GRADE DA AGENDA */
+        @keyframes skeletonShimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+
+        .agenda-timeline-board--skeleton {
+          pointer-events: none;
+          user-select: none;
+          animation: skeletonFadeIn 0.2s ease-out;
+        }
+
+        @keyframes skeletonFadeIn {
+          from {
+            opacity: 0.6;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        .skeleton-box {
+          background: linear-gradient(
+            90deg,
+            rgba(45, 35, 30, 0.05) 0%,
+            rgba(217, 108, 0, 0.12) 50%,
+            rgba(45, 35, 30, 0.05) 100%
+          );
+          background-size: 200% 100%;
+          animation: skeletonShimmer 1.5s ease-in-out infinite;
+          border-radius: var(--radius-sm, 6px);
+        }
+
+        .dark-theme .skeleton-box {
+          background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.04) 0%,
+            rgba(217, 108, 0, 0.16) 50%,
+            rgba(255, 255, 255, 0.04) 100%
+          );
+          background-size: 200% 100%;
+        }
+
+        .skeleton-title {
+          height: 14px;
+          border-radius: 4px;
+        }
+
+        .skeleton-subtitle {
+          height: 10px;
+          border-radius: 4px;
+        }
+
+        .skeleton-appointment-card {
+          position: absolute;
+          left: 4px;
+          right: 4px;
+          border-radius: var(--radius-md, 8px);
+          padding: 0.5rem;
+          box-sizing: border-box;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(234, 222, 214, 0.8);
+          box-shadow: 0 2px 8px rgba(45, 35, 30, 0.04);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          overflow: hidden;
+          pointer-events: none;
+          z-index: 5;
+        }
+
+        .dark-theme .skeleton-appointment-card {
+          background: rgba(30, 27, 24, 0.85);
+          border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .skeleton-card-badge {
+          width: 44px;
+          height: 12px;
+          border-radius: 4px;
+        }
+
+        .skeleton-card-name {
+          width: 72%;
+          height: 13px;
+          border-radius: 4px;
+        }
+
+        .skeleton-card-service {
+          width: 50%;
+          height: 11px;
+          border-radius: 4px;
+        }
+
+        /* EMPTY STATE */
         .agenda-empty-state {
           padding: 4rem 2rem;
           display: flex;
@@ -4356,15 +5198,6 @@ export const Agenda: React.FC = () => {
           justify-content: center;
           gap: 1rem;
           text-align: center;
-        }
-
-        .spinner-brand {
-          width: 32px;
-          height: 32px;
-          border: 3px solid rgba(217, 108, 0, 0.2);
-          border-top-color: var(--color-brand-primary);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
         }
 
         .empty-icon {
@@ -4389,8 +5222,25 @@ export const Agenda: React.FC = () => {
         .agenda-desktop-view {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 0.75rem;
           width: 100%;
+          height: 100%;
+          max-height: 100%;
+          min-height: 0;
+          flex: 1;
+        }
+
+        @media (max-width: 1024px) {
+          .agenda-header-subtitle {
+            display: none;
+          }
+          .card-notes-snippet {
+            display: none;
+          }
+          .grid-slot-cell {
+            padding-top: var(--radius-sm, 4px);
+            padding-bottom: var(--radius-sm, 4px);
+          }
         }
 
         @media (max-width: 768px) {

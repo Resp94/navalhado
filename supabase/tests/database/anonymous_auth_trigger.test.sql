@@ -11,5 +11,5 @@ select ok(
   'o trigger preserva a conclusao do insert em auth.users'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

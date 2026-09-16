@@ -100,5 +100,5 @@ select throws_ok($sql$
   where id = '08100000-0000-0000-0000-000000000021';
 $sql$, '22023', NULL, 'manual professional schedules outside tenant hours remain rejected');
 
-select * from finish();
+select * from finish(true);
 rollback;

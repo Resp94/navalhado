@@ -45,5 +45,5 @@ select ok(
   'welcome outbox job reads the trigger secret from Vault'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

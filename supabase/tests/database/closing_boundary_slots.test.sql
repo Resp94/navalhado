@@ -213,5 +213,5 @@ select throws_ok($sql$
   );
 $sql$, '22023', NULL, 'appointments reject an explicitly inactive professional day');
 
-select * from finish();
+select * from finish(true);
 rollback;

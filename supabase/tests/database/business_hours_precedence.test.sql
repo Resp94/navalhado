@@ -79,5 +79,5 @@ select ok(
   'the current appointment slot is available during rescheduling'
 );
 
-select * from finish();
+select * from finish(true);
 rollback;

@@ -7,10 +7,6 @@ import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Store01Icon,
-  Calendar03Icon,
-  Clock01Icon,
-  Location01Icon,
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
@@ -374,9 +370,6 @@ export const Configuracoes: React.FC = () => {
       {/* CARD 1: Perfil e Localização */}
       <div className="card card-config">
         <div className="config-section-header">
-          <div className="config-icon-badge">
-            <HugeiconsIcon icon={Store01Icon} size={22} strokeWidth={2} />
-          </div>
           <div>
             <h3>Perfil e localização</h3>
             <p>Dados cadastrais, canais de contato com o cliente e localização do estabelecimento.</p>
@@ -443,7 +436,6 @@ export const Configuracoes: React.FC = () => {
         {/* Endereço Estruturado com CEP */}
         <div className="address-section">
           <div className="address-section-title">
-            <HugeiconsIcon icon={Location01Icon} size={16} color="var(--color-brand-primary)" />
             <span>Endereço do estabelecimento</span>
           </div>
 
@@ -557,9 +549,6 @@ export const Configuracoes: React.FC = () => {
       {/* CARD 2: Regras de Agendamento Online */}
       <div className="card card-config">
         <div className="config-section-header">
-          <div className="config-icon-badge">
-            <HugeiconsIcon icon={Clock01Icon} size={22} strokeWidth={2} />
-          </div>
           <div>
             <h3>Regras de agendamento online</h3>
             <p>Defina o ritmo dos atendimentos e proteja a rotina dos seus profissionais contra agendamentos ou cancelamentos de última hora.</p>
@@ -699,9 +688,6 @@ export const Configuracoes: React.FC = () => {
       {/* CARD 3: Horário de Funcionamento Geral */}
       <div className="card card-config">
         <div className="config-section-header">
-          <div className="config-icon-badge">
-            <HugeiconsIcon icon={Calendar03Icon} size={22} strokeWidth={2} />
-          </div>
           <div>
             <h3>Horário de funcionamento geral</h3>
             <p>Escolha os dias da semana em que o estabelecimento atende e os horários de abertura e fechamento.</p>
@@ -796,7 +782,7 @@ export const Configuracoes: React.FC = () => {
         }
 
         .config-header-text p {
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           margin: 6px 0 0;
           line-height: 1.5;
@@ -833,18 +819,6 @@ export const Configuracoes: React.FC = () => {
           padding-bottom: 1rem;
         }
 
-        .config-icon-badge {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          background-color: var(--color-brand-lightest);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-brand-primary);
-          flex-shrink: 0;
-        }
-
         .config-section-header h3 {
           font-size: var(--font-size-base);
           font-weight: 800;
@@ -854,7 +828,7 @@ export const Configuracoes: React.FC = () => {
 
         .config-section-header p {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           margin: 2px 0 0;
         }
 
@@ -873,7 +847,7 @@ export const Configuracoes: React.FC = () => {
         .form-group label {
           font-size: var(--font-size-xs);
           font-weight: 700;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -882,21 +856,21 @@ export const Configuracoes: React.FC = () => {
         .config-select {
           padding: 12px 16px;
           border-radius: var(--radius-md);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 500;
           outline: none;
           min-height: 44px;
           box-sizing: border-box;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .config-input:focus,
         .config-select:focus {
-          border-color: var(--color-brand-primary);
-          box-shadow: 0 0 0 2px rgba(217, 108, 0, 0.15);
+          box-shadow: 0 0 0 2px var(--color-brand-primary);
         }
 
         .address-section {
@@ -972,7 +946,7 @@ export const Configuracoes: React.FC = () => {
 
         .lead-rule-desc {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           margin: 2px 0 0;
         }
 
@@ -987,23 +961,25 @@ export const Configuracoes: React.FC = () => {
           padding: 8px 10px;
           min-height: 40px;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 700;
           text-align: center;
           box-sizing: border-box;
+          outline: none;
+          transition: box-shadow 0.2s ease;
         }
 
         .lead-number-input:focus {
-          border-color: var(--color-brand-primary);
-          outline: none;
+          box-shadow: 0 0 0 2px var(--color-brand-primary);
         }
 
         .lead-input-unit {
           font-size: 12px;
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-weight: 600;
         }
 
@@ -1017,8 +993,9 @@ export const Configuracoes: React.FC = () => {
           padding: 6px 14px;
           min-height: 38px;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-border);
-          background-color: var(--color-bg-primary);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
+          background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: 12px;
           font-weight: 700;
@@ -1027,17 +1004,20 @@ export const Configuracoes: React.FC = () => {
         }
 
         .lead-chip-btn:hover {
-          border-color: var(--color-brand-primary);
+          box-shadow: 0 0 0 1px var(--color-brand-primary);
           color: var(--color-brand-primary);
         }
 
         .lead-chip-btn--active {
-          border-color: var(--color-brand-primary);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-brand-primary);
           background-color: var(--color-brand-primary);
           color: #FFFFFF;
         }
 
         .lead-chip-btn--active:hover {
+          box-shadow: 0 0 0 1px var(--color-brand-hover);
+          background-color: var(--color-brand-hover);
           color: #FFFFFF;
         }
 
@@ -1053,8 +1033,9 @@ export const Configuracoes: React.FC = () => {
           justify-content: space-between;
           padding: 12px 16px;
           border-radius: var(--radius-md);
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          background-color: var(--color-bg-secondary);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
           transition: all 0.2s ease;
           gap: 1rem;
         }
@@ -1097,13 +1078,19 @@ export const Configuracoes: React.FC = () => {
           padding: 8px 12px;
           min-height: 40px;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
+          border: 0;
+          box-shadow: 0 0 0 0.5px var(--color-text-primary);
           background-color: var(--color-bg-secondary);
           color: var(--color-text-primary);
           font-size: var(--font-size-sm);
           font-weight: 600;
           outline: none;
           cursor: pointer;
+          transition: box-shadow 0.2s ease;
+        }
+
+        .business-time-select:focus {
+          box-shadow: 0 0 0 2px var(--color-brand-primary);
         }
 
         .business-time-select:disabled {
@@ -1114,7 +1101,7 @@ export const Configuracoes: React.FC = () => {
 
         .business-time-sep {
           font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
+          color: var(--color-text-primary);
           font-weight: 600;
           flex-shrink: 0;
         }
@@ -1183,7 +1170,8 @@ export const Configuracoes: React.FC = () => {
         @media (max-width: 480px) {
           .config-input,
           .config-select,
-          .business-time-select {
+          .business-time-select,
+          .lead-number-input {
             font-size: 16px; /* Previne auto-zoom iOS */
           }
 
@@ -1210,6 +1198,10 @@ export const Configuracoes: React.FC = () => {
           .lead-number-input {
             flex: 1;
             min-height: 44px;
+          }
+
+          .lead-chip-btn {
+            min-height: 40px;
           }
         }
       `}</style>

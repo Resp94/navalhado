@@ -245,7 +245,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/Corte Tradicional/i).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText(/Cliente prefere tesoura/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText(/Cliente prefere tesoura/i)).toBeNull();
     });
   });
 
@@ -394,28 +394,42 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     const originalEnd = mockAppointments[0].end_time;
     mockAppointments[0].start_time = '2026-08-16T10:00:00.000Z';
     mockAppointments[0].end_time = '2026-08-16T10:30:00.000Z';
-    render(<Agenda />);
+    try {
+      render(<Agenda />);
 
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i }).length).toBeGreaterThan(0);
-    });
+      await waitFor(() => {
+        expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+      });
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i })[0]);
+      const appointmentCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((element) => element.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card');
+      expect(appointmentCard).toBeInTheDocument();
+      fireEvent.click(appointmentCard!);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Confirmar não comparecimento/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Sim, não compareceu/i })).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(screen.getByText('Comanda de atendimento')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i })).toBeInTheDocument();
+      });
 
-    fireEvent.click(screen.getByRole('button', { name: /Sim, não compareceu/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Marcar atendimento como não compareceu/i }));
 
-    await waitFor(() => {
-      expect(mockFrom).toHaveBeenCalledWith('appointments');
-      expect(screen.getAllByText('Não compareceu').length).toBeGreaterThan(0);
-    });
+      await waitFor(() => {
+        expect(screen.getByText(/Confirmar não comparecimento/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Sim, não compareceu/i })).toBeInTheDocument();
+      });
 
-    mockAppointments[0].start_time = originalStart;
-    mockAppointments[0].end_time = originalEnd;
+      fireEvent.click(screen.getByRole('button', { name: /Sim, não compareceu/i }));
+
+      await waitFor(() => {
+        expect(mockFrom).toHaveBeenCalledWith('appointments');
+        expect(screen.getAllByText('Não compareceu').length).toBeGreaterThan(0);
+      });
+    } finally {
+      mockAppointments[0].start_time = originalStart;
+      mockAppointments[0].end_time = originalEnd;
+    }
   });
 
   it('permite salvar encaixe personalizado fora do expediente', async () => {
@@ -677,19 +691,359 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
-  it('abre o modal direto de reagendamento ao clicar no botão Reagendar do card na agenda', async () => {
+  it('não renderiza ações rápidas dentro dos cards da agenda', async () => {
     render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Reagendar horário/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
     });
 
-    const rescheduleButtons = screen.getAllByRole('button', { name: /Reagendar horário/i });
-    fireEvent.click(rescheduleButtons[0]);
+    const cards = screen
+      .getAllByText('Pedro Cliente')
+      .map((element) => element.closest('.timeline-appointment-card'))
+      .filter(Boolean);
+    expect(cards.length).toBeGreaterThan(0);
+    cards.forEach((card) => {
+      expect(card?.querySelector('.card-quick-actions-right')).toBeNull();
+      expect(card?.querySelector('.card-quick-no-show-btn')).toBeNull();
+      expect(card?.querySelector('.card-quick-reagendar-btn')).toBeNull();
+    });
+  });
+
+  it('mantém o card normal livre de ações rápidas no topo', async () => {
+    render(<Agenda />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Reagendar horário de/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Confirmar Reagendamento/i })).toBeInTheDocument();
+      expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+    });
+
+    const clientLabels = screen.getAllByText('Pedro Cliente');
+    const card = clientLabels
+      .find((el) => el.closest('.timeline-appointment-card'))
+      ?.closest('.timeline-appointment-card');
+    expect(card).toBeInTheDocument();
+
+    const topRow = card!.querySelector('.card-top-row');
+    expect(topRow).toBeInTheDocument();
+    expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
+    expect(topRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
+
+    const clientRow = card!.querySelector('.card-client-row');
+    expect(clientRow).toBeInTheDocument();
+    expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
+  });
+
+  it('mantém o card de encaixe livre de ações rápidas na linha inferior', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      is_fitting: true,
+    };
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThan(0);
+      });
+
+      const clientLabels = screen.getAllByText('Pedro Cliente');
+      const card = clientLabels
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card');
+      expect(card).toBeInTheDocument();
+
+      const topRow = card!.querySelector('.card-top-row');
+      expect(topRow).toBeInTheDocument();
+      expect(topRow!.querySelector('.badge-chip--fitting')).toBeInTheDocument();
+      expect(topRow!.querySelector('.card-quick-actions-right')).toBeNull();
+
+      const clientRow = card!.querySelector('.card-client-row');
+      expect(clientRow).toBeInTheDocument();
+      expect(clientRow!.querySelector('.card-quick-actions-right')).toBeNull();
+      expect(clientRow!.querySelector('.card-quick-reagendar-btn')).toBeNull();
+    } finally {
+      mockAppointments[0] = originalAppointments[0];
+    }
+  });
+
+  it('aplica layout horizontal percentual no dia para card solo e slot dividido com encaixe', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      id: 'app-regular',
+      start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+      end_time: '2026-08-16T12:30:00.000Z',
+      is_fitting: false,
+    };
+    mockAppointments[1] = {
+      ...mockAppointments[0],
+      id: 'app-fitting',
+      customer_id: 'cust-2',
+      customer: { id: 'cust-2', name: 'Cliente Encaixe', phone: '11999999992' },
+      start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+      end_time: '2026-08-16T12:30:00.000Z',
+      is_fitting: true,
+    };
+    mockAppointments[2] = {
+      ...mockAppointments[0],
+      id: 'app-solo',
+      customer_id: 'cust-3',
+      customer: { id: 'cust-3', name: 'Cliente Solo', phone: '11999999993' },
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: false,
+    };
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Cliente Solo').length).toBeGreaterThan(0);
+      });
+
+      const soloCard = screen
+        .getAllByText('Cliente Solo')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(soloCard).toBeInTheDocument();
+      expect(soloCard.style.width).toBe('calc(100% - 8px)');
+      expect(soloCard.style.height).toBe('69px');
+      expect(soloCard.style.left).toBe('4px');
+
+      const regularCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(regularCard).toBeInTheDocument();
+      expect(regularCard.style.width).toBe('calc(50% - 8px)');
+      expect(regularCard.style.height).toBe('69px');
+      expect(regularCard.style.left).toBe('4px');
+
+      const fittingCard = screen
+        .getAllByText('Cliente Encaixe')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(fittingCard).toBeInTheDocument();
+      expect(fittingCard.style.width).toBe('calc(50% - 8px)');
+      expect(fittingCard.style.height).toBe('69px');
+      expect(fittingCard.style.left).toBe('calc(50% + 4px)');
+      expect(fittingCard.style.top).toBe(regularCard.style.top);
+      expect(parseInt(soloCard.style.top)).toBeGreaterThan(parseInt(regularCard.style.top));
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
+  it('desabilita opção de agendamento e encaixe em slot que já possui agendamento ou encaixe', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('slot-cell-prof-1-09:00')).toBeInTheDocument();
+    });
+
+    const occupiedSlot = screen.getByTestId('slot-cell-prof-1-09:00');
+    expect(occupiedSlot).toHaveClass('grid-slot-cell--occupied');
+    expect(occupiedSlot).toHaveAttribute('title', expect.stringContaining('Horário ocupado'));
+    expect(occupiedSlot.querySelector('.slot-hover-text')).toBeNull();
+
+    // Clicar no slot ocupado não deve abrir o modal de novo agendamento
+    fireEvent.click(occupiedSlot);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('distribui três compromissos sobrepostos em faixas percentuais sem largura fixa', async () => {
+    const originalAppointments = [...mockAppointments];
+    const overlappingAppointments = [
+      ['three-app-a', 'Cliente Sobreposto A'],
+      ['three-app-b', 'Cliente Sobreposto B'],
+      ['three-app-c', 'Cliente Sobreposto C'],
+    ];
+
+    overlappingAppointments.forEach(([id, customerName], index) => {
+      mockAppointments[index] = {
+        ...mockAppointments[0],
+        id,
+        customer_id: `cust-three-${index}`,
+        customer: { id: `cust-three-${index}`, name: customerName, phone: `1199999999${index}` },
+        start_time: '2026-08-16T12:00:00.000Z', // 09:00 em SP
+        end_time: '2026-08-16T12:30:00.000Z',
+        is_fitting: false,
+      };
+    });
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Cliente Sobreposto A').length).toBeGreaterThan(0);
+      });
+
+      const cards = overlappingAppointments.map(([, customerName]) => {
+        const card = screen
+          .getAllByText(customerName)
+          .find((el) => el.closest('.timeline-appointment-card'))
+          ?.closest('.timeline-appointment-card') as HTMLElement;
+        expect(card).toBeInTheDocument();
+        return card;
+      });
+
+      expect(cards.map((card) => card.style.left)).toEqual([
+        '4px',
+        'calc(33.333% + 4px)',
+        'calc(66.667% + 4px)',
+      ]);
+      expect(cards.map((card) => card.style.width)).toEqual([
+        'calc(33.333% - 8px)',
+        'calc(33.333% - 8px)',
+        'calc(33.333% - 8px)',
+      ]);
+      expect(cards.every((card) => !/^\d+px$/.test(card.style.width))).toBe(true);
+      expect(cards.map((card) => card.style.top)).toEqual([
+        cards[0].style.top,
+        cards[0].style.top,
+        cards[0].style.top,
+      ]);
+      expect(cards.map((card) => card.style.height)).toEqual(['69px', '69px', '69px']);
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
+  it('aplica largura de 463px para agendamento individual e 231px quando divide slot com encaixe na visão semanal', async () => {
+    const originalAppointments = [...mockAppointments];
+    mockAppointments[0] = {
+      ...mockAppointments[0],
+      id: 'week-app-regular',
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: false,
+    };
+    mockAppointments[1] = {
+      ...mockAppointments[0],
+      id: 'week-app-fitting',
+      customer_id: 'cust-week-2',
+      customer: { id: 'cust-week-2', name: 'Cliente Semana Encaixe', phone: '11999999992' },
+      start_time: '2026-08-16T13:00:00.000Z', // 10:00 em SP
+      end_time: '2026-08-16T13:30:00.000Z',
+      is_fitting: true,
+    };
+    mockAppointments[2] = {
+      ...mockAppointments[0],
+      id: 'week-app-solo',
+      customer_id: 'cust-week-3',
+      customer: { id: 'cust-week-3', name: 'Cliente Semana Solo', phone: '11999999993' },
+      start_time: '2026-08-16T14:00:00.000Z', // 11:00 em SP
+      end_time: '2026-08-16T14:30:00.000Z',
+      is_fitting: false,
+    };
+
+    try {
+      render(<Agenda />);
+
+      // Alternar para a visão semanal
+      const weekBtn = screen.getByText('Semana');
+      fireEvent.click(weekBtn);
+
+      await waitFor(
+        () => {
+          const cards = document.querySelectorAll('.timeline-appointment-card');
+          expect(cards.length).toBeGreaterThan(0);
+        },
+        { timeout: 3000 }
+      );
+
+      const soloCard = screen
+        .getAllByText('Cliente Semana Solo')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(soloCard).toBeInTheDocument();
+      expect(soloCard.style.width).toBe('463px');
+      expect(soloCard.style.height).toBe('69px');
+      expect(soloCard.style.left).toBe('5px');
+
+      const regularCard = screen
+        .getAllByText('Pedro Cliente')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(regularCard).toBeInTheDocument();
+      expect(regularCard.style.width).toBe('231px');
+      expect(regularCard.style.height).toBe('69px');
+      expect(regularCard.style.left).toBe('3px');
+
+      const fittingCard = screen
+        .getAllByText('Cliente Semana Encaixe')
+        .find((el) => el.closest('.timeline-appointment-card'))
+        ?.closest('.timeline-appointment-card') as HTMLElement;
+      expect(fittingCard).toBeInTheDocument();
+      expect(fittingCard.style.width).toBe('231px');
+      expect(fittingCard.style.height).toBe('69px');
+      expect(fittingCard.style.left).toBe('239px');
+      expect(fittingCard.style.top).toBe(regularCard.style.top);
+    } finally {
+      mockAppointments.length = 0;
+      mockAppointments.push(...originalAppointments);
+    }
+  });
+
+  it('mantém o botão de filtro de equipe idêntico ao alternar de dia para semana e permite alternar o profissional', async () => {
+    render(<Agenda />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Carlos Barbeiro').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Na visão de dia, o botão de equipe existe com título e classe corretos
+    const dayFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
+    expect(dayFilterBtn).toBeInTheDocument();
+    expect(dayFilterBtn).toHaveClass('btn-agenda-filter');
+    expect(dayFilterBtn).toHaveTextContent(/Equipe \(\s*2\s*\)/i);
+
+    // Alternar para a visão semanal
+    const weekBtn = screen.getByRole('button', { name: 'Semana' });
+    fireEvent.click(weekBtn);
+
+    // Na visão semanal, o botão de equipe NÃO deve virar um <select>, deve permanecer o mesmo botão
+    const weekFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
+    expect(weekFilterBtn).toBeInTheDocument();
+    expect(weekFilterBtn).toHaveClass('btn-agenda-filter');
+    expect(document.querySelector('.agenda-week-prof-select')).toBeNull();
+
+    // Clicar no botão para abrir o dropdown de seleção na semana
+    fireEvent.click(weekFilterBtn);
+
+    // Deve abrir o dropdown com opção dos profissionais com checkbox
+    expect(screen.getByRole('dialog', { name: /Filtrar Barbeiros da Equipe/i })).toBeInTheDocument();
+    const carlosCheckbox = screen.getByLabelText('Carlos Barbeiro');
+    const marcosCheckbox = screen.getByLabelText('Marcos Navalha');
+    expect(carlosCheckbox).toBeChecked();
+    expect(marcosCheckbox).toBeChecked();
+
+    // Desmarcar Marcos Navalha -> fica apenas Carlos selecionado
+    fireEvent.click(marcosCheckbox);
+    expect(marcosCheckbox).not.toBeChecked();
+
+    // A visão semanal deve refletir apenas Carlos Barbeiro no subtítulo
+    await waitFor(() => {
+      expect(screen.getByText(/Visão semanal do profissional Carlos Barbeiro/i)).toBeInTheDocument();
+    });
+
+    // Desmarcar Carlos Barbeiro -> 0 selecionados, deve exibir o mesmo empty state do dia
+    fireEvent.click(carlosCheckbox);
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum profissional selecionado')).toBeInTheDocument();
+      expect(screen.getByText(/Ative ao menos um profissional no filtro acima/i)).toBeInTheDocument();
+    });
+
+    // Clicar em "Exibir Todos" no empty state da semana deve restaurar todos os profissionais
+    const exibirTodosBtn = screen.getByRole('button', { name: /Exibir Todos/i });
+    fireEvent.click(exibirTodosBtn);
+    await waitFor(() => {
+      expect(screen.queryByText('Nenhum profissional selecionado')).toBeNull();
+      expect(screen.getByText(/Visão semanal de 2 profissional\(is\)/i)).toBeInTheDocument();
     });
   });
 });
+

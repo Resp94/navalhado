@@ -52,8 +52,11 @@ export interface ComandaItemHistorico {
 export interface ComandaHistoricoCliente {
   id: string;
   comanda_number: number;
-  status: string;
+  appointment_id: string | null;
+  status: 'aberta' | 'fechada' | 'cancelada';
+  /** Total cobrado (`comandas.total_amount`): itens - desconto + gorjeta. */
   total_final: number;
+  tip_amount: number;
   closed_at: string | null;
   created_at: string;
   items: ComandaItemHistorico[];
@@ -64,6 +67,7 @@ export interface MetricasLTVCliente {
   averageTicket: number;
   totalVisits: number;
   averageDaysBetweenVisits: number;
+  /** Dia de negócio (YYYY-MM-DD, fuso do tenant) da última Visita. */
   lastVisitDate: string | null;
 }
 

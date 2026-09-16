@@ -2,6 +2,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Clientes } from '../Clientes';
 
+function renderClientes() {
+  return render(<Clientes />);
+}
+
 // Mocks do GSAP para evitar erros no JSDOM
 vi.mock('gsap', () => ({
   gsap: {
@@ -64,7 +68,12 @@ vi.mock('../../../components/Toast', () => ({
   }),
 }));
 
-// Mock do react-router-dom para obter o contexto do tenant
+// Mock do react-router-dom para obter o contexto do tenant. `useSearchParams`
+// precisa ser mockado também (não só `useNavigate`): sua implementação real
+// usa `useLocation`, que exige um `<Router>` em volta -- e este arquivo
+// renderiza `<Clientes />` sem nenhum (spec 038, ticket 09: `Clientes.tsx`
+// passou a ler `?customerId=` da URL para abrir a Central 360º vinda da
+// página de Clientes sem Retorno).
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
@@ -74,6 +83,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
       tenantId: 'tenant-test-id',
       tenantName: 'Barbearia Estilo',
     }),
+    useSearchParams: () => [new URLSearchParams(), vi.fn()],
   };
 });
 
@@ -149,7 +159,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   });
 
   it('deve buscar e listar todos os clientes da barbearia', async () => {
-    render(<Clientes />);
+    renderClientes();
 
     expect(screen.getByText('Carregando clientes...')).toBeInTheDocument();
 
@@ -163,7 +173,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   });
 
   it('deve filtrar os clientes por status (Cadastrado vs Provisório)', async () => {
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
@@ -186,7 +196,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   });
 
   it('deve buscar clientes pelo termo de busca digitado', async () => {
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
@@ -240,7 +250,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       };
     });
 
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
@@ -269,7 +279,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   });
 
   it('deve promover um cliente provisório a completo ao preencher seu nome na edição', async () => {
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('Visitante Zap')).toBeInTheDocument();
@@ -301,7 +311,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       });
     });
 
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
@@ -323,7 +333,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   });
 
   it('deve excluir com sucesso um cliente provisório sem agendamentos', async () => {
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('Visitante Zap')).toBeInTheDocument();
@@ -344,7 +354,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
   it('deve abrir modal de WhatsApp direto e disparar mensagem via Uazapi', async () => {
     mockInvoke.mockResolvedValueOnce({ data: { success: true }, error: null });
 
-    render(<Clientes />);
+    renderClientes();
 
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();

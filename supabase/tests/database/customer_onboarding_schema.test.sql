@@ -45,5 +45,5 @@ select ok((select position('cadastro_completo' in with_check)>0
   and policyname='customers_insert_policy'),'policy requires complete');
 select ok(not has_function_privilege('public','private.normalize_br_phone(text)','execute'),'PUBLIC denied');
 select ok(has_function_privilege('service_role','private.normalize_br_phone(text)','execute'),'service allowed');
-select * from finish();
+select * from finish(true);
 rollback;
