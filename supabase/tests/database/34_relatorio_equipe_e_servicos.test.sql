@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(37);
 
 -- Spec 038 (Modulo de Relatorios), ticket 05: Ranking de profissionais e
 -- Ranking de servicos (pagina Equipe e Servicos). Cobre o contrato de
@@ -533,6 +533,25 @@ select is(
   ),
   true,
   'soma de professionals[].attendances (5) ultrapassa totals.attendances (4) por causa da Comanda dividida -- nao e um bug de reconciliacao, e esperado'
+);
+
+-- Reconciliacao (ticket 06): soma do liquido por servico (sem filtro de
+-- profissional) == liquido de servicos do periodo (totals.services_net).
+select is(
+  (
+    select round(sum((s ->> 'net')::numeric), 2)
+    from jsonb_array_elements(
+      private.get_team_services_report_core(
+        (select tenant_a_id from t05_context), '2026-08-20'::date, '2026-08-24'::date, null, '2026-08-24'::date, 'America/Sao_Paulo'
+      ) -> 'services'
+    ) as s
+  ),
+  (
+    select (private.get_team_services_report_core(
+      (select tenant_a_id from t05_context), '2026-08-20'::date, '2026-08-24'::date, null, '2026-08-24'::date, 'America/Sao_Paulo'
+    ) -> 'totals' ->> 'services_net')::numeric
+  ),
+  'soma do liquido de services[] e igual ao liquido de servicos do periodo (totals.services_net), por construcao'
 );
 
 -- ---------------------------------------------------------------------------

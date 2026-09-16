@@ -1,6 +1,7 @@
 import React from 'react';
 
 export interface PercentageBarProps {
+  /** Rótulo visível acima da barra. Pode ser `''` quando o nome já aparece em outra coluna/lugar (ex.: dentro de uma célula de tabela). */
   label: string;
   value: React.ReactNode;
   /** Fração 0-1, ou `null` quando não há dado (nenhum preenchimento é desenhado). */

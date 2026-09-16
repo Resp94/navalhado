@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../../components/ui/feedback/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/feedback/DataTable';
 import { Badge } from '../../../../components/ui/data-display/Badge';
 import { EmptyState } from '../../../../components/ui/data-display/EmptyState';
+import { PercentageBar } from '../../../../components/ui/data-display/PercentageBar';
 import { Select } from '../../../../components/ui/forms/Select';
+import { SegmentedControl } from '../../../../components/ui/navigation/SegmentedControl';
 import { formatCurrency } from '../../../../lib/currency';
 import { formatCurrencyOrDash, formatPercent } from '../../../../modules/relatorios/formatacao';
 import type { ProfissionalRanking, ServicoRanking } from '../../../../modules/relatorios/types';
+
+type CriterioOrdenacao = 'net' | 'quantity';
 
 export interface RankingServicosProps {
   services: ServicoRanking[];
@@ -19,13 +23,15 @@ export interface RankingServicosProps {
 }
 
 /**
- * Ranking de serviços da página Equipe e Serviços (spec 038, ticket 05):
+ * Ranking de serviços da página Equipe e Serviços (spec 038, tickets 05-06):
  * todos os serviços executados no período, inclusive arquivados (marcados
- * com `Badge`), na ordem de líquido decrescente devolvida pela API. O
- * filtro de profissional refaz a busca no servidor com `p_professional_id`
- * -- diferente do ranking de profissionais, que é sempre reordenado só na
- * tela, este filtro muda o próprio conjunto de dados (a spec pede
- * "p_professional_id filtra só a lista de serviços").
+ * com `Badge`). O filtro de profissional refaz a busca no servidor com
+ * `p_professional_id` -- diferente do ranking de profissionais, que é
+ * sempre reordenado só na tela, este filtro muda o próprio conjunto de
+ * dados (a spec pede "p_professional_id filtra só a lista de serviços").
+ * A alternância líquido/quantidade, por outro lado, é reordenação pura da
+ * tela sobre os dados já carregados, sem nova ida à rede -- mesmo padrão
+ * do `RankingProfissionais`.
  */
 export const RankingServicos: React.FC<RankingServicosProps> = ({
   services,
@@ -34,6 +40,13 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
   onProfessionalIdChange,
   exportButton,
 }) => {
+  const [criterio, setCriterio] = useState<CriterioOrdenacao>('net');
+
+  const linhas = useMemo(
+    () => [...services].sort((a, b) => b[criterio] - a[criterio]),
+    [services, criterio]
+  );
+
   return (
     <Card variant="outline" className="relatorios-ranking-servicos-card">
       <CardHeader>
@@ -45,20 +58,34 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
           {exportButton}
         </div>
 
-        <Select
-          aria-label="Filtrar por profissional"
-          value={professionalId}
-          onChange={(event) => onProfessionalIdChange(event.target.value)}
-          className="relatorios-ranking-servicos-filtro"
-          selectSize="sm"
-        >
-          <option value="">Todos os profissionais</option>
-          {professionals.map((profissional) => (
-            <option key={profissional.professional_id} value={profissional.professional_id}>
-              {profissional.name}
-            </option>
-          ))}
-        </Select>
+        <div className="relatorios-ranking-servicos-controles">
+          <Select
+            aria-label="Filtrar por profissional"
+            value={professionalId}
+            onChange={(event) => onProfessionalIdChange(event.target.value)}
+            className="relatorios-ranking-servicos-filtro"
+            selectSize="sm"
+          >
+            <option value="">Todos os profissionais</option>
+            {professionals.map((profissional) => (
+              <option key={profissional.professional_id} value={profissional.professional_id}>
+                {profissional.name}
+              </option>
+            ))}
+          </Select>
+
+          <SegmentedControl<CriterioOrdenacao>
+            aria-label="Ordenar por"
+            value={criterio}
+            onChange={setCriterio}
+            options={[
+              { id: 'net', label: 'Por líquido' },
+              { id: 'quantity', label: 'Por quantidade' },
+            ]}
+            size="sm"
+            fullWidth={false}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         {services.length === 0 ? (
@@ -80,7 +107,7 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {services.map((servico) => (
+                {linhas.map((servico) => (
                   <TableRow key={servico.service_id}>
                     <TableCell>
                       <span className="relatorios-ranking-servico-nome">
@@ -95,7 +122,14 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
                     <TableCell>{servico.category}</TableCell>
                     <TableCell align="right">{servico.quantity}</TableCell>
                     <TableCell align="right">{formatCurrency(servico.net)}</TableCell>
-                    <TableCell align="right">{formatPercent(servico.share)}</TableCell>
+                    <TableCell align="right">
+                      <PercentageBar
+                        label=""
+                        value={formatPercent(servico.share)}
+                        share={servico.share}
+                        className="relatorios-ranking-servico-participacao"
+                      />
+                    </TableCell>
                     <TableCell align="right">{formatCurrencyOrDash(servico.average_unit_net)}</TableCell>
                   </TableRow>
                 ))}
@@ -112,9 +146,20 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
           gap: 0.5rem;
         }
 
+        .relatorios-ranking-servicos-controles {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+          margin-top: 0.75rem;
+        }
+
         .relatorios-ranking-servicos-filtro {
           max-width: 260px;
-          margin-top: 0.75rem;
+        }
+
+        .relatorios-ranking-servico-participacao {
+          min-width: 140px;
         }
       `}</style>
     </Card>

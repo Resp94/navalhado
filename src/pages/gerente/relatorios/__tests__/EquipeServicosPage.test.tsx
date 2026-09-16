@@ -319,6 +319,39 @@ describe('EquipeServicosPage', () => {
     );
   });
 
+  it('reordena o ranking de serviços entre líquido e quantidade, sem nova ida ao repositório', async () => {
+    const handler = vi.fn(async (_input: ObterEquipeEServicosInput) =>
+      respostaBase({
+        services: [
+          { service_id: 'svc-1', name: 'Corte', category: 'Cabelo', archived: false, quantity: 1, net: 270, share: 0.6, average_unit_net: 270 },
+          { service_id: 'svc-2', name: 'Sobrancelha', category: 'Estética', archived: false, quantity: 5, net: 100, share: 0.4, average_unit_net: 20 },
+        ],
+      })
+    );
+    const adapter = new FakeRelatoriosAdapter(handler);
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<EquipeServicosPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ranking de serviços')).toBeInTheDocument();
+    });
+
+    // Padrão (API já ordena por líquido desc): Corte (270) antes de Sobrancelha (100).
+    let linhas = screen.getAllByRole('row').filter((row) => within(row).queryByText(/Corte|Sobrancelha/));
+    expect(within(linhas[0]).getByText('Corte')).toBeInTheDocument();
+
+    const chamadasAntes = handler.mock.calls.length;
+    fireEvent.click(screen.getByRole('tab', { name: 'Por quantidade' }));
+
+    // Sobrancelha tem mais quantidade (5 x 1) e passa a vir primeiro --
+    // reordenação local, sem nova chamada ao repositório.
+    linhas = screen.getAllByRole('row').filter((row) => within(row).queryByText(/Corte|Sobrancelha/));
+    expect(within(linhas[0]).getByText('Sobrancelha')).toBeInTheDocument();
+    expect(within(linhas[1]).getByText('Corte')).toBeInTheDocument();
+    expect(handler.mock.calls.length).toBe(chamadasAntes);
+  });
+
   it('mostra erro com botão de tentar de novo quando a consulta falha', async () => {
     const adapter = new FakeRelatoriosAdapter(async () => {
       throw new Error('Falha de rede');
