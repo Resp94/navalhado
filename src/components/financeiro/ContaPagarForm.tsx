@@ -256,7 +256,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
   };
 
   return (
-    <form className="conta-pagar-form" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <SegmentedControl
         value={variante}
         onChange={handleTrocarVariante}
@@ -278,7 +278,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         disabled={saving}
       />
 
-      <div className="conta-pagar-form-campo-com-atalho">
+      <div className="flex items-end gap-3 [&>:first-child]:flex-1">
         <Select
           label="Categoria de despesa"
           value={categoryId}
@@ -299,7 +299,7 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
         )}
       </div>
 
-      <div className="conta-pagar-form-campo-com-atalho">
+      <div className="flex items-end gap-3 [&>:first-child]:flex-1">
         <Select
           label="Fornecedor (opcional)"
           value={supplierId}
@@ -389,15 +389,24 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           </Button>
 
           {previaErro && (
-            <div className="conta-pagar-form-error" role="alert">
+            <div
+              className="bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem] text-sm text-text-primary"
+              role="alert"
+            >
               {previaErro}
             </div>
           )}
 
           {previaOcorrencias && previaOcorrencias.length > 0 && (
-            <ul className="conta-pagar-form-previa" aria-label="Prévia das ocorrências">
+            <ul
+              className="list-none m-0 p-0 max-h-[220px] overflow-y-auto flex flex-col gap-[0.35rem]"
+              aria-label="Prévia das ocorrências"
+            >
               {previaOcorrencias.map((ocorrencia) => (
-                <li key={ocorrencia.position}>
+                <li
+                  key={ocorrencia.position}
+                  className="flex justify-between gap-3 text-sm text-text-primary py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)]"
+                >
                   <span>
                     {variante === 'parcelamento'
                       ? `${ocorrencia.position}/${previaOcorrencias.length}`
@@ -430,12 +439,15 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
       />
 
       {error && (
-        <div className="conta-pagar-form-error" role="alert">
+        <div
+          className="bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem] text-sm text-text-primary"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
-      <div className="conta-pagar-form-actions">
+      <div className="flex justify-end gap-3">
         {onCancelar && (
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={saving}>
             Cancelar
@@ -480,61 +492,6 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           />
         </Drawer>
       )}
-
-      <style>{`
-        .conta-pagar-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .conta-pagar-form-campo-com-atalho {
-          display: flex;
-          align-items: flex-end;
-          gap: 0.75rem;
-        }
-
-        .conta-pagar-form-campo-com-atalho > :first-child {
-          flex: 1;
-        }
-
-        .conta-pagar-form-previa {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          max-height: 220px;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .conta-pagar-form-previa li {
-          display: flex;
-          justify-content: space-between;
-          gap: 0.75rem;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-          padding: 0.5rem 0.75rem;
-          border-radius: var(--radius-sm, 6px);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-form-error {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .conta-pagar-form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-        }
-      `}</style>
     </form>
   );
 };

@@ -21,7 +21,6 @@ import { Drawer } from '../../../components/ui/feedback/Drawer';
 import { Pagination } from '../../../components/ui/navigation/Pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../components/ui/feedback/DataTable';
 import '../Financeiro.css';
-import './ContasPagar.css';
 
 export interface ContasPagarTabProps {
   /** Repositório de Contas a Pagar injetado para teste. */
@@ -163,16 +162,19 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
   };
 
   return (
-    <div className="financeiro-tab-content contas-pagar-tab">
-      <header className="contas-pagar-header">
-        <h2 className="contas-pagar-title">Contas a pagar</h2>
+    <div className="financeiro-tab-content w-full">
+      <header className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <h2 className="m-0 text-[1.1rem] font-extrabold text-text-primary">Contas a pagar</h2>
         <Button variant="primary" size="sm" onClick={abrirCriar}>
           Nova conta
         </Button>
       </header>
 
       {alerta && (alerta.overdueCount > 0 || alerta.dueTodayCount > 0) && (
-        <div className="contas-pagar-alerta" role="status">
+        <div
+          className="flex flex-wrap gap-x-6 gap-y-2 mb-4 rounded-md bg-brand-lightest py-3 px-4 text-text-primary text-sm font-bold shadow-[0_0_0_0.8px_var(--color-error)]"
+          role="status"
+        >
           {alerta.overdueCount > 0 && (
             <span>
               {alerta.overdueCount} conta{alerta.overdueCount > 1 ? 's' : ''} vencida
@@ -188,7 +190,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
         </div>
       )}
 
-      <div className="contas-pagar-totais">
+      <div className="grid gap-4 mb-4 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
         <StatCard title="Em aberto" value={formatarMoeda(totais?.openBalance || 0)} loading={totaisCarregando} />
         <StatCard
           title="Vencido"
@@ -202,21 +204,23 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
         />
       </div>
 
-      <div className="contas-pagar-filtros">
-        <label className="contas-pagar-filtro-campo">
+      <div className="flex items-end gap-4 flex-wrap mb-4">
+        <label className="flex flex-col gap-[0.35rem] text-sm text-text-secondary">
           <span>Vencimento de</span>
           <input
             type="date"
             value={filtro.dueDateFrom || ''}
             onChange={(event) => mudarFiltro({ dueDateFrom: event.target.value || null })}
+            className="py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-base"
           />
         </label>
-        <label className="contas-pagar-filtro-campo">
+        <label className="flex flex-col gap-[0.35rem] text-sm text-text-secondary">
           <span>Vencimento até</span>
           <input
             type="date"
             value={filtro.dueDateTo || ''}
             onChange={(event) => mudarFiltro({ dueDateTo: event.target.value || null })}
+            className="py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-base"
           />
         </label>
         <Select
@@ -254,7 +258,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
       </div>
 
       {loading && (
-        <div className="contas-pagar-skeleton-list" aria-label="Carregando contas a pagar">
+        <div className="flex flex-col gap-3" aria-label="Carregando contas a pagar">
           <Skeleton height={44} />
           <Skeleton height={44} />
           <Skeleton height={44} />
@@ -312,28 +316,28 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
             </Table>
           </div>
 
-          <div className="financeiro-mobile-view contas-pagar-cards">
+          <div className="financeiro-mobile-view max-md:flex max-md:flex-col max-md:gap-3">
             {contas.map((conta) => {
               const { situacao } = renderLinha(conta);
               return (
                 <Card
                   key={conta.id}
-                  className="contas-pagar-card"
+                  className="p-4"
                   onClick={() => abrirDetalhe(conta.id)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <div className="contas-pagar-card-row">
-                    <span className="contas-pagar-card-name">{conta.description}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-bold text-text-primary">{conta.description}</span>
                     <Badge variant={situacao.variant}>{situacao.label}</Badge>
                   </div>
-                  <p className="contas-pagar-card-detail">{conta.category_name}</p>
+                  <p className="mt-[0.35rem] text-sm text-text-secondary">{conta.category_name}</p>
                   {conta.supplier_name && (
-                    <p className="contas-pagar-card-detail">{conta.supplier_name}</p>
+                    <p className="mt-[0.35rem] text-sm text-text-secondary">{conta.supplier_name}</p>
                   )}
-                  <p className="contas-pagar-card-detail">
+                  <p className="mt-[0.35rem] text-sm text-text-secondary">
                     Vencimento: {formatarData(conta.due_date)}
                   </p>
-                  <p className="contas-pagar-card-detail">
+                  <p className="mt-[0.35rem] text-sm text-text-secondary">
                     {formatarMoeda(conta.amount)} · saldo {formatarMoeda(conta.remaining_amount)}
                   </p>
                 </Card>
