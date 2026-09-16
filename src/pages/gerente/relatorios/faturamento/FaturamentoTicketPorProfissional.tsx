@@ -31,10 +31,10 @@ export const FaturamentoTicketPorProfissional: React.FC<FaturamentoTicketPorProf
   exportButton,
 }) => {
   return (
-    <Card variant="outline" className="relatorios-ticket-profissional-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Ticket por profissional</CardTitle>
             <CardDescription>
               Comanda dividida conta para cada profissional. Item sem profissional associado não
@@ -51,7 +51,7 @@ export const FaturamentoTicketPorProfissional: React.FC<FaturamentoTicketPorProf
             description="Os itens reconhecidos no período não têm profissional associado."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Ticket por profissional">
               <TableHeader>
                 <TableRow>
@@ -65,7 +65,7 @@ export const FaturamentoTicketPorProfissional: React.FC<FaturamentoTicketPorProf
                 {ticketByProfessional.map((profissional) => (
                   <TableRow key={profissional.professional_id}>
                     <TableCell>
-                      <span className="relatorios-ticket-profissional-nome">
+                      <span className="inline-flex items-center gap-2">
                         {profissional.name}
                         {profissional.archived && (
                           <Badge variant="neutral" size="xs">
@@ -89,14 +89,6 @@ export const FaturamentoTicketPorProfissional: React.FC<FaturamentoTicketPorProf
           </div>
         )}
       </CardContent>
-
-      <style>{`
-        .relatorios-ticket-profissional-nome {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-      `}</style>
     </Card>
   );
 };

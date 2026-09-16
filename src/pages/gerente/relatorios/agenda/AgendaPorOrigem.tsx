@@ -31,10 +31,10 @@ export interface AgendaPorOrigemProps {
  */
 export const AgendaPorOrigem: React.FC<AgendaPorOrigemProps> = ({ origins, exportButton }) => {
   return (
-    <Card variant="outline" className="relatorios-agenda-por-origem-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Agendamentos por origem</CardTitle>
             <CardDescription>De onde vieram os Agendamentos do período e quantos viraram atendimento.</CardDescription>
           </div>
@@ -48,7 +48,7 @@ export const AgendaPorOrigem: React.FC<AgendaPorOrigemProps> = ({ origins, expor
             description="Não há Agendamento com início no período e no filtro de profissional selecionados."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Agendamentos por origem">
               <TableHeader>
                 <TableRow>

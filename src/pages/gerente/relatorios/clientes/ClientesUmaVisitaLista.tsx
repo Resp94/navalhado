@@ -34,7 +34,7 @@ export const ClientesUmaVisitaLista: React.FC<ClientesUmaVisitaListaProps> = ({ 
   }
 
   return (
-    <div className="relatorios-faturamento-tabela-wrap">
+    <div className="overflow-x-auto">
       <Table aria-label="Clientes de Uma Visita">
         <TableHeader>
           <TableRow>

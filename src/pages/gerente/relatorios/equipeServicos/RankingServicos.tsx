@@ -48,22 +48,22 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
   );
 
   return (
-    <Card variant="outline" className="relatorios-ranking-servicos-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Ranking de serviços</CardTitle>
             <CardDescription>Quantidade, líquido, participação e valor médio por serviço executado.</CardDescription>
           </div>
           {exportButton}
         </div>
 
-        <div className="relatorios-ranking-servicos-controles">
+        <div className="flex items-center gap-3 flex-wrap mt-3">
           <Select
             aria-label="Filtrar por profissional"
             value={professionalId}
             onChange={(event) => onProfessionalIdChange(event.target.value)}
-            className="relatorios-ranking-servicos-filtro"
+            className="max-w-[260px]"
             selectSize="sm"
           >
             <option value="">Todos os profissionais</option>
@@ -94,7 +94,7 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
             description="Não há item de serviço reconhecido para o período e o filtro de profissional selecionados."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Ranking de serviços">
               <TableHeader>
                 <TableRow>
@@ -110,7 +110,7 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
                 {linhas.map((servico) => (
                   <TableRow key={servico.service_id}>
                     <TableCell>
-                      <span className="relatorios-ranking-servico-nome">
+                      <span className="inline-flex items-center gap-2">
                         {servico.name}
                         {servico.archived && (
                           <Badge variant="neutral" size="xs">
@@ -127,7 +127,7 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
                         label=""
                         value={formatPercent(servico.share)}
                         share={servico.share}
-                        className="relatorios-ranking-servico-participacao"
+                        className="min-w-[140px]"
                       />
                     </TableCell>
                     <TableCell align="right">{formatCurrencyOrDash(servico.average_unit_net)}</TableCell>
@@ -138,30 +138,6 @@ export const RankingServicos: React.FC<RankingServicosProps> = ({
           </div>
         )}
       </CardContent>
-
-      <style>{`
-        .relatorios-ranking-servico-nome {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .relatorios-ranking-servicos-controles {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          margin-top: 0.75rem;
-        }
-
-        .relatorios-ranking-servicos-filtro {
-          max-width: 260px;
-        }
-
-        .relatorios-ranking-servico-participacao {
-          min-width: 140px;
-        }
-      `}</style>
     </Card>
   );
 };

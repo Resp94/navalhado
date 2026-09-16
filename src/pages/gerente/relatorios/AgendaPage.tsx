@@ -27,7 +27,6 @@ import {
   construirLinhasMapaDeCalor,
   type AgendaMapaDeCalorLinha,
 } from './agenda/AgendaMapaDeCalor';
-import './Relatorios.css';
 
 const COLUNAS_CSV_ORIGEM: CsvColumn<RelatorioAgendaOrigemTotais>[] = [
   { header: 'Origem', accessor: (item) => formatOrigemLabel(item.origin) },
@@ -136,8 +135,8 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
     !loading && !error && data !== null && data.status_totals.total === 0 && professionals.length === 0;
 
   return (
-    <div className="relatorios-faturamento">
-      <header className="relatorios-faturamento-header">
+    <div className="flex flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
         <div>
           <h2 className="card-panel-title">
             <HugeiconsIcon icon={Calendar03Icon} size={18} />
@@ -159,16 +158,23 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
       </header>
 
       {error && (
-        <div className="relatorios-faturamento-erro" role="alert">
+        <div
+          className="text-error bg-error-bg border border-[rgba(240,82,82,0.25)] rounded-md px-4 py-3 flex items-center justify-between gap-4"
+          role="alert"
+        >
           <span>{error}</span>
-          <button type="button" onClick={() => void reload()}>
+          <button
+            type="button"
+            className="border-none bg-error text-white rounded-sm px-3 py-[0.35rem] font-bold cursor-pointer"
+            onClick={() => void reload()}
+          >
             Tentar de novo
           </button>
         </div>
       )}
 
       {loading && !data ? (
-        <div className="relatorios-faturamento-cards">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} height={110} />
           ))}

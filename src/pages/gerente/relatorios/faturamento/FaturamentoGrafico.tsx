@@ -34,7 +34,7 @@ function formatEixoData(dateStr: string): string {
  *
  * Em granularidade diária com muitos agrupamentos, o SVG cresce em largura
  * (largura fixa por agrupamento) e rola na horizontal dentro do próprio
- * contêiner (`.relatorios-faturamento-grafico-scroll`), nunca a página.
+ * contêiner (`overflow-x-auto`), nunca a página.
  */
 export const FaturamentoGrafico: React.FC<FaturamentoGraficoProps> = ({ buckets }) => {
   if (buckets.length === 0) return null;
@@ -54,25 +54,33 @@ export const FaturamentoGrafico: React.FC<FaturamentoGraficoProps> = ({ buckets 
   const titulo = 'Gráfico de evolução do faturamento líquido de serviços e de produtos por agrupamento do período';
 
   return (
-    <section className="card-panel relatorios-faturamento-grafico-panel" aria-label="Gráfico de evolução do faturamento">
+    <section className="card-panel" aria-label="Gráfico de evolução do faturamento">
       <h3 className="card-panel-title">Evolução do faturamento líquido</h3>
 
-      <p className="relatorios-faturamento-grafico-legenda">
-        <span className="relatorios-faturamento-legenda-item">
-          <span className="relatorios-faturamento-legenda-swatch relatorios-faturamento-legenda-swatch--servicos" aria-hidden="true" />
+      <p className="flex flex-wrap gap-x-4 gap-y-[0.35rem] mb-2 text-xs text-text-secondary">
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span className="inline-block w-[0.85rem] h-[0.85rem] rounded-[3px] bg-brand-primary" aria-hidden="true" />
           Serviços
         </span>
-        <span className="relatorios-faturamento-legenda-item">
-          <span className="relatorios-faturamento-legenda-swatch relatorios-faturamento-legenda-swatch--produtos" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span
+            className="inline-block w-[0.85rem] h-[0.85rem] rounded-[3px]"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(45deg, var(--color-info, #3f83f8) 0, var(--color-info, #3f83f8) 1.5px, transparent 1.5px, transparent 4px)',
+              backgroundColor: 'rgba(63, 131, 248, 0.25)',
+            }}
+            aria-hidden="true"
+          />
           Produtos
         </span>
       </p>
 
-      <p className="relatorios-faturamento-grafico-nota">
+      <p className="mb-3 text-xs text-text-secondary">
         A tabela abaixo mostra os mesmos valores por agrupamento.
       </p>
 
-      <div className="relatorios-faturamento-grafico-scroll">
+      <div className="overflow-x-auto max-w-full">
         <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label={titulo}>
           <title>{titulo}</title>
           <defs>
@@ -96,7 +104,7 @@ export const FaturamentoGrafico: React.FC<FaturamentoGraficoProps> = ({ buckets 
             const rotulo = formatEixoData(bucket.start_date);
 
             return (
-              <g key={`${bucket.start_date}-${bucket.end_date}`} className="relatorios-faturamento-grafico-grupo">
+              <g key={`${bucket.start_date}-${bucket.end_date}`}>
                 <rect
                   x={barX}
                   y={escalaY(bucket.services_net)}

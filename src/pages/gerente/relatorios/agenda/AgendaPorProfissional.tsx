@@ -37,10 +37,10 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
   exportButton,
 }) => {
   return (
-    <Card variant="outline" className="relatorios-agenda-por-profissional-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Agendamentos por profissional</CardTitle>
             <CardDescription>
               Sempre todos os profissionais com Agendamento no período, inclusive inativos e arquivados -- esta
@@ -50,12 +50,12 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
           {exportButton}
         </div>
 
-        <div className="relatorios-agenda-filtro-profissional">
+        <div className="flex items-center gap-3 flex-wrap mt-3">
           <Select
             aria-label="Filtrar por profissional"
             value={professionalId}
             onChange={(event) => onProfessionalIdChange(event.target.value)}
-            className="relatorios-agenda-filtro-profissional-select"
+            className="max-w-[260px]"
             selectSize="sm"
           >
             <option value="">Todos os profissionais</option>
@@ -65,7 +65,7 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
               </option>
             ))}
           </Select>
-          <span className="relatorios-agenda-filtro-profissional-aviso">
+          <span className="text-xs text-text-secondary">
             Filtra os cartões, a tabela por origem e os motivos de cancelamento acima -- não filtra esta tabela.
           </span>
         </div>
@@ -77,7 +77,7 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
             description="Não há Agendamento com início no período para nenhum profissional."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Agendamentos por profissional">
               <TableHeader>
                 <TableRow>
@@ -94,7 +94,7 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
                 {professionals.map((profissional) => (
                   <TableRow key={profissional.professional_id}>
                     <TableCell>
-                      <span className="relatorios-agenda-profissional-nome">
+                      <span className="inline-flex items-center gap-2">
                         {profissional.name}
                         {profissional.archived && (
                           <Badge variant="neutral" size="xs">
@@ -121,31 +121,6 @@ export const AgendaPorProfissional: React.FC<AgendaPorProfissionalProps> = ({
           </div>
         )}
       </CardContent>
-
-      <style>{`
-        .relatorios-agenda-profissional-nome {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .relatorios-agenda-filtro-profissional {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          margin-top: 0.75rem;
-        }
-
-        .relatorios-agenda-filtro-profissional-select {
-          max-width: 260px;
-        }
-
-        .relatorios-agenda-filtro-profissional-aviso {
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-      `}</style>
     </Card>
   );
 };

@@ -16,7 +16,7 @@ export interface ClientesSemRetornoResumoProps {
  */
 export const ClientesSemRetornoResumo: React.FC<ClientesSemRetornoResumoProps> = ({ totals, loading }) => {
   return (
-    <div className="relatorios-faturamento-cards">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
       <StatCard title="Sem retorno" value={totals?.without_return ?? 0} loading={loading} />
       <StatCard title="Dentro do prazo" value={totals?.within_return ?? 0} loading={loading} />
       <StatCard title="Nunca veio" value={totals?.no_visit_ever ?? 0} loading={loading} />

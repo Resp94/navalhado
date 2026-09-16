@@ -12,12 +12,11 @@ export interface FaturamentoTabelaProps {
  * Tabela por agrupamento do Faturamento por período (spec 038, ticket 01):
  * é a mesma tabela que o CSV (ticket futuro) exportaria -- toda
  * visualização tem equivalente em tabela. Rola na horizontal dentro do
- * próprio contêiner (`.relatorios-faturamento-tabela-wrap`), nunca a
- * página inteira.
+ * próprio contêiner (`overflow-x-auto`), nunca a página inteira.
  */
 export const FaturamentoTabela: React.FC<FaturamentoTabelaProps> = ({ buckets }) => {
   return (
-    <div className="relatorios-faturamento-tabela-wrap">
+    <div className="overflow-x-auto">
       <Table aria-label="Faturamento por agrupamento">
         <TableHeader>
           <TableRow>
