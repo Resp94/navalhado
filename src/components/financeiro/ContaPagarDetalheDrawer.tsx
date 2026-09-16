@@ -409,10 +409,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .conta-pagar-detalhe-titulo {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .conta-pagar-detalhe-info {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -429,10 +425,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           margin: 0;
           font-weight: 700;
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .conta-pagar-detalhe-info dd {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .conta-pagar-detalhe-aviso-serie {
@@ -453,15 +445,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .conta-pagar-detalhe-aviso-serie {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-        }
-
-        .dark-theme .conta-pagar-detalhe-aviso-serie p {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .conta-pagar-detalhe-acoes {
           display: flex;
           flex-wrap: wrap;
@@ -473,10 +456,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           font-size: var(--font-size-sm, 0.875rem);
           font-weight: 800;
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .conta-pagar-detalhe-subtitulo {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .conta-pagar-detalhe-vazio {
@@ -502,10 +481,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
           gap: 0.35rem;
         }
 
-        .dark-theme .conta-pagar-detalhe-baixa {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-        }
-
         .conta-pagar-detalhe-baixa-linha {
           display: flex;
           align-items: center;
@@ -515,10 +490,6 @@ export const ContaPagarDetalheDrawer: React.FC<ContaPagarDetalheDrawerProps> = (
         .conta-pagar-detalhe-baixa-valor {
           font-weight: 800;
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .conta-pagar-detalhe-baixa-valor {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .conta-pagar-detalhe-baixa-detalhe {

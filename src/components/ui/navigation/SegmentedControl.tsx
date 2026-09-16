@@ -75,12 +75,6 @@ export function SegmentedControl<T extends string | number = string>({
           user-select: none;
         }
 
-        .dark-theme .ui-segmented {
-          background-color: #14110F;
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-segmented--full {
           display: flex;
           width: 100%;
@@ -129,20 +123,10 @@ export function SegmentedControl<T extends string | number = string>({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .ui-segmented-btn:hover:not(:disabled) {
-          color: #FFFFFF;
-        }
-
         .ui-segmented-btn--active {
           background-color: var(--color-bg-secondary, #FFFFFF) !important;
           color: var(--color-text-primary, #2D231E) !important;
           box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E), 0 1px 3px rgba(45, 35, 30, 0.08) !important;
-        }
-
-        .dark-theme .ui-segmented-btn--active {
-          background-color: var(--color-bg-secondary, #1E1B18) !important;
-          color: var(--color-text-primary, #FFF1E6) !important;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
         }
 
         .ui-segmented-btn:disabled {
@@ -173,19 +157,9 @@ export function SegmentedControl<T extends string | number = string>({
           border: none;
         }
 
-        .dark-theme .ui-segmented-count {
-          background-color: rgba(255, 255, 255, 0.1);
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-segmented-count--active {
           background-color: var(--color-text-primary, #2D231E) !important;
           color: var(--color-bg-secondary, #FFFFFF) !important;
-        }
-
-        .dark-theme .ui-segmented-count--active {
-          background-color: var(--color-text-primary, #FFF1E6) !important;
-          color: var(--color-bg-primary, #14110F) !important;
         }
       `}</style>
     </>

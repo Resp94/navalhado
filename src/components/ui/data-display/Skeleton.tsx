@@ -40,16 +40,6 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           box-sizing: border-box;
         }
 
-        .dark-theme .ui-skeleton {
-          background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.04) 25%,
-            rgba(255, 255, 255, 0.08) 50%,
-            rgba(255, 255, 255, 0.04) 75%
-          );
-          background-size: 200% 100%;
-        }
-
         .ui-skeleton--rect {
           border-radius: var(--radius-md, 8px);
         }

@@ -116,11 +116,6 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
             color: var(--color-text-primary, #2D231E);
           }
 
-          .dark-theme .ui-icon-btn--ghost:hover:not(:disabled) {
-            background-color: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF;
-          }
-
           .ui-icon-btn--outline {
             background-color: var(--color-bg-secondary, #FFFFFF);
             color: var(--color-text-secondary, #70625B);
@@ -130,12 +125,6 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
           .ui-icon-btn--outline:hover:not(:disabled) {
             border-color: var(--color-brand-primary, #D96C00);
             color: var(--color-brand-primary, #D96C00);
-          }
-
-          .dark-theme .ui-icon-btn--outline {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            border-color: var(--color-border, #332D29);
-            color: var(--color-text-secondary, #9C958F);
           }
 
           .ui-icon-btn--secondary {

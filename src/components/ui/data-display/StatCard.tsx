@@ -87,11 +87,6 @@ export const StatCard: React.FC<StatCardProps> = ({
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .dark-theme .ui-stat-card {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-stat-card__header {
           display: flex;
           align-items: center;
@@ -120,10 +115,6 @@ export const StatCard: React.FC<StatCardProps> = ({
           flex-shrink: 0;
         }
 
-        .dark-theme .ui-stat-card__icon-badge {
-          background-color: rgba(217, 108, 0, 0.15);
-        }
-
         .ui-stat-card__body {
           display: flex;
           flex-direction: column;
@@ -136,10 +127,6 @@ export const StatCard: React.FC<StatCardProps> = ({
           color: var(--color-text-primary, #2D231E);
           line-height: 1.15;
           letter-spacing: -0.02em;
-        }
-
-        .dark-theme .ui-stat-card__value {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-stat-card__skeleton {

@@ -58,11 +58,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
           animation: uiTooltipFade 0.15s ease-out;
         }
 
-        .dark-theme .ui-tooltip {
-          background-color: rgba(255, 255, 255, 0.95);
-          color: #14110F;
-        }
-
         .ui-tooltip--top {
           bottom: calc(100% + 6px);
           left: 50%;

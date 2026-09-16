@@ -520,11 +520,6 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .conta-pagar-form-previa li {
-          color: var(--color-text-primary, #FFF1E6);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-        }
-
         .conta-pagar-form-error {
           background-color: var(--color-brand-lightest, #FFF1E6);
           box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
@@ -532,12 +527,6 @@ export const ContaPagarForm: React.FC<ContaPagarFormProps> = ({
           padding: 0.85rem;
           font-size: var(--font-size-sm, 0.875rem);
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .conta-pagar-form-error {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .conta-pagar-form-actions {

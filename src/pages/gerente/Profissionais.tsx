@@ -2107,11 +2107,6 @@ export const Profissionais: React.FC = () => {
           z-index: 1;
         }
 
-        .dark-theme .services-association-table th {
-          background: rgba(242, 178, 119, 0.1);
-          color: var(--color-text-primary);
-        }
-
         .services-association-table td {
           padding: 0.75rem 1rem;
           border-bottom: 1px solid var(--color-border);

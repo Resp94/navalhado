@@ -45,10 +45,6 @@
   color: var(--color-text-primary, #2D231E);
 }
 
-.dark-theme .plano-contas-section-title {
-  color: var(--color-text-primary, #FFF1E6);
-}
-
 .plano-contas-skeleton-list {
   display: flex;
   flex-direction: column;
@@ -83,8 +79,4 @@
 .plano-contas-card-name {
   font-weight: 700;
   color: var(--color-text-primary, #2D231E);
-}
-
-.dark-theme .plano-contas-card-name {
-  color: var(--color-text-primary, #FFF1E6);
 }

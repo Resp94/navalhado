@@ -132,10 +132,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             user-select: none;
           }
 
-          .dark-theme .ui-input-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-input-wrapper {
             display: flex;
             align-items: center;
@@ -147,11 +143,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
-          }
-
-          .dark-theme .ui-input-wrapper {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
           }
 
           .ui-input-wrapper:focus-within {
@@ -190,10 +181,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             font-size: var(--font-size-sm, 0.875rem);
             padding: 0.5rem 0;
             box-sizing: border-box;
-          }
-
-          .dark-theme .ui-input-field {
-            color: var(--color-text-primary, #FFF1E6);
           }
 
           .ui-input-field::placeholder {
@@ -250,10 +237,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
           .ui-input-password-toggle:hover {
             color: var(--color-text-primary, #2D231E);
-          }
-
-          .dark-theme .ui-input-password-toggle:hover {
-            color: #FFFFFF;
           }
 
           .ui-input-feedback {

@@ -114,10 +114,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             user-select: none;
           }
 
-          .dark-theme .ui-select-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-select-wrapper {
             position: relative;
             display: flex;
@@ -128,11 +124,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
             transition: box-shadow 0.15s ease, background-color 0.15s ease;
             box-sizing: border-box;
-          }
-
-          .dark-theme .ui-select-wrapper {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
           }
 
           .ui-select-wrapper:focus-within {
@@ -170,10 +161,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             appearance: none;
             -webkit-appearance: none;
             box-sizing: border-box;
-          }
-
-          .dark-theme .ui-select-field {
-            color: var(--color-text-primary, #FFF1E6);
           }
 
           .ui-select-field:disabled {

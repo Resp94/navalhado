@@ -249,10 +249,6 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .baixa-dialog-saldo {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .baixa-dialog-disponivel {
           margin: 0;
           font-size: var(--font-size-sm, 0.875rem);
@@ -266,12 +262,6 @@ export const BaixaDialog: React.FC<BaixaDialogProps> = ({
           padding: 0.85rem;
           font-size: var(--font-size-sm, 0.875rem);
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .baixa-dialog-error {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .baixa-dialog-actions {

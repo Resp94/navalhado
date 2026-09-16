@@ -118,12 +118,6 @@ export const Badge: React.FC<BadgeProps> = ({
           border: 1px solid var(--color-border, #EADED6);
         }
 
-        .dark-theme .ui-badge--neutral.ui-badge--subtle {
-          background-color: #1F1F23;
-          color: #D4D4D8;
-          border-color: #3F3F46;
-        }
-
         /* VARIANTES SOLID */
         .ui-badge--brand.ui-badge--solid {
           background-color: var(--color-brand-primary, #D96C00);
@@ -152,11 +146,6 @@ export const Badge: React.FC<BadgeProps> = ({
 
         .ui-badge--neutral.ui-badge--solid {
           background-color: var(--color-text-primary, #2D231E);
-          color: #FFFFFF;
-        }
-
-        .dark-theme .ui-badge--neutral.ui-badge--solid {
-          background-color: #3F3F46;
           color: #FFFFFF;
         }
 

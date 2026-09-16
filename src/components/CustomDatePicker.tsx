@@ -232,12 +232,6 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           left: 0;
         }
 
-        .dark-theme .custom-datepicker-dropdown {
-          background: #1c1917;
-          border-color: rgba(255, 255, 255, 0.1);
-          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
-        }
-
         @keyframes datepickerFadeIn {
           from {
             opacity: 0;
@@ -269,10 +263,6 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           color: var(--color-text-primary, #1e293b);
           font-family: var(--font-family-base);
           letter-spacing: -0.01em;
-        }
-
-        .dark-theme .custom-datepicker-title {
-          color: #ffffff;
         }
 
         .custom-datepicker-chevron {
@@ -325,10 +315,6 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           margin: 0 auto;
         }
 
-        .dark-theme .custom-datepicker-weekday {
-          color: #a8a29e;
-        }
-
         .custom-datepicker-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
@@ -361,16 +347,8 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           box-sizing: border-box;
         }
 
-        .dark-theme .custom-datepicker-cell {
-          color: #f5f5f4;
-        }
-
         .custom-datepicker-cell:hover {
           background-color: #f1f5f9;
-        }
-
-        .dark-theme .custom-datepicker-cell:hover {
-          background-color: rgba(255, 255, 255, 0.08);
         }
 
         .custom-datepicker-cell--outside {
@@ -378,17 +356,9 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           font-weight: 400;
         }
 
-        .dark-theme .custom-datepicker-cell--outside {
-          color: #78716c;
-        }
-
         .custom-datepicker-cell--today {
           background-color: #f1f5f9;
           font-weight: 600;
-        }
-
-        .dark-theme .custom-datepicker-cell--today {
-          background-color: rgba(255, 255, 255, 0.08);
         }
 
         /* Selected Day: Anel azul com preenchimento suave */
@@ -397,12 +367,6 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           background-color: #e5f2fe !important;
           color: #0070d2 !important;
           font-weight: 700 !important;
-        }
-
-        .dark-theme .custom-datepicker-cell--selected {
-          border-color: #38bdf8 !important;
-          background-color: rgba(56, 189, 248, 0.22) !important;
-          color: #38bdf8 !important;
         }
 
         @media (max-width: 380px) {

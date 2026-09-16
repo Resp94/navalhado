@@ -172,15 +172,6 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .categoria-despesa-form-conflito {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-        }
-
-        .dark-theme .categoria-despesa-form-conflito p {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .categoria-despesa-form-actions {
           display: flex;
           justify-content: flex-end;

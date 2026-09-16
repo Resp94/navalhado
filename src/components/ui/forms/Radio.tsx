@@ -98,11 +98,6 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
             box-sizing: border-box;
           }
 
-          .dark-theme .ui-radio-custom {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-radio-input:focus-visible + .ui-radio-custom {
             outline: 2px solid var(--color-brand-primary, #D96C00);
             outline-offset: 2px;
@@ -136,10 +131,6 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
             font-weight: 600;
             color: var(--color-text-primary, #2D231E);
             line-height: 1.3;
-          }
-
-          .dark-theme .ui-radio-label {
-            color: var(--color-text-primary, #FFF1E6);
           }
 
           .ui-radio-desc {

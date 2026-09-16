@@ -116,11 +116,6 @@ export const Drawer: React.FC<DrawerProps> = ({
           overflow: hidden;
         }
 
-        .dark-theme .ui-drawer-panel {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          border-left: 1px solid var(--color-border, #332D29);
-        }
-
         .ui-drawer-header {
           display: flex;
           align-items: center;
@@ -129,10 +124,6 @@ export const Drawer: React.FC<DrawerProps> = ({
           border-bottom: 1px solid var(--color-border, #EADED6);
           flex-shrink: 0;
           gap: 1rem;
-        }
-
-        .dark-theme .ui-drawer-header {
-          border-bottom-color: var(--color-border, #332D29);
         }
 
         .ui-drawer-title-group {
@@ -148,10 +139,6 @@ export const Drawer: React.FC<DrawerProps> = ({
           font-weight: 800;
           color: var(--color-text-primary, #2D231E);
           letter-spacing: -0.01em;
-        }
-
-        .dark-theme .ui-drawer-title {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-drawer-desc {
@@ -179,11 +166,6 @@ export const Drawer: React.FC<DrawerProps> = ({
           justify-content: flex-end;
           gap: 0.75rem;
           flex-shrink: 0;
-        }
-
-        .dark-theme .ui-drawer-footer {
-          background-color: #14110F;
-          border-top-color: var(--color-border, #332D29);
         }
 
         @keyframes uiDrawerFadeIn {

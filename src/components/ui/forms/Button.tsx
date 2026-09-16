@@ -138,16 +138,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             background-color: rgba(0, 0, 0, 0.03);
           }
 
-          .dark-theme .ui-btn--secondary {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            color: var(--color-text-primary, #FFF1E6);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
-          .dark-theme .ui-btn--secondary:hover:not(:disabled) {
-            background-color: rgba(255, 255, 255, 0.05);
-          }
-
           .ui-btn--outline {
             background-color: transparent;
             color: var(--color-text-primary, #2D231E);
@@ -158,11 +148,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             border-color: var(--color-brand-primary, #D96C00);
             color: var(--color-brand-primary, #D96C00);
             background-color: rgba(217, 108, 0, 0.04);
-          }
-
-          .dark-theme .ui-btn--outline {
-            color: var(--color-text-primary, #FFF1E6);
-            border-color: var(--color-border, #332D29);
           }
 
           .ui-btn--danger {
@@ -194,11 +179,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             color: var(--color-text-primary, #2D231E);
           }
 
-          .dark-theme .ui-btn--ghost:hover:not(:disabled) {
-            background-color: rgba(255, 255, 255, 0.06);
-            color: #FFFFFF;
-          }
-
           .ui-btn--warning {
             background-color: var(--color-warning, #D97706);
             color: var(--color-text-primary, #2D231E);
@@ -222,17 +202,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             background-color: #f2b277;
             box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
             transform: translateY(-1px);
-          }
-
-          .dark-theme .ui-btn--soft {
-            background-color: rgba(217, 108, 0, 0.15);
-            color: var(--color-text-primary, #FFF1E6);
-            box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-          }
-
-          .dark-theme .ui-btn--soft:hover:not(:disabled) {
-            background-color: rgba(217, 108, 0, 0.25);
-            box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
           }
 
           /* ESTADO DESABILITADO */

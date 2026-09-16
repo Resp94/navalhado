@@ -103,10 +103,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             user-select: none;
           }
 
-          .dark-theme .ui-textarea-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-textarea-count {
             font-size: 11px;
             color: var(--color-text-secondary, #70625B);
@@ -122,11 +118,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             transition: box-shadow 0.15s ease, background-color 0.15s ease;
             box-sizing: border-box;
             padding: 0.65rem 0.85rem;
-          }
-
-          .dark-theme .ui-textarea-wrapper {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
           }
 
           .ui-textarea-wrapper:focus-within {
@@ -149,10 +140,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             min-height: 60px;
             box-sizing: border-box;
             line-height: 1.45;
-          }
-
-          .dark-theme .ui-textarea-field {
-            color: var(--color-text-primary, #FFF1E6);
           }
 
           .ui-textarea-field::placeholder {

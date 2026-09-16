@@ -48,21 +48,6 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Modo Escuro */
-.dark-theme .glass-sidebar {
-  background: 
-    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(217, 108, 0, 0.1) 0%, transparent 70%),
-    linear-gradient(
-      155deg,
-      rgba(30, 27, 24, 0.85) 0%,
-      rgba(20, 17, 15, 0.8) 100%
-    );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 16px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
 /* Header / Brand: Altura estritamente fixa (60px) para exibir o nome por extenso sem empurrar o menu */
 .glass-sidebar__brand {
   display: flex;
@@ -84,10 +69,6 @@
   box-sizing: border-box;
   overflow: hidden;
   flex-shrink: 0;
-}
-
-.dark-theme .glass-sidebar__brand {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .glass-sidebar__logo-img {
@@ -159,10 +140,6 @@
   scrollbar-color: rgba(45, 35, 30, 0.2) transparent;
 }
 
-.dark-theme .glass-sidebar__nav:hover {
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
 .glass-sidebar__nav::-webkit-scrollbar {
   width: 4px;
   height: 0px;
@@ -180,10 +157,6 @@
 
 .glass-sidebar__nav:hover::-webkit-scrollbar-thumb {
   background: rgba(45, 35, 30, 0.2);
-}
-
-.dark-theme .glass-sidebar__nav:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Item de Navegação / Rodapé: Altura estritamente fixa (40px) */
@@ -225,16 +198,8 @@
   color: var(--color-text-primary, #2D231E);
 }
 
-.dark-theme .glass-sidebar__button:hover {
-  color: #FFFFFF;
-}
-
 .glass-sidebar__button--active {
   color: #000000;
-}
-
-.dark-theme .glass-sidebar__button--active {
-  color: #FFFFFF;
 }
 
 .glass-sidebar__button--logout:hover {
@@ -317,13 +282,6 @@
   box-shadow: 0 8px 24px rgba(45, 35, 30, 0.12), 0 2px 6px rgba(45, 35, 30, 0.04);
 }
 
-.dark-theme .glass-sidebar__tooltip {
-  background: rgba(30, 27, 24, 0.94);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--color-text-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
 /* Divisor */
 .glass-sidebar__divider {
   width: 100%;
@@ -333,10 +291,6 @@
   background: rgba(45, 35, 30, 0.08);
   margin: 0.5rem 0;
   flex-shrink: 0;
-}
-
-.dark-theme .glass-sidebar__divider {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Rodapé */
@@ -406,10 +360,6 @@
   box-sizing: border-box;
 }
 
-.dark-theme .glass-sidebar__badge {
-  border-color: rgba(30, 27, 24, 0.95);
-}
-
 /* Dropdown de Notificações */
 .glass-sidebar__notif-dropdown {
   position: absolute;
@@ -428,22 +378,12 @@
   animation: notifFadeIn 0.18s ease;
 }
 
-.dark-theme .glass-sidebar__notif-dropdown {
-  background: rgba(30, 27, 24, 0.96);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-}
-
 .glass-sidebar__notif-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid rgba(45, 35, 30, 0.08);
-}
-
-.dark-theme .glass-sidebar__notif-header {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .glass-sidebar__notif-title {
@@ -485,10 +425,6 @@
   transition: background-color 0.15s ease;
 }
 
-.dark-theme .glass-sidebar__notif-item {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
 .glass-sidebar__notif-item--unread {
   background-color: rgba(217, 108, 0, 0.04);
   border-left: 3px solid var(--color-brand-primary);
@@ -496,10 +432,6 @@
 
 .glass-sidebar__notif-item:hover {
   background-color: rgba(45, 35, 30, 0.03);
-}
-
-.dark-theme .glass-sidebar__notif-item:hover {
-  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .glass-sidebar__notif-content {
@@ -641,18 +573,6 @@
   background: rgba(217, 108, 0, 0.12);
   border-color: rgba(217, 108, 0, 0.3);
   color: var(--color-brand-primary);
-}
-
-.dark-theme .glass-sidebar__toggle {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.dark-theme .glass-sidebar__toggle:hover {
-  background: rgba(217, 108, 0, 0.2);
-  border-color: var(--color-brand-primary);
-  color: var(--color-brand-soft);
 }
 
 /* Responsividade Mobile */

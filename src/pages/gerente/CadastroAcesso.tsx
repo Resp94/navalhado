@@ -383,10 +383,6 @@ export const CadastroAcesso: React.FC = () => {
           background-color: rgba(0, 0, 0, 0.04);
         }
 
-        .dark-theme .btn-toggle-password:hover {
-          background-color: rgba(255, 255, 255, 0.08);
-        }
-
         .btn-toggle-password:focus-visible {
           outline: 2px solid var(--color-brand-primary);
           outline-offset: -2px;
@@ -411,10 +407,6 @@ export const CadastroAcesso: React.FC = () => {
           display: flex;
           align-items: flex-start;
           gap: 0.65rem;
-        }
-
-        .dark-theme .security-notice {
-          background-color: rgba(217, 108, 0, 0.12);
         }
 
         .security-notice-icon {
@@ -480,10 +472,6 @@ export const CadastroAcesso: React.FC = () => {
           color: var(--color-text-primary);
         }
 
-        .dark-theme .btn--outline-secondary:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.06);
-        }
-
         .btn--primary {
           background-color: var(--color-brand-primary);
           color: #FFFFFF;
@@ -493,10 +481,6 @@ export const CadastroAcesso: React.FC = () => {
           padding: 0.65rem 1.25rem;
           font-weight: 700;
           min-height: 40px;
-        }
-
-        .dark-theme .btn--primary {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
         }
 
         .btn--primary:hover:not(:disabled) {

@@ -118,11 +118,6 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             box-sizing: border-box;
           }
 
-          .dark-theme .ui-checkbox-custom {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-checkbox-input:focus-visible + .ui-checkbox-custom {
             outline: 2px solid var(--color-brand-primary, #D96C00);
             outline-offset: 2px;
@@ -144,10 +139,6 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             font-weight: 600;
             color: var(--color-text-primary, #2D231E);
             line-height: 1.3;
-          }
-
-          .dark-theme .ui-checkbox-label {
-            color: var(--color-text-primary, #FFF1E6);
           }
 
           .ui-checkbox-desc {

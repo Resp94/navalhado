@@ -92,10 +92,6 @@ export const Pagination: React.FC<PaginationProps> = ({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .ui-pagination-info strong {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-pagination-controls {
           display: flex;
           align-items: center;
@@ -121,18 +117,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           min-height: 32px;
         }
 
-        .dark-theme .ui-pagination-btn {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          color: var(--color-text-primary, #FFF1E6);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-pagination-btn:hover:not(:disabled) {
           background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .dark-theme .ui-pagination-btn:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.06);
         }
 
         .ui-pagination-btn:disabled {
@@ -144,10 +130,6 @@ export const Pagination: React.FC<PaginationProps> = ({
           font-weight: 700;
           padding: 0 0.4rem;
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .ui-pagination-current {
-          color: var(--color-text-primary, #FFF1E6);
         }
       `}</style>
     </>

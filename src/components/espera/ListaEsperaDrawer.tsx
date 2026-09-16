@@ -687,10 +687,6 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
           background-color: rgba(0, 0, 0, 0.04);
         }
 
-        .dark-theme .drawer-date-picker-box:hover {
-          background-color: rgba(255, 255, 255, 0.05);
-        }
-
         .drawer-date-text {
           font-size: 0.9rem;
           font-weight: 700;
@@ -1162,69 +1158,6 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
         .history-status-canceled {
           background-color: var(--color-error-bg, #FDE8E8);
           color: var(--color-error, #F05252);
-        }
-
-        /* 8. Suporte ao Modo Escuro */
-        .dark-theme .drawer-panel,
-        .dark-theme .drawer-header,
-        .dark-theme .drawer-body {
-          background-color: #18181B;
-          color: #F4F4F5;
-        }
-
-        .dark-theme .drawer-date-card,
-        .dark-theme .espera-add-card,
-        .dark-theme .espera-empty-card,
-        .dark-theme .espera-entry-card,
-        .dark-theme .espera-card-history {
-          background-color: #1F1F23;
-          border-color: #3F3F46;
-        }
-
-        .dark-theme .drawer-title,
-        .dark-theme .drawer-date-label,
-        .dark-theme .drawer-date-input,
-        .dark-theme .espera-card-title,
-        .dark-theme .espera-btn-cancelar,
-        .dark-theme .espera-label,
-        .dark-theme .espera-input,
-        .dark-theme .espera-select,
-        .dark-theme .espera-section-heading,
-        .dark-theme .espera-client-name,
-        .dark-theme .history-client-name,
-        .dark-theme .btn-add-espera-reopen {
-          color: #F4F4F5;
-        }
-
-        .dark-theme .drawer-close-btn {
-          color: #F4F4F5;
-        }
-
-        .dark-theme .drawer-date-input,
-        .dark-theme .drawer-date-picker-box,
-        .dark-theme .espera-input,
-        .dark-theme .espera-select,
-        .dark-theme .espera-btn-cancelar,
-        .dark-theme .btn-add-espera-reopen {
-          border-color: #3F3F46;
-          background-color: #1F1F23;
-        }
-
-        .dark-theme .drawer-date-text,
-        .dark-theme .drawer-date-icon {
-          color: #F4F4F5;
-        }
-
-        .dark-theme .espera-select {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23F4F4F5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        }
-
-        .dark-theme .drawer-date-input::-webkit-calendar-picker-indicator {
-          filter: invert(0.9);
-        }
-
-        .dark-theme .espera-empty-card {
-          color: #A1A1AA;
         }
 
         /* 9. Acessibilidade Mobile e Touch Target */

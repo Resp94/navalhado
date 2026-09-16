@@ -27,11 +27,6 @@ export const Table: React.FC<React.TableHTMLAttributes<HTMLTableElement>> = ({
           font-family: var(--font-family-base, 'Outfit', sans-serif);
         }
 
-        .dark-theme .ui-table-container {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-table-responsive {
           width: 100%;
           overflow-x: auto;
@@ -87,20 +82,12 @@ export const TableRow: React.FC<React.HTMLAttributes<HTMLTableRowElement>> = ({
           border-bottom: 1px solid var(--color-border, #EADED6);
         }
 
-        .dark-theme .ui-table-row {
-          border-bottom-color: var(--color-border, #332D29);
-        }
-
         .ui-table-row:last-child {
           border-bottom: none;
         }
 
         .ui-table-body .ui-table-row:hover {
           background-color: rgba(45, 35, 30, 0.02);
-        }
-
-        .dark-theme .ui-table-body .ui-table-row:hover {
-          background-color: rgba(255, 255, 255, 0.03);
         }
       `}</style>
     </>
@@ -138,12 +125,6 @@ export const TableHead: React.FC<TableHeadProps> = ({
           box-sizing: border-box;
         }
 
-        .dark-theme .ui-table-head {
-          background-color: #14110F;
-          border-bottom-color: var(--color-border, #332D29);
-          color: #A1A1AA;
-        }
-
         .ui-table-head--left { text-align: left; }
         .ui-table-head--center { text-align: center; }
         .ui-table-head--right { text-align: right; }
@@ -176,10 +157,6 @@ export const TableCell: React.FC<TableCellProps> = ({
           vertical-align: middle;
           box-sizing: border-box;
           line-height: 1.4;
-        }
-
-        .dark-theme .ui-table-cell {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-table-cell--left { text-align: left; }

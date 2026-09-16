@@ -1761,16 +1761,6 @@ export const Produtos: React.FC = () => {
           box-shadow: 0 0 0 1.5px var(--color-brand-hover);
         }
 
-        .dark-theme .type-card:hover {
-          background: rgba(255, 255, 255, 0.05);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary), 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .dark-theme .type-card--active:hover {
-          background: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 1.8px var(--color-brand-hover), 0 4px 14px rgba(0, 0, 0, 0.4);
-        }
-
         .type-card__icon {
           width: 38px;
           height: 38px;

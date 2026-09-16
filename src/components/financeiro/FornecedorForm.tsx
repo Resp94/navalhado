@@ -258,15 +258,6 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .fornecedor-form-conflito {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-        }
-
-        .dark-theme .fornecedor-form-conflito p {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .fornecedor-form-actions {
           display: flex;
           justify-content: flex-end;

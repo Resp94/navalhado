@@ -27,16 +27,8 @@ export const Card: React.FC<CardProps> = ({
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .dark-theme .ui-card {
-          background-color: var(--color-bg-secondary, #1E1B18);
-        }
-
         .ui-card--default {
           box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E), var(--shadow-sm);
-        }
-
-        .dark-theme .ui-card--default {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
         }
 
         .ui-card--outline {
@@ -44,18 +36,9 @@ export const Card: React.FC<CardProps> = ({
           box-shadow: none;
         }
 
-        .dark-theme .ui-card--outline {
-          border-color: var(--color-border, #332D29);
-        }
-
         .ui-card--flat {
           background-color: var(--color-bg-primary, #FFF1E6);
           border: 1px solid var(--color-border, #EADED6);
-        }
-
-        .dark-theme .ui-card--flat {
-          background-color: #14110F;
-          border-color: #332D29;
         }
       `}</style>
     </>

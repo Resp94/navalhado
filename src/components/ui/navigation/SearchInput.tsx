@@ -83,11 +83,6 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             padding: 0 0.75rem;
           }
 
-          .dark-theme .ui-search-wrapper {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-search-wrapper:focus-within {
             box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00);
           }
@@ -136,10 +131,6 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             box-sizing: border-box;
           }
 
-          .dark-theme .ui-search-input {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-search-input::placeholder {
             color: var(--color-text-secondary, #70625B);
             opacity: 0.65;
@@ -173,16 +164,6 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           .ui-search-clear-btn:hover {
             background-color: var(--color-text-primary, #2D231E);
             color: #FFFFFF;
-          }
-
-          .dark-theme .ui-search-clear-btn {
-            background-color: rgba(255, 255, 255, 0.12);
-            color: #FFF1E6;
-          }
-
-          .dark-theme .ui-search-clear-btn:hover {
-            background-color: #FFFFFF;
-            color: #14110F;
           }
         `}</style>
       </>

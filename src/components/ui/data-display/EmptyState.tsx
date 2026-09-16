@@ -64,10 +64,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           flex-shrink: 0;
         }
 
-        .dark-theme .ui-empty-state__icon {
-          background-color: rgba(217, 108, 0, 0.15);
-        }
-
         .ui-empty-state--compact .ui-empty-state__icon {
           width: 44px;
           height: 44px;
@@ -80,10 +76,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           color: var(--color-text-primary, #2D231E);
           margin: 0 0 0.35rem 0;
           letter-spacing: -0.01em;
-        }
-
-        .dark-theme .ui-empty-state__title {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-empty-state__desc {

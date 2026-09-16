@@ -146,11 +146,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           animation: uiConfirmSpring 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .dark-theme .ui-confirm-card {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6), 0 20px 48px rgba(0, 0, 0, 0.6);
-        }
-
         .ui-confirm-icon-badge {
           width: 52px;
           height: 52px;
@@ -185,10 +180,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           letter-spacing: -0.01em;
         }
 
-        .dark-theme .ui-confirm-title {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-confirm-desc {
           font-size: var(--font-size-sm, 0.875rem);
           color: var(--color-text-primary, #2D231E);
@@ -199,12 +190,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         .ui-confirm-desc span,
         .ui-confirm-desc strong {
           color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .ui-confirm-desc,
-        .dark-theme .ui-confirm-desc span,
-        .dark-theme .ui-confirm-desc strong {
-          color: var(--color-text-primary, #FFF1E6);
         }
 
         .ui-confirm-warning-box {
@@ -227,16 +212,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           color: var(--color-text-primary, #2D231E);
         }
 
-        .dark-theme .ui-confirm-warning-box {
-          background-color: rgba(217, 108, 0, 0.1);
-          box-shadow: 0 0 0 0.3px var(--color-text-primary, #FFF1E6);
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
-        .dark-theme .ui-confirm-warning-box p {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
         .ui-confirm-actions {
           display: flex;
           width: 100%;
@@ -248,11 +223,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           box-shadow: 0 0 0 0.3px var(--color-text-primary, #2D231E);
           border: 0px solid transparent;
           border-width: 0px;
-          color: var(--color-bg-secondary, #FFFFFF);
-        }
-
-        .dark-theme .ui-confirm-actions .ui-btn--danger {
-          box-shadow: 0 0 0 0.3px var(--color-text-primary, #FFF1E6);
           color: var(--color-bg-secondary, #FFFFFF);
         }
 

@@ -110,10 +110,6 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
             line-height: 1.25;
           }
 
-          .dark-theme .ui-switch-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
           .ui-switch-desc {
             font-size: var(--font-size-xs, 0.75rem);
             color: var(--color-text-secondary, #70625B);
@@ -134,11 +130,6 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
             padding: 2px;
             box-sizing: border-box;
-          }
-
-          .dark-theme .ui-switch-track {
-            background-color: #3F3F46;
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
           }
 
           .ui-switch-track--checked {

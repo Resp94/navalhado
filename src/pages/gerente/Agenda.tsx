@@ -3495,13 +3495,6 @@ export const Agenda: React.FC = () => {
           background-color: #f2b277 !important;
         }
 
-        .dark-theme .btn-date-today--active,
-        .dark-theme .btn-date-today--active:hover {
-          color: #000000 !important;
-          font-weight: 700 !important;
-          background-color: #f2b277 !important;
-        }
-
         /* CUSTOM DATEPICKER */
         .agenda-date-picker-wrapper {
           position: relative;
@@ -3555,12 +3548,6 @@ export const Agenda: React.FC = () => {
           animation: datepickerFadeIn 0.15s ease-out;
         }
 
-        .dark-theme .custom-datepicker-dropdown {
-          background: #1c1917;
-          border-color: rgba(255, 255, 255, 0.1);
-          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
-        }
-
         @keyframes datepickerFadeIn {
           from {
             opacity: 0;
@@ -3592,10 +3579,6 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-primary, #1e293b);
           font-family: var(--font-family-base);
           letter-spacing: -0.01em;
-        }
-
-        .dark-theme .custom-datepicker-title {
-          color: #ffffff;
         }
 
         .custom-datepicker-chevron {
@@ -3648,10 +3631,6 @@ export const Agenda: React.FC = () => {
           margin: 0 auto;
         }
 
-        .dark-theme .custom-datepicker-weekday {
-          color: #a8a29e;
-        }
-
         .custom-datepicker-grid {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
@@ -3698,16 +3677,8 @@ export const Agenda: React.FC = () => {
           }
         }
 
-        .dark-theme .custom-datepicker-cell {
-          color: #f5f5f4;
-        }
-
         .custom-datepicker-cell:hover {
           background-color: #f1f5f9;
-        }
-
-        .dark-theme .custom-datepicker-cell:hover {
-          background-color: rgba(255, 255, 255, 0.08);
         }
 
         .custom-datepicker-cell--outside {
@@ -3715,17 +3686,9 @@ export const Agenda: React.FC = () => {
           font-weight: 400;
         }
 
-        .dark-theme .custom-datepicker-cell--outside {
-          color: #78716c;
-        }
-
         .custom-datepicker-cell--today {
           background-color: #f1f5f9;
           font-weight: 600;
-        }
-
-        .dark-theme .custom-datepicker-cell--today {
-          background-color: rgba(255, 255, 255, 0.08);
         }
 
         /* Selected Day: Anel azul com preenchimento suave */
@@ -3734,12 +3697,6 @@ export const Agenda: React.FC = () => {
           background-color: #e5f2fe !important;
           color: #0070d2 !important;
           font-weight: 700 !important;
-        }
-
-        .dark-theme .custom-datepicker-cell--selected {
-          border-color: #38bdf8 !important;
-          background-color: rgba(56, 189, 248, 0.22) !important;
-          color: #38bdf8 !important;
         }
 
         /* FILTRO DE EQUIPE */
@@ -3778,17 +3735,6 @@ export const Agenda: React.FC = () => {
         .btn-agenda-filter:focus-visible {
           outline: 2px solid var(--color-brand-primary);
           outline-offset: 2px;
-        }
-
-        .dark-theme .btn-agenda-filter {
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-        }
-
-        .dark-theme .btn-agenda-filter:hover,
-        .dark-theme .btn-agenda-filter--active {
-          border-color: var(--color-brand-primary);
-          color: #FFFFFF;
         }
 
         .agenda-filter-dropdown {
@@ -3830,10 +3776,6 @@ export const Agenda: React.FC = () => {
           text-decoration: underline;
         }
 
-        .dark-theme .btn-link-xs {
-          color: #FFFFFF;
-        }
-
         .agenda-filter-dropdown__list {
           display: flex;
           flex-direction: column;
@@ -3855,10 +3797,6 @@ export const Agenda: React.FC = () => {
 
         .filter-checkbox-item:hover {
           background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .dark-theme .filter-checkbox-item:hover {
-          background-color: rgba(255, 255, 255, 0.08);
         }
 
         .filter-checkbox-item input[type="radio"],
@@ -3986,16 +3924,6 @@ export const Agenda: React.FC = () => {
           scrollbar-color: rgba(45, 35, 30, 0.45) transparent;
         }
 
-        .dark-theme .agenda-grid-wrapper {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          border-color: var(--color-border);
-          scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
-        }
-
-        .dark-theme .agenda-grid-wrapper:hover {
-          scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
-        }
-
         .agenda-grid-wrapper::-webkit-scrollbar {
           height: 5px;
           width: 5px;
@@ -4017,18 +3945,6 @@ export const Agenda: React.FC = () => {
 
         .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
           background: rgba(45, 35, 30, 0.55);
-        }
-
-        .dark-theme .agenda-grid-wrapper::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.35);
-        }
-
-        .dark-theme .agenda-grid-wrapper:hover::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.55);
         }
 
         .agenda-timeline-board {
@@ -4053,12 +3969,6 @@ export const Agenda: React.FC = () => {
           box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
         }
 
-        .dark-theme .timeline-axis-column {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          border-right-color: var(--color-border);
-          box-shadow: 2px 0 8px rgba(0, 0, 0, 0.35);
-        }
-
         /* Canto Superior Esquerdo - Interseção Horários x Datas */
         .timeline-axis-header {
           height: 60px;
@@ -4075,11 +3985,6 @@ export const Agenda: React.FC = () => {
           background-color: var(--color-bg-secondary, #FFFFFF);
           border-top-left-radius: calc(var(--radius-lg) - 1px);
           box-sizing: border-box;
-        }
-
-        .dark-theme .timeline-axis-header {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          border-bottom-color: var(--color-border);
         }
 
         .timeline-axis-body {
@@ -4122,10 +4027,6 @@ export const Agenda: React.FC = () => {
           color: var(--color-text-secondary);
           border-bottom: 1px dashed rgba(234, 222, 214, 0.4);
           background-color: inherit;
-        }
-
-        .dark-theme .time-slot-label {
-          border-bottom-color: rgba(255, 255, 255, 0.06);
         }
 
         /* Colunas dos Barbeiros */
@@ -4173,12 +4074,6 @@ export const Agenda: React.FC = () => {
           background-color: var(--color-bg-secondary, #FFFFFF);
           box-sizing: border-box;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .dark-theme .prof-col-header {
-          background-color: var(--color-bg-secondary, #1E1B18);
-          border-bottom-color: var(--color-border);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
         }
 
         .prof-col-avatar {
@@ -5125,16 +5020,6 @@ export const Agenda: React.FC = () => {
           border-radius: var(--radius-sm, 6px);
         }
 
-        .dark-theme .skeleton-box {
-          background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.04) 0%,
-            rgba(217, 108, 0, 0.16) 50%,
-            rgba(255, 255, 255, 0.04) 100%
-          );
-          background-size: 200% 100%;
-        }
-
         .skeleton-title {
           height: 14px;
           border-radius: 4px;
@@ -5163,12 +5048,6 @@ export const Agenda: React.FC = () => {
           overflow: hidden;
           pointer-events: none;
           z-index: 5;
-        }
-
-        .dark-theme .skeleton-appointment-card {
-          background: rgba(30, 27, 24, 0.85);
-          border-color: rgba(255, 255, 255, 0.08);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .skeleton-card-badge {

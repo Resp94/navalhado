@@ -628,12 +628,6 @@
   align-items: flex-start;
 }
 
-.dark-theme .delete-warning-box {
-  background: rgba(217, 119, 6, 0.15);
-  color: var(--color-text-primary);
-  border-color: rgba(217, 119, 6, 0.4);
-}
-
 .delete-warning-box svg {
   flex-shrink: 0;
   color: var(--color-warning);
