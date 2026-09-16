@@ -22,6 +22,7 @@ import { ContasPagarTab } from './pages/gerente/financeiro/ContasPagarTab';
 import { RelatoriosLayout } from './pages/gerente/relatorios/RelatoriosLayout';
 import { RelatoriosCatalogo } from './pages/gerente/relatorios/RelatoriosCatalogo';
 import { FaturamentoPage } from './pages/gerente/relatorios/FaturamentoPage';
+import { EquipeServicosPage } from './pages/gerente/relatorios/EquipeServicosPage';
 import { Profissionais as GerenteProfissionais } from './pages/gerente/Profissionais';
 import { CadastroAcesso as GerenteCadastroAcesso } from './pages/gerente/CadastroAcesso';
 import { Servicos as GerenteServicos } from './pages/gerente/Servicos';
@@ -82,12 +83,13 @@ function App() {
                 layout que guarda título, navegação entre páginas e o filtro de período
                 compartilhado (URL) das páginas 1, 4, 6 e 9. Exclusivo do desktop: em
                 largura de celular o próprio layout mostra o aviso, sem chamar contrato.
-                Sub-rota desconhecida (ou nenhuma) volta ao catálogo. Ticket 01 só entrega
-                o catálogo e a página de Faturamento; as demais chegam nos tickets
-                seguintes. */}
+                Sub-rota desconhecida (ou nenhuma) volta ao catálogo. Ticket 01 entregou
+                o catálogo e a página de Faturamento; ticket 05 soma Equipe e Serviços.
+                As demais páginas chegam nos tickets seguintes. */}
             <Route path="/relatorios" element={<RelatoriosLayout />}>
               <Route index element={<RelatoriosCatalogo />} />
               <Route path="faturamento" element={<FaturamentoPage />} />
+              <Route path="equipe-e-servicos" element={<EquipeServicosPage />} />
               <Route path="*" element={<Navigate to="/relatorios" replace />} />
             </Route>
 

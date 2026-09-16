@@ -1,10 +1,11 @@
 /**
- * Tipos de domínio do Módulo de Relatórios (spec 038, ticket 01). Cobrem só
- * o relatório de Faturamento por período (`get_revenue_report`), o
- * primeiro contrato da spec -- os outros quatro (Equipe e Serviços, Agenda,
- * Clientes, Clientes sem Retorno) chegam nos tickets seguintes, cada um
- * estendendo este arquivo com sua própria interface, nunca reaproveitando
- * `RelatorioFaturamento` para outra forma de dado.
+ * Tipos de domínio do Módulo de Relatórios (spec 038). Nasceu no ticket 01
+ * só com o relatório de Faturamento por período (`get_revenue_report`); o
+ * ticket 05 estende este mesmo arquivo com Equipe e Serviços
+ * (`get_team_services_report`) -- cada contrato ganha sua própria
+ * interface aqui, nunca reaproveitando `RelatorioFaturamento` para outra
+ * forma de dado. Os dois contratos restantes (Agenda, Clientes/Clientes
+ * sem Retorno) chegam nos tickets seguintes do mesmo jeito.
  */
 
 export type RelatoriosGranularity = 'day' | 'week' | 'month';
@@ -126,6 +127,89 @@ export interface ObterFaturamentoPorPeriodoInput {
 }
 
 /**
+ * Ranking de profissionais da página Equipe e Serviços (spec 038, ticket
+ * 05, histórias 32-37): todos os profissionais com item reconhecido no
+ * período, inclusive inativos e arquivados -- diferente do painel de Caixa
+ * e Comissões, que lista só os ativos. `share` é a participação no líquido
+ * total (`totals.net`), `null` quando o total é zero (nunca dividido por
+ * zero). `average_ticket` é o líquido do profissional dividido pelos
+ * atendimentos dele (Comandas distintas com item de serviço), `null` sem
+ * atendimento -- venda só de produto tem `attendances` 0 e
+ * `average_ticket` nulo, mas ainda aparece com `products_net` e
+ * `commission`. `commission` é a comissão gerada (snapshot), não a paga.
+ */
+export interface ProfissionalRanking {
+  professional_id: string;
+  name: string;
+  is_active: boolean;
+  archived: boolean;
+  net: number;
+  gross: number;
+  share: number | null;
+  attendances: number;
+  services_quantity: number;
+  products_net: number;
+  average_ticket: number | null;
+  commission: number;
+}
+
+/**
+ * Ranking de serviços da página Equipe e Serviços (spec 038, ticket 05):
+ * todos os serviços executados no período, inclusive arquivados. `share` é
+ * a participação no líquido de serviços do período (`totals.services_net`),
+ * `null` quando esse total é zero. `average_unit_net` é o líquido dividido
+ * pela quantidade, `null` sem quantidade. `p_professional_id` (opcional)
+ * filtra só esta lista -- o ranking de profissionais nunca é filtrado.
+ */
+export interface ServicoRanking {
+  service_id: string;
+  name: string;
+  category: string;
+  archived: boolean;
+  quantity: number;
+  net: number;
+  share: number | null;
+  average_unit_net: number | null;
+}
+
+/**
+ * Totais do relatório de Equipe e Serviços: líquido, líquido de serviços e
+ * atendimentos do período inteiro -- a mesma base que soma exatamente o
+ * líquido/atendimentos da lista de profissionais (reconciliação por
+ * construção, ver comentário da migração do ticket 05).
+ */
+export interface RelatorioEquipeServicosTotais {
+  net: number;
+  services_net: number;
+  attendances: number;
+}
+
+/**
+ * Contrato de leitura de Equipe e Serviços (`get_team_services_report`,
+ * spec 038, relatórios 4-5, ticket 05). Sem `granularity` e sem
+ * `previous_period`: é um ranking de período único, mais simples que o
+ * Faturamento -- interface própria, nunca reaproveitando
+ * `RelatorioFaturamento`.
+ */
+export interface RelatorioEquipeServicos {
+  timezone: string;
+  business_today: string;
+  period: RelatoriosPeriodo;
+  data_quality: RelatoriosDataQuality;
+  professionals: ProfissionalRanking[];
+  services: ServicoRanking[];
+  totals: RelatorioEquipeServicosTotais;
+}
+
+export interface ObterEquipeEServicosInput {
+  tenantId: string;
+  startDate: string;
+  endDate: string;
+  /** Filtra só `services[]` -- o ranking de profissionais nunca é filtrado. */
+  professionalId?: string;
+}
+
+/**
  * Interface do adaptador do módulo de Relatórios: uma consulta por
  * contrato de leitura (spec 038, "Módulo `src/modules/relatorios/`"). Só
  * leitura -- sem adaptador em memória, como a 037: um `vi.fn()` cobre
@@ -133,4 +217,5 @@ export interface ObterFaturamentoPorPeriodoInput {
  */
 export interface RelatoriosAdapter {
   obterFaturamentoPorPeriodo(input: ObterFaturamentoPorPeriodoInput): Promise<RelatorioFaturamento>;
+  obterEquipeEServicos(input: ObterEquipeEServicosInput): Promise<RelatorioEquipeServicos>;
 }

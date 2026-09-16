@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RelatoriosLayout } from '../RelatoriosLayout';
 
 const mockObterFaturamentoPorPeriodo = vi.fn();
+const mockObterEquipeEServicos = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -17,9 +18,14 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Implementa RelatoriosAdapter por completo: um mock parcial não é
+// pego pelo TypeScript (fábrica de vi.mock não é checada contra a
+// interface real) e travaria em runtime se um teste futuro deste
+// arquivo passar a exercitar a aba Equipe e Serviços.
 vi.mock('../../../../modules/relatorios/adapters/SupabaseRelatoriosAdapter', () => ({
   SupabaseRelatoriosAdapter: vi.fn().mockImplementation(() => ({
     obterFaturamentoPorPeriodo: mockObterFaturamentoPorPeriodo,
+    obterEquipeEServicos: mockObterEquipeEServicos,
   })),
 }));
 

@@ -322,3 +322,219 @@ describe('SupabaseRelatoriosAdapter', () => {
     ).rejects.toThrow('Acesso negado.');
   });
 });
+
+describe('SupabaseRelatoriosAdapter.obterEquipeEServicos', () => {
+  it('chama get_team_services_report com o contrato atual e converte números', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        timezone: 'America/Sao_Paulo',
+        business_today: '2026-06-15',
+        period: { start: '2026-06-01', end: '2026-06-15' },
+        data_quality: { status: 'confirmed', confirmed_comandas: 3, estimated_comandas: 0, legacy_comandas: 0 },
+        professionals: [
+          {
+            professional_id: 'prof-1',
+            name: 'Carlos',
+            is_active: true,
+            archived: false,
+            net: '300.00',
+            gross: '320.00',
+            share: 0.625,
+            attendances: 2,
+            services_quantity: 3,
+            products_net: '50.00',
+            average_ticket: '150.00',
+            commission: '30.00',
+          },
+          {
+            professional_id: 'prof-2',
+            name: 'Bruna (arquivada)',
+            is_active: false,
+            archived: true,
+            net: '180.00',
+            gross: '180.00',
+            share: 0.375,
+            attendances: 0,
+            services_quantity: 0,
+            products_net: '180.00',
+            average_ticket: null,
+            commission: '18.00',
+          },
+        ],
+        services: [
+          {
+            service_id: 'svc-1',
+            name: 'Corte',
+            category: 'Cabelo',
+            archived: false,
+            quantity: 3,
+            net: '270.00',
+            share: 1,
+            average_unit_net: '90.00',
+          },
+        ],
+        totals: { net: '480.00', services_net: '270.00', attendances: 2 },
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_team_services_report', {
+      p_tenant_id: 'tenant-1',
+      p_start_date: '2026-06-01',
+      p_end_date: '2026-06-15',
+      p_professional_id: null,
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.data_quality.status).toBe('confirmed');
+    expect(result.totals).toEqual({ net: 480, services_net: 270, attendances: 2 });
+    expect(result.professionals).toEqual([
+      {
+        professional_id: 'prof-1',
+        name: 'Carlos',
+        is_active: true,
+        archived: false,
+        net: 300,
+        gross: 320,
+        share: 0.625,
+        attendances: 2,
+        services_quantity: 3,
+        products_net: 50,
+        average_ticket: 150,
+        commission: 30,
+      },
+      {
+        professional_id: 'prof-2',
+        name: 'Bruna (arquivada)',
+        is_active: false,
+        archived: true,
+        net: 180,
+        gross: 180,
+        share: 0.375,
+        attendances: 0,
+        services_quantity: 0,
+        products_net: 180,
+        average_ticket: null,
+        commission: 18,
+      },
+    ]);
+    expect(result.services).toEqual([
+      {
+        service_id: 'svc-1',
+        name: 'Corte',
+        category: 'Cabelo',
+        archived: false,
+        quantity: 3,
+        net: 270,
+        share: 1,
+        average_unit_net: 90,
+      },
+    ]);
+  });
+
+  it('passa p_professional_id quando informado', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    await new SupabaseRelatoriosAdapter().obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: 'prof-1',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('get_team_services_report', {
+      p_tenant_id: 'tenant-1',
+      p_start_date: '2026-06-01',
+      p_end_date: '2026-06-15',
+      p_professional_id: 'prof-1',
+    });
+  });
+
+  it('preserva share e average_ticket/average_unit_net nulos sem coagir para zero', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        professionals: [
+          {
+            professional_id: 'prof-1',
+            name: 'Sem venda',
+            is_active: true,
+            archived: false,
+            net: 0,
+            gross: 0,
+            share: null,
+            attendances: 0,
+            services_quantity: 0,
+            products_net: 0,
+            average_ticket: null,
+            commission: 0,
+          },
+        ],
+        services: [
+          {
+            service_id: 'svc-1',
+            name: 'Corte',
+            category: 'Cabelo',
+            archived: false,
+            quantity: 0,
+            net: 0,
+            share: null,
+            average_unit_net: null,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.professionals[0].share).toBeNull();
+    expect(result.professionals[0].average_ticket).toBeNull();
+    expect(result.services[0].share).toBeNull();
+    expect(result.services[0].average_unit_net).toBeNull();
+  });
+
+  it('preenche campos ausentes com zero, string vazia ou lista vazia', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    const result = await new SupabaseRelatoriosAdapter().obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.timezone).toBe('America/Sao_Paulo');
+    expect(result.business_today).toBe('');
+    expect(result.period).toEqual({ start: '', end: '' });
+    expect(result.data_quality).toEqual({
+      status: 'unavailable',
+      confirmed_comandas: 0,
+      estimated_comandas: 0,
+      legacy_comandas: 0,
+    });
+    expect(result.professionals).toEqual([]);
+    expect(result.services).toEqual([]);
+    expect(result.totals).toEqual({ net: 0, services_net: 0, attendances: 0 });
+  });
+
+  it('lança erro quando a RPC devolve erro', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'Acesso negado.' } });
+
+    await expect(
+      new SupabaseRelatoriosAdapter().obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+      })
+    ).rejects.toThrow('Acesso negado.');
+  });
+});

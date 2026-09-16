@@ -38,6 +38,7 @@ const faturamentoFixture = {
 describe('RelatoriosRepository', () => {
   const mockAdapter: RelatoriosAdapter = {
     obterFaturamentoPorPeriodo: vi.fn(),
+    obterEquipeEServicos: vi.fn(),
   };
 
   const repository = new RelatoriosRepository(mockAdapter);
@@ -172,6 +173,144 @@ describe('RelatoriosRepository', () => {
         startDate: '2026-01-01',
         endDate: '2026-06-15',
         granularity: 'week',
+        today: '2026-06-15',
+      })
+    ).resolves.toBeTruthy();
+  });
+});
+
+const equipeServicosFixture = {
+  timezone: 'America/Sao_Paulo',
+  business_today: '2026-06-15',
+  period: { start: '2026-06-01', end: '2026-06-15' },
+  data_quality: { status: 'confirmed' as const, confirmed_comandas: 1, estimated_comandas: 0, legacy_comandas: 0 },
+  professionals: [],
+  services: [],
+  totals: { net: 0, services_net: 0, attendances: 0 },
+};
+
+describe('RelatoriosRepository.obterEquipeEServicos', () => {
+  const mockAdapter: RelatoriosAdapter = {
+    obterFaturamentoPorPeriodo: vi.fn(),
+    obterEquipeEServicos: vi.fn(),
+  };
+
+  const repository = new RelatoriosRepository(mockAdapter);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('repassa ao adaptador um pedido válido, sem professionalId quando não informado', async () => {
+    vi.mocked(mockAdapter.obterEquipeEServicos).mockResolvedValueOnce(equipeServicosFixture);
+
+    const result = await repository.obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      today: '2026-06-15',
+    });
+
+    expect(mockAdapter.obterEquipeEServicos).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: undefined,
+    });
+    expect(result.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('repassa professionalId quando informado', async () => {
+    vi.mocked(mockAdapter.obterEquipeEServicos).mockResolvedValueOnce(equipeServicosFixture);
+
+    await repository.obterEquipeEServicos({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+      professionalId: 'prof-1',
+      today: '2026-06-15',
+    });
+
+    expect(mockAdapter.obterEquipeEServicos).toHaveBeenCalledWith(
+      expect.objectContaining({ professionalId: 'prof-1' })
+    );
+  });
+
+  it('rejeita sem tenant informado', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: '',
+        startDate: '2026-06-01',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow(RelatoriosValidationError);
+    expect(mockAdapter.obterEquipeEServicos).not.toHaveBeenCalled();
+  });
+
+  it('rejeita datas ausentes', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('As datas de início e fim do período são obrigatórias.');
+  });
+
+  it('rejeita fim antes do início', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-15',
+        endDate: '2026-06-01',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser anterior à data inicial.');
+  });
+
+  it('rejeita fim depois de hoje', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2026-06-01',
+        endDate: '2026-06-20',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data final não pode ser posterior a hoje.');
+  });
+
+  it('rejeita início mais de 730 dias antes de hoje', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2024-01-01',
+        endDate: '2024-01-10',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('A data inicial não pode ser mais de 730 dias antes de hoje.');
+  });
+
+  it('rejeita período acima de 366 dias', async () => {
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2025-06-01',
+        endDate: '2026-06-15',
+        today: '2026-06-15',
+      })
+    ).rejects.toThrow('O período não pode ter mais de 366 dias.');
+  });
+
+  it('aceita período de até 366 dias sem exigir granularidade (relatório sem agrupamento)', async () => {
+    vi.mocked(mockAdapter.obterEquipeEServicos).mockResolvedValueOnce(equipeServicosFixture);
+
+    await expect(
+      repository.obterEquipeEServicos({
+        tenantId: 'tenant-1',
+        startDate: '2025-06-16',
+        endDate: '2026-06-15',
         today: '2026-06-15',
       })
     ).resolves.toBeTruthy();

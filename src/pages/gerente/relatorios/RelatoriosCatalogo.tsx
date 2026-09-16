@@ -18,8 +18,9 @@ interface CatalogoGrupo {
  * Catálogo do Módulo de Relatórios (spec 038, "Posição no produto",
  * "Catálogo sem números"): lista os dez relatórios agrupados pelas cinco
  * páginas, cada um com uma frase de pergunta, sem nenhum número -- não
- * chama nenhum contrato. Só Faturamento por período tem link real neste
- * ticket; os outros nove aparecem marcados "em breve".
+ * chama nenhum contrato. Faturamento por período (ticket 01) e Equipe e
+ * Serviços (ticket 05) têm link real; os demais aparecem marcados "em
+ * breve" até seus tickets.
  */
 const CATALOGO: CatalogoGrupo[] = [
   {
@@ -33,8 +34,8 @@ const CATALOGO: CatalogoGrupo[] = [
   {
     page: 'Equipe e Serviços',
     reports: [
-      { question: 'Quem são os profissionais que mais produzem?' },
-      { question: 'Quais serviços sustentam a barbearia?' },
+      { question: 'Quem são os profissionais que mais produzem?', path: '/relatorios/equipe-e-servicos' },
+      { question: 'Quais serviços sustentam a barbearia?', path: '/relatorios/equipe-e-servicos' },
     ],
   },
   {

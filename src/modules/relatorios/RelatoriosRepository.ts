@@ -1,6 +1,8 @@
 import { MS_PER_DAY, calendarExtentInDays, parseDateOnly as parseCalendarDate } from '../fluxo-caixa/calendario';
 import type {
+  ObterEquipeEServicosInput,
   ObterFaturamentoPorPeriodoInput,
+  RelatorioEquipeServicos,
   RelatorioFaturamento,
   RelatoriosAdapter,
   RelatoriosGranularity,
@@ -24,6 +26,11 @@ function parseDateOnly(value: string): number {
 }
 
 export interface ObterFaturamentoPorPeriodoRepositoryInput extends ObterFaturamentoPorPeriodoInput {
+  /** Dia de hoje no fuso do tenant (nunca a data local do navegador). */
+  today: string;
+}
+
+export interface ObterEquipeEServicosRepositoryInput extends ObterEquipeEServicosInput {
   /** Dia de hoje no fuso do tenant (nunca a data local do navegador). */
   today: string;
 }
@@ -87,5 +94,47 @@ export class RelatoriosRepository {
     }
 
     return await this.adapter.obterFaturamentoPorPeriodo({ tenantId, startDate, endDate, granularity });
+  }
+
+  /**
+   * Contrato de Equipe e Serviços (spec 038, ticket 05): mesma validação de
+   * período do Faturamento por período (730 dias de olhar para trás, 366
+   * dias de extensão máxima), MENOS a regra de granularidade -- este
+   * relatório é um ranking de período único, sem agrupamento por dia/
+   * semana/mês.
+   */
+  async obterEquipeEServicos(input: ObterEquipeEServicosRepositoryInput): Promise<RelatorioEquipeServicos> {
+    const { tenantId, startDate, endDate, professionalId, today } = input;
+
+    if (!tenantId || !tenantId.trim()) {
+      throw new RelatoriosValidationError('ID da unidade (tenant) é obrigatório.');
+    }
+    if (!startDate || !endDate) {
+      throw new RelatoriosValidationError('As datas de início e fim do período são obrigatórias.');
+    }
+    if (!today) {
+      throw new RelatoriosValidationError('A data de hoje é obrigatória para validar o período.');
+    }
+
+    const startTs = parseDateOnly(startDate);
+    const endTs = parseDateOnly(endDate);
+    const todayTs = parseDateOnly(today);
+
+    if (endTs < startTs) {
+      throw new RelatoriosValidationError('A data final não pode ser anterior à data inicial.');
+    }
+    if (endTs > todayTs) {
+      throw new RelatoriosValidationError('A data final não pode ser posterior a hoje.');
+    }
+    if (startTs < todayTs - 730 * MS_PER_DAY) {
+      throw new RelatoriosValidationError('A data inicial não pode ser mais de 730 dias antes de hoje.');
+    }
+
+    const extent = calendarExtentInDays(startDate, endDate);
+    if (extent > 366) {
+      throw new RelatoriosValidationError('O período não pode ter mais de 366 dias.');
+    }
+
+    return await this.adapter.obterEquipeEServicos({ tenantId, startDate, endDate, professionalId });
   }
 }

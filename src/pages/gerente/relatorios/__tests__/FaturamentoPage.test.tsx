@@ -27,6 +27,10 @@ class FakeRelatoriosAdapter implements RelatoriosAdapter {
   obterFaturamentoPorPeriodo(input: ObterFaturamentoPorPeriodoInput): Promise<RelatorioFaturamento> {
     return this.handler(input);
   }
+
+  obterEquipeEServicos(): Promise<never> {
+    throw new Error('Não usado neste teste.');
+  }
 }
 
 function respostaBase(overrides: Partial<RelatorioFaturamento> = {}): RelatorioFaturamento {
