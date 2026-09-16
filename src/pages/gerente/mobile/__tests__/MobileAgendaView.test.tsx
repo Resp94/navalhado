@@ -57,8 +57,9 @@ describe('MobileAgendaView Component', () => {
     const marcosChip = screen.getByText('Marcos');
     fireEvent.click(marcosChip);
 
-    // Marcos não tem agendamento, deve mostrar empty state específico
-    expect(screen.getByText('Nenhum agendamento para este dia')).toBeInTheDocument();
+    // Marcos não tem agendamento: o card de Carlos (de Lucas) some e os slots livres aparecem
+    expect(screen.queryByText('Carlos Santos')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Toque para (agendar|encaixe)/).length).toBeGreaterThan(0);
   });
 
   it('aciona a comanda ao clicar no card de agendamento compacto', () => {
