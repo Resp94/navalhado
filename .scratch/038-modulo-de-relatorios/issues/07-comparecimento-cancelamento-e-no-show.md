@@ -16,32 +16,32 @@ Spec: `specs/038-modulo-de-relatorios/spec.md`, seção "6–7. `get_schedule_re
 **Blocked by:** 01 — Esqueleto do módulo e Faturamento por período; 04 — Gráfico de evolução e
 exportação CSV.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contrato de leitura da Agenda recebe tenant, datas e profissional opcional, e devolve fuso, dia
+- [x] Contrato de leitura da Agenda recebe tenant, datas e profissional opcional, e devolve fuso, dia
       de negócio de hoje, período, período anterior, totais por status do período e do anterior
       (total, concluídos, faltas, cancelados, sem desfecho, futuros, taxa de comparecimento, taxa de
       cancelamento), totais por origem, totais por profissional e motivos de cancelamento.
-- [ ] Mesmo padrão de função pública, núcleo privado com relógio injetado, acesso e validação de
+- [x] Mesmo padrão de função pública, núcleo privado com relógio injetado, acesso e validação de
       período do ticket 01.
-- [ ] Taxa de comparecimento = concluídos ÷ (concluídos + faltas); taxa de cancelamento = cancelados ÷
+- [x] Taxa de comparecimento = concluídos ÷ (concluídos + faltas); taxa de cancelamento = cancelados ÷
       (total − futuros); denominador zero devolve vazio.
-- [ ] Sem desfecho e futuros classificados pelo instante atual; futuros ficam fora das taxas.
-- [ ] Motivos de cancelamento normalizados (sem espaços nas pontas, sem diferença de maiúsculas),
+- [x] Sem desfecho e futuros classificados pelo instante atual; futuros ficam fora das taxas.
+- [x] Motivos de cancelamento normalizados (sem espaços nas pontas, sem diferença de maiúsculas),
       vazio como "Sem motivo informado", ordenados por frequência, dez primeiros mais "Outros".
-- [ ] Profissional informado filtra os totais, a origem e os motivos, mas não a lista por
+- [x] Profissional informado filtra os totais, a origem e os motivos, mas não a lista por
       profissional; inativos e arquivados com Agendamento no período aparecem marcados.
-- [ ] Índice de Agendamentos por tenant e início, **sem filtro**, criado se ausente: o índice
+- [x] Índice de Agendamentos por tenant e início, **sem filtro**, criado se ausente: o índice
       existente com esse par exclui os cancelados, e este relatório precisa justamente deles.
-- [ ] Totais por status, por origem, por profissional e motivos de cancelamento agregados cada um na
+- [x] Totais por status, por origem, por profissional e motivos de cancelamento agregados cada um na
       própria CTE antes de juntar, para não multiplicar contagens.
-- [ ] Arquivo pgTAP `35_relatorio_agenda` cobrindo acesso, validação, cada status (incluindo
+- [x] Arquivo pgTAP `35_relatorio_agenda` cobrindo acesso, validação, cada status (incluindo
       confirmado passado como sem desfecho e futuro), taxas com denominador zero, motivos e fuso.
-- [ ] Repositório, adaptador (preservando taxas vazias) e hook da página, com testes.
-- [ ] Rota `/relatorios/agenda` no layout do módulo; catálogo passa a linkar o relatório.
-- [ ] Página com cartões de status e taxas com variação vs período anterior, aviso de Agendamentos
+- [x] Repositório, adaptador (preservando taxas vazias) e hook da página, com testes.
+- [x] Rota `/relatorios/agenda` no layout do módulo; catálogo passa a linkar o relatório.
+- [x] Página com cartões de status e taxas com variação vs período anterior, aviso de Agendamentos
       sem Desfecho, tabelas por origem e por profissional, lista de motivos, seletor de profissional,
       estados vazio, carregando e erro e "Exportar CSV", só em layout desktop.
-- [ ] Teste da página com repositório falso cobrindo o aviso de sem desfecho e taxa vazia.
-- [ ] `CONTEXT.md` ganha Agendamento sem Desfecho e Taxa de Comparecimento.
-- [ ] `npm run test` e pgTAP verdes.
+- [x] Teste da página com repositório falso cobrindo o aviso de sem desfecho e taxa vazia.
+- [x] `CONTEXT.md` ganha Agendamento sem Desfecho e Taxa de Comparecimento.
+- [x] `npm run test` e pgTAP verdes.

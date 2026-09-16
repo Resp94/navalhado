@@ -16,29 +16,29 @@ Further Notes "Dado ralo no canal de aquisição" e histórias 71 a 75.
 
 **Blocked by:** 10 — Novos x recorrentes.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O contrato de Clientes passa a devolver cadastros do período: total, provisórios (cadastro
+- [x] O contrato de Clientes passa a devolver cadastros do período: total, provisórios (cadastro
       incompleto), por origem do cadastro e por canal de aquisição (cada grupo com total e com Visita)
       e percentual de canal preenchido.
-- [ ] Base de cadastros: clientes com criação no período, no fuso do tenant.
-- [ ] Canal de aquisição agrupado por texto normalizado (sem espaços nas pontas, sem diferença de
+- [x] Base de cadastros: clientes com criação no período, no fuso do tenant.
+- [x] Canal de aquisição agrupado por texto normalizado (sem espaços nas pontas, sem diferença de
       maiúsculas), exibido com a grafia mais frequente; nulo ou vazio como "Não informado".
-- [ ] Com Visita = clientes do grupo com ao menos uma Visita até hoje, pela regra de Visita do ticket
+- [x] Com Visita = clientes do grupo com ao menos uma Visita até hoje, pela regra de Visita do ticket
       09.
-- [ ] Período sem cadastro devolve percentual preenchido vazio, nunca divisão por zero.
-- [ ] Índice de clientes por tenant e criação criado se ausente, com "se não existir" e sem
+- [x] Período sem cadastro devolve percentual preenchido vazio, nunca divisão por zero.
+- [x] Índice de clientes por tenant e criação criado se ausente, com "se não existir" e sem
       `concurrently`; filtro como intervalo meio aberto sobre a coluna de criação, sem envolvê-la em
       função.
-- [ ] Distribuição por origem do cadastro e por canal de aquisição agregadas cada uma na própria CTE,
+- [x] Distribuição por origem do cadastro e por canal de aquisição agregadas cada uma na própria CTE,
       e o cruzamento com "já teve Visita" resolvido por existência, não por junção que duplique
       cliente com várias Visitas.
-- [ ] Casos novos no pgTAP `36_relatorio_clientes` (plano ajustado): grafias diferentes agrupadas,
+- [x] Casos novos no pgTAP `36_relatorio_clientes` (plano ajustado): grafias diferentes agrupadas,
       nulo em "Não informado", percentual preenchido, com Visita.
-- [ ] Adaptador converte os campos novos; teste atualizado.
-- [ ] Página Clientes ganha seção "Origem dos clientes" com as duas distribuições lado a lado (barras
+- [x] Adaptador converte os campos novos; teste atualizado.
+- [x] Página Clientes ganha seção "Origem dos clientes" com as duas distribuições lado a lado (barras
       horizontais e tabela), destaque de "Não informado" com o percentual preenchido e texto
       orientando a completar o canal na Central 360º, e "Exportar CSV".
-- [ ] Caso novo no teste da página cobrindo o destaque de "Não informado".
-- [ ] `CONTEXT.md` ganha Origem do Cadastro e Canal de Aquisição.
-- [ ] `npm run test` e pgTAP verdes.
+- [x] Caso novo no teste da página cobrindo o destaque de "Não informado".
+- [x] `CONTEXT.md` ganha Origem do Cadastro e Canal de Aquisição.
+- [x] `npm run test` e pgTAP verdes.

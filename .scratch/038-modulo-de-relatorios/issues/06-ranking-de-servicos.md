@@ -14,18 +14,18 @@ histórias 38 a 41.
 
 **Blocked by:** 05 — Ranking de profissionais.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O contrato de Equipe e Serviços passa a devolver a lista de serviços: serviço, nome, categoria,
+- [x] O contrato de Equipe e Serviços passa a devolver a lista de serviços: serviço, nome, categoria,
       arquivado, quantidade, líquido, participação no líquido de serviços e valor médio por execução.
-- [ ] Só itens de serviço entram; itens de produto ficam fora da lista.
-- [ ] Profissional informado filtra só a lista de serviços; a lista de profissionais não muda.
-- [ ] Serviço arquivado com item no período aparece marcado.
-- [ ] Soma do líquido por serviço igual ao líquido de serviços do período (sem filtro).
-- [ ] Casos novos no pgTAP `34_relatorio_equipe_e_servicos` (plano ajustado).
-- [ ] Adaptador e repositório tratam o profissional opcional; testes atualizados.
-- [ ] Página ganha seção "Ranking de serviços" com seletor de profissional, alternância entre ordenar
+- [x] Só itens de serviço entram; itens de produto ficam fora da lista.
+- [x] Profissional informado filtra só a lista de serviços; a lista de profissionais não muda.
+- [x] Serviço arquivado com item no período aparece marcado.
+- [x] Soma do líquido por serviço igual ao líquido de serviços do período (sem filtro).
+- [x] Casos novos no pgTAP `34_relatorio_equipe_e_servicos` (plano ajustado).
+- [x] Adaptador e repositório tratam o profissional opcional; testes atualizados.
+- [x] Página ganha seção "Ranking de serviços" com seletor de profissional, alternância entre ordenar
       por líquido e por quantidade, barra inline de participação e "Exportar CSV", só em layout
       desktop.
-- [ ] Caso novo no teste da página cobrindo o filtro por profissional.
-- [ ] `npm run test` e pgTAP verdes.
+- [x] Caso novo no teste da página cobrindo o filtro por profissional.
+- [x] `npm run test` e pgTAP verdes.

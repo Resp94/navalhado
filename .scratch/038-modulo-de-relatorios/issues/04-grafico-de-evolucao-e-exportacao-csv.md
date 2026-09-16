@@ -13,21 +13,21 @@ Spec: `specs/038-modulo-de-relatorios/spec.md`, seções "Módulo" (CSV), "Telas
 
 **Blocked by:** 01 — Esqueleto do módulo e Faturamento por período.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Função pura de CSV: separador ponto e vírgula, vírgula decimal, datas `dd/mm/aaaa`, BOM UTF-8
+- [x] Função pura de CSV: separador ponto e vírgula, vírgula decimal, datas `dd/mm/aaaa`, BOM UTF-8
       para o Excel, escape de aspas e de campos com ponto e vírgula ou quebra de linha, cabeçalho em
       pt-BR.
-- [ ] Botão "Exportar CSV" reutilizável que recebe colunas e linhas já carregadas e baixa o arquivo
+- [x] Botão "Exportar CSV" reutilizável que recebe colunas e linhas já carregadas e baixa o arquivo
       com nome que inclui o relatório e as datas do período.
-- [ ] Página Faturamento exporta a tabela por agrupamento (e as tabelas de recebido e ticket, se já
+- [x] Página Faturamento exporta a tabela por agrupamento (e as tabelas de recebido e ticket, se já
       existirem).
-- [ ] Gráfico de evolução do faturamento líquido por agrupamento, com serviços e produtos
+- [x] Gráfico de evolução do faturamento líquido por agrupamento, com serviços e produtos
       distinguíveis sem depender só de cor, título descritivo no SVG e tabela como equivalente
       acessível.
-- [ ] Em granularidade diária com muitos agrupamentos, o gráfico rola na horizontal dentro do próprio
+- [x] Em granularidade diária com muitos agrupamentos, o gráfico rola na horizontal dentro do próprio
       contêiner, nunca a página.
-- [ ] Nenhuma dependência nova no projeto.
-- [ ] Testes da função de CSV (separador, vírgula decimal, datas, BOM, aspas, ponto e vírgula dentro
+- [x] Nenhuma dependência nova no projeto.
+- [x] Testes da função de CSV (separador, vírgula decimal, datas, BOM, aspas, ponto e vírgula dentro
       do campo) e caso novo no teste da página cobrindo a presença do botão de exportar.
-- [ ] `npm run test` verde.
+- [x] `npm run test` verde.

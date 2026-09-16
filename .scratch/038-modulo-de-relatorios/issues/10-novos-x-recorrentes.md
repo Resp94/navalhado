@@ -14,31 +14,31 @@ recorrentes) e histórias 65 a 70.
 
 **Blocked by:** 09 — Clientes sem Retorno.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contrato de leitura de Clientes recebe tenant, datas e granularidade, e devolve fuso, dia de
+- [x] Contrato de leitura de Clientes recebe tenant, datas e granularidade, e devolve fuso, dia de
       negócio de hoje, período, período anterior, visitantes do período e do anterior (clientes
       únicos, novos, recorrentes, novos de uma visita só, atendimentos sem cliente identificado),
       agrupamentos com novos e recorrentes, e a lista de Clientes de Uma Visita (até 200, mais
       recentes primeiro).
-- [ ] Mesmo padrão de função pública, núcleo privado com relógio injetado, acesso, permissões de
+- [x] Mesmo padrão de função pública, núcleo privado com relógio injetado, acesso, permissões de
       execução, `jsonb`, `STABLE` e validação de período e granularidade do ticket 01.
-- [ ] Visitantes, agrupamentos e atendimentos sem cliente agregados cada um na própria CTE antes de
+- [x] Visitantes, agrupamentos e atendimentos sem cliente agregados cada um na própria CTE antes de
       juntar, para não multiplicar contagens.
-- [ ] Novo conta no agrupamento da primeira Visita; recorrente conta no agrupamento da primeira Visita
+- [x] Novo conta no agrupamento da primeira Visita; recorrente conta no agrupamento da primeira Visita
       dele dentro do período.
-- [ ] Cliente de Uma Visita deixa de sê-lo quando há Visita posterior ao período, até hoje.
-- [ ] Comanda fechada sem cliente conta em atendimentos sem cliente identificado.
-- [ ] Arquivo pgTAP `36_relatorio_clientes` cobrindo acesso, validação, fronteira de novo x
+- [x] Cliente de Uma Visita deixa de sê-lo quando há Visita posterior ao período, até hoje.
+- [x] Comanda fechada sem cliente conta em atendimentos sem cliente identificado.
+- [x] Arquivo pgTAP `36_relatorio_clientes` cobrindo acesso, validação, fronteira de novo x
       recorrente no início do período, Cliente de Uma Visita com Visita posterior e atendimento sem
       cliente.
-- [ ] Repositório, adaptador e hook da página, com testes.
-- [ ] Rota `/relatorios/clientes` no layout do módulo, usando o filtro de período compartilhado;
+- [x] Repositório, adaptador e hook da página, com testes.
+- [x] Rota `/relatorios/clientes` no layout do módulo, usando o filtro de período compartilhado;
       catálogo passa a linkar o relatório.
-- [ ] Página com cartões (únicos, novos, recorrentes, novos de uma visita só, sem cliente
+- [x] Página com cartões (únicos, novos, recorrentes, novos de uma visita só, sem cliente
       identificado) com variação vs período anterior, gráfico de novos e recorrentes por agrupamento
       com tabela equivalente, lista de Clientes de Uma Visita com link para a Central 360º, estados
       vazio, carregando e erro e "Exportar CSV", só em layout desktop.
-- [ ] Teste da página com repositório falso cobrindo cartões e lista.
-- [ ] `CONTEXT.md` ganha Cliente Novo, Cliente Recorrente e Cliente de Uma Visita.
-- [ ] `npm run test` e pgTAP verdes.
+- [x] Teste da página com repositório falso cobrindo cartões e lista.
+- [x] `CONTEXT.md` ganha Cliente Novo, Cliente Recorrente e Cliente de Uma Visita.
+- [x] `npm run test` e pgTAP verdes.

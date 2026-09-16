@@ -15,27 +15,27 @@ histórias 22 a 27.
 
 **Blocked by:** 01 — Esqueleto do módulo e Faturamento por período.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O contrato de Faturamento passa a devolver o recebido total, o recebido por forma de pagamento
+- [x] O contrato de Faturamento passa a devolver o recebido total, o recebido por forma de pagamento
       no período (valor, quantidade de pagamentos e participação) e, em cada agrupamento, o recebido
       e a quantidade de pagamentos por forma.
-- [ ] Pagamentos contam pelo dia de negócio do pagamento no fuso do tenant; pagamento às 23h30 local
+- [x] Pagamentos contam pelo dia de negócio do pagamento no fuso do tenant; pagamento às 23h30 local
       cai no dia local.
-- [ ] O recebido é agregado na própria CTE, separado da CTE de faturamento, antes de juntar por
+- [x] O recebido é agregado na própria CTE, separado da CTE de faturamento, antes de juntar por
       agrupamento: as duas fontes têm várias linhas por agrupamento e, juntas num mesmo `group by`,
       multiplicariam os totais. Um teste com dois dias de faturamento e dois pagamentos no mesmo
       agrupamento trava essa regra.
-- [ ] Filtro de pagamentos como intervalo meio aberto sobre a coluna de pagamento, usando o índice
+- [x] Filtro de pagamentos como intervalo meio aberto sobre a coluna de pagamento, usando o índice
       por tenant e momento do pagamento que já existe.
-- [ ] Comanda reaberta some do recebido, sem subtrair o arquivo de estornos.
-- [ ] Teste cruzado: o recebido de um dia é igual ao recebido de `get_daily_financial_summary` no
+- [x] Comanda reaberta some do recebido, sem subtrair o arquivo de estornos.
+- [x] Teste cruzado: o recebido de um dia é igual ao recebido de `get_daily_financial_summary` no
       mesmo dia.
-- [ ] Formas exibidas com rótulos PIX, Dinheiro, Crédito, Débito e Outros; forma sem pagamento no
+- [x] Formas exibidas com rótulos PIX, Dinheiro, Crédito, Débito e Outros; forma sem pagamento no
       período aparece com zero.
-- [ ] Participação com período sem recebimento devolve vazio, nunca divisão por zero.
-- [ ] Adaptador converte os campos novos; teste do adaptador cobre campos ausentes.
-- [ ] Página Faturamento ganha seção "Recebido por forma de pagamento" com barras horizontais de
+- [x] Participação com período sem recebimento devolve vazio, nunca divisão por zero.
+- [x] Adaptador converte os campos novos; teste do adaptador cobre campos ausentes.
+- [x] Página Faturamento ganha seção "Recebido por forma de pagamento" com barras horizontais de
       participação e tabela equivalente; a distinção entre formas não depende só de cor.
-- [ ] Casos novos no pgTAP `33_relatorio_faturamento` (plano ajustado) e caso novo no teste da página.
-- [ ] `npm run test` e pgTAP verdes.
+- [x] Casos novos no pgTAP `33_relatorio_faturamento` (plano ajustado) e caso novo no teste da página.
+- [x] `npm run test` e pgTAP verdes.
