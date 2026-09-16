@@ -33,6 +33,7 @@ function buildResult(businessToday: string): RelatorioAgenda {
     by_origin: [],
     by_professional: [],
     cancellation_reasons: [],
+    heatmap: { hours: [], cells: [] },
   };
 }
 

@@ -94,6 +94,13 @@ function respostaBase(overrides: Partial<RelatorioAgenda> = {}): RelatorioAgenda
       },
     ],
     cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+    heatmap: {
+      hours: [9, 10],
+      cells: [
+        { weekday: 1, hour: 9, count: 3 },
+        { weekday: 1, hour: 10, count: 1 },
+      ],
+    },
     ...overrides,
   };
 }
@@ -240,7 +247,7 @@ describe('AgendaPage', () => {
     });
   });
 
-  it('mostra os três botões de Exportar CSV (origem, profissional e motivos)', async () => {
+  it('mostra os quatro botões de Exportar CSV (origem, profissional, motivos e mapa de calor)', async () => {
     const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
     const repository = new RelatoriosRepository(adapter);
 
@@ -251,7 +258,39 @@ describe('AgendaPage', () => {
     });
 
     const botoes = screen.getAllByRole('button', { name: /exportar csv/i });
-    expect(botoes.length).toBe(3);
+    expect(botoes.length).toBe(4);
+  });
+
+  it('mostra o mapa de calor com a contagem exata de cada célula preenchida', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () => respostaBase());
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<AgendaPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mapa de calor por dia e horário')).toBeInTheDocument();
+    });
+
+    // Grade visual: célula de segunda (weekday 1) às 9h mostra a contagem 3,
+    // e às 10h mostra 1, cada uma com aria-label explícito (spec: leitura
+    // não pode depender só da cor).
+    expect(screen.getByLabelText('Segunda, 9h: 3 agendamentos')).toHaveTextContent('3');
+    expect(screen.getByLabelText('Segunda, 10h: 1 agendamento')).toHaveTextContent('1');
+    // Uma combinação sem Agendamento (ex.: domingo às 9h) é 0, nunca ausente.
+    expect(screen.getByLabelText('Domingo, 9h: 0 agendamentos')).toHaveTextContent('0');
+  });
+
+  it('mostra estado vazio no mapa de calor quando heatmap.hours vem vazio', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () =>
+      respostaBase({ heatmap: { hours: [], cells: [] } })
+    );
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<AgendaPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sem horas para mostrar')).toBeInTheDocument();
+    });
   });
 
   it('mostra erro com botão de tentar de novo quando a consulta falha', async () => {

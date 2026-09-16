@@ -5,6 +5,7 @@ import type {
   ObterFaturamentoPorPeriodoInput,
   ProfissionalRanking,
   RelatorioAgenda,
+  RelatorioAgendaHeatmap,
   RelatorioAgendaMotivoCancelamento,
   RelatorioAgendaOrigem,
   RelatorioAgendaOrigemTotais,
@@ -230,6 +231,30 @@ function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCance
 }
 
 /**
+ * Mapa de calor da Agenda (spec 038, ticket 08): `hours` e `count` são
+ * sempre inteiros presentes (nunca `null`) -- diferente de `share`/
+ * `average_ticket`, aqui `0` é uma contagem real, não ausência de dado.
+ * `cells` só traz combinações com pelo menos 1 Agendamento; o núcleo do
+ * banco nunca devolve célula zerada (ver comentário da migração do ticket
+ * 08).
+ */
+function toAgendaHeatmap(value: unknown): RelatorioAgendaHeatmap {
+  const raw = (value || {}) as Record<string, unknown>;
+  const hours = Array.isArray(raw.hours) ? raw.hours.map((hour) => toNumber(hour)) : [];
+  const cells = Array.isArray(raw.cells)
+    ? raw.cells.map((item) => {
+        const cellRaw = (item || {}) as Record<string, unknown>;
+        return {
+          weekday: toNumber(cellRaw.weekday),
+          hour: toNumber(cellRaw.hour),
+          count: toNumber(cellRaw.count),
+        };
+      })
+    : [];
+  return { hours, cells };
+}
+
+/**
  * Adaptador Supabase do Faturamento por período (`get_revenue_report`,
  * spec 038, ticket 01): converte o `jsonb` da RPC em números e tipos do
  * domínio. Campos ausentes viram zero, string vazia ou lista vazia, nunca
@@ -362,11 +387,11 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
   }
 
   /**
-   * Agenda (`get_schedule_report`, spec 038, ticket 07): comparecimento,
-   * cancelamento e no-show. `p_professional_id` é omitido (`undefined`)
-   * quando não filtrado -- a RPC tem `default null` e filtra
-   * status_totals/by_origin/cancellation_reasons, mas NUNCA by_professional
-   * (inverso da regra do ticket 05/06).
+   * Agenda (`get_schedule_report`, spec 038, tickets 07-08): comparecimento,
+   * cancelamento, no-show e mapa de calor. `p_professional_id` é omitido
+   * (`undefined`) quando não filtrado -- a RPC tem `default null` e filtra
+   * status_totals/by_origin/cancellation_reasons/heatmap, mas NUNCA
+   * by_professional (inverso da regra do ticket 05/06).
    */
   async obterAgenda(input: ObterAgendaInput): Promise<RelatorioAgenda> {
     const { data, error } = await supabase.rpc('get_schedule_report', {
@@ -390,6 +415,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin?: unknown;
       by_professional?: unknown;
       cancellation_reasons?: unknown;
+      heatmap?: unknown;
     };
 
     return {
@@ -408,6 +434,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin: toAgendaByOrigin(raw.by_origin),
       by_professional: toAgendaByProfessional(raw.by_professional),
       cancellation_reasons: toAgendaCancellationReasons(raw.cancellation_reasons),
+      heatmap: toAgendaHeatmap(raw.heatmap),
     };
   }
 }

@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(42);
 
 -- Spec 038 (Modulo de Relatorios), ticket 07: Comparecimento, cancelamento e
 -- no-show (pagina Agenda). Cobre o contrato de leitura
@@ -582,6 +582,221 @@ select is(
   ),
   1,
   'Agendamento as 23h30 local conta no dia local (19), confirmando o corte por fuso e nao por dia UTC'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Ticket 08 da spec 038: mapa de calor (heatmap). Contexto isolado (t08_*),
+-- tenant proprio, para nao interferir nos totais exatos ja fixados acima
+-- (status_totals/by_origin/by_professional do ticket 07). Semana cheia
+-- 2026-09-07 (segunda) a 2026-09-13 (domingo), p_today = 2026-09-13,
+-- p_now = 2026-09-13 08:00:00-03 (mesmo padrao do ticket 07: inicio do dia
+-- final, permitindo Agendamento "futuro" no mesmo dia).
+-- Convencao de weekday testada: extract(dow), 0 = domingo .. 6 = sabado.
+-- ---------------------------------------------------------------------------
+create temporary table t08_context (
+  tenant_h_id uuid not null,
+  prof_h1_id uuid not null,
+  prof_h2_id uuid not null,
+  servico_h_id uuid not null
+) on commit drop;
+
+with th as (
+  insert into public.tenants (name, email, phone, timezone)
+  values ('__t08_tenant_h__', '__t08_tenant_h__@teste.com', '11999990001', 'America/Sao_Paulo')
+  returning id
+)
+insert into t08_context (tenant_h_id, prof_h1_id, prof_h2_id, servico_h_id)
+select th.id, gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+from th;
+
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_h1_id, tenant_h_id, '__t08_prof_h1__', '11999960001', 30, true from t08_context;
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select prof_h2_id, tenant_h_id, '__t08_prof_h2__', '11999960002', 30, true from t08_context;
+insert into public.services (id, tenant_id, name, price, duration_minutes, category, is_active)
+select servico_h_id, tenant_h_id, '__t08_servico_h__', 100, 30, 'Corte', true from t08_context;
+
+-- Expediente aberto o dia inteiro so para permitir a insercao dos
+-- Agendamentos de fixture (o trigger de validacao de horario recusa
+-- horario fora do expediente configurado no momento do insert) -- igual ao
+-- truque ja usado no fixture do ticket 07. O expediente REAL usado pelo
+-- teste do mapa de calor e configurado depois, so para a leitura do
+-- relatorio.
+update public.tenants
+set business_hours = jsonb_build_object(
+  'segunda', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'terca', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'quarta', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'quinta', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'sexta', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'sabado', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true),
+  'domingo', jsonb_build_object('open', '00:00', 'close', '23:59', 'active', true)
+)
+where id = (select tenant_h_id from t08_context);
+
+-- segunda (2026-09-07) 10h completed (prof_h1) -> cell (1,10); e um
+-- cancelado na mesma segunda as 11h, que NAO deve aparecer no mapa.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-07 10:00:00-03'::timestamptz, '2026-09-07 10:30:00-03'::timestamptz, 'completed', 'pending', 'manual', null
+from t08_context;
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-07 11:00:00-03'::timestamptz, '2026-09-07 11:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', 'cliente desmarcou'
+from t08_context;
+
+-- terca (2026-09-08) 20h no_show (prof_h1), fora do expediente ativo
+-- (09h-18h) -> amplia o mapa ate a hora 20, cell (2,20).
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-08 20:00:00-03'::timestamptz, '2026-09-08 20:30:00-03'::timestamptz, 'no_show', 'pending', 'manual', null
+from t08_context;
+
+-- quinta (2026-09-10) 12h confirmed com start_time < p_now (sem desfecho)
+-- (prof_h1) -> cell (4,12). Quinta fica ausente da configuracao de
+-- expediente (chave nao existe), sem efeito no teste de amplitude porque a
+-- hora 12 ja cai dentro da faixa dos dias ativos.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-10 12:00:00-03'::timestamptz, '2026-09-10 12:30:00-03'::timestamptz, 'confirmed', 'pending', 'manual', null
+from t08_context;
+
+-- sexta (2026-09-11) 14h confirmed com start_time >= p_now (futuro,
+-- prof_h1) -> cell (5,14); e 15h completed (prof_h2) -> cell (5,15), usado
+-- para o teste de filtro por profissional.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-11 14:00:00-03'::timestamptz, '2026-09-11 14:30:00-03'::timestamptz, 'confirmed', 'pending', 'manual', null
+from t08_context;
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h2_id, servico_h_id,
+  '2026-09-11 15:00:00-03'::timestamptz, '2026-09-11 15:30:00-03'::timestamptz, 'completed', 'pending', 'manual', null
+from t08_context;
+
+-- domingo (2026-09-13) 23h45 local, completed (prof_h1) -- fronteira de
+-- fuso: em UTC isso e 2026-09-14 02:45 (segunda as 2h). Se o mapa lesse
+-- UTC em vez do fuso do tenant, cairia em weekday=1 (segunda) hora=2, nao
+-- weekday=0 (domingo) hora=23.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason)
+select gen_random_uuid(), tenant_h_id, prof_h1_id, servico_h_id,
+  '2026-09-13 23:45:00-03'::timestamptz, '2026-09-14 00:15:00-03'::timestamptz, 'completed', 'pending', 'manual', null
+from t08_context;
+
+-- Expediente real para o teste do mapa: segunda/terca/sexta ativos
+-- 09h-18h; quarta presente mas INATIVA com expediente mais largo
+-- (07h-22h), para provar que um dia inativo nao amplia o mapa mesmo tendo
+-- expediente configurado fora da faixa dos dias ativos; quinta ausente da
+-- configuracao (mesmo efeito de inativo); sabado e domingo inativos.
+update public.tenants
+set business_hours = jsonb_build_object(
+  'segunda', jsonb_build_object('open', '09:00', 'close', '18:00', 'active', true),
+  'terca', jsonb_build_object('open', '09:00', 'close', '18:00', 'active', true),
+  'quarta', jsonb_build_object('open', '07:00', 'close', '22:00', 'active', false),
+  'sexta', jsonb_build_object('open', '09:00', 'close', '18:00', 'active', true),
+  'sabado', jsonb_build_object('open', '09:00', 'close', '18:00', 'active', false),
+  'domingo', jsonb_build_object('open', '09:00', 'close', '18:00', 'active', false)
+)
+where id = (select tenant_h_id from t08_context);
+
+-- heatmap.cells exclui o cancelado (segunda 11h) e inclui completed,
+-- no_show, sem desfecho e futuro -- 6 celulas, cada uma com contagem 1.
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date, null,
+      '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'heatmap' -> 'cells'
+  ),
+  jsonb_build_array(
+    jsonb_build_object('weekday', 0, 'hour', 23, 'count', 1),
+    jsonb_build_object('weekday', 1, 'hour', 10, 'count', 1),
+    jsonb_build_object('weekday', 2, 'hour', 20, 'count', 1),
+    jsonb_build_object('weekday', 4, 'hour', 12, 'count', 1),
+    jsonb_build_object('weekday', 5, 'hour', 14, 'count', 1),
+    jsonb_build_object('weekday', 5, 'hour', 15, 'count', 1)
+  ),
+  'heatmap.cells exclui o Agendamento cancelado e inclui concluido, falta, sem desfecho e futuro, um por celula'
+);
+
+-- Fuso: o Agendamento de domingo as 23h45 local cai em weekday=0 (domingo),
+-- hora 23 -- nao em weekday=1 (segunda), hora 2, que seria o resultado se o
+-- mapa lesse o instante em UTC.
+select is(
+  (
+    select (private.get_schedule_report_core(
+      (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date, null,
+      '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'heatmap' -> 'cells') @> jsonb_build_array(jsonb_build_object('weekday', 0, 'hour', 23, 'count', 1))
+  ),
+  true,
+  'Agendamento de domingo as 23h45 local conta no dia e hora locais (domingo, 23h)'
+);
+select is(
+  (
+    select exists(
+      select 1
+      from jsonb_array_elements(
+        private.get_schedule_report_core(
+          (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date, null,
+          '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+        ) -> 'heatmap' -> 'cells'
+      ) as c
+      where (c ->> 'weekday')::int = 1 and (c ->> 'hour')::int = 2
+    )
+  ),
+  false,
+  'o mapa nao usa o dia/hora em UTC (nao existe celula segunda as 2h, que seria o corte por UTC)'
+);
+
+-- hours vai de 09h (menor abertura entre os dias ativos: segunda/terca/
+-- sexta) a 23h (ampliado pelo Agendamento de domingo 23h45), sem incluir o
+-- expediente do dia inativo (quarta, 07h-22h).
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date, null,
+      '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'heatmap' -> 'hours'
+  ),
+  (select jsonb_agg(h) from generate_series(9, 23) h),
+  'hours cobre de 09h (abertura dos dias ativos) a 23h (ampliado por Agendamento fora do expediente), sem o expediente do dia inativo'
+);
+select is(
+  (
+    (private.get_schedule_report_core(
+      (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date, null,
+      '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'heatmap' -> 'hours' -> 0)::int
+  ),
+  9,
+  'dia inativo (quarta, expediente 07h-22h) nao amplia o mapa: a hora inicial continua 09h, nao 07h'
+);
+
+-- p_professional_id filtra o heatmap: so a celula do profissional pedido
+-- aparece (prof_h2, sexta as 15h).
+select is(
+  (
+    select count(*)
+    from jsonb_array_elements(
+      private.get_schedule_report_core(
+        (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date,
+        (select prof_h2_id from t08_context), '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+      ) -> 'heatmap' -> 'cells'
+    )
+  ),
+  1::bigint,
+  'p_professional_id filtra o heatmap para uma unica celula do profissional pedido'
+);
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_h_id from t08_context), '2026-09-07'::date, '2026-09-13'::date,
+      (select prof_h2_id from t08_context), '2026-09-13'::date, '2026-09-13 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'heatmap' -> 'cells'
+  ),
+  jsonb_build_array(jsonb_build_object('weekday', 5, 'hour', 15, 'count', 1)),
+  'p_professional_id filtra o heatmap: mostra so a celula do profissional filtrado (prof_h2, sexta as 15h)'
 );
 
 select * from finish(true);

@@ -593,6 +593,13 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
           },
         ],
         cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+        heatmap: {
+          hours: [9, 10, 11],
+          cells: [
+            { weekday: 1, hour: 9, count: 3 },
+            { weekday: 1, hour: 10, count: 1 },
+          ],
+        },
       },
       error: null,
     });
@@ -639,6 +646,13 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
       },
     ]);
     expect(result.cancellation_reasons).toEqual([{ reason: 'cliente desistiu', count: 2 }]);
+    expect(result.heatmap).toEqual({
+      hours: [9, 10, 11],
+      cells: [
+        { weekday: 1, hour: 9, count: 3 },
+        { weekday: 1, hour: 10, count: 1 },
+      ],
+    });
   });
 
   it('passa p_professional_id quando informado', async () => {
@@ -723,6 +737,7 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
     expect(result.by_origin).toEqual([]);
     expect(result.by_professional).toEqual([]);
     expect(result.cancellation_reasons).toEqual([]);
+    expect(result.heatmap).toEqual({ hours: [], cells: [] });
   });
 
   it('lança erro quando a RPC devolve erro', async () => {

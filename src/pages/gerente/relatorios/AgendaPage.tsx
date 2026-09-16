@@ -21,6 +21,12 @@ import { AgendaResumo } from './agenda/AgendaResumo';
 import { AgendaPorOrigem, formatOrigemLabel } from './agenda/AgendaPorOrigem';
 import { AgendaPorProfissional } from './agenda/AgendaPorProfissional';
 import { AgendaMotivosCancelamento } from './agenda/AgendaMotivosCancelamento';
+import {
+  AgendaMapaDeCalor,
+  WEEKDAY_LABELS_FULL,
+  construirLinhasMapaDeCalor,
+  type AgendaMapaDeCalorLinha,
+} from './agenda/AgendaMapaDeCalor';
 import './Relatorios.css';
 
 const COLUNAS_CSV_ORIGEM: CsvColumn<RelatorioAgendaOrigemTotais>[] = [
@@ -46,6 +52,20 @@ const COLUNAS_CSV_PROFISSIONAL: CsvColumn<RelatorioAgendaProfissionalTotais>[] =
 const COLUNAS_CSV_MOTIVOS: CsvColumn<RelatorioAgendaMotivoCancelamento>[] = [
   { header: 'Motivo', accessor: (item) => item.reason },
   { header: 'Cancelamentos', accessor: (item) => String(item.count) },
+];
+
+/**
+ * Colunas do CSV do mapa de calor (ticket 08): uma linha por hora, uma
+ * coluna por dia da semana -- o mesmo formato de linha (`AgendaMapaDeCalorLinha`)
+ * que a grade visual e a tabela equivalente usam, para as três nunca
+ * divergirem.
+ */
+const COLUNAS_CSV_MAPA_CALOR: CsvColumn<AgendaMapaDeCalorLinha>[] = [
+  { header: 'Hora', accessor: (item) => `${item.hour}h` },
+  ...WEEKDAY_LABELS_FULL.map((label, weekday) => ({
+    header: label,
+    accessor: (item: AgendaMapaDeCalorLinha) => String(item.counts[weekday]),
+  })),
 ];
 
 export interface AgendaPageProps {
@@ -97,6 +117,7 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
   const professionals = data?.by_professional ?? [];
   const origins = data?.by_origin ?? [];
   const reasons = data?.cancellation_reasons ?? [];
+  const heatmapRows = data?.heatmap ? construirLinhasMapaDeCalor(data.heatmap) : [];
 
   // O filtro de profissional some do <Select> quando o profissional
   // escolhido não tem mais Agendamento na tabela por profissional (ex.: o
@@ -200,6 +221,19 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
                 columns={COLUNAS_CSV_MOTIVOS}
                 rows={reasons}
                 reportSlug="agenda_motivos_cancelamento"
+                startDate={periodo.startDate}
+                endDate={periodo.endDate}
+              />
+            }
+          />
+
+          <AgendaMapaDeCalor
+            heatmap={data?.heatmap ?? null}
+            exportButton={
+              <ExportarCsvButton
+                columns={COLUNAS_CSV_MAPA_CALOR}
+                rows={heatmapRows}
+                reportSlug="agenda_mapa_de_calor"
                 startDate={periodo.startDate}
                 endDate={periodo.endDate}
               />

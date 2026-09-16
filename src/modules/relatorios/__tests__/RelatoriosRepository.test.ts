@@ -355,6 +355,7 @@ const agendaFixture = {
   by_origin: [],
   by_professional: [],
   cancellation_reasons: [],
+  heatmap: { hours: [], cells: [] },
 };
 
 describe('RelatoriosRepository.obterAgenda', () => {

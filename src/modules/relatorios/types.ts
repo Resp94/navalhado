@@ -278,13 +278,41 @@ export interface RelatorioAgendaMotivoCancelamento {
 }
 
 /**
+ * Célula do mapa de calor da Agenda (spec 038, ticket 08): `weekday` usa a
+ * convenção nativa do Postgres (`extract(dow)`), `0` = domingo até `6` =
+ * sábado -- nunca a convenção ISO (segunda = 1). `count` é sempre um
+ * inteiro presente (nunca `null`): conta Agendamento não cancelado (falta
+ * conta) no fuso do tenant. O núcleo do banco só devolve combinações com
+ * pelo menos 1 Agendamento -- uma combinação ausente vale `0`, e cabe à
+ * tela cruzar `hours` x os 7 dias para desenhar a grade completa.
+ */
+export interface RelatorioAgendaHeatmapCelula {
+  weekday: number;
+  hour: number;
+  count: number;
+}
+
+/**
+ * Mapa de calor por dia da semana e hora (spec 038, ticket 08, histórias
+ * 50-55): `hours` é o intervalo (já ordenado) da menor hora de abertura à
+ * maior hora de fechamento entre os dias ativos de `tenants.business_hours`,
+ * ampliado (nunca reduzido) por qualquer Agendamento fora do expediente.
+ * `p_professional_id` filtra este mapa (ao contrário de `by_professional`,
+ * que nunca é filtrado).
+ */
+export interface RelatorioAgendaHeatmap {
+  hours: number[];
+  cells: RelatorioAgendaHeatmapCelula[];
+}
+
+/**
  * Contrato de leitura da Agenda (`get_schedule_report`, spec 038,
- * relatórios 6-7, ticket 07): comparecimento, cancelamento e no-show do
- * período. Sem `granularity` (ranking/totais de período único, como
- * Equipe e Serviços) mas COM `previous_period`/`previous_status_totais`
- * (as taxas comparam com o período anterior, como o Faturamento). Sem
- * `data_quality`: esse conceito é da Receita Reconhecida de Comanda, sem
- * uso aqui.
+ * relatórios 6-7, tickets 07-08): comparecimento, cancelamento, no-show e
+ * mapa de calor do período. Sem `granularity` (ranking/totais de período
+ * único, como Equipe e Serviços) mas COM `previous_period`/
+ * `previous_status_totais` (as taxas comparam com o período anterior, como
+ * o Faturamento). Sem `data_quality`: esse conceito é da Receita
+ * Reconhecida de Comanda, sem uso aqui.
  */
 export interface RelatorioAgenda {
   timezone: string;
@@ -296,6 +324,7 @@ export interface RelatorioAgenda {
   by_origin: RelatorioAgendaOrigemTotais[];
   by_professional: RelatorioAgendaProfissionalTotais[];
   cancellation_reasons: RelatorioAgendaMotivoCancelamento[];
+  heatmap: RelatorioAgendaHeatmap;
 }
 
 export interface ObterAgendaInput {
