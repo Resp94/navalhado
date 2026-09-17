@@ -418,14 +418,15 @@ export const Clientes: React.FC = () => {
           className="max-[640px]:w-full max-[640px]:flex"
         />
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => handleOpenModal(null)}
-          className="bg-brand-lightest text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] rounded-full font-semibold inline-flex items-center gap-2 cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] whitespace-nowrap h-11 px-5 enabled:hover:bg-brand-soft enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_0_0_1px_var(--color-text-primary),0_4px_12px_rgba(45,35,30,0.08)] active:scale-[0.97] max-[640px]:w-full max-[640px]:justify-center"
+          leftIcon={<UserPlusIcon />}
           aria-label="Adicionar novo cliente"
+          className="max-[640px]:w-full"
         >
-          <UserPlusIcon /> Adicionar cliente
-        </button>
+          Adicionar cliente
+        </Button>
       </div>
 
       {/* 2.1 BARRA DE FILTRO POR TAGS */}
