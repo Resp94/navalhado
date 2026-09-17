@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { CheckmarkCircle02Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
+import { Select } from '../ui';
 import type { PaymentMethod } from '../../modules/caixa/types';
 import { ContaProfissionalRepository } from '../../modules/contaProfissional/ContaProfissionalRepository';
 import { SupabaseContaProfissionalAdapter } from '../../modules/contaProfissional/adapters/SupabaseContaProfissionalAdapter';
@@ -171,25 +172,20 @@ export const LancarValeModal: React.FC<LancarValeModalProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col gap-[0.4rem]">
-            <label htmlFor="vale-method-select" className="text-xs font-bold text-text-primary uppercase tracking-wide">
-              Forma de pagamento *
-            </label>
-            <select
-              id="vale-method-select"
-              className="w-full border border-border rounded-md px-[0.85rem] py-[0.65rem] text-sm outline-none"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              required
-            >
-              <option value="pix">PIX</option>
-              <option value="cash" disabled={!activeCashSessionId}>
-                Dinheiro (sai da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
-              </option>
-              <option value="transfer">Transferência bancária</option>
-              <option value="other">Outra forma</option>
-            </select>
-          </div>
+          <Select
+            label="Forma de pagamento *"
+            id="vale-method-select"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+            required
+          >
+            <option value="pix">PIX</option>
+            <option value="cash" disabled={!activeCashSessionId}>
+              Dinheiro (sai da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+            </option>
+            <option value="transfer">Transferência bancária</option>
+            <option value="other">Outra forma</option>
+          </Select>
 
           <div className="flex flex-col gap-[0.4rem]">
             <label htmlFor="vale-reason-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">

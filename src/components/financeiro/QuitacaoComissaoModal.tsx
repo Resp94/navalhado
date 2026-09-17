@@ -5,6 +5,7 @@ import {
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
+import { Select } from '../ui';
 import type { PaymentMethod } from '../../modules/caixa/types';
 import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
 import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
@@ -360,25 +361,20 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-[0.4rem]">
-              <label htmlFor="payout-method-select" className="text-xs font-bold text-text-primary uppercase tracking-wide">
-                Forma de pagamento *
-              </label>
-              <select
-                id="payout-method-select"
-                className="w-full bg-bg-secondary border border-border rounded-md px-[0.85rem] py-[0.65rem] text-text-primary text-sm font-semibold outline-none cursor-pointer transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                required
-              >
-                <option value="pix">PIX (transferência instantânea)</option>
-                <option value="cash" disabled={!activeCashSessionId}>
-                  Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
-                </option>
-                <option value="transfer">Transferência bancária (TED ou DOC)</option>
-                <option value="other">Outra forma de pagamento</option>
-              </select>
-            </div>
+            <Select
+              label="Forma de pagamento *"
+              id="payout-method-select"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              required
+            >
+              <option value="pix">PIX (transferência instantânea)</option>
+              <option value="cash" disabled={!activeCashSessionId}>
+                Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+              </option>
+              <option value="transfer">Transferência bancária (TED ou DOC)</option>
+              <option value="other">Outra forma de pagamento</option>
+            </Select>
 
             <div className="flex flex-col gap-[0.4rem]">
               <label htmlFor="payout-date-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
