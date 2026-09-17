@@ -699,6 +699,7 @@ export const Clientes: React.FC = () => {
                   type="button"
                   variant="secondary"
                   onClick={() => setIsModalOpen(false)}
+                  className="hover:not-disabled:bg-bg-secondary!"
                 >
                   Cancelar
                 </Button>
