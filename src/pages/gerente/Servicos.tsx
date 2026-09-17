@@ -105,18 +105,18 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             )}
 
             <div className="service-meta-badges flex items-center gap-2 flex-wrap mt-[0.15rem] max-md:gap-[0.2rem] max-md:mt-[0.05rem]">
-              <span className="meta-badge inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.5px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
+              <span className="meta-badge inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                 <HugeiconsIcon icon={Clock01Icon} size={12} />
                 {service.duration_minutes || 40} min
               </span>
               {service.return_period_days && (
-                <span className="meta-badge meta-badge--retorno inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.5px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
+                <span className="meta-badge meta-badge--retorno inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                   <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={12} />
                   Retorno: ~{service.return_period_days}d
                 </span>
               )}
               {service.commission_percentage !== null && (
-                <span className="meta-badge meta-badge--comm inline-flex items-center gap-[0.3rem] text-[11px] text-success bg-[rgba(54,179,126,0.08)] px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.5px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
+                <span className="meta-badge meta-badge--comm inline-flex items-center gap-[0.3rem] text-[11px] text-success bg-[rgba(54,179,126,0.08)] px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                   <HugeiconsIcon icon={BadgePercentIcon} size={12} />
                   Comissão: {service.commission_percentage}%
                 </span>
@@ -456,7 +456,7 @@ export const Servicos: React.FC = () => {
         </div>
         <Button
           type="button"
-          variant="soft"
+          variant="primary"
           onClick={handleOpenCreateDrawer}
           leftIcon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
         >
