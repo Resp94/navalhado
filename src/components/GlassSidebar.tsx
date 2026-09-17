@@ -18,7 +18,7 @@ import {
   ArrowLeft,
 } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { CalendarUserIcon } from '@hugeicons/core-free-icons';
+import { CalendarUserIcon, Invoice01Icon } from '@hugeicons/core-free-icons';
 import type { TenantContextType } from './GerenteLayout';
 import type { Notification } from '../lib/useRealtimeNotifications';
 
@@ -43,6 +43,18 @@ const NAV_ITEMS: NavItemConfig[] = [
     renderIcon: ({ size, isBold }) => (
       <HugeiconsIcon
         icon={CalendarUserIcon}
+        size={size}
+        color="currentColor"
+        strokeWidth={isBold ? 2.2 : 1.7}
+      />
+    ),
+  },
+  {
+    path: '/comandas',
+    label: 'Comandas',
+    renderIcon: ({ size, isBold }) => (
+      <HugeiconsIcon
+        icon={Invoice01Icon}
         size={size}
         color="currentColor"
         strokeWidth={isBold ? 2.2 : 1.7}
