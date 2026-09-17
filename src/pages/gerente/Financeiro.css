@@ -120,6 +120,7 @@
   flex-direction: column;
   gap: 1.25rem;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
 }
 
 .card-panel-header {
