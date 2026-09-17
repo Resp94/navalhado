@@ -741,7 +741,7 @@ export const Clientes: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-bg-primary border border-border rounded-lg py-4 px-5 w-full flex items-center justify-between text-left">
+              <div className="border border-border rounded-lg py-4 px-5 w-full flex items-center justify-between text-left">
                 <div className="flex flex-col gap-[0.15rem]">
                   <strong className="font-extrabold text-text-primary text-sm">{customerToDelete.name}</strong>
                   <span className="text-xs text-text-secondary font-mono">{customerToDelete.phone}</span>
