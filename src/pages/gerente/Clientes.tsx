@@ -704,7 +704,7 @@ export const Clientes: React.FC = () => {
                 </Button>
                 <Button
                   type="submit"
-                  variant="warning"
+                  variant="primary"
                   disabled={isSaving}
                   loading={isSaving}
                 >
