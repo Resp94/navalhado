@@ -2089,7 +2089,7 @@ export const Agenda: React.FC = () => {
             <button
               type="button"
               onClick={() => handleViewModeChange('day')}
-              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
+              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-primary text-black hover:text-black' : 'bg-transparent text-text-secondary'}`}
             >
               Dia
             </button>
