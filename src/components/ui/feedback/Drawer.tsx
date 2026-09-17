@@ -56,7 +56,7 @@ export const Drawer: React.FC<DrawerProps> = ({
       aria-labelledby={title ? 'ui-drawer-title' : undefined}
     >
       <div
-        className={`h-dvh bg-bg-secondary shadow-[-10px_0_40px_rgba(0,0,0,0.25)] flex flex-col box-border font-base animate-slide-in-right overflow-hidden ${className}`}
+        className={`h-dvh bg-bg-secondary shadow-[-10px_0_40px_rgba(45,35,30,0.25)] flex flex-col box-border font-base animate-slide-in-right overflow-hidden ${className}`}
         style={{ width: resolvedWidth, ...style }}
         onClick={(e) => e.stopPropagation()}
       >

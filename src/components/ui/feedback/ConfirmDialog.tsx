@@ -56,7 +56,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       aria-labelledby="ui-confirm-title"
     >
       <div
-        className="w-full max-w-[440px] bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary),0_20px_48px_rgba(0,0,0,0.25)] rounded-xl p-7 flex flex-col items-center text-center gap-4 box-border font-base animate-dialog-in max-[480px]:p-5"
+        className="w-full max-w-[440px] bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary),0_20px_48px_rgba(45,35,30,0.25)] rounded-xl p-7 flex flex-col items-center text-center gap-4 box-border font-base animate-dialog-in max-[480px]:p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`w-13 h-13 rounded-full flex items-center justify-center shrink-0 bg-transparent ${ICON_BADGE_CLASSES[variant]}`}>

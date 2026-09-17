@@ -90,11 +90,11 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           className={`relative inline-flex items-center shrink-0 border-none outline-none rounded-full cursor-pointer p-0.5 box-border transition-[background-color,box-shadow] duration-200 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${
             checked
               ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]'
-              : 'bg-[#D1D5DB] shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+              : 'bg-text-secondary/30 shadow-[0_0_0_0.8px_var(--color-text-primary)]'
           } ${TRACK_SIZE_CLASSES[size]}`}
         >
           <span
-            className={`block rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${THUMB_SIZE_CLASSES[size]} ${checked ? THUMB_TRANSLATE_CLASSES[size] : ''}`}
+            className={`block rounded-full bg-white shadow-[0_1px_3px_rgba(45,35,30,0.25)] transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${THUMB_SIZE_CLASSES[size]} ${checked ? THUMB_TRANSLATE_CLASSES[size] : ''}`}
           />
         </button>
       </div>

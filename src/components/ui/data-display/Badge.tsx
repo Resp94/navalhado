@@ -37,13 +37,12 @@ const SOLID_CLASSES: Record<BadgeVariant, string> = {
 };
 
 // warning/info não têm variante "outline" definida no design original —
-// mantido apenas o fundo transparente para preservar o comportamento anterior.
 const OUTLINE_CLASSES: Record<BadgeVariant, string> = {
   brand: 'bg-transparent text-brand-primary border border-brand-primary',
   success: 'bg-transparent text-success border border-success',
-  warning: 'bg-transparent',
+  warning: 'bg-transparent text-warning border border-warning',
   error: 'bg-transparent text-error border border-error',
-  info: 'bg-transparent',
+  info: 'bg-transparent text-info border border-info',
   neutral: 'bg-transparent text-text-secondary border border-border',
 };
 

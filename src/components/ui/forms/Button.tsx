@@ -27,13 +27,13 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     'bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:not-disabled:bg-black/3',
   outline:
     'bg-transparent text-text-primary border border-border hover:not-disabled:border-brand-primary hover:not-disabled:text-brand-primary hover:not-disabled:bg-brand-primary/4',
-  danger: 'bg-error text-white hover:not-disabled:bg-red-600',
+  danger: 'bg-error text-white hover:not-disabled:bg-[color-mix(in_srgb,var(--color-error)_80%,black)]',
   'danger-outline':
     'bg-transparent text-error border border-error hover:not-disabled:bg-error-bg',
   ghost: 'bg-transparent text-text-secondary hover:not-disabled:bg-text-primary/5 hover:not-disabled:text-text-primary',
   warning:
-    'bg-warning text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:not-disabled:bg-[#B45309] hover:not-disabled:-translate-y-px',
-  soft: 'bg-brand-lightest text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:not-disabled:bg-[#f2b277] hover:not-disabled:-translate-y-px',
+    'bg-warning text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:not-disabled:bg-[color-mix(in_srgb,var(--color-warning)_80%,black)] hover:not-disabled:-translate-y-px',
+  soft: 'bg-brand-lightest text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:not-disabled:bg-brand-soft hover:not-disabled:-translate-y-px',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
