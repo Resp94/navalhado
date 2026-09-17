@@ -326,19 +326,23 @@ export const MinhasComissoes: React.FC = () => {
       {/* Noise/grain overlay - estética premium de textura de papel/analogica */}
       <div className="noise-overlay" />
 
-      <div className="page-wrapper" ref={containerRef}>
+      <div className="min-h-screen min-h-dvh bg-bg-primary text-text-primary p-6 max-w-[1120px] mx-auto flex flex-col gap-5 font-base max-md:p-4 max-md:gap-4" ref={containerRef}>
 
         {/* PERIOD FILTER — Compact pill-shaped filter */}
-        <section className="period-filter">
+        <section className="flex items-center gap-2.5 w-max max-w-full py-2 pr-4 pl-5 rounded-full bg-bg-secondary border-[0.5px] border-[rgba(234,222,214,0.6)] shadow-sm text-text-secondary text-xs font-medium mx-auto max-md:w-full max-md:justify-center max-md:flex-wrap max-md:gap-2 max-md:px-3">
           <CalendarIcon size={16} />
-          <span className="period-filter-label">Período</span>
-          <div className="period-filter-divider" />
-          <div className="period-options">
+          <span className="font-semibold text-text-secondary text-xs tracking-[0.02em]">Período</span>
+          <div className="w-px h-4 bg-[rgba(234,222,214,0.4)]" />
+          <div className="flex gap-1">
             {(['today', '7days', 'month'] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`period-opt${period === p ? ' active' : ''}`}
+                className={`bg-transparent border-none py-[0.3rem] px-3 rounded-full text-xs font-semibold cursor-pointer transition-all duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] max-md:py-1 max-md:px-2.5 max-md:text-[11px] ${
+                  period === p
+                    ? 'text-brand-lightest bg-brand-primary shadow-[0_2px_8px_rgba(217,108,0,0.2)] active:scale-[0.96]'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-[rgba(45,35,30,0.04)]'
+                }`}
               >
                 {p === 'today' ? 'Hoje' : p === '7days' ? '7 Dias' : 'Mês'}
               </button>
@@ -348,42 +352,42 @@ export const MinhasComissoes: React.FC = () => {
 
         {/* CONTEÚDO PRINCIPAL OU SKELETON */}
         {loading ? (
-          <div className="skeleton-wrapper">
-            <div className="stats-bento">
-              <div className="stats-shell">
-                <div className="skeleton" style={{ height: '160px', borderRadius: 'var(--radius-xl)' }} />
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-2 gap-5 max-md:grid-cols-1 max-md:gap-4">
+              <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)]">
+                <div className="h-[160px] rounded-xl bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
               </div>
-              <div className="stats-shell">
-                <div className="skeleton" style={{ height: '160px', borderRadius: 'var(--radius-xl)' }} />
+              <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)]">
+                <div className="h-[160px] rounded-xl bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
               </div>
             </div>
-            <div className="history-shell">
-              <div className="history-inner">
-                <div className="skeleton" style={{ height: '50px', borderRadius: 'var(--radius-lg)', marginBottom: '1rem' }} />
-                <div className="skeleton" style={{ height: '60px', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem' }} />
-                <div className="skeleton" style={{ height: '60px', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem' }} />
-                <div className="skeleton" style={{ height: '60px', borderRadius: 'var(--radius-md)' }} />
+            <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)]">
+              <div className="bg-bg-secondary rounded-xl p-6 max-md:p-4">
+                <div className="h-[50px] rounded-lg mb-4 bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
+                <div className="h-[60px] rounded-md mb-2 bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
+                <div className="h-[60px] rounded-md mb-2 bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
+                <div className="h-[60px] rounded-md bg-[linear-gradient(90deg,rgba(234,222,214,0.3)_25%,rgba(234,222,214,0.08)_50%,rgba(234,222,214,0.3)_75%)] bg-[length:200%_100%] animate-shimmer" />
               </div>
             </div>
           </div>
         ) : (
-          <main className="main-content">
+          <main className="flex flex-col gap-6">
             {/* CARDS DE FATURAMENTO — Double-Bezel */}
-            <div className="stats-bento">
+            <div className="grid grid-cols-2 gap-5 max-md:grid-cols-1 max-md:gap-4">
               {/* CARD COMISSÃO */}
-              <div className="stats-card gsap-stat-card">
-                <div className="stats-shell">
-                  <div className="stats-inner">
-                    <div className="stats-top">
-                      <span className="stats-eyebrow">Comissão</span>
-                      <div className="stats-icon-wrap commission-glow">
+              <div className="gsap-stat-card group transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-[3px] active:translate-y-0 active:scale-[0.98] active:duration-[120ms]">
+                <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)] transition-[box-shadow,background] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:bg-[rgba(217,108,0,0.06)] group-hover:shadow-[inset_0_1px_2px_rgba(45,35,30,0.04),0_4px_20px_rgba(217,108,0,0.08)]">
+                  <div className="bg-bg-secondary rounded-xl py-6 px-7 flex flex-col gap-3 relative overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_16px_rgba(45,35,30,0.04)] transition-shadow duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_24px_rgba(45,35,30,0.06)] max-md:p-5 before:content-[''] before:absolute before:-top-[40%] before:-right-[20%] before:w-[140px] before:h-[140px] before:rounded-full before:pointer-events-none before:opacity-50 before:bg-[radial-gradient(circle,rgba(217,108,0,0.08),transparent_70%)]">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-secondary opacity-70 py-[0.2rem] px-2.5 rounded-full bg-[rgba(45,35,30,0.04)]">Comissão</span>
+                      <div className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 bg-[rgba(217,108,0,0.08)] text-brand-primary">
                         <CoinsIcon size={22} />
                       </div>
                     </div>
-                    <div className="stats-value comm-value">
+                    <div className="text-[2.5rem] font-extrabold leading-none tracking-[-0.03em] font-base text-brand-primary max-md:text-[2rem]">
                       {formatCurrency(totalCommission)}
                     </div>
-                    <p className="stats-footnote">
+                    <p className="text-xs text-text-secondary leading-[1.4] opacity-80 [&_strong]:text-brand-primary [&_strong]:font-bold">
                       Sua comissão: <strong>{professional?.commission_percentage}%</strong>
                     </p>
                   </div>
@@ -391,19 +395,19 @@ export const MinhasComissoes: React.FC = () => {
               </div>
 
               {/* CARD RECEITA */}
-              <div className="stats-card gsap-stat-card">
-                <div className="stats-shell">
-                  <div className="stats-inner">
-                    <div className="stats-top">
-                      <span className="stats-eyebrow">Receita Gerada</span>
-                      <div className="stats-icon-wrap revenue-glow">
+              <div className="gsap-stat-card group transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-[3px] active:translate-y-0 active:scale-[0.98] active:duration-[120ms]">
+                <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)] transition-[box-shadow,background] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:bg-[rgba(217,108,0,0.06)] group-hover:shadow-[inset_0_1px_2px_rgba(45,35,30,0.04),0_4px_20px_rgba(217,108,0,0.08)]">
+                  <div className="bg-bg-secondary rounded-xl py-6 px-7 flex flex-col gap-3 relative overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_16px_rgba(45,35,30,0.04)] transition-shadow duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_24px_rgba(45,35,30,0.06)] max-md:p-5 before:content-[''] before:absolute before:-top-[40%] before:-right-[20%] before:w-[140px] before:h-[140px] before:rounded-full before:pointer-events-none before:opacity-50 before:bg-[radial-gradient(circle,rgba(63,131,248,0.06),transparent_70%)]">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-secondary opacity-70 py-[0.2rem] px-2.5 rounded-full bg-[rgba(45,35,30,0.04)]">Receita Gerada</span>
+                      <div className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 bg-[rgba(63,131,248,0.08)] text-info">
                         <TrendingUpIcon size={22} />
                       </div>
                     </div>
-                    <div className="stats-value revenue-val">
+                    <div className="text-[2.5rem] font-extrabold leading-none tracking-[-0.03em] font-base text-text-primary max-md:text-[2rem]">
                       {formatCurrency(totalRevenue)}
                     </div>
-                    <p className="stats-footnote">
+                    <p className="text-xs text-text-secondary leading-[1.4] opacity-80">
                       Valor total dos serviços no período.
                     </p>
                   </div>
@@ -412,45 +416,48 @@ export const MinhasComissoes: React.FC = () => {
             </div>
 
             {/* HISTÓRICO — Double-Bezel */}
-            <section className="history-bezel gsap-history-section">
-              <div className="history-shell">
-                <div className="history-inner">
-                  <div className="history-header">
-                    <span className="history-eyebrow">Histórico</span>
-                    <h2 className="history-title">Atendimentos Concluídos</h2>
+            <section className="gsap-history-section group transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5">
+              <div className="bg-[rgba(45,35,30,0.04)] p-px rounded-[calc(var(--radius-xl)+2px)] shadow-[inset_0_1px_2px_rgba(45,35,30,0.04)] transition-[box-shadow,background] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:bg-[rgba(217,108,0,0.04)] group-hover:shadow-[inset_0_1px_2px_rgba(45,35,30,0.04),0_4px_20px_rgba(217,108,0,0.06)]">
+                <div className="bg-bg-secondary rounded-xl p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_16px_rgba(45,35,30,0.04)] transition-shadow duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_24px_rgba(45,35,30,0.06)] max-md:p-4">
+                  <div className="mb-5 flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-secondary opacity-60">Histórico</span>
+                    <h2 className="text-lg font-bold text-text-primary">Atendimentos Concluídos</h2>
                   </div>
-                  
+
                   {history.length === 0 ? (
-                    <div className="empty-state">
+                    <div className="text-center py-12 px-6 text-text-secondary text-sm">
                       <p>Nenhum agendamento com pagamento registrado neste período.</p>
                     </div>
                   ) : (
-                    <div className="table-responsive-container">
+                    <div className="overflow-x-auto w-full [-webkit-overflow-scrolling:touch]">
                       {/* Desktop Table */}
-                      <table className="history-table">
+                      <table className="w-full border-collapse text-left max-md:hidden">
                         <thead>
                           <tr>
-                            <th>Data</th>
-                            <th>Cliente</th>
-                            <th>Serviço</th>
-                            <th className="th-num">Valor</th>
-                            <th className="th-num">%</th>
-                            <th className="th-num">Comissão</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)]">Data</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)]">Cliente</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)]">Serviço</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)] text-right">Valor</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)] text-right">%</th>
+                            <th className="py-3 px-4 font-semibold text-[11px] uppercase tracking-[0.08em] text-text-secondary opacity-60 border-b border-[rgba(234,222,214,0.4)] text-right">Comissão</th>
                           </tr>
                         </thead>
                         <tbody>
                           {history.map((item) => (
-                            <tr key={item.id} className="gsap-history-row">
-                              <td className="td-date">{formatDate(item.date)}</td>
-                              <td className="td-client">{item.customerName}</td>
-                              <td className="td-service">
-                                <span className="service-chip">{item.serviceName}</span>
+                            <tr
+                              key={item.id}
+                              className="gsap-history-row transition-colors duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[rgba(217,108,0,0.03)] last:[&_td]:border-b-0 [&_td]:py-3.5 [&_td]:px-4 [&_td]:text-sm [&_td]:border-b [&_td]:border-[rgba(234,222,214,0.2)] [&_td]:align-middle [&_td]:text-text-primary"
+                            >
+                              <td className="text-text-secondary! whitespace-nowrap text-xs!">{formatDate(item.date)}</td>
+                              <td className="font-semibold">{item.customerName}</td>
+                              <td>
+                                <span className="inline-block py-[0.2rem] px-2.5 rounded-md bg-[rgba(45,35,30,0.04)] text-xs font-medium text-text-primary">{item.serviceName}</span>
                               </td>
-                              <td className="td-num">{formatCurrency(item.servicePrice)}</td>
-                              <td className="td-num">
-                                <span className="pct-chip">{item.commissionPercentage}%</span>
+                              <td className="text-right whitespace-nowrap">{formatCurrency(item.servicePrice)}</td>
+                              <td className="text-right whitespace-nowrap">
+                                <span className="inline-flex py-[0.15rem] px-2 rounded-full bg-[rgba(14,159,110,0.08)] text-success text-xs font-bold">{item.commissionPercentage}%</span>
                               </td>
-                              <td className="td-num td-commission">
+                              <td className="text-right whitespace-nowrap font-bold text-brand-primary!">
                                 {formatCurrency(item.commissionEarned)}
                               </td>
                             </tr>
@@ -459,26 +466,29 @@ export const MinhasComissoes: React.FC = () => {
                       </table>
 
                       {/* Mobile Cards */}
-                      <div className="mobile-list">
+                      <div className="hidden flex-col gap-3 max-md:flex">
                         {history.map((item) => (
-                          <div key={item.id} className="mobile-entry gsap-history-row">
-                            <div className="mobile-entry-top">
-                              <span className="mobile-entry-date">{formatDate(item.date)}</span>
-                              <span className="mobile-entry-service">{item.serviceName}</span>
+                          <div
+                            key={item.id}
+                            className="gsap-history-row bg-bg-secondary border-[0.5px] border-[rgba(234,222,214,0.4)] rounded-lg overflow-hidden shadow-sm transition-all duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-[rgba(217,108,0,0.15)] hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(45,35,30,0.06)]"
+                          >
+                            <div className="flex justify-between items-center py-3 px-4 border-b-[0.5px] border-[rgba(234,222,214,0.3)] bg-[rgba(45,35,30,0.02)]">
+                              <span className="text-xs text-text-secondary font-medium">{formatDate(item.date)}</span>
+                              <span className="text-xs font-semibold text-brand-primary py-[0.15rem] px-2 rounded-md bg-[rgba(217,108,0,0.06)]">{item.serviceName}</span>
                             </div>
-                            <div className="mobile-entry-body">
-                              <div className="mobile-entry-row">
+                            <div className="py-3 px-4 flex flex-col gap-2">
+                              <div className="flex justify-between items-center text-sm text-text-secondary [&>span:last-child]:font-semibold [&>span:last-child]:text-text-primary">
                                 <span>Cliente</span>
-                                <span className="mobile-entry-val">{item.customerName}</span>
+                                <span>{item.customerName}</span>
                               </div>
-                              <div className="mobile-entry-row">
+                              <div className="flex justify-between items-center text-sm text-text-secondary [&>span:last-child]:font-semibold [&>span:last-child]:text-text-primary">
                                 <span>Valor</span>
                                 <span>{formatCurrency(item.servicePrice)}</span>
                               </div>
-                              <div className="mobile-entry-divider" />
-                              <div className="mobile-entry-row mobile-entry-highlight">
-                                <span>Sua Comissão <span className="pct-inline">({item.commissionPercentage}%)</span></span>
-                                <span className="mobile-entry-comm">{formatCurrency(item.commissionEarned)}</span>
+                              <div className="h-px bg-[rgba(234,222,214,0.3)] my-0.5" />
+                              <div className="flex justify-between items-center text-sm text-text-secondary pt-1.5 [&>span:first-child]:font-semibold [&>span:first-child]:text-text-primary">
+                                <span>Sua Comissão <span className="text-text-secondary font-medium text-xs">({item.commissionPercentage}%)</span></span>
+                                <span className="text-brand-primary! font-extrabold text-base">{formatCurrency(item.commissionEarned)}</span>
                               </div>
                             </div>
                           </div>
@@ -491,16 +501,16 @@ export const MinhasComissoes: React.FC = () => {
             </section>
 
             {openAdvances.length > 0 && (
-              <section className="advances-bezel" aria-labelledby="advances-section-title">
-                <div className="advances-header">
-                  <span id="advances-section-title" className="advances-eyebrow">Vales em aberto</span>
-                  <p className="advances-hint">Adiantamentos registrados pela gestão, ainda não quitados.</p>
+              <section className="bg-bg-secondary rounded-xl py-5 px-6 mt-5 shadow-[0_4px_16px_rgba(45,35,30,0.04)]" aria-labelledby="advances-section-title">
+                <div className="mb-3">
+                  <span id="advances-section-title" className="text-[0.8rem] uppercase tracking-[0.04em] font-bold text-text-secondary">Vales em aberto</span>
+                  <p className="text-[0.8rem] text-text-secondary mt-0.5">Adiantamentos registrados pela gestão, ainda não quitados.</p>
                 </div>
-                <ul className="advances-list">
+                <ul className="list-none m-0 p-0 flex flex-col gap-2">
                   {openAdvances.map((entry) => (
-                    <li key={entry.id} className="advances-item">
-                      <span className="advances-item-amount">{formatCurrency(entry.amount)}</span>
-                      <span className="advances-item-reason">{entry.reason}</span>
+                    <li key={entry.id} className="flex items-baseline justify-between gap-3 py-1.5 border-b border-dashed border-border">
+                      <span className="font-extrabold [font-variant-numeric:tabular-nums] text-brand-primary">{formatCurrency(entry.amount)}</span>
+                      <span className="text-[0.8rem] text-text-secondary text-right">{entry.reason}</span>
                     </li>
                   ))}
                 </ul>
@@ -510,7 +520,7 @@ export const MinhasComissoes: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowExtrato(true)}
-              className="extrato-link-btn"
+              className="mt-5 w-full bg-bg-secondary border border-dashed border-border rounded-xl py-[0.85rem] px-5 text-[0.85rem] font-bold text-brand-primary cursor-pointer transition-all duration-200 ease-in hover:bg-bg-primary hover:border-brand-primary"
             >
               Ver extrato completo da conta (vales, gorjetas e quitações)
             </button>
@@ -525,672 +535,6 @@ export const MinhasComissoes: React.FC = () => {
         onClose={() => setShowExtrato(false)}
       />
 
-      {/* ESTILOS CSS — HIGH-END VISUAL DESIGN */}
-      <style>{`
-        /* =========================================
-           PAGE SHELL
-           ========================================= */
-        .page-wrapper {
-          min-height: 100vh;
-          min-height: 100dvh;
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          padding: 1.5rem;
-          max-width: 1120px;
-          margin: 0 auto;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          font-family: var(--font-family-base);
-        }
-
-        /* =========================================
-           PERIOD FILTER — Compact pill
-           ========================================= */
-        .period-filter {
-          display: flex;
-          align-items: center;
-          gap: 0.625rem;
-          width: max-content;
-          max-width: 100%;
-          padding: 0.5rem 1rem 0.5rem 1.25rem;
-          border-radius: var(--radius-full);
-          background: var(--color-bg-secondary);
-          border: 0.5px solid rgba(234, 222, 214, 0.6);
-          box-shadow: var(--shadow-sm);
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          font-weight: 500;
-          margin: 0 auto;
-        }
-
-        .period-filter-label {
-          font-weight: 600;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          letter-spacing: 0.02em;
-        }
-
-        .period-filter-divider {
-          width: 1px;
-          height: 16px;
-          background: rgba(234, 222, 214, 0.4);
-        }
-
-        .period-options {
-          display: flex;
-          gap: 0.25rem;
-        }
-
-        .period-opt {
-          background: transparent;
-          border: none;
-          padding: 0.3rem 0.75rem;
-          border-radius: var(--radius-full);
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .period-opt:hover {
-          color: var(--color-text-primary);
-          background: rgba(45, 35, 30, 0.04);
-        }
-
-        .period-opt.active {
-          color: var(--color-brand-lightest);
-          background: var(--color-brand-primary);
-          box-shadow: 0 2px 8px rgba(217, 108, 0, 0.2);
-        }
-
-        .period-opt.active:active {
-          transform: scale(0.96);
-        }
-
-        /* =========================================
-           MAIN CONTENT
-           ========================================= */
-        .main-content {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        /* =========================================
-           STATS BENTO — Double-Bezel cards
-           ========================================= */
-        .stats-bento {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1.25rem;
-        }
-
-        /* Card outer wrapper — hover physics anchor */
-        .stats-card {
-          transition:
-            transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .stats-card:hover {
-          transform: translateY(-3px);
-        }
-
-        .stats-card:active {
-          transform: translateY(0) scale(0.98);
-          transition-duration: 0.12s;
-        }
-
-        /* Outer Shell (Doppelrand) */
-        .stats-shell {
-          background: rgba(45, 35, 30, 0.04);
-          padding: 1px;
-          border-radius: calc(var(--radius-xl) + 2px);
-          box-shadow: inset 0 1px 2px rgba(45, 35, 30, 0.04);
-          transition:
-            box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1),
-            background 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .stats-card:hover .stats-shell {
-          background: rgba(217, 108, 0, 0.06);
-          box-shadow:
-            inset 0 1px 2px rgba(45, 35, 30, 0.04),
-            0 4px 20px rgba(217, 108, 0, 0.08);
-        }
-
-        .stats-card:hover .stats-inner {
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            0 4px 24px rgba(45, 35, 30, 0.06);
-        }
-
-        .stats-inner {
-          background: var(--color-bg-secondary);
-          border-radius: var(--radius-xl);
-          padding: 1.5rem 1.75rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          position: relative;
-          overflow: hidden;
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            0 4px 16px rgba(45, 35, 30, 0.04);
-          transition:
-            box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        /* Subtle radial glow behind icon */
-        .stats-inner::before {
-          content: '';
-          position: absolute;
-          top: -40%;
-          right: -20%;
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          pointer-events: none;
-          opacity: 0.5;
-        }
-
-        .stats-card:first-child .stats-inner::before {
-          background: radial-gradient(circle, rgba(217, 108, 0, 0.08), transparent 70%);
-        }
-
-        .stats-card:last-child .stats-inner::before {
-          background: radial-gradient(circle, rgba(63, 131, 248, 0.06), transparent 70%);
-        }
-
-        .stats-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-
-        .stats-eyebrow {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: var(--color-text-secondary);
-          opacity: 0.7;
-          padding: 0.2rem 0.6rem;
-          border-radius: var(--radius-full);
-          background: rgba(45, 35, 30, 0.04);
-        }
-
-        .stats-icon-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: var(--radius-lg);
-          flex-shrink: 0;
-        }
-
-        .commission-glow {
-          background: rgba(217, 108, 0, 0.08);
-          color: var(--color-brand-primary);
-        }
-
-        .revenue-glow {
-          background: rgba(63, 131, 248, 0.08);
-          color: var(--color-info);
-        }
-
-        .stats-value {
-          font-size: 2.5rem;
-          font-weight: 800;
-          line-height: 1;
-          letter-spacing: -0.03em;
-          font-family: var(--font-family-base);
-        }
-
-        .comm-value {
-          color: var(--color-brand-primary);
-        }
-
-        .revenue-val {
-          color: var(--color-text-primary);
-        }
-
-        .stats-footnote {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          line-height: 1.4;
-          opacity: 0.8;
-        }
-
-        .stats-footnote strong {
-          color: var(--color-brand-primary);
-          font-weight: 700;
-        }
-
-        /* =========================================
-           VALES EM ABERTO (ticket 05 da spec 034)
-           ========================================= */
-        .extrato-link-btn {
-          margin-top: 1.25rem;
-          width: 100%;
-          background: var(--color-bg-secondary);
-          border: 1px dashed var(--color-border);
-          border-radius: var(--radius-xl);
-          padding: 0.85rem 1.25rem;
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--color-brand-primary, #D96C00);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .extrato-link-btn:hover {
-          background: var(--color-bg-primary, #FFF1E6);
-          border-color: var(--color-brand-primary, #D96C00);
-        }
-        .advances-bezel {
-          background: var(--color-bg-secondary);
-          border-radius: var(--radius-xl);
-          padding: 1.25rem 1.5rem;
-          margin-top: 1.25rem;
-          box-shadow: 0 4px 16px rgba(45, 35, 30, 0.04);
-        }
-        .advances-header {
-          margin-bottom: 0.75rem;
-        }
-        .advances-eyebrow {
-          font-size: 0.8rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          font-weight: 700;
-          color: var(--color-text-secondary);
-        }
-        .advances-hint {
-          font-size: 0.8rem;
-          color: var(--color-text-secondary);
-          margin: 0.2rem 0 0;
-        }
-        .advances-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-        .advances-item {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          gap: 0.75rem;
-          padding: 0.4rem 0;
-          border-bottom: 1px dashed var(--color-border);
-        }
-        .advances-item-amount {
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          color: var(--color-brand-primary);
-        }
-        .advances-item-reason {
-          font-size: 0.8rem;
-          color: var(--color-text-secondary);
-          text-align: right;
-        }
-
-        /* =========================================
-           HISTORY BEZEL — Double-Bezel
-           ========================================= */
-        .history-bezel {
-          /* Outer shell wrapper */
-        }
-
-        .history-bezel {
-          transition:
-            transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .history-bezel:hover {
-          transform: translateY(-2px);
-        }
-
-        .history-shell {
-          background: rgba(45, 35, 30, 0.04);
-          padding: 1px;
-          border-radius: calc(var(--radius-xl) + 2px);
-          box-shadow: inset 0 1px 2px rgba(45, 35, 30, 0.04);
-          transition:
-            box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1),
-            background 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .history-bezel:hover .history-shell {
-          background: rgba(217, 108, 0, 0.04);
-          box-shadow:
-            inset 0 1px 2px rgba(45, 35, 30, 0.04),
-            0 4px 20px rgba(217, 108, 0, 0.06);
-        }
-
-        .history-inner {
-          background: var(--color-bg-secondary);
-          border-radius: var(--radius-xl);
-          padding: 1.5rem;
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            0 4px 16px rgba(45, 35, 30, 0.04);
-          transition:
-            box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .history-bezel:hover .history-inner {
-          box-shadow:
-            inset 0 1px 1px rgba(255, 255, 255, 0.6),
-            0 4px 24px rgba(45, 35, 30, 0.06);
-        }
-
-        .history-header {
-          margin-bottom: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .history-eyebrow {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: var(--color-text-secondary);
-          opacity: 0.6;
-        }
-
-        .history-title {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        /* =========================================
-           TABLE
-           ========================================= */
-        .table-responsive-container {
-          overflow-x: auto;
-          width: 100%;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .history-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-        }
-
-        .history-table th {
-          padding: 0.75rem 1rem;
-          font-weight: 600;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-secondary);
-          opacity: 0.6;
-          border-bottom: 1px solid rgba(234, 222, 214, 0.4);
-        }
-
-        .history-table td {
-          padding: 0.875rem 1rem;
-          font-size: var(--font-size-sm);
-          border-bottom: 1px solid rgba(234, 222, 214, 0.2);
-          vertical-align: middle;
-          color: var(--color-text-primary);
-        }
-
-        .history-table tbody tr {
-          transition: background-color 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .history-table tbody tr:hover {
-          background-color: rgba(217, 108, 0, 0.03);
-        }
-
-        .history-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        .th-num {
-          text-align: right;
-        }
-
-        .td-date {
-          color: var(--color-text-secondary);
-          white-space: nowrap;
-          font-size: var(--font-size-xs);
-        }
-
-        .td-client {
-          font-weight: 600;
-        }
-
-        .service-chip {
-          display: inline-block;
-          padding: 0.2rem 0.6rem;
-          border-radius: var(--radius-md);
-          background: rgba(45, 35, 30, 0.04);
-          font-size: var(--font-size-xs);
-          font-weight: 500;
-          color: var(--color-text-primary);
-        }
-
-        .pct-chip {
-          display: inline-flex;
-          padding: 0.15rem 0.5rem;
-          border-radius: var(--radius-full);
-          background: rgba(14, 159, 110, 0.08);
-          color: var(--color-success);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-        }
-
-        .td-num {
-          text-align: right;
-          white-space: nowrap;
-        }
-
-        .td-commission {
-          font-weight: 700;
-          color: var(--color-brand-primary);
-        }
-
-        /* =========================================
-           MOBILE LIST
-           ========================================= */
-        .mobile-list {
-          display: none;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .mobile-entry {
-          background: var(--color-bg-secondary);
-          border: 0.5px solid rgba(234, 222, 214, 0.4);
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-          box-shadow: var(--shadow-sm);
-          transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .mobile-entry:hover {
-          border-color: rgba(217, 108, 0, 0.15);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 16px rgba(45, 35, 30, 0.06);
-        }
-
-        .mobile-entry-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.75rem 1rem;
-          border-bottom: 0.5px solid rgba(234, 222, 214, 0.3);
-          background: rgba(45, 35, 30, 0.02);
-        }
-
-        .mobile-entry-date {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 500;
-        }
-
-        .mobile-entry-service {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-brand-primary);
-          padding: 0.15rem 0.5rem;
-          border-radius: var(--radius-md);
-          background: rgba(217, 108, 0, 0.06);
-        }
-
-        .mobile-entry-body {
-          padding: 0.75rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .mobile-entry-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-entry-row span:last-child {
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-entry-divider {
-          height: 0.5px;
-          background: rgba(234, 222, 214, 0.3);
-          margin: 0.125rem 0;
-        }
-
-        .mobile-entry-highlight {
-          padding-top: 0.375rem;
-        }
-
-        .mobile-entry-highlight span:first-child {
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-entry-highlight .mobile-entry-comm {
-          color: var(--color-brand-primary);
-          font-weight: 800;
-          font-size: var(--font-size-base);
-        }
-
-        .pct-inline {
-          color: var(--color-text-secondary);
-          font-weight: 500;
-          font-size: var(--font-size-xs);
-        }
-
-        /* =========================================
-           EMPTY STATE
-           ========================================= */
-        .empty-state {
-          text-align: center;
-          padding: 3rem 1.5rem;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-        }
-
-        /* =========================================
-           SKELETON LOADING
-           ========================================= */
-        .skeleton-wrapper {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .skeleton {
-          background: linear-gradient(
-            90deg,
-            rgba(234, 222, 214, 0.3) 25%,
-            rgba(234, 222, 214, 0.08) 50%,
-            rgba(234, 222, 214, 0.3) 75%
-          );
-          background-size: 200% 100%;
-          animation: skeleton-loading 1.8s ease-in-out infinite;
-          border-radius: var(--radius-md);
-        }
-
-        .skeleton-card {
-          border-radius: var(--radius-xl);
-        }
-
-        .skeleton-table-header {
-          border-radius: var(--radius-lg);
-        }
-
-        .skeleton-row {
-          margin-bottom: 0.5rem;
-        }
-
-        @keyframes skeleton-loading {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        /* =========================================
-           RESPONSIVE — Mobile < 768px
-           ========================================= */
-        @media (max-width: 768px) {
-          .page-wrapper {
-            padding: 1rem;
-            gap: 1rem;
-          }
-
-          .stats-bento {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-
-          .stats-value {
-            font-size: 2rem;
-          }
-
-          .stats-inner {
-            padding: 1.25rem;
-          }
-
-          .period-filter {
-            width: 100%;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-          }
-
-          .period-opt {
-            padding: 0.25rem 0.6rem;
-            font-size: 11px;
-          }
-
-          .history-table {
-            display: none;
-          }
-
-          .mobile-list {
-            display: flex;
-          }
-
-          .history-inner {
-            padding: 1rem;
-          }
-        }
-      `}</style>
     </>
   );
 };

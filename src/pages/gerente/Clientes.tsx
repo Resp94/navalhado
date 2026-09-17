@@ -9,7 +9,6 @@ import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import './Clientes.css';
 import { Button, Input, Select, Textarea } from '../../components/ui';
 
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -36,6 +35,10 @@ const CloseIcon = () => <HugeiconsIcon icon={Cancel01Icon} size={20} />;
 const CopyIcon = () => <HugeiconsIcon icon={Copy01Icon} size={16} />;
 const TagIcon = () => <HugeiconsIcon icon={Tag01Icon} size={14} />;
 const ReceiptIcon = () => <HugeiconsIcon icon={Invoice01Icon} size={14} />;
+
+const TH_CLASS = 'py-[1.15rem] px-5 text-xs font-extrabold uppercase tracking-[0.06em] text-text-primary border-b border-border bg-bg-primary';
+const TD_CLASS = 'py-[1.15rem] px-5 text-sm text-text-primary align-middle max-md:block max-md:w-full max-md:py-[0.15rem] max-md:px-0 max-md:border-none';
+const TD_LAST_CLASS = `${TD_CLASS} max-md:pt-[0.625rem] max-md:border-t max-md:border-border max-md:mt-1`;
 
 export const Clientes: React.FC = () => {
   const tenant = useOutletContext<TenantContextType>();
@@ -365,30 +368,30 @@ export const Clientes: React.FC = () => {
     : DEFAULT_LTV_METRICS;
 
   return (
-    <div className="clientes-page">
+    <div className="flex flex-col gap-6 w-full animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)]">
       {/* 1. ESTATÍSTICAS DA BASE */}
-      <section className="stat-cards-grid" aria-label="Resumo da carteira de clientes">
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Total da base</span>
-          <span className="stat-card__number">{stats.totalCount}</span>
-          <span className="stat-card__helper">Clientes na carteira</span>
+      <section className="grid [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))] gap-5" aria-label="Resumo da carteira de clientes">
+        <div className="stat-card bg-bg-secondary rounded-lg py-5 px-6 flex flex-col gap-[0.35rem] shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[transform,box-shadow] duration-200 ease-in hover:-translate-y-0.5 hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-md)]">
+          <span className="text-xs text-text-secondary uppercase tracking-[0.08em] font-bold">Total da base</span>
+          <span className="text-3xl font-extrabold text-text-primary leading-[1.2]">{stats.totalCount}</span>
+          <span className="text-xs text-text-secondary">Clientes na carteira</span>
         </div>
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Cadastros completos</span>
-          <span className="stat-card__number stat-card__number--success">{stats.completosCount}</span>
-          <span className="stat-card__helper">Nome e dados confirmados</span>
+        <div className="stat-card bg-bg-secondary rounded-lg py-5 px-6 flex flex-col gap-[0.35rem] shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[transform,box-shadow] duration-200 ease-in hover:-translate-y-0.5 hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-md)]">
+          <span className="text-xs text-text-secondary uppercase tracking-[0.08em] font-bold">Cadastros completos</span>
+          <span className="text-3xl font-extrabold leading-[1.2] text-success">{stats.completosCount}</span>
+          <span className="text-xs text-text-secondary">Nome e dados confirmados</span>
         </div>
-        <div className="stat-card">
-          <span className="stat-card__eyebrow">Clientes provisórios</span>
-          <span className="stat-card__number stat-card__number--warning">{stats.provisoriosCount}</span>
-          <span className="stat-card__helper">Cadastros rápidos de balcão</span>
+        <div className="stat-card bg-bg-secondary rounded-lg py-5 px-6 flex flex-col gap-[0.35rem] shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[transform,box-shadow] duration-200 ease-in hover:-translate-y-0.5 hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-md)]">
+          <span className="text-xs text-text-secondary uppercase tracking-[0.08em] font-bold">Clientes provisórios</span>
+          <span className="text-3xl font-extrabold leading-[1.2] text-warning">{stats.provisoriosCount}</span>
+          <span className="text-xs text-text-secondary">Cadastros rápidos de balcão</span>
         </div>
       </section>
 
       {/* 2. CONTROLES E BUSCA */}
-      <div className="clients-controls-bar" role="search" aria-label="Controles e busca de clientes">
-        <div className="search-input-wrapper">
-          <span className="search-icon" aria-hidden="true">
+      <div className="flex items-center gap-4 flex-wrap max-[640px]:flex-col max-[640px]:items-stretch" role="search" aria-label="Controles e busca de clientes">
+        <div className="relative flex-1 min-w-[260px] max-[640px]:min-w-full">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary flex items-center pointer-events-none" aria-hidden="true">
             <SearchIcon />
           </span>
           <input
@@ -397,15 +400,15 @@ export const Clientes: React.FC = () => {
             aria-label="Pesquisar na base de clientes"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-control"
+            className="pl-11 h-11 rounded-md bg-bg-secondary text-text-primary w-full outline-none text-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-shadow duration-200 ease-in focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
           />
         </div>
 
-        <div className="filter-group-container" role="group" aria-label="Filtrar por status de cadastro">
+        <div className="inline-flex bg-bg-secondary rounded-md p-[3px] gap-[3px] shadow-[0_0_0_0.8px_var(--color-text-primary)] max-[640px]:w-full max-[640px]:flex" role="group" aria-label="Filtrar por status de cadastro">
           <button
             type="button"
             onClick={() => setFilterStatus('todos')}
-            className={`btn-filter ${filterStatus === 'todos' ? 'btn-filter--active' : ''}`}
+            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'todos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'todos'}
           >
             Todos
@@ -413,7 +416,7 @@ export const Clientes: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterStatus('completos')}
-            className={`btn-filter ${filterStatus === 'completos' ? 'btn-filter--active' : ''}`}
+            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'completos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'completos'}
           >
             Completos
@@ -421,7 +424,7 @@ export const Clientes: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterStatus('provisorios')}
-            className={`btn-filter ${filterStatus === 'provisorios' ? 'btn-filter--active' : ''}`}
+            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'provisorios' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'provisorios'}
           >
             Provisórios
@@ -431,7 +434,7 @@ export const Clientes: React.FC = () => {
         <button
           type="button"
           onClick={() => handleOpenModal(null)}
-          className="btn btn--primary btn-add-client"
+          className="bg-brand-lightest text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] rounded-full font-semibold inline-flex items-center gap-2 cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] whitespace-nowrap h-11 px-5 enabled:hover:bg-brand-soft enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_0_0_1px_var(--color-text-primary),0_4px_12px_rgba(45,35,30,0.08)] active:scale-[0.97] max-[640px]:w-full max-[640px]:justify-center"
           aria-label="Adicionar novo cliente"
         >
           <UserPlusIcon /> Adicionar cliente
@@ -440,14 +443,14 @@ export const Clientes: React.FC = () => {
 
       {/* 2.1 BARRA DE FILTRO POR TAGS */}
       {allAvailableTags.length > 0 && (
-        <div className="tags-filter-bar" role="group" aria-label="Filtro de tags">
-          <span className="tags-filter-label">
+        <div className="flex items-center gap-2 flex-wrap py-1" role="group" aria-label="Filtro de tags">
+          <span className="text-xs font-extrabold text-text-secondary flex items-center gap-[0.35rem] uppercase tracking-[0.06em]">
             <TagIcon /> Tags:
           </span>
           <button
             type="button"
             onClick={() => setSelectedTagFilter(null)}
-            className={`tag-chip-btn ${selectedTagFilter === null ? 'tag-chip-btn--active' : ''}`}
+            className={`bg-bg-secondary border py-[0.35rem] px-[0.85rem] min-h-8 rounded-full text-xs font-bold cursor-pointer inline-flex items-center justify-center transition-all duration-150 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${selectedTagFilter === null ? 'bg-brand-primary border-brand-primary text-white hover:bg-brand-hover hover:border-brand-hover' : 'border-border text-text-primary hover:border-brand-hover hover:text-brand-hover'}`}
             aria-pressed={selectedTagFilter === null}
           >
             Todas
@@ -457,7 +460,7 @@ export const Clientes: React.FC = () => {
               type="button"
               key={tag}
               onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
-              className={`tag-chip-btn ${selectedTagFilter === tag ? 'tag-chip-btn--active' : ''}`}
+              className={`bg-bg-secondary border py-[0.35rem] px-[0.85rem] min-h-8 rounded-full text-xs font-bold cursor-pointer inline-flex items-center justify-center transition-all duration-150 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${selectedTagFilter === tag ? 'bg-brand-primary border-brand-primary text-white hover:bg-brand-hover hover:border-brand-hover' : 'border-border text-text-primary hover:border-brand-hover hover:text-brand-hover'}`}
               aria-pressed={selectedTagFilter === tag}
             >
               #{tag}
@@ -467,70 +470,73 @@ export const Clientes: React.FC = () => {
       )}
 
       {/* 3. TABELA DE CLIENTES */}
-      <div className="table-container shadow-glass">
+      <div className="bg-bg-secondary border border-border rounded-lg overflow-x-auto [-webkit-overflow-scrolling:touch] shadow-sm">
         {loading ? (
-          <div className="loading-state" role="status">
+          <div role="status">
             <div className="spinner mb-2" />
             <p>Carregando clientes...</p>
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="empty-state" role="status">
+          <div role="status">
             <p>Nenhum cliente encontrado com os filtros selecionados.</p>
           </div>
         ) : (
-          <table className="customers-table" aria-label="Lista de clientes">
-              <thead>
+          <table className="w-full border-collapse text-left max-md:block max-md:w-full" aria-label="Lista de clientes">
+              <thead className="max-md:hidden">
                 <tr>
-                  <th scope="col">Nome e perfil</th>
-                  <th scope="col">Telefone</th>
-                  <th scope="col">Tags</th>
-                  <th scope="col" className="th-status">Status</th>
-                  <th scope="col">Cadastrado em</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>
+                  <th scope="col" className={TH_CLASS}>Nome e perfil</th>
+                  <th scope="col" className={TH_CLASS}>Telefone</th>
+                  <th scope="col" className={TH_CLASS}>Tags</th>
+                  <th scope="col" className={`${TH_CLASS} bg-brand-lightest`}>Status</th>
+                  <th scope="col" className={TH_CLASS}>Cadastrado em</th>
+                  <th scope="col" className={`${TH_CLASS} text-right`}>
                     Ações
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="max-md:block max-md:w-full">
                 {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="customer-row">
-                    <td>
-                      <div className="customer-name-wrapper">
-                        <strong className="customer-name">{customer.name}</strong>
-                        {customer.email && <span className="customer-email">{customer.email}</span>}
+                  <tr
+                    key={customer.id}
+                    className="customer-row transition-colors duration-150 ease-in hover:bg-[rgba(217,108,0,0.04)] max-md:block max-md:w-full max-md:bg-bg-secondary max-md:border max-md:border-border max-md:rounded-lg max-md:p-4 max-md:mb-3 max-md:shadow-[0_2px_8px_rgba(0,0,0,0.05)] max-md:flex max-md:flex-col max-md:gap-[0.4rem]"
+                  >
+                    <td className={TD_CLASS}>
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <strong className="font-extrabold text-text-primary text-sm">{customer.name}</strong>
+                        {customer.email && <span className="text-xs text-text-secondary">{customer.email}</span>}
                       </div>
                     </td>
-                    <td className="font-mono">{customer.phone}</td>
-                    <td>
-                      <div className="customer-tags-inline">
+                    <td className={`${TD_CLASS} font-mono`}>{customer.phone}</td>
+                    <td className={TD_CLASS}>
+                      <div className="flex gap-[0.35rem] items-center flex-wrap">
                         {customer.tags && customer.tags.length > 0 ? (
                           customer.tags.slice(0, 2).map((t) => (
-                            <span key={t} className="badge-tag">
+                            <span key={t} className="text-[11px] font-bold bg-[rgba(217,108,0,0.12)] text-brand-hover py-0.5 px-2 rounded-sm inline-flex items-center">
                               #{t}
                             </span>
                           ))
                         ) : (
-                          <span className="text-muted text-xs">Sem tags</span>
+                          <span className="text-text-secondary text-xs">Sem tags</span>
                         )}
                         {customer.tags && customer.tags.length > 2 && (
-                          <span className="badge-tag-more">+{customer.tags.length - 2}</span>
+                          <span className="text-[11px] font-bold text-text-secondary">+{customer.tags.length - 2}</span>
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td className={TD_CLASS}>
                       {customer.cadastro_completo ? (
-                        <span className="badge badge--success">Completo</span>
+                        <span className="text-xs font-semibold text-success">Completo</span>
                       ) : (
-                        <span className="badge badge--warning">Provisório</span>
+                        <span className="text-xs font-semibold text-warning">Provisório</span>
                       )}
                     </td>
-                    <td>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
-                    <td>
-                      <div className="actions-cell">
+                    <td className={TD_CLASS}>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</td>
+                    <td className={TD_LAST_CLASS}>
+                      <div className="flex items-center justify-end gap-2 max-md:justify-start max-md:flex-wrap">
                         <button
                           type="button"
                           onClick={() => handleOpenDirectWhatsApp(customer)}
-                          className="btn-icon-only btn-icon-only--whatsapp"
+                          className="w-9 h-9 p-0 inline-flex items-center justify-center rounded-md cursor-pointer transition-all duration-150 ease-in text-[#25d366] bg-[rgba(37,211,102,0.1)] shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:bg-[rgba(37,211,102,0.2)] hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] max-md:min-h-10 max-md:min-w-10 [touch-action:manipulation]"
                           title={`WhatsApp para ${customer.name}`}
                           aria-label={`WhatsApp para ${customer.name}`}
                         >
@@ -539,7 +545,7 @@ export const Clientes: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenDrawer(customer)}
-                          className="btn btn--outline btn--xs"
+                          className="h-9 px-3 inline-flex items-center justify-center rounded-md bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold cursor-pointer transition-all duration-150 ease-in whitespace-nowrap hover:bg-bg-primary hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 max-md:min-h-10 max-md:px-[0.85rem] [touch-action:manipulation]"
                           aria-label={`Ver detalhes de ${customer.name}`}
                         >
                           Central 360º
@@ -547,7 +553,7 @@ export const Clientes: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenModal(customer)}
-                          className="btn-icon-only"
+                          className="w-9 h-9 p-0 inline-flex items-center justify-center rounded-md bg-bg-secondary text-text-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 ease-in hover:text-text-primary hover:bg-bg-primary hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 max-md:min-h-10 max-md:min-w-10 [touch-action:manipulation]"
                           title={`Editar ${customer.name}`}
                           aria-label={`Editar ${customer.name}`}
                         >
@@ -556,7 +562,7 @@ export const Clientes: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setCustomerToDelete(customer)}
-                          className="btn-icon-only btn-icon-only--danger"
+                          className="w-9 h-9 p-0 inline-flex items-center justify-center rounded-md text-error shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 ease-in hover:text-error hover:bg-error-bg hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 max-md:min-h-10 max-md:min-w-10 [touch-action:manipulation]"
                           title={`Excluir ${customer.name}`}
                           aria-label={`Excluir ${customer.name}`}
                         >
@@ -573,20 +579,23 @@ export const Clientes: React.FC = () => {
 
       {/* 4. MODAL DE CADASTRO/EDIÇÃO (SEM HEADER-ICON, ESTRUTURA LUXURY) */}
       {isModalOpen && (
-        <div className="modal-backdrop" onClick={() => !isSaving && setIsModalOpen(false)}>
+        <div
+          className="fixed inset-0 bg-[rgba(20,17,15,0.7)] backdrop-blur-[8px] z-[1100] grid place-items-center p-5 overflow-y-auto"
+          onClick={() => !isSaving && setIsModalOpen(false)}
+        >
           <div
-            className="modal-content shadow-xl animate-spring"
+            className="bg-bg-secondary border border-border rounded-xl w-full max-w-[620px] max-h-[90vh] flex flex-col overflow-hidden shadow-xl animate-dialog-in max-[640px]:max-h-[95vh]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="modal-header">
-              <div className="modal-title-group">
-                <h3 id="modal-title" className="modal-title">
+            <header className="py-6 px-7 border-b border-border bg-bg-secondary flex items-start justify-between gap-4 max-[640px]:p-5">
+              <div className="flex flex-col gap-[0.15rem]">
+                <h3 id="modal-title" className="text-xl font-extrabold text-text-primary leading-[1.25]">
                   {editingCustomer ? 'Editar dados do cliente' : 'Cadastrar novo cliente'}
                 </h3>
-                <span className="modal-subtitle">
+                <span className="text-xs text-text-secondary">
                   {editingCustomer
                     ? `Atualize as informações e preferências de atendimento de ${editingCustomer.name}`
                     : 'Preencha os dados cadastrais para adicionar à carteira da barbearia.'}
@@ -595,17 +604,20 @@ export const Clientes: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="btn-close-modal"
+                className="bg-bg-primary border border-border text-text-secondary cursor-pointer w-[34px] h-[34px] rounded-full flex items-center justify-center transition-all duration-150 ease-in shrink-0 hover:text-text-primary hover:border-text-secondary hover:bg-bg-secondary focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2"
                 aria-label="Fechar janela"
               >
                 <CloseIcon />
               </button>
             </header>
 
-            <form onSubmit={handleSaveSubmit} className="modal-body">
+            <form
+              onSubmit={handleSaveSubmit}
+              className="py-4 px-7 overflow-y-auto flex flex-col gap-6 bg-bg-secondary max-[640px]:px-5 max-[640px]:gap-5"
+            >
               {/* Card 1: Dados principais */}
-              <div className="modal-form-card">
-                <span className="modal-card-title">
+              <div className="flex flex-col gap-[0.85rem]">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-text-primary flex items-center gap-2">
                   <HugeiconsIcon icon={UserAdd01Icon} size={14} /> Dados principais
                 </span>
                 <Input
@@ -618,7 +630,7 @@ export const Clientes: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
 
-                <div className="form-group-row">
+                <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
                   <Input
                     id="phone-input"
                     label="Telefone (WhatsApp) *"
@@ -639,11 +651,11 @@ export const Clientes: React.FC = () => {
               </div>
 
               {/* Card 2: Documentação e origem */}
-              <div className="modal-form-card">
-                <span className="modal-card-title">
+              <div className="flex flex-col gap-[0.85rem]">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-text-primary flex items-center gap-2">
                   <HugeiconsIcon icon={Invoice01Icon} size={14} /> Documentação e origem
                 </span>
-                <div className="form-group-row">
+                <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
                   <Input
                     id="email-input"
                     label="E-mail (opcional)"
@@ -680,8 +692,8 @@ export const Clientes: React.FC = () => {
               </div>
 
               {/* Card 3: Preferências e atendimento */}
-              <div className="modal-form-card">
-                <span className="modal-card-title">
+              <div className="flex flex-col gap-[0.85rem]">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-text-primary flex items-center gap-2">
                   <HugeiconsIcon icon={Tag01Icon} size={14} /> Preferências e atendimento
                 </span>
                 <Textarea
@@ -694,7 +706,7 @@ export const Clientes: React.FC = () => {
                 />
               </div>
 
-              <footer className="modal-footer">
+              <footer className="p-0 border-none bg-transparent shadow-none flex items-center justify-end gap-[0.85rem] mt-1">
                 <Button
                   type="button"
                   variant="secondary"
@@ -718,39 +730,42 @@ export const Clientes: React.FC = () => {
 
       {/* 5. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (POLISHED & ACESSÍVEL) */}
       {customerToDelete && (
-        <div className="modal-backdrop" onClick={() => !isDeleting && setCustomerToDelete(null)}>
+        <div
+          className="fixed inset-0 bg-[rgba(20,17,15,0.7)] backdrop-blur-[8px] z-[1100] grid place-items-center p-5 overflow-y-auto"
+          onClick={() => !isDeleting && setCustomerToDelete(null)}
+        >
           <div
-            className="modal-content modal-delete-content shadow-xl animate-spring"
+            className="max-w-[480px] bg-bg-secondary rounded-xl shadow-[0_20px_50px_rgba(45,35,30,0.25),0_0_0_1px_rgba(240,82,82,0.15)] w-full max-h-[90vh] flex flex-col overflow-hidden animate-dialog-in max-[640px]:max-h-[95vh]"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="delete-dialog-title"
             aria-describedby="delete-dialog-desc"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-delete-body">
-              <div className="delete-modal-header-group">
-                <span className="modal-eyebrow text-danger">Confirmação de exclusão</span>
-                <h3 id="delete-dialog-title" className="delete-modal-title">
+            <div className="py-7 px-7 pb-5 flex flex-col gap-[1.15rem]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-error">Confirmação de exclusão</span>
+                <h3 id="delete-dialog-title" className="text-xl font-extrabold text-text-primary m-0 tracking-[-0.01em]">
                   Excluir cadastro do cliente?
                 </h3>
-                <p id="delete-dialog-desc" className="delete-modal-description">
+                <p id="delete-dialog-desc" className="text-sm text-text-secondary leading-relaxed m-0">
                   Esta ação é permanente e vai remover o cliente da sua carteira ativa.
                 </p>
               </div>
 
-              <div className="delete-customer-card">
-                <div className="customer-name-wrapper">
-                  <strong className="customer-name">{customerToDelete.name}</strong>
-                  <span className="customer-email font-mono">{customerToDelete.phone}</span>
+              <div className="bg-bg-primary border border-border rounded-lg py-4 px-5 w-full flex items-center justify-between text-left">
+                <div className="flex flex-col gap-[0.15rem]">
+                  <strong className="font-extrabold text-text-primary text-sm">{customerToDelete.name}</strong>
+                  <span className="text-xs text-text-secondary font-mono">{customerToDelete.phone}</span>
                 </div>
                 {customerToDelete.cadastro_completo ? (
-                  <span className="badge badge--success">Completo</span>
+                  <span className="text-xs font-semibold text-success">Completo</span>
                 ) : (
-                  <span className="badge badge--warning">Provisório</span>
+                  <span className="text-xs font-semibold text-warning">Provisório</span>
                 )}
               </div>
 
-              <div className="delete-warning-box">
+              <div className="bg-warning-bg border border-[rgba(217,119,6,0.3)] rounded-md py-[0.85rem] px-[1.15rem] text-xs text-brand-deep leading-[1.45] text-left flex gap-[0.65rem] items-start [&_svg]:shrink-0 [&_svg]:text-warning [&_svg]:mt-px">
                 <HugeiconsIcon icon={AlertCircleIcon} size={18} />
                 <span>
                   <strong>Aviso de segurança:</strong> clientes com agendamentos ou comandas registradas não podem ser excluídos para manter a integridade do histórico financeiro.
@@ -758,12 +773,12 @@ export const Clientes: React.FC = () => {
               </div>
             </div>
 
-            <footer className="modal-footer">
+            <footer className="py-5 px-7 border-t border-border bg-bg-primary flex items-center justify-end gap-[0.85rem] max-[640px]:py-4 max-[640px]:px-5">
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setCustomerToDelete(null)}
-                className="btn btn--outline"
+                className="btn"
               >
                 Cancelar
               </button>
@@ -771,7 +786,7 @@ export const Clientes: React.FC = () => {
                 type="button"
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}
-                className="btn btn--danger"
+                className="bg-error text-white border border-error font-bold inline-flex items-center justify-center gap-2 rounded-md cursor-pointer px-5 py-3 text-sm transition-all duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:brightness-90 focus-visible:outline-2 focus-visible:outline-error focus-visible:outline-offset-2"
               >
                 {isDeleting ? 'Excluindo...' : 'Sim, excluir cliente'}
               </button>
@@ -784,35 +799,35 @@ export const Clientes: React.FC = () => {
       {isDrawerOpen && selectedCustomer && (
         <>
           <div
-            className="drawer-backdrop"
+            className="fixed inset-0 bg-[rgba(20,17,15,0.6)] backdrop-blur-[6px] z-[1000]"
             onClick={() => setIsDrawerOpen(false)}
             aria-hidden="true"
           />
           <div
-            className="drawer-container shadow-xl"
+            className="fixed top-0 right-0 bottom-0 w-full max-w-[520px] bg-bg-primary border-l border-border z-[1001] flex flex-col shadow-xl animate-slide-in-right max-md:w-full max-md:max-w-full max-md:rounded-t-[20px]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="drawer-title"
           >
             {/* Header da Central 360 */}
-            <header className="drawer-header">
-              <div className="drawer-header__main">
-                <div className="drawer-header__text-group">
-                  <div className="drawer-header__eyebrow-row">
-                    <span className="drawer-header__eyebrow">
+            <header className="py-6 px-7 border-b border-border flex items-start justify-between bg-bg-secondary gap-4">
+              <div className="flex items-start flex-1">
+                <div className="flex flex-col gap-[0.2rem]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-brand-hover">
                       {selectedCustomer.cadastro_completo ? 'Perfil confirmado' : 'Primeiro contato (WhatsApp)'}
                     </span>
                   </div>
-                  <h3 id="drawer-title" className="drawer-header__title">
+                  <h3 id="drawer-title" className="text-[1.35rem] font-extrabold my-[0.1rem] text-text-primary tracking-[-0.01em]">
                     {selectedCustomer.name}
                   </h3>
-                  <span className="drawer-header__subtitle font-mono">{selectedCustomer.phone}</span>
+                  <span className="text-sm text-text-secondary font-mono">{selectedCustomer.phone}</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(false)}
-                className="btn-close-modal"
+                className="bg-bg-primary border border-border text-text-secondary cursor-pointer w-[34px] h-[34px] rounded-full flex items-center justify-center transition-all duration-150 ease-in shrink-0 hover:text-text-primary hover:border-text-secondary hover:bg-bg-secondary focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2"
                 aria-label="Fechar Central 360"
               >
                 <CloseIcon />
@@ -820,13 +835,17 @@ export const Clientes: React.FC = () => {
             </header>
 
             {/* Ações Rápidas de Topo (Copiar Link, WhatsApp e Novo Agendamento) */}
-            <div className="drawer-quick-actions" role="toolbar" aria-label="Ações rápidas do cliente">
+            <div
+              className="grid [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))] gap-[0.65rem] py-4 px-7 bg-bg-secondary border-b border-border"
+              role="toolbar"
+              aria-label="Ações rápidas do cliente"
+            >
               <button
                 type="button"
                 onClick={() => {
                   handleCopyLink(selectedCustomer.token_acesso);
                 }}
-                className="btn btn-drawer-action"
+                className="w-full inline-flex items-center justify-center gap-[0.45rem] py-[0.6rem] px-[0.85rem] text-xs font-bold no-underline rounded-md text-text-primary bg-bg-primary border border-border cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:text-brand-hover hover:border-brand-primary hover:bg-[rgba(217,108,0,0.08)] hover:-translate-y-px active:translate-y-0"
                 title="Copiar link de autoagendamento do cliente"
                 aria-label="Copiar link de agendamento"
               >
@@ -836,7 +855,7 @@ export const Clientes: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleOpenDirectWhatsApp(selectedCustomer)}
-                  className="btn btn-drawer-action btn-drawer-action--whatsapp"
+                  className="w-full inline-flex items-center justify-center gap-[0.45rem] py-[0.6rem] px-[0.85rem] text-xs font-bold no-underline rounded-md text-text-primary bg-bg-primary border border-border cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:text-brand-hover hover:border-brand-primary hover:bg-[rgba(217,108,0,0.08)] active:translate-y-0"
                   title="Disparar mensagem pelo WhatsApp da barbearia"
                   aria-label="Conversar no WhatsApp"
                 >
@@ -855,7 +874,7 @@ export const Clientes: React.FC = () => {
                   });
                   addToast(`Iniciando agendamento para ${selectedCustomer.name}`, 'info');
                 }}
-                className="btn btn--primary btn-drawer-action--primary"
+                className="w-full inline-flex items-center justify-center gap-[0.45rem] py-[0.6rem] px-[0.85rem] text-xs font-bold no-underline rounded-md cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] bg-brand-primary text-bg-primary border border-brand-primary hover:bg-brand-hover hover:border-brand-hover"
                 title="Agendar novo horário na grade"
                 aria-label="Novo agendamento"
               >
@@ -864,14 +883,18 @@ export const Clientes: React.FC = () => {
             </div>
 
             {/* Abas de Navegação 360 */}
-            <div className="drawer-tabs-nav" aria-label="Seções da Central 360">
+            <div className="flex border-b border-border bg-bg-secondary" aria-label="Seções da Central 360">
               <button
                 type="button"
                 aria-selected={activeTab360 === 'dados'}
                 aria-controls="panel-dados"
                 id="tab-dados"
                 onClick={() => setActiveTab360('dados')}
-                className={`drawer-tab-btn ${activeTab360 === 'dados' ? 'drawer-tab-btn--active' : ''}`}
+                className={`flex-1 py-[0.85rem] px-2 border-none bg-transparent text-xs font-bold uppercase tracking-[0.05em] cursor-pointer border-b-2 transition-all duration-200 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-[-2px] ${
+                  activeTab360 === 'dados'
+                    ? 'text-brand-hover border-b-brand-primary bg-[rgba(217,108,0,0.04)]'
+                    : 'text-text-secondary border-b-transparent hover:text-text-primary'
+                }`}
               >
                 Dados e tags
               </button>
@@ -881,7 +904,11 @@ export const Clientes: React.FC = () => {
                 aria-controls="panel-historico"
                 id="tab-historico"
                 onClick={() => setActiveTab360('historico')}
-                className={`drawer-tab-btn ${activeTab360 === 'historico' ? 'drawer-tab-btn--active' : ''}`}
+                className={`flex-1 py-[0.85rem] px-2 border-none bg-transparent text-xs font-bold uppercase tracking-[0.05em] cursor-pointer border-b-2 transition-all duration-200 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-[-2px] ${
+                  activeTab360 === 'historico'
+                    ? 'text-brand-hover border-b-brand-primary bg-[rgba(217,108,0,0.04)]'
+                    : 'text-text-secondary border-b-transparent hover:text-text-primary'
+                }`}
               >
                 Linha do tempo ({history.length + comandasHistory.length})
               </button>
@@ -891,16 +918,20 @@ export const Clientes: React.FC = () => {
                 aria-controls="panel-metricas"
                 id="tab-metricas"
                 onClick={() => setActiveTab360('metricas')}
-                className={`drawer-tab-btn ${activeTab360 === 'metricas' ? 'drawer-tab-btn--active' : ''}`}
+                className={`flex-1 py-[0.85rem] px-2 border-none bg-transparent text-xs font-bold uppercase tracking-[0.05em] cursor-pointer border-b-2 transition-all duration-200 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-[-2px] ${
+                  activeTab360 === 'metricas'
+                    ? 'text-brand-hover border-b-brand-primary bg-[rgba(217,108,0,0.04)]'
+                    : 'text-text-secondary border-b-transparent hover:text-text-primary'
+                }`}
               >
                 Métricas e LTV
               </button>
             </div>
 
             {/* Corpo do Drawer com base na Aba Ativa */}
-            <div className="drawer-body">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
               {loadingDetails ? (
-                <div className="loading-state py-4" role="status">
+                <div className="py-4" role="status">
                   <div className="spinner mb-2" />
                   <p>Carregando perfil 360º...</p>
                 </div>
@@ -910,23 +941,27 @@ export const Clientes: React.FC = () => {
                   id="panel-dados"
                   role="tabpanel"
                   aria-labelledby="tab-dados"
-                  className="tab-content-container"
+                  className="flex flex-col gap-5"
                 >
                   {/* TAGS INTERATIVAS */}
-                  <div className="drawer-section card shadow-glass">
-                    <h4 className="drawer-section__title">
+                  <div className="bg-bg-secondary border border-border rounded-lg p-5 flex flex-col gap-4 shadow-sm">
+                    <h4 className="text-sm font-extrabold text-text-primary flex items-center gap-2 uppercase tracking-[0.04em]">
                       <TagIcon /> Tags e categorias do cliente
                     </h4>
-                    <div className="tags-management-container">
-                      <div className="tags-chips-list" role="list" aria-label="Tags do cliente">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap gap-2" role="list" aria-label="Tags do cliente">
                         {selectedCustomer.tags && selectedCustomer.tags.length > 0 ? (
                           selectedCustomer.tags.map((t) => (
-                            <span key={t} className="badge-tag-interactive" role="listitem">
+                            <span
+                              key={t}
+                              className="inline-flex items-center gap-[0.4rem] bg-[rgba(217,108,0,0.12)] text-brand-hover font-bold text-xs py-1 px-2.5 rounded-sm border border-[rgba(217,108,0,0.15)]"
+                              role="listitem"
+                            >
                               #{t}
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTagFromCustomer(t)}
-                                className="tag-remove-btn"
+                                className="bg-transparent border-none text-brand-hover font-extrabold cursor-pointer py-0.5 px-1 text-sm leading-none rounded-sm inline-flex items-center justify-center transition-all duration-150 ease-in hover:bg-[rgba(217,108,0,0.2)] hover:text-brand-deep focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1"
                                 title={`Remover tag ${t}`}
                                 aria-label={`Remover tag ${t}`}
                               >
@@ -935,10 +970,10 @@ export const Clientes: React.FC = () => {
                             </span>
                           ))
                         ) : (
-                          <span className="text-muted text-sm">Nenhuma tag atribuída a este cliente ainda.</span>
+                          <span className="text-text-secondary text-sm">Nenhuma tag atribuída a este cliente ainda.</span>
                         )}
                       </div>
-                      <div className="add-tag-inline">
+                      <div className="flex gap-2 mt-1">
                         <input
                           type="text"
                           placeholder="Adicionar tag (ex: VIP, barba longa)..."
@@ -951,12 +986,12 @@ export const Clientes: React.FC = () => {
                               handleAddTagToCustomer(newTagInput);
                             }
                           }}
-                          className="form-control form-control--sm"
+                          className="pl-4 h-9 rounded-md bg-bg-secondary text-text-primary flex-1 min-w-0 outline-none text-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-shadow duration-200 ease-in focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                         />
                         <button
                           type="button"
                           onClick={() => handleAddTagToCustomer(newTagInput)}
-                          className="btn btn--outline btn--sm"
+                          className="btn py-[0.4rem] px-[0.875rem] text-xs"
                           aria-label="Adicionar tag ao cliente"
                         >
                           Adicionar
@@ -966,20 +1001,20 @@ export const Clientes: React.FC = () => {
                   </div>
 
                   {/* INFORMAÇÕES PESSOAIS */}
-                  <div className="drawer-section card shadow-glass">
-                    <h4 className="drawer-section__title">Dados cadastrais</h4>
-                    <div className="drawer-info-list">
-                      <div className="drawer-info-item">
-                        <span className="info-label">Nome completo:</span>
-                        <strong className="info-value">{selectedCustomer.name}</strong>
+                  <div className="bg-bg-secondary border border-border rounded-lg p-5 flex flex-col gap-4 shadow-sm">
+                    <h4 className="text-sm font-extrabold text-text-primary flex items-center gap-2 uppercase tracking-[0.04em]">Dados cadastrais</h4>
+                    <div className="grid grid-cols-2 gap-[0.85rem] max-[640px]:grid-cols-1">
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">Nome completo:</span>
+                        <strong className="text-sm text-text-primary">{selectedCustomer.name}</strong>
                       </div>
-                      <div className="drawer-info-item">
-                        <span className="info-label">Telefone WhatsApp:</span>
-                        <span className="info-value font-mono">{selectedCustomer.phone}</span>
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">Telefone WhatsApp:</span>
+                        <span className="text-sm text-text-primary font-mono">{selectedCustomer.phone}</span>
                       </div>
-                      <div className="drawer-info-item">
-                        <span className="info-label">Data de aniversário:</span>
-                        <span className="info-value">
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">Data de aniversário:</span>
+                        <span className="text-sm text-text-primary">
                           {selectedCustomer.birth_date
                             ? new Date(selectedCustomer.birth_date + 'T12:00:00').toLocaleDateString('pt-BR', {
                                 day: '2-digit',
@@ -988,26 +1023,26 @@ export const Clientes: React.FC = () => {
                             : 'Não informada'}
                         </span>
                       </div>
-                      <div className="drawer-info-item">
-                        <span className="info-label">Canal de origem:</span>
-                        <span className="info-value">{selectedCustomer.acquisition_channel || 'Não informado'}</span>
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">Canal de origem:</span>
+                        <span className="text-sm text-text-primary">{selectedCustomer.acquisition_channel || 'Não informado'}</span>
                       </div>
                       {selectedCustomer.cpf && (
-                        <div className="drawer-info-item">
-                          <span className="info-label">CPF do cliente:</span>
-                          <span className="info-value font-mono">{selectedCustomer.cpf}</span>
+                        <div className="flex flex-col gap-[0.15rem]">
+                          <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">CPF do cliente:</span>
+                          <span className="text-sm text-text-primary font-mono">{selectedCustomer.cpf}</span>
                         </div>
                       )}
                       {selectedCustomer.email && (
-                        <div className="drawer-info-item">
-                          <span className="info-label">E-mail de contato:</span>
-                          <span className="info-value">{selectedCustomer.email}</span>
+                        <div className="flex flex-col gap-[0.15rem]">
+                          <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">E-mail de contato:</span>
+                          <span className="text-sm text-text-primary">{selectedCustomer.email}</span>
                         </div>
                       )}
                       {selectedCustomer.notes && (
-                        <div className="drawer-info-item drawer-info-item--full">
-                          <span className="info-label">Observações do atendimento:</span>
-                          <p className="info-value text-italic">{selectedCustomer.notes}</p>
+                        <div className="flex flex-col gap-[0.15rem] col-span-full">
+                          <span className="text-xs text-text-secondary font-semibold uppercase tracking-[0.04em]">Observações do atendimento:</span>
+                          <p className="text-sm text-text-primary italic">{selectedCustomer.notes}</p>
                         </div>
                       )}
                     </div>
@@ -1019,36 +1054,32 @@ export const Clientes: React.FC = () => {
                   id="panel-historico"
                   role="tabpanel"
                   aria-labelledby="tab-historico"
-                  className="tab-content-container"
+                  className="flex flex-col gap-5"
                 >
-                  <div className="drawer-section card shadow-glass">
-                    <h4 className="drawer-section__title">Linha do tempo de atendimentos</h4>
+                  <div className="bg-bg-secondary border border-border rounded-lg p-5 flex flex-col gap-4 shadow-sm">
+                    <h4 className="text-sm font-extrabold text-text-primary flex items-center gap-2 uppercase tracking-[0.04em]">Linha do tempo de atendimentos</h4>
                     {history.length === 0 && comandasHistory.length === 0 ? (
-                      <div className="empty-state empty-state-drawer" role="status">
+                      <div role="status">
                         Nenhum atendimento ou comanda registrado até o momento.
                       </div>
                     ) : (
-                      <div className="timeline-unified-list">
+                      <div className="flex flex-col gap-3">
                         {comandasHistory.map((cmd) => (
-                          <div key={cmd.id} className="timeline-card">
-                            <div className="timeline-card__header">
-                              <span className="timeline-type-badge">
+                          <div key={cmd.id} className="border border-border rounded-md p-4 bg-bg-secondary transition-colors duration-150 ease-in hover:border-brand-soft">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-brand-hover flex items-center gap-1">
                                 <ReceiptIcon /> Comanda #{cmd.comanda_number}
                               </span>
-                              <span
-                                className={`badge badge--appt-${
-                                  cmd.status === 'fechada' ? 'completed' : cmd.status === 'cancelada' ? 'canceled' : 'pending'
-                                }`}
-                              >
+                              <span>
                                 {cmd.status === 'fechada' && 'Paga'}
                                 {cmd.status === 'aberta' && 'Em aberto'}
                                 {cmd.status === 'cancelada' && 'Cancelada'}
                               </span>
                             </div>
-                            <div className="timeline-card__body">
-                              <div className="timeline-items-list">
+                            <div>
+                              <div className="flex flex-col gap-[0.35rem] text-xs">
                                 {cmd.items.map((it) => (
-                                  <div key={it.id} className="timeline-item-row">
+                                  <div key={it.id} className="flex justify-between text-text-primary">
                                     <span>
                                       {it.quantity}x {it.name}
                                     </span>
@@ -1058,14 +1089,14 @@ export const Clientes: React.FC = () => {
                                   </div>
                                 ))}
                               </div>
-                              <div className="timeline-footer-row">
-                                <span className="text-muted text-xs">
+                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-dashed border-border">
+                                <span className="text-text-secondary text-xs">
                                   {new Date(cmd.closed_at || cmd.created_at).toLocaleString('pt-BR', {
                                     dateStyle: 'short',
                                     timeStyle: 'short',
                                   })}
                                 </span>
-                                <strong className="text-brand">
+                                <strong>
                                   Total: R$ {cmd.total_final.toFixed(2).replace('.', ',')}
                                 </strong>
                               </div>
@@ -1074,23 +1105,23 @@ export const Clientes: React.FC = () => {
                         ))}
 
                         {history.map((app) => (
-                          <div key={app.id} className="timeline-card">
-                            <div className="timeline-card__header">
-                              <strong className="appointment-service">{app.service_name}</strong>
-                              <span className={`badge badge--appt-${app.status}`}>
+                          <div key={app.id} className="border border-border rounded-md p-4 bg-bg-secondary transition-colors duration-150 ease-in hover:border-brand-soft">
+                            <div className="flex items-center justify-between mb-2">
+                              <strong className="text-sm font-bold text-text-primary">{app.service_name}</strong>
+                              <span>
                                 {app.status === 'completed' && 'Concluído'}
                                 {app.status === 'confirmed' && 'Confirmado'}
                                 {app.status === 'pending' && 'Pendente'}
                                 {app.status === 'canceled' && 'Cancelado'}
                               </span>
                             </div>
-                            <div className="timeline-card__body">
-                              <div className="appt-meta-row">
-                                <span className="appt-meta-label">Profissional:</span>
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-text-secondary">Profissional:</span>
                                 <span>{app.professional_name}</span>
                               </div>
-                              <div className="appt-meta-row">
-                                <span className="appt-meta-label">Data e horário:</span>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-text-secondary">Data e horário:</span>
                                 <span>
                                   {new Date(app.start_time).toLocaleString('pt-BR', {
                                     dateStyle: 'short',
@@ -1098,9 +1129,9 @@ export const Clientes: React.FC = () => {
                                   })}
                                 </span>
                               </div>
-                              <div className="appt-meta-row">
-                                <span className="appt-meta-label">Valor cobrado:</span>
-                                <strong className="text-brand">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-text-secondary">Valor cobrado:</span>
+                                <strong>
                                   {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
                                 </strong>
                               </div>
@@ -1117,45 +1148,45 @@ export const Clientes: React.FC = () => {
                   id="panel-metricas"
                   role="tabpanel"
                   aria-labelledby="tab-metricas"
-                  className="tab-content-container"
+                  className="flex flex-col gap-5"
                 >
-                  <div className="ltv-bento-grid">
-                    <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Total investido (LTV)</span>
-                      <span className="ltv-card__value text-brand font-mono">
+                  <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                    <div className="p-[1.15rem] flex flex-col gap-1 bg-bg-secondary border border-border rounded-lg shadow-sm">
+                      <span className="text-[11px] uppercase tracking-[0.05em] font-bold text-text-secondary">Total investido (LTV)</span>
+                      <span className="text-2xl font-extrabold text-text-primary text-brand-primary font-mono">
                         R$ {ltvMetrics.totalSpend.toFixed(2).replace('.', ',')}
                       </span>
-                      <span className="ltv-card__hint">Faturamento total gerado por este cliente</span>
+                      <span className="text-[11px] text-text-secondary">Faturamento total gerado por este cliente</span>
                     </div>
 
-                    <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Ticket médio</span>
-                      <span className="ltv-card__value font-mono">
+                    <div className="p-[1.15rem] flex flex-col gap-1 bg-bg-secondary border border-border rounded-lg shadow-sm">
+                      <span className="text-[11px] uppercase tracking-[0.05em] font-bold text-text-secondary">Ticket médio</span>
+                      <span className="text-2xl font-extrabold text-text-primary font-mono">
                         R$ {ltvMetrics.averageTicket.toFixed(2).replace('.', ',')}
                       </span>
-                      <span className="ltv-card__hint">Média gasta em cada atendimento</span>
+                      <span className="text-[11px] text-text-secondary">Média gasta em cada atendimento</span>
                     </div>
 
-                    <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Total de visitas</span>
-                      <span className="ltv-card__value">{ltvMetrics.totalVisits}</span>
-                      <span className="ltv-card__hint">Atendimentos concluídos na barbearia</span>
+                    <div className="p-[1.15rem] flex flex-col gap-1 bg-bg-secondary border border-border rounded-lg shadow-sm">
+                      <span className="text-[11px] uppercase tracking-[0.05em] font-bold text-text-secondary">Total de visitas</span>
+                      <span className="text-2xl font-extrabold text-text-primary">{ltvMetrics.totalVisits}</span>
+                      <span className="text-[11px] text-text-secondary">Atendimentos concluídos na barbearia</span>
                     </div>
 
-                    <div className="ltv-card card shadow-glass">
-                      <span className="ltv-card__label">Frequência média</span>
-                      <span className="ltv-card__value">
+                    <div className="p-[1.15rem] flex flex-col gap-1 bg-bg-secondary border border-border rounded-lg shadow-sm">
+                      <span className="text-[11px] uppercase tracking-[0.05em] font-bold text-text-secondary">Frequência média</span>
+                      <span className="text-2xl font-extrabold text-text-primary">
                         {ltvMetrics.averageDaysBetweenVisits > 0
                           ? `${ltvMetrics.averageDaysBetweenVisits} dias`
                           : 'Primeira visita'}
                       </span>
-                      <span className="ltv-card__hint">Intervalo médio entre retornos</span>
+                      <span className="text-[11px] text-text-secondary">Intervalo médio entre retornos</span>
                     </div>
                   </div>
 
                   {ltvMetrics.lastVisitDate && (
-                    <div className="last-visit-banner card shadow-glass mt-3">
-                      <span className="text-sm text-secondary">
+                    <div className="bg-bg-secondary border border-border rounded-md py-[0.85rem] px-4 mt-3">
+                      <span className="text-sm text-text-secondary">
                         Último atendimento registrado em:{' '}
                         <strong>
                           {/* lastVisitDate já é o dia de negócio; meio-dia UTC evita virar o dia ao formatar */}
@@ -1177,28 +1208,28 @@ export const Clientes: React.FC = () => {
       {/* 5. MODAL DE DISPARO DIRETO DE WHATSAPP (UAZAPI) */}
       {isDirectWhatsAppModalOpen && selectedCustomer && (
         <div
-          className="modal-backdrop"
+          className="fixed inset-0 bg-[rgba(20,17,15,0.7)] backdrop-blur-[8px] z-[1100] grid place-items-center p-5 overflow-y-auto"
           onClick={() => {
             if (!isSendingWhatsApp) setIsDirectWhatsAppModalOpen(false);
           }}
         >
           <div
-            className="modal-content modal-whatsapp-direct"
+            className="bg-bg-secondary border border-border rounded-xl w-full max-w-[540px] max-h-[90vh] flex flex-col overflow-hidden shadow-[0_20px_50px_rgba(45,35,30,0.2),0_0_0_1px_rgba(217,108,0,0.08)] max-[640px]:max-h-[95vh]"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="whatsapp-modal-title"
           >
-            <header className="modal-header">
-              <div className="modal-header__title-group">
-                <span className="modal-eyebrow">Mensageria Uazapi</span>
-                <h3 id="whatsapp-modal-title" className="modal-title">
+            <header className="py-6 px-7 border-b border-border bg-bg-secondary flex items-start justify-between gap-4 max-[640px]:p-5">
+              <div className="flex flex-col gap-[0.15rem]">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-brand-hover">Mensageria Uazapi</span>
+                <h3 id="whatsapp-modal-title" className="text-xl font-extrabold text-text-primary leading-[1.25]">
                   Enviar WhatsApp para {selectedCustomer.name}
                 </h3>
               </div>
               <button
                 type="button"
-                className="btn-icon-only"
+                className="w-9 h-9 p-0 inline-flex items-center justify-center rounded-md bg-bg-secondary text-text-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 ease-in hover:text-text-primary hover:bg-bg-primary hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2"
                 onClick={() => setIsDirectWhatsAppModalOpen(false)}
                 disabled={isSendingWhatsApp}
                 aria-label="Fechar modal de WhatsApp"
@@ -1207,20 +1238,24 @@ export const Clientes: React.FC = () => {
               </button>
             </header>
 
-            <div className="modal-body">
-              <div className="whatsapp-recipient-card">
-                <span className="recipient-label">Destinatário:</span>
-                <strong className="recipient-phone font-mono">{selectedCustomer.phone}</strong>
+            <div className="py-4 px-7 overflow-y-auto flex flex-col gap-6 bg-bg-secondary max-[640px]:px-5 max-[640px]:gap-5">
+              <div className="flex items-center gap-2 bg-bg-secondary border border-border rounded-md py-3 px-4 mb-5">
+                <span className="text-xs text-text-secondary font-medium">Destinatário:</span>
+                <strong className="text-sm text-brand-primary tracking-[0.05em] font-mono">{selectedCustomer.phone}</strong>
               </div>
 
-              <div className="template-selector-group">
-                <label className="form-label">Escolha um modelo rápido:</label>
-                <div className="template-chips" role="radiogroup" aria-label="Modelos de mensagem">
+              <div className="mb-5 flex flex-col gap-2">
+                <label className="text-[0.85rem] font-semibold text-text-primary">Escolha um modelo rápido:</label>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Modelos de mensagem">
                   <button
                     type="button"
                     role="radio"
                     aria-checked={whatsAppTemplate === 'retorno'}
-                    className={`btn-template-chip ${whatsAppTemplate === 'retorno' ? 'btn-template-chip--active' : ''}`}
+                    className={`bg-bg-secondary border rounded-full text-xs py-[0.4rem] px-[0.85rem] cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] inline-flex items-center gap-[0.35rem] ${
+                      whatsAppTemplate === 'retorno'
+                        ? 'bg-brand-lightest border-brand-primary text-brand-primary font-bold'
+                        : 'border-border text-text-secondary font-semibold hover:bg-bg-primary hover:border-brand-primary hover:text-text-primary'
+                    }`}
                     onClick={() => handleSelectTemplate('retorno')}
                   >
                     ⚡ Lembrete de retorno
@@ -1229,7 +1264,11 @@ export const Clientes: React.FC = () => {
                     type="button"
                     role="radio"
                     aria-checked={whatsAppTemplate === 'agradecimento'}
-                    className={`btn-template-chip ${whatsAppTemplate === 'agradecimento' ? 'btn-template-chip--active' : ''}`}
+                    className={`bg-bg-secondary border rounded-full text-xs py-[0.4rem] px-[0.85rem] cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] inline-flex items-center gap-[0.35rem] ${
+                      whatsAppTemplate === 'agradecimento'
+                        ? 'bg-brand-lightest border-brand-primary text-brand-primary font-bold'
+                        : 'border-border text-text-secondary font-semibold hover:bg-bg-primary hover:border-brand-primary hover:text-text-primary'
+                    }`}
                     onClick={() => handleSelectTemplate('agradecimento')}
                   >
                     🤝 Agradecimento
@@ -1238,7 +1277,11 @@ export const Clientes: React.FC = () => {
                     type="button"
                     role="radio"
                     aria-checked={whatsAppTemplate === 'livre'}
-                    className={`btn-template-chip ${whatsAppTemplate === 'livre' ? 'btn-template-chip--active' : ''}`}
+                    className={`bg-bg-secondary border rounded-full text-xs py-[0.4rem] px-[0.85rem] cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] inline-flex items-center gap-[0.35rem] ${
+                      whatsAppTemplate === 'livre'
+                        ? 'bg-brand-lightest border-brand-primary text-brand-primary font-bold'
+                        : 'border-border text-text-secondary font-semibold hover:bg-bg-primary hover:border-brand-primary hover:text-text-primary'
+                    }`}
                     onClick={() => handleSelectTemplate('livre')}
                   >
                     ✍️ Mensagem livre
@@ -1246,8 +1289,8 @@ export const Clientes: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="whatsapp-message-textarea" className="form-label">
+              <div className="flex flex-col gap-[0.4rem]">
+                <label htmlFor="whatsapp-message-textarea" className="text-[0.85rem] font-semibold text-text-primary">
                   Mensagem que será enviada pelo WhatsApp conectado da barbearia:
                 </label>
                 <textarea
@@ -1256,29 +1299,29 @@ export const Clientes: React.FC = () => {
                   value={whatsAppCustomMessage}
                   onChange={(e) => setWhatsAppCustomMessage(e.target.value)}
                   placeholder="Digite a mensagem para o cliente..."
-                  className="form-control"
+                  className="pl-4 pr-4 py-3 rounded-md bg-bg-secondary text-text-primary w-full outline-none text-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-shadow duration-200 ease-in focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   disabled={isSendingWhatsApp}
                 />
               </div>
 
-              <div className="whatsapp-modal-fallback-row">
-                <span className="text-muted text-xs">Ou se preferir abrir manualmente no navegador:</span>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-dashed border-border flex-wrap gap-2">
+                <span className="text-text-secondary text-xs">Ou se preferir abrir manualmente no navegador:</span>
                 <a
                   href={formatWhatsAppUrl(selectedCustomer.phone, whatsAppCustomMessage)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="link-whatsapp-web"
+                  className="text-xs font-bold text-brand-primary no-underline transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:text-brand-hover hover:underline"
                 >
                   Abrir no WhatsApp Web ↗
                 </a>
               </div>
             </div>
 
-            <footer className="modal-footer">
+            <footer className="py-5 px-7 border-t border-border bg-bg-primary flex items-center justify-end gap-[0.85rem] max-[640px]:py-4 max-[640px]:px-5">
               <button
                 type="button"
                 onClick={() => setIsDirectWhatsAppModalOpen(false)}
-                className="btn btn--outline"
+                className="btn"
                 disabled={isSendingWhatsApp}
               >
                 Cancelar
@@ -1286,7 +1329,7 @@ export const Clientes: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSendDirectWhatsApp}
-                className="btn btn--primary btn-whatsapp-send"
+                className="btn btn--primary inline-flex items-center gap-2"
                 disabled={isSendingWhatsApp || !whatsAppCustomMessage.trim()}
               >
                 {isSendingWhatsApp ? (

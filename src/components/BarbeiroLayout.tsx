@@ -122,45 +122,13 @@ export const BarbeiroLayout: React.FC = () => {
     return (
       <>
         <div className="noise-overlay" />
-        <div className="skeleton-container" style={{ padding: '2rem' }}>
-          <header className="skeleton-header" style={{ height: '60px', borderBottom: '1px solid var(--color-border)' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', marginTop: '2rem' }}>
-            <div className="skeleton" style={{ height: '100px' }} />
-            <div className="skeleton" style={{ height: '300px' }} />
+        <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex flex-col gap-8">
+          <header className="flex h-[60px] w-full border-b border-border" />
+          <div className="grid grid-cols-1 gap-6 mt-8">
+            <div className="h-[100px] rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+            <div className="h-[300px] rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
           </div>
         </div>
-        <style>{`
-          .skeleton-container {
-            min-height: 100vh;
-            background-color: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-          }
-          .skeleton-header {
-            display: flex;
-            height: 60px;
-            border-bottom: 1px solid var(--color-border);
-            width: 100%;
-          }
-          .skeleton {
-            background: linear-gradient(
-              90deg,
-              var(--color-bg-secondary) 25%,
-              var(--color-border) 37%,
-              var(--color-bg-secondary) 63%
-            );
-            background-size: 400% 100%;
-            animation: skeleton-loading 1.4s ease infinite;
-            border-radius: var(--radius-md);
-          }
-          @keyframes skeleton-loading {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-          }
-        `}</style>
       </>
     );
   }
@@ -180,7 +148,7 @@ export const BarbeiroLayout: React.FC = () => {
     <>
       <div className="noise-overlay" />
 
-      <div className="barbeiro-layout">
+      <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col relative pb-[84px] md:pb-0">
         {/* HEADER MOBILE (<= 768px) */}
         <MobileHeader
           tenantName={tenantName || 'Barbeiro'}
@@ -191,27 +159,34 @@ export const BarbeiroLayout: React.FC = () => {
         />
 
         {/* CABEÇALHO SUPERIOR DESKTOP (> 768px) */}
-        <header className="barbeiro-header">
-          <div className="barbeiro-header__brand" onClick={() => navigate('/minha-agenda')} style={{ cursor: 'pointer' }}>
-            <div className="barbeiro-header__logo">
-              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '34px', height: '34px', display: 'block' }} />
+        <header className="max-md:hidden flex justify-between items-center px-6 py-3 lg:px-12 bg-[radial-gradient(ellipse_40%_60%_at_15%_50%,rgba(217,108,0,0.05)_0%,transparent_60%),radial-gradient(ellipse_40%_60%_at_85%_50%,rgba(217,108,0,0.03)_0%,transparent_55%),linear-gradient(145deg,rgba(255,255,255,0.78)_0%,rgba(255,241,230,0.5)_45%,rgba(255,255,255,0.72)_100%)] backdrop-blur-[28px] backdrop-saturate-[200%] border-b border-[rgba(255,255,255,0.25)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_-1px_0_rgba(255,255,255,0.15),0_8px_40px_-8px_rgba(45,35,30,0.1),0_1px_4px_rgba(45,35,30,0.04)] sticky top-0 z-[100] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+          <div
+            className="flex items-center gap-[0.65rem] shrink-0 cursor-pointer hover:opacity-90"
+            onClick={() => navigate('/minha-agenda')}
+          >
+            <div className="flex items-center justify-center shrink-0">
+              <img src="/simbolo.svg" alt="Navalhado" className="w-[34px] h-[34px] block" />
             </div>
-            <div className="barbeiro-header__title-container">
-              <h1 className="barbeiro-header__title">{tenantName || 'Colaborador'}</h1>
+            <div className="max-w-[140px] flex items-center">
+              <h1 className="text-[0.8125rem] font-bold m-0 leading-[1.15] text-text-primary [text-wrap:balance] line-clamp-2">{tenantName || 'Colaborador'}</h1>
             </div>
           </div>
 
           {/* Navegação Horizontal - Visível apenas no Desktop */}
-          <nav className="barbeiro-header__nav-desktop">
+          <nav className="flex items-center gap-[0.35rem] bg-[radial-gradient(ellipse_50%_100%_at_30%_50%,rgba(217,108,0,0.04)_0%,transparent_70%),rgba(255,255,255,0.45)] p-1 rounded-lg border border-[rgba(255,255,255,0.35)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[12px] backdrop-saturate-[160%]">
             {navLinks.map((link) => {
               const isActive = location.pathname === link.path;
               return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`barbeiro-header__nav-link ${isActive ? 'barbeiro-header__nav-link--active' : ''}`}
+                  className={`flex items-center gap-2 text-sm font-medium px-[1.15rem] py-[0.45rem] rounded-md no-underline border border-transparent transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    isActive
+                      ? 'text-brand-primary bg-bg-secondary border-[rgba(234,222,214,0.85)] font-semibold shadow-[0_1px_2px_rgba(45,35,30,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]'
+                      : 'text-text-secondary hover:text-brand-primary hover:bg-[rgba(255,255,255,0.55)] hover:border-[rgba(234,222,214,0.6)]'
+                  }`}
                 >
-                  <span className="barbeiro-header__nav-icon">{link.icon}</span>
+                  <span className="flex items-center">{link.icon}</span>
                   <span>{link.label}</span>
                 </Link>
               );
@@ -219,7 +194,7 @@ export const BarbeiroLayout: React.FC = () => {
           </nav>
 
           {/* Informações do Barbeiro e Botão de Logout */}
-          <div className="barbeiro-header__user-section">
+          <div className="flex items-center gap-4">
             {/* Sininho de Notificações */}
             <NotificationBell
               notifications={notifications}
@@ -228,25 +203,29 @@ export const BarbeiroLayout: React.FC = () => {
               onMarkAsRead={markAsRead}
             />
 
-            <div className="barbeiro-header__user-profile">
-              <div className="barbeiro-header__avatar">
+            <div className="flex items-center gap-[0.65rem]">
+              <div className="w-[34px] h-[34px] rounded-full bg-brand-soft text-brand-deep flex items-center justify-center font-bold text-sm border-[1.5px] border-[rgba(255,255,255,0.8)] shadow-sm">
                 {barberName.charAt(0).toUpperCase()}
               </div>
-              <div className="barbeiro-header__profile-meta">
-                <span className="barbeiro-header__profile-name">{barberName}</span>
-                <span className="barbeiro-header__profile-role">Barbeiro</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-text-primary leading-[1.2]">{barberName}</span>
+                <span className="text-xs text-text-secondary leading-[1.1]">Barbeiro</span>
               </div>
             </div>
-            <button onClick={handleLogout} className="btn-logout" title="Sair da conta">
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-[0.35rem] bg-transparent border border-error text-error px-[0.8rem] py-[0.4rem] text-xs font-semibold rounded-md cursor-pointer transition-all duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-error-bg hover:-translate-y-px active:scale-[0.97]"
+              title="Sair da conta"
+            >
               <HugeiconsIcon icon={Logout01Icon} size={16} />
-              <span className="logout-text">Sair</span>
+              <span>Sair</span>
             </button>
           </div>
         </header>
 
         {/* ÁREA DE CONTEÚDO PRINCIPAL COM ANIMAÇÃO DE ENTRADA SUAVE */}
-        <main className="barbeiro-main">
-          <div key={location.pathname} className="barbeiro-route-wrapper">
+        <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 py-6 md:px-10 md:py-8 flex flex-col max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
+          <div key={location.pathname} className="w-full animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_forwards]">
             <Outlet />
           </div>
         </main>
@@ -254,265 +233,6 @@ export const BarbeiroLayout: React.FC = () => {
         {/* NAVEGAÇÃO INFERIOR FIXA MOBILE (<= 768px) */}
         <MobileBottomNav items={mobileNavItems} />
       </div>
-
-      <style>{`
-        .barbeiro-layout {
-          min-height: 100vh;
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          padding-bottom: 84px; /* Espaço para não sobrepor a Bottom Nav mobile */
-        }
-
-        /* Removendo padding do bottom no Desktop */
-        @media (min-width: 769px) {
-          .barbeiro-layout {
-            padding-bottom: 0;
-          }
-        }
-
-        /* HEADER */
-        .barbeiro-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.75rem 1.5rem;
-          /* Liquid glass — gradient-tinted to match GerenteLayout */
-          background: 
-            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
-            linear-gradient(
-              145deg,
-              rgba(255, 255, 255, 0.78) 0%,
-              rgba(255, 241, 230, 0.5) 45%,
-              rgba(255, 255, 255, 0.72) 100%
-            );
-          backdrop-filter: blur(28px) saturate(200%);
-          -webkit-backdrop-filter: blur(28px) saturate(200%);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-          box-shadow: 
-            inset 0 1px 0 rgba(255, 255, 255, 0.6),
-            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
-            0 8px 40px -8px rgba(45, 35, 30, 0.1),
-            0 1px 4px rgba(45, 35, 30, 0.04);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @media (min-width: 1024px) {
-          .barbeiro-header {
-            padding: 0.75rem 3rem;
-          }
-        }
-
-        .barbeiro-header__brand {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          flex-shrink: 0;
-        }
-
-        .barbeiro-header__brand:hover {
-          opacity: 0.9;
-        }
-
-        .barbeiro-header__logo {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .barbeiro-header__title-container {
-          max-width: 140px;
-          display: flex;
-          align-items: center;
-        }
-
-        .barbeiro-header__title {
-          font-size: 0.8125rem;
-          font-weight: 700;
-          margin: 0;
-          line-height: 1.15;
-          color: var(--color-text-primary);
-          text-wrap: balance;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        /* NAVEGAÇÃO DESKTOP */
-        .barbeiro-header__nav-desktop {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          background: 
-            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
-            rgba(255, 255, 255, 0.45);
-          padding: 0.25rem;
-          border-radius: var(--radius-lg);
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-          backdrop-filter: blur(12px) saturate(160%);
-          -webkit-backdrop-filter: blur(12px) saturate(160%);
-        }
-
-        .barbeiro-header__nav-link {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          padding: 0.45rem 1.15rem;
-          border-radius: var(--radius-md);
-          text-decoration: none;
-          border: 1px solid transparent;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .barbeiro-header__nav-link:hover {
-          color: var(--color-brand-primary);
-          background-color: rgba(255, 255, 255, 0.55);
-          border-color: rgba(234, 222, 214, 0.6);
-        }
-
-        .barbeiro-header__nav-link--active {
-          color: var(--color-brand-primary);
-          background-color: var(--color-bg-secondary);
-          border-color: rgba(234, 222, 214, 0.85);
-          font-weight: 600;
-          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-        }
-
-        .barbeiro-header__nav-icon {
-          display: flex;
-          align-items: center;
-        }
-
-        /* SEÇÃO USUÁRIO E LOGOUT */
-        .barbeiro-header__user-section {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .barbeiro-header__user-profile {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-        }
-
-        .barbeiro-header__avatar {
-          width: 34px;
-          height: 34px;
-          border-radius: var(--radius-full);
-          background-color: var(--color-brand-soft);
-          color: var(--color-brand-deep);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          font-size: var(--font-size-sm);
-          border: 1.5px solid rgba(255, 255, 255, 0.8);
-          box-shadow: var(--shadow-sm);
-        }
-
-        .barbeiro-header__profile-meta {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .barbeiro-header__profile-name {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          line-height: 1.2;
-        }
-
-        .barbeiro-header__profile-role {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          line-height: 1.1;
-        }
-
-        .btn-logout {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          background: transparent;
-          border: 1px solid var(--color-error);
-          color: var(--color-error);
-          padding: 0.4rem 0.8rem;
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .btn-logout:hover {
-          background-color: var(--color-error-bg);
-          transform: translateY(-1px);
-        }
-
-        .btn-logout:active {
-          transform: scale(0.97);
-        }
-
-        /* CONTEÚDO PRINCIPAL */
-        .barbeiro-main {
-          flex: 1;
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 1.5rem 1rem;
-          display: flex;
-          flex-direction: column;
-        }
-
-        @media (min-width: 769px) {
-          .barbeiro-main {
-            padding: 2rem 2.5rem;
-          }
-        }
-
-        /* TRANSITION/ANIMATION DA ROTA */
-        .barbeiro-route-wrapper {
-          width: 100%;
-          animation: smoothFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        /* NAVEGAÇÃO INFERIOR PARA MOBILE */
-        .barbeiro-bottom-nav {
-          display: none;
-        }
-
-        @media (max-width: 768px) {
-          .barbeiro-header {
-            display: none !important;
-          }
-          .barbeiro-main {
-            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
-          }
-        }
-
-        @keyframes smoothFadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </>
   );
 };

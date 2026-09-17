@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { supabase } from '../../lib/supabase';
-import './onboarding/onboarding-shared.css';
 import { StepLocation } from './onboarding/StepLocation';
 import { StepProfessionals } from './onboarding/StepProfessionals';
 import { StepSegmentation } from './onboarding/StepSegmentation';

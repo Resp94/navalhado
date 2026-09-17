@@ -132,7 +132,7 @@ export const Dashboard: React.FC = () => {
       : '';
 
     return (
-      <div className="chart-wrapper">
+      <div className="w-full h-[240px] overflow-visible">
         <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" overflow="visible">
           <defs>
             {/* Gradiente do preenchimento da área do gráfico */}
@@ -193,11 +193,11 @@ export const Dashboard: React.FC = () => {
 
           {/* Pontos de dados iterativos */}
           {points.map((p, i) => (
-            <g 
-              key={i} 
+            <g
+              key={i}
               onMouseEnter={() => setHoveredPoint(i)}
               onMouseLeave={() => setHoveredPoint(null)}
-              style={{ cursor: 'pointer' }}
+              className="cursor-pointer"
             >
               {/* Círculo invisível maior para detecção de hover */}
               <circle cx={p.x} cy={p.y} r="12" fill="transparent" />
@@ -210,7 +210,7 @@ export const Dashboard: React.FC = () => {
                 fill={hoveredPoint === i ? 'var(--color-brand-hover)' : 'var(--color-brand-primary)'} 
                 stroke="var(--color-bg-secondary)" 
                 strokeWidth="2.5"
-                style={{ transition: 'all 0.15s ease' }}
+                className="transition-all duration-150 ease-in"
               />
 
               {/* Rótulo do Eixo X */}
@@ -278,14 +278,14 @@ export const Dashboard: React.FC = () => {
   if (loading || !metrics) {
     // Retorna o esqueleto de carregamento com o componente Skeleton do Design System
     return (
-      <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <Skeleton height="50px" style={{ width: '100%', borderRadius: '8px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+      <div className="p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        <Skeleton height="50px" className="w-full rounded-md" />
+        <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} height="130px" style={{ borderRadius: '12px' }} />
+            <Skeleton key={i} height="130px" className="rounded-lg" />
           ))}
         </div>
-        <Skeleton height="300px" style={{ borderRadius: '12px' }} />
+        <Skeleton height="300px" className="rounded-lg" />
       </div>
     );
   }
@@ -294,38 +294,49 @@ export const Dashboard: React.FC = () => {
     <>
       <div className="noise-overlay" />
 
-      <div className="admin-layout">
+      <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
         {/* TOP BAR */}
-        <header className="admin-header">
-          <div className="admin-header__brand" onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>
-            <div className="admin-header__logo">
-              <img src="/simbolo.svg" alt="Navalhado" style={{ width: '34px', height: '34px', display: 'block' }} />
+        <header className="flex justify-between items-center px-8 py-4 bg-[radial-gradient(ellipse_40%_60%_at_15%_50%,rgba(217,108,0,0.05)_0%,transparent_60%),radial-gradient(ellipse_40%_60%_at_85%_50%,rgba(217,108,0,0.03)_0%,transparent_55%),linear-gradient(145deg,rgba(255,255,255,0.78)_0%,rgba(255,241,230,0.5)_45%,rgba(255,255,255,0.72)_100%)] backdrop-blur-[28px] backdrop-saturate-[200%] border-b border-[rgba(255,255,255,0.25)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_-1px_0_rgba(255,255,255,0.15),0_8px_40px_-8px_rgba(45,35,30,0.1),0_1px_4px_rgba(45,35,30,0.04)] sticky top-0 z-[100] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-md:px-4 max-md:py-4">
+          <div
+            className="flex items-center gap-3 cursor-pointer hover:opacity-90"
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            <div className="flex items-center justify-center">
+              <img src="/simbolo.svg" alt="Navalhado" className="w-[34px] h-[34px] block" />
             </div>
             <div>
-              <h1 className="admin-header__title">Navalhado</h1>
+              <h1 className="text-base font-bold m-0 leading-[1.1] text-text-primary">Navalhado</h1>
             </div>
           </div>
 
           {/* Navegação Central Coesa */}
-          <nav className="admin-header__nav">
-            <button 
-              onClick={() => navigate('/admin/dashboard')} 
-              className={`admin-header__nav-link ${location.pathname === '/admin/dashboard' ? 'admin-header__nav-link--active' : ''}`}
+          <nav className="flex items-center gap-[0.35rem] bg-[radial-gradient(ellipse_50%_100%_at_30%_50%,rgba(217,108,0,0.04)_0%,transparent_70%),rgba(255,255,255,0.45)] p-1 rounded-lg border border-[rgba(255,255,255,0.35)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[12px] backdrop-saturate-[160%]">
+            <button
+              onClick={() => navigate('/admin/dashboard')}
+              className={`flex items-center gap-2 bg-transparent border border-transparent text-sm font-medium cursor-pointer px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
+                location.pathname === '/admin/dashboard'
+                  ? 'text-brand-primary bg-bg-secondary border-[rgba(234,222,214,0.8)] font-semibold shadow-[0_1px_2px_rgba(45,35,30,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]'
+                  : 'text-text-secondary hover:text-brand-primary hover:bg-[rgba(255,255,255,0.5)] hover:border-[rgba(234,222,214,0.6)]'
+              }`}
             >
               Dashboard
             </button>
-            <button 
-              onClick={() => navigate('/admin/tenants')} 
-              className={`admin-header__nav-link ${location.pathname === '/admin/tenants' ? 'admin-header__nav-link--active' : ''}`}
+            <button
+              onClick={() => navigate('/admin/tenants')}
+              className={`flex items-center gap-2 bg-transparent border border-transparent text-sm font-medium cursor-pointer px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
+                location.pathname === '/admin/tenants'
+                  ? 'text-brand-primary bg-bg-secondary border-[rgba(234,222,214,0.8)] font-semibold shadow-[0_1px_2px_rgba(45,35,30,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]'
+                  : 'text-text-secondary hover:text-brand-primary hover:bg-[rgba(255,255,255,0.5)] hover:border-[rgba(234,222,214,0.6)]'
+              }`}
             >
               Barbearias
             </button>
           </nav>
 
-          <div className="admin-header__user">
-            <div className="admin-header__user-info">
-              <span className="admin-header__user-name">{adminName}</span>
-              <span className="admin-header__user-role">Proprietário</span>
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col text-right max-md:hidden">
+              <span className="text-sm font-semibold">{adminName}</span>
+              <span className="text-xs text-text-secondary">Proprietário</span>
             </div>
             <Button variant="danger-outline" size="sm" onClick={handleLogout}>
               Sair
@@ -334,20 +345,20 @@ export const Dashboard: React.FC = () => {
         </header>
 
         {/* CONTAINER PRINCIPAL */}
-        <main className="admin-container">
+        <main className="flex-1 max-w-[1200px] w-full mx-auto p-8 flex flex-col gap-8 max-md:p-4">
           {/* Saudação e introdução */}
-          <section className="welcome-banner">
-            <h2>Olá, {adminName.split(' ')[0]}.</h2>
-            <p>Visão consolidada do faturamento e da ativação da sua plataforma.</p>
+          <section>
+            <h2 className="text-2xl font-bold tracking-[-0.02em] mb-1">Olá, {adminName.split(' ')[0]}.</h2>
+            <p className="text-text-secondary text-sm">Visão consolidada do faturamento e da ativação da sua plataforma.</p>
           </section>
 
           {/* GRID DE MÉTRICAS CARD COM DESIGN SYSTEM */}
-          <section className="metrics-grid">
+          <section className="grid gap-6 w-full [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
             <StatCard
               title="Receita Recorrente (MRR)"
               value={formatCurrency(metrics.mrr)}
               subtitle="Valor total das assinaturas ativas"
-              icon={<span className="text-brand"><InfoIcon size={20} /></span>}
+              icon={<span className="text-brand-primary"><InfoIcon size={20} /></span>}
             />
 
             <StatCard
@@ -373,273 +384,28 @@ export const Dashboard: React.FC = () => {
           </section>
 
           {/* SEÇÃO GRÁFICO HISTÓRICO */}
-          <section className="dashboard-chart-section">
-            <div className="chart-header">
+          <section className="bg-bg-secondary border border-border rounded-lg p-7 shadow-sm flex flex-col gap-6 overflow-visible">
+            <div className="flex justify-between items-center max-md:flex-col max-md:items-start max-md:gap-4">
               <div>
-                <h3>Evolução da receita</h3>
-                <p>Faturamento mensal dos últimos 12 meses</p>
+                <h3 className="text-lg font-semibold mb-1">Evolução da receita</h3>
+                <p className="text-xs text-text-secondary m-0">Faturamento mensal dos últimos 12 meses</p>
               </div>
-              
+
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => navigate('/admin/tenants')}
                 rightIcon={<ArrowRightIcon size={12} />}
+                className="max-md:w-full"
               >
                 Ir para barbearias
               </Button>
             </div>
-            
+
             {renderSVGChart()}
           </section>
         </main>
       </div>
-
-      <style>{`
-        .admin-layout {
-          min-height: 100vh;
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .admin-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem 2rem;
-          /* Liquid glass — gradient-tinted to match app theme */
-          background: 
-            radial-gradient(ellipse 40% 60% at 15% 50%, rgba(217, 108, 0, 0.05) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 60% at 85% 50%, rgba(217, 108, 0, 0.03) 0%, transparent 55%),
-            linear-gradient(
-              145deg,
-              rgba(255, 255, 255, 0.78) 0%,
-              rgba(255, 241, 230, 0.5) 45%,
-              rgba(255, 255, 255, 0.72) 100%
-            );
-          backdrop-filter: blur(28px) saturate(200%);
-          -webkit-backdrop-filter: blur(28px) saturate(200%);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-          box-shadow: 
-            inset 0 1px 0 rgba(255, 255, 255, 0.6),
-            inset 0 -1px 0 rgba(255, 255, 255, 0.15),
-            0 8px 40px -8px rgba(45, 35, 30, 0.1),
-            0 1px 4px rgba(45, 35, 30, 0.04);
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .admin-header__brand {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .admin-header__brand:hover {
-          opacity: 0.9;
-        }
-
-        .admin-header__logo {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .admin-header__title {
-          font-size: var(--font-size-base);
-          font-weight: 700;
-          margin: 0;
-          line-height: 1.1;
-          color: var(--color-text-primary);
-        }
-
-        .admin-header__nav {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          background: 
-            radial-gradient(ellipse 50% 100% at 30% 50%, rgba(217, 108, 0, 0.04) 0%, transparent 70%),
-            rgba(255, 255, 255, 0.45);
-          padding: 0.25rem;
-          border-radius: var(--radius-lg);
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-          backdrop-filter: blur(12px) saturate(160%);
-          -webkit-backdrop-filter: blur(12px) saturate(160%);
-        }
-
-        .admin-header__nav-link {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: transparent;
-          border: 1px solid transparent;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          cursor: pointer;
-          padding: 0.45rem 1rem;
-          border-radius: var(--radius-md);
-          text-decoration: none;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .admin-header__nav-link:hover {
-          color: var(--color-brand-primary);
-          background-color: rgba(255, 255, 255, 0.5);
-          border-color: rgba(234, 222, 214, 0.6);
-        }
-
-        .admin-header__nav-link--active {
-          color: var(--color-brand-primary);
-          background-color: var(--color-bg-secondary);
-          border-color: rgba(234, 222, 214, 0.8);
-          font-weight: 600;
-          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-        }
-
-        .admin-header__nav-link:active {
-          transform: scale(0.97);
-        }
-
-        .admin-header__user {
-          display: flex;
-          align-items: center;
-          gap: 1.25rem;
-        }
-
-        .admin-header__user-info {
-          display: flex;
-          flex-direction: column;
-          text-align: right;
-        }
-
-        .admin-header__user-name {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-        }
-
-        .admin-header__user-role {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .admin-header__user {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-        }
-
-        .admin-header__user-info {
-          display: flex;
-          flex-direction: column;
-          text-align: right;
-        }
-
-        .admin-header__user-name {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-        }
-
-        .admin-header__user-role {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .admin-container {
-          flex: 1;
-          max-width: 1200px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 2rem;
-          display: flex;
-          flex-direction: column;
-          gap: 2rem;
-        }
-
-        .welcome-banner h2 {
-          font-size: var(--font-size-2xl);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          margin-bottom: 0.25rem;
-        }
-
-        .welcome-banner p {
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-        }
-
-        .metrics-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 1.5rem;
-          width: 100%;
-        }
-
-        .text-brand { color: var(--color-brand-primary); }
-        .text-success { color: var(--color-success); }
-        .text-error { color: var(--color-error); }
-
-        .dashboard-chart-section {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.75rem;
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          overflow: visible;
-        }
-
-        .chart-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .chart-header h3 {
-          font-size: var(--font-size-lg);
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-
-        .chart-header p {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
-        .chart-wrapper {
-          width: 100%;
-          height: 240px;
-          overflow: visible;
-        }
-
-        @media (max-width: 768px) {
-          .admin-header {
-            padding: 1rem;
-          }
-          .admin-header__user-info {
-            display: none;
-          }
-          .admin-container {
-            padding: 1rem;
-          }
-          .chart-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-          }
-          .chart-header button {
-            width: 100%;
-          }
-        }
-      `}</style>
     </>
   );
 };

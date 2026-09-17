@@ -197,30 +197,33 @@ export const FinanceiroPainel: React.FC = () => {
 
   return (
     <>
-      <div className="financeiro-desktop-view financeiro-panel-header">
+      <div className="financeiro-desktop-view mt-2">
         {/* Filtro de Período */}
-        <div className="financeiro-period-tabs">
-          <button
-            onClick={() => setPeriod('this_month')}
-            type="button"
-            className={`period-tab-btn ${period === 'this_month' ? 'period-tab-btn--active' : ''}`}
-          >
-            Este mês
-          </button>
-          <button
-            onClick={() => setPeriod('last_30_days')}
-            type="button"
-            className={`period-tab-btn ${period === 'last_30_days' ? 'period-tab-btn--active' : ''}`}
-          >
-            Últimos 30 dias
-          </button>
-          <button
-            onClick={() => setPeriod('last_90_days')}
-            type="button"
-            className={`period-tab-btn ${period === 'last_90_days' ? 'period-tab-btn--active' : ''}`}
-          >
-            Últimos 90 dias
-          </button>
+        <div className="flex items-center gap-1 bg-bg-secondary border border-border p-1 rounded-md shadow-sm">
+          {(
+            [
+              { key: 'this_month', label: 'Este mês' },
+              { key: 'last_30_days', label: 'Últimos 30 dias' },
+              { key: 'last_90_days', label: 'Últimos 90 dias' },
+            ] as const
+          ).map(({ key, label }) => {
+            const isActive = period === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setPeriod(key)}
+                type="button"
+                aria-pressed={isActive}
+                className={`px-[0.85rem] py-[0.4rem] text-xs font-semibold rounded-sm border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] outline-none focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 ${
+                  isActive
+                    ? 'bg-warning-bg text-text-primary shadow-sm'
+                    : 'bg-transparent text-text-secondary hover:text-brand-primary'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Bento Grid: 5 Cards de KPIs Consolidados */}

@@ -53,15 +53,22 @@ export const FinanceiroHub: React.FC = () => {
     onContasPagarAlteradas: recarregarAlerta,
   };
 
+  const navTabClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-2 px-2 py-3 text-sm font-bold bg-transparent border-none border-b-[3px] -mb-0.5 cursor-pointer transition-all duration-200 ease-in outline-none no-underline whitespace-nowrap shrink-0 ${
+      isActive
+        ? 'text-text-primary border-b-brand-primary'
+        : 'text-text-secondary border-b-transparent hover:text-brand-primary'
+    }`;
+
   return (
-    <div className="financeiro-page">
+    <div className="flex flex-col gap-6 w-full pb-12 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)]">
       <div className="financeiro-desktop-view">
-        <header className="financeiro-header">
+        <header className="flex flex-col gap-4 justify-between items-start md:flex-row md:items-center">
           <div>
-            <h1 className="financeiro-header-title">
+            <h1 className="flex items-center gap-2.5 text-2xl font-extrabold text-text-primary m-0 tracking-[-0.02em] [&_svg]:text-brand-primary">
               Hub financeiro
             </h1>
-            <p className="financeiro-header-subtitle">
+            <p className="text-sm text-text-primary mt-1 leading-[1.4]">
               Acompanhe o faturamento em tempo real, controle o caixa diário e realize os repasses da sua equipe.
             </p>
           </div>
@@ -69,72 +76,45 @@ export const FinanceiroHub: React.FC = () => {
       </div>
 
       {/* Navegação entre abas: links de rota, visíveis também no celular com rolagem horizontal. */}
-      <nav className="financeiro-nav-tabs" aria-label="Abas financeiras">
-        <NavLink
-          to="/financeiro/caixa"
-          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
-        >
+      <nav
+        className="flex items-center gap-6 border-b-2 border-border pb-0 mt-2 max-md:overflow-x-auto max-md:[-webkit-overflow-scrolling:touch] max-md:flex-nowrap"
+        aria-label="Abas financeiras"
+      >
+        <NavLink to="/financeiro/caixa" className={navTabClass}>
           <HugeiconsIcon icon={Coins01Icon} size={18} />
           Caixa diário e turnos
         </NavLink>
 
-        <NavLink
-          to="/financeiro/comissoes"
-          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
-        >
+        <NavLink to="/financeiro/comissoes" className={navTabClass}>
           <HugeiconsIcon icon={UserGroupIcon} size={18} />
           Repasses de comissões
         </NavLink>
 
-        <NavLink
-          to="/financeiro/cadastros"
-          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
-        >
+        <NavLink to="/financeiro/cadastros" className={navTabClass}>
           <HugeiconsIcon icon={Invoice01Icon} size={18} />
           Plano de contas
         </NavLink>
 
-        <NavLink
-          to="/financeiro/contas-a-pagar"
-          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
-        >
+        <NavLink to="/financeiro/contas-a-pagar" className={navTabClass}>
           <HugeiconsIcon icon={CreditCardIcon} size={18} />
           Contas a pagar
           {contadorAlerta > 0 && (
-            <span className="nav-tab-badge" aria-label={`${contadorAlerta} contas vencidas ou vencendo hoje`}>
+            <span
+              className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 ml-1.5 rounded-full bg-error text-white text-[0.7rem] font-extrabold leading-none"
+              aria-label={`${contadorAlerta} contas vencidas ou vencendo hoje`}
+            >
               {contadorAlerta}
             </span>
           )}
         </NavLink>
 
-        <NavLink
-          to="/financeiro/fluxo-de-caixa"
-          className={({ isActive }) => `nav-tab-btn ${isActive ? 'nav-tab-btn--active' : ''}`}
-        >
+        <NavLink to="/financeiro/fluxo-de-caixa" className={navTabClass}>
           <HugeiconsIcon icon={ChartLineData01Icon} size={18} />
           Fluxo de Caixa Projetado
         </NavLink>
       </nav>
 
       <Outlet context={outletContext} />
-
-      <style>{`
-        .nav-tab-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 1.25rem;
-          height: 1.25rem;
-          padding: 0 0.35rem;
-          margin-left: 0.35rem;
-          border-radius: 999px;
-          background-color: var(--color-error, #B3261E);
-          color: #FFFFFF;
-          font-size: var(--font-size-xs, 0.7rem);
-          font-weight: 800;
-          line-height: 1;
-        }
-      `}</style>
     </div>
   );
 };

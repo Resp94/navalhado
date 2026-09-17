@@ -146,25 +146,25 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
 
   return (
     <div
-      className="detalhes-modal-overlay"
+      className="fixed inset-0 z-[9999] bg-[rgba(20,17,15,0.55)] backdrop-blur-[8px] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-detalhes-comissao-title"
     >
-      <div className="detalhes-modal-shell">
-        <div className="detalhes-modal-header">
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-[560px] max-h-[85vh] flex flex-col shadow-xl overflow-hidden animate-dialog-in">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-border bg-bg-secondary">
           <div>
-            <h3 id="modal-detalhes-comissao-title" className="detalhes-modal-title">
+            <h3 id="modal-detalhes-comissao-title" className="text-lg font-extrabold text-text-primary m-0 tracking-[-0.01em]">
               Extrato de atendimentos e itens faturados
             </h3>
-            <p className="detalhes-modal-subtitle">
+            <p className="text-xs text-text-secondary mt-1">
               Produção de <strong>{professional.name}</strong> • Total faturado:{' '}
-              <span className="detalhes-total-highlight">{formatCurrency(totalFaturado)}</span>
+              <span className="text-brand-primary font-extrabold [font-variant-numeric:tabular-nums]">{formatCurrency(totalFaturado)}</span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="detalhes-close-btn"
+            className="text-text-secondary p-1.5 rounded-sm bg-transparent border-none cursor-pointer flex items-center justify-center transition-all duration-200 ease-in hover:text-text-primary hover:bg-bg-primary"
             aria-label="Fechar extrato"
             type="button"
           >
@@ -172,33 +172,36 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           </button>
         </div>
 
-        <div className="detalhes-modal-body">
+        <div className="px-6 py-5 overflow-y-auto flex-1">
           {loading ? (
-            <div className="detalhes-empty-state">Buscando itens faturados...</div>
+            <div className="py-10 px-4 text-center text-sm text-text-secondary">Buscando itens faturados...</div>
           ) : items.length === 0 ? (
-            <div className="detalhes-empty-state">
+            <div className="py-10 px-4 text-center text-sm text-text-secondary">
               Nenhum item ou serviço concluído para este profissional no período selecionado.
             </div>
           ) : (
-            <div className="detalhes-items-list">
+            <div className="flex flex-col gap-2.5">
               {items.map((item) => (
-                <div key={item.id} className="detalhes-item-row">
-                  <div className="detalhes-item-icon">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3.5 px-4 py-3.5 bg-bg-primary border border-border rounded-md transition-all duration-200 ease-in hover:border-brand-soft hover:shadow-sm"
+                >
+                  <div className="w-9 h-9 rounded-md bg-[rgba(217,108,0,0.12)] text-brand-primary flex items-center justify-center shrink-0">
                     <HugeiconsIcon
                       icon={item.item_type === 'produto' || item.product_name ? ShoppingBag01Icon : ScissorIcon}
                       size={18}
                     />
                   </div>
-                  <div className="detalhes-item-info">
-                    <p className="detalhes-item-name">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis m-0">
                       {item.service_name || item.product_name || 'Item de comanda'}
                       {item.quantity > 1 && ` (x${item.quantity})`}
                     </p>
-                    <p className="detalhes-item-sub">
+                    <p className="text-xs text-text-secondary mt-0.5">
                       {item.customer_name} • {formatDate(item.comanda_closed_at)}
                     </p>
                   </div>
-                  <div className="detalhes-item-price">
+                  <div className="text-sm font-extrabold text-text-primary [font-variant-numeric:tabular-nums]">
                     {formatCurrency(item.total_price)}
                   </div>
                 </div>
@@ -207,175 +210,16 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
           )}
         </div>
 
-        <div className="detalhes-modal-footer">
+        <div className="px-6 py-4 border-t border-border flex justify-end bg-bg-secondary">
           <button
             type="button"
             onClick={onClose}
-            className="detalhes-btn-close"
+            className="px-5 py-2.5 text-text-primary bg-bg-primary border border-border rounded-md text-sm font-bold cursor-pointer transition-all duration-200 ease-in hover:border-brand-primary hover:text-brand-primary"
           >
             Fechar extrato
           </button>
         </div>
       </div>
-
-      <style>{`
-        .detalhes-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: rgba(20, 17, 15, 0.55);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-        .detalhes-modal-shell {
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-lg, 1rem);
-          width: 100%;
-          max-width: 560px;
-          max-height: 85vh;
-          display: flex;
-          flex-direction: column;
-          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-          overflow: hidden;
-          animation: detalhesFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes detalhesFadeIn {
-          from { opacity: 0; transform: scale(0.96) translateY(6px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .detalhes-modal-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          background: var(--color-bg-secondary, #ffffff);
-        }
-        .detalhes-modal-title {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-        .detalhes-modal-subtitle {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-          margin-top: 0.25rem;
-        }
-        .detalhes-total-highlight {
-          color: var(--color-brand-primary, #D96C00);
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-        }
-        .detalhes-close-btn {
-          color: var(--color-text-secondary, #70625B);
-          padding: 0.35rem;
-          border-radius: var(--radius-sm, 0.375rem);
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-        }
-        .detalhes-close-btn:hover {
-          color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-        }
-        .detalhes-modal-body {
-          padding: 1.25rem 1.5rem;
-          overflow-y: auto;
-          flex: 1;
-        }
-        .detalhes-empty-state {
-          padding: 2.5rem 1rem;
-          text-align: center;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-secondary, #70625B);
-        }
-        .detalhes-items-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
-        }
-        .detalhes-item-row {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          padding: 0.85rem 1rem;
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          transition: all 0.2s ease;
-        }
-        .detalhes-item-row:hover {
-          border-color: var(--color-brand-soft, #F2B277);
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));
-        }
-        .detalhes-item-icon {
-          width: 2.25rem;
-          height: 2.25rem;
-          border-radius: var(--radius-md, 0.375rem);
-          background: rgba(217, 108, 0, 0.12);
-          color: var(--color-brand-primary, #D96C00);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .detalhes-item-info {
-          flex: 1;
-          min-width: 0;
-        }
-        .detalhes-item-name {
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          margin: 0;
-        }
-        .detalhes-item-sub {
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-text-secondary, #70625B);
-          margin-top: 0.15rem;
-        }
-        .detalhes-item-price {
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          font-variant-numeric: tabular-nums;
-        }
-        .detalhes-modal-footer {
-          padding: 1rem 1.5rem;
-          border-top: 1px solid var(--color-border, #EADED6);
-          display: flex;
-          justify-content: flex-end;
-          background: var(--color-bg-secondary, #ffffff);
-        }
-        .detalhes-btn-close {
-          padding: 0.6rem 1.25rem;
-          color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .detalhes-btn-close:hover {
-          border-color: var(--color-brand-primary, #D96C00);
-          color: var(--color-brand-primary, #D96C00);
-        }
-      `}</style>
     </div>
   );
 };

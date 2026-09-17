@@ -195,6 +195,13 @@ button, input, select, textarea {
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* Bottom-sheet mobile (usado via animate-[slideUpMobile_...] em modais que
+   viram folha inferior em telas pequenas — ver Ticket 15 da spec 039). */
+@keyframes slideUpMobile {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* Spring entry — usado no card e nos elementos internos */
 @keyframes springUp {
   0%   { transform: translateY(24px) scale(0.98); opacity: 0; }

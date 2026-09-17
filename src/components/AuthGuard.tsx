@@ -137,143 +137,37 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) =
     return (
       <>
         <div className="noise-overlay" />
-        <div className="skeleton-container">
+        <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex flex-col gap-8">
           {/* Header Skeleton */}
-          <header className="skeleton-header">
-            <div className="skeleton skeleton-title" />
-            <div className="skeleton-actions">
-              <div className="skeleton skeleton-badge" />
-              <div className="skeleton skeleton-btn" />
+          <header className="flex justify-between items-center pb-6 border-b border-border w-full">
+            <div className="w-[250px] h-8 rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+            <div className="flex items-center gap-4">
+              <div className="w-[100px] h-6 rounded-full bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="w-20 h-9 rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
             </div>
           </header>
 
           {/* Main Body Skeleton */}
-          <main className="skeleton-body">
+          <main className="flex flex-col gap-8 max-w-[1200px] w-full mx-auto">
             {/* Grid de Cards */}
-            <div className="skeleton-grid">
-              <div className="skeleton skeleton-card" />
-              <div className="skeleton skeleton-card" />
-              <div className="skeleton skeleton-card" />
-              <div className="skeleton skeleton-card" />
+            <div className="grid [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))] gap-6 w-full">
+              <div className="h-[110px] rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-[110px] rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-[110px] rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-[110px] rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
             </div>
 
             {/* Grafico Placeholder */}
-            <div className="skeleton skeleton-chart" />
+            <div className="h-[300px] w-full rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
 
             {/* Lista / Tabela Placeholder */}
-            <div className="skeleton-table-wrapper">
-              <div className="skeleton skeleton-table-row" />
-              <div className="skeleton skeleton-table-row" />
-              <div className="skeleton skeleton-table-row" />
+            <div className="flex flex-col gap-4 w-full">
+              <div className="h-14 w-full rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-14 w-full rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-14 w-full rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
             </div>
           </main>
         </div>
-
-        <style>{`
-          .skeleton-container {
-            min-height: 100vh;
-            background-color: var(--color-bg-primary);
-            color: var(--color-text-primary);
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-          }
-
-          .skeleton-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid var(--color-border);
-            width: 100%;
-          }
-
-          .skeleton-title {
-            width: 250px;
-            height: 2rem;
-          }
-
-          .skeleton-actions {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-          }
-
-          .skeleton-badge {
-            width: 100px;
-            height: 1.5rem;
-            border-radius: var(--radius-full);
-          }
-
-          .skeleton-btn {
-            width: 80px;
-            height: 2.25rem;
-            border-radius: var(--radius-md);
-          }
-
-          .skeleton-body {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-            max-width: 1200px;
-            width: 100%;
-            margin: 0 auto;
-          }
-
-          .skeleton-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.5rem;
-            width: 100%;
-          }
-
-          .skeleton-card {
-            height: 110px;
-            border-radius: var(--radius-lg);
-          }
-
-          .skeleton-chart {
-            height: 300px;
-            border-radius: var(--radius-lg);
-            width: 100%;
-          }
-
-          .skeleton-table-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            width: 100%;
-          }
-
-          .skeleton-table-row {
-            height: 3.5rem;
-            border-radius: var(--radius-md);
-            width: 100%;
-          }
-
-          /* --- Skeleton Animation --- */
-          .skeleton {
-            background: linear-gradient(
-              90deg,
-              var(--color-bg-secondary) 25%,
-              var(--color-border) 37%,
-              var(--color-bg-secondary) 63%
-            );
-            background-size: 400% 100%;
-            animation: skeleton-loading 1.4s ease infinite;
-            border-radius: var(--radius-md);
-          }
-
-          @keyframes skeleton-loading {
-            0% {
-              background-position: -200% 0;
-            }
-            100% {
-              background-position: 200% 0;
-            }
-          }
-        `}</style>
       </>
     );
   }

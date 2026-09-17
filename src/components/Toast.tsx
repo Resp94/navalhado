@@ -50,18 +50,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {children}
       
       {/* Container de Toasts flutuantes */}
-      <div style={{
-        position: 'fixed',
-        top: '1.5rem',
-        right: '1.5rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        zIndex: 2000,
-        pointerEvents: 'none',
-        maxWidth: '360px',
-        width: '100%'
-      }}>
+      <div className="fixed top-6 right-6 flex flex-col gap-3 z-[2000] pointer-events-none max-w-[360px] w-full">
         {messages.map((msg) => (
           <ToastItem key={msg.id} toast={msg} onClose={removeToast} />
         ))}
@@ -71,110 +60,49 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 // Componente para o item individual do Toast
+const TOAST_TYPE_CLASSES: Record<ToastType, string> = {
+  success: 'bg-success-bg border-success text-text-primary',
+  error: 'bg-error-bg border-error text-text-primary',
+  warning: 'bg-warning-bg border-warning text-text-primary',
+  info: 'bg-info-bg border-info text-text-primary',
+};
+
 const ToastItem: React.FC<{ toast: ToastMessage; onClose: (id: string) => void }> = ({ toast, onClose }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <SuccessIcon size={20} style={{ color: 'var(--color-success)' }} />;
+        return <SuccessIcon size={20} className="text-success" />;
       case 'error':
-        return <ErrorIcon size={20} style={{ color: 'var(--color-error)' }} />;
+        return <ErrorIcon size={20} className="text-error" />;
       case 'warning':
-        return <WarningIcon size={20} style={{ color: 'var(--color-warning)' }} />;
+        return <WarningIcon size={20} className="text-warning" />;
       case 'info':
       default:
-        return <InfoIcon size={20} style={{ color: 'var(--color-info)' }} />;
-    }
-  };
-
-  const getStyle = () => {
-    const baseStyle: React.CSSProperties = {
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: '0.75rem',
-      padding: '1rem',
-      borderRadius: 'var(--radius-lg, 12px)',
-      boxShadow: 'var(--shadow-md)',
-      border: '1px solid',
-      pointerEvents: 'auto',
-      animation: 'slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-      position: 'relative',
-      overflow: 'hidden'
-    };
-
-    switch (toast.type) {
-      case 'success':
-        return {
-          ...baseStyle,
-          backgroundColor: 'var(--color-success-bg)',
-          borderColor: 'var(--color-success)',
-          color: 'var(--color-text-primary)'
-        };
-      case 'error':
-        return {
-          ...baseStyle,
-          backgroundColor: 'var(--color-error-bg)',
-          borderColor: 'var(--color-error)',
-          color: 'var(--color-text-primary)'
-        };
-      case 'warning':
-        return {
-          ...baseStyle,
-          backgroundColor: 'var(--color-warning-bg)',
-          borderColor: 'var(--color-warning)',
-          color: 'var(--color-text-primary)'
-        };
-      case 'info':
-      default:
-        return {
-          ...baseStyle,
-          backgroundColor: 'var(--color-info-bg)',
-          borderColor: 'var(--color-info)',
-          color: 'var(--color-text-primary)'
-        };
+        return <InfoIcon size={20} className="text-info" />;
     }
   };
 
   return (
-    <div style={getStyle()}>
+    <div
+      className={`flex items-start gap-3 p-4 rounded-lg shadow-md border pointer-events-auto animate-slide-in-right relative overflow-hidden ${TOAST_TYPE_CLASSES[toast.type]}`}
+    >
       {/* Ícone Semântico */}
-      <div style={{ display: 'flex', marginTop: '0.125rem' }}>
+      <div className="flex mt-0.5">
         {getIcon()}
       </div>
-      
+
       {/* Texto do Toast */}
-      <div style={{ flex: 1, fontSize: 'var(--font-size-sm)', fontWeight: 500, lineHeight: 1.4, paddingRight: '1rem' }}>
+      <div className="flex-1 text-sm font-medium leading-[1.4] pr-4">
         {toast.message}
       </div>
 
       {/* Botão de Fechar */}
       <button
         onClick={() => onClose(toast.id)}
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '0.125rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--color-text-secondary)',
-          borderRadius: 'var(--radius-sm)',
-          transition: 'color 0.2s ease',
-          marginTop: '0.125rem'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-text-primary)'}
-        onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-text-secondary)'}
+        className="bg-none border-none cursor-pointer p-0.5 flex items-center justify-center text-text-secondary rounded-sm transition-colors duration-200 ease-in mt-0.5 hover:text-text-primary"
       >
         <CloseIcon size={16} />
       </button>
-
-      {/* Estilos locais de animação */}
-      <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 };

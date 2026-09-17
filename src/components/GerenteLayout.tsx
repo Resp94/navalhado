@@ -171,12 +171,14 @@ export const GerenteLayout: React.FC = () => {
     return (
       <>
         <div className="noise-overlay" />
-        <div className="skeleton-container" style={{ padding: '2rem' }}>
-          <header className="skeleton-header" style={{ height: '60px', borderBottom: '1px solid var(--color-border)' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginTop: '2rem' }}>
-            {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: '120px' }} />)}
+        <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex flex-col gap-8">
+          <header className="flex h-[60px] w-full border-b border-border" />
+          <div className="grid grid-cols-4 gap-6 mt-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-[120px] rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+            ))}
           </div>
-          <div className="skeleton" style={{ height: '350px', marginTop: '2rem' }} />
+          <div className="h-[350px] mt-8 rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
         </div>
       </>
     );
@@ -184,7 +186,7 @@ export const GerenteLayout: React.FC = () => {
 
   if (location.pathname === '/onboarding') {
     return (
-      <div className="onboarding-layout" style={{ minHeight: '100vh', backgroundColor: '#09090b', color: '#f4f4f5' }}>
+      <div className="min-h-screen bg-[#09090b] text-[#f4f4f5]">
         <Outlet context={tenantInfo} />
       </div>
     );
@@ -205,7 +207,11 @@ export const GerenteLayout: React.FC = () => {
     <>
       <div className="noise-overlay" />
 
-      <div className={`gerente-layout ${isAgenda ? 'gerente-layout--agenda' : ''}`}>
+      <div
+        className={`min-h-screen bg-bg-primary text-text-primary flex flex-row max-md:flex-col ${
+          isAgenda ? 'h-dvh max-h-dvh overflow-hidden max-md:h-auto max-md:max-h-none max-md:overflow-visible' : ''
+        }`}
+      >
         {/* HEADER MOBILE (<= 768px) */}
         <MobileHeader
           tenantName={tenantInfo.tenantName}
@@ -228,7 +234,13 @@ export const GerenteLayout: React.FC = () => {
         />
 
         {/* CONTAINER DO CONTEÚDO DA PÁGINA */}
-        <main className={`gerente-container ${isAgenda ? 'gerente-container--agenda' : ''}`}>
+        <main
+          className={
+            isAgenda
+              ? 'flex-1 w-full mx-auto flex flex-col min-w-0 box-border h-dvh max-h-dvh max-w-full m-0 pt-4 pr-6 pb-4 pl-4 overflow-hidden gap-0 static top-0 left-0 max-md:h-auto max-md:max-h-none max-md:overflow-visible max-md:px-[0.875rem] max-md:pt-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] max-md:gap-4'
+              : 'flex-1 w-full mx-auto flex flex-col min-w-0 box-border max-w-[1440px] px-8 py-6 gap-6 max-lg:relative max-lg:top-[-8px] max-md:static max-md:top-0 max-md:px-[0.875rem] max-md:pt-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] max-md:gap-4'
+          }
+        >
           <Outlet context={tenantInfo} />
         </main>
 
@@ -247,103 +259,6 @@ export const GerenteLayout: React.FC = () => {
           onLogout={handleLogout}
         />
       </div>
-
-      <style>{`
-        .gerente-layout {
-          min-height: 100vh;
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          display: flex;
-          flex-direction: row;
-        }
-
-        .gerente-layout--agenda {
-          height: 100vh;
-          height: 100dvh;
-          max-height: 100dvh;
-          overflow: hidden;
-        }
-
-        .gerente-container {
-          flex: 1;
-          max-width: 1440px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 1.5rem 2rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          min-width: 0;
-          box-sizing: border-box;
-        }
-
-        .gerente-container--agenda {
-          height: 100vh;
-          height: 100dvh;
-          max-height: 100dvh;
-          max-width: 100%;
-          margin: 0;
-          padding: 1rem 1.5rem 1rem 1rem;
-          overflow: hidden;
-          gap: 0;
-          position: static;
-          top: 0;
-          left: 0;
-        }
-
-        .btn--outline-danger {
-          border: 1px solid var(--color-error);
-          background: transparent;
-          color: var(--color-error);
-          transition: all 0.2s ease;
-        }
-
-        .btn--outline-danger:hover {
-          background-color: var(--color-error-bg);
-        }
-
-        .btn--sm {
-          padding: 0.4rem 0.875rem;
-          font-size: var(--font-size-xs);
-        }
-
-        @media (max-width: 1024px) {
-          .gerente-container:not(.gerente-container--agenda) {
-            position: relative;
-            top: -8px;
-            left: 0;
-          }
-          .gerente-container--agenda {
-            position: static;
-            top: 0;
-            left: 0;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .gerente-layout {
-            flex-direction: column;
-          }
-          .gerente-layout--agenda {
-            height: auto;
-            max-height: none;
-            overflow: visible;
-          }
-          .gerente-container {
-            position: static;
-            top: 0;
-            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
-            gap: 1rem;
-          }
-          .gerente-container--agenda {
-            height: auto;
-            max-height: none;
-            overflow: visible;
-            padding: 1rem 0.875rem calc(4.5rem + env(safe-area-inset-bottom, 0px)) 0.875rem;
-            gap: 1rem;
-          }
-        }
-      `}</style>
     </>
   );
 };

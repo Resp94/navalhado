@@ -280,11 +280,11 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                   onClose={() => setIsDatePickerOpen(false)}
                   position="left"
                   // Sobrescreve o posicionamento absoluto padrão do CustomDatePicker
-                  // (componente compartilhado, fora do escopo desta migração) para
-                  // que o calendário apareça fixo e ocupando a largura útil da tela
-                  // em vez de um dropdown ancorado ao botão, em viewport mobile.
-                  // !important é necessário pois o <style> interno do CustomDatePicker
-                  // é renderizado depois do CSS global e empataria em especificidade.
+                  // (componente compartilhado) para que o calendário apareça fixo e
+                  // ocupando a largura útil da tela em vez de um dropdown ancorado
+                  // ao botão, em viewport mobile. !important é necessário pois as
+                  // utilities de posicionamento base do CustomDatePicker têm a
+                  // mesma especificidade destas.
                   className="!fixed !left-4 !right-4 !top-24 !w-auto"
                 />
               )}
