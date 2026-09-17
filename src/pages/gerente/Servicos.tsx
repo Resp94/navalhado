@@ -475,14 +475,14 @@ export const Servicos: React.FC = () => {
                 onClick={() => setFilterCategory(cat)}
                 className={`filter-pill inline-flex items-center gap-[0.4rem] px-[14px] py-[6px] rounded-full text-[13px] font-semibold cursor-pointer transition-all duration-150 ease-in whitespace-nowrap ${
                   isActivePill
-                    ? 'filter-pill--active bg-warning-bg text-text-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+                    ? 'filter-pill--active bg-brand-lightest text-brand-deep border-none shadow-[0_0_0_0.8px_var(--color-brand-primary)]'
                     : 'bg-bg-secondary text-text-primary border border-border hover:border-text-primary hover:text-text-primary'
                 }`}
               >
                 <span>{cat}</span>
                 <span
-                  className={`filter-pill-count text-[11px] px-[6px] py-px rounded-[10px] text-text-primary font-bold ${
-                    isActivePill ? 'bg-[rgba(45,35,30,0.12)]' : 'bg-[rgba(45,35,30,0.08)]'
+                  className={`filter-pill-count text-[11px] px-[6px] py-px rounded-[10px] font-bold ${
+                    isActivePill ? 'bg-brand-primary/12 text-brand-deep' : 'bg-[rgba(45,35,30,0.08)] text-text-primary'
                   }`}
                 >
                   {cat === 'Todos' ? services.length : services.filter(s => (s.category || 'Geral') === cat).length}
