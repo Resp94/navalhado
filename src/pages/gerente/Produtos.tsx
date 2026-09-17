@@ -779,7 +779,7 @@ export const Produtos: React.FC = () => {
                         type="button"
                         className={
                           formData.category === cat
-                            ? 'bg-brand-soft text-text-primary shadow-[0_0_0_1.5px_var(--color-text-primary)] font-extrabold hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] hover:bg-brand-lightest text-xs px-3 py-[0.35rem] min-h-[32px] rounded-full cursor-pointer transition-all duration-150 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2'
+                            ? 'bg-brand-lightest text-brand-deep shadow-[0_0_0_0.8px_var(--color-brand-primary)] font-extrabold text-xs px-3 py-[0.35rem] min-h-[32px] rounded-full cursor-pointer transition-all duration-150 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2'
                             : 'bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-semibold px-3 py-[0.35rem] min-h-[32px] rounded-full cursor-pointer transition-all duration-150 ease hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] hover:bg-brand-lightest focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2'
                         }
                         onClick={() => setFormData({ ...formData, category: cat })}

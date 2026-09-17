@@ -1,4 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { Agenda } from '../gerente/Agenda';
 
@@ -265,6 +266,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   });
 
   it('filtra a exibição de profissionais quando desmarcado no menu de equipe', async () => {
+    const user = userEvent.setup();
     render(<Agenda />);
 
     await waitFor(() => {
@@ -272,10 +274,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     const filterBtn = screen.getByRole('button', { name: /Equipe/i });
-    fireEvent.click(filterBtn);
+    await user.click(filterBtn);
 
-    const carlosCheckbox = screen.getByLabelText('Carlos Barbeiro');
-    fireEvent.click(carlosCheckbox); // Desmarca Carlos
+    const carlosItem = screen.getByRole('menuitemcheckbox', { name: 'Carlos Barbeiro' });
+    await user.click(carlosItem); // Desmarca Carlos
 
     await waitFor(() => {
       expect(screen.queryByTestId('prof-col-prof-1')).not.toBeInTheDocument();
@@ -459,8 +461,12 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   it('permite salvar encaixe em horário personalizado fora da grade', async () => {
     render(<Agenda />);
 
+    // Espera os agendamentos existentes carregarem antes de clicar: o rodízio de
+    // encaixe usa a contagem atual de atendimentos por profissional pra sugerir
+    // quem está com a agenda mais livre, e essa contagem só fica correta depois
+    // que os agendamentos mockados terminam de carregar.
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+      expect(screen.getByTestId('appointment-card')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
@@ -483,7 +489,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
     expect(mockAppointmentInsert).toHaveBeenCalledWith(expect.objectContaining({
       tenant_id: 'tenant-123',
-      professional_id: 'prof-1',
+      professional_id: 'prof-2', // rodízio: prof-1 (Carlos) já tem 1 atendimento, prof-2 (Marcos) tem 0
       service_id: 'serv-1',
       start_time: '2026-08-16T21:10:00.000Z',
       end_time: '2026-08-16T21:40:00.000Z',
@@ -989,16 +995,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   });
 
   it('mantém o botão de filtro de equipe idêntico ao alternar de dia para semana e permite alternar o profissional', async () => {
+    const user = userEvent.setup();
     render(<Agenda />);
 
     await waitFor(() => {
       expect(screen.getAllByText('Carlos Barbeiro').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Na visão de dia, o botão de equipe existe com título e classe corretos
+    // Na visão de dia, o botão de equipe existe com título e contagem corretos
     const dayFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
     expect(dayFilterBtn).toBeInTheDocument();
-    expect(dayFilterBtn).toHaveClass('btn-agenda-filter');
     expect(dayFilterBtn).toHaveTextContent(/Equipe \(\s*2\s*\)/i);
 
     // Alternar para a visão semanal
@@ -1008,22 +1014,20 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     // Na visão semanal, o botão de equipe NÃO deve virar um <select>, deve permanecer o mesmo botão
     const weekFilterBtn = screen.getByRole('button', { name: /Filtrar Equipe/i });
     expect(weekFilterBtn).toBeInTheDocument();
-    expect(weekFilterBtn).toHaveClass('btn-agenda-filter');
     expect(document.querySelector('.agenda-week-prof-select')).toBeNull();
 
     // Clicar no botão para abrir o dropdown de seleção na semana
-    fireEvent.click(weekFilterBtn);
+    await user.click(weekFilterBtn);
 
     // Deve abrir o dropdown com opção dos profissionais com checkbox
-    expect(screen.getByRole('dialog', { name: /Filtrar Barbeiros da Equipe/i })).toBeInTheDocument();
-    const carlosCheckbox = screen.getByLabelText('Carlos Barbeiro');
-    const marcosCheckbox = screen.getByLabelText('Marcos Navalha');
-    expect(carlosCheckbox).toBeChecked();
-    expect(marcosCheckbox).toBeChecked();
+    expect(screen.getByText('Exibir Barbeiros')).toBeInTheDocument();
+    const carlosItem = screen.getByRole('menuitemcheckbox', { name: 'Carlos Barbeiro' });
+    const marcosItem = screen.getByRole('menuitemcheckbox', { name: 'Marcos Navalha' });
+    expect(carlosItem).toHaveAttribute('aria-checked', 'true');
+    expect(marcosItem).toHaveAttribute('aria-checked', 'true');
 
     // Desmarcar Marcos Navalha -> fica apenas Carlos selecionado
-    fireEvent.click(marcosCheckbox);
-    expect(marcosCheckbox).not.toBeChecked();
+    await user.click(marcosItem);
 
     // A visão semanal deve refletir apenas Carlos Barbeiro no subtítulo
     await waitFor(() => {
@@ -1031,7 +1035,9 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
 
     // Desmarcar Carlos Barbeiro -> 0 selecionados, deve exibir o mesmo empty state do dia
-    fireEvent.click(carlosCheckbox);
+    // (o menu segue aberto: onSelect faz preventDefault pra permitir múltiplas marcações)
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Carlos Barbeiro' }));
+    await user.keyboard('{Escape}'); // fecha o menu pra liberar o resto da página (aria-hidden do Radix)
     await waitFor(() => {
       expect(screen.getByText('Nenhum profissional selecionado')).toBeInTheDocument();
       expect(screen.getByText(/Ative ao menos um profissional no filtro acima/i)).toBeInTheDocument();

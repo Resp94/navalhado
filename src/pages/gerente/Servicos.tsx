@@ -116,7 +116,7 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
                 </span>
               )}
               {service.commission_percentage !== null && (
-                <span className="meta-badge meta-badge--comm inline-flex items-center gap-[0.3rem] text-[11px] text-success bg-[rgba(54,179,126,0.08)] px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
+                <span className="meta-badge meta-badge--comm inline-flex items-center gap-[0.3rem] text-[11px] text-success bg-success-bg px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                   <HugeiconsIcon icon={BadgePercentIcon} size={12} />
                   Comissão: {service.commission_percentage}%
                 </span>
@@ -146,7 +146,7 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
                 checked={service.is_active}
                 onChange={() => onToggleStatus(service.id, service.is_active)}
               />
-              <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(0,0,0,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
+              <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(45,35,30,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
             </label>
           </div>
 
@@ -675,7 +675,7 @@ export const Servicos: React.FC = () => {
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                 />
-                <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(0,0,0,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
+                <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(45,35,30,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
               </label>
             </div>
           )}

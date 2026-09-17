@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import { Button } from '../../components/ui';
 import {
   dateInZone,
   formatTimeInZone,
@@ -2201,15 +2202,16 @@ export const Agenda: React.FC = () => {
           </button>
 
           {/* Botão Mestre Encaixe */}
-          <button
-            type="button"
-            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-brand-soft text-black border-none rounded-md font-bold text-xs cursor-pointer shadow-sm box-border whitespace-nowrap hover:bg-brand-soft hover:text-black hover:shadow-sm"
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-32 min-w-32"
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
             title="Atender cliente que chegou agora sem agendamento"
+            leftIcon={<HugeiconsIcon icon={AddCircleIcon} size={18} />}
           >
-            <HugeiconsIcon icon={AddCircleIcon} size={18} />
-            <span>Encaixe</span>
-          </button>
+            Encaixe
+          </Button>
         </div>
       </header>
 
@@ -3402,141 +3404,6 @@ export const Agenda: React.FC = () => {
         onEncaixar={handleEncaixarFromWaitingList}
         esperaRepo={esperaRepository}
       />
-
-      {/* 8. ESTILOS EMBUTIDOS DA AGENDA */}
-      <style>{`
-        /*
-         * Ticket 15 (spec 039) — as regras abaixo (agenda-filter-*/
-         * btn-agenda-filter/filter-checkbox-item/btn-link-xs) pertencem ao
-         * componente filho src/pages/gerente/AgendaEquipeFilter.tsx, que
-         * renderiza este JSX em outro arquivo e não faz parte do escopo
-         * desta migração. As regras custom-datepicker-* que existiam aqui
-         * pertenciam a src/components/CustomDatePicker.tsx, já convertido
-         * para utilitários Tailwind — removidas por serem órfãs. Todo o
-         * restante do <style> da Agenda desktop foi convertido para
-         * utilitários Tailwind e removido.
-         */
-
-        /* FILTRO DE EQUIPE */
-        .agenda-filter-container {
-          position: relative;
-          z-index: 110;
-        }
-
-        .btn-agenda-filter {
-          width: 128px;
-          min-width: 128px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0 0.5rem;
-          background-color: rgba(255, 255, 255, 0.8);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-sizing: border-box;
-          white-space: nowrap;
-        }
-
-        .btn-agenda-filter:hover,
-        .btn-agenda-filter--active {
-          border-color: var(--color-brand-primary);
-          color: #000000;
-        }
-
-        .btn-agenda-filter:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        .agenda-filter-dropdown {
-          position: absolute;
-          top: calc(100% + 0.5rem);
-          right: 0;
-          width: 220px;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          box-shadow: 0 12px 28px -4px rgba(20, 17, 15, 0.2), var(--shadow-xl);
-          padding: 0.75rem;
-          z-index: 1000;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .agenda-filter-dropdown__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-xs);
-          border-bottom: 1px solid var(--color-border);
-          padding-bottom: 0.4rem;
-        }
-
-        .btn-link-xs {
-          background: none;
-          border: none;
-          color: #000000;
-          font-size: var(--font-size-xs);
-          cursor: pointer;
-          font-weight: 600;
-        }
-
-        .btn-link-xs:hover {
-          color: #000000;
-          text-decoration: underline;
-        }
-
-        .agenda-filter-dropdown__list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          max-height: 200px;
-          overflow-y: auto;
-        }
-
-        .filter-checkbox-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: var(--font-size-sm);
-          cursor: pointer;
-          padding: 4px 6px;
-          border-radius: var(--radius-sm);
-          transition: background-color 0.15s ease;
-        }
-
-        .filter-checkbox-item:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .filter-checkbox-item input[type="radio"],
-        .filter-checkbox-item input[type="checkbox"] {
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-          width: 16px;
-          height: 16px;
-        }
-
-        @media (pointer: coarse) {
-          .btn-agenda-filter {
-            min-height: 44px;
-            min-width: 44px;
-          }
-          .filter-checkbox-item {
-            min-height: 44px;
-            padding: 8px 6px;
-          }
-        }
-
-      `}</style>
     </div>
   );
 };

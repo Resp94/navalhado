@@ -1,6 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { FilterIcon } from '@hugeicons/core-free-icons';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from '../../components/ui';
 import type { Professional } from './Agenda';
 
 export interface AgendaEquipeFilterProps {
@@ -16,94 +22,51 @@ export const AgendaEquipeFilter: React.FC<AgendaEquipeFilterProps> = ({
   onToggleProfessional,
   onSelectAllProfessionals,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Fechar dropdown ao clicar fora ou pressionar ESC
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-        buttonRef.current?.focus();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
-  const handleToggle = useCallback(() => {
-    setIsOpen((prev) => !prev);
-  }, []);
-
   return (
-    <div className="agenda-filter-container" ref={containerRef}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={`btn-agenda-filter ${isOpen ? 'btn-agenda-filter--active' : ''}`}
-        onClick={handleToggle}
-        title="Filtrar Equipe"
-        aria-label="Filtrar Equipe"
-        aria-haspopup="true"
-        aria-expanded={isOpen}
-      >
-        <HugeiconsIcon icon={FilterIcon} size={16} aria-hidden="true" />
-        <span>Equipe ({selectedProfessionalIds.length})</span>
-      </button>
-
-      {isOpen && (
-        <div
-          className="agenda-filter-dropdown"
-          role="dialog"
-          aria-label="Filtrar Barbeiros da Equipe"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-white/80 border border-border rounded-md text-xs font-semibold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary data-[state=open]:border-brand-primary"
+          title="Filtrar Equipe"
+          aria-label="Filtrar Equipe"
         >
-          <div className="agenda-filter-dropdown__header">
-            <strong>Exibir Barbeiros</strong>
-            <button
-              type="button"
-              onClick={onSelectAllProfessionals}
-              className="btn-link-xs"
-              aria-label="Selecionar todos os barbeiros"
-            >
-              Todos
-            </button>
-          </div>
+          <HugeiconsIcon icon={FilterIcon} size={16} aria-hidden="true" />
+          <span>Equipe ({selectedProfessionalIds.length})</span>
+        </button>
+      </DropdownMenuTrigger>
 
-          <div
-            className="agenda-filter-dropdown__list"
-            aria-label="Barbeiros disponíveis"
+      <DropdownMenuContent aria-label="Filtrar Barbeiros da Equipe">
+        <div className="flex items-center justify-between px-[0.35rem] pb-[0.4rem] border-b border-border">
+          <span className="text-xs font-extrabold text-text-secondary uppercase tracking-[0.04em]">
+            Exibir Barbeiros
+          </span>
+          <button
+            type="button"
+            onClick={onSelectAllProfessionals}
+            className="text-xs font-bold text-brand-primary hover:underline"
+            aria-label="Selecionar todos os barbeiros"
           >
-            {professionals.map((prof) => {
-              const isChecked = selectedProfessionalIds.includes(prof.id);
-              return (
-                <label key={prof.id} className="filter-checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => onToggleProfessional(prof.id)}
-                  />
-                  <span>{prof.name}</span>
-                </label>
-              );
-            })}
-          </div>
+            Todos
+          </button>
         </div>
-      )}
-    </div>
+
+        <div className="flex flex-col gap-[0.2rem] max-h-[200px] overflow-y-auto" aria-label="Barbeiros disponíveis">
+          {professionals.map((prof) => {
+            const isChecked = selectedProfessionalIds.includes(prof.id);
+            return (
+              <DropdownMenuCheckboxItem
+                key={prof.id}
+                checked={isChecked}
+                onSelect={(e) => e.preventDefault()}
+                onCheckedChange={() => onToggleProfessional(prof.id)}
+              >
+                {prof.name}
+              </DropdownMenuCheckboxItem>
+            );
+          })}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
