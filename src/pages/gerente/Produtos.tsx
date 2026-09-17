@@ -506,7 +506,7 @@ export const Produtos: React.FC = () => {
 
         <Button
           type="button"
-          variant="soft"
+          variant="primary"
           onClick={() => handleOpenModal(null)}
           className="max-[768px]:w-full"
           icon={<PlusIcon />}
@@ -724,7 +724,7 @@ export const Produtos: React.FC = () => {
                     placeholder="Ex: Pomada modeladora efeito matte 100g"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-[46px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_1.2px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-base font-medium outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.8px_var(--color-text-primary)]"
+                    className="h-[46px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-base font-medium outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                   />
                 </div>
 
@@ -949,9 +949,7 @@ export const Produtos: React.FC = () => {
                   type="submit"
                   variant="primary"
                   loading={saving}
-                  // Sobrescreve as classes internas do variant="primary" do Button (src/components/ui,
-                  // fora do escopo desta migração) para preservar a aparência original do CTA de salvar.
-                  className="min-w-[160px] !bg-brand-soft !text-text-primary !shadow-[0_0_0_0.8px_var(--color-text-primary)] !border-none hover:enabled:!bg-brand-primary hover:enabled:!text-white hover:enabled:!shadow-[0_0_0_0.8px_var(--color-text-primary)]"
+                  className="min-w-[160px]"
                 >
                   {editingProduct ? 'Salvar alterações' : 'Cadastrar produto'}
                 </Button>
