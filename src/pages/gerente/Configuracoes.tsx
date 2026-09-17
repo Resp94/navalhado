@@ -11,6 +11,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
 import { normalizeBusinessHours } from '../../lib/schedule';
+import { Select } from '../../components/ui';
 
 interface DaySchedule {
   active: boolean;
@@ -350,8 +351,6 @@ export const Configuracoes: React.FC = () => {
     'px-4 py-3 rounded-md border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-medium outline-none min-h-11 box-border transition-[box-shadow,background-color] duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] max-[480px]:text-base';
   const leadNumberInputClass =
     'w-20 px-2.5 py-2 min-h-10 rounded-sm border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-bold text-center box-border outline-none transition-shadow duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] max-[480px]:flex-1 max-[480px]:min-h-11 max-[480px]:text-base';
-  const businessTimeSelectClass =
-    'px-3 py-2 min-h-10 rounded-sm border-0 shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-semibold outline-none cursor-pointer transition-shadow duration-200 ease-in focus:shadow-[0_0_0_2px_var(--color-brand-primary)] disabled:cursor-not-allowed disabled:bg-bg-primary disabled:opacity-60 max-sm:flex-1 max-sm:min-h-11 max-sm:text-center max-[480px]:text-base';
   const leadChipBtnBaseClass =
     'px-3.5 py-1.5 min-h-[38px] rounded-full border-0 text-xs font-bold cursor-pointer transition-all duration-150 ease-in max-[480px]:min-h-10';
   const leadChipBtnInactiveClass =
@@ -430,20 +429,17 @@ export const Configuracoes: React.FC = () => {
           </div>
 
           {/* Fuso Horário */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="timezone" className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">Fuso horário</label>
-            <select
-              id="timezone"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              className={configInputClass}
-            >
-              <option value="America/Sao_Paulo">Horário de Brasília (UTC-3)</option>
-              <option value="America/Manaus">Horário da Amazônia (UTC-4)</option>
-              <option value="America/Rio_Branco">Horário do Acre (UTC-5)</option>
-              <option value="America/Noronha">Fernando de Noronha (UTC-2)</option>
-            </select>
-          </div>
+          <Select
+            label="Fuso horário"
+            id="timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+          >
+            <option value="America/Sao_Paulo">Horário de Brasília (UTC-3)</option>
+            <option value="America/Manaus">Horário da Amazônia (UTC-4)</option>
+            <option value="America/Rio_Branco">Horário do Acre (UTC-5)</option>
+            <option value="America/Noronha">Fernando de Noronha (UTC-2)</option>
+          </Select>
         </div>
 
         {/* Endereço Estruturado com CEP */}
@@ -732,33 +728,33 @@ export const Configuracoes: React.FC = () => {
 
                 {/* Seletores Padronizados de Horário */}
                 <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-between">
-                  <select
+                  <Select
+                    className="max-sm:flex-1"
                     value={schedule.open}
                     disabled={!schedule.active}
                     aria-label={`Abertura ${label}`}
                     onChange={(e) => handleTimeChange(key, 'open', e.target.value)}
-                    className={businessTimeSelectClass}
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
                         {hora}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <span className="text-xs text-text-primary font-semibold shrink-0">às</span>
-                  <select
+                  <Select
+                    className="max-sm:flex-1"
                     value={schedule.close}
                     disabled={!schedule.active}
                     aria-label={`Fechamento ${label}`}
                     onChange={(e) => handleTimeChange(key, 'close', e.target.value)}
-                    className={businessTimeSelectClass}
                   >
                     {STANDARD_HOURS.map((hora) => (
                       <option key={hora} value={hora}>
                         {hora}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             );

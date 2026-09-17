@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { Select } from '../../../components/ui';
 import { 
   ScissorIcon, 
   Delete02Icon, 
@@ -253,10 +254,9 @@ export const StepServices: React.FC<StepServicesProps> = ({
             </div>
 
             <div className="flex flex-col gap-[0.4rem] w-[calc(50%-0.6rem)] max-[680px]:w-full">
-              <label className="text-[0.85rem] font-semibold text-text-primary" htmlFor="custom-service-duration">Duração do Atendimento</label>
-              <select
+              <Select
+                label="Duração do Atendimento"
                 id="custom-service-duration"
-                className="w-full h-11 px-[0.9rem] bg-white border-[1.5px] border-border rounded-md text-text-primary text-[0.92rem] font-[inherit] box-border transition-all duration-200 ease-in focus:outline-none focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.12)]"
                 value={customDuration}
                 onChange={(e) => setCustomDuration(e.target.value)}
               >
@@ -265,14 +265,13 @@ export const StepServices: React.FC<StepServicesProps> = ({
                     {mins} minutos {mins >= 60 ? `(${mins / 60}h${mins % 60 ? `${mins % 60}m` : ''})` : ''}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-[0.4rem] w-[calc(50%-0.6rem)] max-[680px]:w-full">
-              <label className="text-[0.85rem] font-semibold text-text-primary" htmlFor="custom-service-category">Categoria</label>
-              <select
+              <Select
+                label="Categoria"
                 id="custom-service-category"
-                className="w-full h-11 px-[0.9rem] bg-white border-[1.5px] border-border rounded-md text-text-primary text-[0.92rem] font-[inherit] box-border transition-all duration-200 ease-in focus:outline-none focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.12)]"
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
               >
@@ -281,7 +280,7 @@ export const StepServices: React.FC<StepServicesProps> = ({
                 <option value="combo">Combo</option>
                 <option value="quimica">Química ou Coloração</option>
                 <option value="estetica">Estética ou Sobrancelha</option>
-              </select>
+              </Select>
             </div>
           </div>
 

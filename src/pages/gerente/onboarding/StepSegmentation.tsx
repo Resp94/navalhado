@@ -5,6 +5,7 @@ import {
   ArrowLeft01Icon 
 } from '@hugeicons/core-free-icons';
 import type { OnboardingSegmentation } from './types';
+import { Select } from '../../../components/ui';
 
 interface StepSegmentationProps {
   data: OnboardingSegmentation;
@@ -102,9 +103,8 @@ export const StepSegmentation: React.FC<StepSegmentationProps> = ({
           <label className="text-[0.85rem] font-semibold text-text-primary" htmlFor="channel-select">
             Como você conheceu o Navalhado? <span className="text-brand-primary">*</span>
           </label>
-          <select
+          <Select
             id="channel-select"
-            className="w-full h-11 px-[0.9rem] bg-white border-[1.5px] border-border rounded-md text-text-primary text-[0.92rem] font-[inherit] box-border transition-all duration-200 ease-in focus:outline-none focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.12)]"
             value={data.acquisitionChannel}
             onChange={(e) => onChange({ acquisitionChannel: e.target.value })}
           >
@@ -114,7 +114,7 @@ export const StepSegmentation: React.FC<StepSegmentationProps> = ({
                 {ch.label}
               </option>
             ))}
-          </select>
+          </Select>
           <span className="text-[0.78rem] text-text-secondary leading-[1.4] mt-[0.2rem]">
             Queremos entender como você chegou até nós para continuar melhorando o sistema.
           </span>
