@@ -627,9 +627,9 @@ export const Profissionais: React.FC = () => {
             {loading ? (
               <Skeleton width={80} height={20} style={{ borderRadius: 'var(--radius-full)' }} />
             ) : (
-              <span className="inline-flex items-center py-[2px] px-2 bg-bg-primary text-text-primary text-[11px] font-bold rounded-full border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)]">
+              <Badge variant="neutral" size="xs">
                 {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
-              </span>
+              </Badge>
             )}
           </div>
         </div>
@@ -701,8 +701,8 @@ export const Profissionais: React.FC = () => {
                             className="bg-brand-lightest shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-sm py-[0.4rem] px-[0.2rem] max-sm:py-[0.35rem] max-sm:px-[0.1rem] flex flex-col items-center justify-center gap-[0.15rem] min-w-0 w-full box-border text-center transition-[transform,box-shadow] duration-200 ease hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] hover:-translate-y-px"
                             title={`${day.label}: ${dayData.start} às ${dayData.end}${breakInfo}`}
                           >
-                            <span className="text-[clamp(9px,2.4vw,11px)] font-bold uppercase text-text-primary leading-none">{labelCurto}</span>
-                            <span className="text-[clamp(9px,2.4vw,11px)] font-extrabold [font-variant-numeric:tabular-nums] text-text-primary leading-[1.1] whitespace-nowrap overflow-hidden text-clip">{dayData.start.substring(0, 5)}</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-bold uppercase text-brand-deep leading-none">{labelCurto}</span>
+                            <span className="text-[clamp(9px,2.4vw,11px)] font-extrabold [font-variant-numeric:tabular-nums] text-brand-deep leading-[1.1] whitespace-nowrap overflow-hidden text-clip">{dayData.start.substring(0, 5)}</span>
                           </div>
                         );
                       } else {
