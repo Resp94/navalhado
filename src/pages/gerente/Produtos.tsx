@@ -41,6 +41,7 @@ import {
   IconButton,
   EmptyState,
   EmptyBoxIllustration,
+  Select,
 } from '../../components/ui';
 
 // Ícones Oficiais Hugeicons
@@ -740,22 +741,19 @@ export const Produtos: React.FC = () => {
                       className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                     />
                   </div>
-                  <div className="flex flex-col gap-[0.4rem]">
-                    <label htmlFor="unit-type-select" className="text-xs font-bold text-text-primary">Unidade de medida</label>
-                    <select
-                      id="unit-type-select"
-                      value={formData.unit_type}
-                      onChange={(e) => setFormData({ ...formData, unit_type: e.target.value })}
-                      className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
-                    >
-                      <option value="un">Unidade (un)</option>
-                      <option value="cx">Caixa (cx)</option>
-                      <option value="pct">Pacote (pct)</option>
-                      <option value="ml">Mililitros (ml)</option>
-                      <option value="lt">Litros (l)</option>
-                      <option value="kg">Quilos (kg)</option>
-                    </select>
-                  </div>
+                  <Select
+                    label="Unidade de medida"
+                    id="unit-type-select"
+                    value={formData.unit_type}
+                    onChange={(e) => setFormData({ ...formData, unit_type: e.target.value })}
+                  >
+                    <option value="un">Unidade (un)</option>
+                    <option value="cx">Caixa (cx)</option>
+                    <option value="pct">Pacote (pct)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="lt">Litros (l)</option>
+                    <option value="kg">Quilos (kg)</option>
+                  </Select>
                 </div>
 
                 {/* CATEGORIA COM CHIPS DE ESCOLHA RÁPIDA */}
@@ -998,23 +996,20 @@ export const Produtos: React.FC = () => {
                 </strong>
               </div>
 
-              <div className="flex flex-col gap-[0.4rem]">
-                <label htmlFor="mov-type-select" className="text-xs font-bold text-text-primary">Tipo de movimentação</label>
-                <select
-                  id="mov-type-select"
-                  value={adjustData.movementType}
-                  onChange={(e) =>
-                    setAdjustData({ ...adjustData, movementType: e.target.value as MovementType })
-                  }
-                  className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
-                >
-                  <option value="entry_purchase">Entrada por compra de fornecedor (+)</option>
-                  <option value="entry_manual">Entrada manual avulsa (+)</option>
-                  <option value="exit_internal_use">Saída por consumo em bancada (-)</option>
-                  <option value="exit_manual">Saída por avaria, perda ou validade (-)</option>
-                  <option value="adjustment">Ajuste por contagem de inventário (±)</option>
-                </select>
-              </div>
+              <Select
+                label="Tipo de movimentação"
+                id="mov-type-select"
+                value={adjustData.movementType}
+                onChange={(e) =>
+                  setAdjustData({ ...adjustData, movementType: e.target.value as MovementType })
+                }
+              >
+                <option value="entry_purchase">Entrada por compra de fornecedor (+)</option>
+                <option value="entry_manual">Entrada manual avulsa (+)</option>
+                <option value="exit_internal_use">Saída por consumo em bancada (-)</option>
+                <option value="exit_manual">Saída por avaria, perda ou validade (-)</option>
+                <option value="adjustment">Ajuste por contagem de inventário (±)</option>
+              </Select>
 
               <div className="flex flex-col gap-[0.4rem]">
                 <label htmlFor="qty-change-input" className="text-xs font-bold text-text-primary">
