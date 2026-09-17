@@ -38,13 +38,13 @@ export function GorjetaValorInput({
   const showProfessionalPicker = value > 0 && professionalOptions.length > 1;
 
   return (
-    <div className="comanda-form-group">
-      <label className="comanda-label">
-        <HugeiconsIcon icon={Coins01Icon} size={14} className="label-icon" />
+    <div className="flex flex-col gap-[0.4rem]">
+      <label className="text-xs font-bold text-text-primary flex items-center gap-[0.35rem]">
+        <HugeiconsIcon icon={Coins01Icon} size={14} className="text-text-primary" />
         <span>Gorjeta</span>
       </label>
-      <div className="comanda-input-prefix-wrapper">
-        <span className="comanda-input-prefix">R$</span>
+      <div className="relative flex items-center">
+        <span className="absolute left-[0.85rem] text-sm font-semibold text-text-primary pointer-events-none">R$</span>
         <input
           type="number"
           min="0"
@@ -52,13 +52,13 @@ export function GorjetaValorInput({
           value={value || ''}
           onChange={(e) => onChange(Math.max(0, parseFloat(e.target.value) || 0))}
           placeholder="0,00"
-          className="comanda-input-num comanda-input-num--prefixed"
+          className="w-full pl-9 pr-3 py-[0.55rem] text-sm font-semibold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none transition-all duration-200 focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           aria-label="Valor da gorjeta"
         />
       </div>
       {showProfessionalPicker && (
         <select
-          className="comanda-input-num"
+          className="w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none transition-all duration-200 focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
           aria-label="Profissional que recebe a gorjeta"
           value={selectedProfessionalId || ''}
           onChange={(e) => onProfessionalChange?.(e.target.value)}

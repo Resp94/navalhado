@@ -27,6 +27,8 @@ import {
   SegmentedControl,
   EmptyState,
   Badge,
+  Card,
+  Skeleton,
 } from '../../components/ui';
 
 export const Comandas: React.FC = () => {
@@ -198,9 +200,21 @@ export const Comandas: React.FC = () => {
 
       {/* ─── LISTAGEM DE COMANDAS ─── */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 px-6 text-center bg-bg-secondary border border-border rounded-lg">
-          <div className="spinner" />
-          <span>Carregando comandas...</span>
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))] max-[768px]:grid-cols-1">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-[1.15rem] flex flex-col gap-3.5">
+              <div className="flex items-center justify-between">
+                <Skeleton shape="text" width="35%" />
+                <Skeleton shape="rect" width={56} height={18} />
+              </div>
+              <Skeleton shape="text" width="60%" />
+              <Skeleton shape="rect" width="80%" height={20} />
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <Skeleton shape="text" width={70} height={20} />
+                <Skeleton shape="rect" width={90} height={36} />
+              </div>
+            </Card>
+          ))}
         </div>
       ) : filteredComandas.length === 0 ? (
         <EmptyState
@@ -231,9 +245,9 @@ export const Comandas: React.FC = () => {
             const itensCount = cmd.itens?.length || 0;
 
             return (
-              <div
+              <Card
                 key={cmd.id}
-                className="bg-bg-secondary border border-border rounded-lg p-[1.15rem] flex flex-col gap-3.5 cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-sm hover:border-brand-primary hover:-translate-y-0.5"
+                className="p-[1.15rem] flex flex-col gap-3.5 cursor-pointer transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:shadow-[0_0_0_0.8px_var(--color-brand-primary),var(--shadow-md)] hover:-translate-y-0.5"
                 onClick={() => handleOpenCheckoutModal(cmd)}
               >
                 <div className="flex items-center justify-between">
@@ -254,7 +268,7 @@ export const Comandas: React.FC = () => {
 
                   {cmd.appointment_id ? (
                     <div
-                      className={`inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit ${cmd.appointment_is_fitting === true ? 'bg-[rgba(217,108,0,0.12)] text-brand-primary' : 'bg-[rgba(45,35,30,0.06)] text-text-primary'}`}
+                      className={`inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit ${cmd.appointment_is_fitting === true ? 'bg-brand-lightest text-brand-deep' : 'bg-bg-primary text-text-primary'}`}
                       data-testid={`comanda-origin-${cmd.id}`}
                     >
                       <HugeiconsIcon icon={Calendar02Icon} size={13} />
@@ -267,7 +281,7 @@ export const Comandas: React.FC = () => {
                       </span>
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit bg-[rgba(45,35,30,0.04)] text-text-secondary">
+                    <div className="inline-flex items-center gap-[5px] px-2 py-[3px] rounded-sm text-[0.6875rem] font-semibold my-0.5 w-fit bg-bg-primary text-text-secondary">
                       <HugeiconsIcon icon={Store01Icon} size={13} />
                       <span>Atendimento Balcão / Avulsa</span>
                     </div>
@@ -324,7 +338,7 @@ export const Comandas: React.FC = () => {
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

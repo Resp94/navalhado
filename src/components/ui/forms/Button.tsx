@@ -22,12 +22,12 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-primary text-white shadow-[0_1px_3px_rgba(217,108,0,0.25)] hover:not-disabled:bg-brand-hover hover:not-disabled:shadow-[0_4px_12px_rgba(217,108,0,0.3)]',
+    'bg-brand-primary-solid text-white shadow-[0_1px_3px_rgba(217,108,0,0.25)] hover:not-disabled:bg-brand-hover hover:not-disabled:shadow-[0_4px_12px_rgba(217,108,0,0.3)]',
   secondary:
     'bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:not-disabled:bg-black/3',
   outline:
     'bg-transparent text-text-primary border border-border hover:not-disabled:border-brand-primary hover:not-disabled:text-brand-primary hover:not-disabled:bg-brand-primary/4',
-  danger: 'bg-error text-white hover:not-disabled:bg-[color-mix(in_srgb,var(--color-error)_80%,black)]',
+  danger: 'bg-error-solid text-white hover:not-disabled:bg-[color-mix(in_srgb,var(--color-error-solid)_80%,black)]',
   'danger-outline':
     'bg-transparent text-error border border-error hover:not-disabled:bg-error-bg',
   ghost: 'bg-transparent text-text-secondary hover:not-disabled:bg-text-primary/5 hover:not-disabled:text-text-primary',

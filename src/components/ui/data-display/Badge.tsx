@@ -28,11 +28,11 @@ const SUBTLE_CLASSES: Record<BadgeVariant, string> = {
 };
 
 const SOLID_CLASSES: Record<BadgeVariant, string> = {
-  brand: 'bg-brand-primary text-white',
-  success: 'bg-success text-white',
-  warning: 'bg-warning text-white',
-  error: 'bg-error text-white',
-  info: 'bg-info text-white',
+  brand: 'bg-brand-primary-solid text-white',
+  success: 'bg-success-solid text-white',
+  warning: 'bg-warning-solid text-white',
+  error: 'bg-error-solid text-white',
+  info: 'bg-info-solid text-white',
   neutral: 'bg-text-primary text-white',
 };
 

@@ -51,18 +51,20 @@ export function SegmentedControl<T extends string | number = string>({
             aria-selected={isActive}
             disabled={option.disabled}
             onClick={() => !option.disabled && onChange(option.id)}
-            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-[0.45rem] bg-transparent border-none outline-none cursor-pointer font-base font-bold text-text-primary rounded-sm transition-[background-color,color,box-shadow] duration-150 ease-in box-border whitespace-nowrap h-full disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 ${BTN_SIZE_CLASSES[size]} ${
+            className={`flex-1 min-w-0 inline-flex items-center justify-center gap-[0.45rem] border-none outline-none cursor-pointer font-base font-bold rounded-sm transition-[background-color,color,box-shadow] duration-150 ease-in box-border whitespace-nowrap h-full disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 ${BTN_SIZE_CLASSES[size]} ${
               isActive
-                ? 'bg-bg-secondary shadow-[0_0_0_0.5px_var(--color-text-primary),0_1px_3px_rgba(45,35,30,0.08)]'
-                : ''
+                ? 'bg-bg-secondary text-brand-deep shadow-[0_0_0_0.5px_var(--color-brand-primary),0_1px_3px_rgba(217,108,0,0.14)]'
+                : 'bg-transparent text-text-secondary'
             }`}
           >
-            {option.icon && <span className="inline-flex items-center justify-center leading-none shrink-0">{option.icon}</span>}
+            {option.icon && (
+              <span className={`inline-flex items-center justify-center leading-none shrink-0 ${isActive ? 'text-brand-primary' : ''}`}>{option.icon}</span>
+            )}
             <span className="leading-none truncate min-w-0">{option.label}</span>
             {option.count !== undefined && (
               <span
                 className={`px-[6px] py-px rounded-full text-[11px] font-extrabold leading-tight border-none shrink-0 ${
-                  isActive ? 'bg-text-primary text-bg-secondary' : 'bg-text-primary/8 text-text-primary'
+                  isActive ? 'bg-brand-primary-solid text-white' : 'bg-text-primary/8 text-text-secondary'
                 }`}
               >
                 {option.count}

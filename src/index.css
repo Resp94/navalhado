@@ -30,6 +30,19 @@
   --color-info: #3F83F8;
   --color-info-bg: #EBF5FF;
 
+  /* Variantes "-solid": mesmo tom, escurecido o suficiente pra dar 4.5:1
+     com texto branco (WCAG AA). Os tokens acima (brand-primary/success/
+     warning/error/info) NÃO passam nesse contraste — ficam ótimos como
+     texto/ícone/borda sobre fundo claro, mas falham como fundo sólido com
+     texto branco em cima (medido: brand-primary 3.45:1, error 3.49:1,
+     success 3.38:1, warning 3.19:1, info 3.61:1). Use -solid sempre que
+     for fundo cheio + texto branco (Button primary/danger, Badge solid). */
+  --color-brand-primary-solid: #B85900;
+  --color-success-solid: #0C8560;
+  --color-error-solid: #C23B3B;
+  --color-warning-solid: #A85A04;
+  --color-info-solid: #1F5FC7;
+
   --font-base: 'Outfit', sans-serif;
 
   --shadow-sm: 0 1px 2px rgba(45, 35, 30, 0.06);
@@ -68,6 +81,13 @@
   --color-warning-bg: #FEF3C7;
   --color-info: #3F83F8;
   --color-info-bg: #EBF5FF;
+
+  /* Variantes -solid: ver comentário no bloco @theme acima */
+  --color-brand-primary-solid: #B85900;
+  --color-success-solid: #0C8560;
+  --color-error-solid: #C23B3B;
+  --color-warning-solid: #A85A04;
+  --color-info-solid: #1F5FC7;
 
   /* Tipografia */
   --font-family-base: 'Outfit', sans-serif;

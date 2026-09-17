@@ -30,6 +30,7 @@ import { supabase } from '../../lib/supabase';
 import { localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import { GorjetaValorInput } from './GorjetaValorInput';
+import { Button, Input, Select, IconButton, SegmentedControl } from '../ui';
 import type {
   Comanda,
   MetodoPagamento,
@@ -876,9 +877,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             <div className="relative flex items-start justify-between px-6 pt-5 pb-4 border-b border-text-primary bg-transparent shrink-0 max-md:px-5 max-md:pt-[1.15rem] max-md:pb-4">
               <div className="flex flex-col items-start gap-[0.65rem] flex-1 min-w-0">
                 <div className="flex items-center gap-3 flex-wrap pr-10">
-                  <div className="w-[38px] h-[38px] rounded-md bg-brand-lightest text-text-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex items-center justify-center shrink-0 [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path:nth-of-type(1)]:fill-text-primary [&_svg_path:nth-of-type(1)]:stroke-text-primary [&_svg_path:nth-of-type(2)]:stroke-bg-secondary [&_svg_path:nth-of-type(3)]:stroke-bg-secondary">
-                    <HugeiconsIcon icon={Invoice01Icon} size={18} />
-                  </div>
                   <div className="flex items-center gap-[0.6rem] flex-wrap min-h-[38px]">
                     <h3 id="modal-checkout-title" className="text-lg font-bold text-text-primary m-0 tracking-[-0.01em]">
                       {loadedComanda?.comanda_number
@@ -886,8 +884,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         : 'Comanda de atendimento'}
                     </h3>
                     <span
-                      className={`text-[0.7rem] font-bold uppercase tracking-[0.04em] px-[0.55rem] py-[0.2rem] rounded-full leading-[1.2] border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary ${
-                        isClosed ? 'bg-success-bg' : 'bg-warning-bg'
+                      className={`text-[0.7rem] font-bold uppercase tracking-[0.04em] px-[0.55rem] py-[0.2rem] rounded-full leading-[1.2] border-none ${
+                        isClosed ? 'bg-success-bg text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)]' : 'bg-success-solid text-white'
                       }`}
                     >
                       {isClosed ? 'Liquidada' : 'Em aberto'}
@@ -909,7 +907,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         onClick={() => {
                           openWhatsApp(customerPhone, `Olá ${customerName}, tudo bem? Falamos da barbearia.`);
                         }}
-                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] cursor-pointer transition-all duration-200 select-none hover:bg-warning hover:text-text-primary active:scale-[0.97] [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
+                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-bg-secondary px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] cursor-pointer transition-all duration-200 select-none hover:bg-success-bg hover:text-text-primary active:scale-[0.97] [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                         title="Abrir conversa no WhatsApp com o cliente"
                       >
                         <HugeiconsIcon icon={WhatsappIcon} size={13} className="text-text-primary shrink-0" />
@@ -920,7 +918,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   {appointmentId ? (
                     <div className="flex items-center gap-[0.6rem] flex-wrap">
                       <span
-                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] [&_span]:text-text-primary [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
+                        className="inline-flex items-center gap-[0.35rem] text-text-primary font-bold text-xs bg-bg-secondary px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] tracking-[0.01em] [&_span]:text-text-primary [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                         title="Comanda gerada a partir de agendamento da agenda"
                       >
                         <HugeiconsIcon icon={Calendar02Icon} size={13} />
@@ -950,7 +948,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
                               setIsRescheduleModalOpen((prev) => !prev);
                             }}
-                            className="inline-flex items-center gap-1 text-text-primary font-bold text-xs bg-warning-bg px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 hover:brightness-95 [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
+                            className="inline-flex items-center gap-1 text-text-primary font-bold text-xs bg-bg-secondary px-[0.6rem] py-1 rounded-sm border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] cursor-pointer transition-all duration-150 hover:bg-info-bg hover:text-info hover:shadow-[0_0_0_0.8px_var(--color-info)] hover:[&_svg]:text-info hover:[&_svg_path]:stroke-info [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary"
                             title="Reagendar horário deste atendimento mantendo a comanda aberta"
                             aria-label="Reagendar atendimento"
                           >
@@ -980,11 +978,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   ) : (
                     <div className="flex items-center gap-[0.6rem] flex-wrap">
                       <span
-                        className="inline-flex items-center gap-[0.35rem] font-bold text-xs px-[0.6rem] py-1 rounded-sm tracking-[0.01em]"
-                        style={{
-                          backgroundColor: 'rgba(45, 35, 30, 0.04)',
-                          color: 'var(--color-text-secondary)',
-                        }}
+                        className="inline-flex items-center gap-[0.35rem] font-semibold text-xs px-[0.6rem] py-1 rounded-sm tracking-[0.01em] text-text-primary"
                         title="Comanda aberta diretamente no balcão"
                       >
                         <span>Atendimento Balcão / Avulsa</span>
@@ -993,14 +987,15 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   )}
                 </div>
               </div>
-              <button
+              <IconButton
                 type="button"
                 onClick={onClose}
-                className="absolute top-5 right-6 w-[38px] h-[38px] rounded-full border border-transparent bg-transparent text-text-primary inline-flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 hover:bg-error-bg hover:text-error hover:border-error hover:scale-105"
+                variant="ghost"
+                size="sm"
+                className="absolute top-5 right-6 shrink-0"
                 aria-label="Fechar modal de comanda"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} size={20} />
-              </button>
+                icon={<HugeiconsIcon icon={Cancel01Icon} size={18} />}
+              />
             </div>
 
             {/* Painel Interativo de Reagendamento Direto na Comanda */}
@@ -1008,105 +1003,77 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
               <div
                 role="region"
                 aria-label="Painel de Reagendamento de Atendimento"
-                style={{
-                  backgroundColor: '#F0F9FF',
-                  borderRadius: '10px',
-                  padding: '14px 16px',
-                  border: '1px solid #BAE6FD',
-                  margin: '12px 0 16px 0',
-                }}
+                className="mx-6 mt-4 p-[0.9rem_1.15rem] rounded-lg bg-info-bg border border-info flex flex-col gap-[0.85rem] animate-fade-in"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ color: '#0284C7' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-info shrink-0">
                     <HugeiconsIcon icon={Calendar02Icon} size={18} />
-                  </div>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#0369A1' }}>
-                    Reagendar Atendimento (sem cancelar comanda)
+                  </span>
+                  <h4 className="m-0 text-sm font-bold text-text-primary">
+                    Reagendar atendimento (sem cancelar comanda)
                   </h4>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                  <div>
-                    <label htmlFor="reschedule_date" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
-                      Nova Data:
-                    </label>
-                    <input
-                      id="reschedule_date"
-                      type="date"
-                      value={rescheduleDate}
-                      onChange={(e) => setRescheduleDate(e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
-                      Novo Horário:
-                    </label>
-                    <select
-                      id="reschedule_time"
-                      value={rescheduleTime}
-                      onChange={(e) => setRescheduleTime(e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
-                    >
-                      <option value="">{loadingRescheduleSlots ? 'Carregando horários...' : 'Selecione um horário...'}</option>
-                      {rescheduleTime && !comandaRescheduleSlots.includes(rescheduleTime) && (
-                        <option value={rescheduleTime}>{rescheduleTime}</option>
-                      )}
-                      {comandaRescheduleSlots.map((slot) => (
-                        <option key={slot} value={slot}>
-                          {slot}
-                        </option>
-                      ))}
-                      {!loadingRescheduleSlots && comandaRescheduleSlots.length === 0 && !rescheduleTime && (
-                        <option value="" disabled>Nenhum horário livre nesta data</option>
-                      )}
-                    </select>
-                  </div>
+                <div className="grid [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))] gap-[0.65rem]">
+                  <Input
+                    id="reschedule_date"
+                    type="date"
+                    label="Nova data"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                  />
+                  <Select
+                    id="reschedule_time"
+                    label="Novo horário"
+                    value={rescheduleTime}
+                    onChange={(e) => setRescheduleTime(e.target.value)}
+                    placeholder={loadingRescheduleSlots ? 'Carregando horários...' : 'Selecione um horário...'}
+                  >
+                    {rescheduleTime && !comandaRescheduleSlots.includes(rescheduleTime) && (
+                      <option value={rescheduleTime}>{rescheduleTime}</option>
+                    )}
+                    {comandaRescheduleSlots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                    {!loadingRescheduleSlots && comandaRescheduleSlots.length === 0 && !rescheduleTime && (
+                      <option value="" disabled>Nenhum horário livre nesta data</option>
+                    )}
+                  </Select>
                   {availableProfessionals.length > 0 && (
-                    <div>
-                      <label htmlFor="reschedule_prof" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#0369A1', marginBottom: '4px' }}>
-                        Profissional:
-                      </label>
-                      <select
-                        id="reschedule_prof"
-                        value={rescheduleProfessionalId}
-                        onChange={(e) => setRescheduleProfessionalId(e.target.value)}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
-                      >
-                        {availableProfessionals.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <Select
+                      id="reschedule_prof"
+                      label="Profissional"
+                      value={rescheduleProfessionalId}
+                      onChange={(e) => setRescheduleProfessionalId(e.target.value)}
+                    >
+                      {availableProfessionals.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </Select>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                  <button
+                <div className="flex justify-end gap-2">
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setIsRescheduleModalOpen(false)}
                     disabled={isRescheduling}
-                    style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', fontSize: '0.85rem' }}
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     onClick={handleConfirmReschedule}
-                    disabled={isRescheduling}
-                    style={{
-                      padding: '5px 14px',
-                      borderRadius: '6px',
-                      backgroundColor: '#0284C7',
-                      color: '#FFF',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      fontSize: '0.85rem',
-                    }}
+                    loading={isRescheduling}
                   >
-                    {isRescheduling ? 'Reagendando...' : 'Confirmar Reagendamento'}
-                  </button>
+                    Confirmar reagendamento
+                  </Button>
                 </div>
               </div>
             )}
@@ -1142,7 +1109,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isMarkingNoShow}
                     onClick={handleConfirmNoShowAction}
-                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error-solid text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isMarkingNoShow ? 'Marcando...' : 'Sim, não compareceu'}
                   </button>
@@ -1176,7 +1143,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isReopening}
                     onClick={handleReopenComanda}
-                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-warning text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-warning-solid text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isReopening ? 'Reabrindo...' : 'Confirmar reabertura'}
                   </button>
@@ -1210,7 +1177,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     type="button"
                     disabled={isCanceling}
                     onClick={handleCancelComandaEAgendamento}
-                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
+                    className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error-solid text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
                     {isCanceling ? 'Cancelando...' : 'Confirmar cancelamento'}
                   </button>
@@ -1255,7 +1222,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           )}
                         </div>
                       </div>
-                      <span className="text-[0.7rem] font-bold uppercase tracking-[0.05em] px-3 py-[0.3rem] rounded-full bg-success text-white shrink-0 shadow-sm">Recibo</span>
+                      <span className="text-[0.7rem] font-bold uppercase tracking-[0.05em] px-3 py-[0.3rem] rounded-full bg-success-solid text-white shrink-0 shadow-sm">Recibo</span>
                     </div>
                   )}
 
@@ -1268,30 +1235,34 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                       </div>
                       {!isClosed && (
                         <div className="inline-flex items-center gap-[0.45rem]">
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon={<HugeiconsIcon icon={ScissorIcon} size={14} />}
                             onClick={() => {
                               setIsAddingService((prev) => !prev);
                               setIsAddingProduct(false);
                             }}
-                            className={`inline-flex items-center gap-[0.45rem] px-[0.85rem] py-[0.35rem] rounded-lg border border-text-primary bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer transition-all duration-200 hover:bg-[#F6E7DB] hover:border-text-primary hover:text-text-primary hover:-translate-y-px ${isAddingService ? 'bg-[#F6E7DB] -translate-y-px' : ''}`}
                             aria-expanded={isAddingService}
+                            className={isAddingService ? 'shadow-[0_0_0_1.5px_var(--color-brand-primary),var(--shadow-sm)]! text-brand-deep' : ''}
                           >
-                            <HugeiconsIcon icon={ScissorIcon} size={14} />
-                            <span>Serviço</span>
-                          </button>
-                          <button
+                            Serviço
+                          </Button>
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon={<HugeiconsIcon icon={ShoppingBag01Icon} size={14} />}
                             onClick={() => {
                               setIsAddingProduct((prev) => !prev);
                               setIsAddingService(false);
                             }}
-                            className={`inline-flex items-center gap-[0.45rem] px-[0.85rem] py-[0.35rem] rounded-lg border border-text-primary bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer transition-all duration-200 hover:bg-[#F6E7DB] hover:border-text-primary hover:text-text-primary hover:-translate-y-px ${isAddingProduct ? 'bg-[#F6E7DB] -translate-y-px' : ''}`}
                             aria-expanded={isAddingProduct}
+                            className={isAddingProduct ? 'shadow-[0_0_0_1.5px_var(--color-brand-primary),var(--shadow-sm)]! text-brand-deep' : ''}
                           >
-                            <HugeiconsIcon icon={ShoppingBag01Icon} size={14} />
-                            <span>Produto</span>
-                          </button>
+                            Produto
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -1342,7 +1313,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             type="button"
                             disabled={!selectedServiceId}
                             onClick={handleAddServiceConfirm}
-                            className="px-4 py-2 rounded-md border-none bg-brand-primary text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 rounded-md border-none bg-brand-primary-solid text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Adicionar
                           </button>
@@ -1382,7 +1353,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             type="button"
                             disabled={!selectedProductId}
                             onClick={handleAddProductConfirm}
-                            className="px-4 py-2 rounded-md border-none bg-brand-primary text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 rounded-md border-none bg-brand-primary-solid text-white text-xs font-bold cursor-pointer whitespace-nowrap transition-all duration-200 enabled:hover:bg-brand-hover enabled:hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Adicionar
                           </button>
@@ -1393,12 +1364,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     {/* Lista dos Itens da Comanda */}
                     <div className="flex flex-col gap-[0.55rem]">
                       {itens.length === 0 ? (
-                        <div className="p-6 text-center bg-brand-lightest border border-dashed border-text-primary rounded-md text-text-secondary text-xs">
+                        <div className="p-6 text-center bg-bg-secondary border border-dashed border-border rounded-md text-text-secondary text-xs">
                           <p>Nenhum item adicionado à comanda ainda.</p>
                         </div>
                       ) : (
                         itens.map((it) => (
-                          <div key={it.tempId} className="flex items-center justify-between px-4 py-3 rounded-lg bg-brand-lightest border border-text-primary transition-all duration-200">
+                          <div key={it.tempId} className="flex items-center justify-between px-4 py-3 rounded-lg bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-all duration-200">
                             <div className="flex items-center min-w-0">
                               <div className="flex flex-col gap-[0.2rem] min-w-0">
                                 <strong className="text-base font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">{it.name}</strong>
@@ -1423,15 +1394,16 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 R$ {(it.quantity * it.unit_price).toFixed(2)}
                               </span>
                               {!isClosed && (
-                                <button
+                                <IconButton
                                   type="button"
                                   onClick={() => handleRemoveItem(it.tempId)}
-                                  className="bg-transparent border border-text-primary text-text-primary cursor-pointer flex items-center justify-center w-9 h-9 rounded-md transition-all duration-200 [&_svg_path]:stroke-text-primary hover:text-error hover:bg-error-bg hover:border-error hover:[&_svg_path]:stroke-error"
+                                  variant="outline"
+                                  size="sm"
                                   title="Remover item"
                                   aria-label={`Remover ${it.name}`}
-                                >
-                                  <HugeiconsIcon icon={Delete02Icon} size={16} />
-                                </button>
+                                  icon={<HugeiconsIcon icon={Delete02Icon} size={16} />}
+                                  className="hover:text-error hover:bg-error-bg hover:border-error"
+                                />
                               )}
                             </div>
                           </div>
@@ -1449,24 +1421,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <span>Desconto</span>
                         </label>
                         <div className="flex gap-[0.4rem]">
-                          <div className="flex border border-text-primary rounded-md overflow-hidden bg-brand-lightest shrink-0" role="radiogroup" aria-label="Tipo de desconto">
-                            <button
-                              type="button"
-                              className={`border-none bg-brand-lightest px-3 py-2 min-w-[38px] inline-flex items-center justify-center text-[0.82rem] font-bold text-text-primary cursor-pointer leading-none transition-all duration-150 ${discountType === 'fixed' ? 'bg-warning shadow-[0_0_0_1px_var(--color-text-primary)]' : 'hover:bg-[rgba(45,35,30,0.08)]'}`}
-                              onClick={() => setDiscountType('fixed')}
-                              aria-label="Desconto em valor monetário"
-                            >
-                              R$
-                            </button>
-                            <button
-                              type="button"
-                              className={`border-none bg-brand-lightest px-3 py-2 min-w-[38px] inline-flex items-center justify-center text-[0.82rem] font-bold text-text-primary cursor-pointer leading-none transition-all duration-150 ${discountType === 'percent' ? 'bg-warning shadow-[0_0_0_1px_var(--color-text-primary)]' : 'hover:bg-[rgba(45,35,30,0.08)]'}`}
-                              onClick={() => setDiscountType('percent')}
-                              aria-label="Desconto em porcentagem"
-                            >
-                              %
-                            </button>
-                          </div>
+                          <SegmentedControl
+                            aria-label="Tipo de desconto"
+                            value={discountType}
+                            onChange={setDiscountType}
+                            size="sm"
+                            fullWidth={false}
+                            style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                            options={[
+                              { id: 'fixed', label: 'R$' },
+                              { id: 'percent', label: '%' },
+                            ]}
+                          />
                           <input
                             type="number"
                             min="0"
@@ -1474,7 +1440,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             value={discountValue || ''}
                             onChange={(e) => setDiscountValue(Math.max(0, parseFloat(e.target.value) || 0))}
                             placeholder="0,00"
-                            className="w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
+                            className="w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none transition-all duration-200 focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             aria-label="Valor do desconto"
                           />
                         </div>
@@ -1491,7 +1457,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   )}
 
                   {/* Seção 3: Sumário de Totais (Estilo Recibo de Luxo) */}
-                  <div className="p-[0.85rem_1.15rem] rounded-lg bg-brand-lightest border border-text-primary flex flex-col gap-[0.4rem]">
+                  <div className="p-[0.85rem_1.15rem] rounded-lg bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-[0.4rem]">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-text-primary font-semibold">Subtotal</span>
                       <span className="text-text-primary font-bold">R$ {subtotal.toFixed(2)}</span>
@@ -1510,7 +1476,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span>+ R$ {tipValue.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="h-px bg-[rgba(45,35,30,0.15)] my-[0.2rem]" />
+                    <div className="h-px bg-text-primary/15 my-[0.2rem]" />
                     <div className="flex justify-between items-center text-xs pt-[0.2rem]">
                       <span className="text-sm font-extrabold text-text-primary uppercase tracking-[0.04em]">
                         {isClosed ? 'TOTAL LIQUIDADO' : 'TOTAL A PAGAR'}
@@ -1528,22 +1494,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         </h4>
                       </div>
                       {!isClosed && !isSplitting && (
-                        <button
-                          type="button"
-                          onClick={handleEnableSplit}
-                          className="bg-bg-secondary border border-text-primary text-text-primary text-xs font-bold px-[0.85rem] py-[0.35rem] rounded-md cursor-pointer transition-all duration-200 hover:bg-brand-lightest hover:border-text-primary hover:-translate-y-px"
-                        >
+                        <Button type="button" variant="secondary" size="sm" onClick={handleEnableSplit}>
                           Dividir pagamento
-                        </button>
+                        </Button>
                       )}
                       {!isClosed && isSplitting && (
-                        <button
-                          type="button"
-                          onClick={handleDisableSplit}
-                          className="bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-bold px-[0.85rem] py-[0.35rem] rounded-md cursor-pointer transition-all duration-150 hover:bg-brand-lightest hover:brightness-[0.96] hover:-translate-y-px"
-                        >
+                        <Button type="button" variant="secondary" size="sm" onClick={handleDisableSplit}>
                           Forma única
-                        </button>
+                        </Button>
                       )}
                     </div>
 
@@ -1581,7 +1539,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 key={m}
                                 type="button"
                                 onClick={() => handleSelectSingleMethod(m)}
-                                className={`flex flex-col items-center justify-center gap-[0.35rem] px-2 py-[0.65rem] border bg-brand-lightest rounded-lg text-xs font-bold text-text-primary cursor-pointer text-center transition-all duration-200 hover:border-text-primary hover:-translate-y-px hover:shadow-sm [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg]:scale-[1.08] ${isSelected ? 'border-[1.5px] border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:shadow-[0_0_0_1px_var(--color-text-primary),var(--shadow-sm)]' : 'border-text-primary'}`}
+                                className={`flex flex-col items-center justify-center gap-[0.35rem] px-2 py-[0.65rem] border-none bg-bg-secondary rounded-lg text-xs font-bold text-text-primary cursor-pointer text-center transition-all duration-200 hover:-translate-y-px [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg]:scale-[1.08] ${isSelected ? 'shadow-[0_0_0_1.5px_var(--color-brand-primary),var(--shadow-sm)] text-brand-deep [&_svg]:!text-brand-primary' : 'shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:shadow-[0_0_0_0.8px_var(--color-text-primary),var(--shadow-sm)]'}`}
                               >
                                 <HugeiconsIcon icon={IconComp} size={18} className="text-text-primary" />
                                 <span>{conf.shortLabel || conf.label}</span>
@@ -1668,7 +1626,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 : 0;
 
                             return (
-                              <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-primary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">
+                              <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">
                                 <div className="flex items-center gap-2">
                                   <select
                                     value={pag.method}
@@ -1762,12 +1720,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           <button
                             type="button"
                             onClick={handleAddPagamentoLinha}
-                            className="inline-flex items-center gap-2 p-[0.75rem_1rem] rounded-lg border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-brand-lightest text-text-primary text-xs font-bold cursor-pointer w-full justify-center transition-all duration-200 hover:bg-brand-lightest hover:brightness-[0.96] hover:-translate-y-px [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary [&_span]:text-text-primary"
+                            className="inline-flex items-center gap-2 p-[0.75rem_1rem] rounded-lg border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-xs font-bold cursor-pointer w-full justify-center transition-all duration-200 hover:bg-brand-lightest hover:-translate-y-px [&_svg]:h-fit [&_svg]:text-text-primary [&_svg_path]:stroke-text-primary [&_span]:text-text-primary"
                           >
                             <HugeiconsIcon icon={Invoice01Icon} size={15} />
                             <span>Adicionar outra forma de pagamento</span>
                           </button>
-                          <div className="flex items-center justify-between p-[0.75rem_1rem] rounded-lg bg-brand-lightest border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold">
+                          <div className="flex items-center justify-between p-[0.75rem_1rem] rounded-lg bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] text-xs font-bold">
                             <div className="flex items-center gap-[0.4rem] text-text-primary text-xs font-bold [&_span]:text-text-primary [&_span]:font-bold [&_strong]:text-text-primary [&_strong]:font-extrabold">
                               <span>Total: <strong>R$ {totalFinal.toFixed(2)}</strong></span>
                               <span className="text-text-primary mx-[0.15rem]">•</span>
@@ -1778,7 +1736,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 Falta: R$ {saldoRestante.toFixed(2)}
                               </span>
                             ) : (
-                              <span className="text-text-primary bg-success-bg px-3 py-1 rounded-full border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] font-bold text-xs">
+                              <span className="text-white bg-success-solid px-3 py-1 rounded-full border-none font-bold text-xs">
                                 ✓ Valor total coberto
                               </span>
                             )}
@@ -1807,7 +1765,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-[1.65rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-bg text-text-primary text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:border-border disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:whitespace-nowrap"
+                    className="px-[1.65rem] py-3 rounded-full shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-bg text-text-primary text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:whitespace-nowrap"
                   >
                     Fechar
                   </button>
@@ -1823,29 +1781,30 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     >
                       Cancelar atendimento
                     </button>
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={onClose}
-                      className="px-[1.35rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-brand-lightest text-text-primary text-sm font-semibold cursor-pointer transition-all duration-200 hover:brightness-[0.96] hover:-translate-y-px max-md:w-full max-md:min-h-[44px] max-md:justify-center max-md:text-center max-md:py-[0.65rem] max-md:px-2 max-md:text-xs max-md:whitespace-nowrap max-md:inline-flex max-md:items-center"
+                      className="hover:not-disabled:bg-bg-secondary max-md:w-full"
                     >
                       Fechar
-                    </button>
+                    </Button>
                   </div>
                   <button
                     type="button"
                     disabled={isSubmitting || saldoRestante > 0 || itens.length === 0}
                     onClick={handleFinalizar}
-                    className="px-[1.65rem] py-3 rounded-full border border-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-bg text-text-primary text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:border-border disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:text-sm max-md:whitespace-nowrap"
+                    className="px-[1.65rem] py-3 rounded-full shadow-[0_0_0_1px_var(--color-text-primary)] bg-success-solid text-white text-sm font-bold cursor-pointer inline-flex items-center gap-[0.65rem] transition-all duration-200 enabled:hover:brightness-[0.96] enabled:hover:-translate-y-px active:enabled:scale-[0.98] disabled:bg-border disabled:text-text-secondary disabled:shadow-none disabled:cursor-not-allowed max-md:w-full max-md:min-h-[48px] max-md:justify-center max-md:px-4 max-md:text-sm max-md:whitespace-nowrap"
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-[rgba(45,35,30,0.3)] border-t-text-primary rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         <span>Processando...</span>
                       </>
                     ) : (
                       <>
                         <span>Finalizar e receber</span>
-                        <span className="bg-transparent px-1 py-[0.15rem] rounded-full text-sm font-extrabold text-text-primary">R$ {totalFinal.toFixed(2)}</span>
+                        <span className="bg-transparent px-1 py-[0.15rem] rounded-full text-sm font-extrabold text-white">R$ {totalFinal.toFixed(2)}</span>
                       </>
                     )}
                   </button>
