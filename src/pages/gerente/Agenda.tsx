@@ -4,7 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
-import { Button } from '../../components/ui';
+import { Button, Tooltip } from '../../components/ui';
 import {
   dateInZone,
   formatTimeInZone,
@@ -2105,15 +2105,16 @@ export const Agenda: React.FC = () => {
 
           {/* Navegação de Datas */}
           <div className="flex items-center bg-white/80 border border-border rounded-md relative">
-            <button
-              type="button"
-              className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
-              onClick={handlePrevDay}
-              title={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
-              aria-label={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
-            >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
-            </button>
+            <Tooltip content={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}>
+              <button
+                type="button"
+                className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
+                onClick={handlePrevDay}
+                aria-label={viewMode === 'week' ? 'Semana Anterior' : 'Dia Anterior'}
+              >
+                <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
+              </button>
+            </Tooltip>
             <button
               type="button"
               className={`flex items-center justify-center py-[0.55rem] px-[0.9rem] bg-transparent border-l border-r border-border text-text-primary text-xs font-bold cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary ${isToday ? 'text-black font-bold bg-brand-soft hover:bg-brand-soft hover:text-black' : ''}`}
@@ -2121,24 +2122,25 @@ export const Agenda: React.FC = () => {
             >
               Hoje
             </button>
-            <button
-              type="button"
-              className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
-              onClick={handleNextDay}
-              title={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
-              aria-label={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
-            >
-              <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
-            </button>
+            <Tooltip content={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}>
+              <button
+                type="button"
+                className="flex items-center justify-center py-[0.55rem] px-3 bg-transparent border-none text-text-primary cursor-pointer transition-colors duration-200 hover:bg-brand-primary/[0.08] hover:text-brand-primary"
+                onClick={handleNextDay}
+                aria-label={viewMode === 'week' ? 'Próxima Semana' : 'Próximo Dia'}
+              >
+                <HugeiconsIcon icon={ArrowRight01Icon} size={16} />
+              </button>
+            </Tooltip>
 
             <div className="relative flex items-center z-[120]" ref={datePickerRef}>
+              <Tooltip content="Escolher data no calendário">
               <label
                 className="flex items-center gap-1.5 py-[0.35rem] px-[0.6rem] border-l border-border rounded-tr-md rounded-br-md cursor-pointer relative text-text-secondary transition-colors duration-150 hover:text-text-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   setIsDatePickerOpen((prev) => !prev);
                 }}
-                title="Escolher data no calendário"
                 aria-label="Escolher data no calendário"
                 aria-expanded={isDatePickerOpen}
               >
@@ -2152,6 +2154,7 @@ export const Agenda: React.FC = () => {
                   aria-hidden="true"
                 />
               </label>
+              </Tooltip>
 
               {isDatePickerOpen && (
                 <CustomDatePicker
@@ -2180,38 +2183,41 @@ export const Agenda: React.FC = () => {
           />
 
           {/* Botão Fila de Espera */}
-          <button
-            type="button"
-            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
-            onClick={() => setIsEsperaDrawerOpen(true)}
-            title="Ver fila de clientes aguardando no balcão"
-          >
-            <HugeiconsIcon icon={UserGroupIcon} size={16} />
-            <span>Espera</span>
-          </button>
+          <Tooltip content="Ver fila de clientes aguardando no balcão">
+            <button
+              type="button"
+              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
+              onClick={() => setIsEsperaDrawerOpen(true)}
+            >
+              <HugeiconsIcon icon={UserGroupIcon} size={16} />
+              <span>Espera</span>
+            </button>
+          </Tooltip>
 
           {/* Botão Bloquear Horário */}
-          <button
-            type="button"
-            className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-white border border-error rounded-md text-xs font-bold text-error cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:bg-error-bg hover:border-error"
-            onClick={() => setIsBloqueioModalOpen(true)}
-            title="Pausar horário para almoço, descanso ou saída"
-          >
-            <HugeiconsIcon icon={UnavailableIcon} size={16} />
-            <span>Bloquear</span>
-          </button>
+          <Tooltip content="Pausar horário para almoço, descanso ou saída">
+            <button
+              type="button"
+              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-white border border-error rounded-md text-xs font-bold text-error cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:bg-error-bg hover:border-error"
+              onClick={() => setIsBloqueioModalOpen(true)}
+            >
+              <HugeiconsIcon icon={UnavailableIcon} size={16} />
+              <span>Bloquear</span>
+            </button>
+          </Tooltip>
 
           {/* Botão Mestre Encaixe */}
+          <Tooltip content="Atender cliente que chegou agora sem agendamento">
           <Button
             variant="primary"
             size="sm"
             className="w-32 min-w-32"
             onClick={() => handleOpenNewAppointment(undefined, undefined, true)}
-            title="Atender cliente que chegou agora sem agendamento"
             leftIcon={<HugeiconsIcon icon={AddCircleIcon} size={18} />}
           >
             Encaixe
           </Button>
+          </Tooltip>
         </div>
       </header>
 
@@ -2309,7 +2315,9 @@ export const Agenda: React.FC = () => {
                             {prof.name.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <h4 title={prof.name} className="text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">{prof.name}</h4>
+                            <Tooltip content={prof.name} className="min-w-0 w-full">
+                              <h4 className="text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">{prof.name}</h4>
+                            </Tooltip>
                             <span className="text-[0.7rem] text-text-secondary">
                               {profAppointments.length} atendimento(s)
                             </span>
@@ -2577,14 +2585,16 @@ export const Agenda: React.FC = () => {
                       >
                         <div className="prof-col-header h-[60px] min-h-[60px] border-b border-border py-2 px-3 flex items-center gap-2.5 sticky top-0 z-30 bg-bg-secondary box-border shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                           <div className="flex flex-col min-w-0">
-                            <h4 title={day.label} className="flex items-center gap-1 text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
-                              <span>{day.shortWeekday} • {day.label}</span>
-                              {isDayClosed && (
-                                <span className="text-[0.6rem] py-px px-[5px] rounded bg-error text-white font-extrabold">
-                                  Fechado
-                                </span>
-                              )}
-                            </h4>
+                            <Tooltip content={day.label} className="min-w-0 w-full">
+                              <h4 className="flex items-center gap-1 text-sm font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
+                                <span>{day.shortWeekday} • {day.label}</span>
+                                {isDayClosed && (
+                                  <span className="text-[0.6rem] py-px px-[5px] rounded bg-error text-white font-extrabold">
+                                    Fechado
+                                  </span>
+                                )}
+                              </h4>
+                            </Tooltip>
                             <span className="text-[0.7rem] text-text-secondary">
                               {isDayClosed ? 'Fechado' : `${dayAppointments.length} atendimento(s)`}
                             </span>
