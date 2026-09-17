@@ -408,7 +408,7 @@ export const Clientes: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterStatus('todos')}
-            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'todos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
+            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'todos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'todos'}
           >
             Todos
@@ -416,7 +416,7 @@ export const Clientes: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterStatus('completos')}
-            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'completos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
+            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'completos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'completos'}
           >
             Completos
@@ -424,7 +424,7 @@ export const Clientes: React.FC = () => {
           <button
             type="button"
             onClick={() => setFilterStatus('provisorios')}
-            className={`py-2 px-[0.95rem] border-none bg-transparent text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'provisorios' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'text-text-secondary hover:text-text-primary'}`}
+            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'provisorios' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
             aria-pressed={filterStatus === 'provisorios'}
           >
             Provisórios

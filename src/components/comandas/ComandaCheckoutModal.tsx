@@ -1261,7 +1261,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                   {/* Seção 1: Itens Consumidos */}
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-nowrap max-md:gap-3">
+                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-wrap max-md:gap-3">
                       <div className="inline-flex items-center gap-2 shrink-0">
                         <h4 className="text-xs font-extrabold uppercase tracking-[0.05em] text-text-primary m-0 leading-none inline-flex items-center">ITENS CONSUMIDOS</h4>
                         <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-[0.35rem] text-[0.72rem] font-extrabold rounded-full bg-text-primary text-brand-lightest leading-none box-border shadow-[0_1px_2px_rgba(20,17,15,0.15)]">{itens.length}</span>
@@ -1521,7 +1521,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
 
                   {/* Seção 4: Formas de Pagamento */}
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-nowrap max-md:gap-3">
+                    <div className="flex items-center justify-between gap-4 w-full max-md:flex-wrap max-md:gap-3">
                       <div className="inline-flex items-center gap-2 shrink-0">
                         <h4 className="text-xs font-extrabold uppercase tracking-[0.05em] text-text-primary m-0 leading-none inline-flex items-center">
                           {isClosed ? 'PAGAMENTOS REGISTRADOS' : 'FORMA DE PAGAMENTO'}
