@@ -1281,10 +1281,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           </button>
                         </div>
                         <div className="flex gap-2 items-center max-md:flex-col max-md:items-stretch">
-                          <select
+                          <Select
+                            className="flex-1"
                             value={selectedServiceId}
                             onChange={(e) => setSelectedServiceId(e.target.value)}
-                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar serviço"
                           >
                             <option value="">Selecione o serviço...</option>
@@ -1293,12 +1293,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 {s.name} • R$ {s.price.toFixed(2)}
                               </option>
                             ))}
-                          </select>
+                          </Select>
 
-                          <select
+                          <Select
+                            className="flex-1"
                             value={selectedProfId}
                             onChange={(e) => setSelectedProfId(e.target.value)}
-                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar profissional"
                           >
                             <option value="">Profissional (opcional)...</option>
@@ -1307,7 +1307,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 {p.name}
                               </option>
                             ))}
-                          </select>
+                          </Select>
 
                           <button
                             type="button"
@@ -1335,10 +1335,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                           </button>
                         </div>
                         <div className="flex gap-2 items-center max-md:flex-col max-md:items-stretch">
-                          <select
+                          <Select
+                            className="flex-1"
                             value={selectedProductId}
                             onChange={(e) => setSelectedProductId(e.target.value)}
-                            className="flex-1 w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-brand-lightest border border-text-primary rounded-md outline-none transition-all duration-200 focus:border-text-primary focus:bg-brand-lightest"
                             aria-label="Selecionar produto"
                           >
                             <option value="">Selecione o produto...</option>
@@ -1347,7 +1347,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                 {p.name} • R$ {p.price.toFixed(2)} (Estoque: {p.stock_quantity ?? 0})
                               </option>
                             ))}
-                          </select>
+                          </Select>
 
                           <button
                             type="button"
@@ -1628,7 +1628,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             return (
                               <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">
                                 <div className="flex items-center gap-2">
-                                  <select
+                                  <Select
+                                    className="flex-[1.2]"
                                     value={pag.method}
                                     onChange={(e) => {
                                       const newMethod = e.target.value as MetodoPagamento;
@@ -1638,7 +1639,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                         )
                                       );
                                     }}
-                                    className="flex-[1.2] bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-lg font-bold px-[0.85rem] py-[0.6rem] text-text-primary outline-none"
                                     aria-label="Forma de pagamento"
                                   >
                                     <option value="pix">PIX</option>
@@ -1646,7 +1646,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                     <option value="debit_card">Cartão de débito</option>
                                     <option value="cash">Dinheiro</option>
                                     <option value="other">Outro</option>
-                                  </select>
+                                  </Select>
 
                                   <div className="flex-1 relative flex items-center">
                                     <span className="absolute left-[0.85rem] text-xs font-bold text-text-primary pointer-events-none">R$</span>
