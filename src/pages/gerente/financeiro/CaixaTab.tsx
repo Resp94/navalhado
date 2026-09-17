@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { useToast } from '../../../components/Toast';
+import { Button } from '../../../components/ui';
 import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
@@ -373,14 +374,14 @@ export const CaixaTab: React.FC = () => {
                     Fechar caixa do turno
                   </button>
                 ) : (
-                  <button
+                  <Button
                     onClick={() => setIsAberturaModalOpen(true)}
                     type="button"
-                    className="inline-flex items-center gap-2 px-5 py-3 min-h-[44px] rounded-md text-sm font-bold cursor-pointer border-none transition-all duration-200 whitespace-nowrap bg-brand-lightest text-text-primary shadow-[0_0_0_0.8px_#000000] hover:bg-[#D97706] hover:translate-y-0 hover:shadow-none [&_svg]:stroke-text-primary [&_svg]:text-text-primary"
+                    variant="primary"
+                    leftIcon={<HugeiconsIcon icon={PlusSignIcon} size={16} />}
                   >
-                    <HugeiconsIcon icon={PlusSignIcon} size={16} />
                     Abrir caixa do turno
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

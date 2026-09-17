@@ -3,6 +3,7 @@ import { Outlet, useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../components/Toast';
+import { SegmentedControl } from '../../../components/ui';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
@@ -199,32 +200,17 @@ export const FinanceiroPainel: React.FC = () => {
     <>
       <div className="financeiro-desktop-view mt-2">
         {/* Filtro de Período */}
-        <div className="flex items-center gap-1 bg-bg-secondary border border-border p-1 rounded-md shadow-sm">
-          {(
-            [
-              { key: 'this_month', label: 'Este mês' },
-              { key: 'last_30_days', label: 'Últimos 30 dias' },
-              { key: 'last_90_days', label: 'Últimos 90 dias' },
-            ] as const
-          ).map(({ key, label }) => {
-            const isActive = period === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setPeriod(key)}
-                type="button"
-                aria-pressed={isActive}
-                className={`px-[0.85rem] py-[0.4rem] text-xs font-semibold rounded-sm border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] outline-none focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-1 ${
-                  isActive
-                    ? 'bg-warning-bg text-text-primary shadow-sm'
-                    : 'bg-transparent text-text-secondary hover:text-brand-primary'
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          aria-label="Filtro de período"
+          fullWidth={false}
+          value={period}
+          onChange={setPeriod}
+          options={[
+            { id: 'this_month', label: 'Este mês' },
+            { id: 'last_30_days', label: 'Últimos 30 dias' },
+            { id: 'last_90_days', label: 'Últimos 90 dias' },
+          ]}
+        />
 
         {/* Bento Grid: 5 Cards de KPIs Consolidados */}
         <section className="kpi-cards-grid" aria-label="Indicadores consolidados">

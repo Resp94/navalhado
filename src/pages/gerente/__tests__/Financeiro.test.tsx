@@ -253,7 +253,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Últimos 30 dias/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Últimos 30 dias/i }));
 
     await waitFor(() => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
@@ -266,7 +266,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     await screen.findByText('Recebimentos por forma de pagamento');
 
     // O período selecionado (30 dias) permanece, e nenhuma nova busca de métricas ocorreu
-    expect(screen.getByRole('button', { name: /Últimos 30 dias/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /Últimos 30 dias/i })).toHaveAttribute('aria-selected', 'true');
     expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
   });
 
@@ -404,7 +404,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
     });
 
-    const btn30d = screen.getByRole('button', { name: /Últimos 30 dias/i });
+    const btn30d = screen.getByRole('tab', { name: /Últimos 30 dias/i });
     fireEvent.click(btn30d);
 
     await waitFor(() => {
