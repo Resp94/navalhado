@@ -9,7 +9,7 @@ import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { Button, Input, Select, Textarea } from '../../components/ui';
+import { Button, Input, Select, Textarea, SegmentedControl } from '../../components/ui';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -404,32 +404,19 @@ export const Clientes: React.FC = () => {
           />
         </div>
 
-        <div className="inline-flex bg-bg-secondary rounded-md p-[3px] gap-[3px] shadow-[0_0_0_0.8px_var(--color-text-primary)] max-[640px]:w-full max-[640px]:flex" role="group" aria-label="Filtrar por status de cadastro">
-          <button
-            type="button"
-            onClick={() => setFilterStatus('todos')}
-            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'todos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
-            aria-pressed={filterStatus === 'todos'}
-          >
-            Todos
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('completos')}
-            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'completos' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
-            aria-pressed={filterStatus === 'completos'}
-          >
-            Completos
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('provisorios')}
-            className={`py-2 px-[0.95rem] border-none text-xs font-bold rounded-sm cursor-pointer transition-all duration-150 ease-in max-[640px]:flex-1 max-[640px]:text-center max-[640px]:px-[0.4rem] ${filterStatus === 'provisorios' ? 'bg-brand-primary text-white shadow-[0_2px_6px_rgba(217,108,0,0.25)]' : 'bg-transparent text-text-secondary hover:text-text-primary'}`}
-            aria-pressed={filterStatus === 'provisorios'}
-          >
-            Provisórios
-          </button>
-        </div>
+        <SegmentedControl
+          options={[
+            { id: 'todos', label: 'Todos' },
+            { id: 'completos', label: 'Completos' },
+            { id: 'provisorios', label: 'Provisórios' },
+          ]}
+          value={filterStatus}
+          onChange={setFilterStatus}
+          size="sm"
+          fullWidth={false}
+          aria-label="Filtrar por status de cadastro"
+          className="max-[640px]:w-full max-[640px]:flex"
+        />
 
         <button
           type="button"

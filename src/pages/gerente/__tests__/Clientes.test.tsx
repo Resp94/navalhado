@@ -180,7 +180,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     });
 
     // Clicar no filtro "Completos"
-    const btnCompletos = screen.getByRole('button', { name: 'Completos' });
+    const btnCompletos = screen.getByRole('tab', { name: 'Completos' });
     fireEvent.click(btnCompletos);
 
     // Esperar que apenas o cadastrado apareça
@@ -188,7 +188,7 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     expect(screen.queryByText('Visitante Zap')).not.toBeInTheDocument();
 
     // Clicar no filtro "Provisórios"
-    const btnProvisorios = screen.getByRole('button', { name: 'Provisórios' });
+    const btnProvisorios = screen.getByRole('tab', { name: 'Provisórios' });
     fireEvent.click(btnProvisorios);
 
     expect(screen.queryByText('João Silva')).not.toBeInTheDocument();
