@@ -3098,7 +3098,7 @@ export const Agenda: React.FC = () => {
             />
           </div>
 
-          <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
+          <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
             <button
               type="button"
               className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
@@ -3222,7 +3222,7 @@ export const Agenda: React.FC = () => {
               <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
               A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
             </p>
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
               <button
                 type="button"
                 className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
@@ -3271,7 +3271,7 @@ export const Agenda: React.FC = () => {
               />
             </div>
 
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full">
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
               <button
                 type="button"
                 className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
@@ -3363,7 +3363,7 @@ export const Agenda: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
               <button
                 type="button"
                 className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"

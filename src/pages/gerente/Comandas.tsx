@@ -170,7 +170,7 @@ export const Comandas: React.FC = () => {
       </div>
 
       {/* ─── FILTROS E BUSCA ─── */}
-      <div className="flex gap-4 items-center flex-wrap max-[768px]:flex-col max-[768px]:items-stretch">
+      <div className="flex gap-4 items-center flex-wrap max-[768px]:flex-col max-[768px]:flex-nowrap max-[768px]:items-stretch">
         <div style={{ flex: 1, minWidth: '260px' }}>
           <SearchInput
             placeholder="Buscar por cliente, código ou profissional..."

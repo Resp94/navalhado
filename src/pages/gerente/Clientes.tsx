@@ -389,8 +389,8 @@ export const Clientes: React.FC = () => {
       </section>
 
       {/* 2. CONTROLES E BUSCA */}
-      <div className="flex items-center gap-4 flex-wrap max-[640px]:flex-col max-[640px]:items-stretch" role="search" aria-label="Controles e busca de clientes">
-        <div className="relative flex-1 min-w-[260px] max-[640px]:min-w-full">
+      <div className="flex items-center gap-4 flex-wrap max-[640px]:flex-col max-[640px]:flex-nowrap max-[640px]:items-stretch" role="search" aria-label="Controles e busca de clientes">
+        <div className="relative flex-1 min-w-0 sm:min-w-[260px]">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary flex items-center pointer-events-none" aria-hidden="true">
             <SearchIcon />
           </span>

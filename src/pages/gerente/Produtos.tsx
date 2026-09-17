@@ -481,8 +481,8 @@ export const Produtos: React.FC = () => {
       </section>
 
       {/* 2. BARRA DE CONTROLES E BUSCA */}
-      <div className="flex items-center gap-4 flex-wrap max-[768px]:flex-col max-[768px]:items-stretch">
-        <div className="flex-1 min-w-[260px] max-[768px]:min-w-full">
+      <div className="flex items-center gap-4 flex-wrap max-[768px]:flex-col max-[768px]:flex-nowrap max-[768px]:items-stretch">
+        <div className="flex-1 min-w-0 md:min-w-[260px]">
           <SearchInput
             placeholder="Buscar por nome, marca ou categoria..."
             aria-label="Buscar produtos por nome, marca ou categoria"

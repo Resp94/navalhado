@@ -212,7 +212,7 @@ export const CadastroAcesso: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-border pt-[0.85rem] mt-1 flex-wrap max-[480px]:flex-col-reverse">
+            <div className="flex justify-end gap-3 border-t border-border pt-[0.85rem] mt-1 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap">
               <button
                 type="button"
                 onClick={() => navigate('/profissionais')}

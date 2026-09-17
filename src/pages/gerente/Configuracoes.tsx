@@ -570,7 +570,7 @@ export const Configuracoes: React.FC = () => {
 
         {/* 2.1 Intervalo entre Horários */}
         <div className="flex flex-col gap-2.5">
-          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:flex-nowrap max-[480px]:items-start">
             <div>
               <label htmlFor="slot_interval_minutes" className="text-sm font-bold text-text-primary">
                 Intervalo entre horários na grade
@@ -613,7 +613,7 @@ export const Configuracoes: React.FC = () => {
 
         {/* 2.2 Antecedência Mínima para Agendamento */}
         <div className="flex flex-col gap-2.5 border-t border-dashed border-border pt-5">
-          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:flex-nowrap max-[480px]:items-start">
             <div>
               <label htmlFor="min_booking_lead_time_minutes" className="text-sm font-bold text-text-primary">
                 Antecedência mínima para agendar
@@ -656,7 +656,7 @@ export const Configuracoes: React.FC = () => {
 
         {/* 2.3 Antecedência Mínima para Cancelamento */}
         <div className="flex flex-col gap-2.5 border-t border-dashed border-border pt-5">
-          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:items-start">
+          <div className="flex justify-between items-center flex-wrap gap-2 max-[480px]:flex-col max-[480px]:flex-nowrap max-[480px]:items-start">
             <div>
               <label htmlFor="min_cancellation_lead_time_minutes" className="text-sm font-bold text-text-primary">
                 Antecedência mínima para cancelar ou reagendar

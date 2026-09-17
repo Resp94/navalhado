@@ -95,7 +95,7 @@ const PROF_CARD_TITLE_GROUP_CLASSES = 'flex items-center gap-3 min-w-0 flex-[1_1
 const PROF_CARD_SCHEDULE_CLASSES = 'flex flex-col gap-[0.4rem] w-full';
 const SCHEDULE_BADGES_CLASSES = 'grid grid-cols-7 gap-[0.35rem] w-full box-border max-sm:gap-1';
 const PROF_CARD_ACTIONS_CLASSES =
-  'flex justify-between items-center border-t border-border pt-3 flex-wrap gap-[0.65rem] max-sm:flex-col max-sm:items-stretch';
+  'flex justify-between items-center border-t border-border pt-3 flex-wrap gap-[0.65rem] max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch';
 const ACTION_BUTTONS_CLASSES =
   'flex items-center gap-2 flex-wrap max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:w-full max-[380px]:grid-cols-1';
 const ACTION_BUTTON_MOBILE_CLASSES = 'max-sm:min-h-[44px] max-sm:text-xs max-sm:py-2 max-sm:px-[0.4rem] max-sm:w-full';
@@ -586,7 +586,7 @@ export const Profissionais: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2 w-full">
-        <div className="flex justify-between items-center gap-6 w-full flex-wrap max-md:flex-col max-md:items-start max-md:gap-4">
+        <div className="flex justify-between items-center gap-6 w-full flex-wrap max-md:flex-col max-md:flex-nowrap max-md:items-start max-md:gap-4">
           <div>
             <h2 className="text-2xl font-extrabold text-text-primary tracking-[-0.025em] m-0 leading-[1.2]">Equipe e escala da barbearia</h2>
             <p className="text-sm text-text-secondary m-0 max-w-[72ch] leading-[1.5]">
@@ -622,7 +622,7 @@ export const Profissionais: React.FC = () => {
         className="bg-bg-secondary border border-border rounded-lg p-6 shadow-sm max-sm:p-4 max-sm:rounded-md"
         aria-labelledby="prof-list-heading"
       >
-        <div className="flex justify-between items-center gap-4 flex-wrap mb-5 max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
+        <div className="flex justify-between items-center gap-4 flex-wrap mb-5 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:gap-3">
           <div className="flex items-center gap-3">
             <h3 id="prof-list-heading" className="text-lg font-extrabold text-text-primary m-0 tracking-[-0.015em]">Membros da equipe</h3>
             {loading ? (
