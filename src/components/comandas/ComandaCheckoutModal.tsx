@@ -1427,6 +1427,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                             onChange={setDiscountType}
                             size="sm"
                             fullWidth={false}
+                            className="shrink-0"
                             style={{ backgroundColor: 'var(--color-bg-secondary)' }}
                             options={[
                               { id: 'fixed', label: 'R$' },
