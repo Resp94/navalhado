@@ -6,6 +6,7 @@ import type { TenantContextType } from '../../../components/GerenteLayout';
 import { dateInZone } from '../../../lib/timezone';
 import { SegmentedControl } from '../../../components/ui/navigation/SegmentedControl';
 import { Badge } from '../../../components/ui/data-display/Badge';
+import { Select } from '../../../components/ui/forms/Select';
 import { CustomDatePicker } from '../../../components/CustomDatePicker';
 import {
   getRelatoriosPeriodShortcutRange,
@@ -247,21 +248,19 @@ export const RelatoriosLayout: React.FC = () => {
             </div>
           </div>
 
-          <label className="flex flex-col gap-1 text-xs text-text-secondary">
-            <span>Agrupar por</span>
-            <select
-              aria-label="Granularidade do agrupamento"
-              value={periodoState.granularity}
-              onChange={(event) => handleGranularityChange(event.target.value as RelatoriosGranularity)}
-              className="px-3 py-2 border border-border rounded-md bg-bg-primary text-text-primary font-semibold"
-            >
-              {GRANULARITY_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Agrupar por"
+            className="w-auto! max-w-[200px]"
+            aria-label="Granularidade do agrupamento"
+            value={periodoState.granularity}
+            onChange={(event) => handleGranularityChange(event.target.value as RelatoriosGranularity)}
+          >
+            {GRANULARITY_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </section>
       )}
 
