@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Coins01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import { useToast } from '../../../components/Toast';
-import { Button } from '../../../components/ui';
+import { Button, DateRangePicker } from '../../../components/ui';
 import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
@@ -394,9 +394,6 @@ export const CaixaTab: React.FC = () => {
               <div className="flex items-start justify-between gap-6 min-w-0 max-md:flex-col max-md:gap-4">
                 <div>
                   <h3 id="daily-financial-title" className="card-panel-title">
-                    <span className="text-text-primary inline-flex h-fit">
-                      <HugeiconsIcon icon={Coins01Icon} size={18} />
-                    </span>
                     Resumo por dia
                   </h3>
                   <p className="card-panel-subtitle">
@@ -408,26 +405,15 @@ export const CaixaTab: React.FC = () => {
                   aria-label="Filtros do resumo diário"
                 >
                   <label>
-                    <span>De</span>
-                    <input
-                      aria-label="Data inicial do resumo diário"
-                      type="date"
-                      value={dailyStartDate}
-                      onChange={(event) => {
+                    <span>Período</span>
+                    <DateRangePicker
+                      ariaLabel="Período do resumo diário"
+                      from={dailyStartDate}
+                      to={dailyEndDate}
+                      onChange={({ from, to }) => {
                         setDailyRangeFollowsSession(false);
-                        setDailyStartDate(event.target.value);
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <span>Até</span>
-                    <input
-                      aria-label="Data final do resumo diário"
-                      type="date"
-                      value={dailyEndDate}
-                      onChange={(event) => {
-                        setDailyRangeFollowsSession(false);
-                        setDailyEndDate(event.target.value);
+                        setDailyStartDate(from);
+                        setDailyEndDate(to);
                       }}
                     />
                   </label>
