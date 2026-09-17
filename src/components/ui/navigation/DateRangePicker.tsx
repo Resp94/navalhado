@@ -3,20 +3,22 @@ import { DayPicker, type DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Calendar03Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { Calendar03Icon, ArrowLeft01Icon, ArrowRight01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { Popover, PopoverTrigger, PopoverContent } from './Popover';
 
 export interface DateRangePickerProps {
-  from: string;
-  to: string;
+  from?: string | null;
+  to?: string | null;
   onChange: (range: { from: string; to: string }) => void;
   ariaLabel?: string;
+  placeholder?: string;
   numberOfMonths?: 1 | 2;
+  clearable?: boolean;
 }
 
-const toLocalDate = (isoDate: string): Date => {
+const toLocalDate = (isoDate: string): Date | undefined => {
   const [y, m, d] = isoDate.split('-').map(Number);
-  if (!y || !m || !d) return new Date();
+  if (!y || !m || !d) return undefined;
   return new Date(y, m - 1, d);
 };
 
@@ -34,15 +36,20 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   to,
   onChange,
   ariaLabel = 'Selecionar período',
+  placeholder = 'Selecionar período',
   numberOfMonths = 2,
+  clearable = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const selected: DateRange = { from: toLocalDate(from), to: toLocalDate(to) };
+  const fromDate = from ? toLocalDate(from) : undefined;
+  const toDate = to ? toLocalDate(to) : undefined;
+  const selected: DateRange | undefined = fromDate ? { from: fromDate, to: toDate } : undefined;
 
-  const label =
-    from === to
-      ? formatShort(selected.from!)
-      : `${formatShort(selected.from!)} – ${formatShort(selected.to!)}`;
+  const label = !fromDate
+    ? placeholder
+    : !toDate || from === to
+    ? formatShort(fromDate)
+    : `${formatShort(fromDate)} – ${formatShort(toDate)}`;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -50,10 +57,31 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         <button
           type="button"
           aria-label={ariaLabel}
-          className="inline-flex items-center gap-2 min-h-[38px] px-[0.6rem] rounded-sm bg-transparent shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-semibold box-border cursor-pointer hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] data-[state=open]:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
+          className="inline-flex items-center gap-2 min-h-[38px] px-[0.6rem] rounded-sm bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-semibold box-border cursor-pointer hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] data-[state=open]:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
         >
           <HugeiconsIcon icon={Calendar03Icon} size={15} />
           {label}
+          {clearable && fromDate && (
+            <span
+              role="button"
+              aria-label="Limpar período"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange({ from: '', to: '' });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onChange({ from: '', to: '' });
+                }
+              }}
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full text-text-secondary hover:bg-text-primary/8 hover:text-text-primary"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={12} />
+            </span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="p-3" align="start">
@@ -61,7 +89,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
           mode="range"
           locale={ptBR}
           numberOfMonths={numberOfMonths}
-          defaultMonth={selected.from}
+          defaultMonth={fromDate}
           selected={selected}
           onSelect={(range) => {
             if (range?.from && range?.to) {

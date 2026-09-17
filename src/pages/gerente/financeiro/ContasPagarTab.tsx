@@ -14,7 +14,7 @@ import type { ContaPagarListada, TotaisContasPagar } from '../../../modules/cont
 import type { FinanceiroHubContextType } from './HubLayout';
 import { ContaPagarForm } from '../../../components/financeiro/ContaPagarForm';
 import { ContaPagarDetalheDrawer } from '../../../components/financeiro/ContaPagarDetalheDrawer';
-import { Badge, Card, EmptyState, Skeleton, StatCard } from '../../../components/ui';
+import { Badge, Card, EmptyState, Skeleton, StatCard, DateRangePicker } from '../../../components/ui';
 import { Button } from '../../../components/ui/forms/Button';
 import { Select } from '../../../components/ui/forms/Select';
 import { Drawer } from '../../../components/ui/feedback/Drawer';
@@ -31,8 +31,8 @@ export interface ContasPagarTabProps {
   caixaRepository?: CaixaRepository;
 }
 
-const ROTULO_SITUACAO: Record<string, { label: string; variant: 'neutral' | 'success' | 'warning' | 'error' }> = {
-  open: { label: 'Em aberto', variant: 'neutral' },
+const ROTULO_SITUACAO: Record<string, { label: string; variant: 'neutral' | 'success' | 'warning' | 'error'; solid?: boolean }> = {
+  open: { label: 'Em aberto', variant: 'error', solid: true },
   partially_paid: { label: 'Parcialmente paga', variant: 'warning' },
   paid: { label: 'Paga', variant: 'success' },
   cancelled: { label: 'Cancelada', variant: 'neutral' },
@@ -206,21 +206,14 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
 
       <div className="flex items-end gap-4 flex-wrap mb-4">
         <label className="flex flex-col gap-[0.35rem] text-sm text-text-secondary">
-          <span>Vencimento de</span>
-          <input
-            type="date"
-            value={filtro.dueDateFrom || ''}
-            onChange={(event) => mudarFiltro({ dueDateFrom: event.target.value || null })}
-            className="py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-base"
-          />
-        </label>
-        <label className="flex flex-col gap-[0.35rem] text-sm text-text-secondary">
-          <span>Vencimento até</span>
-          <input
-            type="date"
-            value={filtro.dueDateTo || ''}
-            onChange={(event) => mudarFiltro({ dueDateTo: event.target.value || null })}
-            className="py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-base"
+          <span>Filtrar por vencimento</span>
+          <DateRangePicker
+            ariaLabel="Filtrar por vencimento"
+            placeholder="Todas as datas"
+            clearable
+            from={filtro.dueDateFrom}
+            to={filtro.dueDateTo}
+            onChange={({ from, to }) => mudarFiltro({ dueDateFrom: from || null, dueDateTo: to || null })}
           />
         </label>
         <Select
@@ -307,7 +300,7 @@ export const ContasPagarTab: React.FC<ContasPagarTabProps> = ({
                       <TableCell>{formatarMoeda(conta.amount)}</TableCell>
                       <TableCell>{formatarMoeda(conta.remaining_amount)}</TableCell>
                       <TableCell>
-                        <Badge variant={situacao.variant}>{situacao.label}</Badge>
+                        <Badge variant={situacao.variant} badgeType={situacao.solid ? 'solid' : 'subtle'}>{situacao.label}</Badge>
                       </TableCell>
                     </TableRow>
                   );
