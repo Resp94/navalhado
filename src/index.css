@@ -93,6 +93,17 @@
   --radius-full: 9999px;
 }
 
+/*
+ * Fix responsividade (spec 039, pós-migração): este bloco de reset/base não
+ * estava em @layer, e por Cascade Layers uma regra sem layer sempre vence
+ * qualquer regra em @layer — inclusive as utilities do Tailwind (@import
+ * "tailwindcss" as declara em layers). Isso zerava padding/margin de toda
+ * utility Tailwind do projeto (px-*, py-*, max-md:pt-*, etc.), quebrando o
+ * layout em telas mobile como 390x844. @layer base entra ANTES de utilities
+ * na ordem do Tailwind, então utility sempre ganha do reset, como esperado.
+ */
+@layer base {
+
 /* Reset Básico */
 *,
 *::before,
@@ -173,6 +184,8 @@ button, input, select, textarea {
   font-family: inherit;
 }
 
+} /* fim @layer base (reset) */
+
 /* ==============================
    Keyframes Globais
    ============================== */
@@ -234,6 +247,8 @@ button, input, select, textarea {
   --animate-dialog-in: dialogSpring 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-tooltip-in: tooltipPop 0.15s ease-out;
 }
+
+@layer base {
 
 /* ==============================
    Noise / Grain Overlay
@@ -420,5 +435,7 @@ button, input, select, textarea {
     font-size: 16px !important;
   }
 }
+
+} /* fim @layer base (utilitários globais) */
 
 
