@@ -4,7 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
-import { Button, Tooltip } from '../../components/ui';
+import { Button, Tooltip, Select, Input } from '../../components/ui';
 import {
   dateInZone,
   formatTimeInZone,
@@ -2865,13 +2865,12 @@ export const Agenda: React.FC = () => {
           </div>
 
           {customerMode === 'existing' ? (
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="select-customer">Cliente</label>
-              <select
+            <div className="flex flex-col gap-[0.35rem] min-w-0">
+              <Select
+                label="Cliente"
                 id="select-customer"
                 value={selectedCustomerId}
                 onChange={(e) => setSelectedCustomerId(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 <option value="">Selecione um cliente...</option>
@@ -2880,7 +2879,7 @@ export const Agenda: React.FC = () => {
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {customers.find((c) => c.id === selectedCustomerId)?.phone && (
                 <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
                   <span>WhatsApp: <strong>{customers.find((c) => c.id === selectedCustomerId)?.phone}</strong></span>
@@ -2922,13 +2921,12 @@ export const Agenda: React.FC = () => {
 
           {/* Seleção de Profissional e Serviço */}
           <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="select-professional">Profissional</label>
-              <select
+            <div className="flex flex-col gap-[0.35rem] min-w-0">
+              <Select
+                label="Profissional"
                 id="select-professional"
                 value={formProfessionalId}
                 onChange={(e) => setFormProfessionalId(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 {availableProfessionalsForFormTime.length > 0 ? (
@@ -2945,7 +2943,7 @@ export const Agenda: React.FC = () => {
                     Nenhum barbeiro disponível (intervalo/folga)
                   </option>
                 )}
-              </select>
+              </Select>
               {availableProfessionalsForFormTime.length === 0 && (
                 <span className="text-xs mt-1 block">
                   Nenhum barbeiro disponível às {formTime} (intervalo ou folga).
@@ -2953,13 +2951,12 @@ export const Agenda: React.FC = () => {
               )}
             </div>
 
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="select-service">Serviço</label>
-              <select
+            <div className="flex flex-col gap-[0.35rem] min-w-0">
+              <Select
+                label="Serviço"
                 id="select-service"
                 value={formServiceId}
                 onChange={(e) => setFormServiceId(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                 required
               >
                 {services.map((s) => (
@@ -2967,7 +2964,7 @@ export const Agenda: React.FC = () => {
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {services.find((s) => s.id === formServiceId) && (
                 <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
                   <span>Duração: <strong>{services.find((s) => s.id === formServiceId)?.duration_minutes} min</strong></span>
@@ -3005,11 +3002,10 @@ export const Agenda: React.FC = () => {
                   required
                 />
               ) : modalAvailableTimeSlots.length > 0 ? (
-                <select
+                <Select
                   id="form-time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
                   required
                 >
                   {formIsFitting && !modalAvailableTimeSlots.includes(formTime) && (
@@ -3020,7 +3016,7 @@ export const Agenda: React.FC = () => {
                       {slot}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : (
                 <input
                   id="form-time"
@@ -3321,59 +3317,44 @@ export const Agenda: React.FC = () => {
               <strong>{agendaRescheduleAppointment.service?.name}</strong>.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label htmlFor="agenda_reschedule_date" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
-                  Nova Data:
-                </label>
-                <input
-                  id="agenda_reschedule_date"
-                  type="date"
-                  value={agendaRescheduleDate}
-                  onChange={(e) => setAgendaRescheduleDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
-                />
-              </div>
-              <div>
-                <label htmlFor="agenda_reschedule_time" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
-                  Novo Horário:
-                </label>
-                <select
-                  id="agenda_reschedule_time"
-                  value={agendaRescheduleTime}
-                  onChange={(e) => setAgendaRescheduleTime(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '0.9rem' }}
-                >
-                  <option value="">Selecione um horário livre...</option>
-                  {agendaRescheduleAvailableSlots.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                  {agendaRescheduleAvailableSlots.length === 0 && (
-                    <option value="" disabled>
-                      Nenhum horário livre nesta data
-                    </option>
-                  )}
-                </select>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Nova data"
+                id="agenda_reschedule_date"
+                type="date"
+                value={agendaRescheduleDate}
+                onChange={(e) => setAgendaRescheduleDate(e.target.value)}
+              />
+              <Select
+                label="Novo horário"
+                id="agenda_reschedule_time"
+                value={agendaRescheduleTime}
+                onChange={(e) => setAgendaRescheduleTime(e.target.value)}
+              >
+                <option value="">Selecione um horário livre...</option>
+                {agendaRescheduleAvailableSlots.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+                {agendaRescheduleAvailableSlots.length === 0 && (
+                  <option value="" disabled>
+                    Nenhum horário livre nesta data
+                  </option>
+                )}
+              </Select>
             </div>
 
-            <div>
-              <label htmlFor="agenda_reschedule_prof" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#334155', marginBottom: '4px' }}>
-                Profissional:
-              </label>
-              <select
-                id="agenda_reschedule_prof"
-                value={agendaRescheduleProfId}
-                onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
-              >
-                {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Profissional"
+              id="agenda_reschedule_prof"
+              value={agendaRescheduleProfId}
+              onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
+            >
+              {professionals.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
 
             <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
               <button

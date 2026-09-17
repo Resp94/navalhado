@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import { useToast } from '../../../components/Toast';
-import { Button, DateRangePicker } from '../../../components/ui';
+import { Button, DateRangePicker, Select } from '../../../components/ui';
 import { LockIcon } from '../../../components/Icons';
 import { AberturaAssistidaCaixaModal } from '../../../components/caixa/AberturaAssistidaCaixaModal';
 import { FechamentoCaixaModal } from '../../../components/caixa/FechamentoCaixaModal';
@@ -401,10 +401,10 @@ export const CaixaTab: React.FC = () => {
                   </p>
                 </div>
                 <div
-                  className="flex items-end gap-3 flex-wrap min-w-0 max-md:grid max-md:grid-cols-2 max-md:w-full max-md:gap-3 [&_label]:flex [&_label]:flex-col [&_label]:gap-[0.3rem] [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary max-md:[&_label]:min-w-0 max-md:[&_label]:w-full max-md:[&_label:last-child]:col-span-full [&_input]:min-w-0 [&_input]:max-w-full [&_input]:min-h-[38px] [&_input]:px-[0.6rem] [&_input]:py-[0.45rem] [&_input]:border-none [&_input]:shadow-[0_0_0_0.888889px_var(--color-text-primary)] [&_input]:rounded-sm [&_input]:bg-transparent [&_input]:text-text-primary [&_input]:font-semibold [&_input]:box-border [&_select]:min-w-[190px] [&_select]:max-w-full [&_select]:min-h-[38px] [&_select]:px-[0.6rem] [&_select]:py-[0.45rem] [&_select]:border-none [&_select]:shadow-[0_0_0_0.888889px_var(--color-text-primary)] [&_select]:rounded-sm [&_select]:bg-transparent [&_select]:text-text-primary [&_select]:font-semibold [&_select]:box-border max-md:[&_input]:w-full max-md:[&_select]:w-full max-md:[&_select]:min-w-0"
+                  className="flex items-end gap-3 flex-wrap min-w-0 max-md:grid max-md:grid-cols-2 max-md:w-full max-md:gap-3 max-md:[&>*]:min-w-0 max-md:[&>*]:w-full max-md:[&>*:last-child]:col-span-full"
                   aria-label="Filtros do resumo diário"
                 >
-                  <label>
+                  <label className="flex flex-col gap-[0.3rem] text-xs font-bold text-text-primary">
                     <span>Período</span>
                     <DateRangePicker
                       ariaLabel="Período do resumo diário"
@@ -417,21 +417,20 @@ export const CaixaTab: React.FC = () => {
                       }}
                     />
                   </label>
-                  <label>
-                    <span>Sessão</span>
-                    <select
-                      aria-label="Sessão do resumo diário"
-                      value={selectedDailySessionId || ''}
-                      onChange={(event) => handleDailySessionChange(event.target.value)}
-                    >
-                      <option value="">Todas as sessões</option>
-                      {historySessions.map((session) => (
-                        <option key={session.id} value={session.id}>
-                          {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Sessão"
+                    className="w-auto! min-w-[190px]"
+                    aria-label="Sessão do resumo diário"
+                    value={selectedDailySessionId || ''}
+                    onChange={(event) => handleDailySessionChange(event.target.value)}
+                  >
+                    <option value="">Todas as sessões</option>
+                    {historySessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
               </div>
 
