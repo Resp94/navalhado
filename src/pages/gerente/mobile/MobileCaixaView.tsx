@@ -8,6 +8,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { LockIcon } from '../../../components/Icons';
 import { MobileBottomSheet } from '../../../components/mobile/MobileBottomSheet';
+import { DateRangePicker, Select } from '../../../components/ui';
 import { formatCurrency } from '../../../lib/currency';
 import { useToast } from '../../../components/Toast';
 import type {
@@ -329,41 +330,31 @@ export const MobileCaixaView: React.FC<MobileCaixaViewProps> = ({
 
         <div className="grid grid-cols-1 gap-3 min-w-0 max-w-full box-border">
           <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border">
-            <span>De</span>
-            <input
-              aria-label="Data inicial do resumo diário"
-              type="date"
-              value={dailyStartDate}
-              onChange={(event) => onDailyStartDateChange?.(event.target.value)}
-              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
+            <span>Período</span>
+            <DateRangePicker
+              ariaLabel="Período do resumo diário"
+              numberOfMonths={1}
+              from={dailyStartDate}
+              to={dailyEndDate}
+              onChange={({ from, to }) => {
+                onDailyStartDateChange?.(from);
+                onDailyEndDateChange?.(to);
+              }}
             />
           </label>
-          <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border">
-            <span>Até</span>
-            <input
-              aria-label="Data final do resumo diário"
-              type="date"
-              value={dailyEndDate}
-              onChange={(event) => onDailyEndDateChange?.(event.target.value)}
-              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
-            />
-          </label>
-          <label className="flex flex-col gap-1 min-w-0 text-[0.6875rem] font-bold text-text-secondary max-w-full box-border col-span-full">
-            <span>Sessão</span>
-            <select
-              aria-label="Sessão do resumo diário"
-              value={selectedDailySessionId || ''}
-              onChange={(event) => onDailySessionChange?.(event.target.value)}
-              className="w-full min-w-0 max-w-full min-h-10 p-[0.45rem] border border-border rounded-md bg-bg-primary text-text-primary font-base text-xs font-semibold box-border"
-            >
-              <option value="">Todas as sessões</option>
-              {historySessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Sessão"
+            aria-label="Sessão do resumo diário"
+            value={selectedDailySessionId || ''}
+            onChange={(event) => onDailySessionChange?.(event.target.value)}
+          >
+            <option value="">Todas as sessões</option>
+            {historySessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+              </option>
+            ))}
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
