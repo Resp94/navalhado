@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Coins01Icon } from '@hugeicons/core-free-icons';
+import { Select } from '../ui';
 
 interface GorjetaProfessionalOption {
   id: string;
@@ -57,8 +58,7 @@ export function GorjetaValorInput({
         />
       </div>
       {showProfessionalPicker && (
-        <select
-          className="w-full px-[0.85rem] py-[0.55rem] text-sm font-semibold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none transition-all duration-200 focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
+        <Select
           aria-label="Profissional que recebe a gorjeta"
           value={selectedProfessionalId || ''}
           onChange={(e) => onProfessionalChange?.(e.target.value)}
@@ -71,7 +71,7 @@ export function GorjetaValorInput({
               {p.name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
     </div>
   );
