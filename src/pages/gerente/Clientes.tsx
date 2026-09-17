@@ -732,7 +732,6 @@ export const Clientes: React.FC = () => {
           >
             <div className="py-7 px-7 pb-5 flex flex-col gap-[1.15rem]">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] uppercase tracking-[0.08em] font-extrabold text-error">Confirmação de exclusão</span>
                 <h3 id="delete-dialog-title" className="text-xl font-extrabold text-text-primary m-0 tracking-[-0.01em]">
                   Excluir cadastro do cliente?
                 </h3>
