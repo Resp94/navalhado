@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SegmentedControl } from '../../../../components/ui/navigation/SegmentedControl';
+import { Select } from '../../../../components/ui/forms/Select';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 import { formatCurrencyInput } from '../../../../lib/currency';
 import type { FluxoCaixaGranularity } from '../../../../modules/fluxo-caixa/types';
@@ -133,22 +134,20 @@ export const FluxoCaixaFiltros: React.FC<FluxoCaixaFiltrosProps> = ({
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-xs font-bold text-text-primary">
-        <span>Granularidade</span>
-        <select
-          aria-label="Granularidade do agrupamento"
-          value={granularity}
-          disabled={!isCustom}
-          onChange={(event) => onGranularityChange(event.target.value as FluxoCaixaGranularity)}
-          className="py-[0.4rem] px-[0.6rem] rounded-sm border border-border bg-bg-primary text-text-primary font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {GRANULARITY_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Select
+        label="Granularidade"
+        className="w-auto! max-w-[200px]"
+        aria-label="Granularidade do agrupamento"
+        value={granularity}
+        disabled={!isCustom}
+        onChange={(event) => onGranularityChange(event.target.value as FluxoCaixaGranularity)}
+      >
+        {GRANULARITY_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
 
       {mostrarCampoSaldo && (
         <label className="flex items-center gap-2 text-xs font-bold text-text-primary">
