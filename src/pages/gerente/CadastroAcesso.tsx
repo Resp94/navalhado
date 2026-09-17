@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/Icons';
+import { Select } from '../../components/ui';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 
@@ -144,21 +145,18 @@ export const CadastroAcesso: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-[0.85rem]">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="select-prof" className="text-xs font-extrabold text-text-primary uppercase tracking-[0.04em]">Selecione o barbeiro</label>
-              <select
-                id="select-prof"
-                value={selectedProfId}
-                onChange={(e) => setSelectedProfId(e.target.value)}
-                required
-                className="py-[0.65rem] px-[0.85rem] min-h-10 border-0 rounded-md bg-bg-secondary bg-none text-text-primary text-base sm:text-sm shadow-[0_0_0_0.3px_var(--color-text-primary)] outline-none transition-[box-shadow,background-color] duration-200 ease-in-out w-full box-border focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] focus:bg-bg-secondary"
-              >
-                <option value="">Selecione o profissional...</option>
-                {professionals.map((prof) => (
-                  <option key={prof.id} value={prof.id}>{prof.name} ({prof.phone})</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Selecione o barbeiro"
+              id="select-prof"
+              value={selectedProfId}
+              onChange={(e) => setSelectedProfId(e.target.value)}
+              required
+            >
+              <option value="">Selecione o profissional...</option>
+              {professionals.map((prof) => (
+                <option key={prof.id} value={prof.id}>{prof.name} ({prof.phone})</option>
+              ))}
+            </Select>
 
             <div className="flex flex-col gap-1">
               <label htmlFor="input-email" className="text-xs font-extrabold text-text-primary uppercase tracking-[0.04em]">E-mail de login</label>

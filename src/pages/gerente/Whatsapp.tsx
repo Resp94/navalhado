@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/ui';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -877,20 +878,20 @@ export const Whatsapp: React.FC = () => {
                         <label htmlFor="reminder-hours" className="text-sm text-text-primary m-0 font-medium">
                           Tempo de antecedência do lembrete:
                         </label>
-                        <select
+                        <Select
                           id="reminder-hours"
+                          className="w-auto!"
                           aria-label="Tempo de antecedência do lembrete"
                           value={instance.reminder_hours}
                           onChange={(event) => handleUpdateConfig('reminder_hours', Number(event.target.value))}
                           disabled={!instance.send_reminders || actionLoading}
-                          className="px-2 py-1 shadow-[0_0_0_0.888889px_var(--color-text-primary)] rounded-sm bg-bg-secondary text-text-primary text-sm disabled:cursor-not-allowed disabled:opacity-55 max-[640px]:min-h-11 max-[640px]:text-base"
                         >
                           {[1, 2, 3, 4, 6, 12, 24].map((hours) => (
                             <option key={hours} value={hours}>
                               {hours} {hours === 1 ? 'hora antes' : 'horas antes'}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <span className="text-info text-xs font-semibold tracking-[0.01em]">
                         Lembrete enviado {formatHoursToReadable(instance.reminder_hours)} antes do agendamento
