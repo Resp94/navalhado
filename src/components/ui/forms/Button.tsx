@@ -22,18 +22,18 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-primary-solid text-white shadow-[0_1px_3px_rgba(217,108,0,0.25)] hover:not-disabled:bg-brand-hover hover:not-disabled:shadow-[0_4px_12px_rgba(217,108,0,0.3)]',
+    'border-none bg-brand-primary-solid text-white shadow-[0_1px_3px_rgba(217,108,0,0.25)] hover:not-disabled:bg-brand-hover hover:not-disabled:shadow-[0_4px_12px_rgba(217,108,0,0.3)]',
   secondary:
-    'bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:not-disabled:bg-black/3',
+    'border-none bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:not-disabled:bg-black/3',
   outline:
     'bg-transparent text-text-primary border border-border hover:not-disabled:border-brand-primary hover:not-disabled:text-brand-primary hover:not-disabled:bg-brand-primary/4',
-  danger: 'bg-error-solid text-white hover:not-disabled:bg-[color-mix(in_srgb,var(--color-error-solid)_80%,black)]',
+  danger: 'border-none bg-error-solid text-white hover:not-disabled:bg-[color-mix(in_srgb,var(--color-error-solid)_80%,black)]',
   'danger-outline':
     'bg-transparent text-error border border-error hover:not-disabled:bg-error-bg',
-  ghost: 'bg-transparent text-text-secondary hover:not-disabled:bg-text-primary/5 hover:not-disabled:text-text-primary',
+  ghost: 'border-none bg-transparent text-text-secondary hover:not-disabled:bg-text-primary/5 hover:not-disabled:text-text-primary',
   warning:
-    'bg-warning text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:not-disabled:bg-[color-mix(in_srgb,var(--color-warning)_80%,black)] hover:not-disabled:-translate-y-px',
-  soft: 'bg-brand-lightest text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:not-disabled:bg-brand-soft hover:not-disabled:-translate-y-px',
+    'border-none bg-warning text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] hover:not-disabled:bg-[color-mix(in_srgb,var(--color-warning)_80%,black)] hover:not-disabled:-translate-y-px',
+  soft: 'border-none bg-brand-lightest text-text-primary shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:not-disabled:bg-brand-soft hover:not-disabled:-translate-y-px',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -64,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isDisabled}
         data-variant={variant}
         data-size={size}
-        className={`inline-flex items-center justify-center font-base font-bold cursor-pointer rounded-md border-none outline-none whitespace-nowrap select-none no-underline relative box-border transition-[background-color,border-color,box-shadow,transform,color] duration-150 ease-in active:not-disabled:scale-98 focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 disabled:opacity-55 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none ${fullWidth ? 'w-full' : ''} ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`}
+        className={`inline-flex items-center justify-center font-base font-bold cursor-pointer rounded-md outline-none whitespace-nowrap select-none no-underline relative box-border transition-[background-color,border-color,box-shadow,transform,color] duration-150 ease-in active:not-disabled:scale-98 focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 disabled:opacity-55 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none ${fullWidth ? 'w-full' : ''} ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`}
         style={style}
         {...props}
       >

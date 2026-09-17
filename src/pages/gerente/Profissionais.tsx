@@ -596,10 +596,9 @@ export const Profissionais: React.FC = () => {
           <div className="flex items-center gap-3 flex-wrap max-md:w-full">
             <Button
               type="button"
-              variant="soft"
+              variant="primary"
               onClick={handleOpenCreateDrawer}
               icon={<HugeiconsIcon icon={PlusSignCircleIcon} size={18} />}
-              style={{ boxShadow: '0 0 0 1px var(--color-text-primary)' }}
               aria-label="Novo Barbeiro"
               className="max-md:flex-1"
             >
@@ -607,7 +606,7 @@ export const Profissionais: React.FC = () => {
             </Button>
             <Button
               type="button"
-              variant="soft"
+              variant="secondary"
               onClick={() => navigate('/profissionais/cadastro-acesso')}
               className="max-md:flex-1"
             >
@@ -679,11 +678,9 @@ export const Profissionais: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-xs bg-brand-lightest text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.35rem] px-[0.65rem] rounded-full font-semibold whitespace-nowrap shrink-0">
-                    <span className="text-text-primary">
-                      Comissão: <strong>{prof.commission_percentage}%</strong>
-                    </span>
-                  </div>
+                  <Badge badgeType="solid" variant="info" size="md" className="shrink-0">
+                    Comissão: {prof.commission_percentage}%
+                  </Badge>
                 </div>
 
                 <div className={PROF_CARD_SCHEDULE_CLASSES}>
@@ -734,47 +731,47 @@ export const Profissionais: React.FC = () => {
                         <CheckIcon /> Login vinculado
                       </span>
                     ) : (
-                      <span
-                        className={`inline-flex items-center gap-[0.3rem] text-[11px] font-bold py-1 px-2 rounded-full bg-warning-bg text-text-primary shadow-[0_0_0_1px_var(--color-text-primary)] ${STATUS_BADGE_MOBILE_CLASSES}`}
+                      <Badge
+                        badgeType="solid"
+                        variant="warning"
+                        icon={<AlertIcon />}
+                        className={STATUS_BADGE_MOBILE_CLASSES}
                         title="Este barbeiro ainda não possui acesso ao painel"
                       >
-                        <AlertIcon /> Sem login
-                      </span>
+                        Sem login
+                      </Badge>
                     )}
                   </div>
 
                   <div className={ACTION_BUTTONS_CLASSES}>
                     <Button
                       size="sm"
-                      variant="soft"
+                      variant="secondary"
                       onClick={() => handleOpenServicesModal(prof)}
                       icon={<ScissorIcon />}
                       title="Configurar serviços atendidos e tempo de corte deste barbeiro"
-                      className={ACTION_BUTTON_MOBILE_CLASSES}
+                      className={`hover:not-disabled:bg-bg-secondary! ${ACTION_BUTTON_MOBILE_CLASSES}`}
                     >
                       Serviços e tempos
                     </Button>
                     <Button
                       size="sm"
-                      variant="soft"
+                      variant="secondary"
                       onClick={() => handleEdit(prof)}
                       icon={<HugeiconsIcon icon={Edit01Icon} size={15} />}
                       title="Editar dados e escala deste barbeiro"
-                      className={ACTION_BUTTON_MOBILE_CLASSES}
+                      className={`hover:not-disabled:bg-bg-secondary! ${ACTION_BUTTON_MOBILE_CLASSES}`}
                     >
                       Editar Escala/Dados
                     </Button>
                     <Button
                       size="sm"
-                      variant="soft"
+                      variant="danger-outline"
                       onClick={() => setProfToDelete(prof)}
                       icon={<HugeiconsIcon icon={Delete02Icon} size={15} />}
                       title="Excluir profissional (mantém histórico)"
                       aria-label={`Excluir profissional ${prof.name}`}
-                      // Override do hover padrão (soft) do Button compartilhado: precisa de vermelho de perigo
-                      // só neste botão. Como não podemos editar components/ui/forms/Button.tsx, usamos o
-                      // modificador `!` do Tailwind para garantir precedência sobre a classe de variante.
-                      className={`hover:!bg-[#F05252] hover:!text-white hover:!shadow-[0_0_0_1px_#F05252] ${ACTION_BUTTON_MOBILE_CLASSES}`}
+                      className={ACTION_BUTTON_MOBILE_CLASSES}
                     >
                       Excluir
                     </Button>
