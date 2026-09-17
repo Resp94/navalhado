@@ -29,6 +29,7 @@ import {
   Badge,
   Card,
   Skeleton,
+  Tooltip,
 } from '../../components/ui';
 
 export const Comandas: React.FC = () => {
@@ -303,18 +304,19 @@ export const Comandas: React.FC = () => {
 
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {cmd.customer_phone && (
-                      <IconButton
-                        aria-label="WhatsApp"
-                        title="WhatsApp"
-                        variant="ghost"
-                        size="sm"
-                        // !important needed: IconButton (src/components/ui, not editable here) appends its
-                        // own variant classes after this className, so plain utilities of equal specificity
-                        // would lose to the "ghost" variant's bg/text classes.
-                        className="text-success! bg-[rgba(14,159,110,0.12)]! border! border-[rgba(14,159,110,0.25)]!"
-                        onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
-                        icon={<HugeiconsIcon icon={WhatsappIcon} size={16} />}
-                      />
+                      <Tooltip content="WhatsApp">
+                        <IconButton
+                          aria-label="WhatsApp"
+                          variant="ghost"
+                          size="sm"
+                          // !important needed: IconButton (src/components/ui, not editable here) appends its
+                          // own variant classes after this className, so plain utilities of equal specificity
+                          // would lose to the "ghost" variant's bg/text classes.
+                          className="text-success! bg-[rgba(14,159,110,0.12)]! border! border-[rgba(14,159,110,0.25)]!"
+                          onClick={() => handleDirectWhatsApp(cmd.customer_phone!, cmd.customer_name || '')}
+                          icon={<HugeiconsIcon icon={WhatsappIcon} size={16} />}
+                        />
+                      </Tooltip>
                     )}
 
                     {isOpen ? (
