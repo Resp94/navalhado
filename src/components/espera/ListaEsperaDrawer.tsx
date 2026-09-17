@@ -10,6 +10,7 @@ import {
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import type { WaitingListEntry } from '../../modules/espera/types';
+import { Select } from '../../components/ui';
 import { openWhatsApp } from '../../lib/whatsapp';
 import { CustomDatePicker } from '../CustomDatePicker';
 
@@ -336,17 +337,11 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
 
               <div className="grid grid-cols-2 gap-3 items-start max-[420px]:grid-cols-1">
                 <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
-                  <label
-                    htmlFor="espera-prof"
-                    className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
-                  >
-                    PROFISSIONAL
-                  </label>
-                  <select
+                  <Select
+                    label="Profissional"
                     id="espera-prof"
                     value={profId}
                     onChange={(e) => setProfId(e.target.value)}
-                    className={`${INPUT_CLASSES} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2318181b'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem] pr-9 cursor-pointer whitespace-nowrap text-ellipsis`}
                   >
                     <option value="">Qualquer barbeiro disponível</option>
                     {professionals.map((p) => (
@@ -354,21 +349,15 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                         {p.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="flex flex-col gap-[0.35rem] flex-1 min-w-0">
-                  <label
-                    htmlFor="espera-servico"
-                    className="text-xs font-extrabold text-text-primary uppercase tracking-[0.02em] leading-[1.25] min-h-[1.25em] whitespace-nowrap overflow-hidden text-ellipsis block"
-                  >
-                    SERVIÇO
-                  </label>
-                  <select
+                  <Select
+                    label="Serviço"
                     id="espera-servico"
                     value={servId}
                     onChange={(e) => setServId(e.target.value)}
-                    className={`${INPUT_CLASSES} appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2318181b'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.75rem_center] bg-[length:1rem] pr-9 cursor-pointer whitespace-nowrap text-ellipsis`}
                   >
                     <option value="">Selecione um serviço...</option>
                     {services.map((s) => (
@@ -376,7 +365,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                         {s.name} (R$ {s.price.toFixed(2)})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
