@@ -9,7 +9,7 @@ import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { Button, Input, Select, Textarea, SegmentedControl } from '../../components/ui';
+import { Button, IconButton, Input, Select, Textarea, SegmentedControl } from '../../components/ui';
 
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -589,14 +589,13 @@ export const Clientes: React.FC = () => {
                     : 'Preencha os dados cadastrais para adicionar à carteira da barbearia.'}
                 </span>
               </div>
-              <button
-                type="button"
+              <IconButton
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsModalOpen(false)}
-                className="bg-bg-primary border border-border text-text-secondary cursor-pointer w-[34px] h-[34px] rounded-full flex items-center justify-center transition-all duration-150 ease-in shrink-0 hover:text-text-primary hover:border-text-secondary hover:bg-bg-secondary focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2"
                 aria-label="Fechar janela"
-              >
-                <CloseIcon />
-              </button>
+                icon={<CloseIcon />}
+              />
             </header>
 
             <form
