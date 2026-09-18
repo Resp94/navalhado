@@ -7,7 +7,7 @@ import { dateInZone } from '../../../lib/timezone';
 import { SegmentedControl } from '../../../components/ui/navigation/SegmentedControl';
 import { Badge } from '../../../components/ui/data-display/Badge';
 import { Select } from '../../../components/ui/forms/Select';
-import { CustomDatePicker } from '../../../components/CustomDatePicker';
+import { DateRangePicker } from '../../../components/ui/navigation/DateRangePicker';
 import {
   getRelatoriosPeriodShortcutRange,
   isRelatoriosGranularityWithinLimits,
@@ -17,7 +17,6 @@ import {
   type RelatoriosPeriodShortcutId,
 } from '../../../modules/relatorios/periodo';
 import type { RelatoriosGranularity } from '../../../modules/relatorios/types';
-import { formatDisplayDate } from '../../../modules/relatorios/formatacao';
 import { useIsNarrowViewport } from './useIsNarrowViewport';
 
 const SHORTCUT_OPTIONS: { id: RelatoriosPeriodShortcutId; label: string }[] = [
@@ -217,36 +216,15 @@ export const RelatoriosLayout: React.FC = () => {
             fullWidth={false}
           />
 
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1 text-xs text-text-secondary">
-              <span>De</span>
-              <RelatoriosDateField
-                value={periodoState.startDate}
-                timezone={timezone}
-                position="right"
-                onSelect={(newDate) =>
-                  handleCustomDateChange(
-                    newDate,
-                    periodoState.endDate < newDate ? newDate : periodoState.endDate
-                  )
-                }
-              />
-            </div>
-            <div className="flex flex-col gap-1 text-xs text-text-secondary">
-              <span>Até</span>
-              <RelatoriosDateField
-                value={periodoState.endDate}
-                timezone={timezone}
-                position="left"
-                onSelect={(newDate) =>
-                  handleCustomDateChange(
-                    periodoState.startDate > newDate ? newDate : periodoState.startDate,
-                    newDate
-                  )
-                }
-              />
-            </div>
-          </div>
+          <label className="flex flex-col gap-1 text-xs text-text-secondary">
+            <span>Período</span>
+            <DateRangePicker
+              ariaLabel="Selecionar período personalizado"
+              from={periodoState.startDate}
+              to={periodoState.endDate}
+              onChange={({ from, to }) => handleCustomDateChange(from, to)}
+            />
+          </label>
 
           <Select
             label="Agrupar por"
@@ -265,39 +243,6 @@ export const RelatoriosLayout: React.FC = () => {
       )}
 
       <Outlet context={outletContext} />
-    </div>
-  );
-};
-
-/** Campo de data com o `CustomDatePicker` já usado no Fluxo de Caixa Projetado. */
-const RelatoriosDateField: React.FC<{
-  value: string;
-  timezone: string;
-  position: 'left' | 'right';
-  onSelect: (date: string) => void;
-}> = ({ value, timezone, position, onSelect }) => {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        className="px-3 py-2 border border-border rounded-md bg-bg-primary text-text-primary font-semibold cursor-pointer"
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        {formatDisplayDate(value)}
-      </button>
-      {open && (
-        <CustomDatePicker
-          selectedDate={value}
-          timezone={timezone}
-          position={position}
-          onSelectDate={(newDate) => {
-            setOpen(false);
-            onSelect(newDate);
-          }}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </div>
   );
 };

@@ -50,7 +50,7 @@ export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previo
   const hasComparison = Boolean(statusTotals && previousStatusTotals);
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {statusTotals && statusTotals.unresolved > 0 && (
         <div
           className="flex items-start gap-3 bg-warning-bg border border-warning text-[var(--color-warning-deep,#92400E)] rounded-lg px-5 py-4"

@@ -51,28 +51,26 @@ export const StatCard: React.FC<StatCardProps> = ({
           <span className="text-[1.625rem] font-extrabold text-text-primary leading-[1.15] tracking-tight">{value}</span>
         )}
 
-        {(trend || displaySubtext) && (
-          <div className="flex items-center flex-wrap gap-[0.4rem] text-xs leading-tight">
-            {trend && (
-              <span
-                className={`inline-flex items-center gap-[2px] px-[6px] py-px rounded-sm font-bold text-[11px] ${
-                  trend.isPositive !== undefined
-                    ? trend.isPositive
-                      ? 'bg-success-bg text-success'
-                      : 'bg-error-bg text-error'
-                    : ''
-                }`}
-              >
-                {trend.isPositive !== undefined && (
-                  <span>{trend.isPositive ? '↑' : '↓'}</span>
-                )}
-                {trend.value}
-              </span>
-            )}
-            {trend?.label && <span className="text-text-secondary">{trend.label}</span>}
-            {displaySubtext && <span className="text-text-primary">{displaySubtext}</span>}
-          </div>
-        )}
+        <div className="flex items-center flex-wrap gap-[0.4rem] text-xs leading-tight min-h-[1.15rem]">
+          {trend && (
+            <span
+              className={`inline-flex items-center gap-[2px] px-[6px] py-px rounded-sm font-bold text-[11px] ${
+                trend.isPositive !== undefined
+                  ? trend.isPositive
+                    ? 'bg-success-bg text-success'
+                    : 'bg-error-bg text-error'
+                  : ''
+              }`}
+            >
+              {trend.isPositive !== undefined && (
+                <span>{trend.isPositive ? '↑' : '↓'}</span>
+              )}
+              {trend.value}
+            </span>
+          )}
+          {trend?.label && <span className="text-text-secondary">{trend.label}</span>}
+          {displaySubtext && <span className="text-text-primary">{displaySubtext}</span>}
+        </div>
       </div>
     </div>
   );
