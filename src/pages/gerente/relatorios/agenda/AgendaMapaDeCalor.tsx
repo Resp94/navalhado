@@ -150,26 +150,33 @@ export const AgendaMapaDeCalor: React.FC<AgendaMapaDeCalorProps> = ({ heatmap, e
               </div>
             </div>
 
-            <table className="sr-only" aria-label="Mapa de calor por dia e horário (tabela equivalente)">
-              <thead>
-                <tr>
-                  <th>Hora</th>
-                  {WEEKDAY_LABELS_FULL.map((label) => (
-                    <th key={label}>{label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((linha) => (
-                  <tr key={linha.hour}>
-                    <th scope="row">{formatarHora(linha.hour)}</th>
-                    {linha.counts.map((count, weekday) => (
-                      <td key={weekday}>{count}</td>
+            {/* `sr-only` na `<div>`, nunca na `<table>`: alguns engines ignoram
+                width/height/overflow de clip em elementos de tabela, então o
+                layout real (7 colunas) vaza da caixa de 1px e infla a altura
+                do documento -- foi a causa raiz do sidebar sticky soltando no
+                fim da página. */}
+            <div className="sr-only">
+              <table aria-label="Mapa de calor por dia e horário (tabela equivalente)">
+                <thead>
+                  <tr>
+                    <th>Hora</th>
+                    {WEEKDAY_LABELS_FULL.map((label) => (
+                      <th key={label}>{label}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {linhas.map((linha) => (
+                    <tr key={linha.hour}>
+                      <th scope="row">{formatarHora(linha.hour)}</th>
+                      {linha.counts.map((count, weekday) => (
+                        <td key={weekday}>{count}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </CardContent>
