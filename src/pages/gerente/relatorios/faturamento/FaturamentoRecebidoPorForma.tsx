@@ -28,10 +28,10 @@ export const FaturamentoRecebidoPorForma: React.FC<FaturamentoRecebidoPorFormaPr
   exportButton,
 }) => {
   return (
-    <Card variant="outline" className="relatorios-recebido-card">
+    <Card variant="outline" className="mt-0">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Recebido por forma de pagamento</CardTitle>
             <CardDescription>
               Quanto entrou em PIX, dinheiro, cartão de crédito, cartão de débito e outros no
@@ -42,7 +42,7 @@ export const FaturamentoRecebidoPorForma: React.FC<FaturamentoRecebidoPorFormaPr
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relatorios-recebido-barras" role="list">
+        <div className="flex flex-col gap-3 mb-5" role="list">
           {receivedByMethod.map((item) => (
             <div role="listitem" key={item.method}>
               <PercentageBar
@@ -55,7 +55,7 @@ export const FaturamentoRecebidoPorForma: React.FC<FaturamentoRecebidoPorFormaPr
           ))}
         </div>
 
-        <div className="relatorios-faturamento-tabela-wrap">
+        <div className="overflow-x-auto">
           <Table aria-label="Recebido por forma de pagamento">
             <TableHeader>
               <TableRow>

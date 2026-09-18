@@ -21,7 +21,6 @@ import { FluxoCaixaResumo } from './fluxo-caixa/FluxoCaixaResumo';
 import { FluxoCaixaGrafico } from './fluxo-caixa/FluxoCaixaGrafico';
 import { FluxoCaixaTabela } from './fluxo-caixa/FluxoCaixaTabela';
 import { FluxoCaixaDetalheDrawer } from './fluxo-caixa/FluxoCaixaDetalheDrawer';
-import './fluxo-caixa/FluxoCaixa.css';
 
 type ShortcutOrCustom = FluxoCaixaPeriodShortcutId | 'custom';
 
@@ -122,8 +121,8 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
   const curva = buckets.length > 0 ? computeFluxoCaixaCurva(buckets, saldoInformado) : null;
 
   return (
-    <div className="fluxo-caixa-tab">
-      <header className="fluxo-caixa-header">
+    <div className="flex flex-col gap-5">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h3 className="card-panel-title">
             <HugeiconsIcon icon={Coins01Icon} size={18} />
@@ -135,7 +134,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
         </div>
         <button
           type="button"
-          className="fluxo-caixa-refresh-btn"
+          className="inline-flex items-center gap-[0.4rem] py-2 px-[0.9rem] text-xs font-bold text-text-primary bg-bg-secondary border border-border rounded-md cursor-pointer transition-[background-color,box-shadow] duration-150 ease-in-out hover:not-disabled:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           onClick={() => void reload()}
           disabled={loading}
         >
@@ -160,7 +159,7 @@ export const FluxoCaixaTab: React.FC<FluxoCaixaTabProps> = ({ repository: inject
       />
 
       {error && (
-        <p className="fluxo-caixa-error" role="alert">
+        <p className="text-[#c0392b] text-sm font-semibold" role="alert">
           {error}
         </p>
       )}

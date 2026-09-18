@@ -171,7 +171,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     });
 
     const caixaLink = screen.getByRole('link', { name: /Caixa diário e turnos/i });
-    expect(caixaLink).toHaveClass('nav-tab-btn--active');
+    expect(caixaLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('deve redirecionar uma sub-rota desconhecida de /financeiro para a aba Caixa', async () => {
@@ -182,7 +182,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     });
 
     const caixaLink = screen.getByRole('link', { name: /Caixa diário e turnos/i });
-    expect(caixaLink).toHaveClass('nav-tab-btn--active');
+    expect(caixaLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('deve alternar entre as abas Caixa diário e Repasses de comissões por navegação de link', async () => {
@@ -226,7 +226,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     expect(await screen.findByText('Saldos de comissão por profissional')).toBeInTheDocument();
     expect(screen.getByText('Carlos Barbeiro')).toBeInTheDocument();
     expect(screen.getByText('Pagar comissão')).toBeInTheDocument();
-    expect(comissoesLink).toHaveClass('nav-tab-btn--active');
+    expect(comissoesLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('deve preservar o período ao alternar entre Caixa e Comissões, sem nova busca de métricas', async () => {
@@ -253,7 +253,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Últimos 30 dias/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Últimos 30 dias/i }));
 
     await waitFor(() => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
@@ -266,7 +266,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
     await screen.findByText('Recebimentos por forma de pagamento');
 
     // O período selecionado (30 dias) permanece, e nenhuma nova busca de métricas ocorreu
-    expect(screen.getByRole('button', { name: /Últimos 30 dias/i })).toHaveClass('period-tab-btn--active');
+    expect(screen.getByRole('tab', { name: /Últimos 30 dias/i })).toHaveAttribute('aria-selected', 'true');
     expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(2);
   });
 
@@ -404,7 +404,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
       expect(mockRpc.mock.calls.filter(([name]) => name === 'get_tenant_financial_metrics')).toHaveLength(1);
     });
 
-    const btn30d = screen.getByRole('button', { name: /Últimos 30 dias/i });
+    const btn30d = screen.getByRole('tab', { name: /Últimos 30 dias/i });
     fireEvent.click(btn30d);
 
     await waitFor(() => {
@@ -547,7 +547,7 @@ describe('Página Financeiro (Gerente - Hub Financeiro)', () => {
 
     await waitFor(() => {
       const link = screen.getByRole('link', { name: /Plano de contas/i });
-      expect(link).toHaveClass('nav-tab-btn--active');
+      expect(link).toHaveAttribute('aria-current', 'page');
     });
 
     expect(screen.queryByText('Faturamento bruto')).not.toBeInTheDocument();

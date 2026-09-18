@@ -15,7 +15,6 @@ import { Drawer } from '../../../components/ui/feedback/Drawer';
 import { ConfirmDialog } from '../../../components/ui/feedback/ConfirmDialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../components/ui/feedback/DataTable';
 import '../Financeiro.css';
-import './PlanoContas.css';
 
 export interface PlanoContasTabProps {
   /**
@@ -219,7 +218,7 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
   };
 
   return (
-    <div className="financeiro-tab-content plano-contas-tab">
+    <div className="financeiro-tab-content w-full">
       <SegmentedControl
         value={secao}
         onChange={mudarSecao}
@@ -232,9 +231,9 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
 
       {secao === 'categorias' && (
         <section className="plano-contas-section" aria-label="Categorias de Despesa">
-          <header className="plano-contas-section-header">
-            <h2 className="plano-contas-section-title">Categorias de Despesa</h2>
-            <div className="plano-contas-section-actions">
+          <header className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <h2 className="m-0 text-[1.1rem] font-extrabold text-text-primary">Categorias de Despesa</h2>
+            <div className="flex items-center gap-4 flex-wrap">
               <Checkbox
                 label="Mostrar arquivadas"
                 checked={showArchived}
@@ -247,13 +246,13 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
           </header>
 
           {actionError && (
-            <div className="plano-contas-action-error" role="alert">
+            <div className="bg-error-bg text-error rounded-md py-[0.65rem] px-[0.85rem] text-sm mb-4" role="alert">
               {actionError}
             </div>
           )}
 
           {loading && (
-            <div className="plano-contas-skeleton-list" aria-label="Carregando categorias de despesa">
+            <div className="flex flex-col gap-3" aria-label="Carregando categorias de despesa">
               <Skeleton height={44} />
               <Skeleton height={44} />
               <Skeleton height={44} />
@@ -298,7 +297,7 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="plano-contas-row-actions">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {categoria.archived_at ? (
                               <Button
                                 variant="secondary"
@@ -330,18 +329,18 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
                 </Table>
               </div>
 
-              <div className="financeiro-mobile-view plano-contas-cards">
+              <div className="financeiro-mobile-view max-md:flex max-md:flex-col max-md:gap-3">
                 {categoriasVisiveis.map((categoria) => (
-                  <Card key={categoria.id} className="plano-contas-card">
-                    <div className="plano-contas-card-row">
-                      <span className="plano-contas-card-name">{categoria.name}</span>
+                  <Card key={categoria.id} className="p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-text-primary">{categoria.name}</span>
                       {categoria.archived_at ? (
                         <Badge variant="neutral">Arquivada</Badge>
                       ) : (
                         <Badge variant="success">Ativa</Badge>
                       )}
                     </div>
-                    <div className="plano-contas-row-actions">
+                    <div className="flex items-center gap-2 flex-wrap mt-3">
                       {categoria.archived_at ? (
                         <Button
                           variant="secondary"
@@ -377,9 +376,9 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
 
       {secao === 'fornecedores' && (
         <section className="plano-contas-section" aria-label="Fornecedores">
-          <header className="plano-contas-section-header">
-            <h2 className="plano-contas-section-title">Fornecedores</h2>
-            <div className="plano-contas-section-actions">
+          <header className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <h2 className="m-0 text-[1.1rem] font-extrabold text-text-primary">Fornecedores</h2>
+            <div className="flex items-center gap-4 flex-wrap">
               <Checkbox
                 label="Mostrar arquivados"
                 checked={showArchivedFornecedores}
@@ -399,13 +398,13 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
           />
 
           {fornecedorActionError && (
-            <div className="plano-contas-action-error" role="alert">
+            <div className="bg-error-bg text-error rounded-md py-[0.65rem] px-[0.85rem] text-sm mb-4" role="alert">
               {fornecedorActionError}
             </div>
           )}
 
           {loadingFornecedores && (
-            <div className="plano-contas-skeleton-list" aria-label="Carregando fornecedores">
+            <div className="flex flex-col gap-3" aria-label="Carregando fornecedores">
               <Skeleton height={44} />
               <Skeleton height={44} />
               <Skeleton height={44} />
@@ -475,7 +474,7 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="plano-contas-row-actions">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {fornecedor.archived_at ? (
                               <Button
                                 variant="secondary"
@@ -507,11 +506,11 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
                 </Table>
               </div>
 
-              <div className="financeiro-mobile-view plano-contas-cards">
+              <div className="financeiro-mobile-view max-md:flex max-md:flex-col max-md:gap-3">
                 {fornecedoresVisiveis.map((fornecedor) => (
-                  <Card key={fornecedor.id} className="plano-contas-card">
-                    <div className="plano-contas-card-row">
-                      <span className="plano-contas-card-name">{fornecedor.name}</span>
+                  <Card key={fornecedor.id} className="p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-text-primary">{fornecedor.name}</span>
                       {fornecedor.archived_at ? (
                         <Badge variant="neutral">Arquivado</Badge>
                       ) : (
@@ -519,15 +518,15 @@ export const PlanoContasTab: React.FC<PlanoContasTabProps> = ({ repository: repo
                       )}
                     </div>
                     {fornecedor.document && (
-                      <p className="plano-contas-card-detail">{formatarDocumento(fornecedor.document)}</p>
+                      <p>{formatarDocumento(fornecedor.document)}</p>
                     )}
                     {fornecedor.default_category && (
-                      <p className="plano-contas-card-detail">
+                      <p>
                         Categoria padrão: {fornecedor.default_category.name}
                         {fornecedor.default_category.archived && ' (arquivada)'}
                       </p>
                     )}
-                    <div className="plano-contas-row-actions">
+                    <div className="flex items-center gap-2 flex-wrap mt-3">
                       {fornecedor.archived_at ? (
                         <Button
                           variant="secondary"

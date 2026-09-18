@@ -42,7 +42,7 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
   });
 
   return (
-    <div className="card-agendamento-ativo">
+    <div className="bg-white rounded-[1.25rem] border border-border p-5 shadow-[0_2px_8px_rgba(45,35,30,0.05)] flex flex-col gap-3.5">
       {/* Topo do Card */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
         <div>
@@ -74,11 +74,11 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
       </div>
 
       {/* Ações */}
-      <div className="card-agendamento-ativo__actions">
+      <div className="flex items-center gap-2 pt-2 border-t border-border">
         <button
           type="button"
           onClick={() => onReschedule(appointment)}
-          className="btn-action-remarcar"
+          className="flex-1 py-2 px-3 rounded-full bg-brand-lightest border border-border text-black text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 hover:bg-brand-primary hover:border-brand-primary hover:text-black"
         >
           <HugeiconsIcon icon={RefreshIcon} size={14} />
           <span>Remarcar</span>
@@ -87,7 +87,7 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
         <button
           type="button"
           onClick={() => onCancel(appointment.appointment_id)}
-          className="btn-action-cancelar"
+          className="flex-1 py-2 px-3 rounded-full bg-white border border-border text-black text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 hover:bg-error-bg hover:border-error hover:text-black"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={14} />
           <span>Cancelar</span>

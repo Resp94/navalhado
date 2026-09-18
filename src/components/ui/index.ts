@@ -12,6 +12,9 @@ export * from './forms/Radio';
 export * from './navigation/SegmentedControl';
 export * from './navigation/SearchInput';
 export * from './navigation/Pagination';
+export * from './navigation/DropdownMenu';
+export * from './navigation/Popover';
+export * from './navigation/DateRangePicker';
 
 // Data Display
 export * from './data-display/Badge';

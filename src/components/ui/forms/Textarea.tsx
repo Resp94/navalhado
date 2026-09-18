@@ -30,156 +30,50 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const currentLength = typeof value === 'string' ? value.length : 0;
 
     return (
-      <>
-        <div className={`ui-textarea-group ${disabled ? 'ui-textarea-group--disabled' : ''} ${className}`} style={style}>
-          <div className="ui-textarea-header">
-            {label && (
-              <label htmlFor={textareaId} className="ui-textarea-label">
-                {label}
-              </label>
-            )}
-            {showCount && maxLength && (
-              <span className="ui-textarea-count">
-                {currentLength}/{maxLength}
-              </span>
-            )}
-          </div>
-
-          <div className={`ui-textarea-wrapper ${error ? 'ui-textarea-wrapper--error' : ''}`}>
-            <textarea
-              ref={ref}
-              id={textareaId}
-              rows={rows}
-              value={value}
-              maxLength={maxLength}
-              disabled={disabled}
-              className="ui-textarea-field"
-              aria-invalid={!!error}
-              aria-describedby={error ? `${textareaId}-error` : helperText ? `${textareaId}-helper` : undefined}
-              {...props}
-            />
-          </div>
-
-          {error ? (
-            <p id={`${textareaId}-error`} className="ui-textarea-feedback ui-textarea-feedback--error" role="alert">
-              {error}
-            </p>
-          ) : helperText ? (
-            <p id={`${textareaId}-helper`} className="ui-textarea-feedback ui-textarea-feedback--helper">
-              {helperText}
-            </p>
-          ) : null}
+      <div
+        className={`flex flex-col gap-[0.35rem] w-full text-left box-border ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}
+        style={style}
+      >
+        <div className="flex items-center justify-between gap-2">
+          {label && (
+            <label htmlFor={textareaId} className="text-xs font-extrabold text-text-primary tracking-wide uppercase leading-tight select-none">
+              {label}
+            </label>
+          )}
+          {showCount && maxLength && (
+            <span className="text-[11px] text-text-secondary font-semibold">
+              {currentLength}/{maxLength}
+            </span>
+          )}
         </div>
 
-        <style>{`
-          .ui-textarea-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            width: 100%;
-            text-align: left;
-            box-sizing: border-box;
-          }
+        <div
+          className={`flex w-full rounded-md bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[box-shadow,background-color] duration-150 ease-in box-border p-[0.65rem_0.85rem] focus-within:shadow-[0_0_0_1.5px_var(--color-brand-primary)] ${error ? 'shadow-[0_0_0_1.5px_var(--color-error)]!' : ''}`}
+        >
+          <textarea
+            ref={ref}
+            id={textareaId}
+            rows={rows}
+            value={value}
+            maxLength={maxLength}
+            disabled={disabled}
+            className="w-full border-none outline-none bg-transparent text-text-primary font-base text-sm resize-y min-h-[60px] box-border leading-relaxed placeholder:text-text-secondary placeholder:opacity-65 disabled:cursor-not-allowed"
+            aria-invalid={!!error}
+            aria-describedby={error ? `${textareaId}-error` : helperText ? `${textareaId}-helper` : undefined}
+            {...props}
+          />
+        </div>
 
-          .ui-textarea-group--disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-          }
-
-          .ui-textarea-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-          }
-
-          .ui-textarea-label {
-            font-size: var(--font-size-xs, 0.75rem);
-            font-weight: 800;
-            color: var(--color-text-primary, #2D231E);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            line-height: 1.2;
-            user-select: none;
-          }
-
-          .dark-theme .ui-textarea-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
-          .ui-textarea-count {
-            font-size: 11px;
-            color: var(--color-text-secondary, #70625B);
-            font-weight: 600;
-          }
-
-          .ui-textarea-wrapper {
-            display: flex;
-            width: 100%;
-            border-radius: var(--radius-md, 8px);
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            transition: box-shadow 0.15s ease, background-color 0.15s ease;
-            box-sizing: border-box;
-            padding: 0.65rem 0.85rem;
-          }
-
-          .dark-theme .ui-textarea-wrapper {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
-          .ui-textarea-wrapper:focus-within {
-            box-shadow: 0 0 0 1.5px var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-textarea-wrapper--error {
-            box-shadow: 0 0 0 1.5px var(--color-error, #F05252) !important;
-          }
-
-          .ui-textarea-field {
-            width: 100%;
-            border: none;
-            outline: none;
-            background: transparent;
-            color: var(--color-text-primary, #2D231E);
-            font-family: var(--font-family-base, 'Outfit', sans-serif);
-            font-size: var(--font-size-sm, 0.875rem);
-            resize: vertical;
-            min-height: 60px;
-            box-sizing: border-box;
-            line-height: 1.45;
-          }
-
-          .dark-theme .ui-textarea-field {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
-          .ui-textarea-field::placeholder {
-            color: var(--color-text-secondary, #70625B);
-            opacity: 0.65;
-          }
-
-          .ui-textarea-field:disabled {
-            cursor: not-allowed;
-          }
-
-          .ui-textarea-feedback {
-            margin: 0;
-            font-size: 0.75rem;
-            line-height: 1.35;
-          }
-
-          .ui-textarea-feedback--error {
-            color: var(--color-error, #F05252);
-            font-weight: 600;
-          }
-
-          .ui-textarea-feedback--helper {
-            color: var(--color-text-secondary, #70625B);
-          }
-        `}</style>
-      </>
+        {error ? (
+          <p id={`${textareaId}-error`} className="m-0 text-xs leading-snug text-error font-semibold" role="alert">
+            {error}
+          </p>
+        ) : helperText ? (
+          <p id={`${textareaId}-helper`} className="m-0 text-xs leading-snug text-text-secondary">
+            {helperText}
+          </p>
+        ) : null}
+      </div>
     );
   }
 );

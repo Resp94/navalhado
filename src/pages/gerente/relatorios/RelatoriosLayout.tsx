@@ -6,7 +6,8 @@ import type { TenantContextType } from '../../../components/GerenteLayout';
 import { dateInZone } from '../../../lib/timezone';
 import { SegmentedControl } from '../../../components/ui/navigation/SegmentedControl';
 import { Badge } from '../../../components/ui/data-display/Badge';
-import { CustomDatePicker } from '../../../components/CustomDatePicker';
+import { Select } from '../../../components/ui/forms/Select';
+import { DateRangePicker } from '../../../components/ui/navigation/DateRangePicker';
 import {
   getRelatoriosPeriodShortcutRange,
   isRelatoriosGranularityWithinLimits,
@@ -16,9 +17,7 @@ import {
   type RelatoriosPeriodShortcutId,
 } from '../../../modules/relatorios/periodo';
 import type { RelatoriosGranularity } from '../../../modules/relatorios/types';
-import { formatDisplayDate } from '../../../modules/relatorios/formatacao';
 import { useIsNarrowViewport } from './useIsNarrowViewport';
-import './Relatorios.css';
 
 const SHORTCUT_OPTIONS: { id: RelatoriosPeriodShortcutId; label: string }[] = [
   { id: 'este_mes', label: 'Este mês' },
@@ -96,14 +95,18 @@ export const RelatoriosLayout: React.FC = () => {
 
   if (isNarrow) {
     return (
-      <div className="relatorios-mobile-gate">
+      <div className="flex flex-col items-center justify-center text-center gap-4 min-h-[60vh] px-6 py-8 text-text-primary">
         <HugeiconsIcon icon={ChartLineData01Icon} size={40} />
-        <h2>Os relatórios estão disponíveis apenas no computador</h2>
-        <p>
+        <h2 className="m-0 text-lg font-extrabold">Os relatórios estão disponíveis apenas no computador</h2>
+        <p className="m-0 max-w-[340px] text-text-secondary text-sm">
           Tabelas, rankings e o mapa de calor deste módulo são feitos para telas maiores. Abra o
           link num computador para analisar os números com espaço.
         </p>
-        <button type="button" className="relatorios-mobile-gate__btn" onClick={() => navigate('/agenda')}>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 px-5 py-[0.65rem] rounded-md border-none bg-brand-primary text-white font-bold cursor-pointer"
+          onClick={() => navigate('/agenda')}
+        >
           <HugeiconsIcon icon={Calendar03Icon} size={16} />
           Ir para a Agenda
         </button>
@@ -160,28 +163,38 @@ export const RelatoriosLayout: React.FC = () => {
   };
 
   return (
-    <div className="relatorios-page">
-      <header className="relatorios-header">
+    <div className="flex flex-col gap-6">
+      <header>
         <div>
-          <h1 className="relatorios-header-title">Relatórios</h1>
-          <p className="relatorios-header-subtitle">
+          <h1 className="text-2xl font-extrabold m-0 text-text-primary">Relatórios</h1>
+          <p className="mt-1 mb-0 text-text-secondary text-sm">
             Análise do que já aconteceu na barbearia: faturamento, equipe, agenda e clientes.
           </p>
         </div>
       </header>
 
-      <nav className="relatorios-nav-tabs" aria-label="Páginas de relatórios">
+      <nav className="flex items-center gap-2 flex-wrap border-b border-border pb-2" aria-label="Páginas de relatórios">
         {REPORT_PAGES.map((page) =>
           page.enabled ? (
             <NavLink
               key={page.path}
               to={page.path}
-              className={({ isActive }) => `relatorios-nav-tab ${isActive ? 'relatorios-nav-tab--active' : ''}`}
+              className={({ isActive }) =>
+                `inline-flex items-center gap-[0.4rem] px-[0.85rem] py-2 rounded-md text-sm font-semibold no-underline whitespace-nowrap ${
+                  isActive
+                    ? 'text-brand-primary bg-brand-lightest'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary'
+                }`
+              }
             >
               {page.label}
             </NavLink>
           ) : (
-            <span key={page.path} className="relatorios-nav-tab relatorios-nav-tab--disabled" aria-disabled="true">
+            <span
+              key={page.path}
+              className="inline-flex items-center gap-[0.4rem] px-[0.85rem] py-2 rounded-md text-sm font-semibold whitespace-nowrap text-text-secondary opacity-60 cursor-default"
+              aria-disabled="true"
+            >
               {page.label}
               <Badge variant="neutral" size="xs">em breve</Badge>
             </span>
@@ -190,7 +203,10 @@ export const RelatoriosLayout: React.FC = () => {
       </nav>
 
       {!isCatalogo && !hidePeriodFilter && (
-        <section className="relatorios-filtro-periodo" aria-label="Filtro de período">
+        <section
+          className="flex flex-wrap items-end gap-4 p-4 bg-bg-secondary border border-border rounded-lg"
+          aria-label="Filtro de período"
+        >
           <SegmentedControl<RelatoriosPeriodShortcutId>
             aria-label="Atalho de período"
             value={periodoState.shortcut}
@@ -200,84 +216,33 @@ export const RelatoriosLayout: React.FC = () => {
             fullWidth={false}
           />
 
-          <div className="relatorios-filtro-datas">
-            <div className="relatorios-filtro-data-campo">
-              <span>De</span>
-              <RelatoriosDateField
-                value={periodoState.startDate}
-                timezone={timezone}
-                position="right"
-                onSelect={(newDate) =>
-                  handleCustomDateChange(
-                    newDate,
-                    periodoState.endDate < newDate ? newDate : periodoState.endDate
-                  )
-                }
-              />
-            </div>
-            <div className="relatorios-filtro-data-campo">
-              <span>Até</span>
-              <RelatoriosDateField
-                value={periodoState.endDate}
-                timezone={timezone}
-                position="left"
-                onSelect={(newDate) =>
-                  handleCustomDateChange(
-                    periodoState.startDate > newDate ? newDate : periodoState.startDate,
-                    newDate
-                  )
-                }
-              />
-            </div>
-          </div>
-
-          <label className="relatorios-filtro-granularidade">
-            <span>Agrupar por</span>
-            <select
-              aria-label="Granularidade do agrupamento"
-              value={periodoState.granularity}
-              onChange={(event) => handleGranularityChange(event.target.value as RelatoriosGranularity)}
-            >
-              {GRANULARITY_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <label className="flex flex-col gap-1 text-xs text-text-secondary">
+            <span>Período</span>
+            <DateRangePicker
+              ariaLabel="Selecionar período personalizado"
+              from={periodoState.startDate}
+              to={periodoState.endDate}
+              onChange={({ from, to }) => handleCustomDateChange(from, to)}
+            />
           </label>
+
+          <Select
+            label="Agrupar por"
+            className="w-auto! max-w-[200px]"
+            aria-label="Granularidade do agrupamento"
+            value={periodoState.granularity}
+            onChange={(event) => handleGranularityChange(event.target.value as RelatoriosGranularity)}
+          >
+            {GRANULARITY_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </section>
       )}
 
       <Outlet context={outletContext} />
-    </div>
-  );
-};
-
-/** Campo de data com o `CustomDatePicker` já usado no Fluxo de Caixa Projetado. */
-const RelatoriosDateField: React.FC<{
-  value: string;
-  timezone: string;
-  position: 'left' | 'right';
-  onSelect: (date: string) => void;
-}> = ({ value, timezone, position, onSelect }) => {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <div className="relatorios-filtro-data-wrap">
-      <button type="button" className="relatorios-filtro-data-btn" onClick={() => setOpen((prev) => !prev)}>
-        {formatDisplayDate(value)}
-      </button>
-      {open && (
-        <CustomDatePicker
-          selectedDate={value}
-          timezone={timezone}
-          position={position}
-          onSelectDate={(newDate) => {
-            setOpen(false);
-            onSelect(newDate);
-          }}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </div>
   );
 };

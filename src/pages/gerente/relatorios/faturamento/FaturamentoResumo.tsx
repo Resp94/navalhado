@@ -3,7 +3,7 @@ import { StatCard } from '../../../../components/ui/data-display/StatCard';
 import { formatCurrency } from '../../../../lib/currency';
 import { calcularVariacaoPercentual } from '../../../../modules/relatorios/variacao';
 import type { RelatorioFaturamentoTotais, RelatoriosPeriodo } from '../../../../modules/relatorios/types';
-import { formatCurrencyOrDash, formatDisplayDate } from '../../../../modules/relatorios/formatacao';
+import { formatCurrencyOrDash } from '../../../../modules/relatorios/formatacao';
 
 function formatVariacao(atual: number, anterior: number): { value: string; isPositive?: boolean } | undefined {
   const variacao = calcularVariacaoPercentual(atual, anterior);
@@ -41,16 +41,10 @@ export interface FaturamentoResumoProps {
 export const FaturamentoResumo: React.FC<FaturamentoResumoProps> = ({
   totals,
   previousTotals,
-  previousPeriod,
   loading,
 }) => {
-  const previousLabel =
-    previousPeriod && previousPeriod.start && previousPeriod.end
-      ? `vs ${formatDisplayDate(previousPeriod.start)} a ${formatDisplayDate(previousPeriod.end)}`
-      : undefined;
-
   return (
-    <div className="relatorios-faturamento-cards">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
       <StatCard
         title="Faturamento bruto"
         value={formatCurrency(totals?.gross ?? 0)}
@@ -63,7 +57,6 @@ export const FaturamentoResumo: React.FC<FaturamentoResumoProps> = ({
         value={formatCurrency(totals?.net ?? 0)}
         loading={loading}
         trend={totals && previousTotals ? formatVariacao(totals.net, previousTotals.net) : undefined}
-        subtext={previousLabel}
       />
       <StatCard
         title="Serviços"

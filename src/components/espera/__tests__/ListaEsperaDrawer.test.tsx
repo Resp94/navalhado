@@ -160,8 +160,8 @@ describe('ListaEsperaDrawer', () => {
     expect(screen.getByText('NOVO CLIENTE NA FILA')).toBeInTheDocument();
     expect(screen.getByText('NOME DO CLIENTE *')).toBeInTheDocument();
     expect(screen.getByText('WHATSAPP OU CELULAR')).toBeInTheDocument();
-    expect(screen.getByText('PROFISSIONAL')).toBeInTheDocument();
-    expect(screen.getByText('SERVIÇO')).toBeInTheDocument();
+    expect(screen.getByText(/^profissional$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^serviço$/i)).toBeInTheDocument();
     expect(screen.getByText('OBSERVAÇÕES')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Adicionar à fila de espera/i })).toBeInTheDocument();
 

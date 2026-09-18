@@ -13,6 +13,28 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
   loading?: boolean;
 }
 
+const SHAPE_CLASSES: Record<IconButtonShape, string> = {
+  rounded: 'rounded-md',
+  circle: 'rounded-full',
+};
+
+const SIZE_CLASSES: Record<IconButtonSize, string> = {
+  xs: 'w-7 h-7 text-sm',
+  sm: 'w-8 h-8 text-base',
+  md: 'w-9 h-9 text-lg',
+  lg: 'w-[42px] h-[42px] text-xl',
+};
+
+const VARIANT_CLASSES: Record<IconButtonVariant, string> = {
+  ghost: 'bg-transparent text-text-secondary hover:not-disabled:bg-text-primary/6 hover:not-disabled:text-text-primary',
+  outline:
+    'bg-bg-secondary text-text-secondary border border-border hover:not-disabled:border-brand-primary hover:not-disabled:text-brand-primary',
+  secondary:
+    'bg-bg-secondary text-text-primary shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:not-disabled:bg-black/4',
+  'danger-ghost': 'bg-transparent text-error hover:not-disabled:bg-error-bg',
+  brand: 'bg-brand-primary/10 text-brand-primary hover:not-disabled:bg-brand-primary hover:not-disabled:text-white',
+};
+
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   (
     {
@@ -32,162 +54,25 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     const isDisabled = disabled || loading;
 
     return (
-      <>
-        <button
-          ref={ref}
-          type="button"
-          disabled={isDisabled}
-          className={`ui-icon-btn ui-icon-btn--${variant} ui-icon-btn--${size} ui-icon-btn--${shape} ${className}`}
-          style={style}
-          {...props}
-        >
-          {loading ? (
-            <span className="ui-icon-btn__spinner" aria-hidden="true" />
-          ) : (
-            icon || children
-          )}
-        </button>
-
-        <style>{`
-          .ui-icon-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border: none;
-            outline: none;
-            padding: 0;
-            flex-shrink: 0;
-            box-sizing: border-box;
-            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
-          }
-
-          .ui-icon-btn:active:not(:disabled) {
-            transform: scale(0.94);
-          }
-
-          .ui-icon-btn:focus-visible {
-            outline: 2px solid var(--color-brand-primary, #D96C00);
-            outline-offset: 2px;
-          }
-
-          /* FORMAS */
-          .ui-icon-btn--rounded {
-            border-radius: var(--radius-md, 8px);
-          }
-
-          .ui-icon-btn--circle {
-            border-radius: var(--radius-full, 9999px);
-          }
-
-          /* TAMANHOS */
-          .ui-icon-btn--xs {
-            width: 28px;
-            height: 28px;
-            font-size: 14px;
-          }
-
-          .ui-icon-btn--sm {
-            width: 32px;
-            height: 32px;
-            font-size: 16px;
-          }
-
-          .ui-icon-btn--md {
-            width: 36px;
-            height: 36px;
-            font-size: 18px;
-          }
-
-          .ui-icon-btn--lg {
-            width: 42px;
-            height: 42px;
-            font-size: 20px;
-          }
-
-          /* VARIANTES */
-          .ui-icon-btn--ghost {
-            background-color: transparent;
-            color: var(--color-text-secondary, #70625B);
-          }
-
-          .ui-icon-btn--ghost:hover:not(:disabled) {
-            background-color: rgba(45, 35, 30, 0.06);
-            color: var(--color-text-primary, #2D231E);
-          }
-
-          .dark-theme .ui-icon-btn--ghost:hover:not(:disabled) {
-            background-color: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF;
-          }
-
-          .ui-icon-btn--outline {
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            color: var(--color-text-secondary, #70625B);
-            border: 1px solid var(--color-border, #EADED6);
-          }
-
-          .ui-icon-btn--outline:hover:not(:disabled) {
-            border-color: var(--color-brand-primary, #D96C00);
-            color: var(--color-brand-primary, #D96C00);
-          }
-
-          .dark-theme .ui-icon-btn--outline {
-            background-color: var(--color-bg-secondary, #1E1B18);
-            border-color: var(--color-border, #332D29);
-            color: var(--color-text-secondary, #9C958F);
-          }
-
-          .ui-icon-btn--secondary {
-            background-color: var(--color-bg-secondary, #FFFFFF);
-            color: var(--color-text-primary, #2D231E);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-          }
-
-          .ui-icon-btn--secondary:hover:not(:disabled) {
-            background-color: rgba(0, 0, 0, 0.04);
-          }
-
-          .ui-icon-btn--danger-ghost {
-            background-color: transparent;
-            color: var(--color-error, #F05252);
-          }
-
-          .ui-icon-btn--danger-ghost:hover:not(:disabled) {
-            background-color: var(--color-error-bg, #FDE8E8);
-          }
-
-          .ui-icon-btn--brand {
-            background-color: rgba(217, 108, 0, 0.1);
-            color: var(--color-brand-primary, #D96C00);
-          }
-
-          .ui-icon-btn--brand:hover:not(:disabled) {
-            background-color: var(--color-brand-primary, #D96C00);
-            color: #FFFFFF;
-          }
-
-          .ui-icon-btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-            transform: none !important;
-          }
-
-          .ui-icon-btn__spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid currentColor;
-            border-right-color: transparent;
-            border-radius: 50%;
-            animation: uiIconBtnSpin 0.75s linear infinite;
-          }
-
-          @keyframes uiIconBtnSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </>
+      <button
+        ref={ref}
+        type="button"
+        disabled={isDisabled}
+        data-variant={variant}
+        data-size={size}
+        className={`inline-flex items-center justify-center cursor-pointer border-none outline-none p-0 shrink-0 box-border transition-[background-color,border-color,color,transform] duration-150 ease-in active:not-disabled:scale-94 focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 disabled:opacity-45 disabled:cursor-not-allowed disabled:transform-none ${SHAPE_CLASSES[shape]} ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`}
+        style={style}
+        {...props}
+      >
+        {loading ? (
+          <span
+            className="w-3.5 h-3.5 rounded-full border-2 border-current border-r-transparent animate-spin-fast"
+            aria-hidden="true"
+          />
+        ) : (
+          icon || children
+        )}
+      </button>
     );
   }
 );

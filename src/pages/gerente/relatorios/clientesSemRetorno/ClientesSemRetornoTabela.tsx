@@ -50,7 +50,7 @@ export const ClientesSemRetornoTabela: React.FC<ClientesSemRetornoTabelaProps> =
 
   return (
     <>
-      <div className="relatorios-faturamento-tabela-wrap">
+      <div className="overflow-x-auto">
         <Table aria-label="Clientes sem retorno">
           <TableHeader>
             <TableRow>
@@ -85,7 +85,7 @@ export const ClientesSemRetornoTabela: React.FC<ClientesSemRetornoTabelaProps> =
                 <TableCell align="right">{item.days_since}</TableCell>
                 <TableCell align="right">{item.days_overdue}</TableCell>
                 <TableCell align="right">
-                  <div className="relatorios-clientes-sem-retorno-acoes">
+                  <div className="inline-flex items-center gap-2 justify-end">
                     <button
                       type="button"
                       className="btn btn--outline btn--xs"
@@ -98,7 +98,7 @@ export const ClientesSemRetornoTabela: React.FC<ClientesSemRetornoTabelaProps> =
                         href={formatWhatsAppUrl(item.phone)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="relatorios-clientes-sem-retorno-whatsapp"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-sm shrink-0 text-[#25d366] bg-[rgba(37,211,102,0.1)] shadow-[0_0_0_0.8px_var(--color-text-primary)] hover:bg-[rgba(37,211,102,0.2)]"
                         title={`WhatsApp para ${item.name}`}
                         aria-label={`WhatsApp para ${item.name}`}
                       >
@@ -120,32 +120,6 @@ export const ClientesSemRetornoTabela: React.FC<ClientesSemRetornoTabelaProps> =
         totalItems={totalCount}
         itemsPerPage={pageSize}
       />
-
-      <style>{`
-        .relatorios-clientes-sem-retorno-acoes {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          justify-content: flex-end;
-        }
-
-        .relatorios-clientes-sem-retorno-whatsapp {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-sm, 6px);
-          color: #25d366;
-          background: rgba(37, 211, 102, 0.1);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-          flex-shrink: 0;
-        }
-
-        .relatorios-clientes-sem-retorno-whatsapp:hover {
-          background: rgba(37, 211, 102, 0.2);
-        }
-      `}</style>
     </>
   );
 };

@@ -5,6 +5,7 @@ import {
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { formatCurrency, parseCurrencyInput, formatCurrencyInput } from '../../lib/currency';
+import { Select } from '../ui';
 import type { PaymentMethod } from '../../modules/caixa/types';
 import { ComissaoRepository } from '../../modules/comissoes/ComissaoRepository';
 import { SupabaseComissaoAdapter } from '../../modules/comissoes/adapters/SupabaseComissaoAdapter';
@@ -210,24 +211,24 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
 
   return (
     <div
-      className="comissao-modal-overlay"
+      className="fixed inset-0 z-[9999] bg-[rgba(20,17,15,0.55)] backdrop-blur-[8px] flex items-center justify-center p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-quitacao-comissao-title"
     >
-      <div className="comissao-modal-shell">
-        <div className="comissao-modal-header">
+      <div className="bg-bg-secondary border border-border rounded-lg w-full max-w-[500px] shadow-xl overflow-hidden animate-dialog-in">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-border bg-bg-secondary">
           <div>
-            <h3 id="modal-quitacao-comissao-title" className="comissao-modal-title">
+            <h3 id="modal-quitacao-comissao-title" className="text-lg font-extrabold text-text-primary m-0 tracking-tight">
               Quitação de comissão
             </h3>
-            <p className="comissao-modal-subtitle">
-              Realize o pagamento de comissão para <strong className="comissao-prof-highlight">{profName}</strong> e mantenha o saldo em dia.
+            <p className="text-xs text-text-secondary mt-1">
+              Realize o pagamento de comissão para <strong className="text-brand-primary font-bold">{profName}</strong> e mantenha o saldo em dia.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="comissao-close-btn"
+            className="text-text-secondary p-[0.35rem] rounded-sm transition-all duration-200 bg-transparent border-none cursor-pointer flex items-center justify-center hover:text-text-primary hover:bg-bg-primary"
             aria-label="Fechar modal"
             type="button"
           >
@@ -236,37 +237,37 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         </div>
 
         {/* Resumo da Produção do Profissional */}
-        <div className="comissao-summary-box">
-          <div className="comissao-summary-item">
-            <span className="comissao-summary-label">Comissão total faturada no período:</span>
-            <span className="comissao-summary-val">{formatCurrency(professional.commission_sum)}</span>
+        <div className="bg-bg-primary border-b border-border px-6 py-4 flex flex-col gap-[0.45rem]">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-text-secondary font-semibold">Comissão total faturada no período:</span>
+            <span className="text-text-primary tabular-nums font-bold">{formatCurrency(professional.commission_sum)}</span>
           </div>
-          <div className="comissao-summary-item">
-            <span className="comissao-summary-label">Total já repassado anteriormente:</span>
-            <span className="comissao-summary-val comissao-summary-val--paid">{formatCurrency(professional.paid_sum)}</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-text-secondary font-semibold">Total já repassado anteriormente:</span>
+            <span className="text-text-primary tabular-nums font-bold text-success">{formatCurrency(professional.paid_sum)}</span>
           </div>
-          <div className="comissao-summary-item highlight">
-            <span className="comissao-summary-label font-semibold">Saldo pendente para quitação:</span>
-            <span className="comissao-summary-val comissao-summary-val--pending">
+          <div className="flex justify-between items-center text-xs border-t border-dashed border-border pt-2 mt-1">
+            <span className="text-text-secondary font-semibold font-semibold">Saldo pendente para quitação:</span>
+            <span className="text-text-primary tabular-nums font-bold text-brand-primary text-sm font-extrabold">
               {formatCurrency(professional.pending_sum)}
             </span>
           </div>
           {valeAberto > 0 && (
-            <div className="comissao-summary-item">
-              <span className="comissao-summary-label">Vale em aberto do profissional:</span>
-              <span className="comissao-summary-val">{formatCurrency(valeAberto)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-secondary font-semibold">Vale em aberto do profissional:</span>
+              <span className="text-text-primary tabular-nums font-bold">{formatCurrency(valeAberto)}</span>
             </div>
           )}
           {gorjetaAberta > 0 && (
-            <div className="comissao-summary-item">
-              <span className="comissao-summary-label">Gorjeta em aberto do profissional:</span>
-              <span className="comissao-summary-val comissao-summary-val--paid">{formatCurrency(gorjetaAberta)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-text-secondary font-semibold">Gorjeta em aberto do profissional:</span>
+              <span className="text-text-primary tabular-nums font-bold text-success">{formatCurrency(gorjetaAberta)}</span>
             </div>
           )}
           {(valeAberto > 0 || gorjetaAberta > 0) && (
-            <div className="comissao-summary-item highlight">
-              <span className="comissao-summary-label font-semibold">Líquido sugerido (comissão + gorjeta − vale):</span>
-              <span className="comissao-summary-val comissao-summary-val--pending">
+            <div className="flex justify-between items-center text-xs border-t border-dashed border-border pt-2 mt-1">
+              <span className="text-text-secondary font-semibold font-semibold">Líquido sugerido (comissão + gorjeta − vale):</span>
+              <span className="text-text-primary tabular-nums font-bold text-brand-primary text-sm font-extrabold">
                 {formatCurrency(Math.max(0, balance?.suggested_net_amount ?? professional.pending_sum))}
               </span>
             </div>
@@ -274,26 +275,26 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
         </div>
 
         {/* Formulário de Quitação */}
-        <form onSubmit={handleSubmit} className="comissao-modal-body">
-          <div className="comissao-field-group">
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-[1.15rem] bg-bg-secondary">
+          <div className="flex flex-col gap-[0.4rem]">
             <div className="flex items-center justify-between">
-              <label htmlFor="payout-amount-input" className="comissao-label">
+              <label htmlFor="payout-amount-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
                 Valor do repasse (R$) *
               </label>
               <button
                 type="button"
                 onClick={handleQuitarTudo}
-                className="comissao-quick-action"
+                className="text-xs text-brand-primary bg-transparent border-none cursor-pointer font-bold underline transition-colors duration-200 hover:text-brand-hover"
               >
                 Preencher saldo total pendente
               </button>
             </div>
-            <div className="comissao-input-container">
-              <span className="comissao-input-prefix">R$</span>
+            <div className="relative flex items-center">
+              <span className="absolute left-[1.15rem] text-brand-primary font-extrabold text-lg">R$</span>
               <input
                 id="payout-amount-input"
                 type="text"
-                className="comissao-input"
+                className="w-full bg-bg-secondary border-[1.5px] border-border rounded-md py-3 pr-4 pl-13 text-text-primary text-[1.35rem] font-extrabold tabular-nums outline-none transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
                 value={amount}
                 onChange={handleAmountChange}
                 placeholder="0,00"
@@ -304,25 +305,25 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           </div>
 
           {valeAberto > 0 && (
-            <div className="comissao-field-group">
+            <div className="flex flex-col gap-[0.4rem]">
               <div className="flex items-center justify-between">
-                <label htmlFor="payout-advance-input" className="comissao-label">
+                <label htmlFor="payout-advance-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
                   Abater vale em aberto (R$)
                 </label>
                 <button
                   type="button"
                   onClick={handleAbaterValeTudo}
-                  className="comissao-quick-action"
+                  className="text-xs text-brand-primary bg-transparent border-none cursor-pointer font-bold underline transition-colors duration-200 hover:text-brand-hover"
                 >
                   Abater vale total ({formatCurrency(valeAberto)})
                 </button>
               </div>
-              <div className="comissao-input-container">
-                <span className="comissao-input-prefix">R$</span>
+              <div className="relative flex items-center">
+                <span className="absolute left-[1.15rem] text-brand-primary font-extrabold text-lg">R$</span>
                 <input
                   id="payout-advance-input"
                   type="text"
-                  className="comissao-input"
+                  className="w-full bg-bg-secondary border-[1.5px] border-border rounded-md py-3 pr-4 pl-13 text-text-primary text-[1.35rem] font-extrabold tabular-nums outline-none transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
                   value={advanceAmount}
                   onChange={handleAdvanceAmountChange}
                   placeholder="0,00"
@@ -332,25 +333,25 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           )}
 
           {gorjetaAberta > 0 && (
-            <div className="comissao-field-group">
+            <div className="flex flex-col gap-[0.4rem]">
               <div className="flex items-center justify-between">
-                <label htmlFor="payout-credit-input" className="comissao-label">
+                <label htmlFor="payout-credit-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
                   Receber gorjeta em aberto (R$)
                 </label>
                 <button
                   type="button"
                   onClick={handleReceberGorjetaTudo}
-                  className="comissao-quick-action"
+                  className="text-xs text-brand-primary bg-transparent border-none cursor-pointer font-bold underline transition-colors duration-200 hover:text-brand-hover"
                 >
                   Receber gorjeta total ({formatCurrency(gorjetaAberta)})
                 </button>
               </div>
-              <div className="comissao-input-container">
-                <span className="comissao-input-prefix">R$</span>
+              <div className="relative flex items-center">
+                <span className="absolute left-[1.15rem] text-brand-primary font-extrabold text-lg">R$</span>
                 <input
                   id="payout-credit-input"
                   type="text"
-                  className="comissao-input"
+                  className="w-full bg-bg-secondary border-[1.5px] border-border rounded-md py-3 pr-4 pl-13 text-text-primary text-[1.35rem] font-extrabold tabular-nums outline-none transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
                   value={creditAmount}
                   onChange={handleCreditAmountChange}
                   placeholder="0,00"
@@ -360,34 +361,29 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="comissao-field-group">
-              <label htmlFor="payout-method-select" className="comissao-label">
-                Forma de pagamento *
-              </label>
-              <select
-                id="payout-method-select"
-                className="comissao-select"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                required
-              >
-                <option value="pix">PIX (transferência instantânea)</option>
-                <option value="cash" disabled={!activeCashSessionId}>
-                  Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
-                </option>
-                <option value="transfer">Transferência bancária (TED ou DOC)</option>
-                <option value="other">Outra forma de pagamento</option>
-              </select>
-            </div>
+            <Select
+              label="Forma de pagamento *"
+              id="payout-method-select"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              required
+            >
+              <option value="pix">PIX (transferência instantânea)</option>
+              <option value="cash" disabled={!activeCashSessionId}>
+                Dinheiro em espécie (retirado da gaveta){!activeCashSessionId ? ' — abra o caixa do turno' : ''}
+              </option>
+              <option value="transfer">Transferência bancária (TED ou DOC)</option>
+              <option value="other">Outra forma de pagamento</option>
+            </Select>
 
-            <div className="comissao-field-group">
-              <label htmlFor="payout-date-input" className="comissao-label">
+            <div className="flex flex-col gap-[0.4rem]">
+              <label htmlFor="payout-date-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
                 Data do repasse *
               </label>
               <input
                 id="payout-date-input"
                 type="date"
-                className="comissao-date-input"
+                className="w-full bg-bg-secondary border border-border rounded-md px-[0.85rem] py-[0.65rem] text-text-primary text-sm font-semibold outline-none cursor-pointer transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
                 value={paidAtDate}
                 onChange={(e) => setPaidAtDate(e.target.value)}
                 required
@@ -395,13 +391,13 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
             </div>
           </div>
 
-          <div className="comissao-field-group">
-            <label htmlFor="payout-notes-input" className="comissao-label">
+          <div className="flex flex-col gap-[0.4rem]">
+            <label htmlFor="payout-notes-input" className="text-xs font-bold text-text-primary uppercase tracking-wide">
               Observações ou comprovante (opcional)
             </label>
             <textarea
               id="payout-notes-input"
-              className="comissao-textarea"
+              className="w-full bg-bg-secondary border border-border rounded-md px-[0.85rem] py-[0.65rem] text-text-primary text-sm outline-none resize-none transition-all duration-200 focus:border-brand-primary focus:shadow-[0_0_0_3px_rgba(217,108,0,0.15)]"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -410,24 +406,24 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           </div>
 
           {errorMsg && (
-            <div className="comissao-error-banner" role="alert">
+            <div className="bg-[rgba(240,82,82,0.1)] border border-[rgba(240,82,82,0.25)] text-error px-[0.85rem] py-[0.65rem] rounded-md text-xs flex items-center gap-2" role="alert">
               <HugeiconsIcon icon={Cancel01Icon} size={16} />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          <div className="comissao-modal-actions">
+          <div className="flex items-center justify-end gap-3 mt-2 pt-4 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="comissao-cancel-btn"
+              className="px-5 py-[0.65rem] text-text-primary bg-bg-primary border border-border rounded-md text-sm font-bold cursor-pointer transition-all duration-200 hover:not-disabled:border-brand-primary hover:not-disabled:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="comissao-submit-btn"
+              className="px-[1.35rem] py-[0.65rem] text-brand-lightest bg-brand-primary border-none rounded-md text-sm font-bold cursor-pointer flex items-center gap-2 shadow-sm transition-all duration-200 hover:not-disabled:bg-brand-hover hover:not-disabled:-translate-y-px hover:not-disabled:shadow-[0_4px_12px_rgba(217,108,0,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -442,263 +438,6 @@ export const QuitacaoComissaoModal: React.FC<QuitacaoComissaoModalProps> = ({
           </div>
         </form>
       </div>
-
-      <style>{`
-        .comissao-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          background: rgba(20, 17, 15, 0.55);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-        .comissao-modal-shell {
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-lg, 1rem);
-          width: 100%;
-          max-width: 500px;
-          box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-          overflow: hidden;
-          animation: comissaoFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes comissaoFadeIn {
-          from { opacity: 0; transform: scale(0.96) translateY(6px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .comissao-modal-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          background: var(--color-bg-secondary, #ffffff);
-        }
-        .comissao-modal-title {
-          font-size: 1.125rem;
-          font-weight: 800;
-          color: var(--color-text-primary, #2D231E);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-        .comissao-modal-subtitle {
-          font-size: var(--font-size-xs, 0.8125rem);
-          color: var(--color-text-secondary, #70625B);
-          margin-top: 0.25rem;
-        }
-        .comissao-prof-highlight {
-          color: var(--color-brand-primary, #D96C00);
-          font-weight: 700;
-        }
-        .comissao-close-btn {
-          color: var(--color-text-secondary, #70625B);
-          padding: 0.35rem;
-          border-radius: var(--radius-sm, 0.375rem);
-          transition: all 0.2s ease;
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .comissao-close-btn:hover {
-          color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-        }
-        .comissao-summary-box {
-          background: var(--color-bg-primary, #FFF1E6);
-          border-bottom: 1px solid var(--color-border, #EADED6);
-          padding: 1rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.45rem;
-        }
-        .comissao-summary-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: var(--font-size-xs, 0.8125rem);
-        }
-        .comissao-summary-label {
-          color: var(--color-text-secondary, #70625B);
-          font-weight: 600;
-        }
-        .comissao-summary-val {
-          color: var(--color-text-primary, #2D231E);
-          font-variant-numeric: tabular-nums;
-          font-weight: 700;
-        }
-        .comissao-summary-val--paid {
-          color: var(--color-success, #0E9F6E);
-        }
-        .comissao-summary-val--pending {
-          color: var(--color-brand-primary, #D96C00);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 800;
-        }
-        .comissao-summary-item.highlight {
-          border-top: 1px dashed var(--color-border, #EADED6);
-          padding-top: 0.5rem;
-          margin-top: 0.25rem;
-        }
-        .comissao-modal-body {
-          padding: 1.25rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.15rem;
-          background: var(--color-bg-secondary, #ffffff);
-        }
-        .comissao-field-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-        .comissao-label {
-          font-size: var(--font-size-xs, 0.8125rem);
-          font-weight: 700;
-          color: var(--color-text-primary, #2D231E);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        .comissao-quick-action {
-          font-size: var(--font-size-xs, 0.75rem);
-          color: var(--color-brand-primary, #D96C00);
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          font-weight: 700;
-          text-decoration: underline;
-          transition: color 0.2s ease;
-        }
-        .comissao-quick-action:hover {
-          color: var(--color-brand-hover, #9C3F00);
-        }
-        .comissao-input-container {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .comissao-input-prefix {
-          position: absolute;
-          left: 1.15rem;
-          color: var(--color-brand-primary, #D96C00);
-          font-weight: 800;
-          font-size: 1.125rem;
-        }
-        .comissao-input {
-          width: 100%;
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1.5px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.75rem 1rem 0.75rem 3.25rem;
-          color: var(--color-text-primary, #2D231E);
-          font-size: 1.35rem;
-          font-weight: 800;
-          font-variant-numeric: tabular-nums;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-        .comissao-input:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
-        }
-        .comissao-select, .comissao-date-input {
-          width: 100%;
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.65rem 0.85rem;
-          color: var(--color-text-primary, #2D231E);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 600;
-          outline: none;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .comissao-select:focus, .comissao-date-input:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
-        }
-        .comissao-textarea {
-          width: 100%;
-          background: var(--color-bg-secondary, #ffffff);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          padding: 0.65rem 0.85rem;
-          color: var(--color-text-primary, #2D231E);
-          font-size: var(--font-size-sm, 0.875rem);
-          outline: none;
-          resize: none;
-          transition: all 0.2s ease;
-        }
-        .comissao-textarea:focus {
-          border-color: var(--color-brand-primary, #D96C00);
-          box-shadow: 0 0 0 3px rgba(217, 108, 0, 0.15);
-        }
-        .comissao-error-banner {
-          background: rgba(240, 82, 82, 0.1);
-          border: 1px solid rgba(240, 82, 82, 0.25);
-          color: var(--color-error, #F05252);
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-xs, 0.8125rem);
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .comissao-modal-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--color-border, #EADED6);
-        }
-        .comissao-cancel-btn {
-          padding: 0.65rem 1.25rem;
-          color: var(--color-text-primary, #2D231E);
-          background: var(--color-bg-primary, #FFF1E6);
-          border: 1px solid var(--color-border, #EADED6);
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .comissao-cancel-btn:hover:not(:disabled) {
-          border-color: var(--color-brand-primary, #D96C00);
-          color: var(--color-brand-primary, #D96C00);
-        }
-        .comissao-submit-btn {
-          padding: 0.65rem 1.35rem;
-          color: var(--color-brand-lightest, #FFF1E6);
-          background: var(--color-brand-primary, #D96C00);
-          border: none;
-          border-radius: var(--radius-md, 0.5rem);
-          font-size: var(--font-size-sm, 0.875rem);
-          font-weight: 700;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .comissao-submit-btn:hover:not(:disabled) {
-          background: var(--color-brand-hover, #9C3F00);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(217, 108, 0, 0.25);
-        }
-        .comissao-submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      `}</style>
     </div>
   );
 };

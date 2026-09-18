@@ -90,6 +90,24 @@ interface Professional {
 
 type PaymentMethod = 'PIX' | 'Dinheiro' | 'Cartão';
 
+const APPOINTMENT_STATUS_CARD_CLASSES: Record<Appointment['status'], string> = {
+  pending: 'border-[rgba(217,119,6,0.4)]',
+  confirmed: 'border-[rgba(63,131,248,0.4)]',
+  in_progress: 'border-border',
+  completed: 'border-[rgba(14,159,110,0.4)] opacity-85',
+  canceled: 'border-[rgba(240,82,82,0.4)] opacity-60',
+  no_show: 'border-border',
+};
+
+const APPOINTMENT_STATUS_BADGE_CLASSES: Record<Appointment['status'], string> = {
+  pending: 'bg-warning-bg text-warning',
+  confirmed: 'bg-info-bg text-info',
+  in_progress: 'bg-[rgba(217,108,0,0.15)] text-brand-primary',
+  completed: 'bg-success-bg text-success',
+  canceled: 'bg-error-bg text-error',
+  no_show: '',
+};
+
 export const MinhaAgenda: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -451,22 +469,10 @@ export const MinhaAgenda: React.FC = () => {
   // Renderização da tela de loading inicial
   if (loading) {
     return (
-      <div className="minha-agenda-loading">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-bg-primary text-text-primary">
         <div className="noise-overlay" />
-        <div className="spinner" style={{ width: '40px', height: '40px', borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} />
+        <div className="spinner w-10 h-10 border-brand-primary border-t-transparent" />
         <p>Verificando credenciais...</p>
-        <style>{`
-          .minha-agenda-loading {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            background-color: var(--color-bg-primary);
-            color: var(--color-text-primary);
-          }
-        `}</style>
       </div>
     );
   }
@@ -474,81 +480,49 @@ export const MinhaAgenda: React.FC = () => {
   // Renderização de erro de vínculo do perfil
   if (errorMsg) {
     return (
-      <div className="minha-agenda-error-page">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-bg-primary">
         <div className="noise-overlay" />
-        <div className="error-card card">
-          <svg className="error-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="max-w-[420px] w-full flex flex-col items-center text-center gap-5 py-10 px-8 bg-bg-secondary rounded-lg shadow-lg border border-border transition-colors duration-200 ease-in">
+          <svg className="text-error" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <h3>Acesso Não Vinculado</h3>
-          <p>{errorMsg}</p>
+          <p className="text-text-secondary text-sm leading-normal">{errorMsg}</p>
           <button onClick={handleLogout} className="btn btn--primary">Voltar para Login</button>
         </div>
-        <style>{`
-          .minha-agenda-error-page {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            background-color: var(--color-bg-primary);
-          }
-          .error-card {
-            max-width: 420px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            gap: 1.25rem;
-            padding: 2.5rem 2rem;
-            background-color: var(--color-bg-secondary);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--color-border);
-          }
-          .error-icon {
-            color: var(--color-error);
-          }
-          .error-card p {
-            color: var(--color-text-secondary);
-            font-size: var(--font-size-sm);
-            line-height: 1.5;
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="minha-agenda-layout">
+    <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col font-base">
       <div className="noise-overlay" />
-      
+
       {/* Conteúdo Principal (Mobile-First / Compacto) */}
-      <main className="agenda-main">
+      <main className="flex-1 p-5 max-w-[600px] w-full mx-auto flex flex-col gap-5">
         {/* Controle e Navegação de Data */}
-        <section className="date-picker-section card">
-          <div className="date-picker-controls">
-            <button 
-              onClick={() => handleShiftDate(-1)} 
-              className="btn-date-nav" 
+        <section className="bg-bg-secondary border border-border rounded-lg shadow-sm flex flex-col gap-3 p-4">
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => handleShiftDate(-1)}
+              className="bg-bg-primary border border-border text-text-primary w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-border hover:text-brand-primary"
               aria-label="Dia Anterior"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <div className="date-info">
-              <span className="friendly-date">{formatFriendlyDate(selectedDate)}</span>
-              <span className="numerical-date">
+            <div className="flex flex-col items-center">
+              <span className="font-bold text-base text-brand-primary capitalize">{formatFriendlyDate(selectedDate)}</span>
+              <span className="text-xs text-text-secondary">
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </span>
             </div>
-            <button 
-              onClick={() => handleShiftDate(1)} 
-              className="btn-date-nav" 
+            <button
+              onClick={() => handleShiftDate(1)}
+              className="bg-bg-primary border border-border text-text-primary w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-border hover:text-brand-primary"
               aria-label="Próximo Dia"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -556,11 +530,14 @@ export const MinhaAgenda: React.FC = () => {
               </svg>
             </button>
           </div>
-          
+
           {/* Atalho Hoje */}
-          <div className="today-shortcut-wrapper">
+          <div className="flex justify-center">
             {selectedDate !== dateInZone(new Date(), professional?.timezone || 'America/Sao_Paulo') && (
-              <button onClick={handleSetToday} className="btn-today-shortcut">
+              <button
+                onClick={handleSetToday}
+                className="bg-none border-none text-brand-primary text-xs font-semibold cursor-pointer underline hover:text-brand-hover"
+              >
                 Voltar para Hoje
               </button>
             )}
@@ -568,79 +545,77 @@ export const MinhaAgenda: React.FC = () => {
         </section>
 
         {/* Resumo/Cards de Estatísticas do Dia */}
-        <section className="dashboard-stats-grid">
-          <div className="stat-card">
-            <span className="stat-label">Cortes Hoje</span>
-            <span className="stat-value">{stats.total}</span>
+        <section className="grid grid-cols-2 gap-3">
+          <div className="bg-bg-secondary border-[0.5px] border-border rounded-md p-3.5 flex flex-col gap-1 shadow-sm relative overflow-hidden transition-[transform,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[rgba(217,108,0,0.15)] hover:shadow-[0_4px_16px_rgba(45,35,30,0.06),0_0_0_1px_rgba(217,108,0,0.06)] active:translate-y-0 active:scale-[0.99] active:duration-150">
+            <span className="text-xs text-text-secondary relative z-[1]">Cortes Hoje</span>
+            <span className="text-lg font-bold text-text-primary relative z-[1]">{stats.total}</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Concluídos</span>
-            <span className="stat-value text-success">{stats.completed}</span>
+          <div className="bg-bg-secondary border-[0.5px] border-border rounded-md p-3.5 flex flex-col gap-1 shadow-sm relative overflow-hidden transition-[transform,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[rgba(217,108,0,0.15)] hover:shadow-[0_4px_16px_rgba(45,35,30,0.06),0_0_0_1px_rgba(217,108,0,0.06)] active:translate-y-0 active:scale-[0.99] active:duration-150">
+            <span className="text-xs text-text-secondary relative z-[1]">Concluídos</span>
+            <span className="text-lg font-bold text-success relative z-[1]">{stats.completed}</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Faturamento</span>
-            <span className="stat-value">
+          <div className="bg-bg-secondary border-[0.5px] border-border rounded-md p-3.5 flex flex-col gap-1 shadow-sm relative overflow-hidden transition-[transform,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[rgba(217,108,0,0.15)] hover:shadow-[0_4px_16px_rgba(45,35,30,0.06),0_0_0_1px_rgba(217,108,0,0.06)] active:translate-y-0 active:scale-[0.99] active:duration-150">
+            <span className="text-xs text-text-secondary relative z-[1]">Faturamento</span>
+            <span className="text-lg font-bold text-text-primary relative z-[1]">
               {stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
-          <div className="stat-card">
-            <span className="stat-label">Minha Comissão</span>
-            <span className="stat-value">
+          <div className="bg-bg-secondary border-[0.5px] border-border rounded-md p-3.5 flex flex-col gap-1 shadow-sm relative overflow-hidden transition-[transform,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[rgba(217,108,0,0.15)] hover:shadow-[0_4px_16px_rgba(45,35,30,0.06),0_0_0_1px_rgba(217,108,0,0.06)] active:translate-y-0 active:scale-[0.99] active:duration-150">
+            <span className="text-xs text-text-secondary relative z-[1]">Minha Comissão</span>
+            <span className="text-lg font-bold text-text-primary relative z-[1]">
               {stats.commission.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </section>
 
         {/* Lista de Atendimentos */}
-        <section className="appointments-section">
-          <h2 className="section-title">Atendimentos Agendados</h2>
+        <section>
+          <h2 className="text-base font-bold text-text-primary mb-3">Atendimentos Agendados</h2>
 
           {appointmentsLoading ? (
-            <div className="skeleton-list">
-              <div className="skeleton-card-item skeleton" />
-              <div className="skeleton-card-item skeleton" />
-              <div className="skeleton-card-item skeleton" />
+            <div className="flex flex-col gap-3">
+              <div className="h-[100px] w-full rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-[100px] w-full rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
+              <div className="h-[100px] w-full rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
             </div>
           ) : appointments.length === 0 ? (
-            <div className="empty-appointments card">
-              <span className="empty-icon" style={{ display: 'flex', justifyContent: 'center', opacity: 0.5, color: 'var(--color-text-secondary)' }}>
+            <div className="bg-bg-secondary border border-border rounded-lg shadow-sm flex flex-col items-center py-12 px-6 text-center gap-2">
+              <span className="flex justify-center opacity-50 text-text-secondary">
                 <CalendarIcon size={36} />
               </span>
-              <h3>Nenhum horário</h3>
-              <p>Você não tem horários marcados para esta data.</p>
+              <h3 className="text-base font-semibold">Nenhum horário</h3>
+              <p className="text-sm text-text-secondary">Você não tem horários marcados para esta data.</p>
             </div>
           ) : (
-            <div className="appointments-list">
+            <div className="flex flex-col gap-3">
               {appointments.map((app) => (
-                <div 
-                  key={app.id} 
-                  className={`appointment-card card status-${app.status}`}
+                <div
+                  key={app.id}
+                  className={`bg-bg-secondary border rounded-lg shadow-sm flex gap-4 p-4 items-stretch transition-[transform,box-shadow] duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-md ${APPOINTMENT_STATUS_CARD_CLASSES[app.status]}`}
                 >
-                  <div className="appointment-time-badge">
-                    <span className="time-text">{formatTime(app.start_time)}</span>
+                  <div className="flex flex-col justify-center items-center pr-3 border-r border-border font-bold text-base text-brand-primary min-w-[60px]">
+                    <span>{formatTime(app.start_time)}</span>
                   </div>
 
-                  <div className="appointment-details">
-                    <div className="customer-info">
-                      <h4 className="customer-name">{app.customer.name}</h4>
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex flex-col">
+                      <h4 className="text-base font-semibold text-text-primary">{app.customer.name}</h4>
                       {app.customer.phone && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+                        <div className="flex items-center gap-3 mt-1">
                           <a
                             href={`https://wa.me/55${app.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${app.customer.name}! Tudo bem?`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="btn-whatsapp-direct"
                             title="Chamar no WhatsApp"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}
+                            className="inline-flex items-center gap-1 text-success text-xs font-semibold no-underline"
                           >
                             <HugeiconsIcon icon={WhatsappIcon} size={14} />
                             <span>WhatsApp</span>
                           </a>
-                          <a 
-                            href={`tel:${app.customer.phone}`} 
-                            className="customer-phone"
+                          <a
+                            href={`tel:${app.customer.phone}`}
                             title="Ligar para cliente"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                            className="inline-flex items-center gap-1 text-xs text-text-secondary no-underline hover:text-brand-primary hover:underline"
                           >
                             <PhoneIcon size={12} />
                             <span>{app.customer.phone}</span>
@@ -649,16 +624,16 @@ export const MinhaAgenda: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="service-info">
-                      <span className="service-name">{app.service.name}</span>
-                      <span className="service-price">
+                    <div className="flex justify-between text-sm text-text-secondary">
+                      <span className="font-medium">{app.service.name}</span>
+                      <span className="font-semibold text-text-primary">
                         {Number(app.service.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </span>
                     </div>
 
-                    <div className="card-footer">
+                    <div className="flex justify-between items-center mt-1">
                       {/* Status Badges */}
-                      <span className={`status-badge badge-${app.status}`}>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${APPOINTMENT_STATUS_BADGE_CLASSES[app.status]}`}>
                         {app.status === 'pending' && 'Pendente'}
                         {app.status === 'confirmed' && 'Confirmado'}
                         {app.status === 'in_progress' && 'Em Atendimento'}
@@ -667,13 +642,13 @@ export const MinhaAgenda: React.FC = () => {
                         {app.status === 'no_show' && 'Não compareceu'}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <div className="flex items-center gap-1.5">
                         {/* Botão de Iniciar Atendimento */}
                         {(app.status === 'pending' || app.status === 'confirmed') && (
                           <button
                             type="button"
                             onClick={() => handleStartService(app.id)}
-                            className="btn btn-start"
+                            className="bg-info text-brand-lightest font-semibold text-xs py-1.5 px-3 rounded-full border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:opacity-90 hover:-translate-y-px"
                             title="Iniciar Atendimento"
                           >
                             Iniciar
@@ -685,7 +660,7 @@ export const MinhaAgenda: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenCheckout(app)}
-                            className="btn btn-finish"
+                            className="bg-success text-brand-lightest font-semibold text-xs py-1.5 px-3.5 rounded-full border-none cursor-pointer shadow-sm transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:opacity-90 hover:-translate-y-px"
                           >
                             Finalizar
                           </button>
@@ -707,32 +682,32 @@ export const MinhaAgenda: React.FC = () => {
         title="Finalizar Atendimento"
       >
         {selectedAppointment && (
-          <div className="checkout-flow-container">
-            <div className="checkout-summary-card">
-              <div className="summary-row">
-                <span className="row-label">Cliente</span>
-                <span className="row-value">{selectedAppointment.customer.name}</span>
+          <div className="flex flex-col gap-5">
+            <div className="bg-bg-primary border border-border rounded-md p-4 flex flex-col gap-2.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Cliente</span>
+                <span className="font-semibold text-text-primary">{selectedAppointment.customer.name}</span>
               </div>
-              <div className="summary-row">
-                <span className="row-label">Serviço</span>
-                <span className="row-value">{selectedAppointment.service.name}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Serviço</span>
+                <span className="font-semibold text-text-primary">{selectedAppointment.service.name}</span>
               </div>
-              <div className="summary-row price-row">
-                <span className="row-label">Valor a Pagar</span>
-                <span className="row-value highlight">
+              <div className="flex justify-between text-sm pt-2 border-t border-border">
+                <span className="text-text-secondary">Valor a Pagar</span>
+                <span className="text-brand-primary text-lg font-bold">
                   {Number(selectedAppointment.service.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </span>
               </div>
 
               {/* Informação de Comissão */}
-              <div className="commission-hint" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap' }}>
-                <InfoIcon size={14} style={{ color: 'var(--color-brand-primary)', flexShrink: 0 }} />
+              <div className="text-xs text-text-secondary mt-1 p-2 bg-bg-secondary rounded-sm border border-dashed border-border flex items-center gap-1.5 flex-wrap">
+                <InfoIcon size={14} className="text-brand-primary shrink-0" />
                 <span>
                   Sua comissão estimada:{' '}
                   <strong>
                     {(Number(selectedAppointment.service.price) * (
-                      (selectedAppointment.service.commission_percentage !== null && selectedAppointment.service.commission_percentage !== undefined 
-                        ? Number(selectedAppointment.service.commission_percentage) 
+                      (selectedAppointment.service.commission_percentage !== null && selectedAppointment.service.commission_percentage !== undefined
+                        ? Number(selectedAppointment.service.commission_percentage)
                         : (professional?.commission_percentage || 0)
                       ) / 100
                     )).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -748,33 +723,37 @@ export const MinhaAgenda: React.FC = () => {
               </div>
             </div>
 
-            <div className="payment-method-selector">
-              <label className="selector-title">Forma de Pagamento</label>
-              <div className="methods-grid">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-text-primary">Forma de Pagamento</label>
+              <div className="grid grid-cols-3 gap-2">
                 {(['PIX', 'Dinheiro', 'Cartão'] as PaymentMethod[]).map((method) => (
                   <button
                     key={method}
                     type="button"
                     onClick={() => setPaymentMethod(method)}
-                    className={`method-btn ${paymentMethod === method ? 'active' : ''}`}
+                    className={`bg-bg-secondary border rounded-md py-3 px-2 flex flex-col items-center gap-1 cursor-pointer transition-all duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)] enabled:hover:border-brand-soft enabled:hover:bg-brand-lightest ${
+                      paymentMethod === method
+                        ? 'border-brand-primary bg-brand-lightest text-brand-primary shadow-[0_0_0_1px_var(--color-brand-primary)]'
+                        : 'border-border'
+                    }`}
                     disabled={isSubmittingCheckout}
                   >
-                    <span className="method-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px' }}>
+                    <span className="flex items-center justify-center h-6">
                       {method === 'PIX' && <LightningIcon size={18} />}
                       {method === 'Dinheiro' && <DollarIcon size={18} />}
                       {method === 'Cartão' && <CardIcon size={18} />}
                     </span>
-                    <span className="method-label">{method}</span>
+                    <span className="text-xs font-semibold">{method}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="modal-actions-footer">
+            <div className="flex justify-end gap-3 mt-2">
               <button
                 type="button"
                 onClick={() => setShowCheckoutModal(false)}
-                className="btn btn--secondary"
+                className="bg-transparent border border-border text-text-secondary rounded-full py-3 px-6 font-semibold cursor-pointer enabled:hover:bg-bg-primary enabled:hover:text-text-primary"
                 disabled={isSubmittingCheckout}
               >
                 Voltar
@@ -798,531 +777,7 @@ export const MinhaAgenda: React.FC = () => {
           </div>
         )}
       </Modal>
-
-      {/* Estilos CSS Locais */}
-      <style>{`
-        .minha-agenda-layout {
-          min-height: 100vh;
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          display: flex;
-          flex-direction: column;
-          font-family: var(--font-family-base);
-        }
-
-        .agenda-main {
-          flex: 1;
-          padding: 1.25rem;
-          max-width: 600px;
-          width: 100%;
-          margin: 0 auto;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .card {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* Date Picker Card */
-        .date-picker-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          padding: 1rem;
-        }
-
-        .date-picker-controls {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .btn-date-nav {
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-primary);
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: var(--radius-full);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-date-nav:hover {
-          background-color: var(--color-border);
-          color: var(--color-brand-primary);
-        }
-
-        .date-info {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .friendly-date {
-          font-weight: 700;
-          font-size: var(--font-size-base);
-          color: var(--color-brand-primary);
-          text-transform: capitalize;
-        }
-
-        .numerical-date {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .today-shortcut-wrapper {
-          display: flex;
-          justify-content: center;
-        }
-
-        .btn-today-shortcut {
-          background: none;
-          border: none;
-          color: var(--color-brand-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: underline;
-        }
-
-        .btn-today-shortcut:hover {
-          color: var(--color-brand-hover);
-        }
-
-        /* Stats Grid — Bento cards with hover physics */
-        .dashboard-stats-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
-        }
-
-        .stat-card {
-          background-color: var(--color-bg-secondary);
-          border: 0.5px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.875rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          box-shadow: var(--shadow-sm);
-          position: relative;
-          overflow: hidden;
-          transition:
-            transform 0.5s cubic-bezier(0.32, 0.72, 0, 1),
-            border-color 0.5s cubic-bezier(0.32, 0.72, 0, 1),
-            box-shadow 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .stat-card::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .stat-card:hover {
-          transform: translateY(-2px) scale(1.01);
-          border-color: rgba(217, 108, 0, 0.15);
-          box-shadow:
-            0 4px 16px rgba(45, 35, 30, 0.06),
-            0 0 0 1px rgba(217, 108, 0, 0.06);
-        }
-
-        .stat-card:active {
-          transform: translateY(0) scale(0.99);
-          transition-duration: 0.15s;
-        }
-
-        .stat-label {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          position: relative;
-          z-index: 1;
-        }
-
-        .stat-value {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          position: relative;
-          z-index: 1;
-        }
-
-        .text-success {
-          color: var(--color-success);
-        }
-
-        /* Appointments Section */
-        .section-title {
-          font-size: var(--font-size-base);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          margin-bottom: 0.75rem;
-        }
-
-        .appointments-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .appointment-card {
-          display: flex;
-          gap: 1rem;
-          padding: 1rem;
-          align-items: stretch;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-        }
-
-        .appointment-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
-        }
-
-        .appointment-card.status-pending {
-          border-color: rgba(217, 119, 6, 0.4);
-        }
-
-        .appointment-card.status-confirmed {
-          border-color: rgba(63, 131, 248, 0.4);
-        }
-
-        .appointment-card.status-completed {
-          border-color: rgba(14, 159, 110, 0.4);
-          opacity: 0.85;
-        }
-
-        .appointment-card.status-canceled {
-          border-color: rgba(240, 82, 82, 0.4);
-          opacity: 0.6;
-        }
-
-        .appointment-time-badge {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          padding-right: 0.75rem;
-          border-right: 1px solid var(--color-border);
-          font-weight: 700;
-          font-size: var(--font-size-base);
-          color: var(--color-brand-primary);
-          min-width: 60px;
-        }
-
-        .appointment-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .customer-info {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .customer-name {
-          font-size: var(--font-size-base);
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .customer-phone {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          text-decoration: none;
-          display: inline-block;
-          margin-top: 0.125rem;
-        }
-
-        .customer-phone:hover {
-          color: var(--color-brand-primary);
-          text-decoration: underline;
-        }
-
-        .service-info {
-          display: flex;
-          justify-content: space-between;
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-        }
-
-        .service-name {
-          font-weight: 500;
-        }
-
-        .service-price {
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .card-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 0.25rem;
-        }
-
-        /* Status badges */
-        .status-badge {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          padding: 0.125rem 0.5rem;
-          border-radius: var(--radius-full);
-          text-transform: capitalize;
-        }
-
-        .badge-pending {
-          background-color: var(--color-warning-bg);
-          color: var(--color-warning);
-        }
-
-        .badge-confirmed {
-          background-color: var(--color-info-bg);
-          color: var(--color-info);
-        }
-
-        .badge-in_progress {
-          background-color: rgba(217, 108, 0, 0.15);
-          color: var(--color-brand-primary);
-        }
-
-        .badge-completed {
-          background-color: var(--color-success-bg);
-          color: var(--color-success);
-        }
-
-        .badge-canceled {
-          background-color: var(--color-error-bg);
-          color: var(--color-error);
-        }
-
-        .btn-start {
-          background-color: var(--color-info);
-          color: var(--color-brand-lightest);
-          font-weight: 600;
-          font-size: var(--font-size-xs);
-          padding: 0.375rem 0.75rem;
-          border-radius: var(--radius-full);
-          border: none;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-start:hover {
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-
-        .btn-finish {
-          background-color: var(--color-success);
-          color: var(--color-brand-lightest);
-          font-weight: 600;
-          font-size: var(--font-size-xs);
-          padding: 0.375rem 0.875rem;
-          border-radius: var(--radius-full);
-          border: none;
-          cursor: pointer;
-          box-shadow: var(--shadow-sm);
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-finish:hover {
-          background-color: var(--color-success);
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-
-        /* Empty / Skeleton */
-        .empty-appointments {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 3rem 1.5rem;
-          text-align: center;
-          gap: 0.5rem;
-        }
-
-        .empty-icon {
-          font-size: 2rem;
-        }
-
-        .empty-appointments h3 {
-          font-size: var(--font-size-base);
-          font-weight: 600;
-        }
-
-        .empty-appointments p {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-        }
-
-        .skeleton-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .skeleton-card-item {
-          height: 100px;
-          width: 100%;
-          border-radius: var(--radius-lg);
-        }
-
-        .skeleton {
-          background: linear-gradient(
-            90deg,
-            var(--color-bg-secondary) 25%,
-            var(--color-border) 37%,
-            var(--color-bg-secondary) 63%
-          );
-          background-size: 400% 100%;
-          animation: skeleton-loading 1.4s ease infinite;
-        }
-
-        /* Checkout Modal Content */
-        .checkout-flow-container {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .checkout-summary-card {
-          background-color: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.625rem;
-        }
-
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: var(--font-size-sm);
-        }
-
-        .row-label {
-          color: var(--color-text-secondary);
-        }
-
-        .row-value {
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .price-row {
-          padding-top: 0.5rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .price-row .row-value.highlight {
-          color: var(--color-brand-primary);
-          font-size: var(--font-size-lg);
-          font-weight: 700;
-        }
-
-        .commission-hint {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin-top: 0.25rem;
-          padding: 0.5rem;
-          background-color: var(--color-bg-secondary);
-          border-radius: var(--radius-sm);
-          border: 1px dashed var(--color-border);
-        }
-
-        .payment-method-selector {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .selector-title {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .methods-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.5rem;
-        }
-
-        .method-btn {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.75rem 0.5rem;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.25rem;
-          cursor: pointer;
-          transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .method-btn:hover:not(:disabled) {
-          border-color: var(--color-brand-soft);
-          background-color: var(--color-brand-lightest);
-        }
-
-        .method-btn.active {
-          border-color: var(--color-brand-primary);
-          background-color: var(--color-brand-lightest);
-          color: var(--color-brand-primary);
-          box-shadow: 0 0 0 1px var(--color-brand-primary);
-        }
-
-        .method-icon {
-          font-size: 1.25rem;
-        }
-
-        .method-label {
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-        }
-
-        .modal-actions-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        .btn--secondary {
-          background-color: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          border-radius: var(--radius-full);
-          padding: 0.75rem 1.5rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .btn--secondary:hover:not(:disabled) {
-          background-color: var(--color-bg-primary);
-          color: var(--color-text-primary);
-        }
-      `}</style>
     </div>
   );
 };
+

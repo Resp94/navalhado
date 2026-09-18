@@ -27,7 +27,7 @@ export interface ClientesResumoProps {
  */
 export const ClientesResumo: React.FC<ClientesResumoProps> = ({ visitors, previousVisitors, loading }) => {
   return (
-    <div className="relatorios-faturamento-cards">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
       <StatCard
         title="Clientes únicos"
         value={visitors?.unique_customers ?? 0}

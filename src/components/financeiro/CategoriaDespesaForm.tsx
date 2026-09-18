@@ -99,7 +99,7 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
   };
 
   return (
-    <form className="categoria-despesa-form" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <Input
         label="Nome da categoria"
         value={name}
@@ -112,8 +112,11 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
       />
 
       {conflito && (
-        <div className="categoria-despesa-form-conflito" role="alert">
-          <p>
+        <div
+          className="flex flex-col gap-[0.6rem] items-start bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem]"
+          role="alert"
+        >
+          <p className="m-0 text-sm text-text-primary">
             {conflito.archived
               ? `Já existe uma categoria arquivada chamada "${conflito.existingName}".`
               : `Já existe uma categoria ativa chamada "${conflito.existingName}".`}
@@ -137,7 +140,7 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
         </div>
       )}
 
-      <div className="categoria-despesa-form-actions">
+      <div className="flex justify-end gap-3">
         {onCancelar && (
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={busy}>
             Cancelar
@@ -147,46 +150,6 @@ export const CategoriaDespesaForm: React.FC<CategoriaDespesaFormProps> = ({
           {isEdicao ? 'Salvar' : 'Criar categoria'}
         </Button>
       </div>
-
-      <style>{`
-        .categoria-despesa-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .categoria-despesa-form-conflito {
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-          align-items: flex-start;
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-        }
-
-        .categoria-despesa-form-conflito p {
-          margin: 0;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .categoria-despesa-form-conflito {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-        }
-
-        .dark-theme .categoria-despesa-form-conflito p {
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
-        .categoria-despesa-form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-        }
-      `}</style>
     </form>
   );
 };

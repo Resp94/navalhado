@@ -18,6 +18,10 @@ const ROTULO_METODO: Record<keyof FluxoCaixaInflowByMethod, string> = {
   outros: 'Outros',
 };
 
+const SUBTITULO_CLASSES = 'mb-2 text-sm font-extrabold text-text-primary';
+const LISTA_CLASSES = 'flex flex-col gap-[0.4rem] m-0';
+const ITEM_CLASSES = 'flex items-center justify-between gap-3 text-sm';
+
 function formatBucketRangeCompleto(bucket: FluxoCaixaBucket): string {
   if (bucket.start_date === bucket.end_date) return formatBucketDate(bucket.start_date);
   return `${formatBucketDate(bucket.start_date)} a ${formatBucketDate(bucket.end_date)}`;
@@ -39,14 +43,14 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
       width="min(92vw, 480px)"
     >
       {bucket && (
-        <div className="fluxo-caixa-detalhe">
+        <div className="flex flex-col gap-5">
           <section>
-            <h4 className="fluxo-caixa-detalhe-subtitulo">Entradas realizadas por forma de pagamento</h4>
-            <dl className="fluxo-caixa-detalhe-lista">
+            <h4 className={SUBTITULO_CLASSES}>Entradas realizadas por forma de pagamento</h4>
+            <dl className={LISTA_CLASSES}>
               {(Object.keys(ROTULO_METODO) as Array<keyof FluxoCaixaInflowByMethod>).map((metodo) => (
-                <div key={metodo}>
-                  <dt>{ROTULO_METODO[metodo]}</dt>
-                  <dd>{formatCurrency(bucket.detail.inflow_by_method[metodo])}</dd>
+                <div key={metodo} className={ITEM_CLASSES}>
+                  <dt className="text-text-secondary">{ROTULO_METODO[metodo]}</dt>
+                  <dd className="m-0 font-bold text-text-primary">{formatCurrency(bucket.detail.inflow_by_method[metodo])}</dd>
                 </div>
               ))}
             </dl>
@@ -54,9 +58,9 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
 
           {bucket.kind !== 'past' && (
             <section>
-              <h4 className="fluxo-caixa-detalhe-subtitulo">Entrada estimada</h4>
+              <h4 className={SUBTITULO_CLASSES}>Entrada estimada</h4>
               <FluxoCaixaValorEstimado value={bucket.inflow_estimated} />
-              <p className="fluxo-caixa-detalhe-meta">
+              <p className="mt-[0.35rem] text-xs text-text-secondary">
                 {bucket.detail.estimated_days} {bucket.detail.estimated_days === 1 ? 'dia estimado' : 'dias estimados'}
                 {bucket.detail.closed_days > 0 &&
                   ` · ${bucket.detail.closed_days} ${bucket.detail.closed_days === 1 ? 'dia fechado' : 'dias fechados'}`}
@@ -65,15 +69,15 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           )}
 
           <section>
-            <h4 className="fluxo-caixa-detalhe-subtitulo">Quitações de Comissão por profissional</h4>
+            <h4 className={SUBTITULO_CLASSES}>Quitações de Comissão por profissional</h4>
             {bucket.detail.payouts_by_professional.length === 0 ? (
-              <p className="fluxo-caixa-detalhe-vazio">Nenhuma Quitação de Comissão no agrupamento.</p>
+              <p className="text-sm text-text-secondary">Nenhuma Quitação de Comissão no agrupamento.</p>
             ) : (
-              <dl className="fluxo-caixa-detalhe-lista">
+              <dl className={LISTA_CLASSES}>
                 {bucket.detail.payouts_by_professional.map((item) => (
-                  <div key={item.professional_id}>
-                    <dt>{item.professional_name}</dt>
-                    <dd>{formatCurrency(item.amount)}</dd>
+                  <div key={item.professional_id} className={ITEM_CLASSES}>
+                    <dt className="text-text-secondary">{item.professional_name}</dt>
+                    <dd className="m-0 font-bold text-text-primary">{formatCurrency(item.amount)}</dd>
                   </div>
                 ))}
               </dl>
@@ -81,15 +85,15 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           </section>
 
           <section>
-            <h4 className="fluxo-caixa-detalhe-subtitulo">Vales por profissional</h4>
+            <h4 className={SUBTITULO_CLASSES}>Vales por profissional</h4>
             {bucket.detail.advances_by_professional.length === 0 ? (
-              <p className="fluxo-caixa-detalhe-vazio">Nenhum vale dado no agrupamento.</p>
+              <p className="text-sm text-text-secondary">Nenhum vale dado no agrupamento.</p>
             ) : (
-              <dl className="fluxo-caixa-detalhe-lista">
+              <dl className={LISTA_CLASSES}>
                 {bucket.detail.advances_by_professional.map((item) => (
-                  <div key={item.professional_id}>
-                    <dt>{item.professional_name}</dt>
-                    <dd>{formatCurrency(item.amount)}</dd>
+                  <div key={item.professional_id} className={ITEM_CLASSES}>
+                    <dt className="text-text-secondary">{item.professional_name}</dt>
+                    <dd className="m-0 font-bold text-text-primary">{formatCurrency(item.amount)}</dd>
                   </div>
                 ))}
               </dl>
@@ -97,24 +101,28 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           </section>
 
           <section>
-            <div className="fluxo-caixa-detalhe-subtitulo-header">
-              <h4 className="fluxo-caixa-detalhe-subtitulo">Contas a Pagar previstas e vencidas</h4>
-              <Link to="/financeiro/contas-a-pagar" className="fluxo-caixa-compromissos-link">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h4 className="text-sm font-extrabold text-text-primary">Contas a Pagar previstas e vencidas</h4>
+              <Link to="/financeiro/contas-a-pagar" className="text-xs font-bold text-info no-underline hover:underline">
                 Ver na aba de Contas a Pagar
               </Link>
             </div>
             {bucket.detail.payables_forecast.length === 0 ? (
-              <p className="fluxo-caixa-detalhe-vazio">Nenhuma Conta a Pagar prevista ou vencida no agrupamento.</p>
+              <p className="text-sm text-text-secondary">Nenhuma Conta a Pagar prevista ou vencida no agrupamento.</p>
             ) : (
-              <dl className="fluxo-caixa-detalhe-lista">
+              <dl className={LISTA_CLASSES}>
                 {bucket.detail.payables_forecast.map((item) => (
-                  <div key={item.payable_id}>
-                    <dt>
+                  <div key={item.payable_id} className={ITEM_CLASSES}>
+                    <dt className="text-text-secondary">
                       {item.description}
-                      {item.overdue && <span className="fluxo-caixa-vencido-badge">vencido</span>}
-                      <span className="fluxo-caixa-detalhe-meta"> · vencimento {formatBucketDate(item.due_date)}</span>
+                      {item.overdue && (
+                        <span className="inline-flex items-center px-[0.4rem] py-[0.1rem] ml-[0.35rem] rounded-full text-[0.65rem] font-bold uppercase tracking-[0.03em] bg-[#c0392b]/[0.12] text-[#c0392b]">
+                          vencido
+                        </span>
+                      )}
+                      <span className="text-xs text-text-secondary"> · vencimento {formatBucketDate(item.due_date)}</span>
                     </dt>
-                    <dd>{formatCurrency(item.remaining_amount)}</dd>
+                    <dd className="m-0 font-bold text-text-primary">{formatCurrency(item.remaining_amount)}</dd>
                   </div>
                 ))}
               </dl>
@@ -122,15 +130,15 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           </section>
 
           <section>
-            <h4 className="fluxo-caixa-detalhe-subtitulo">Baixas pagas por Categoria de Despesa</h4>
+            <h4 className={SUBTITULO_CLASSES}>Baixas pagas por Categoria de Despesa</h4>
             {bucket.detail.settlements_by_category.length === 0 ? (
-              <p className="fluxo-caixa-detalhe-vazio">Nenhuma Baixa paga no agrupamento.</p>
+              <p className="text-sm text-text-secondary">Nenhuma Baixa paga no agrupamento.</p>
             ) : (
-              <dl className="fluxo-caixa-detalhe-lista">
+              <dl className={LISTA_CLASSES}>
                 {bucket.detail.settlements_by_category.map((item) => (
-                  <div key={item.category_id}>
-                    <dt>{item.category_name}</dt>
-                    <dd>{formatCurrency(item.amount)}</dd>
+                  <div key={item.category_id} className={ITEM_CLASSES}>
+                    <dt className="text-text-secondary">{item.category_name}</dt>
+                    <dd className="m-0 font-bold text-text-primary">{formatCurrency(item.amount)}</dd>
                   </div>
                 ))}
               </dl>
@@ -138,15 +146,15 @@ export const FluxoCaixaDetalheDrawer: React.FC<FluxoCaixaDetalheDrawerProps> = (
           </section>
 
           <section>
-            <h4 className="fluxo-caixa-detalhe-subtitulo">Totais do agrupamento</h4>
-            <dl className="fluxo-caixa-detalhe-lista">
-              <div>
-                <dt>Recebido</dt>
-                <dd>{formatCurrency(bucket.inflow_realized)}</dd>
+            <h4 className={SUBTITULO_CLASSES}>Totais do agrupamento</h4>
+            <dl className={LISTA_CLASSES}>
+              <div className={ITEM_CLASSES}>
+                <dt className="text-text-secondary">Recebido</dt>
+                <dd className="m-0 font-bold text-text-primary">{formatCurrency(bucket.inflow_realized)}</dd>
               </div>
-              <div>
-                <dt>Saída realizada</dt>
-                <dd>{formatCurrency(bucket.outflow_realized)}</dd>
+              <div className={ITEM_CLASSES}>
+                <dt className="text-text-secondary">Saída realizada</dt>
+                <dd className="m-0 font-bold text-text-primary">{formatCurrency(bucket.outflow_realized)}</dd>
               </div>
             </dl>
           </section>

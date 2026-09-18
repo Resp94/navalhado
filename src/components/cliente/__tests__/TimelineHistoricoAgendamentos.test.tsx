@@ -30,8 +30,7 @@ describe('TimelineHistoricoAgendamentos', () => {
     expect(screen.getByText('Agosto de 2026')).toBeInTheDocument();
     expect(screen.getByText('11/08')).toBeInTheDocument();
 
-    const card = document.querySelector('.timeline-entry__card');
-    expect(card).not.toBeNull();
+    const card = screen.getByRole('article');
     expect(card).not.toHaveTextContent('11/08');
     expect(card).toHaveTextContent('17:00');
   });

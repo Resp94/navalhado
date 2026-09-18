@@ -7,6 +7,13 @@ export interface TooltipProps {
   className?: string;
 }
 
+const POSITION_CLASSES: Record<NonNullable<TooltipProps['position']>, string> = {
+  top: 'bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2',
+  bottom: 'top-[calc(100%+6px)] left-1/2 -translate-x-1/2',
+  left: 'right-[calc(100%+6px)] top-1/2 -translate-y-1/2',
+  right: 'left-[calc(100%+6px)] top-1/2 -translate-y-1/2',
+};
+
 export const Tooltip: React.FC<TooltipProps> = ({
   content,
   children,
@@ -18,80 +25,22 @@ export const Tooltip: React.FC<TooltipProps> = ({
   if (!content) return <>{children}</>;
 
   return (
-    <>
-      <div
-        className={`ui-tooltip-container ${className}`}
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
-        onFocus={() => setIsVisible(true)}
-        onBlur={() => setIsVisible(false)}
-      >
-        {children}
-        {isVisible && (
-          <div role="tooltip" className={`ui-tooltip ui-tooltip--${position}`}>
-            {content}
-          </div>
-        )}
-      </div>
-
-      <style>{`
-        .ui-tooltip-container {
-          position: relative;
-          display: inline-flex;
-        }
-
-        .ui-tooltip {
-          position: absolute;
-          z-index: 1000;
-          white-space: nowrap;
-          border-radius: var(--radius-sm, 6px);
-          padding: 0.35rem 0.65rem;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          font-size: 11px;
-          font-weight: 700;
-          color: #FFFFFF;
-          background-color: rgba(20, 17, 15, 0.94);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-          pointer-events: none;
-          animation: uiTooltipFade 0.15s ease-out;
-        }
-
-        .dark-theme .ui-tooltip {
-          background-color: rgba(255, 255, 255, 0.95);
-          color: #14110F;
-        }
-
-        .ui-tooltip--top {
-          bottom: calc(100% + 6px);
-          left: 50%;
-          transform: translateX(-50%);
-        }
-
-        .ui-tooltip--bottom {
-          top: calc(100% + 6px);
-          left: 50%;
-          transform: translateX(-50%);
-        }
-
-        .ui-tooltip--left {
-          right: calc(100% + 6px);
-          top: 50%;
-          transform: translateY(-50%);
-        }
-
-        .ui-tooltip--right {
-          left: calc(100% + 6px);
-          top: 50%;
-          transform: translateY(-50%);
-        }
-
-        @keyframes uiTooltipFade {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
-    </>
+    <div
+      className={`relative inline-flex ${className}`}
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+      onFocus={() => setIsVisible(true)}
+      onBlur={() => setIsVisible(false)}
+    >
+      {children}
+      {isVisible && (
+        <div
+          role="tooltip"
+          className={`absolute z-[1000] whitespace-nowrap rounded-sm px-[0.65rem] py-[0.35rem] font-base text-[11px] font-bold text-white bg-[rgba(20,17,15,0.94)] backdrop-blur-md shadow-[0_4px_12px_rgba(45,35,30,0.25)] pointer-events-none animate-tooltip-in ${POSITION_CLASSES[position]}`}
+        >
+          {content}
+        </div>
+      )}
+    </div>
   );
 };

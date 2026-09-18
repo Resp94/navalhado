@@ -155,7 +155,7 @@ describe('FechamentoCaixaModal', () => {
     });
 
     await waitFor(() => {
-      expect(document.querySelector('.caixa-val-highlight')).toHaveTextContent(/R\$\s*150,00/);
+      expect(screen.getByText(/^R\$\s*150,00$/)).toBeInTheDocument();
     });
     expect(screen.queryByText(/R\$\s*400,00/)).not.toBeInTheDocument();
   });

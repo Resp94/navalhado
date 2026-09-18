@@ -4,6 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/Icons';
+import { Select } from '../../components/ui';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 
@@ -104,93 +105,92 @@ export const CadastroAcesso: React.FC = () => {
   };
 
   return (
-    <div className="access-page">
-      <header className="access-header">
-        <button 
+    <div className="max-w-[600px] mx-auto w-full flex flex-col gap-4 animate-[slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)]">
+      <header className="flex flex-col items-start gap-1">
+        <button
           type="button"
-          onClick={() => navigate('/profissionais')} 
-          className="btn-back"
+          onClick={() => navigate('/profissionais')}
+          className="bg-transparent border-none text-text-primary text-sm font-bold cursor-pointer py-1 px-0 min-h-9 inline-flex items-center gap-[0.4rem] mb-1 transition-[transform,opacity] duration-200 ease-in-out outline-none hover:opacity-80 hover:-translate-x-[3px] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 focus-visible:rounded-sm"
           aria-label="Voltar para a página de equipe"
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={18} aria-hidden="true" />
           <span>Voltar para equipe</span>
         </button>
-        <h2>Configurar credenciais de acesso</h2>
-        <p>
+        <h2 className="text-[clamp(1.25rem,3.5vw,var(--font-size-2xl))] font-extrabold text-text-primary tracking-[-0.02em] m-0 leading-[1.25]">Configurar credenciais de acesso</h2>
+        <p className="text-sm text-text-secondary leading-[1.4] m-0">
           Crie o login e senha para que o barbeiro consiga acessar sua própria agenda e comissões no sistema.
         </p>
       </header>
 
-      <div className="access-container card">
+      <div className="bg-bg-secondary border border-border rounded-lg px-6 py-5 shadow-sm">
         {loading ? (
-          <div className="loading-state">
-            <div 
-              className="spinner" 
-              style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }} 
+          <div className="py-12 px-6 text-center flex flex-col items-center justify-center gap-2 text-text-secondary">
+            <div
+              className="spinner"
+              style={{ borderColor: 'var(--color-brand-primary)', borderTopColor: 'transparent' }}
             />
             <p>Carregando profissionais disponíveis...</p>
           </div>
         ) : professionals.length === 0 ? (
-          <div className="empty-state">
-            <h4>Toda a equipe já possui login configurado</h4>
-            <p>Se precisar alterar as credenciais de alguém, edite diretamente o cadastro do profissional na página de equipe.</p>
-            <button 
+          <div className="py-12 px-6 text-center flex flex-col items-center justify-center gap-2 text-text-secondary">
+            <h4 className="text-lg font-extrabold text-text-primary m-0">Toda a equipe já possui login configurado</h4>
+            <p className="text-sm text-text-secondary max-w-[38ch] leading-[1.4] m-0">Se precisar alterar as credenciais de alguém, edite diretamente o cadastro do profissional na página de equipe.</p>
+            <button
               type="button"
-              onClick={() => navigate('/profissionais')} 
-              className="btn btn--primary" 
-              style={{ marginTop: '1rem' }}
+              onClick={() => navigate('/profissionais')}
+              className="bg-brand-primary text-white border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md py-[0.65rem] px-5 font-bold min-h-10 inline-flex items-center justify-center cursor-pointer transition-[background-color,transform] duration-200 ease-in-out hover:not-disabled:bg-brand-hover hover:not-disabled:-translate-y-px disabled:opacity-55 disabled:cursor-not-allowed mt-4"
             >
               Voltar para equipe
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="access-form">
-            <div className="form-group">
-              <label htmlFor="select-prof">Selecione o barbeiro</label>
-              <select 
-                id="select-prof"
-                value={selectedProfId}
-                onChange={(e) => setSelectedProfId(e.target.value)}
-                required
-              >
-                <option value="">Selecione o profissional...</option>
-                {professionals.map((prof) => (
-                  <option key={prof.id} value={prof.id}>{prof.name} ({prof.phone})</option>
-                ))}
-              </select>
-            </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[0.85rem]">
+            <Select
+              label="Selecione o barbeiro"
+              id="select-prof"
+              value={selectedProfId}
+              onChange={(e) => setSelectedProfId(e.target.value)}
+              required
+            >
+              <option value="">Selecione o profissional...</option>
+              {professionals.map((prof) => (
+                <option key={prof.id} value={prof.id}>{prof.name} ({prof.phone})</option>
+              ))}
+            </Select>
 
-            <div className="form-group">
-              <label htmlFor="input-email">E-mail de login</label>
-              <input 
+            <div className="flex flex-col gap-1">
+              <label htmlFor="input-email" className="text-xs font-extrabold text-text-primary uppercase tracking-[0.04em]">E-mail de login</label>
+              <input
                 id="input-email"
-                type="email" 
-                placeholder="Ex: joao@barbearianavalhado.com" 
+                type="email"
+                placeholder="Ex: joao@barbearianavalhado.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 aria-describedby="email-helper"
                 required
+                className="py-[0.65rem] px-[0.85rem] min-h-10 border-0 rounded-md bg-bg-secondary bg-none text-text-primary text-base sm:text-sm shadow-[0_0_0_0.3px_var(--color-text-primary)] outline-none transition-[box-shadow,background-color] duration-200 ease-in-out w-full box-border focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] focus:bg-bg-secondary"
               />
-              <span id="email-helper" className="input-helper">
+              <span id="email-helper" className="text-[0.7rem] text-text-secondary mt-[0.1rem] leading-[1.35]">
                 Este e-mail será utilizado pelo barbeiro para fazer login na área do colaborador
               </span>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="input-password">Senha de acesso</label>
-              <div className="password-input-wrapper">
-                <input 
+            <div className="flex flex-col gap-1">
+              <label htmlFor="input-password" className="text-xs font-extrabold text-text-primary uppercase tracking-[0.04em]">Senha de acesso</label>
+              <div className="relative flex items-center">
+                <input
                   id="input-password"
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="Mínimo de 8 caracteres" 
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Mínimo de 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="pl-[0.85rem] pr-[3.25rem] py-[0.65rem] min-h-10 border-0 rounded-md bg-bg-secondary bg-none text-text-primary text-base sm:text-sm shadow-[0_0_0_0.3px_var(--color-text-primary)] outline-none transition-[box-shadow,background-color] duration-200 ease-in-out w-full box-border focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] focus:bg-bg-secondary"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="btn-toggle-password"
+                  className="absolute right-1 min-w-9 min-h-9 bg-bg-secondary bg-none border-none text-text-primary cursor-pointer inline-flex items-center justify-center rounded-md transition-colors duration-200 ease-in-out outline-none hover:bg-black/[0.04] focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-[-2px]"
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   aria-pressed={showPassword}
                   aria-controls="input-password"
@@ -200,26 +200,26 @@ export const CadastroAcesso: React.FC = () => {
               </div>
             </div>
 
-            <div className="security-notice" role="note">
-              <div className="security-notice-icon">
+            <div className="bg-brand-lightest shadow-[0_0_0_0.3px_var(--color-text-primary)] border-0 rounded-md py-[0.7rem] px-[0.85rem] text-xs text-text-primary leading-[1.4] flex items-start gap-[0.65rem]" role="note">
+              <div className="shrink-0 mt-[0.1rem] text-text-primary flex items-center justify-center">
                 <LockIcon size={18} aria-hidden="true" />
               </div>
-              <div className="security-notice-content">
-                <strong>Acesso seguro e restrito:</strong>
-                <span>O profissional terá acesso apenas à visualização da sua própria agenda e relatório de comissões, sem permissão para visualizar dados financeiros gerais ou alterar configurações da barbearia.</span>
+              <div className="flex flex-col gap-[0.1rem]">
+                <strong className="text-text-primary font-bold">Acesso seguro e restrito:</strong>
+                <span className="text-text-primary">O profissional terá acesso apenas à visualização da sua própria agenda e relatório de comissões, sem permissão para visualizar dados financeiros gerais ou alterar configurações da barbearia.</span>
               </div>
             </div>
 
-            <div className="form-actions">
-              <button 
-                type="button" 
-                onClick={() => navigate('/profissionais')} 
-                className="btn btn--outline-secondary"
+            <div className="flex justify-end gap-3 border-t border-border pt-[0.85rem] mt-1 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap">
+              <button
+                type="button"
+                onClick={() => navigate('/profissionais')}
+                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary rounded-md py-[0.65rem] px-5 font-bold min-h-10 inline-flex items-center justify-center cursor-pointer transition-colors duration-200 ease-in-out hover:not-disabled:bg-black/[0.03] disabled:opacity-55 disabled:cursor-not-allowed max-[480px]:w-full"
                 disabled={submitting}
               >
                 Cancelar
               </button>
-              <button type="submit" className="btn btn--primary" disabled={submitting}>
+              <button type="submit" className="bg-brand-primary text-white border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md py-[0.65rem] px-5 font-bold min-h-10 inline-flex items-center justify-center cursor-pointer transition-[background-color,transform] duration-200 ease-in-out hover:not-disabled:bg-brand-hover hover:not-disabled:-translate-y-px disabled:opacity-55 disabled:cursor-not-allowed max-[480px]:w-full" disabled={submitting}>
                 {submitting ? <div className="spinner spinner--sm" /> : 'Confirmar e criar acesso'}
               </button>
             </div>
@@ -227,310 +227,6 @@ export const CadastroAcesso: React.FC = () => {
         )}
       </div>
 
-      <style>{`
-        .access-page {
-          max-width: 600px;
-          margin: 0 auto;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .access-header {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 0.25rem;
-        }
-
-        .btn-back {
-          background: none;
-          border: none;
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          cursor: pointer;
-          padding: 0.25rem 0;
-          min-height: 36px;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          margin-bottom: 0.25rem;
-          transition: transform 0.2s ease, opacity 0.2s ease;
-          outline: none;
-        }
-
-        .btn-back:hover {
-          opacity: 0.8;
-          transform: translateX(-3px);
-        }
-
-        .btn-back:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-          border-radius: var(--radius-sm);
-        }
-
-        .access-header h2 {
-          font-size: clamp(1.25rem, 3.5vw, var(--font-size-2xl));
-          font-weight: 800;
-          color: var(--color-text-primary);
-          letter-spacing: -0.02em;
-          margin: 0;
-          line-height: 1.25;
-        }
-
-        .access-header p {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          line-height: 1.4;
-          margin: 0;
-        }
-
-        .access-container.card {
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem 1.5rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .access-form {
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .form-group input,
-        .form-group select {
-          padding: 0.65rem 0.85rem;
-          min-height: 40px;
-          border: 0;
-          border-radius: var(--radius-md);
-          background-color: var(--color-bg-secondary);
-          background-image: none;
-          color: var(--color-text-primary);
-          font-size: 16px;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-          outline: none;
-          transition: box-shadow 0.2s ease, background-color 0.2s ease;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        @media (min-width: 640px) {
-          .form-group input,
-          .form-group select {
-            font-size: var(--font-size-sm);
-          }
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-          box-shadow: 0 0 0 1.5px var(--color-brand-primary);
-          background-color: var(--color-bg-secondary);
-        }
-
-        .password-input-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .password-input-wrapper input {
-          padding-right: 3.25rem !important;
-        }
-
-        .btn-toggle-password {
-          position: absolute;
-          right: 0.25rem;
-          min-width: 36px;
-          min-height: 36px;
-          background-color: var(--color-bg-secondary);
-          background-image: none;
-          border: none;
-          color: var(--color-text-primary);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--radius-md);
-          transition: color 0.2s ease, background-color 0.2s ease;
-          outline: none;
-        }
-
-        .btn-toggle-password svg {
-          stroke: var(--color-text-primary);
-        }
-
-        .btn-toggle-password:hover {
-          background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .dark-theme .btn-toggle-password:hover {
-          background-color: rgba(255, 255, 255, 0.08);
-        }
-
-        .btn-toggle-password:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: -2px;
-        }
-
-        .input-helper {
-          font-size: 0.7rem;
-          color: var(--color-text-secondary);
-          margin-top: 0.1rem;
-          line-height: 1.35;
-        }
-
-        .security-notice {
-          background-color: var(--color-brand-lightest);
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-          border: 0;
-          border-radius: var(--radius-md);
-          padding: 0.7rem 0.85rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          line-height: 1.4;
-          display: flex;
-          align-items: flex-start;
-          gap: 0.65rem;
-        }
-
-        .dark-theme .security-notice {
-          background-color: rgba(217, 108, 0, 0.12);
-        }
-
-        .security-notice-icon {
-          flex-shrink: 0;
-          margin-top: 0.1rem;
-          color: var(--color-text-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .security-notice-icon svg {
-          stroke: var(--color-text-primary);
-        }
-
-        .security-notice-content {
-          display: flex;
-          flex-direction: column;
-          gap: 0.1rem;
-        }
-
-        .security-notice strong {
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .security-notice span {
-          color: var(--color-text-primary);
-        }
-
-        .form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          border-top: 1px solid var(--color-border);
-          padding-top: 0.85rem;
-          margin-top: 0.25rem;
-          flex-wrap: wrap;
-        }
-
-        @media (max-width: 480px) {
-          .form-actions {
-            flex-direction: column-reverse;
-          }
-          .form-actions .btn {
-            width: 100%;
-          }
-        }
-
-        .btn--outline-secondary {
-          background-color: var(--color-bg-secondary);
-          border: 0;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          color: var(--color-text-primary);
-          border-radius: var(--radius-md);
-          padding: 0.65rem 1.25rem;
-          font-weight: 700;
-          min-height: 40px;
-        }
-
-        .btn--outline-secondary:hover:not(:disabled) {
-          background-color: rgba(0, 0, 0, 0.03);
-          color: var(--color-text-primary);
-        }
-
-        .dark-theme .btn--outline-secondary:hover:not(:disabled) {
-          background-color: rgba(255, 255, 255, 0.06);
-        }
-
-        .btn--primary {
-          background-color: var(--color-brand-primary);
-          color: #FFFFFF;
-          border: 0;
-          box-shadow: 0 0 0 0.8px rgb(45, 35, 30);
-          border-radius: var(--radius-md);
-          padding: 0.65rem 1.25rem;
-          font-weight: 700;
-          min-height: 40px;
-        }
-
-        .dark-theme .btn--primary {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .btn--primary:hover:not(:disabled) {
-          background-color: var(--color-brand-hover);
-          transform: translateY(-1px);
-        }
-
-        .loading-state,
-        .empty-state {
-          padding: 3rem 1.5rem;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          color: var(--color-text-secondary);
-        }
-
-        .empty-state h4 {
-          font-size: var(--font-size-lg);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .empty-state p {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          max-width: 38ch;
-          line-height: 1.4;
-          margin: 0;
-        }
-      `}</style>
     </div>
   );
 };

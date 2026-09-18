@@ -144,7 +144,7 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
     const atualizadas = resultadoSerie.length - ignoradas.length;
     return (
       <Drawer isOpen={isOpen} onClose={handleFecharResultado} title="Edição em Série concluída">
-        <div className="conta-pagar-form">
+        <div className="flex flex-col gap-4">
           <p>
             {atualizadas} {atualizadas === 1 ? 'ocorrência atualizada' : 'ocorrências atualizadas'}
             {ignoradas.length > 0 &&
@@ -152,66 +152,31 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
             .
           </p>
           {ignoradas.length > 0 && (
-            <ul aria-label="Ocorrências ignoradas" className="conta-pagar-form-previa">
+            <ul aria-label="Ocorrências ignoradas" className="list-none m-0 p-0 flex flex-col gap-[0.35rem]">
               {ignoradas.map((item) => (
-                <li key={item.id}>
+                <li
+                  key={item.id}
+                  className="flex justify-between gap-3 text-sm text-text-primary py-2 px-3 rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)]"
+                >
                   <span>{item.seriesPosition}ª ocorrência</span>
                   <span>{item.ignoreReason || `Está ${rotuloIgnorada(item.status)}.`}</span>
                 </li>
               ))}
             </ul>
           )}
-          <div className="conta-pagar-form-actions">
+          <div className="flex justify-end gap-3">
             <Button type="button" variant="primary" onClick={handleFecharResultado}>
               Concluir
             </Button>
           </div>
         </div>
-        <style>{`
-          .conta-pagar-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-          }
-
-          .conta-pagar-form-previa {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-          }
-
-          .conta-pagar-form-previa li {
-            display: flex;
-            justify-content: space-between;
-            gap: 0.75rem;
-            font-size: var(--font-size-sm, 0.875rem);
-            color: var(--color-text-primary, #2D231E);
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius-sm, 6px);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-          }
-
-          .dark-theme .conta-pagar-form-previa li {
-            color: var(--color-text-primary, #FFF1E6);
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
-          .conta-pagar-form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-          }
-        `}</style>
       </Drawer>
     );
   }
 
   return (
     <Drawer isOpen={isOpen} onClose={onCancelar} title="Editar conta a pagar">
-      <form className="conta-pagar-form" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         {conta.seriesType && (
           <SegmentedControl
             value={alcance}
@@ -300,12 +265,15 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
         />
 
         {error && (
-          <div className="conta-pagar-form-error" role="alert">
+          <div
+            className="bg-brand-lightest shadow-[0_0_0_0.5px_var(--color-text-primary)] rounded-md p-[0.85rem] text-sm text-text-primary"
+            role="alert"
+          >
             {error}
           </div>
         )}
 
-        <div className="conta-pagar-form-actions">
+        <div className="flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={onCancelar} disabled={saving}>
             Cancelar
           </Button>
@@ -314,35 +282,6 @@ export const EditarContaDialog: React.FC<EditarContaDialogProps> = ({
           </Button>
         </div>
       </form>
-
-      <style>{`
-        .conta-pagar-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .conta-pagar-form-error {
-          background-color: var(--color-brand-lightest, #FFF1E6);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #2D231E);
-          border-radius: var(--radius-md, 8px);
-          padding: 0.85rem;
-          font-size: var(--font-size-sm, 0.875rem);
-          color: var(--color-text-primary, #2D231E);
-        }
-
-        .dark-theme .conta-pagar-form-error {
-          background-color: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 0.5px var(--color-text-primary, #FFF1E6);
-          color: var(--color-text-primary, #FFF1E6);
-        }
-
-        .conta-pagar-form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-        }
-      `}</style>
     </Drawer>
   );
 };

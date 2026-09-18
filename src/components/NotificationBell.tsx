@@ -54,39 +54,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={dropdownRef}>
+    <div className="relative inline-block" ref={dropdownRef}>
       {/* Botão de Sininho */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Notificações"
-        style={{
-          background: 'color-mix(in srgb, var(--color-bg-secondary) 80%, transparent)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid color-mix(in srgb, var(--color-border) 60%, transparent)',
-          color: 'var(--color-text-primary)',
-          cursor: 'pointer',
-          padding: '10px',
-          borderRadius: 'var(--radius-full)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          e.currentTarget.style.background = 'color-mix(in srgb, var(--color-bg-secondary) 95%, transparent)';
-          e.currentTarget.style.borderColor = 'var(--color-brand-primary)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.background = 'color-mix(in srgb, var(--color-bg-secondary) 80%, transparent)';
-          e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-border) 60%, transparent)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-        }}
+        className="relative flex items-center justify-center p-2.5 rounded-full text-text-primary cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] bg-[color-mix(in_srgb,var(--color-bg-secondary)_80%,transparent)] border border-[color-mix(in_srgb,var(--color-border)_60%,transparent)] [backdrop-filter:blur(10px)] shadow-sm hover:-translate-y-px hover:bg-[color-mix(in_srgb,var(--color-bg-secondary)_95%,transparent)] hover:border-brand-primary hover:shadow-md"
       >
         <svg
           width="20"
@@ -104,26 +77,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
         {/* Badge Numérico */}
         {unreadCount > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: '-4px',
-              right: '-4px',
-              background: 'var(--color-brand-primary)',
-              color: 'var(--color-brand-lightest)',
-              fontSize: '10px',
-              fontWeight: 700,
-              borderRadius: 'var(--radius-full)',
-              minWidth: '18px',
-              height: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              border: '2px solid var(--color-bg-primary)',
-              animation: 'dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
+          <span className="absolute -top-1 -right-1 bg-brand-primary text-brand-lightest text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-bg-primary animate-tooltip-in">
             {unreadCount}
           </span>
         )}
@@ -131,73 +85,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
       {/* Dropdown - Liquid Glass Panel */}
       {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 'calc(100% + 12px)',
-            width: '380px',
-            maxWidth: '90vw',
-            background: 'color-mix(in srgb, var(--color-bg-secondary) 82%, transparent)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid color-mix(in srgb, var(--color-border) 45%, transparent)',
-            borderRadius: 'var(--radius-xl)',
-            boxShadow: 'var(--shadow-xl)',
-            zIndex: 50,
-            overflow: 'hidden',
-            animation: 'dropdownFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            transformOrigin: 'top right',
-          }}
-        >
+        <div className="absolute right-0 top-[calc(100%+12px)] w-[380px] max-w-[90vw] bg-[color-mix(in_srgb,var(--color-bg-secondary)_82%,transparent)] [backdrop-filter:blur(20px)] border border-[color-mix(in_srgb,var(--color-border)_45%,transparent)] rounded-xl shadow-xl z-50 overflow-hidden animate-dialog-in [transform-origin:top_right]">
           {/* Header do Dropdown */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '16px 20px',
-              borderBottom: '1px solid color-mix(in srgb, var(--color-border) 30%, transparent)',
-            }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 'var(--font-size-base)',
-                fontWeight: 600,
-                color: 'var(--color-text-primary)',
-                fontFamily: 'var(--font-family-base)',
-              }}
-            >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[color-mix(in_srgb,var(--color-border)_30%,transparent)]">
+            <h3 className="m-0 text-base font-semibold text-text-primary font-base">
               Notificações
             </h3>
             {unreadCount > 0 && (
               <button
                 onClick={onMarkAllAsRead}
                 aria-label="Marcar todas como lidas"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-brand-primary)',
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '8px 12px',
-                  minHeight: '44px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  borderRadius: 'var(--radius-sm)',
-                  transition: 'all 0.2s ease',
-                  touchAction: 'manipulation',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--color-brand-hover)';
-                  e.currentTarget.style.background = 'color-mix(in srgb, var(--color-brand-lightest) 60%, transparent)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--color-brand-primary)';
-                  e.currentTarget.style.background = 'none';
-                }}
+                className="bg-none border-none text-brand-primary text-xs font-semibold cursor-pointer px-3 py-2 min-h-11 inline-flex items-center rounded-sm transition-all duration-200 ease-in [touch-action:manipulation] hover:text-brand-hover hover:bg-[color-mix(in_srgb,var(--color-brand-lightest)_60%,transparent)]"
               >
                 Marcar todas como lidas
               </button>
@@ -205,31 +103,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
 
           {/* Lista de Notificações */}
-          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+          <div className="max-h-[360px] overflow-y-auto">
             {notifications.length === 0 ? (
               // Empty State Elegante
-              <div
-                style={{
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '12px',
-                }}
-              >
-                <div
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: 'var(--radius-full)',
-                    background: 'color-mix(in srgb, var(--color-brand-primary) 10%, transparent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--color-brand-primary)',
-                  }}
-                >
+              <div className="py-10 px-5 text-center flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[color-mix(in_srgb,var(--color-brand-primary)_10%,transparent)] flex items-center justify-center text-brand-primary">
                   <svg
                     width="24"
                     height="24"
@@ -245,23 +123,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontWeight: 600,
-                      color: 'var(--color-text-primary)',
-                      fontSize: 'var(--font-size-sm)',
-                    }}
-                  >
+                  <p className="m-0 font-semibold text-text-primary text-sm">
                     Nenhuma notificação por aqui
                   </p>
-                  <p
-                    style={{
-                      margin: '4px 0 0 0',
-                      fontSize: 'var(--font-size-xs)',
-                      color: 'var(--color-text-secondary)',
-                    }}
-                  >
+                  <p className="mt-1 text-xs text-text-secondary">
                     Você está em dia com as suas novidades.
                   </p>
                 </div>
@@ -270,67 +135,23 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid color-mix(in srgb, var(--color-border) 20%, transparent)',
-                    display: 'flex',
-                    gap: '12px',
-                    position: 'relative',
-                    background: notification.read
-                      ? 'transparent'
-                      : 'color-mix(in srgb, var(--color-brand-primary) 4%, transparent)',
-                    borderLeft: notification.read
-                      ? '3px solid transparent'
-                      : '3px solid var(--color-brand-primary)',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'color-mix(in srgb, var(--color-bg-primary) 50%, transparent)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = notification.read
-                      ? 'transparent'
-                      : 'color-mix(in srgb, var(--color-brand-primary) 4%, transparent)';
-                  }}
+                  className={`px-5 py-4 border-b border-[color-mix(in_srgb,var(--color-border)_20%,transparent)] flex gap-3 relative transition-all duration-200 ease-in hover:bg-[color-mix(in_srgb,var(--color-bg-primary)_50%,transparent)] ${
+                    notification.read
+                      ? 'bg-transparent border-l-[3px] border-l-transparent'
+                      : 'bg-[color-mix(in_srgb,var(--color-brand-primary)_4%,transparent)] border-l-[3px] border-l-brand-primary'
+                  }`}
                 >
                   {/* Conteúdo da Notificação */}
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        justifyContent: 'space-between',
-                        gap: '8px',
-                      }}
-                    >
-                      <h4
-                        style={{
-                          margin: 0,
-                          fontSize: 'var(--font-size-sm)',
-                          fontWeight: notification.read ? 500 : 600,
-                          color: 'var(--color-text-primary)',
-                        }}
-                      >
+                  <div className="flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h4 className={`m-0 text-sm text-text-primary ${notification.read ? 'font-medium' : 'font-semibold'}`}>
                         {notification.title}
                       </h4>
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: 'var(--color-text-secondary)',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                      <span className="text-[10px] text-text-secondary whitespace-nowrap">
                         {formatRelativeTime(notification.created_at)}
                       </span>
                     </div>
-                    <p
-                      style={{
-                        margin: '6px 0 0 0',
-                        fontSize: 'var(--font-size-xs)',
-                        color: 'var(--color-text-secondary)',
-                        lineHeight: 1.4,
-                      }}
-                    >
+                    <p className="mt-1.5 text-xs text-text-secondary leading-[1.4]">
                       {notification.message}
                     </p>
                   </div>
@@ -340,32 +161,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     <button
                       onClick={() => onMarkAsRead(notification.id)}
                       aria-label="Marcar como lida"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--color-brand-primary)',
-                        cursor: 'pointer',
-                        padding: '10px',
-                        minWidth: '44px',
-                        minHeight: '44px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 'var(--radius-full)',
-                        alignSelf: 'center',
-                        transition: 'all 0.2s ease',
-                        touchAction: 'manipulation',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = 'var(--color-brand-hover)';
-                        e.currentTarget.style.background = 'color-mix(in srgb, var(--color-brand-lightest) 80%, transparent)';
-                        e.currentTarget.style.transform = 'scale(1.1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = 'var(--color-brand-primary)';
-                        e.currentTarget.style.background = 'none';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
+                      className="bg-none border-none text-brand-primary cursor-pointer p-2.5 min-w-11 min-h-11 flex items-center justify-center rounded-full self-center transition-all duration-200 ease-in [touch-action:manipulation] hover:text-brand-hover hover:bg-[color-mix(in_srgb,var(--color-brand-lightest)_80%,transparent)] hover:scale-110"
                     >
                       <svg
                         width="18"
@@ -387,19 +183,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes dropdownFadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
     </div>
   );
 };

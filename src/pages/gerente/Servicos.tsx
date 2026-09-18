@@ -56,17 +56,15 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
   ({ service, positionNumber, isFirst, isLast, onMoveUp, onMoveDown, onToggleStatus, onEdit, onDelete }) => {
     return (
       <div
-        className={`service-item-card ${
-          !service.is_active ? 'service-item-card--inactive' : ''
-        }`}
+        className="service-item-card bg-bg-secondary shadow-[0_0_0_0.3px_var(--color-text-primary)] rounded-md py-4 px-5 flex justify-between items-center gap-4 max-md:flex-col max-md:items-start max-md:py-2 max-md:px-[0.625rem] max-md:gap-[0.3rem]"
       >
-        <div className="service-card-main-content">
-          <div className="service-card-order-controls">
+        <div className="service-card-main-content flex items-center gap-4 flex-1 min-w-0 max-md:grid max-md:grid-cols-[auto_minmax(0,1fr)_auto] max-md:items-start max-md:gap-[0.4rem] max-md:w-full">
+          <div className="service-card-order-controls flex flex-col gap-1 shrink-0 max-md:flex-row max-md:gap-[2px]">
             <button
               type="button"
               onClick={() => onMoveUp && onMoveUp(service.id)}
               disabled={isFirst}
-              className="btn-order-arrow"
+              className="btn-order-arrow flex items-center justify-center w-7 h-7 rounded-sm border-none shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-bold cursor-pointer transition-all duration-150 ease-in p-0 hover:not-disabled:bg-brand-lightest hover:not-disabled:shadow-[0_0_0_0.8px_var(--color-text-primary)] disabled:opacity-30 disabled:cursor-not-allowed max-md:w-6 max-md:h-6"
               title="Subir posição no cardápio"
               aria-label={`Subir serviço ${service.name}`}
             >
@@ -76,7 +74,7 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
               type="button"
               onClick={() => onMoveDown && onMoveDown(service.id)}
               disabled={isLast}
-              className="btn-order-arrow"
+              className="btn-order-arrow flex items-center justify-center w-7 h-7 rounded-sm border-none shadow-[0_0_0_0.5px_var(--color-text-primary)] bg-bg-secondary text-text-primary font-bold cursor-pointer transition-all duration-150 ease-in p-0 hover:not-disabled:bg-brand-lightest hover:not-disabled:shadow-[0_0_0_0.8px_var(--color-text-primary)] disabled:opacity-30 disabled:cursor-not-allowed max-md:w-6 max-md:h-6"
               title="Descer posição no cardápio"
               aria-label={`Descer serviço ${service.name}`}
             >
@@ -84,41 +82,41 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             </button>
           </div>
 
-          <div className="service-card-info">
-            <div className="service-name-row">
+          <div className="service-card-info flex flex-col gap-1 flex-1 min-w-0 max-md:gap-[0.15rem]">
+            <div className="service-name-row flex items-center gap-2 flex-wrap max-md:grid max-md:grid-cols-[minmax(0,1fr)] max-md:items-start max-md:gap-1">
               {positionNumber !== undefined && (
                 <span
-                  className="service-position-badge service-position-badge--mobile-secondary font-mono"
+                  className="service-position-badge font-mono text-[11px] font-extrabold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] px-[6px] py-[2px] rounded-sm shrink-0 max-md:hidden"
                   title="Posição de exibição para o cliente"
                 >
                   #{positionNumber}
                 </span>
               )}
-              <h5 className="service-name">{service.name}</h5>
+              <h5 className="service-name text-base font-extrabold text-text-primary m-0 break-words max-md:text-[0.875rem] max-md:leading-[1.15] max-md:[overflow-wrap:anywhere] max-md:line-clamp-2 max-md:min-w-0">{service.name}</h5>
               {service.category && (
-                <span className="service-category-badge service-category-badge--mobile-secondary">
+                <span className="service-category-badge text-[11px] font-bold text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] px-[6px] py-px rounded-sm max-md:hidden">
                   {service.category}
                 </span>
               )}
             </div>
 
             {service.description && (
-              <p className="service-description">{service.description}</p>
+              <p className="service-description text-xs text-text-secondary m-0 leading-[1.35] max-md:hidden">{service.description}</p>
             )}
 
-            <div className="service-meta-badges">
-              <span className="meta-badge">
+            <div className="service-meta-badges flex items-center gap-2 flex-wrap mt-[0.15rem] max-md:gap-[0.2rem] max-md:mt-[0.05rem]">
+              <span className="meta-badge inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                 <HugeiconsIcon icon={Clock01Icon} size={12} />
                 {service.duration_minutes || 40} min
               </span>
               {service.return_period_days && (
-                <span className="meta-badge meta-badge--retorno">
+                <span className="meta-badge meta-badge--retorno inline-flex items-center gap-[0.3rem] text-[11px] text-text-primary bg-bg-secondary px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                   <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={12} />
                   Retorno: ~{service.return_period_days}d
                 </span>
               )}
               {service.commission_percentage !== null && (
-                <span className="meta-badge meta-badge--comm">
+                <span className="meta-badge meta-badge--comm inline-flex items-center gap-[0.3rem] text-[11px] text-success bg-success-bg px-[7px] py-[2px] rounded-sm shadow-[0_0_0_0.8px_var(--color-text-primary)] max-md:gap-[0.15rem] max-md:px-1 max-md:py-px max-md:text-[10px]">
                   <HugeiconsIcon icon={BadgePercentIcon} size={12} />
                   Comissão: {service.commission_percentage}%
                 </span>
@@ -126,32 +124,33 @@ const ServiceItemCard: React.FC<ServiceItemCardProps> = React.memo(
             </div>
           </div>
 
-          <div className="service-card-price">
+          <div className="service-card-price flex flex-col items-end justify-center min-w-[100px] shrink-0 text-right max-md:min-w-0">
             {service.price_type === 'starting_at' && (
-              <span className="price-type-tag">A partir de</span>
+              <span className="price-type-tag text-[10px] text-text-secondary uppercase font-bold tracking-[0.05em]">A partir de</span>
             )}
-            <span className="service-price-value font-mono">
+            <span className="service-price-value font-mono text-[1.1rem] font-extrabold text-text-primary max-md:text-base">
               R$ {service.price.toFixed(2).replace('.', ',')}
             </span>
           </div>
         </div>
 
-        <div className="service-card-actions">
-          <div className="status-switch-wrapper">
-            <span className={`status-switch-label ${service.is_active ? 'status-switch-label--active' : ''}`}>
+        <div className="service-card-actions flex items-center gap-[0.85rem] shrink-0 max-md:w-full max-md:justify-between max-md:items-center max-md:pt-1 max-md:border-t max-md:border-border max-md:min-w-0">
+          <div className="status-switch-wrapper flex items-center gap-[0.4rem]">
+            <span className={`status-switch-label text-xs text-text-secondary font-semibold min-w-[44px] max-md:text-[11px] ${service.is_active ? 'status-switch-label--active text-success' : ''}`}>
               {service.is_active ? 'Ativo' : 'Inativo'}
             </span>
-            <label className="switch">
+            <label className="switch relative inline-block w-[38px] h-[22px] shrink-0">
               <input
                 type="checkbox"
+                className="peer opacity-0 w-0 h-0"
                 checked={service.is_active}
                 onChange={() => onToggleStatus(service.id, service.is_active)}
               />
-              <span className="slider" />
+              <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(45,35,30,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
             </label>
           </div>
 
-            <div className="service-card-action-btns">
+            <div className="service-card-action-btns flex items-center gap-2 max-md:gap-[0.35rem]">
               <Button
                 type="button"
                 size="xs"
@@ -449,15 +448,15 @@ export const Servicos: React.FC = () => {
   }, [reminderTemplate, name, returnPeriodDays]);
 
   return (
-    <div className="services-page">
-      <div className="services-header-intro">
-        <div className="services-header-text">
-          <h2>Cardápio de serviços</h2>
-          <p>Defina os cortes, barbas e combos, organize a ordem de exibição no link do cliente e configure mensagens automáticas de retorno.</p>
+    <div className="services-page flex flex-col gap-5 w-full max-w-[1200px] mx-auto">
+      <div className="services-header-intro flex items-center justify-between gap-4 flex-wrap">
+        <div className="services-header-text flex-1 min-w-[260px]">
+          <h2 className="text-xl font-extrabold text-text-primary tracking-[-0.02em] m-0 mb-1">Cardápio de serviços</h2>
+          <p className="text-sm text-text-secondary m-0">Defina os cortes, barbas e combos, organize a ordem de exibição no link do cliente e configure mensagens automáticas de retorno.</p>
         </div>
         <Button
           type="button"
-          variant="soft"
+          variant="primary"
           onClick={handleOpenCreateDrawer}
           leftIcon={<HugeiconsIcon icon={PlusSignIcon} size={18} />}
         >
@@ -465,23 +464,41 @@ export const Servicos: React.FC = () => {
         </Button>
       </div>
 
-      <div className="services-control-bar">
-        <div className="services-category-pills">
-          {availableCategories.map((cat) => (
-            <button key={cat} type="button" onClick={() => setFilterCategory(cat)} className={`filter-pill ${filterCategory === cat ? 'filter-pill--active' : ''}`}>
-              <span>{cat}</span>
-              <span className="filter-pill-count">{cat === 'Todos' ? services.length : services.filter(s => (s.category || 'Geral') === cat).length}</span>
-            </button>
-          ))}
+      <div className="services-control-bar flex items-center justify-between gap-4 flex-wrap pb-1">
+        <div className="services-category-pills flex items-center gap-2 overflow-x-auto pb-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {availableCategories.map((cat) => {
+            const isActivePill = filterCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFilterCategory(cat)}
+                className={`filter-pill inline-flex items-center gap-[0.4rem] px-[14px] py-[6px] rounded-full text-[13px] font-semibold cursor-pointer transition-all duration-150 ease-in whitespace-nowrap ${
+                  isActivePill
+                    ? 'filter-pill--active bg-brand-lightest text-brand-deep border-none shadow-[0_0_0_0.8px_var(--color-brand-primary)]'
+                    : 'bg-bg-secondary text-text-primary border border-border hover:border-text-primary hover:text-text-primary'
+                }`}
+              >
+                <span>{cat}</span>
+                <span
+                  className={`filter-pill-count text-[11px] px-[6px] py-px rounded-[10px] font-bold ${
+                    isActivePill ? 'bg-brand-primary/12 text-brand-deep' : 'bg-[rgba(45,35,30,0.08)] text-text-primary'
+                  }`}
+                >
+                  {cat === 'Todos' ? services.length : services.filter(s => (s.category || 'Geral') === cat).length}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <section className="services-list-wrapper card">
-        <div className="list-section-header">
-          <div className="list-title-row">
+      <section className="services-list-wrapper card flex flex-col gap-5 bg-bg-secondary border border-border rounded-lg shadow-sm p-6 max-md:p-3">
+        <div className="list-section-header flex items-center justify-between pb-[0.85rem]">
+          <div className="list-title-row flex items-center gap-3">
             <div>
-              <h3>Ordem de exibição</h3>
-              <p className="list-section-subtitle">Use as setas para definir a prioridade no agendamento público.</p>
+              <h3 className="text-base font-extrabold text-text-primary m-0">Ordem de exibição</h3>
+              <p className="list-section-subtitle text-xs text-text-secondary m-0 mt-[0.2rem]">Use as setas para definir a prioridade no agendamento público.</p>
             </div>
           </div>
         </div>
@@ -500,7 +517,7 @@ export const Servicos: React.FC = () => {
             }
           />
         ) : (
-          <div className="services-items-grid">
+          <div className="services-items-grid flex flex-col gap-3 max-md:gap-2">
             {displayedServices.map((service) => {
               const index = serviceIndexMap.get(service.id) ?? 0;
               const isFirst = index === 0;
@@ -593,7 +610,7 @@ export const Servicos: React.FC = () => {
 
           <div className="form-group">
             <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Tempo estimado: <span className="duration-highlight">{duration} min</span>
+              Tempo estimado: <span className="duration-highlight text-brand-primary font-extrabold">{duration} min</span>
             </label>
             <input
               type="range"
@@ -602,11 +619,11 @@ export const Servicos: React.FC = () => {
               step="5"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value))}
-              className="duration-slider"
+              className="duration-slider accent-brand-primary cursor-pointer h-8 w-full"
             />
           </div>
 
-          <div className="commercial-section">
+          <div className="commercial-section bg-bg-primary border border-border rounded-md p-4 flex flex-col gap-3">
             <Input
               label="Dias para retorno"
               type="number"
@@ -615,17 +632,17 @@ export const Servicos: React.FC = () => {
             />
 
             <div className="form-group" style={{ marginTop: '0.5rem' }}>
-              <div className="template-label-row">
+              <div className="template-label-row flex items-center justify-between flex-wrap gap-2 mb-[0.35rem]">
                 <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Mensagem de lembrete
                 </label>
-                <div className="tag-chips-wrapper">
+                <div className="tag-chips-wrapper flex items-center gap-[0.35rem] flex-wrap">
                   {['{cliente}', '{servico}', '{dias}', '{link}'].map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => insertTagIntoTemplate(tag)}
-                      className="btn-tag-chip"
+                      className="btn-tag-chip text-[10px] font-bold px-[6px] py-[2px] rounded-sm border border-border bg-bg-secondary text-brand-primary cursor-pointer transition-all duration-150 ease-in hover:bg-brand-primary hover:text-white hover:border-brand-primary"
                     >
                       + {tag}
                     </button>
@@ -639,25 +656,26 @@ export const Servicos: React.FC = () => {
               />
             </div>
 
-            <div className="whatsapp-preview-card">
-              <div className="whatsapp-preview-header">
+            <div className="whatsapp-preview-card bg-bg-secondary border border-border rounded-md px-4 py-[0.875rem] text-xs flex flex-col gap-[0.4rem]">
+              <div className="whatsapp-preview-header flex items-center gap-[0.4rem] text-[11px] font-bold text-[#25D366]">
                 <HugeiconsIcon icon={WhatsappIcon} size={14} />
                 <span>Prévia no WhatsApp</span>
               </div>
-              <p className="whatsapp-preview-text">{previewMessage}</p>
+              <p className="whatsapp-preview-text text-text-primary m-0 leading-[1.4] break-words">{previewMessage}</p>
             </div>
           </div>
 
           {editingId && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', backgroundColor: 'var(--color-bg-primary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
               <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Serviço ativo</span>
-              <label className="switch">
+              <label className="switch relative inline-block w-[38px] h-[22px] shrink-0">
                 <input
                   type="checkbox"
+                  className="peer opacity-0 w-0 h-0"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                 />
-                <span className="slider" />
+                <span className="slider absolute cursor-pointer inset-0 bg-border transition-[background-color] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] rounded-[22px] before:content-[''] before:absolute before:h-4 before:w-4 before:left-[3px] before:bottom-[3px] before:bg-white before:transition-transform before:duration-200 before:ease-[cubic-bezier(0.4,0,0.2,1)] before:rounded-full before:shadow-[0_1px_3px_rgba(45,35,30,0.2)] peer-checked:bg-success peer-checked:before:translate-x-4" />
               </label>
             </div>
           )}
@@ -682,755 +700,6 @@ export const Servicos: React.FC = () => {
           </div>
         </form>
       </Drawer>
-
-       <style>{`
-        .services-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .services-header-intro {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .services-header-text {
-          flex: 1;
-          min-width: 260px;
-        }
-
-        .services-header-intro h2 {
-          font-size: var(--font-size-xl);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          letter-spacing: -0.02em;
-          margin: 0 0 0.25rem 0;
-        }
-
-        .services-header-intro p {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
-        .btn-create-service-cta {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.35rem;
-          font-weight: 700;
-          font-size: var(--font-size-sm);
-          border-radius: var(--radius-full, 9999px);
-          box-shadow: 0 4px 14px rgba(217, 108, 0, 0.25);
-          cursor: pointer;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .services-control-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          flex-wrap: wrap;
-          padding-bottom: 0.25rem;
-        }
-
-        .services-category-pills {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          overflow-x: auto;
-          scrollbar-width: none;
-          padding-bottom: 2px;
-        }
-
-        .filter-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 6px 14px;
-          border-radius: var(--radius-full, 9999px);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          white-space: nowrap;
-        }
-
-        .filter-pill:hover {
-          border-color: var(--color-text-primary);
-          color: var(--color-text-primary);
-        }
-
-        .filter-pill--active {
-          background: var(--color-warning-bg);
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .filter-pill-count {
-          font-size: 11px;
-          padding: 1px 6px;
-          border-radius: 10px;
-          background: rgba(45, 35, 30, 0.08);
-          color: var(--color-text-primary);
-          font-weight: 700;
-        }
-
-        .filter-pill--active .filter-pill-count {
-          background: rgba(45, 35, 30, 0.12);
-          color: var(--color-text-primary);
-        }
-
-        .services-stats-summary {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .services-list-wrapper {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .list-section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-bottom: 0.85rem;
-          border-bottom: none;
-        }
-
-        .list-title-row {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .list-section-header h3 {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .list-section-subtitle {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0.2rem 0 0 0;
-        }
-
-        .services-items-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .service-item-card {
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.3px var(--color-text-primary);
-          border-radius: var(--radius-md);
-          padding: 1rem 1.25rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .service-card-main-content {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .service-card-action-btns {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .service-card-action-btns .ui-btn {
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          color: var(--color-text-primary);
-        }
-
-        .service-card-action-btns .ui-btn:hover:not(:disabled) {
-          background-color: rgba(45, 35, 30, 0.04);
-          color: var(--color-text-primary);
-        }
-
-        .service-card-order-controls {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          flex-shrink: 0;
-        }
-
-        .btn-order-arrow {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-sm);
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          padding: 0;
-        }
-
-        .btn-order-arrow:hover:not(:disabled) {
-          background: var(--color-brand-lightest);
-          color: var(--color-text-primary);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .btn-order-arrow:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
-        .service-card-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .service-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-        }
-
-        .service-position-badge {
-          font-size: 11px;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          padding: 2px 6px;
-          border-radius: var(--radius-sm);
-          flex-shrink: 0;
-        }
-
-        .service-category-badge {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--color-text-primary);
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          padding: 1px 6px;
-          border-radius: var(--radius-sm);
-        }
-
-        .service-name {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          word-break: break-word;
-        }
-
-        .service-description {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0;
-          line-height: 1.35;
-        }
-
-        .service-meta-badges {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          margin-top: 0.15rem;
-        }
-
-        .meta-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          font-size: 11px;
-          color: var(--color-text-primary);
-          background: var(--color-bg-secondary);
-          padding: 2px 7px;
-          border-radius: var(--radius-sm);
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-        }
-
-        .meta-badge--retorno {
-          color: var(--color-text-primary);
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-        }
-
-        .meta-badge--comm {
-          color: var(--color-success);
-          background: rgba(54, 179, 126, 0.08);
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-        }
-
-        .service-card-price {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          justify-content: center;
-          min-width: 100px;
-          flex-shrink: 0;
-          text-align: right;
-        }
-
-        .price-type-tag {
-          font-size: 10px;
-          color: var(--color-text-secondary);
-          text-transform: uppercase;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-        }
-
-        .service-price-value {
-          font-size: 1.1rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-        }
-
-        .service-card-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          flex-shrink: 0;
-        }
-
-        .status-switch-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-
-        .status-switch-label {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-          min-width: 44px;
-        }
-
-        .status-switch-label--active {
-          color: var(--color-success);
-        }
-
-        /* MODAL DE EXCLUSÃO (SOFT DELETE) */
-        .service-delete-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          z-index: 1100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1.5rem;
-          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .service-delete-modal-card {
-          width: 100%;
-          max-width: 460px;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 1.75rem;
-          box-shadow: var(--shadow-xl);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 1rem;
-        }
-
-        .service-delete-icon-badge {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .service-delete-title {
-          font-size: 1.2rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .service-delete-text {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-
-        .service-delete-warning-box {
-          background: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.2);
-          border-radius: var(--radius-md);
-          padding: 0.85rem;
-          font-size: 12px;
-          color: var(--color-text-secondary);
-          text-align: left;
-          line-height: 1.45;
-        }
-
-        .service-delete-actions {
-          display: flex;
-          width: 100%;
-          gap: 0.75rem;
-          margin-top: 0.5rem;
-        }
-
-        .service-delete-actions button {
-          flex: 1;
-        }
-
-        .btn--danger-delete {
-          background: #ef4444;
-          color: #ffffff;
-          border: none;
-          font-weight: 700;
-          padding: 10px 16px;
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn--danger-delete:hover:not(:disabled) {
-          background: #dc2626;
-        }
-
-        .btn--danger-delete:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        /* DURATION SLIDER & TEMPLATE PREVIEW */
-        .duration-highlight {
-          color: var(--color-brand-primary);
-          font-weight: 800;
-        }
-
-        .duration-slider {
-          accent-color: var(--color-brand-primary);
-          cursor: pointer;
-          height: 32px;
-          width: 100%;
-        }
-
-        .commercial-section {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .template-label-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 0.35rem;
-        }
-
-        .tag-chips-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          flex-wrap: wrap;
-        }
-
-        .btn-tag-chip {
-          font-size: 10px;
-          font-weight: 700;
-          padding: 2px 6px;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-secondary);
-          color: var(--color-brand-primary);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .btn-tag-chip:hover {
-          background: var(--color-brand-primary);
-          color: #ffffff;
-          border-color: var(--color-brand-primary);
-        }
-
-        .whatsapp-preview-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.875rem 1rem;
-          font-size: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .whatsapp-preview-header {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 11px;
-          font-weight: 700;
-          color: #25D366;
-        }
-
-        .whatsapp-preview-text {
-          color: var(--color-text-primary);
-          margin: 0;
-          line-height: 1.4;
-          word-break: break-word;
-        }
-
-        .switch {
-          position: relative;
-          display: inline-block;
-          width: 38px;
-          height: 22px;
-          flex-shrink: 0;
-        }
-
-        .switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: var(--color-border);
-          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 22px;
-        }
-
-        .slider:before {
-          position: absolute;
-          content: "";
-          height: 16px;
-          width: 16px;
-          left: 3px;
-          bottom: 3px;
-          background-color: white;
-          transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 50%;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-
-        input:checked + .slider {
-          background-color: var(--color-success);
-        }
-
-        input:checked + .slider:before {
-          transform: translateX(16px);
-        }
-
-        @keyframes slideInRight {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        /* RESPONSIVIDADE MOBILE */
-        @media (max-width: 768px) {
-          .services-list-wrapper.card {
-            padding: 0.75rem;
-          }
-
-          .services-items-grid {
-            gap: 0.5rem;
-          }
-
-          .service-item-card {
-            flex-direction: column;
-            align-items: flex-start;
-            padding: 0.5rem 0.625rem;
-            gap: 0.3rem;
-          }
-
-          .service-card-main-content {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
-            align-items: flex-start;
-            gap: 0.4rem;
-            width: 100%;
-            min-width: 0;
-          }
-
-          .service-card-info {
-            flex: 1;
-            min-width: 0;
-            gap: 0.15rem;
-          }
-
-          .service-name-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr);
-            align-items: start;
-            gap: 0.25rem;
-            flex-wrap: nowrap;
-          }
-
-          .service-position-badge--mobile-secondary,
-          .service-category-badge--mobile-secondary {
-            display: none;
-          }
-
-          .service-name {
-            grid-column: 1;
-            min-width: 0;
-          }
-
-          .service-card-order-controls {
-            flex-direction: row;
-            gap: 2px;
-          }
-
-          .btn-order-arrow {
-            width: 24px;
-            height: 24px;
-          }
-
-          .service-name {
-            font-size: 0.875rem;
-            line-height: 1.15;
-            overflow-wrap: anywhere;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-          }
-
-          .service-description {
-            display: none;
-          }
-
-          .service-meta-badges {
-            gap: 0.2rem;
-            margin-top: 0.05rem;
-          }
-
-          .meta-badge {
-            gap: 0.15rem;
-            padding: 1px 4px;
-            font-size: 10px;
-          }
-
-          .service-card-price {
-            align-items: flex-end;
-            text-align: right;
-            min-width: auto;
-            flex-shrink: 0;
-          }
-
-          .service-price-value {
-            font-size: 1rem;
-          }
-
-          .service-card-actions {
-            width: 100%;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 0.25rem;
-            border-top: 1px solid var(--color-border);
-            min-width: 0;
-          }
-
-          .service-card-action-btns {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-          }
-
-          .service-card-action-btns .ui-btn {
-            padding: 3px 7px;
-            font-size: 11px;
-            height: 28px;
-          }
-
-          .status-switch-label {
-            font-size: 11px;
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 };

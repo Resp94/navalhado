@@ -12,6 +12,21 @@ export interface SwitchProps {
   style?: React.CSSProperties;
 }
 
+const TRACK_SIZE_CLASSES: Record<'sm' | 'md', string> = {
+  sm: 'w-9 h-5',
+  md: 'w-11 h-6',
+};
+
+const THUMB_SIZE_CLASSES: Record<'sm' | 'md', string> = {
+  sm: 'w-4 h-4',
+  md: 'w-5 h-5',
+};
+
+const THUMB_TRANSLATE_CLASSES: Record<'sm' | 'md', string> = {
+  sm: 'translate-x-4',
+  md: 'translate-x-5',
+};
+
 export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
   (
     {
@@ -44,152 +59,45 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
     };
 
     return (
-      <>
-        <div
-          className={`ui-switch-container ${disabled ? 'ui-switch-container--disabled' : ''} ${className}`}
-          style={style}
-          onClick={handleToggle}
-        >
-          <div className="ui-switch-text-group">
-            {label && (
-              <span id={`${switchId}-label`} className="ui-switch-label">
-                {label}
-              </span>
-            )}
-            {description && (
-              <span id={`${switchId}-desc`} className="ui-switch-desc">
-                {description}
-              </span>
-            )}
-          </div>
-
-          <button
-            ref={ref}
-            id={switchId}
-            type="button"
-            role="switch"
-            aria-checked={checked}
-            aria-labelledby={label ? `${switchId}-label` : undefined}
-            aria-describedby={description ? `${switchId}-desc` : undefined}
-            disabled={disabled}
-            onKeyDown={handleKeyDown}
-            className={`ui-switch-track ui-switch-track--${size} ${checked ? 'ui-switch-track--checked' : ''}`}
-          >
-            <span className="ui-switch-thumb" />
-          </button>
+      <div
+        className={`flex items-center justify-between gap-4 cursor-pointer select-none box-border ${disabled ? 'opacity-55 cursor-not-allowed' : ''} ${className}`}
+        style={style}
+        onClick={handleToggle}
+      >
+        <div className="flex flex-col gap-[0.15rem] min-w-0 flex-1">
+          {label && (
+            <span id={`${switchId}-label`} className="text-sm font-bold text-text-primary leading-snug">
+              {label}
+            </span>
+          )}
+          {description && (
+            <span id={`${switchId}-desc`} className="text-xs text-text-secondary leading-snug">
+              {description}
+            </span>
+          )}
         </div>
 
-        <style>{`
-          .ui-switch-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            cursor: pointer;
-            user-select: none;
-            box-sizing: border-box;
-          }
-
-          .ui-switch-container--disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-          }
-
-          .ui-switch-text-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-            min-width: 0;
-            flex: 1;
-          }
-
-          .ui-switch-label {
-            font-size: var(--font-size-sm, 0.875rem);
-            font-weight: 700;
-            color: var(--color-text-primary, #2D231E);
-            line-height: 1.25;
-          }
-
-          .dark-theme .ui-switch-label {
-            color: var(--color-text-primary, #FFF1E6);
-          }
-
-          .ui-switch-desc {
-            font-size: var(--font-size-xs, 0.75rem);
-            color: var(--color-text-secondary, #70625B);
-            line-height: 1.35;
-          }
-
-          .ui-switch-track {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            flex-shrink: 0;
-            border: none;
-            outline: none;
-            border-radius: var(--radius-full, 9999px);
-            background-color: #D1D5DB;
-            cursor: pointer;
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #2D231E);
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            padding: 2px;
-            box-sizing: border-box;
-          }
-
-          .dark-theme .ui-switch-track {
-            background-color: #3F3F46;
-            box-shadow: 0 0 0 0.8px var(--color-text-primary, #FFF1E6);
-          }
-
-          .ui-switch-track--checked {
-            background-color: var(--color-brand-primary, #D96C00) !important;
-            box-shadow: 0 0 0 0.8px var(--color-brand-primary, #D96C00) !important;
-          }
-
-          .ui-switch-track:focus-visible {
-            outline: 2px solid var(--color-brand-primary, #D96C00);
-            outline-offset: 2px;
-          }
-
-          /* TAMANHOS */
-          .ui-switch-track--sm {
-            width: 36px;
-            height: 20px;
-          }
-
-          .ui-switch-track--sm .ui-switch-thumb {
-            width: 16px;
-            height: 16px;
-          }
-
-          .ui-switch-track--sm.ui-switch-track--checked .ui-switch-thumb {
-            transform: translateX(16px);
-          }
-
-          .ui-switch-track--md {
-            width: 44px;
-            height: 24px;
-          }
-
-          .ui-switch-track--md .ui-switch-thumb {
-            width: 20px;
-            height: 20px;
-          }
-
-          .ui-switch-track--md.ui-switch-track--checked .ui-switch-thumb {
-            transform: translateX(20px);
-          }
-
-          .ui-switch-thumb {
-            display: block;
-            border-radius: 50%;
-            background-color: #FFFFFF;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            pointer-events: none;
-          }
-        `}</style>
-      </>
+        <button
+          ref={ref}
+          id={switchId}
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-labelledby={label ? `${switchId}-label` : undefined}
+          aria-describedby={description ? `${switchId}-desc` : undefined}
+          disabled={disabled}
+          onKeyDown={handleKeyDown}
+          className={`relative inline-flex items-center shrink-0 border-none outline-none rounded-full cursor-pointer p-0.5 box-border transition-[background-color,box-shadow] duration-200 ease-in focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${
+            checked
+              ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]'
+              : 'bg-text-secondary/30 shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+          } ${TRACK_SIZE_CLASSES[size]}`}
+        >
+          <span
+            className={`block rounded-full bg-white shadow-[0_1px_3px_rgba(45,35,30,0.25)] transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${THUMB_SIZE_CLASSES[size]} ${checked ? THUMB_TRANSLATE_CLASSES[size] : ''}`}
+          />
+        </button>
+      </div>
     );
   }
 );

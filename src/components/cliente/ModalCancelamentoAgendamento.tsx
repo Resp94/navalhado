@@ -36,36 +36,36 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
   };
 
   return (
-    <div className="modal-backdrop-custom">
-      <div className="modal-dialog-card" style={{ textAlign: 'center' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(20,17,15,0.6)] backdrop-blur-[4px] box-border">
+      <div className="w-full max-w-[390px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl border border-border p-6 shadow-[0_16px_48px_rgba(45,35,30,0.2)] relative box-border text-center">
         {/* Botão Fechar */}
         <button
           type="button"
           onClick={onClose}
           disabled={canceling}
-          className="modal-btn-close"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-brand-lightest border border-border text-text-secondary flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-brand-soft hover:text-text-primary"
           aria-label="Fechar"
         >
           <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2.5} />
         </button>
 
         {/* Ícone de Alerta */}
-        <div style={{ width: '3rem', height: '3rem', borderRadius: '9999px', backgroundColor: '#FDE8E8', color: '#F05252', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+        <div className="w-12 h-12 rounded-full bg-error-bg text-error flex items-center justify-center mx-auto mb-3">
           <HugeiconsIcon icon={AlertCircleIcon} size={24} strokeWidth={2.5} />
         </div>
 
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#2D231E', margin: 0 }}>
+        <h2 className="text-base font-extrabold text-text-primary m-0">
           Deseja cancelar seu horário?
         </h2>
 
-        <p style={{ fontSize: '0.75rem', color: '#70625B', marginTop: '0.375rem', marginBottom: '1rem', lineHeight: 1.4 }}>
+        <p className="text-xs text-text-secondary mt-1.5 mb-4 leading-[1.4]">
           Seu horário para <strong>{appointment.service_name}</strong> na{' '}
           <strong>{formatDateTime(appointment.start_time)}</strong> será liberado para outros clientes.
         </p>
 
         {/* Campo de Motivo Opcional */}
-        <div style={{ textAlign: 'left', marginBottom: '1.25rem' }}>
-          <label className="cliente-input-label">
+        <div className="text-left mb-5">
+          <label className="text-[0.6875rem] font-bold text-text-primary uppercase tracking-[0.05em]">
             Motivo do cancelamento (opcional):
           </label>
           <input
@@ -74,18 +74,17 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
             onChange={(e) => onChangeReason(e.target.value)}
             placeholder="Ex: Tive um imprevisto de horário"
             disabled={canceling}
-            className="cliente-input"
-            style={{ backgroundColor: 'rgba(255, 241, 230, 0.4)' }}
+            className="w-full py-[0.625rem] px-[0.875rem] rounded-xl border border-border text-xs font-semibold text-text-primary bg-[rgba(255,241,230,0.4)] transition-colors duration-200 box-border focus:border-brand-primary focus:outline-none"
           />
         </div>
 
         {/* Botões de Ação */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="flex flex-col gap-2">
           <button
             type="button"
             onClick={onConfirmCancel}
             disabled={canceling}
-            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 800, backgroundColor: '#F05252', color: '#FFFFFF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            className="w-full py-3 px-4 rounded-full text-xs font-extrabold bg-error text-white border-none cursor-pointer flex items-center justify-center gap-2"
           >
             {canceling ? (
               <>
@@ -101,7 +100,7 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
             type="button"
             onClick={onClose}
             disabled={canceling}
-            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#FFFFFF', color: '#2D231E', border: '1px solid #EADED6', cursor: 'pointer' }}
+            className="w-full py-3 px-4 rounded-full text-xs font-bold bg-white text-text-primary border border-border cursor-pointer"
           >
             Não, manter meu agendamento
           </button>

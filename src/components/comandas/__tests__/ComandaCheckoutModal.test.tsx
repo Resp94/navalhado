@@ -884,8 +884,8 @@ describe('ComandaCheckoutModal', () => {
     // 2. Painel de reagendamento abre
     expect(screen.getByRole('region', { name: /Painel de Reagendamento de Atendimento/i })).toBeInTheDocument();
 
-    const dateInput = screen.getByLabelText(/Nova Data:/i);
-    const timeInput = screen.getByLabelText(/Novo Horário:/i);
+    const dateInput = screen.getByLabelText(/Nova data/i);
+    const timeInput = screen.getByLabelText(/Novo horário/i);
 
     fireEvent.change(dateInput, { target: { value: '2026-08-29' } });
     await waitFor(() => {
@@ -894,7 +894,7 @@ describe('ComandaCheckoutModal', () => {
     fireEvent.change(timeInput, { target: { value: '16:30' } });
 
     // 3. Confirmar Reagendamento
-    const confirmBtn = screen.getByRole('button', { name: /Confirmar Reagendamento/i });
+    const confirmBtn = screen.getByRole('button', { name: /Confirmar reagendamento/i });
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {

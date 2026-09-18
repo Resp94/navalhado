@@ -50,15 +50,18 @@ export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previo
   const hasComparison = Boolean(statusTotals && previousStatusTotals);
 
   return (
-    <div className="relatorios-agenda-resumo">
+    <div className="flex flex-col gap-4">
       {statusTotals && statusTotals.unresolved > 0 && (
-        <div className="relatorios-agenda-aviso-sem-desfecho" role="status">
+        <div
+          className="flex items-start gap-3 bg-warning-bg border border-warning text-[var(--color-warning-deep,#92400E)] rounded-lg px-5 py-4"
+          role="status"
+        >
           <HugeiconsIcon icon={Alert02Icon} size={20} />
           <div>
-            <strong>
+            <strong className="block text-sm mb-1">
               {statusTotals.unresolved} agendamento{statusTotals.unresolved > 1 ? 's' : ''} sem desfecho
             </strong>
-            <p>
+            <p className="m-0 text-xs leading-[1.4]">
               Agendamento pendente, confirmado ou em andamento com horário já passado. Não entra nas taxas de
               comparecimento nem de cancelamento -- a recepção precisa atualizar o status.
             </p>
@@ -66,7 +69,7 @@ export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previo
         </div>
       )}
 
-      <div className="relatorios-faturamento-cards">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
         <StatCard
           title="Agendamentos no período"
           value={statusTotals?.total ?? 0}
@@ -122,31 +125,6 @@ export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previo
           }
         />
       </div>
-
-      <style>{`
-        .relatorios-agenda-aviso-sem-desfecho {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
-          background-color: var(--color-warning-bg, #FEF3C7);
-          border: 1px solid var(--color-warning, #D97706);
-          color: var(--color-warning-deep, #92400E);
-          border-radius: var(--radius-lg, 12px);
-          padding: 1rem 1.25rem;
-        }
-
-        .relatorios-agenda-aviso-sem-desfecho strong {
-          display: block;
-          font-size: var(--font-size-sm, 0.875rem);
-          margin-bottom: 0.25rem;
-        }
-
-        .relatorios-agenda-aviso-sem-desfecho p {
-          margin: 0;
-          font-size: var(--font-size-xs, 0.75rem);
-          line-height: 1.4;
-        }
-      `}</style>
     </div>
   );
 };

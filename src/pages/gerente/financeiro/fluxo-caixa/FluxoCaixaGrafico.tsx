@@ -71,37 +71,46 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
   const titulo = `Gráfico de entradas, saídas realizadas, previstas e vencidas por agrupamento, com a linha de ${rotuloCurva.toLowerCase()} do período`;
 
   return (
-    <section className="card-panel fluxo-caixa-grafico-panel" aria-label="Gráfico do fluxo de caixa projetado">
+    <section className="card-panel" aria-label="Gráfico do fluxo de caixa projetado">
       <h3 className="card-panel-title">Gráfico do período</h3>
 
-      <p className="fluxo-caixa-grafico-legenda">
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--entrada" aria-hidden="true" />
+      <p className="flex flex-wrap gap-x-4 gap-y-[0.35rem] mb-3 text-xs text-text-secondary">
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span className="inline-block w-[0.85rem] h-[0.85rem] rounded-sm bg-success" aria-hidden="true" />
           Entrada realizada
         </span>
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--estimado" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span
+            className="inline-block w-[0.85rem] h-[0.85rem] rounded-sm bg-info/[0.22] bg-[repeating-linear-gradient(45deg,var(--color-info)_0,var(--color-info)_1.5px,transparent_1.5px,transparent_4px)]"
+            aria-hidden="true"
+          />
           Entrada estimada
         </span>
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--saida" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span className="inline-block w-[0.85rem] h-[0.85rem] rounded-sm bg-[#c0392b] opacity-75" aria-hidden="true" />
           Saída realizada
         </span>
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--previsto" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span
+            className="inline-block w-[0.85rem] h-[0.85rem] rounded-sm bg-warning/[0.22] bg-[repeating-linear-gradient(45deg,var(--color-warning)_0,var(--color-warning)_1.5px,transparent_1.5px,transparent_4px)]"
+            aria-hidden="true"
+          />
           Saída prevista
         </span>
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-swatch fluxo-caixa-legenda-swatch--vencido" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span
+            className="inline-block w-[0.85rem] h-[0.85rem] rounded-sm bg-[#c0392b]/[0.3] bg-[repeating-linear-gradient(-45deg,#c0392b_0,#c0392b_1.5px,transparent_1.5px,transparent_4px)]"
+            aria-hidden="true"
+          />
           Conta vencida
         </span>
-        <span className="fluxo-caixa-legenda-item">
-          <span className="fluxo-caixa-legenda-linha" aria-hidden="true" />
+        <span className="inline-flex items-center gap-[0.35rem]">
+          <span className="inline-block w-[1.1rem] h-[2px] bg-text-primary" aria-hidden="true" />
           {rotuloCurva}
         </span>
       </p>
 
-      <div className="fluxo-caixa-grafico-scroll">
+      <div className="overflow-x-auto max-w-full">
         <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label={titulo}>
           <title>{titulo}</title>
           <defs>
@@ -158,7 +167,7 @@ export const FluxoCaixaGrafico: React.FC<FluxoCaixaGraficoProps> = ({ buckets, c
             return (
               <g
                 key={`${bucket.start_date}-${bucket.end_date}`}
-                className="fluxo-caixa-grafico-grupo"
+                className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
                 onClick={() => onSelecionarBucket(index)}
                 role="button"
                 tabIndex={0}

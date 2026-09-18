@@ -80,10 +80,10 @@ export const AgendaMapaDeCalor: React.FC<AgendaMapaDeCalorProps> = ({ heatmap, e
   }
 
   return (
-    <Card variant="outline" className="relatorios-agenda-mapa-calor-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Mapa de calor por dia e horário</CardTitle>
             <CardDescription>
               Demanda (não ocupação) por dia da semana e hora, no fuso da unidade -- cancelado não conta, falta
@@ -101,29 +101,34 @@ export const AgendaMapaDeCalor: React.FC<AgendaMapaDeCalorProps> = ({ heatmap, e
           />
         ) : (
           <>
-            <div className="relatorios-agenda-mapa-calor-scroll">
+            <div className="overflow-x-auto">
               <div
-                className="relatorios-agenda-mapa-calor-grade"
+                className="grid gap-[2px] min-w-[34rem]"
                 style={{ gridTemplateColumns: `4rem repeat(7, minmax(3.25rem, 1fr))` }}
                 role="presentation"
               >
-                <div className="relatorios-agenda-mapa-calor-celula-cabecalho" />
+                <div className="text-xs font-bold text-center px-1 py-[0.35rem] text-text-secondary" />
                 {WEEKDAY_LABELS_ABBR.map((label) => (
-                  <div key={label} className="relatorios-agenda-mapa-calor-celula-cabecalho">
+                  <div
+                    key={label}
+                    className="text-xs font-bold text-center px-1 py-[0.35rem] text-text-secondary"
+                  >
                     {label}
                   </div>
                 ))}
 
                 {linhas.map((linha) => (
                   <React.Fragment key={linha.hour}>
-                    <div className="relatorios-agenda-mapa-calor-celula-hora">{formatarHora(linha.hour)}</div>
+                    <div className="text-xs font-semibold flex items-center justify-end pr-2 text-text-secondary [font-variant-numeric:tabular-nums]">
+                      {formatarHora(linha.hour)}
+                    </div>
                     {linha.counts.map((count, weekday) => {
                       const alpha = intensidade(count);
                       const label = `${WEEKDAY_LABELS_FULL[weekday]}, ${formatarHora(linha.hour)}: ${count} agendamento${count === 1 ? '' : 's'}`;
                       return (
                         <div
                           key={weekday}
-                          className="relatorios-agenda-mapa-calor-celula"
+                          className="flex items-center justify-center min-h-[2.25rem] rounded-sm bg-[var(--color-surface-muted,#F3EFEC)] text-xs font-semibold [font-variant-numeric:tabular-nums] text-text-primary"
                           style={
                             alpha > 0
                               ? {
@@ -145,73 +150,36 @@ export const AgendaMapaDeCalor: React.FC<AgendaMapaDeCalorProps> = ({ heatmap, e
               </div>
             </div>
 
-            <table className="sr-only" aria-label="Mapa de calor por dia e horário (tabela equivalente)">
-              <thead>
-                <tr>
-                  <th>Hora</th>
-                  {WEEKDAY_LABELS_FULL.map((label) => (
-                    <th key={label}>{label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((linha) => (
-                  <tr key={linha.hour}>
-                    <th scope="row">{formatarHora(linha.hour)}</th>
-                    {linha.counts.map((count, weekday) => (
-                      <td key={weekday}>{count}</td>
+            {/* `sr-only` na `<div>`, nunca na `<table>`: alguns engines ignoram
+                width/height/overflow de clip em elementos de tabela, então o
+                layout real (7 colunas) vaza da caixa de 1px e infla a altura
+                do documento -- foi a causa raiz do sidebar sticky soltando no
+                fim da página. */}
+            <div className="sr-only">
+              <table aria-label="Mapa de calor por dia e horário (tabela equivalente)">
+                <thead>
+                  <tr>
+                    <th>Hora</th>
+                    {WEEKDAY_LABELS_FULL.map((label) => (
+                      <th key={label}>{label}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {linhas.map((linha) => (
+                    <tr key={linha.hour}>
+                      <th scope="row">{formatarHora(linha.hour)}</th>
+                      {linha.counts.map((count, weekday) => (
+                        <td key={weekday}>{count}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </CardContent>
-
-      <style>{`
-        .relatorios-agenda-mapa-calor-scroll {
-          overflow-x: auto;
-        }
-
-        .relatorios-agenda-mapa-calor-grade {
-          display: grid;
-          gap: 2px;
-          min-width: 34rem;
-        }
-
-        .relatorios-agenda-mapa-calor-celula-cabecalho {
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 700;
-          text-align: center;
-          padding: 0.35rem 0.25rem;
-          color: var(--color-text-secondary, #70625B);
-        }
-
-        .relatorios-agenda-mapa-calor-celula-hora {
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          padding-right: 0.5rem;
-          color: var(--color-text-secondary, #70625B);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .relatorios-agenda-mapa-calor-celula {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 2.25rem;
-          border-radius: var(--radius-sm, 4px);
-          background-color: var(--color-surface-muted, #F3EFEC);
-          font-size: var(--font-size-xs, 0.75rem);
-          font-weight: 600;
-          font-variant-numeric: tabular-nums;
-          color: var(--color-text-primary, #2D231E);
-        }
-      `}</style>
     </Card>
   );
 };

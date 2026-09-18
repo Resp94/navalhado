@@ -3,6 +3,7 @@ import { Outlet, useOutletContext } from 'react-router-dom';
 import type { TenantContextType } from '../../../components/GerenteLayout';
 import { supabase } from '../../../lib/supabase';
 import { useToast } from '../../../components/Toast';
+import { SegmentedControl } from '../../../components/ui';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
@@ -197,31 +198,19 @@ export const FinanceiroPainel: React.FC = () => {
 
   return (
     <>
-      <div className="financeiro-desktop-view financeiro-panel-header">
+      <div className="financeiro-desktop-view mt-2">
         {/* Filtro de Período */}
-        <div className="financeiro-period-tabs">
-          <button
-            onClick={() => setPeriod('this_month')}
-            type="button"
-            className={`period-tab-btn ${period === 'this_month' ? 'period-tab-btn--active' : ''}`}
-          >
-            Este mês
-          </button>
-          <button
-            onClick={() => setPeriod('last_30_days')}
-            type="button"
-            className={`period-tab-btn ${period === 'last_30_days' ? 'period-tab-btn--active' : ''}`}
-          >
-            Últimos 30 dias
-          </button>
-          <button
-            onClick={() => setPeriod('last_90_days')}
-            type="button"
-            className={`period-tab-btn ${period === 'last_90_days' ? 'period-tab-btn--active' : ''}`}
-          >
-            Últimos 90 dias
-          </button>
-        </div>
+        <SegmentedControl
+          aria-label="Filtro de período"
+          fullWidth={false}
+          value={period}
+          onChange={setPeriod}
+          options={[
+            { id: 'this_month', label: 'Este mês' },
+            { id: 'last_30_days', label: 'Últimos 30 dias' },
+            { id: 'last_90_days', label: 'Últimos 90 dias' },
+          ]}
+        />
 
         {/* Bento Grid: 5 Cards de KPIs Consolidados */}
         <section className="kpi-cards-grid" aria-label="Indicadores consolidados">

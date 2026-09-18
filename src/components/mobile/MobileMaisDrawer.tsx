@@ -29,6 +29,12 @@ interface MobileMaisDrawerProps {
   onLogout: () => void;
 }
 
+const STATUS_ITEM_CLASS =
+  'flex-1 bg-bg-primary border border-border rounded-lg p-3 flex flex-col gap-[0.4rem] cursor-pointer min-h-11 text-left text-text-primary transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation hover:border-brand-primary';
+
+const GRID_ITEM_CLASS =
+  'flex flex-col items-center justify-center gap-2 py-4 px-2 bg-bg-primary border border-border rounded-lg text-text-primary cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-brand-primary hover:bg-bg-secondary active:scale-96';
+
 export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
   isOpen,
   onClose,
@@ -104,34 +110,41 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
     ? Object.values(businessHours).filter((d) => d.active).length
     : 6;
 
+  const statusDotClass =
+    whatsappStatus === 'connected'
+      ? 'bg-success shadow-[0_0_6px_var(--color-success)]'
+      : whatsappStatus === 'connecting'
+        ? 'bg-warning'
+        : 'bg-error';
+
   return (
     <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Menu e atalhos" maxHeight="90vh">
-      <div className="mobile-mais">
+      <div className="flex flex-col gap-5">
         {/* Card do Usuário / Barbearia */}
-        <div className="mobile-mais__profile-card">
-          <div className="mobile-mais__profile-avatar">
+        <div className="flex items-center gap-3.5 py-3.5 px-4 bg-bg-primary border border-border rounded-lg">
+          <div className="w-[42px] h-[42px] rounded-full bg-brand-primary text-brand-lightest font-bold text-lg flex items-center justify-center shrink-0">
             {managerName.charAt(0).toUpperCase()}
           </div>
-          <div className="mobile-mais__profile-info">
-            <span className="mobile-mais__profile-name">{managerName}</span>
-            <span className="mobile-mais__profile-role">Gerente • {tenantName}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[0.9375rem] font-semibold text-text-primary">{managerName}</span>
+            <span className="text-xs text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis">Gerente • {tenantName}</span>
           </div>
         </div>
 
         {/* Card de Status Operacional (WhatsApp & Horários) */}
-        <div className="mobile-mais__status-overview">
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            className="mobile-mais__status-item"
+            className={STATUS_ITEM_CLASS}
             onClick={() => handleNavigate('/whatsapp')}
             aria-label={`Robô WhatsApp: ${whatsappStatus === 'connected' ? 'Conectado' : whatsappStatus === 'connecting' ? 'Conectando' : 'Desconectado'}. Clique para gerenciar.`}
           >
-            <div className="mobile-mais__status-item-header">
+            <div className="flex items-center gap-[0.4rem] text-[0.6875rem] font-bold uppercase text-text-secondary">
               <HugeiconsIcon icon={WhatsappIcon} size={16} />
               <span>Robô WhatsApp</span>
             </div>
-            <div className="mobile-mais__status-pill">
-              <span className={`status-dot dot--${whatsappStatus}`} />
+            <div className="flex items-center gap-[0.35rem] text-xs font-semibold text-text-primary">
+              <span className={`w-[7px] h-[7px] rounded-full ${statusDotClass}`} />
               <span>
                 {whatsappStatus === 'connected'
                   ? 'Conectado'
@@ -144,35 +157,35 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
 
           <button
             type="button"
-            className="mobile-mais__status-item"
+            className={STATUS_ITEM_CLASS}
             onClick={() => handleNavigate('/configuracoes')}
             aria-label={`Funcionamento: ${activeDaysCount} dias ativos na semana. Clique para ajustar.`}
           >
-            <div className="mobile-mais__status-item-header">
+            <div className="flex items-center gap-[0.4rem] text-[0.6875rem] font-bold uppercase text-text-secondary">
               <HugeiconsIcon icon={Clock01Icon} size={16} />
               <span>Funcionamento</span>
             </div>
-            <span className="mobile-mais__status-val">
+            <span className="text-xs font-semibold text-text-primary">
               {activeDaysCount} dias ativos na semana
             </span>
           </button>
         </div>
 
         {/* Card do Link de Agendamento do Cliente */}
-        <div className="mobile-mais__link-card">
-          <div className="mobile-mais__link-header">
-            <div className="mobile-mais__link-icon">
+        <div className="bg-[rgba(217,108,0,0.08)] border border-[rgba(217,108,0,0.25)] rounded-lg p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-md bg-[rgba(217,108,0,0.15)] text-brand-primary flex items-center justify-center shrink-0">
               <HugeiconsIcon icon={Link01Icon} size={18} />
             </div>
             <div>
-              <span className="mobile-mais__link-title">Link de agendamento online</span>
-              <p className="mobile-mais__link-desc">Copie para divulgar no Instagram ou WhatsApp</p>
+              <span className="text-sm font-semibold text-brand-primary block">Link de agendamento online</span>
+              <p className="text-xs text-text-secondary m-0 mt-0.5">Copie para divulgar no Instagram ou WhatsApp</p>
             </div>
           </div>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleCopyPublicLink}
-            className="mobile-mais__link-btn"
+            className="flex items-center justify-center gap-2 bg-brand-primary text-brand-lightest text-[0.8125rem] font-semibold py-2.5 rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-brand-hover active:scale-98"
           >
             <HugeiconsIcon icon={Copy01Icon} size={16} />
             Copiar link da barbearia
@@ -180,105 +193,105 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
         </div>
 
         {/* Lista de Acessos Operacionais */}
-        <div className="mobile-mais__section">
-          <span className="mobile-mais__section-title">Gerenciamento</span>
+        <div className="flex flex-col gap-2.5">
+          <span className="text-xs font-semibold uppercase tracking-[0.05em] text-text-secondary pl-1">Gerenciamento</span>
 
-          <div className="mobile-mais__grid">
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+          <div className="grid grid-cols-3 gap-2.5">
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/agenda?action=encaixe')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={PlusSignIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Encaixe</span>
+              <span className="text-xs font-medium">Encaixe</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/agenda?action=bloqueio')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={UnavailableIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Bloquear</span>
+              <span className="text-xs font-medium">Bloquear</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/agenda?action=espera')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={UserGroupIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Espera</span>
+              <span className="text-xs font-medium">Espera</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/profissionais')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={UserGroupIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Equipe</span>
+              <span className="text-xs font-medium">Equipe</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/servicos/cadastro')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={ScissorIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Serviços</span>
+              <span className="text-xs font-medium">Serviços</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/produtos')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={PackageIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Produtos</span>
+              <span className="text-xs font-medium">Produtos</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/whatsapp')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={WhatsappIcon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">WhatsApp</span>
+              <span className="text-xs font-medium">WhatsApp</span>
             </button>
 
-            <button 
-              type="button" 
-              className="mobile-mais__item" 
+            <button
+              type="button"
+              className={GRID_ITEM_CLASS}
               onClick={() => handleNavigate('/configuracoes')}
             >
-              <div className="mobile-mais__item-icon">
+              <div className="text-brand-primary flex items-center justify-center">
                 <HugeiconsIcon icon={Settings02Icon} size={20} />
               </div>
-              <span className="mobile-mais__item-label">Ajustes</span>
+              <span className="text-xs font-medium">Ajustes</span>
             </button>
           </div>
         </div>
 
         {/* Botão de Logout */}
-        <div className="mobile-mais__footer">
-          <button 
-            type="button" 
-            className="mobile-mais__logout-btn"
+        <div className="mt-2 pt-3 border-t border-border">
+          <button
+            type="button"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[rgba(240,82,82,0.1)] border border-[rgba(240,82,82,0.25)] rounded-md text-error text-sm font-semibold cursor-pointer transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-98"
             onClick={() => {
               onClose();
               onLogout();
@@ -289,279 +302,6 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           </button>
         </div>
       </div>
-
-      <style>{`
-        .mobile-mais {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .mobile-mais__profile-card {
-          display: flex;
-          align-items: center;
-          gap: 0.875rem;
-          padding: 0.875rem 1rem;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-        }
-
-        .mobile-mais__profile-avatar {
-          width: 42px;
-          height: 42px;
-          border-radius: var(--radius-full, 50%);
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          font-weight: 700;
-          font-size: 1.125rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .mobile-mais__profile-info {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
-
-        .mobile-mais__profile-name {
-          font-size: 0.9375rem;
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-mais__profile-role {
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .mobile-mais__status-overview {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-        }
-
-        .mobile-mais__status-item {
-          flex: 1;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          padding: 0.75rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          cursor: pointer;
-          min-height: 44px;
-          text-align: left;
-          font: inherit;
-          color: inherit;
-          transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          touch-action: manipulation;
-        }
-
-        .mobile-mais__status-item:hover {
-          border-color: var(--color-brand-primary);
-        }
-
-        .mobile-mais__status-item-header {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.6875rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          color: var(--color-text-secondary);
-        }
-
-        .mobile-mais__status-pill {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .status-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-        }
-
-        .dot--connected {
-          background: var(--color-success);
-          box-shadow: 0 0 6px var(--color-success);
-        }
-
-        .dot--connecting {
-          background: var(--color-warning);
-        }
-
-        .dot--disconnected, .dot--loading {
-          background: var(--color-error);
-        }
-
-        .mobile-mais__status-val {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .mobile-mais__link-card {
-          background: rgba(217, 108, 0, 0.08);
-          border: 1px solid rgba(217, 108, 0, 0.25);
-          border-radius: var(--radius-lg, 12px);
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .mobile-mais__link-header {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
-        }
-
-        .mobile-mais__link-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-md, 8px);
-          background: rgba(217, 108, 0, 0.15);
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .mobile-mais__link-title {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--color-brand-primary);
-          display: block;
-        }
-
-        .mobile-mais__link-desc {
-          font-size: 0.75rem;
-          color: var(--color-text-secondary);
-          margin: 2px 0 0;
-        }
-
-        .mobile-mais__link-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          background: var(--color-brand-primary);
-          color: var(--color-brand-lightest);
-          font-size: 0.8125rem;
-          font-weight: 600;
-          padding: 0.625rem;
-          border-radius: var(--radius-md, 8px);
-          border: none;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-mais__link-btn:hover {
-          background: var(--color-brand-hover);
-        }
-
-        .mobile-mais__link-btn:active {
-          transform: scale(0.98);
-        }
-
-        .mobile-mais__section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.625rem;
-        }
-
-        .mobile-mais__section-title {
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-secondary);
-          padding-left: 0.25rem;
-        }
-
-        .mobile-mais__grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.625rem;
-        }
-
-        .mobile-mais__item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 1rem 0.5rem;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg, 12px);
-          color: var(--color-text-primary);
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-mais__item:hover {
-          border-color: var(--color-brand-primary);
-          background: var(--color-bg-secondary);
-        }
-
-        .mobile-mais__item:active {
-          transform: scale(0.96);
-        }
-
-        .mobile-mais__item-icon {
-          color: var(--color-brand-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .mobile-mais__item-label {
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-
-        .mobile-mais__footer {
-          margin-top: 0.5rem;
-          padding-top: 0.75rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .mobile-mais__logout-btn {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.75rem;
-          background: rgba(240, 82, 82, 0.1);
-          border: 1px solid rgba(240, 82, 82, 0.25);
-          border-radius: var(--radius-md, 8px);
-          color: var(--color-error);
-          font-size: 0.875rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mobile-mais__logout-btn:active {
-          transform: scale(0.98);
-        }
-      `}</style>
     </MobileBottomSheet>
   );
 };

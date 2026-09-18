@@ -357,19 +357,19 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
 
   return (
     <div
-      className="bloqueio-modal-overlay"
+      className="fixed inset-0 bg-black/65 backdrop-blur-md flex items-center justify-center z-[1100] p-4 box-border animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-bloqueio-title"
     >
-      <div className="bloqueio-modal-shell">
-        <div className="bloqueio-modal-header">
-          <div className="bloqueio-header-left">
+      <div className="w-full max-w-[520px] bg-bg-secondary border border-text-primary rounded-xl shadow-[var(--shadow-xl),0_0_0_0.8px_var(--color-text-primary)] p-5 flex flex-col gap-[0.85rem] font-base text-text-primary box-border max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden">
+        <div className="flex items-center justify-between pb-2 border-b border-black/[0.06] box-border w-full">
+          <div className="flex items-center gap-3">
             <div>
-              <h3 id="modal-bloqueio-title" className="bloqueio-modal-title">
+              <h3 id="modal-bloqueio-title" className="text-[1.1rem] font-extrabold text-text-primary m-0 tracking-[-0.01em]">
                 Bloquear horário do barbeiro
               </h3>
-              <p className="bloqueio-modal-subtitle">
+              <p className="text-xs text-text-secondary m-0 mt-[0.15rem]">
                 Selecione os horários da grade para pausar a agenda
               </p>
             </div>
@@ -383,13 +383,13 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
         </div>
 
         {errorMsg && (
-          <div className="bloqueio-error-alert">
+          <div className="py-[0.65rem] px-[0.85rem] rounded-md bg-error-bg border border-error text-error text-xs font-semibold box-border w-full">
             {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bloqueio-modal-form">
-          <div className="bloqueio-form-row">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full box-border">
+          <div className="grid grid-cols-2 gap-3 w-full box-border max-[480px]:grid-cols-1 max-[480px]:gap-2">
             <Select
               label="Profissional *"
               value={selectedProfId}
@@ -432,7 +432,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             required
           />
 
-          <div className="bloqueio-checkbox-box">
+          <div className="py-2 px-3 bg-brand-lightest rounded-md border border-black/[0.06] box-border w-full">
             <Checkbox
               id="isAllDay"
               checked={isAllDay}
@@ -442,13 +442,13 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           </div>
 
           {!isAllDay && (
-            <div className="bloqueio-slots-section">
-              <div className="bloqueio-slots-header">
-                <span className="bloqueio-slots-title">
+            <div className="flex flex-col gap-2 bg-brand-lightest rounded-lg p-3 border border-black/[0.06] box-border w-full">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-text-primary uppercase tracking-[0.05em]">
                   Horários para bloqueio * ({selectedSlots.length} selecionado{selectedSlots.length === 1 ? '' : 's'})
                 </span>
                 {availableSlots.length > 0 && (
-                  <div className="bloqueio-slots-actions">
+                  <div className="flex gap-[0.35rem]">
                     <Button
                       size="xs"
                       variant="outline"
@@ -476,7 +476,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
                   description="Nenhum horário disponível para bloqueio nesta data (folga, barbearia fechada ou horários já ocupados por agendamentos/bloqueios)."
                 />
               ) : (
-                <div className="bloqueio-slots-grid">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] gap-[0.4rem] max-h-[180px] overflow-y-auto p-0.5 box-border">
                   {availableSlots.map((slot) => {
                     const endSlot = addMinutesToTime(slot, stepMinutes);
                     const isChecked = selectedSlots.includes(slot);
@@ -484,17 +484,17 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
                     return (
                       <label
                         key={slot}
-                        className={`bloqueio-slot-card ${
-                          isChecked ? 'bloqueio-slot-card--selected' : ''
+                        className={`flex items-center gap-[0.45rem] py-[0.35rem] px-[0.55rem] bg-bg-secondary border rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.04)] cursor-pointer transition-all duration-150 ease-in-out select-none hover:border-text-primary ${
+                          isChecked ? 'bg-[rgba(217,72,72,0.1)] border-error' : 'border-black/10'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => handleToggleSlot(slot)}
-                          className="bloqueio-slot-checkbox"
+                          className="w-[15px] h-[15px] accent-error cursor-pointer"
                         />
-                        <span className="bloqueio-slot-time font-mono">
+                        <span className="text-[11px] font-bold text-text-primary font-mono">
                           {slot} - {endSlot}
                         </span>
                       </label>
@@ -505,7 +505,7 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
             </div>
           )}
 
-          <div className="bloqueio-actions-footer">
+          <div className="flex items-center gap-3 pt-2 w-full box-border">
             <Button
               type="button"
               variant="secondary"
@@ -527,202 +527,6 @@ export const BloqueioModal: React.FC<BloqueioModalProps> = ({
           </div>
         </form>
       </div>
-
-      <style>{`
-        .bloqueio-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background-color: rgba(20, 17, 15, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1100;
-          padding: 1rem;
-          box-sizing: border-box;
-          animation: fadeIn 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        }
-
-        .bloqueio-modal-shell {
-          width: 100%;
-          max-width: 520px;
-          background-color: var(--color-bg-secondary);
-          border: 1px solid var(--color-text-primary);
-          border-radius: var(--radius-xl);
-          box-shadow: var(--shadow-xl), 0 0 0 0.8px var(--color-text-primary);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-          font-family: var(--font-family-base);
-          color: var(--color-text-primary);
-          box-sizing: border-box;
-          max-height: calc(100vh - 2rem);
-          overflow-y: auto;
-          overflow-x: hidden;
-        }
-
-        .bloqueio-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-bottom: 0.5rem;
-          border-bottom: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .bloqueio-header-left {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .bloqueio-modal-title {
-          font-size: 1.1rem;
-          font-weight: 800;
-          color: var(--color-text-primary);
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .bloqueio-modal-subtitle {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          margin: 0.15rem 0 0 0;
-        }
-
-        .bloqueio-error-alert {
-          padding: 0.65rem 0.85rem;
-          border-radius: var(--radius-md);
-          background-color: var(--color-error-bg);
-          border: 1px solid var(--color-error);
-          color: var(--color-error);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .bloqueio-modal-form {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .bloqueio-form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.75rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        @media (max-width: 480px) {
-          .bloqueio-form-row {
-            grid-template-columns: 1fr;
-            gap: 0.5rem;
-          }
-        }
-
-        .bloqueio-checkbox-box {
-          padding: 0.5rem 0.75rem;
-          background-color: var(--color-brand-lightest);
-          border-radius: 8px;
-          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .bloqueio-slots-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          background: var(--color-brand-lightest);
-          border-radius: 12px;
-          padding: 0.75rem;
-          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.06));
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .bloqueio-slots-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .bloqueio-slots-title {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .bloqueio-slots-actions {
-          display: flex;
-          gap: 0.35rem;
-        }
-
-        .bloqueio-slots-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
-          gap: 0.4rem;
-          max-height: 180px;
-          overflow-y: auto;
-          padding: 2px;
-          box-sizing: border-box;
-        }
-
-        .bloqueio-slot-card {
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.35rem 0.55rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.1));
-          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          user-select: none;
-        }
-
-        .bloqueio-slot-card:hover {
-          border-color: var(--color-text-primary);
-        }
-
-        .bloqueio-slot-card--selected {
-          background: rgba(217, 72, 72, 0.1);
-          border-color: var(--color-error);
-        }
-
-        .bloqueio-slot-checkbox {
-          width: 15px;
-          height: 15px;
-          accent-color: var(--color-error);
-          cursor: pointer;
-        }
-
-        .bloqueio-slot-time {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .bloqueio-actions-footer {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding-top: 0.5rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-      `}</style>
     </div>
   );
 };

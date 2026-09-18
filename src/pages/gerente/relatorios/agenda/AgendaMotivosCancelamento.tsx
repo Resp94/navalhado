@@ -24,10 +24,10 @@ export interface AgendaMotivosCancelamentoProps {
  */
 export const AgendaMotivosCancelamento: React.FC<AgendaMotivosCancelamentoProps> = ({ reasons, exportButton }) => {
   return (
-    <Card variant="outline" className="relatorios-agenda-motivos-card">
+    <Card variant="outline">
       <CardHeader>
-        <div className="relatorios-faturamento-secao-header">
-          <div className="relatorios-faturamento-secao-titulo">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <div className="flex flex-col gap-1">
             <CardTitle>Motivos de cancelamento</CardTitle>
             <CardDescription>Motivos mais frequentes dos Agendamentos cancelados no período.</CardDescription>
           </div>
@@ -41,7 +41,7 @@ export const AgendaMotivosCancelamento: React.FC<AgendaMotivosCancelamentoProps>
             description="Não há Agendamento cancelado no período e no filtro de profissional selecionados."
           />
         ) : (
-          <div className="relatorios-faturamento-tabela-wrap">
+          <div className="overflow-x-auto">
             <Table aria-label="Motivos de cancelamento">
               <TableHeader>
                 <TableRow>

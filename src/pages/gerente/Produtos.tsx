@@ -41,6 +41,7 @@ import {
   IconButton,
   EmptyState,
   EmptyBoxIllustration,
+  Select,
 } from '../../components/ui';
 
 // Ícones Oficiais Hugeicons
@@ -444,9 +445,12 @@ export const Produtos: React.FC = () => {
   };
 
   return (
-    <div className="produtos-page">
+    <div className="flex flex-col gap-6 w-full animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)]">
       {/* 1. ESTATÍSTICAS DO ESTOQUE */}
-      <section className="stat-cards-grid" aria-label="Estatísticas gerais de produtos e estoque">
+      <section
+        className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5 max-[640px]:grid-cols-2 max-[640px]:gap-3 max-[440px]:grid-cols-1"
+        aria-label="Estatísticas gerais de produtos e estoque"
+      >
         <StatCard
           title="Total no catálogo"
           value={stats.total}
@@ -478,8 +482,8 @@ export const Produtos: React.FC = () => {
       </section>
 
       {/* 2. BARRA DE CONTROLES E BUSCA */}
-      <div className="products-controls-bar">
-        <div className="search-input-wrapper">
+      <div className="flex items-center gap-4 flex-wrap max-[768px]:flex-col max-[768px]:flex-nowrap max-[768px]:items-stretch">
+        <div className="flex-1 min-w-0 md:min-w-[260px]">
           <SearchInput
             placeholder="Buscar por nome, marca ou categoria..."
             aria-label="Buscar produtos por nome, marca ou categoria"
@@ -503,9 +507,9 @@ export const Produtos: React.FC = () => {
 
         <Button
           type="button"
-          variant="soft"
+          variant="primary"
           onClick={() => handleOpenModal(null)}
-          className="btn-add-product"
+          className="max-[768px]:w-full"
           icon={<PlusIcon />}
         >
           Novo produto
@@ -514,7 +518,7 @@ export const Produtos: React.FC = () => {
 
       {/* 3. TABELA DE PRODUTOS */}
       {loading ? (
-        <div className="loading-state">
+        <div className="flex flex-col items-center justify-center py-12 px-4 gap-3 text-text-secondary text-sm">
           <div className="spinner mb-2" />
           <p>Carregando catálogo de produtos...</p>
         </div>
@@ -534,18 +538,18 @@ export const Produtos: React.FC = () => {
               <TableHead scope="col">Categoria</TableHead>
               <TableHead scope="col">Preço de venda</TableHead>
               <TableHead scope="col">Estoque atual</TableHead>
-              <TableHead scope="col" style={{ textAlign: 'right' }}>Ações</TableHead>
+              <TableHead scope="col" className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredProducts.map((p) => {
               const isLowStock = p.stock_quantity <= p.min_stock_alert;
               return (
-                <TableRow key={p.id} className={`product-row ${isLowStock ? 'row-low-stock' : ''}`}>
+                <TableRow key={p.id} className={`product-row ${isLowStock ? 'bg-[rgba(239,68,68,0.04)]' : ''}`}>
                   <TableCell>
-                    <div className="product-title-cell">
-                      <strong className="product-name">{p.name}</strong>
-                      {p.brand && <span className="product-brand">{p.brand}</span>}
+                    <div className="flex flex-col gap-[0.2rem]">
+                      <strong className="text-text-primary font-semibold">{p.name}</strong>
+                      {p.brand && <span className="text-xs text-text-secondary font-semibold">{p.brand}</span>}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -556,22 +560,22 @@ export const Produtos: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className="product-category-text">{p.category || 'Geral'}</span>
+                    <span className="text-sm text-text-primary">{p.category || 'Geral'}</span>
                   </TableCell>
                   <TableCell>
-                    <div className="price-info-cell">
+                    <div className="flex flex-col gap-[0.15rem]">
                       <strong className="font-mono text-brand">
                         R$ {p.price.toFixed(2).replace('.', ',')}
                       </strong>
                       {p.cost_price > 0 && (
-                        <span className="cost-price-hint">
+                        <span className="text-xs text-text-secondary">
                           Custo: R$ {p.cost_price.toFixed(2).replace('.', ',')}
                         </span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="stock-level-cell">
+                    <div className="flex flex-col gap-[0.2rem]">
                       <Badge
                         variant={isLowStock ? 'error' : 'neutral'}
                         icon={isLowStock ? <AlertTriangleIcon /> : undefined}
@@ -579,12 +583,12 @@ export const Produtos: React.FC = () => {
                         <strong>{p.stock_quantity}</strong> {p.unit_type}
                       </Badge>
                       {isLowStock && (
-                        <span className="stock-alert-hint">Mínimo: {p.min_stock_alert}</span>
+                        <span className="text-xs text-error font-semibold">Mínimo: {p.min_stock_alert}</span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="actions-cell">
+                    <div className="flex items-center justify-end gap-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -623,21 +627,21 @@ export const Produtos: React.FC = () => {
       {/* 4. MODAL POLIDO DE CADASTRO/EDIÇÃO DE PRODUTO */}
       {isModalOpen && (
         <div
-          className="modal-backdrop"
+          className="fixed inset-0 bg-[rgba(20,17,15,0.65)] backdrop-blur-md flex items-center justify-center z-[1000] p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsModalOpen(false);
           }}
           role="presentation"
         >
           <div
-            className="modal-content modal-content--product shadow-xl animate-spring"
+            className="bg-bg-secondary border border-border rounded-xl w-full max-h-[90dvh] overflow-y-auto flex flex-col max-w-[680px] shadow-xl animate-spring"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-product-title"
           >
-            <header className="modal-header">
+            <header className="flex justify-between items-center px-6 py-5 border-b border-border">
               <div>
-                <h3 id="modal-product-title" className="modal-title">
+                <h3 id="modal-product-title" className="text-xl text-text-primary font-bold m-0 tracking-[-0.01em]">
                   {editingProduct ? `Editar: ${editingProduct.name}` : 'Cadastrar novo produto'}
                 </h3>
               </div>
@@ -650,24 +654,34 @@ export const Produtos: React.FC = () => {
               />
             </header>
 
-            <form onSubmit={handleSaveSubmit} className="modal-body modal-body--polished">
+            <form onSubmit={handleSaveSubmit} className="p-6 flex flex-col gap-6">
               {/* SELETOR DE CLASSIFICAÇÃO COM CARDS TÁTEIS */}
-              <div className="form-section">
-                <span className="form-section__label">Finalidade de uso</span>
-                <div className="product-type-selector" role="radiogroup" aria-label="Finalidade de uso do produto">
+              <div className="flex flex-col gap-[0.85rem]">
+                <span className="text-xs font-bold uppercase tracking-[0.05em] text-text-primary">Finalidade de uso</span>
+                <div className="grid grid-cols-2 gap-[0.85rem] max-[768px]:grid-cols-1" role="radiogroup" aria-label="Finalidade de uso do produto">
                   <button
                     type="button"
                     role="radio"
                     aria-checked={formData.product_type === 'retail'}
-                    className={`type-card ${formData.product_type === 'retail' ? 'type-card--active' : ''}`}
+                    className={`group bg-bg-secondary rounded-lg p-4 flex items-start gap-[0.85rem] cursor-pointer text-left transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${
+                      formData.product_type === 'retail'
+                        ? 'shadow-[0_0_0_1.5px_var(--color-brand-hover)] hover:bg-brand-lightest hover:shadow-[0_0_0_1.8px_var(--color-brand-hover),0_4px_14px_rgba(217,108,0,0.12)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0_0_1.5px_var(--color-brand-hover)]'
+                        : 'shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:bg-brand-lightest hover:shadow-[0_0_0_0.8px_var(--color-text-primary),0_4px_12px_rgba(45,35,30,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+                    }`}
                     onClick={() => setFormData({ ...formData, product_type: 'retail' })}
                   >
-                    <div className="type-card__icon type-card__icon--retail">
+                    <div
+                      className={`w-[38px] h-[38px] rounded-md flex items-center justify-center shrink-0 bg-transparent text-text-primary transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                        formData.product_type === 'retail'
+                          ? 'shadow-[0_0_0_0.5px_var(--color-text-primary)] group-hover:shadow-[0_0_0_1px_var(--color-brand-hover)] group-hover:scale-105'
+                          : 'shadow-[0_0_0_0.5px_var(--color-text-primary)] group-hover:shadow-[0_0_0_0.8px_var(--color-text-primary)] group-hover:scale-105'
+                      }`}
+                    >
                       <ShoppingBagIcon />
                     </div>
-                    <div className="type-card__info">
-                      <strong className="type-card__title">Venda no balcão</strong>
-                      <span className="type-card__desc">Produtos comercializados aos clientes, como pomadas, óleos e ceras</span>
+                    <div className="flex flex-col gap-[0.2rem]">
+                      <strong className="text-sm font-bold text-text-primary">Venda no balcão</strong>
+                      <span className="text-xs text-text-primary leading-[1.35]">Produtos comercializados aos clientes, como pomadas, óleos e ceras</span>
                     </div>
                   </button>
 
@@ -675,24 +689,34 @@ export const Produtos: React.FC = () => {
                     type="button"
                     role="radio"
                     aria-checked={formData.product_type === 'internal_use'}
-                    className={`type-card ${formData.product_type === 'internal_use' ? 'type-card--active' : ''}`}
+                    className={`group bg-bg-secondary rounded-lg p-4 flex items-start gap-[0.85rem] cursor-pointer text-left transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${
+                      formData.product_type === 'internal_use'
+                        ? 'shadow-[0_0_0_1.5px_var(--color-brand-hover)] hover:bg-brand-lightest hover:shadow-[0_0_0_1.8px_var(--color-brand-hover),0_4px_14px_rgba(217,108,0,0.12)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0_0_1.5px_var(--color-brand-hover)]'
+                        : 'shadow-[0_0_0_0.5px_var(--color-text-primary)] hover:bg-brand-lightest hover:shadow-[0_0_0_0.8px_var(--color-text-primary),0_4px_12px_rgba(45,35,30,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0_0_0.8px_var(--color-text-primary)]'
+                    }`}
                     onClick={() => setFormData({ ...formData, product_type: 'internal_use' })}
                   >
-                    <div className="type-card__icon type-card__icon--internal">
+                    <div
+                      className={`w-[38px] h-[38px] rounded-md flex items-center justify-center shrink-0 bg-transparent text-text-primary transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                        formData.product_type === 'internal_use'
+                          ? 'shadow-[0_0_0_0.5px_var(--color-text-primary)] group-hover:shadow-[0_0_0_1px_var(--color-brand-hover)] group-hover:scale-105'
+                          : 'shadow-[0_0_0_0.5px_var(--color-text-primary)] group-hover:shadow-[0_0_0_0.8px_var(--color-text-primary)] group-hover:scale-105'
+                      }`}
+                    >
                       <ScissorsIcon />
                     </div>
-                    <div className="type-card__info">
-                      <strong className="type-card__title">Insumo de bancada</strong>
-                      <span className="type-card__desc">Materiais consumidos nos atendimentos, como lâminas, toalhas e golas</span>
+                    <div className="flex flex-col gap-[0.2rem]">
+                      <strong className="text-sm font-bold text-text-primary">Insumo de bancada</strong>
+                      <span className="text-xs text-text-primary leading-[1.35]">Materiais consumidos nos atendimentos, como lâminas, toalhas e golas</span>
                     </div>
                   </button>
                 </div>
               </div>
 
               {/* SEÇÃO DE IDENTIFICAÇÃO DO PRODUTO */}
-              <div className="form-section">
-                <div className="form-group">
-                  <label htmlFor="prod-name">Nome do produto *</label>
+              <div className="flex flex-col gap-[0.85rem]">
+                <div className="flex flex-col gap-[0.4rem]">
+                  <label htmlFor="prod-name" className="text-xs font-bold text-text-primary">Nome do produto *</label>
                   <input
                     id="prod-name"
                     type="text"
@@ -701,45 +725,42 @@ export const Produtos: React.FC = () => {
                     placeholder="Ex: Pomada modeladora efeito matte 100g"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="form-control form-control--lg"
+                    className="h-[46px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-base font-medium outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                   />
                 </div>
 
-                <div className="form-group-row">
-                  <div className="form-group">
-                    <label htmlFor="prod-brand">Marca ou fabricante</label>
+                <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                  <div className="flex flex-col gap-[0.4rem]">
+                    <label htmlFor="prod-brand" className="text-xs font-bold text-text-primary">Marca ou fabricante</label>
                     <input
                       id="prod-brand"
                       type="text"
                       placeholder="Ex: Baboon, Fox For Men, Marca própria"
                       value={formData.brand}
                       onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                      className="form-control"
+                      className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="unit-type-select">Unidade de medida</label>
-                    <select
-                      id="unit-type-select"
-                      value={formData.unit_type}
-                      onChange={(e) => setFormData({ ...formData, unit_type: e.target.value })}
-                      className="form-control"
-                    >
-                      <option value="un">Unidade (un)</option>
-                      <option value="cx">Caixa (cx)</option>
-                      <option value="pct">Pacote (pct)</option>
-                      <option value="ml">Mililitros (ml)</option>
-                      <option value="lt">Litros (l)</option>
-                      <option value="kg">Quilos (kg)</option>
-                    </select>
-                  </div>
+                  <Select
+                    label="Unidade de medida"
+                    id="unit-type-select"
+                    value={formData.unit_type}
+                    onChange={(e) => setFormData({ ...formData, unit_type: e.target.value })}
+                  >
+                    <option value="un">Unidade (un)</option>
+                    <option value="cx">Caixa (cx)</option>
+                    <option value="pct">Pacote (pct)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="lt">Litros (l)</option>
+                    <option value="kg">Quilos (kg)</option>
+                  </Select>
                 </div>
 
                 {/* CATEGORIA COM CHIPS DE ESCOLHA RÁPIDA */}
-                <div className="form-group">
-                  <div className="category-header-line">
-                    <label htmlFor="prod-category">Categoria</label>
-                    <span className="category-quick-hint">Sugestões rápidas:</span>
+                <div className="flex flex-col gap-[0.4rem]">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="prod-category" className="text-xs font-bold text-text-primary">Categoria</label>
+                    <span className="text-xs text-text-primary">Sugestões rápidas:</span>
                   </div>
                   <input
                     id="prod-category"
@@ -747,14 +768,18 @@ export const Produtos: React.FC = () => {
                     placeholder="Ex: Finalizadores, Barba, Higiene"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="form-control"
+                    className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                   />
-                  <div className="quick-category-chips" role="group" aria-label="Sugestões de categoria">
+                  <div className="flex flex-wrap gap-[0.4rem] mt-1" role="group" aria-label="Sugestões de categoria">
                     {QUICK_CATEGORIES.map((cat) => (
                       <button
                         key={cat}
                         type="button"
-                        className={`chip-btn ${formData.category === cat ? 'chip-btn--active' : ''}`}
+                        className={
+                          formData.category === cat
+                            ? 'bg-brand-lightest text-brand-deep shadow-[0_0_0_0.8px_var(--color-brand-primary)] font-extrabold text-xs px-3 py-[0.35rem] min-h-[32px] rounded-full cursor-pointer transition-all duration-150 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2'
+                            : 'bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] text-text-primary text-xs font-semibold px-3 py-[0.35rem] min-h-[32px] rounded-full cursor-pointer transition-all duration-150 ease hover:shadow-[0_0_0_1.2px_var(--color-text-primary)] hover:bg-brand-lightest focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2'
+                        }
                         onClick={() => setFormData({ ...formData, category: cat })}
                       >
                         {cat}
@@ -765,12 +790,12 @@ export const Produtos: React.FC = () => {
               </div>
 
               {/* SEÇÃO FINANCEIRA E MARGEM EM TEMPO REAL */}
-              <div className="form-section form-section--card">
-                <div className="form-group-row">
-                  <div className="form-group">
-                    <label htmlFor="cost-price-input">Preço de custo unitário</label>
-                    <div className="currency-input-wrapper">
-                      <span className="currency-prefix">R$</span>
+              <div className="flex flex-col gap-[0.85rem] bg-transparent shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-lg p-5">
+                <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+                  <div className="flex flex-col gap-[0.4rem]">
+                    <label htmlFor="cost-price-input" className="text-xs font-bold text-text-primary">Preço de custo unitário</label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-[0.85rem] text-text-secondary font-bold text-sm pointer-events-none">R$</span>
                       <input
                         id="cost-price-input"
                         type="text"
@@ -781,17 +806,17 @@ export const Produtos: React.FC = () => {
                           const digits = e.target.value.replace(/\D/g, '');
                           setFormData({ ...formData, cost_price: digits ? formatPriceToBR(digits) : '' });
                         }}
-                        className="form-control currency-control"
+                        className="h-[42px] pl-9 pr-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-bold font-mono tracking-[0.02em] outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                       />
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="price-input">
+                  <div className="flex flex-col gap-[0.4rem]">
+                    <label htmlFor="price-input" className="text-xs font-bold text-text-primary">
                       Preço de venda ao cliente {formData.product_type === 'retail' ? '*' : '(opcional)'}
                     </label>
-                    <div className="currency-input-wrapper">
-                      <span className="currency-prefix">R$</span>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-[0.85rem] text-text-secondary font-bold text-sm pointer-events-none">R$</span>
                       <input
                         id="price-input"
                         type="text"
@@ -803,7 +828,7 @@ export const Produtos: React.FC = () => {
                           const digits = e.target.value.replace(/\D/g, '');
                           setFormData({ ...formData, price: digits ? formatPriceToBR(digits) : '' });
                         }}
-                        className="form-control currency-control"
+                        className="h-[42px] pl-9 pr-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm font-bold font-mono tracking-[0.02em] outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                       />
                     </div>
                   </div>
@@ -811,29 +836,35 @@ export const Produtos: React.FC = () => {
 
                 {/* PAINEL DE INTELIGÊNCIA FINANCEIRA (MARGEM E LUCRO) */}
                 {financialMetrics.hasData && (
-                  <div className={`margin-intelligence-card ${financialMetrics.isLoss ? 'margin-intelligence-card--loss' : ''}`}>
-                    <div className="margin-intelligence-card__row">
-                      <div className="metric-item">
-                        <span className="metric-item__label">Lucro bruto por unidade</span>
-                        <strong className={`metric-item__value ${financialMetrics.profit >= 0 ? 'text-success' : 'text-error'}`}>
+                  <div
+                    className={`flex flex-col gap-2 rounded-md px-4 py-[0.85rem] ${
+                      financialMetrics.isLoss
+                        ? 'border border-[rgba(240,82,82,0.3)] bg-error-bg'
+                        : 'bg-bg-secondary border border-border'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center gap-4 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-2">
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold">Lucro bruto por unidade</span>
+                        <strong className={`text-base font-extrabold ${financialMetrics.profit >= 0 ? 'text-success' : 'text-error'}`}>
                           R$ {financialMetrics.profit.toFixed(2).replace('.', ',')}
                         </strong>
                       </div>
-                      <div className="metric-item">
-                        <span className="metric-item__label">Margem sobre a venda</span>
-                        <strong className={`metric-item__value ${financialMetrics.marginPct >= 0 ? 'text-brand' : 'text-error'}`}>
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold">Margem sobre a venda</span>
+                        <strong className={`text-base font-extrabold ${financialMetrics.marginPct >= 0 ? 'text-brand' : 'text-error'}`}>
                           {financialMetrics.marginPct.toFixed(1)}%
                         </strong>
                       </div>
-                      <div className="metric-item">
-                        <span className="metric-item__label">Markup sobre o custo</span>
-                        <strong className="metric-item__value">
+                      <div className="flex flex-col gap-[0.15rem]">
+                        <span className="text-xs text-text-secondary font-semibold">Markup sobre o custo</span>
+                        <strong className="text-base font-extrabold">
                           {financialMetrics.markupPct > 0 ? `+${financialMetrics.markupPct.toFixed(0)}%` : 'Sem custo base'}
                         </strong>
                       </div>
                     </div>
                     {financialMetrics.isLoss && (
-                      <span className="loss-warning-text">
+                      <span className="flex items-center gap-[0.35rem] text-error text-xs font-bold">
                         <AlertTriangleIcon /> O preço de venda informado é menor que o custo de compra.
                       </span>
                     )}
@@ -842,44 +873,44 @@ export const Produtos: React.FC = () => {
               </div>
 
               {/* SEÇÃO DE ESTOQUE E COMISSÕES */}
-              <div className="form-section">
-                <div className="form-group-row form-group-row--3cols">
-                  <div className="form-group">
-                    <label htmlFor="stock-qty-input">
+              <div className="flex flex-col gap-[0.85rem]">
+                <div className="grid grid-cols-3 gap-4 max-[640px]:grid-cols-1">
+                  <div className="flex flex-col gap-[0.4rem]">
+                    <label htmlFor="stock-qty-input" className="text-xs font-bold text-text-primary">
                       {editingProduct ? 'Estoque atual' : 'Estoque inicial'}
                     </label>
-                    <div className="input-group">
+                    <div className="flex items-center relative">
                       <input
                         id="stock-qty-input"
                         type="number"
                         min="0"
                         value={formData.stock_quantity}
                         onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                        className="form-control"
+                        className="w-full h-[42px] pl-[0.85rem] pr-10 rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                       />
-                      <span className="input-group__suffix">{formData.unit_type}</span>
+                      <span className="absolute right-[0.85rem] text-text-secondary font-bold text-sm pointer-events-none">{formData.unit_type}</span>
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="min-stock-input">Alerta de estoque mínimo</label>
-                    <div className="input-group">
+                  <div className="flex flex-col gap-[0.4rem]">
+                    <label htmlFor="min-stock-input" className="text-xs font-bold text-text-primary">Alerta de estoque mínimo</label>
+                    <div className="flex items-center relative">
                       <input
                         id="min-stock-input"
                         type="number"
                         min="1"
                         value={formData.min_stock_alert}
                         onChange={(e) => setFormData({ ...formData, min_stock_alert: e.target.value })}
-                        className="form-control"
+                        className="w-full h-[42px] pl-[0.85rem] pr-10 rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                       />
-                      <span className="input-group__suffix">{formData.unit_type}</span>
+                      <span className="absolute right-[0.85rem] text-text-secondary font-bold text-sm pointer-events-none">{formData.unit_type}</span>
                     </div>
                   </div>
 
                   {formData.product_type === 'retail' && (
-                    <div className="form-group">
-                      <label htmlFor="prod-comm-input">Comissão do barbeiro</label>
-                      <div className="input-group">
+                    <div className="flex flex-col gap-[0.4rem]">
+                      <label htmlFor="prod-comm-input" className="text-xs font-bold text-text-primary">Comissão do barbeiro</label>
+                      <div className="flex items-center relative">
                         <input
                           id="prod-comm-input"
                           type="number"
@@ -890,12 +921,12 @@ export const Produtos: React.FC = () => {
                           onChange={(e) =>
                             setFormData({ ...formData, commission_percentage: e.target.value })
                           }
-                          className="form-control"
+                          className="w-full h-[42px] pl-[0.85rem] pr-10 rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                         />
-                        <span className="input-group__suffix">%</span>
+                        <span className="absolute right-[0.85rem] text-text-secondary font-bold text-sm pointer-events-none">%</span>
                       </div>
                       {financialMetrics.commValue > 0 && (
-                        <span className="comm-calc-hint">
+                        <span className="text-xs text-brand-primary font-semibold">
                           R$ {financialMetrics.commValue.toFixed(2).replace('.', ',')} por unidade vendida
                         </span>
                       )}
@@ -904,7 +935,7 @@ export const Produtos: React.FC = () => {
                 </div>
               </div>
 
-              <footer className="modal-footer">
+              <footer className="flex justify-end gap-3 pt-3 border-t border-border max-[640px]:flex-col-reverse">
                 <Button
                   type="button"
                   variant="secondary"
@@ -916,7 +947,7 @@ export const Produtos: React.FC = () => {
                   type="submit"
                   variant="primary"
                   loading={saving}
-                  className="btn--save-product"
+                  className="min-w-[160px]"
                 >
                   {editingProduct ? 'Salvar alterações' : 'Cadastrar produto'}
                 </Button>
@@ -929,23 +960,22 @@ export const Produtos: React.FC = () => {
       {/* 5. MODAL DE AJUSTE RÁPIDO DE ESTOQUE */}
       {isAdjustModalOpen && adjustProduct && (
         <div
-          className="modal-backdrop"
+          className="fixed inset-0 bg-[rgba(20,17,15,0.65)] backdrop-blur-md flex items-center justify-center z-[1000] p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsAdjustModalOpen(false);
           }}
           role="presentation"
         >
           <div
-            className="modal-content shadow-xl animate-spring"
-            style={{ maxWidth: '480px' }}
+            className="bg-bg-secondary border border-border rounded-xl w-full max-h-[90dvh] overflow-y-auto flex flex-col max-w-[480px] shadow-xl animate-spring"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-adjust-title"
           >
-            <header className="modal-header">
+            <header className="flex justify-between items-center px-6 py-5 border-b border-border">
               <div>
-                <span className="modal-eyebrow">Movimentação de estoque</span>
-                <h3 id="modal-adjust-title" className="modal-title">
+                <span className="block text-xs text-brand-primary uppercase tracking-[0.06em] font-bold mb-[0.15rem]">Movimentação de estoque</span>
+                <h3 id="modal-adjust-title" className="text-xl text-text-primary font-bold m-0 tracking-[-0.01em]">
                   Ajustar: {adjustProduct.name}
                 </h3>
               </div>
@@ -958,34 +988,31 @@ export const Produtos: React.FC = () => {
               />
             </header>
 
-            <form onSubmit={handleAdjustSubmit} className="modal-body">
-              <div className="current-stock-callout card">
+            <form onSubmit={handleAdjustSubmit} className="p-6 flex flex-col gap-5">
+              <div className="card flex justify-between items-center px-5 py-[0.85rem] bg-brand-lightest border border-brand-soft rounded-md text-text-primary text-sm">
                 <span>Saldo atual em estoque:</span>
                 <strong className="font-mono text-lg text-brand">
                   {adjustProduct.stock_quantity} {adjustProduct.unit_type}
                 </strong>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="mov-type-select">Tipo de movimentação</label>
-                <select
-                  id="mov-type-select"
-                  value={adjustData.movementType}
-                  onChange={(e) =>
-                    setAdjustData({ ...adjustData, movementType: e.target.value as MovementType })
-                  }
-                  className="form-control"
-                >
-                  <option value="entry_purchase">Entrada por compra de fornecedor (+)</option>
-                  <option value="entry_manual">Entrada manual avulsa (+)</option>
-                  <option value="exit_internal_use">Saída por consumo em bancada (-)</option>
-                  <option value="exit_manual">Saída por avaria, perda ou validade (-)</option>
-                  <option value="adjustment">Ajuste por contagem de inventário (±)</option>
-                </select>
-              </div>
+              <Select
+                label="Tipo de movimentação"
+                id="mov-type-select"
+                value={adjustData.movementType}
+                onChange={(e) =>
+                  setAdjustData({ ...adjustData, movementType: e.target.value as MovementType })
+                }
+              >
+                <option value="entry_purchase">Entrada por compra de fornecedor (+)</option>
+                <option value="entry_manual">Entrada manual avulsa (+)</option>
+                <option value="exit_internal_use">Saída por consumo em bancada (-)</option>
+                <option value="exit_manual">Saída por avaria, perda ou validade (-)</option>
+                <option value="adjustment">Ajuste por contagem de inventário (±)</option>
+              </Select>
 
-              <div className="form-group">
-                <label htmlFor="qty-change-input">
+              <div className="flex flex-col gap-[0.4rem]">
+                <label htmlFor="qty-change-input" className="text-xs font-bold text-text-primary">
                   {adjustData.movementType === 'adjustment'
                     ? 'Novo saldo total apurado'
                     : adjustData.movementType.startsWith('exit')
@@ -999,23 +1026,23 @@ export const Produtos: React.FC = () => {
                   min="1"
                   value={adjustData.quantityChange}
                   onChange={(e) => setAdjustData({ ...adjustData, quantityChange: e.target.value })}
-                  className="form-control"
+                  className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="adjust-notes">Motivo ou justificativa da operação</label>
+              <div className="flex flex-col gap-[0.4rem]">
+                <label htmlFor="adjust-notes" className="text-xs font-bold text-text-primary">Motivo ou justificativa da operação</label>
                 <input
                   id="adjust-notes"
                   type="text"
                   placeholder="Ex: Nota fiscal 1234, reposição semanal, frasco quebrado"
                   value={adjustData.notes}
                   onChange={(e) => setAdjustData({ ...adjustData, notes: e.target.value })}
-                  className="form-control"
+                  className="h-[42px] px-[0.85rem] rounded-md border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] bg-bg-secondary text-text-primary text-sm outline-none transition-all duration-200 ease focus:shadow-[0_0_0_1.5px_var(--color-text-primary)]"
                 />
               </div>
 
-              <footer className="modal-footer">
+              <footer className="flex justify-end gap-3 pt-3 border-t border-border max-[640px]:flex-col-reverse">
                 <Button
                   type="button"
                   variant="outline"
@@ -1035,31 +1062,31 @@ export const Produtos: React.FC = () => {
       {/* 6. MODAL POLIDO DE HISTÓRICO DE MOVIMENTAÇÕES (TIMELINE DE AUDITORIA) */}
       {isHistoryModalOpen && historyProduct && (
         <div
-          className="modal-backdrop"
+          className="fixed inset-0 bg-[rgba(20,17,15,0.65)] backdrop-blur-md flex items-center justify-center z-[1000] p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsHistoryModalOpen(false);
           }}
           role="presentation"
         >
           <div
-            className="modal-content modal-content--history shadow-xl animate-spring"
+            className="bg-bg-secondary border border-border rounded-xl w-full max-h-[90dvh] overflow-y-auto flex flex-col max-w-[680px] shadow-xl animate-spring"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-history-title"
           >
             {/* CABEÇALHO DO MODAL COM RESUMO DO PRODUTO */}
-            <header className="modal-header modal-header--history">
+            <header className="flex justify-between items-start px-6 py-5 border-b border-border">
               <div>
-                <span className="modal-eyebrow">Auditoria de estoque</span>
-                <h3 id="modal-history-title" className="modal-title">
+                <span className="block text-xs text-brand-primary uppercase tracking-[0.06em] font-bold mb-[0.15rem]">Auditoria de estoque</span>
+                <h3 id="modal-history-title" className="text-xl text-text-primary font-bold m-0 tracking-[-0.01em]">
                   Histórico de movimentações
                 </h3>
-                <div className="product-history-badges">
-                  <strong className="product-history-name">{historyProduct.name}</strong>
+                <div className="flex items-center flex-wrap gap-2 mt-[0.35rem]">
+                  <strong className="text-sm text-text-primary">{historyProduct.name}</strong>
                   {historyProduct.brand && (
-                    <span className="badge-tag">{historyProduct.brand}</span>
+                    <span className="bg-bg-primary border border-border px-2 py-0.5 rounded-full text-xs text-text-secondary font-semibold">{historyProduct.brand}</span>
                   )}
-                  <span className="badge-tag badge-tag--category">
+                  <span className="bg-bg-primary border border-brand-soft px-2 py-0.5 rounded-full text-xs text-brand-primary font-semibold">
                     {historyProduct.category || 'Geral'}
                   </span>
                 </div>
@@ -1073,37 +1100,41 @@ export const Produtos: React.FC = () => {
               />
             </header>
 
-            <div className="modal-body modal-body--history">
+            <div className="p-6 flex flex-col gap-4">
               {/* CARD DE BALANÇO RÁPIDO DO PRODUTO */}
-              <div className="history-summary-strip">
-                <div className="history-summary-item">
-                  <span className="history-summary-label">Estoque atual</span>
-                  <strong className={`history-summary-value ${historyProduct.stock_quantity <= historyProduct.min_stock_alert ? 'text-error' : 'text-brand'}`}>
+              <div className="flex items-center justify-between bg-bg-primary border border-border rounded-lg px-5 py-[0.85rem] gap-4">
+                <div className="flex flex-col gap-[0.15rem]">
+                  <span className="text-xs text-text-secondary font-semibold">Estoque atual</span>
+                  <strong className={`text-lg font-extrabold ${historyProduct.stock_quantity <= historyProduct.min_stock_alert ? 'text-error' : 'text-brand'}`}>
                     {historyProduct.stock_quantity} {historyProduct.unit_type}
                   </strong>
                 </div>
-                <div className="history-summary-divider" />
-                <div className="history-summary-item">
-                  <span className="history-summary-label">Total de entradas</span>
-                  <strong className="history-summary-value text-success">
+                <div className="w-px h-8 bg-border max-[768px]:w-full max-[768px]:h-px" />
+                <div className="flex flex-col gap-[0.15rem]">
+                  <span className="text-xs text-text-secondary font-semibold">Total de entradas</span>
+                  <strong className="text-lg font-extrabold text-success">
                     +{movementStats.totalIn} {historyProduct.unit_type}
                   </strong>
                 </div>
-                <div className="history-summary-divider" />
-                <div className="history-summary-item">
-                  <span className="history-summary-label">Total de saídas</span>
-                  <strong className="history-summary-value text-error">
+                <div className="w-px h-8 bg-border max-[768px]:w-full max-[768px]:h-px" />
+                <div className="flex flex-col gap-[0.15rem]">
+                  <span className="text-xs text-text-secondary font-semibold">Total de saídas</span>
+                  <strong className="text-lg font-extrabold text-error">
                     -{movementStats.totalOut} {historyProduct.unit_type}
                   </strong>
                 </div>
               </div>
 
               {/* FILTROS DA TIMELINE */}
-              <div className="history-filter-bar" role="group" aria-label="Filtrar movimentações">
+              <div className="flex gap-[0.4rem] overflow-x-auto pb-1" role="group" aria-label="Filtrar movimentações">
                 <button
                   type="button"
                   onClick={() => setHistoryFilter('all')}
-                  className={`btn-history-filter ${historyFilter === 'all' ? 'btn-history-filter--active' : ''}`}
+                  className={`px-3 py-[0.35rem] text-xs font-bold rounded-full cursor-pointer transition-all duration-150 ease whitespace-nowrap ${
+                    historyFilter === 'all'
+                      ? 'bg-brand-primary text-brand-lightest border border-brand-primary'
+                      : 'bg-bg-secondary border border-border text-text-secondary hover:border-brand-soft hover:text-brand-primary'
+                  }`}
                   aria-pressed={historyFilter === 'all'}
                 >
                   Todas ({movements.length})
@@ -1111,7 +1142,11 @@ export const Produtos: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setHistoryFilter('entries')}
-                  className={`btn-history-filter ${historyFilter === 'entries' ? 'btn-history-filter--active' : ''}`}
+                  className={`px-3 py-[0.35rem] text-xs font-bold rounded-full cursor-pointer transition-all duration-150 ease whitespace-nowrap ${
+                    historyFilter === 'entries'
+                      ? 'bg-brand-primary text-brand-lightest border border-brand-primary'
+                      : 'bg-bg-secondary border border-border text-text-secondary hover:border-brand-soft hover:text-brand-primary'
+                  }`}
                   aria-pressed={historyFilter === 'entries'}
                 >
                   Entradas ({movementStats.entriesCount})
@@ -1119,7 +1154,11 @@ export const Produtos: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setHistoryFilter('exits')}
-                  className={`btn-history-filter ${historyFilter === 'exits' ? 'btn-history-filter--active' : ''}`}
+                  className={`px-3 py-[0.35rem] text-xs font-bold rounded-full cursor-pointer transition-all duration-150 ease whitespace-nowrap ${
+                    historyFilter === 'exits'
+                      ? 'bg-brand-primary text-brand-lightest border border-brand-primary'
+                      : 'bg-bg-secondary border border-border text-text-secondary hover:border-brand-soft hover:text-brand-primary'
+                  }`}
                   aria-pressed={historyFilter === 'exits'}
                 >
                   Saídas ({movementStats.exitsCount})
@@ -1127,7 +1166,11 @@ export const Produtos: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setHistoryFilter('adjustments')}
-                  className={`btn-history-filter ${historyFilter === 'adjustments' ? 'btn-history-filter--active' : ''}`}
+                  className={`px-3 py-[0.35rem] text-xs font-bold rounded-full cursor-pointer transition-all duration-150 ease whitespace-nowrap ${
+                    historyFilter === 'adjustments'
+                      ? 'bg-brand-primary text-brand-lightest border border-brand-primary'
+                      : 'bg-bg-secondary border border-border text-text-secondary hover:border-brand-soft hover:text-brand-primary'
+                  }`}
                   aria-pressed={historyFilter === 'adjustments'}
                 >
                   Ajustes ({movementStats.adjustmentsCount})
@@ -1136,7 +1179,7 @@ export const Produtos: React.FC = () => {
 
               {/* FEED DA TIMELINE DE MOVIMENTAÇÕES */}
               {loadingMovements ? (
-                <div className="loading-state py-4">
+                <div className="flex flex-col items-center justify-center py-4 px-4 gap-3 text-text-secondary text-sm">
                   <div className="spinner mb-2" />
                   <p>Carregando histórico de movimentações...</p>
                 </div>
@@ -1150,9 +1193,9 @@ export const Produtos: React.FC = () => {
                   }
                 />
               ) : (
-                <div className="timeline-container">
-                  <div className="timeline-track" />
-                  <div className="timeline-list">
+                <div className="relative max-h-[420px] overflow-y-auto pl-6 pr-2 pt-2 pb-2 max-[640px]:pl-4 max-[640px]:pr-0">
+                  <div className="absolute left-[27px] top-[10px] bottom-[10px] w-0.5 bg-border max-[640px]:left-[19px]" />
+                  <div className="flex flex-col gap-4">
                     {filteredMovements.map((mov) => {
                       const isEntry = isEntryMovement(mov);
                       const isAdjustment = isAdjustmentMovement(mov);
@@ -1166,43 +1209,51 @@ export const Produtos: React.FC = () => {
                         minute: '2-digit',
                       });
                       const noteText = mov.notes || mov.reason;
+                      const nodeColorClass = isAdjustment
+                        ? 'bg-warning text-white'
+                        : isEntry
+                        ? 'bg-success text-white'
+                        : 'bg-error text-white';
+                      const pillColorClass =
+                        info.category === 'entry'
+                          ? 'text-success'
+                          : info.category === 'sale'
+                          ? 'text-brand-primary'
+                          : info.category === 'loss'
+                          ? 'text-error'
+                          : info.category === 'adjust'
+                          ? 'text-warning'
+                          : 'text-text-primary';
+                      const qtyBadgeColorClass = isAdjustment
+                        ? 'bg-warning-bg text-warning'
+                        : isEntry
+                        ? 'bg-success-bg text-success'
+                        : 'bg-error-bg text-error';
 
                       return (
-                        <div key={mov.id} className="timeline-item">
+                        <div key={mov.id} className="relative flex items-start gap-4">
                           {/* NÓ VISUAL CONECTADO À LINHA */}
                           <div
-                            className={`timeline-node ${
-                              isAdjustment
-                                ? 'timeline-node--adjust'
-                                : isEntry
-                                ? 'timeline-node--in'
-                                : 'timeline-node--out'
-                            }`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-[1] mt-[0.4rem] font-extrabold text-sm border-2 border-bg-secondary ${nodeColorClass}`}
                           >
-                            <span className="timeline-node__symbol">
+                            <span>
                               {isAdjustment ? '±' : isEntry ? '+' : '-'}
                             </span>
                           </div>
 
                           {/* CARD DE DETALHES DA MOVIMENTAÇÃO */}
-                          <div className="timeline-card">
-                            <div className="timeline-card__header">
-                              <div className="timeline-card__title-line">
-                                <span className={`timeline-type-pill timeline-type-pill--${info.category}`}>
+                          <div className="flex-1 bg-bg-secondary border border-border rounded-lg px-[1.1rem] py-[0.85rem] flex flex-col gap-[0.4rem] shadow-sm transition-colors duration-200 ease hover:border-brand-soft">
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex flex-col gap-[0.15rem]">
+                                <span className={`text-xs font-bold ${pillColorClass}`}>
                                   {info.label}
                                 </span>
-                                <span className="timeline-date">{formattedDate}</span>
+                                <span className="text-xs text-text-secondary">{formattedDate}</span>
                               </div>
 
                               {/* VARIAÇÃO NUMÉRICA EM DESTAQUE */}
                               <span
-                                className={`timeline-qty-badge ${
-                                  isAdjustment
-                                    ? 'timeline-qty-badge--adjust'
-                                    : isEntry
-                                    ? 'timeline-qty-badge--in'
-                                    : 'timeline-qty-badge--out'
-                                }`}
+                                className={`font-extrabold text-sm px-2 py-[3px] rounded-sm whitespace-nowrap ${qtyBadgeColorClass}`}
                               >
                                 {isAdjustment ? `${rawQty}` : isEntry ? `+${rawQty}` : `-${rawQty}`}{' '}
                                 {historyProduct.unit_type}
@@ -1210,13 +1261,13 @@ export const Produtos: React.FC = () => {
                             </div>
 
                             {/* SALDO RESULTANTE */}
-                            <div className="timeline-card__balance">
+                            <div className="flex items-center text-xs text-text-secondary pt-[0.35rem] border-t border-dashed border-border">
                               {mov.new_stock_level !== null && mov.new_stock_level !== undefined ? (
-                                <span className="balance-indicator">
-                                  Saldo após esta operação <ArrowRightIcon /> <strong>{mov.new_stock_level} {historyProduct.unit_type}</strong>
+                                <span className="flex items-center gap-[0.35rem]">
+                                  Saldo após esta operação <ArrowRightIcon /> <strong className="text-text-primary">{mov.new_stock_level} {historyProduct.unit_type}</strong>
                                 </span>
                               ) : (
-                                <span className="balance-indicator">
+                                <span className="flex items-center gap-[0.35rem]">
                                   Registro auditado no estoque
                                 </span>
                               )}
@@ -1224,7 +1275,7 @@ export const Produtos: React.FC = () => {
 
                             {/* NOTAS E JUSTIFICATIVAS */}
                             {noteText && (
-                              <div className="timeline-card__notes">
+                              <div className="flex items-center gap-[0.4rem] text-xs text-text-secondary italic bg-bg-primary px-[0.65rem] py-[0.35rem] rounded-sm">
                                 <NoteIcon />
                                 <span>"{noteText}"</span>
                               </div>
@@ -1237,7 +1288,7 @@ export const Produtos: React.FC = () => {
                 </div>
               )}
 
-              <footer className="modal-footer">
+              <footer className="flex justify-end gap-3 pt-3 border-t border-border max-[640px]:flex-col-reverse">
                 <Button
                   type="button"
                   variant="outline"
@@ -1250,911 +1301,6 @@ export const Produtos: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* ESTILOS CSS REFINADOS COM NÍVEL IMPECCABLE */}
-      <style>{`
-        .produtos-page {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          width: 100%;
-          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .stat-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .products-controls-bar {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .search-input-wrapper {
-          flex: 1;
-          min-width: 260px;
-        }
-
-        .product-row.row-low-stock {
-          background-color: rgba(239, 68, 68, 0.04);
-        }
-
-        .product-title-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .product-name {
-          color: var(--color-text-primary);
-          font-weight: 600;
-        }
-
-        .product-brand {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .product-category-text {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-primary);
-        }
-
-        .price-info-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .cost-price-hint {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .stock-level-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .stock-alert-hint {
-          font-size: var(--font-size-xs);
-          color: var(--color-error);
-          font-weight: 600;
-        }
-
-        .actions-cell {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.5rem;
-        }
-
-        /* MODAIS GERAIS */
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(20, 17, 15, 0.65);
-          backdrop-filter: blur(6px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .modal-content {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-xl);
-          width: 100%;
-          max-height: 90dvh;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .modal-content--product {
-          max-width: 680px;
-        }
-
-        .modal-content--history {
-          max-width: 680px;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .modal-header--history {
-          align-items: flex-start;
-        }
-
-        .modal-eyebrow {
-          font-size: var(--font-size-xs);
-          color: var(--color-brand-primary);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-weight: 700;
-          display: block;
-          margin-bottom: 0.15rem;
-        }
-
-        .modal-title {
-          font-size: var(--font-size-xl);
-          color: var(--color-text-primary);
-          font-weight: 700;
-          margin: 0;
-          letter-spacing: -0.01em;
-        }
-
-        .product-history-badges {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-top: 0.35rem;
-        }
-
-        .product-history-name {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-primary);
-        }
-
-        .badge-tag {
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          padding: 2px 8px;
-          border-radius: var(--radius-full);
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .badge-tag--category {
-          color: var(--color-brand-primary);
-          border-color: var(--color-brand-soft);
-        }
-
-        .modal-body {
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .modal-body--polished {
-          gap: 1.5rem;
-        }
-
-        .modal-body--history {
-          gap: 1rem;
-        }
-
-        /* BARRA DE BALANÇO DO HISTÓRICO */
-        .history-summary-strip {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 0.85rem 1.25rem;
-          gap: 1rem;
-        }
-
-        .history-summary-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .history-summary-label {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .history-summary-value {
-          font-size: var(--font-size-lg);
-          font-weight: 800;
-        }
-
-        .history-summary-divider {
-          width: 1px;
-          height: 32px;
-          background: var(--color-border);
-        }
-
-        /* FILTROS DO HISTÓRICO */
-        .history-filter-bar {
-          display: flex;
-          gap: 0.4rem;
-          overflow-x: auto;
-          padding-bottom: 0.25rem;
-        }
-
-        .btn-history-filter {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          color: var(--color-text-secondary);
-          padding: 0.35rem 0.75rem;
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          border-radius: var(--radius-full);
-          cursor: pointer;
-          transition: all 0.15s ease;
-          white-space: nowrap;
-        }
-
-        .btn-history-filter:hover {
-          border-color: var(--color-brand-soft);
-          color: var(--color-brand-primary);
-        }
-
-        .btn-history-filter--active {
-          background: var(--color-brand-primary);
-          color: #FFF1E6;
-          border-color: var(--color-brand-primary);
-        }
-
-        /* TIMELINE FEED */
-        .timeline-container {
-          position: relative;
-          max-height: 420px;
-          overflow-y: auto;
-          padding-left: 1.5rem;
-          padding-right: 0.5rem;
-          padding-top: 0.5rem;
-          padding-bottom: 0.5rem;
-        }
-
-        .timeline-track {
-          position: absolute;
-          left: 27px;
-          top: 10px;
-          bottom: 10px;
-          width: 2px;
-          background: var(--color-border);
-        }
-
-        .timeline-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .timeline-item {
-          position: relative;
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-        }
-
-        .timeline-node {
-          width: 24px;
-          height: 24px;
-          border-radius: var(--radius-full);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          z-index: 1;
-          margin-top: 0.4rem;
-          font-weight: 800;
-          font-size: 14px;
-          border: 2px solid var(--color-bg-secondary);
-        }
-
-        .timeline-node--in {
-          background: var(--color-success);
-          color: #ffffff;
-        }
-
-        .timeline-node--out {
-          background: var(--color-error);
-          color: #ffffff;
-        }
-
-        .timeline-node--adjust {
-          background: var(--color-warning);
-          color: #ffffff;
-        }
-
-        .timeline-card {
-          flex: 1;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
-          padding: 0.85rem 1.1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          box-shadow: var(--shadow-sm);
-          transition: border-color 0.2s ease;
-        }
-
-        .timeline-card:hover {
-          border-color: var(--color-brand-soft);
-        }
-
-        .timeline-card__header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 0.75rem;
-        }
-
-        .timeline-card__title-line {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .timeline-type-pill {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .timeline-type-pill--entry {
-          color: var(--color-success);
-        }
-
-        .timeline-type-pill--sale {
-          color: var(--color-brand-primary);
-        }
-
-        .timeline-type-pill--usage {
-          color: var(--color-text-primary);
-        }
-
-        .timeline-type-pill--loss {
-          color: var(--color-error);
-        }
-
-        .timeline-type-pill--adjust {
-          color: var(--color-warning);
-        }
-
-        .timeline-date {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-        }
-
-        .timeline-qty-badge {
-          font-weight: 800;
-          font-size: var(--font-size-sm);
-          padding: 3px 8px;
-          border-radius: var(--radius-sm);
-          white-space: nowrap;
-        }
-
-        .timeline-qty-badge--in {
-          background: var(--color-success-bg);
-          color: var(--color-success);
-        }
-
-        .timeline-qty-badge--out {
-          background: var(--color-error-bg);
-          color: var(--color-error);
-        }
-
-        .timeline-qty-badge--adjust {
-          background: var(--color-warning-bg);
-          color: var(--color-warning);
-        }
-
-        .timeline-card__balance {
-          display: flex;
-          align-items: center;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          padding-top: 0.35rem;
-          border-top: 1px dashed var(--color-border);
-        }
-
-        .balance-indicator {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-        }
-
-        .balance-indicator strong {
-          color: var(--color-text-primary);
-        }
-
-        .timeline-card__notes {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-style: italic;
-          background: var(--color-bg-primary);
-          padding: 0.35rem 0.65rem;
-          border-radius: var(--radius-sm);
-        }
-
-        /* SELETOR DE CLASSIFICAÇÃO COM CARDS TÁTEIS */
-        .form-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.85rem;
-        }
-
-        .form-section__label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-text-primary);
-        }
-
-        .form-section--card {
-          background: transparent;
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
-        }
-
-        .product-type-selector {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.85rem;
-        }
-
-        .type-card {
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          border-radius: var(--radius-lg);
-          padding: 1rem;
-          display: flex;
-          align-items: flex-start;
-          gap: 0.85rem;
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .type-card:hover {
-          box-shadow: 0 0 0 0.8px var(--color-text-primary), 0 4px 12px rgba(45, 35, 30, 0.06);
-          background: var(--color-brand-lightest);
-          transform: translateY(-2px);
-        }
-
-        .type-card:active {
-          transform: translateY(0);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .type-card:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        .type-card--active {
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 1.5px var(--color-brand-hover);
-        }
-
-        .type-card--active:hover {
-          background: var(--color-brand-lightest);
-          box-shadow: 0 0 0 1.8px var(--color-brand-hover), 0 4px 14px rgba(217, 108, 0, 0.12);
-          transform: translateY(-2px);
-        }
-
-        .type-card--active:active {
-          transform: translateY(0);
-          box-shadow: 0 0 0 1.5px var(--color-brand-hover);
-        }
-
-        .dark-theme .type-card:hover {
-          background: rgba(255, 255, 255, 0.05);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary), 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .dark-theme .type-card--active:hover {
-          background: rgba(217, 108, 0, 0.15);
-          box-shadow: 0 0 0 1.8px var(--color-brand-hover), 0 4px 14px rgba(0, 0, 0, 0.4);
-        }
-
-        .type-card__icon {
-          width: 38px;
-          height: 38px;
-          border-radius: var(--radius-md);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          background-color: transparent;
-          border: none;
-          box-shadow: 0 0 0 0.5px var(--color-text-primary);
-          color: var(--color-text-primary);
-          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-        }
-
-        .type-card:hover .type-card__icon {
-          transform: scale(1.05);
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .type-card--active:hover .type-card__icon {
-          box-shadow: 0 0 0 1px var(--color-brand-hover);
-        }
-
-        .type-card__icon svg {
-          stroke: var(--color-text-primary);
-          height: fit-content;
-        }
-
-        .type-card__icon svg path {
-          stroke: var(--color-text-primary);
-        }
-
-        .type-card__icon--retail {
-          background-color: transparent;
-          color: var(--color-text-primary);
-        }
-
-        .type-card__icon--internal {
-          background-color: transparent;
-          color: var(--color-text-primary);
-        }
-
-        .type-card__info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .type-card__title {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .type-card__desc {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-          line-height: 1.35;
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-
-        .form-group label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-primary);
-        }
-
-        .form-group .form-control {
-          height: 42px;
-          padding: 0 0.85rem;
-          border-radius: var(--radius-md);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          background-color: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .form-group .form-control:focus {
-          box-shadow: 0 0 0 1.5px var(--color-text-primary);
-        }
-
-        .form-control--lg {
-          height: 46px !important;
-          font-size: var(--font-size-base) !important;
-          font-weight: 500;
-          box-shadow: 0 0 0 1.2px var(--color-text-primary) !important;
-        }
-
-        .form-control--lg:focus {
-          box-shadow: 0 0 0 1.8px var(--color-text-primary) !important;
-        }
-
-        .form-group-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .form-group-row--3cols {
-          grid-template-columns: 1fr 1fr 1fr;
-        }
-
-        .category-header-line {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .category-quick-hint {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-primary);
-        }
-
-        .quick-category-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-          margin-top: 0.25rem;
-        }
-
-        .chip-btn {
-          background: var(--color-bg-secondary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-xs);
-          font-weight: 600;
-          padding: 0.35rem 0.75rem;
-          min-height: 32px;
-          border-radius: var(--radius-full);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .chip-btn:hover {
-          box-shadow: 0 0 0 1.2px var(--color-text-primary);
-          background: var(--color-brand-lightest);
-        }
-
-        .chip-btn:focus-visible {
-          outline: 2px solid var(--color-brand-primary);
-          outline-offset: 2px;
-        }
-
-        .chip-btn--active {
-          background: var(--color-brand-soft);
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 1.5px var(--color-text-primary);
-          font-weight: 800;
-        }
-
-        .currency-input-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .currency-prefix {
-          position: absolute;
-          left: 0.85rem;
-          color: var(--color-text-secondary);
-          font-weight: 700;
-          font-size: var(--font-size-sm);
-          pointer-events: none;
-        }
-
-        .currency-control {
-          padding-left: 2.25rem !important;
-          font-weight: 700;
-          font-family: monospace;
-          letter-spacing: 0.02em;
-        }
-
-        .margin-intelligence-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: 0.85rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .margin-intelligence-card--loss {
-          border-color: rgba(240, 82, 82, 0.3);
-          background: var(--color-error-bg);
-        }
-
-        .margin-intelligence-card__row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .metric-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .metric-item__label {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          font-weight: 600;
-        }
-
-        .metric-item__value {
-          font-size: var(--font-size-base);
-          font-weight: 800;
-        }
-
-        .loss-warning-text {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          color: var(--color-error);
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-        }
-
-        .input-group {
-          display: flex;
-          align-items: center;
-          position: relative;
-        }
-
-        .input-group .form-control {
-          width: 100%;
-          padding-right: 2.5rem;
-        }
-
-        .input-group__suffix {
-          position: absolute;
-          right: 0.85rem;
-          color: var(--color-text-secondary);
-          font-weight: 700;
-          font-size: var(--font-size-sm);
-          pointer-events: none;
-        }
-
-        .comm-calc-hint {
-          font-size: var(--font-size-xs);
-          color: var(--color-brand-primary);
-          font-weight: 600;
-        }
-
-        .modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.75rem;
-          padding-top: 0.75rem;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .modal-footer .ui-btn--outline {
-          color: var(--color-text-primary);
-          border: none;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary);
-        }
-
-        .btn--save-product {
-          min-width: 160px;
-          background-color: var(--color-brand-soft) !important;
-          color: var(--color-text-primary) !important;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-          border: none !important;
-        }
-
-        .btn--save-product:hover:not(:disabled) {
-          background-color: var(--color-brand-primary) !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 0 0.8px var(--color-text-primary) !important;
-        }
-
-        .current-stock-callout {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.85rem 1.25rem;
-          background: var(--color-brand-lightest);
-          border: 1px solid var(--color-brand-soft);
-          border-radius: var(--radius-md);
-          color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
-        }
-
-        .loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem 1rem;
-          gap: 0.75rem;
-          color: var(--color-text-secondary);
-          font-size: var(--font-size-sm);
-        }
-        /* Responsividade Mobile e Tablet */
-        @media (max-width: 768px) {
-          .products-controls-bar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .search-input-wrapper {
-            min-width: 100%;
-          }
-
-          .btn-add-product {
-            width: 100%;
-          }
-
-          .product-type-selector {
-            grid-template-columns: 1fr;
-          }
-
-          .history-summary-strip {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.75rem;
-          }
-
-          .history-summary-divider {
-            width: 100%;
-            height: 1px;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .form-group-row,
-          .form-group-row--3cols {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-
-          .stat-cards-grid {
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-          }
-
-          .modal-body {
-            padding: 1rem;
-          }
-
-          .margin-intelligence-card__row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-          }
-
-          .modal-footer {
-            flex-direction: column-reverse;
-          }
-
-          .modal-footer .ui-btn {
-            width: 100%;
-          }
-
-          .timeline-container {
-            padding-left: 1rem;
-            padding-right: 0;
-          }
-
-          .timeline-track {
-            left: 19px;
-          }
-        }
-
-        @media (max-width: 440px) {
-          .stat-cards-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </div>
   );
 };

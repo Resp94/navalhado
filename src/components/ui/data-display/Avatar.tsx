@@ -41,6 +41,19 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+const SHAPE_CLASSES: Record<AvatarShape, string> = {
+  circle: 'rounded-full',
+  rounded: 'rounded-md',
+};
+
+const SIZE_CLASSES: Record<AvatarSize, string> = {
+  xs: 'w-6 h-6 text-[10px]',
+  sm: 'w-8 h-8 text-xs',
+  md: 'w-10 h-10 text-sm',
+  lg: 'w-12 h-12 text-base',
+  xl: 'w-14 h-14 text-lg',
+};
+
 export const Avatar: React.FC<AvatarProps> = ({
   name,
   src,
@@ -53,95 +66,29 @@ export const Avatar: React.FC<AvatarProps> = ({
   const colorPair = getAvatarColor(name);
 
   return (
-    <>
-      <div
-        className={`ui-avatar ui-avatar--${size} ui-avatar--${shape} ${className}`}
-        style={{
-          backgroundColor: !src ? colorPair.bg : undefined,
-          color: !src ? colorPair.color : undefined,
-          ...style,
-        }}
-        title={name}
-        aria-label={name}
-      >
-        {src ? (
-          <img
-            src={src}
-            alt={name}
-            className="ui-avatar__img"
-            onError={(e) => {
-              // Se a imagem falhar, remove o src para exibir as iniciais
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        ) : (
-          <span className="ui-avatar__initials">{initials}</span>
-        )}
-      </div>
-
-      <style>{`
-        .ui-avatar {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          font-family: var(--font-family-base, 'Outfit', sans-serif);
-          font-weight: 800;
-          user-select: none;
-          box-sizing: border-box;
-          overflow: hidden;
-          line-height: 1;
-        }
-
-        .ui-avatar--circle {
-          border-radius: var(--radius-full, 9999px);
-        }
-
-        .ui-avatar--rounded {
-          border-radius: var(--radius-md, 8px);
-        }
-
-        /* TAMANHOS */
-        .ui-avatar--xs {
-          width: 24px;
-          height: 24px;
-          font-size: 10px;
-        }
-
-        .ui-avatar--sm {
-          width: 32px;
-          height: 32px;
-          font-size: 12px;
-        }
-
-        .ui-avatar--md {
-          width: 40px;
-          height: 40px;
-          font-size: 14px;
-        }
-
-        .ui-avatar--lg {
-          width: 48px;
-          height: 48px;
-          font-size: 16px;
-        }
-
-        .ui-avatar--xl {
-          width: 56px;
-          height: 56px;
-          font-size: 18px;
-        }
-
-        .ui-avatar__img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .ui-avatar__initials {
-          letter-spacing: -0.02em;
-        }
-      `}</style>
-    </>
+    <div
+      className={`inline-flex items-center justify-center shrink-0 font-base font-extrabold select-none box-border overflow-hidden leading-none ${SHAPE_CLASSES[shape]} ${SIZE_CLASSES[size]} ${className}`}
+      style={{
+        backgroundColor: !src ? colorPair.bg : undefined,
+        color: !src ? colorPair.color : undefined,
+        ...style,
+      }}
+      title={name}
+      aria-label={name}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            // Se a imagem falhar, remove o src para exibir as iniciais
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      ) : (
+        <span className="tracking-tight">{initials}</span>
+      )}
+    </div>
   );
 };

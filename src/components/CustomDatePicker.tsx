@@ -145,22 +145,22 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`custom-datepicker-dropdown ${position === 'left' ? 'custom-datepicker-dropdown--left' : ''} ${className}`}
+      className={`absolute top-[calc(100%+10px)] ${position === 'left' ? 'left-0' : 'right-0'} w-[312px] bg-white rounded-[20px] px-[18px] pt-[18px] pb-5 shadow-[0_16px_40px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] border border-[rgba(0,0,0,0.08)] z-[1100] box-border select-none animate-[fadeIn_0.15s_ease-out] max-[380px]:w-[calc(100vw-24px)] max-[380px]:right-[-12px] max-[380px]:px-3 max-[380px]:pt-4 max-[380px]:pb-[18px] ${className}`}
       onClick={(e) => e.stopPropagation()}
       role="dialog"
       aria-label="Seletor de data"
     >
       {/* Cabeçalho */}
-      <div className="custom-datepicker-header">
-        <div className="custom-datepicker-title-group">
-          <span className="custom-datepicker-title">{monthLabel}</span>
-          <HugeiconsIcon icon={ArrowRight01Icon} size={15} className="custom-datepicker-chevron" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1.5 text-text-primary">
+          <span className="text-[1.0625rem] font-bold text-text-primary font-base tracking-[-0.01em]">{monthLabel}</span>
+          <HugeiconsIcon icon={ArrowRight01Icon} size={15} className="text-[#0084ff] mt-px" />
         </div>
 
-        <div className="custom-datepicker-arrows">
+        <div className="flex items-center gap-3.5">
           <button
             type="button"
-            className="custom-datepicker-arrow-btn"
+            className="bg-transparent border-none cursor-pointer p-1 flex items-center justify-center text-[#0084ff] rounded-md transition-colors duration-150 ease-in hover:bg-[rgba(0,132,255,0.08)]"
             onClick={handlePrevMonth}
             aria-label="Mês anterior"
           >
@@ -168,7 +168,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           </button>
           <button
             type="button"
-            className="custom-datepicker-arrow-btn"
+            className="bg-transparent border-none cursor-pointer p-1 flex items-center justify-center text-[#0084ff] rounded-md transition-colors duration-150 ease-in hover:bg-[rgba(0,132,255,0.08)]"
             onClick={handleNextMonth}
             aria-label="Próximo mês"
           >
@@ -178,27 +178,33 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
       </div>
 
       {/* Linha dos dias da semana */}
-      <div className="custom-datepicker-weekdays">
+      <div className="grid grid-cols-7 gap-1 mb-2 w-full box-border">
         {weekdays.map((wd) => (
-          <span key={wd} className="custom-datepicker-weekday">
+          <span
+            key={wd}
+            className="text-center text-[0.8125rem] font-medium text-[#64748b] font-base flex items-center justify-center w-9 mx-auto max-[380px]:w-8 max-[380px]:text-[0.85rem]"
+          >
             {wd}
           </span>
         ))}
       </div>
 
       {/* Grade de dias */}
-      <div className="custom-datepicker-grid">
+      <div className="grid grid-cols-7 gap-1 [row-gap:6px] w-full box-border">
         {calendarDays.map((item) => {
-          let cellClass = 'custom-datepicker-cell';
-          if (!item.isCurrentMonth) cellClass += ' custom-datepicker-cell--outside';
-          if (item.isSelected) cellClass += ' custom-datepicker-cell--selected';
-          else if (item.isToday) cellClass += ' custom-datepicker-cell--today';
+          const stateClasses = item.isSelected
+            ? 'border-[#0084ff] bg-[#e5f2fe] text-[#0070d2] font-bold'
+            : item.isToday
+              ? 'border-transparent bg-[#f1f5f9] font-semibold text-[#1e293b]'
+              : item.isCurrentMonth
+                ? 'border-transparent text-[#1e293b] font-medium hover:bg-[#f1f5f9]'
+                : 'border-transparent text-[#94a3b8] font-normal hover:bg-[#f1f5f9]';
 
           return (
             <button
               key={item.dateStr}
               type="button"
-              className={cellClass}
+              className={`aspect-square w-9 h-9 max-w-full mx-auto rounded-full flex items-center justify-center text-[0.9375rem] bg-transparent border-2 cursor-pointer p-0 outline-none font-base transition-colors duration-[120ms] ease-in box-border max-[380px]:w-8 max-[380px]:h-8 max-[380px]:text-[0.85rem] ${stateClasses}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectDate(item.dateStr);
@@ -209,216 +215,6 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           );
         })}
       </div>
-
-      <style>{`
-        .custom-datepicker-dropdown {
-          position: absolute;
-          top: calc(100% + 10px);
-          right: 0;
-          width: 312px;
-          background: #ffffff;
-          border-radius: 20px;
-          padding: 18px 18px 20px 18px;
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          z-index: 1100;
-          box-sizing: border-box;
-          user-select: none;
-          animation: datepickerFadeIn 0.15s ease-out;
-        }
-
-        .custom-datepicker-dropdown--left {
-          right: auto;
-          left: 0;
-        }
-
-        .dark-theme .custom-datepicker-dropdown {
-          background: #1c1917;
-          border-color: rgba(255, 255, 255, 0.1);
-          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
-        }
-
-        @keyframes datepickerFadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-6px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .custom-datepicker-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
-        }
-
-        .custom-datepicker-title-group {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--color-text-primary, #1e293b);
-        }
-
-        .custom-datepicker-title {
-          font-size: 1.0625rem;
-          font-weight: 700;
-          color: var(--color-text-primary, #1e293b);
-          font-family: var(--font-family-base);
-          letter-spacing: -0.01em;
-        }
-
-        .dark-theme .custom-datepicker-title {
-          color: #ffffff;
-        }
-
-        .custom-datepicker-chevron {
-          color: #0084ff;
-          margin-top: 1px;
-        }
-
-        .custom-datepicker-arrows {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .custom-datepicker-arrow-btn {
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          padding: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #0084ff;
-          border-radius: 6px;
-          transition: background-color 0.15s ease, opacity 0.15s ease;
-        }
-
-        .custom-datepicker-arrow-btn:hover {
-          background-color: rgba(0, 132, 255, 0.08);
-        }
-
-        .custom-datepicker-weekdays {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 4px;
-          margin-bottom: 8px;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .custom-datepicker-weekday {
-          text-align: center;
-          font-size: 0.8125rem;
-          font-weight: 500;
-          color: #64748b;
-          font-family: var(--font-family-base);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          margin: 0 auto;
-        }
-
-        .dark-theme .custom-datepicker-weekday {
-          color: #a8a29e;
-        }
-
-        .custom-datepicker-grid {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          gap: 4px;
-          row-gap: 6px;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        .custom-datepicker-cell {
-          aspect-ratio: 1;
-          width: 36px;
-          height: 36px;
-          max-width: 100%;
-          margin: 0 auto;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.9375rem;
-          font-weight: 500;
-          color: #1e293b;
-          background: transparent;
-          border: 2px solid transparent;
-          cursor: pointer;
-          padding: 0;
-          outline: none;
-          font-family: var(--font-family-base);
-          transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-          box-sizing: border-box;
-        }
-
-        .dark-theme .custom-datepicker-cell {
-          color: #f5f5f4;
-        }
-
-        .custom-datepicker-cell:hover {
-          background-color: #f1f5f9;
-        }
-
-        .dark-theme .custom-datepicker-cell:hover {
-          background-color: rgba(255, 255, 255, 0.08);
-        }
-
-        .custom-datepicker-cell--outside {
-          color: #94a3b8;
-          font-weight: 400;
-        }
-
-        .dark-theme .custom-datepicker-cell--outside {
-          color: #78716c;
-        }
-
-        .custom-datepicker-cell--today {
-          background-color: #f1f5f9;
-          font-weight: 600;
-        }
-
-        .dark-theme .custom-datepicker-cell--today {
-          background-color: rgba(255, 255, 255, 0.08);
-        }
-
-        /* Selected Day: Anel azul com preenchimento suave */
-        .custom-datepicker-cell--selected {
-          border: 2px solid #0084ff !important;
-          background-color: #e5f2fe !important;
-          color: #0070d2 !important;
-          font-weight: 700 !important;
-        }
-
-        .dark-theme .custom-datepicker-cell--selected {
-          border-color: #38bdf8 !important;
-          background-color: rgba(56, 189, 248, 0.22) !important;
-          color: #38bdf8 !important;
-        }
-
-        @media (max-width: 380px) {
-          .custom-datepicker-dropdown {
-            width: calc(100vw - 24px);
-            right: -12px;
-            padding: 16px 12px 18px 12px;
-          }
-          .custom-datepicker-weekday,
-          .custom-datepicker-cell {
-            width: 32px;
-            height: 32px;
-            font-size: 0.85rem;
-          }
-        }
-      `}</style>
     </div>
   );
 };

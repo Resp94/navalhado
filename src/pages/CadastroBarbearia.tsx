@@ -20,6 +20,18 @@ const PLANOS: Plan[] = [
   { id: 'ouro', name: 'Ouro', price: '149,90', limit: 'Profissionais ilimitados', description: 'Para redes que precisam de gestão completa e escala.' }
 ];
 
+const PAGE_CLASS = 'min-h-screen min-h-dvh flex items-center justify-center px-6 py-8 relative overflow-y-auto';
+
+const SHELL_CLASS =
+  'w-full max-w-[580px] p-[6px] rounded-[calc(var(--radius-xl)+6px)] bg-[rgba(217,108,0,0.04)] ' +
+  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] [animation:slideUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both] z-2 ' +
+  'max-[540px]:p-1';
+
+const CARD_CLASS =
+  'bg-bg-secondary rounded-xl w-full flex flex-col gap-6 relative ' +
+  'shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_1px_2px_rgba(45,35,30,0.04),var(--shadow-lg)] ' +
+  'pt-10 px-9 pb-8 max-[540px]:pt-8 max-[540px]:px-5 max-[540px]:pb-7';
+
 export const CadastroBarbearia: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -50,7 +62,7 @@ export const CadastroBarbearia: React.FC = () => {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
     const digits = rawValue.replace(/\D/g, '');
-    
+
     let formatted = '';
     if (digits.length <= 2) {
       formatted = digits;
@@ -159,7 +171,7 @@ export const CadastroBarbearia: React.FC = () => {
       }
 
       addToast('Cadastro realizado.', 'success');
-      
+
       // Se já houver sessão ativa, podemos prosseguir diretamente para o Onboarding.
       if (authData.session) {
         setTimeout(() => navigate('/onboarding'), 1500);
@@ -182,37 +194,35 @@ export const CadastroBarbearia: React.FC = () => {
     return (
       <>
         <div className="noise-overlay" />
-        <div className="signup-page">
-          <div className="signup-page__bg" />
-          <div className="signup-card__shell">
-            <div className="signup-card signup-card--success">
-              <div className="signup-card__success-icon">
+        <div className={PAGE_CLASS}>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_85%_55%_at_50%_15%,rgba(217,108,0,0.08)_0%,transparent_60%),radial-gradient(ellipse_55%_45%_at_85%_85%,rgba(242,178,119,0.06)_0%,transparent_55%)]" />
+          <div className={SHELL_CLASS}>
+            <div className={`${CARD_CLASS} text-center items-center py-12 px-10`}>
+              <div className="bg-success-bg text-success p-5 rounded-full flex items-center justify-center mb-2 shadow-[0_4px_12px_rgba(14,159,110,0.15)]">
                 <SuccessIcon size={48} />
               </div>
-              <h1 className="signup-card__title">Conta criada</h1>
-              <p className="signup-card__subtitle" style={{ fontSize: 'var(--font-size-base)', lineHeight: '1.6' }}>
+              <h1 className="text-2xl font-bold text-text-primary tracking-[-0.02em] m-0">Conta criada</h1>
+              <p className="text-base leading-[1.6] text-text-secondary m-0">
                 A barbearia <strong>{barbeariaNome}</strong> foi cadastrada com sucesso.
               </p>
-              <div className="success-box">
+              <div className="bg-bg-primary border border-dashed border-border rounded-lg p-6 my-4 w-full text-sm text-text-primary leading-[1.5]">
                 <p>
                   Enviamos um link de confirmação para o e-mail do gestor: <br />
                   <strong>{gestorEmail}</strong>.
                 </p>
-                <p style={{ marginTop: '0.75rem', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                <p className="mt-3 text-xs text-text-secondary">
                   Acesse sua caixa de entrada e clique no link para ativar seu acesso administrativo.
                 </p>
               </div>
               <button
                 onClick={() => navigate('/')}
-                className="btn btn--primary"
-                style={{ width: '100%' }}
+                className="btn btn--primary w-full"
               >
                 Ir para o login
               </button>
             </div>
           </div>
         </div>
-        <style>{styles}</style>
       </>
     );
   }
@@ -220,40 +230,54 @@ export const CadastroBarbearia: React.FC = () => {
   return (
     <>
       <div className="noise-overlay" />
-      <div className="signup-page">
-        <div className="signup-page__bg" />
+      <div className={PAGE_CLASS}>
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_85%_55%_at_50%_15%,rgba(217,108,0,0.08)_0%,transparent_60%),radial-gradient(ellipse_55%_45%_at_85%_85%,rgba(242,178,119,0.06)_0%,transparent_55%)]" />
 
-        <div className="signup-card__shell">
-          <div className="signup-card">
+        <div className={SHELL_CLASS}>
+          <div className={CARD_CLASS}>
             {/* Cabeçalho */}
-            <div className="signup-card__header">
-              <span className="signup-card__eyebrow">cadastro</span>
-              <div className="signup-card__icon">
-                <img src="/simbolo.svg" alt="Navalhado" style={{ width: '50px', height: '50px', display: 'block' }} />
+            <div className="flex flex-col items-center gap-1.5 text-center [animation:slideUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both] [animation-delay:0.05s]">
+              <span className="inline-block px-3 py-1 rounded-full bg-brand-lightest text-brand-primary text-[0.625rem] font-semibold uppercase tracking-[0.2em] mb-1">
+                cadastro
+              </span>
+              <div className="bg-brand-lightest p-[0.875rem] rounded-full flex items-center justify-center text-brand-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_4px_14px_rgba(217,108,0,0.12)] mb-1">
+                <img src="/simbolo.svg" alt="Navalhado" className="w-[50px] h-[50px] block" />
               </div>
-              <h1 className="signup-card__title">Criar conta</h1>
-              <p className="signup-card__subtitle">
+              <h1 className="text-2xl font-bold text-text-primary tracking-[-0.02em] m-0">Criar conta</h1>
+              <p className="text-sm text-text-secondary m-0 font-normal">
                 Cadastre sua barbearia e comece a gerenciar seus agendamentos em minutos.
               </p>
             </div>
 
             {/* Indicador de Passos */}
-            <div className="step-indicator">
-              <div className={`step-indicator__item ${step >= 1 ? 'step-indicator__item--active' : ''}`}>
-                <span className="step-indicator__number">1</span>
-                <span className="step-indicator__text">Barbearia</span>
+            <div className="flex items-center justify-center gap-3 py-2">
+              <div className={`flex items-center gap-2 transition-opacity duration-300 ${step >= 1 ? 'opacity-100' : 'opacity-45'}`}>
+                <span
+                  className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center transition-all duration-300 ${
+                    step >= 1 ? 'bg-brand-primary text-white' : 'bg-border text-text-secondary'
+                  }`}
+                >
+                  1
+                </span>
+                <span className={`text-xs font-semibold ${step >= 1 ? 'text-text-primary font-bold' : 'text-text-primary'}`}>Barbearia</span>
               </div>
-              <div className="step-indicator__line" />
-              <div className={`step-indicator__item ${step >= 2 ? 'step-indicator__item--active' : ''}`}>
-                <span className="step-indicator__number">2</span>
-                <span className="step-indicator__text">Acesso e Plano</span>
+              <div className="h-px w-10 bg-border" />
+              <div className={`flex items-center gap-2 transition-opacity duration-300 ${step >= 2 ? 'opacity-100' : 'opacity-45'}`}>
+                <span
+                  className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center transition-all duration-300 ${
+                    step >= 2 ? 'bg-brand-primary text-white' : 'bg-border text-text-secondary'
+                  }`}
+                >
+                  2
+                </span>
+                <span className={`text-xs font-semibold ${step >= 2 ? 'text-text-primary font-bold' : 'text-text-primary'}`}>Acesso e Plano</span>
               </div>
             </div>
 
             {/* Formulário */}
-            <form onSubmit={handleCadastro} className="signup-card__form">
+            <form onSubmit={handleCadastro} className="flex flex-col gap-6">
               {step === 1 && (
-                <div className="form-step-container">
+                <div className="flex flex-col gap-5 [animation:slideUp_0.4s_cubic-bezier(0.32,0.72,0,1)_both]">
                   <Input
                     label="Nome Comercial da Barbearia"
                     placeholder="Ex: Barbearia Estilo"
@@ -286,13 +310,12 @@ export const CadastroBarbearia: React.FC = () => {
                     required
                   />
 
-                  <div className="signup-card__actions">
+                  <div className="mt-2">
                     <button
                       type="button"
-                      className="btn btn--primary"
+                      className="btn btn--primary w-full"
                       onClick={nextStep}
                       disabled={isStep1Disabled}
-                      style={{ width: '100%' }}
                     >
                       Continuar
                       <span className="btn__icon">
@@ -304,7 +327,7 @@ export const CadastroBarbearia: React.FC = () => {
               )}
 
               {step === 2 && (
-                <div className="form-step-container">
+                <div className="flex flex-col gap-5 [animation:slideUp_0.4s_cubic-bezier(0.32,0.72,0,1)_both]">
                   <Input
                     label="Nome Completo do Gestor"
                     placeholder="Seu nome"
@@ -326,7 +349,7 @@ export const CadastroBarbearia: React.FC = () => {
                     required
                   />
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <div className="flex flex-col gap-1">
                     <Input
                       label="Senha de Acesso"
                       type="password"
@@ -339,10 +362,10 @@ export const CadastroBarbearia: React.FC = () => {
                       required
                     />
                     {gestorSenha && (
-                      <div className="pwd-strength-indicator">
-                        <div className="pwd-strength-bar">
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
                           <div
-                            className="pwd-strength-fill"
+                            className="h-full w-0 rounded-full transition-all duration-300"
                             style={{
                               width: `${(pwdStrength.score / 4) * 100}%`,
                               backgroundColor: pwdStrength.color
@@ -357,45 +380,51 @@ export const CadastroBarbearia: React.FC = () => {
                   </div>
 
                   {/* Seleção de Planos */}
-                  <div className="plans-selection">
-                    <label className="plans-selection__label">Selecione um plano:</label>
-                    <div className="plans-grid">
+                  <div className="flex flex-col gap-2 text-left">
+                    <label className="text-sm text-text-primary font-medium">Selecione um plano:</label>
+                    <div className="grid grid-cols-3 gap-3 max-[540px]:grid-cols-1 max-[540px]:gap-2">
                       {PLANOS.map((plano) => (
                         <div
                           key={plano.id}
-                          className={`plan-card ${planoSelecionado === plano.id ? 'plan-card--selected' : ''}`}
+                          className={`border rounded-lg p-4 px-3 cursor-pointer flex flex-col gap-1.5 bg-bg-secondary transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-brand-soft hover:-translate-y-0.5 hover:shadow-sm max-[540px]:flex-row max-[540px]:flex-wrap max-[540px]:items-center max-[540px]:justify-between max-[540px]:p-4 ${
+                            planoSelecionado === plano.id
+                              ? 'border-brand-primary bg-brand-lightest shadow-[0_0_0_1px_var(--color-brand-primary),var(--shadow-md)]'
+                              : 'border-border'
+                          }`}
                           onClick={() => setPlanoSelecionado(plano.id)}
                         >
-                          <div className="plan-card__header">
-                            <span className="plan-card__name">{plano.name}</span>
-                            <div className="plan-card__price">
-                              <span className="plan-card__symbol">R$</span>
-                              <span className="plan-card__val">{plano.price}</span>
-                              <span className="plan-card__cycle">/mês</span>
+                          <div className="flex flex-col gap-0.5 max-[540px]:flex-row max-[540px]:items-center max-[540px]:gap-2">
+                            <span className="text-sm font-bold text-text-primary">{plano.name}</span>
+                            <div className="flex items-baseline text-brand-primary">
+                              <span className="text-[0.65rem] font-semibold">R$</span>
+                              <span className="text-lg font-extrabold tracking-[-0.02em]">{plano.price}</span>
+                              <span className="text-[0.65rem] text-text-secondary ml-0.5">/mês</span>
                             </div>
                           </div>
-                          <span className="plan-card__limit">{plano.limit}</span>
-                          <p className="plan-card__desc">{plano.description}</p>
+                          <span className="text-[0.65rem] font-semibold text-success bg-success-bg px-1.5 py-0.5 rounded-full inline-block self-start max-[540px]:self-center">
+                            {plano.limit}
+                          </span>
+                          <p className="text-[0.65rem] text-text-secondary leading-[1.4] m-0 max-[540px]:w-full max-[540px]:mt-1">
+                            {plano.description}
+                          </p>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="signup-card__actions" style={{ display: 'flex', gap: '1rem' }}>
+                  <div className="mt-2 flex gap-4">
                     <button
                       type="button"
-                      className="btn btn--secondary"
+                      className="btn btn--secondary flex-1"
                       onClick={prevStep}
                       disabled={loading}
-                      style={{ flex: 1 }}
                     >
                       Voltar
                     </button>
                     <button
                       type="submit"
-                      className="btn btn--primary"
+                      className="btn btn--primary flex-[2]"
                       disabled={isSubmitDisabled}
-                      style={{ flex: 2 }}
                     >
                       {loading ? (
                         <>
@@ -411,13 +440,13 @@ export const CadastroBarbearia: React.FC = () => {
               )}
 
               {/* Botão de voltar geral */}
-              <div className="signup-card__signup">
-                <span className="signup-card__signup-text">
+              <div className="flex items-center justify-center gap-1 pt-4 border-t border-border mt-2">
+                <span className="text-xs text-text-secondary">
                   Já tem uma conta?{' '}
                 </span>
                 <button
                   type="button"
-                  className="btn btn--link signup-card__signup-btn"
+                  className="btn btn--link !text-xs"
                   onClick={() => navigate('/')}
                   disabled={loading}
                 >
@@ -426,10 +455,10 @@ export const CadastroBarbearia: React.FC = () => {
               </div>
 
               {/* Rodapé Legal / LGPD */}
-              <div className="signup-card__legal-footer" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border-subtle, rgba(255,255,255,0.08))', display: 'flex', justifyContent: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-tertiary, #999)' }}>
+              <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle,rgba(255,255,255,0.08))] flex justify-center gap-3 text-xs text-[var(--color-text-tertiary,#999)]">
                 <button
                   type="button"
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  className="bg-none border-none p-0 text-inherit underline cursor-pointer"
                   onClick={() => setLegalModalMode('terms')}
                 >
                   Termos de uso
@@ -437,7 +466,7 @@ export const CadastroBarbearia: React.FC = () => {
                 <span>•</span>
                 <button
                   type="button"
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  className="bg-none border-none p-0 text-inherit underline cursor-pointer"
                   onClick={() => setLegalModalMode('privacy')}
                 >
                   Privacidade (LGPD)
@@ -456,392 +485,6 @@ export const CadastroBarbearia: React.FC = () => {
           mode={legalModalMode}
         />
       )}
-      <style>{styles}</style>
     </>
   );
 };
-
-const styles = `
-.signup-page {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
-  position: relative;
-  overflow-y: auto;
-}
-
-.signup-page__bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 85% 55% at 50% 15%, rgba(217, 108, 0, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 85% 85%, rgba(242, 178, 119, 0.06) 0%, transparent 55%);
-  pointer-events: none;
-}
-
-.signup-card__shell {
-  width: 100%;
-  max-width: 580px;
-  padding: 6px;
-  border-radius: calc(var(--radius-xl) + 6px);
-  background: rgba(217, 108, 0, 0.04);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4);
-  animation: smoothFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-  z-index: 2;
-}
-
-.signup-card {
-  background-color: var(--color-bg-secondary);
-  border-radius: var(--radius-xl);
-  padding: 2.5rem 2.25rem 2rem;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  position: relative;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.6),
-    0 1px 2px rgba(45, 35, 30, 0.04),
-    var(--shadow-lg);
-}
-
-.signup-card--success {
-  text-align: center;
-  align-items: center;
-  padding: 3rem 2.5rem;
-}
-
-.signup-card__success-icon {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  padding: 1.25rem;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-  box-shadow: 0 4px 12px rgba(14, 159, 110, 0.15);
-}
-
-.success-box {
-  background-color: var(--color-bg-primary);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  margin: 1rem 0 1.5rem;
-  width: 100%;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  line-height: 1.5;
-}
-
-.signup-card__header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  text-align: center;
-  animation: smoothFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 0.05s;
-}
-
-.signup-card__eyebrow {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-full);
-  background: var(--color-brand-lightest);
-  color: var(--color-brand-primary);
-  font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  margin-bottom: 0.25rem;
-}
-
-.signup-card__icon {
-  background: var(--color-brand-lightest);
-  padding: 0.875rem;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-brand-primary);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    0 4px 14px rgba(217, 108, 0, 0.12);
-  margin-bottom: 0.25rem;
-}
-
-.signup-card__icon img {
-  /* Sem rotação */
-}
-
-.signup-card__title {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-
-.signup-card__subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0;
-  font-weight: 400;
-}
-
-/* Indicador de Passos */
-.step-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-}
-
-.step-indicator__item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  opacity: 0.45;
-  transition: opacity 0.3s ease;
-}
-
-.step-indicator__item--active {
-  opacity: 1;
-}
-
-.step-indicator__number {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-.step-indicator__item--active .step-indicator__number {
-  background-color: var(--color-brand-primary);
-  color: #FFFFFF;
-}
-
-.step-indicator__text {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.step-indicator__line {
-  height: 1px;
-  width: 40px;
-  background-color: var(--color-border);
-}
-
-.signup-card__form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-step-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  animation: slideUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.pwd-strength-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.125rem;
-}
-
-.pwd-strength-bar {
-  flex: 1;
-  height: 4px;
-  background-color: var(--color-border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.pwd-strength-fill {
-  height: 100%;
-  width: 0;
-  border-radius: var(--radius-full);
-  transition: all 0.3s ease;
-}
-
-/* Plan Selection */
-.plans-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  text-align: left;
-}
-
-.plans-selection__label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-.plans-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
-.plan-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1rem 0.75rem;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  background-color: var(--color-bg-secondary);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.plan-card:hover {
-  border-color: var(--color-brand-soft);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.plan-card--selected {
-  border-color: var(--color-brand-primary);
-  background-color: var(--color-brand-lightest);
-  box-shadow: 0 0 0 1px var(--color-brand-primary), var(--shadow-md);
-}
-
-.plan-card__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.plan-card__name {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.plan-card__price {
-  display: flex;
-  align-items: baseline;
-  color: var(--color-brand-primary);
-}
-
-.plan-card__symbol {
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.plan-card__val {
-  font-size: var(--font-size-lg);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.plan-card__cycle {
-  font-size: 0.65rem;
-  color: var(--color-text-secondary);
-  margin-left: 0.125rem;
-}
-
-.plan-card__limit {
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--color-success);
-  background-color: var(--color-success-bg);
-  padding: 0.125rem 0.375rem;
-  border-radius: var(--radius-full);
-  display: inline-block;
-  align-self: flex-start;
-}
-
-.plan-card__desc {
-  font-size: 0.65rem;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-  margin: 0;
-}
-
-.signup-card__actions {
-  margin-top: 0.5rem;
-}
-
-.signup-card__signup {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-  margin-top: 0.5rem;
-}
-
-.signup-card__signup-text {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.signup-card__signup-btn {
-  font-size: var(--font-size-xs) !important;
-}
-
-/* Responsividade */
-@media (max-width: 540px) {
-  .signup-card__shell {
-    padding: 4px;
-  }
-  .signup-card {
-    padding: 2rem 1.25rem 1.75rem;
-  }
-  .plans-grid {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  .plan-card {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-  }
-  .plan-card__header {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .plan-card__limit {
-    align-self: center;
-  }
-  .plan-card__desc {
-    width: 100%;
-    margin-top: 0.25rem;
-  }
-}
-
-@keyframes smoothFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-`;

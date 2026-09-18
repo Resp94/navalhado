@@ -1,4 +1,61 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/*
+ * Ticket 01 (spec 039) — fundação Tailwind.
+ * Espelha os tokens de :root abaixo com os mesmos nomes semânticos,
+ * nos namespaces que o Tailwind v4 reconhece (--color-*, --radius-*, --font-*, --shadow-*),
+ * para que utilities como bg-brand-primary/rounded-md/font-base/shadow-lg
+ * produzam exatamente o que var(--color-brand-primary) etc. já produzem hoje.
+ */
+@theme {
+  --color-brand-primary: #D96C00;
+  --color-brand-hover: #9C3F00;
+  --color-brand-deep: #6A2E00;
+  --color-brand-soft: #F2B277;
+  --color-brand-lightest: #FFF1E6;
+
+  --color-bg-primary: #FFF1E6;
+  --color-bg-secondary: #FFFFFF;
+  --color-border: #EADED6;
+  --color-text-primary: #2D231E;
+  --color-text-secondary: #70625B;
+
+  --color-success: #0E9F6E;
+  --color-success-bg: #E6F4EA;
+  --color-error: #F05252;
+  --color-error-bg: #FDE8E8;
+  --color-warning: #D97706;
+  --color-warning-bg: #FEF3C7;
+  --color-info: #3F83F8;
+  --color-info-bg: #EBF5FF;
+
+  /* Variantes "-solid": mesmo tom, escurecido o suficiente pra dar 4.5:1
+     com texto branco (WCAG AA). Os tokens acima (brand-primary/success/
+     warning/error/info) NÃO passam nesse contraste — ficam ótimos como
+     texto/ícone/borda sobre fundo claro, mas falham como fundo sólido com
+     texto branco em cima (medido: brand-primary 3.45:1, error 3.49:1,
+     success 3.38:1, warning 3.19:1, info 3.61:1). Use -solid sempre que
+     for fundo cheio + texto branco (Button primary/danger, Badge solid). */
+  --color-brand-primary-solid: #B85900;
+  --color-success-solid: #0C8560;
+  --color-error-solid: #C23B3B;
+  --color-warning-solid: #A85A04;
+  --color-info-solid: #1F5FC7;
+
+  --font-base: 'Outfit', sans-serif;
+
+  --shadow-sm: 0 1px 2px rgba(45, 35, 30, 0.06);
+  --shadow-md: 0 4px 12px rgba(45, 35, 30, 0.08);
+  --shadow-lg: 0 8px 30px rgba(217, 108, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(217, 108, 0, 0.15);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}
 
 :root {
   /* Cores de Marca (Amber & Orange Core) */
@@ -25,6 +82,13 @@
   --color-info: #3F83F8;
   --color-info-bg: #EBF5FF;
 
+  /* Variantes -solid: ver comentário no bloco @theme acima */
+  --color-brand-primary-solid: #B85900;
+  --color-success-solid: #0C8560;
+  --color-error-solid: #C23B3B;
+  --color-warning-solid: #A85A04;
+  --color-info-solid: #1F5FC7;
+
   /* Tipografia */
   --font-family-base: 'Outfit', sans-serif;
   --font-size-xs: 0.75rem;    /* 12px */
@@ -49,16 +113,16 @@
   --radius-full: 9999px;
 }
 
-/* TEMA ESCURO (Classe Alternativa) */
-.dark-theme {
-  --color-bg-primary: #14110F;
-  --color-bg-secondary: #1E1B18;
-  --color-border: #332D29;
-  --color-text-primary: #FFF1E6;
-  --color-text-secondary: #9C958F;
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
+/*
+ * Fix responsividade (spec 039, pós-migração): este bloco de reset/base não
+ * estava em @layer, e por Cascade Layers uma regra sem layer sempre vence
+ * qualquer regra em @layer — inclusive as utilities do Tailwind (@import
+ * "tailwindcss" as declara em layers). Isso zerava padding/margin de toda
+ * utility Tailwind do projeto (px-*, py-*, max-md:pt-*, etc.), quebrando o
+ * layout em telas mobile como 390x844. @layer base entra ANTES de utilities
+ * na ordem do Tailwind, então utility sempre ganha do reset, como esperado.
+ */
+@layer base {
 
 /* Reset Básico */
 *,
@@ -140,6 +204,8 @@ button, input, select, textarea {
   font-family: inherit;
 }
 
+} /* fim @layer base (reset) */
+
 /* ==============================
    Keyframes Globais
    ============================== */
@@ -162,11 +228,47 @@ button, input, select, textarea {
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* Bottom-sheet mobile (usado via animate-[slideUpMobile_...] em modais que
+   viram folha inferior em telas pequenas — ver Ticket 15 da spec 039). */
+@keyframes slideUpMobile {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* Spring entry — usado no card e nos elementos internos */
 @keyframes springUp {
   0%   { transform: translateY(24px) scale(0.98); opacity: 0; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
+
+/* Ticket 03 (spec 039) — keyframes usados pelos componentes de src/components/ui/*
+   convertidos para Tailwind. Centralizados aqui para não duplicar entre
+   componentes que compartilham a mesma animação (spinner, shimmer, overlays). */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes dialogSpring {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes tooltipPop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@theme {
+  --animate-spin-fast: spin 0.75s linear infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-fade-in: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-right: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-dialog-in: dialogSpring 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-tooltip-in: tooltipPop 0.15s ease-out;
+}
+
+@layer base {
 
 /* ==============================
    Noise / Grain Overlay
@@ -353,5 +455,7 @@ button, input, select, textarea {
     font-size: 16px !important;
   }
 }
+
+} /* fim @layer base (utilitários globais) */
 
 
