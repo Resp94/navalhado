@@ -60,4 +60,36 @@ describe('EsperaRepository', () => {
     const suggested = repo.suggestRotationProfessional(profs, counts);
     expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
   });
+
+  describe('suggestRotationFromAppointments (spec 040)', () => {
+    const profs = [
+      { id: 'p1', name: 'Carlos' },
+      { id: 'p2', name: 'Diego' },
+    ];
+
+    it('conta os agendamentos do dia por profissional e sugere quem tem menos', () => {
+      const suggested = repo.suggestRotationFromAppointments(profs, [
+        { professional_id: 'p1' },
+        { professional_id: 'p1' },
+        { professional_id: 'p2' },
+      ]);
+
+      expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
+    });
+
+    it('ignora agendamentos cancelados e com falta na contagem', () => {
+      const suggested = repo.suggestRotationFromAppointments(profs, [
+        { professional_id: 'p2', status: 'canceled' },
+        { professional_id: 'p2', status: 'no_show' },
+        { professional_id: 'p1', status: 'confirmed' },
+      ]);
+
+      expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
+    });
+
+    it('mantém o primeiro da lista em caso de empate e devolve nulo sem profissionais', () => {
+      expect(repo.suggestRotationFromAppointments(profs, [])).toEqual({ id: 'p1', name: 'Carlos' });
+      expect(repo.suggestRotationFromAppointments([], [{ professional_id: 'p1' }])).toBeNull();
+    });
+  });
 });

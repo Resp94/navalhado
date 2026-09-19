@@ -102,6 +102,72 @@ describe('AgendaRepository', () => {
     });
   });
 
+  describe('criarAgendamento', () => {
+    const base = { serviceId: 'srv-1', startTimeIso: '2026-09-21T14:00:00.000Z' };
+
+    it('cria o agendamento com cliente existente e profissional', async () => {
+      const result = await repository.criarAgendamento(TENANT, {
+        ...base,
+        professionalId: 'prof-1',
+        cliente: { tipo: 'existente', id: 'cust-1' },
+      });
+
+      expect(result).toMatchObject({ status: 'confirmed', professional_id: 'prof-1', customer_id: 'cust-1' });
+      expect(adapter.get(result.appointment_id)?.status).toBe('confirmed');
+    });
+
+    it('sem profissional envia Tanto faz e devolve o profissional resolvido pelo banco', async () => {
+      const spy = vi.spyOn(adapter, 'criarAgendamento');
+
+      const result = await repository.criarAgendamento(TENANT, { ...base, cliente: { tipo: 'nenhum' } });
+
+      expect(spy).toHaveBeenCalledWith(TENANT, expect.objectContaining({ professionalId: null }));
+      expect(result.professional_id).toBeTruthy();
+    });
+
+    it('exige nome e telefone válido para cliente novo, sem chamar o adaptador', async () => {
+      const spy = vi.spyOn(adapter, 'criarAgendamento');
+
+      await expect(
+        repository.criarAgendamento(TENANT, { ...base, cliente: { tipo: 'novo', nome: '  ', telefone: '11999990000' } })
+      ).rejects.toMatchObject({ name: 'AgendaValidationError', message: 'Informe o nome do cliente.' });
+      await expect(
+        repository.criarAgendamento(TENANT, { ...base, cliente: { tipo: 'novo', nome: 'Ana', telefone: '123' } })
+      ).rejects.toMatchObject({ message: 'Telefone inválido (mínimo DDD + 8 dígitos).' });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('recusa serviço ou horário inválidos', async () => {
+      await expect(
+        repository.criarAgendamento(TENANT, { serviceId: '', startTimeIso: base.startTimeIso, cliente: { tipo: 'nenhum' } })
+      ).rejects.toBeInstanceOf(AgendaValidationError);
+      await expect(
+        repository.criarAgendamento(TENANT, { serviceId: 'srv-1', startTimeIso: 'x', cliente: { tipo: 'nenhum' } })
+      ).rejects.toMatchObject({ message: 'Informe o horário do agendamento.' });
+    });
+
+    it('repassa a entrada da Lista de Espera para ser consumida na mesma operação', async () => {
+      const spy = vi.spyOn(adapter, 'criarAgendamento');
+
+      await repository.criarAgendamento(TENANT, {
+        ...base,
+        professionalId: 'prof-1',
+        cliente: { tipo: 'nenhum' },
+        waitingListId: 'wl-1',
+      });
+
+      expect(spy).toHaveBeenCalledWith(TENANT, expect.objectContaining({ waitingListId: 'wl-1' }));
+    });
+
+    it('propaga a recusa do banco como erro de regra', async () => {
+      adapter.failCreateWith(new AgendaOperationError('O horário selecionado já está ocupado.', 'regra'));
+
+      await expect(
+        repository.criarAgendamento(TENANT, { ...base, professionalId: 'prof-1', cliente: { tipo: 'nenhum' } })
+      ).rejects.toMatchObject({ kind: 'regra', message: 'O horário selecionado já está ocupado.' });
+    });
+  });
+
   describe('listarHorariosLivres', () => {
     it('devolve os horários livres do profissional na data, excluindo o próprio agendamento', async () => {
       adapter.seedSlots(['09:00', '09:30']);
@@ -144,6 +210,7 @@ describe('AgendaRepository', () => {
         cancelar: vi.fn(),
         reagendar: vi.fn(),
         listarHorariosLivres: vi.fn(),
+        criarAgendamento: vi.fn(),
         marcarFalta: vi.fn().mockRejectedValue(new AgendaOperationError('Acesso negado.', 'acesso')),
       };
 

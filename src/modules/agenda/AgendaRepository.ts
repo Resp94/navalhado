@@ -1,7 +1,9 @@
 import type {
+  AgendaCreateResult,
   AgendaOperationErrorKind,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
   ReagendarInput,
@@ -56,6 +58,34 @@ export class AgendaRepository {
       throw new AgendaValidationError('Informe o novo horário.');
     }
     return await this.adapter.reagendar(tenantId, appointmentId, input);
+  }
+
+  /**
+   * Cria o Agendamento no banco: expediente, escala, conflito, Bloqueio de Horário, "Tanto faz",
+   * Cliente novo e entrada da Lista de Espera são resolvidos numa única transação.
+   */
+  async criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new AgendaValidationError('ID da barbearia é obrigatório.');
+    }
+    if (!input.serviceId || !input.serviceId.trim()) {
+      throw new AgendaValidationError('Selecione um serviço.');
+    }
+    if (!input.startTimeIso || Number.isNaN(Date.parse(input.startTimeIso))) {
+      throw new AgendaValidationError('Informe o horário do agendamento.');
+    }
+    if (input.cliente.tipo === 'existente' && !input.cliente.id?.trim()) {
+      throw new AgendaValidationError('Selecione ou cadastre um cliente.');
+    }
+    if (input.cliente.tipo === 'novo') {
+      if (!input.cliente.nome?.trim()) {
+        throw new AgendaValidationError('Informe o nome do cliente.');
+      }
+      if ((input.cliente.telefone || '').replace(/\D/g, '').length < 10) {
+        throw new AgendaValidationError('Telefone inválido (mínimo DDD + 8 dígitos).');
+      }
+    }
+    return await this.adapter.criarAgendamento(tenantId, { ...input, professionalId: input.professionalId ?? null });
   }
 
   /** Horários livres vindos do banco; falha na consulta é erro, nunca uma grade inventada. */

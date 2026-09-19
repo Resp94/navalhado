@@ -12,15 +12,14 @@ import {
   localDayUtcRange,
   shiftCalendarDate,
 } from '../../lib/timezone';
-import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
-import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
 import { CustomDatePicker } from '../../components/CustomDatePicker';
-import { AgendaOperationError } from '../../modules/agenda/AgendaRepository';
+import { AgendaOperationError, AgendaValidationError } from '../../modules/agenda/AgendaRepository';
 import { useAgenda } from '../../modules/agenda/useAgenda';
+import type { ClienteDoAgendamento } from '../../modules/agenda/types';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
@@ -331,12 +330,9 @@ export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
   const agendaRepo = useAgenda();
+  // Entrada da Lista de Espera que será consumida quando o encaixe for salvo (nunca antes).
+  const [pendingWaitingEntryId, setPendingWaitingEntryId] = useState<string | null>(null);
   const { addToast } = useToast();
-
-  const clienteRepository = useMemo(
-    () => new ClienteRepository(new SupabaseClienteAdapter(supabase)),
-    []
-  );
 
   const esperaRepository = useMemo(
     () => new EsperaRepository(new SupabaseEsperaAdapter(supabase)),
@@ -1242,11 +1238,7 @@ export const Agenda: React.FC = () => {
       if (available.length > 0) {
         if (finalIsFitting) {
           // Algoritmo de balanceamento de rodízio de balcão apenas entre profissionais disponíveis
-          const counts: Record<string, number> = {};
-          for (const app of appointments) {
-            counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
-          }
-          const suggested = esperaRepository.suggestRotationProfessional(available, counts);
+          const suggested = esperaRepository.suggestRotationFromAppointments(available, appointments);
           setFormProfessionalId(suggested?.id || available[0].id);
         } else {
           setFormProfessionalId(available[0].id);
@@ -1264,6 +1256,7 @@ export const Agenda: React.FC = () => {
     setSelectedCustomerId(customers.length > 0 ? customers[0].id : '');
     setNewCustomerName('');
     setNewCustomerPhone('');
+    setPendingWaitingEntryId(null);
     setIsModalOpen(true);
   };
 
@@ -1273,11 +1266,7 @@ export const Agenda: React.FC = () => {
 
     let targetProfId = entry.professional_id;
     if (!targetProfId && professionals.length > 0) {
-      const counts: Record<string, number> = {};
-      for (const app of appointments) {
-        counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
-      }
-      const suggested = esperaRepository.suggestRotationProfessional(professionals, counts);
+      const suggested = esperaRepository.suggestRotationFromAppointments(professionals, appointments);
       targetProfId = suggested?.id || professionals[0].id;
     }
 
@@ -1299,9 +1288,9 @@ export const Agenda: React.FC = () => {
     );
     setFormIsFitting(true);
     setFittingTimeMode('grid');
+    // A entrada só sai da fila quando o Agendamento for salvo (na mesma transação do banco).
+    setPendingWaitingEntryId(entry.id);
     setIsModalOpen(true);
-
-    esperaRepository.setStatus(entry.id, 'atendido').catch(console.error);
   };
 
   // Salvar Novo Agendamento / Encaixe
@@ -1318,7 +1307,7 @@ export const Agenda: React.FC = () => {
     }
 
     const selectedService = services.find((s) => s.id === formServiceId);
-    if (!selectedService) {
+    if (!selectedService || !tenant.tenantId) {
       addToast('Serviço inválido.', 'error');
       return;
     }
@@ -1326,80 +1315,33 @@ export const Agenda: React.FC = () => {
     setSavingAppointment(true);
 
     try {
-      let finalCustomerId: string | null = selectedCustomerId;
-
-      // Cadastro rápido de cliente se modo 'new'
+      let cliente: ClienteDoAgendamento;
       if (customerMode === 'new') {
-        if (!newCustomerName.trim()) {
-          addToast('Informe o nome do cliente.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        const phoneDigits = newCustomerPhone.replace(/\D/g, '');
-        if (phoneDigits.length < 10) {
-          addToast('Telefone inválido (mínimo DDD + 8 dígitos).', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        const newCust = await clienteRepository.saveCustomer(tenant.tenantId, {
-          name: newCustomerName,
-          phone: newCustomerPhone,
-          registration_origin: 'agenda',
-          cadastro_completo: true,
-        });
-
-        finalCustomerId = newCust.id;
-        setCustomers((prev) => [...prev, { id: newCust.id, name: newCust.name, phone: newCust.phone }]);
+        cliente = { tipo: 'novo', nome: newCustomerName, telefone: newCustomerPhone };
       } else if (customerMode === 'none') {
-        finalCustomerId = null;
+        cliente = { tipo: 'nenhum' };
+      } else {
+        if (!selectedCustomerId) {
+          addToast('Selecione ou cadastre um cliente.', 'warning');
+          setSavingAppointment(false);
+          return;
+        }
+        cliente = { tipo: 'existente', id: selectedCustomerId };
       }
 
-      if (!finalCustomerId && customerMode !== 'none') {
-        addToast('Selecione ou cadastre um cliente.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      // Bloqueio de agendamento em horário decorrido (permitido apenas para Encaixe de balcão)
-      const nowInstant = new Date();
-      const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
-      const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-
-      const isPastTime =
-        formDate < currentLocalDate ||
-        (formDate === currentLocalDate && formTime < currentLocalTime);
-
-      if (isPastTime && !formIsFitting) {
-        addToast('Horários já decorridos são permitidos exclusivamente como Encaixe de balcão.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      // Validação de intervalo e disponibilidade do barbeiro
-      const selectedProfessionalId = formProfessionalId === ANY_PROFESSIONAL
-        ? availableProfessionalsForFormTime[0]?.id
-        : formProfessionalId;
-      const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
-      if (!selectedProf) {
-        addToast('Selecione um profissional disponível.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
+      // Expediente, escala, intervalo, conflito, Bloqueio de Horário, horário passado, "Tanto faz" e
+      // Cliente novo são decididos no banco (AgendaRepository.criarAgendamento). Ficam aqui só as
+      // regras de grade do encaixe, que dependem de como a tela monta o horário.
+      const selectedProfessionalId = formProfessionalId === ANY_PROFESSIONAL ? null : formProfessionalId;
+      const referenceProfessional = professionals.find(
+        (p) => p.id === (selectedProfessionalId ?? availableProfessionalsForFormTime[0]?.id)
+      );
       const effectiveServiceDuration = getEffectiveServiceDuration(
         selectedService.duration_minutes,
         selectedService.id,
-        selectedProf.professional_services
+        referenceProfessional?.professional_services
       );
 
-      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-      if (!formIsFitting && !dayBh.active) {
-        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
       if (formIsFitting && !isValidFittingStartTime(
         formTime,
         fittingTimeMode,
@@ -1414,32 +1356,6 @@ export const Agenda: React.FC = () => {
         );
         setSavingAppointment(false);
         return;
-      }
-      if (!formIsFitting && (formTime < dayBh.open || formTime >= dayBh.close)) {
-        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      if (!formIsFitting) {
-        if (isProfessionalOnBreak(selectedProf, formDate, formTime, effectiveServiceDuration)) {
-          addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        if (!isProfessionalWorkingAt(
-          selectedProf,
-          formDate,
-          formTime,
-          effectiveServiceDuration,
-          tenant.businessHours
-        )) {
-          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
       }
 
       // Validação de limite de 1 encaixe por horário/profissional
@@ -1460,13 +1376,11 @@ export const Agenda: React.FC = () => {
         }
       }
 
-      // Calcular timestamps com Timezone. Encaixes usam o seam compartilhado;
-      // agendamentos normais preservam o cálculo existente nesta etapa.
+      // Início em ISO: o encaixe usa o seam compartilhado da grade; o fim é calculado no banco.
       let startIso: string;
-      let endIso: string;
       if (formIsFitting) {
         try {
-          const fittingInterval = buildFittingAppointmentInterval({
+          startIso = buildFittingAppointmentInterval({
             date: formDate,
             time: formTime,
             timeZone: tenant.timezone,
@@ -1474,9 +1388,7 @@ export const Agenda: React.FC = () => {
             mode: fittingTimeMode,
             slotIntervalMinutes,
             gridSlots: fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined,
-          });
-          startIso = fittingInterval.startIso;
-          endIso = fittingInterval.endIso;
+          }).startIso;
         } catch (error) {
           const errorCode = error instanceof Error ? error.message : '';
           addToast(
@@ -1490,37 +1402,26 @@ export const Agenda: React.FC = () => {
         }
       } else {
         startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
-        const [sh, sm] = formTime.split(':').map(Number);
-        const endTotalMinutes = sh * 60 + sm + effectiveServiceDuration;
-        const eh = Math.floor(endTotalMinutes / 60);
-        const em = endTotalMinutes % 60;
-        const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-        endIso = localDateTimeToIso(formDate, endTimeStr, tenant.timezone);
       }
 
-      const payload = {
-        tenant_id: tenant.tenantId,
-        customer_id: finalCustomerId,
-        professional_id: selectedProfessionalId,
-        service_id: formServiceId,
-        start_time: startIso,
-        end_time: endIso,
-        status: 'confirmed' as AppointmentStatus,
-        payment_status: 'pending' as PaymentStatus,
-        is_fitting: formIsFitting,
+      const created = await agendaRepo.criarAgendamento(tenant.tenantId, {
+        serviceId: formServiceId,
+        startTimeIso: startIso,
+        professionalId: selectedProfessionalId,
+        cliente,
+        isFitting: formIsFitting,
         notes: formNotes.trim() || null,
-        origin: 'manual',
-      };
+        waitingListId: pendingWaitingEntryId,
+      });
 
-      const { error: insertErr } = await supabase.from('appointments').insert(payload);
-
-      if (insertErr) {
-        if (insertErr.code === '23P01') {
-          addToast('Horário indisponível: este profissional já possui atendimento agendado neste período.', 'error');
-          return;
-        }
-        throw insertErr;
+      if (cliente.tipo === 'novo' && created.customer_id) {
+        const createdCustomerId = created.customer_id;
+        setCustomers((prev) => [
+          ...prev,
+          { id: createdCustomerId, name: newCustomerName.trim(), phone: newCustomerPhone.trim() },
+        ]);
       }
+      setPendingWaitingEntryId(null);
 
       // A Comanda e o item do serviço nascem no banco, pelo gatilho de inserção do agendamento.
 
@@ -1534,7 +1435,12 @@ export const Agenda: React.FC = () => {
     } catch (err: unknown) {
       console.error('Erro ao salvar agendamento:', err);
       const message = err instanceof Error ? err.message : 'Erro ao agendar horário.';
-      addToast(message, 'error');
+      addToast(
+        message,
+        err instanceof AgendaValidationError || (err instanceof AgendaOperationError && err.kind === 'regra')
+          ? 'warning'
+          : 'error'
+      );
     } finally {
       setSavingAppointment(false);
     }

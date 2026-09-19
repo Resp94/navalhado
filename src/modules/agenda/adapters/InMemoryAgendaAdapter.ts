@@ -1,8 +1,10 @@
 import { AgendaOperationError } from '../AgendaRepository';
 import type {
+  AgendaCreateResult,
   AgendaRescheduleResult,
   AgendaTransitionResult,
   AgendamentoStatus,
+  CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
   ReagendarInput,
@@ -24,6 +26,38 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
   private agendamentos = new Map<string, AgendamentoEmMemoria>();
   private slots: string[] = [];
   private slotsError: Error | null = null;
+  private createError: Error | null = null;
+  private nextId = 1;
+
+  failCreateWith(error: Error) {
+    this.createError = error;
+  }
+
+  async criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult> {
+    if (this.createError) throw this.createError;
+    const id = `ap-novo-${this.nextId++}`;
+    const start = new Date(input.startTimeIso);
+    const end = new Date(start.getTime() + 40 * 60_000);
+    const professionalId = input.professionalId ?? 'prof-resolvido';
+    const customerId = input.cliente.tipo === 'existente' ? input.cliente.id : input.cliente.tipo === 'novo' ? `cust-${id}` : null;
+    this.agendamentos.set(id, {
+      id,
+      tenant_id: tenantId,
+      status: 'confirmed',
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      professional_id: professionalId,
+    });
+    return {
+      appointment_id: id,
+      status: 'confirmed',
+      customer_id: customerId,
+      professional_id: professionalId,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      is_fitting: input.isFitting ?? false,
+    };
+  }
 
   seedSlots(slots: string[]) {
     this.slots = [...slots];

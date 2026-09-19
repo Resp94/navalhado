@@ -1,8 +1,10 @@
 import { supabase } from '../../../lib/supabase';
 import { AgendaOperationError } from '../AgendaRepository';
 import type {
+  AgendaCreateResult,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
   ReagendarInput,
@@ -50,6 +52,31 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
     };
   }
 
+  async criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult> {
+    const novo = input.cliente.tipo === 'novo' ? input.cliente : null;
+    const data = await this.rpc('create_appointment_by_manager', {
+      p_tenant_id: tenantId,
+      p_service_id: input.serviceId,
+      p_start_time: input.startTimeIso,
+      p_professional_id: input.professionalId ?? null,
+      p_customer_id: input.cliente.tipo === 'existente' ? input.cliente.id : null,
+      p_new_customer_name: novo ? novo.nome : null,
+      p_new_customer_phone: novo ? novo.telefone : null,
+      p_is_fitting: input.isFitting ?? false,
+      p_notes: input.notes ?? null,
+      p_waiting_list_id: input.waitingListId ?? null,
+    });
+    return {
+      appointment_id: data.appointment_id,
+      status: data.status,
+      customer_id: data.customer_id ?? null,
+      professional_id: data.professional_id,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      is_fitting: Boolean(data.is_fitting),
+    };
+  }
+
   async listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]> {
     const { data, error } = await supabase.rpc('get_available_slots', {
       p_tenant_id: tenantId,
@@ -80,7 +107,7 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
     return { appointment_id: data.appointment_id, status: data.status };
   }
 
-  private async rpc(fn: string, params: Record<string, string | null>) {
+  private async rpc(fn: string, params: Record<string, string | boolean | null>) {
     const { data, error } = await supabase.rpc(fn, params);
     if (error) throw toOperationError(error);
     if (!data) throw new AgendaOperationError('Resposta vazia ao atualizar o agendamento.');

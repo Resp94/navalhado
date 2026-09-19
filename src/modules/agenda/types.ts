@@ -18,6 +18,32 @@ export interface ReagendarInput {
   professionalId?: string | null;
 }
 
+export type ClienteDoAgendamento =
+  | { tipo: 'existente'; id: string }
+  | { tipo: 'novo'; nome: string; telefone: string }
+  | { tipo: 'nenhum' };
+
+export interface CriarAgendamentoInput {
+  serviceId: string;
+  /** Início em ISO 8601. O fim é calculado no banco pela duração do profissional. */
+  startTimeIso: string;
+  /** Omitido ou nulo é "Tanto faz": o banco resolve o profissional. */
+  professionalId?: string | null;
+  cliente: ClienteDoAgendamento;
+  isFitting?: boolean;
+  notes?: string | null;
+  /** Entrada da Lista de Espera a consumir na mesma operação. */
+  waitingListId?: string | null;
+}
+
+export interface AgendaCreateResult extends AgendaTransitionResult {
+  customer_id: string | null;
+  professional_id: string;
+  start_time: string;
+  end_time: string;
+  is_fitting: boolean;
+}
+
 export interface HorariosLivresInput {
   professionalId: string;
   serviceId: string;
@@ -46,5 +72,6 @@ export interface IAgendaAdapter {
   cancelar(tenantId: string, appointmentId: string, motivo: string): Promise<AgendaTransitionResult>;
   reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult>;
   listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]>;
+  criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult>;
   marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
 }

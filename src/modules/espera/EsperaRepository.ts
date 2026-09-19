@@ -29,6 +29,22 @@ export class EsperaRepository {
   }
 
   /**
+   * Rodízio de Balcão a partir dos agendamentos do dia: conta por profissional (ignorando
+   * cancelados e com falta) e sugere quem tem menos. Empate mantém o primeiro da lista.
+   */
+  suggestRotationFromAppointments(
+    professionals: Array<{ id: string; name: string }>,
+    appointments: Array<{ professional_id: string; status?: string }>
+  ): { id: string; name: string } | null {
+    const counts: Record<string, number> = {};
+    for (const appointment of appointments) {
+      if (appointment.status === 'canceled' || appointment.status === 'no_show') continue;
+      counts[appointment.professional_id] = (counts[appointment.professional_id] || 0) + 1;
+    }
+    return this.suggestRotationProfessional(professionals, counts);
+  }
+
+  /**
    * Sugestão de Rodízio de Balcão:
    * Retorna o profissional ativo com menor número de atendimentos no dia (para balanceamento justo de comissões).
    */

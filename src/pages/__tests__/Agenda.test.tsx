@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { Agenda } from '../gerente/Agenda';
 
-const { mockAddToast, mockNavigate, mockOutletContext, mockAppointmentInsert } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockOutletContext, mockRpc } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
-  mockAppointmentInsert: vi.fn(),
+  mockRpc: vi.fn(),
   mockOutletContext: {
     tenantId: 'tenant-123',
     tenantName: 'Barbearia Navalhado',
@@ -53,6 +53,7 @@ vi.mock('../../lib/supabase', () => ({
     from: (...args: any[]) => mockFrom(...args),
     channel: (...args: any[]) => mockChannel(...args),
     removeChannel: vi.fn(),
+    rpc: (...args: any[]) => mockRpc(...args),
   },
 }));
 
@@ -101,6 +102,25 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     vi.clearAllMocks();
     mockBlockedSlots = [];
     mockOutletContext.businessHours.domingo.active = true;
+    // A criação de agendamento é uma RPC do banco (AgendaRepository.criarAgendamento).
+    mockRpc.mockImplementation(async (fn: string, params: any) => {
+      if (fn === 'create_appointment_by_manager') {
+        return {
+          data: {
+            appointment_id: 'app-new',
+            tenant_id: params.p_tenant_id,
+            customer_id: params.p_customer_id ?? (params.p_new_customer_name ? 'cust-new' : null),
+            professional_id: params.p_professional_id ?? 'prof-1',
+            start_time: params.p_start_time,
+            end_time: params.p_start_time,
+            status: 'confirmed',
+            is_fitting: params.p_is_fitting,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'professionals') {
         const builder: any = {
@@ -161,20 +181,6 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           lt: () => builder,
           neq: () => builder,
           order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
-          insert: (payload: any) => {
-            mockAppointmentInsert(payload);
-            return {
-              select: () => ({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'app-new',
-                    ...payload,
-                  },
-                  error: null,
-                }),
-              }),
-            };
-          },
           update: () => {
             const updateBuilder: any = {
               eq: () => updateBuilder,
@@ -319,6 +325,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         'success'
       );
     });
+    // O Cliente Provisório é criado pelo banco, na mesma transação do agendamento.
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_appointment_by_manager',
+      expect.objectContaining({
+        p_customer_id: null,
+        p_new_customer_name: 'Cliente Balcão Teste',
+        p_new_customer_phone: '11977776666',
+        p_is_fitting: true,
+      })
+    );
   });
 
   it('permite realizar encaixe de balcão sem cadastro ou seleção de cliente (customerMode = none)', async () => {
@@ -487,15 +503,16 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(mockAddToast).toHaveBeenCalledWith('Encaixe agendado com sucesso!', 'success');
     });
-    expect(mockAppointmentInsert).toHaveBeenCalledWith(expect.objectContaining({
-      tenant_id: 'tenant-123',
-      professional_id: 'prof-2', // rodízio: prof-1 (Carlos) já tem 1 atendimento, prof-2 (Marcos) tem 0
-      service_id: 'serv-1',
-      start_time: '2026-08-16T21:10:00.000Z',
-      end_time: '2026-08-16T21:40:00.000Z',
-      is_fitting: true,
-      origin: 'manual',
-    }));
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_appointment_by_manager',
+      expect.objectContaining({
+        p_tenant_id: 'tenant-123',
+        p_professional_id: 'prof-2', // rodízio: prof-1 (Carlos) já tem 1 atendimento, prof-2 (Marcos) tem 0
+        p_service_id: 'serv-1',
+        p_start_time: '2026-08-16T21:10:00.000Z',
+        p_is_fitting: true,
+      })
+    );
     expect(mockAddToast).not.toHaveBeenCalledWith(
       'Horário de encaixe deve seguir a grade de 30 minutos.',
       'warning'

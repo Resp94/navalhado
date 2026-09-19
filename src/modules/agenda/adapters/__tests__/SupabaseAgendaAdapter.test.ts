@@ -85,6 +85,71 @@ describe('SupabaseAgendaAdapter', () => {
     );
   });
 
+  it('cria agendamento pela RPC create_appointment_by_manager com cliente novo e Lista de Espera', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        appointment_id: 'ap-9',
+        customer_id: 'cust-9',
+        professional_id: 'prof-2',
+        start_time: '2026-09-21T14:00:00+00:00',
+        end_time: '2026-09-21T14:30:00+00:00',
+        status: 'confirmed',
+        is_fitting: true,
+      },
+      error: null,
+    });
+
+    await expect(
+      new SupabaseAgendaAdapter().criarAgendamento('t-1', {
+        serviceId: 'srv-1',
+        startTimeIso: '2026-09-21T14:00:00.000Z',
+        professionalId: null,
+        cliente: { tipo: 'novo', nome: 'Ana', telefone: '11999990000' },
+        isFitting: true,
+        notes: '[Fila de Espera]',
+        waitingListId: 'wl-1',
+      })
+    ).resolves.toMatchObject({ appointment_id: 'ap-9', customer_id: 'cust-9', professional_id: 'prof-2' });
+
+    expect(mockRpc).toHaveBeenCalledWith('create_appointment_by_manager', {
+      p_tenant_id: 't-1',
+      p_service_id: 'srv-1',
+      p_start_time: '2026-09-21T14:00:00.000Z',
+      p_professional_id: null,
+      p_customer_id: null,
+      p_new_customer_name: 'Ana',
+      p_new_customer_phone: '11999990000',
+      p_is_fitting: true,
+      p_notes: '[Fila de Espera]',
+      p_waiting_list_id: 'wl-1',
+    });
+  });
+
+  it('cria agendamento com cliente existente sem enviar dados de cliente novo', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', customer_id: 'c-1', professional_id: 'p-1', start_time: 'x', end_time: 'y', status: 'confirmed', is_fitting: false },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().criarAgendamento('t-1', {
+      serviceId: 'srv-1',
+      startTimeIso: '2026-09-21T14:00:00.000Z',
+      professionalId: 'p-1',
+      cliente: { tipo: 'existente', id: 'c-1' },
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_appointment_by_manager',
+      expect.objectContaining({
+        p_customer_id: 'c-1',
+        p_new_customer_name: null,
+        p_new_customer_phone: null,
+        p_is_fitting: false,
+        p_waiting_list_id: null,
+      })
+    );
+  });
+
   it('lista horários livres pela RPC get_available_slots, aceitando objetos ou strings', async () => {
     mockRpc.mockResolvedValueOnce({ data: [{ slot_time: '09:00' }, { slot: '09:30' }, '10:00'], error: null });
 
