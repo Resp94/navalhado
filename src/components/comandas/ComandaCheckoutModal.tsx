@@ -407,7 +407,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             );
           }
 
-          if (existing.discount_amount) {
+          if (existing.discount_type === 'percent' && existing.discount_percent != null) {
+            setDiscountValue(existing.discount_percent);
+            setDiscountType('percent');
+          } else if (existing.discount_amount) {
             setDiscountValue(existing.discount_amount);
             setDiscountType('fixed');
           }
@@ -811,8 +814,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         customer_id: customerId ?? null,
         discount_amount: discountAmount,
         // Com percentual, o banco converte e grava o percentual original.
-        discount_percent: discountType === 'percent' ? Math.min(100, discountValue || 0) : null,
-        tip_amount: tipValue,
+        discount_percent: discountType === 'percent' && discountValue > 0 ? Math.min(100, discountValue) : null,
+        tip_amount: totals.tip,
         // Ticket 04 da spec 034: a atribuição de gorjeta é gravada no MESMO
         // fechamento, não por escrita separada antes -- o fluxo mais comum
         // (checkout de agendamento novo) só cria a linha da Comanda dentro do

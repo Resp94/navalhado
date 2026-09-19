@@ -77,6 +77,25 @@ describe('ComandaRepository', () => {
       });
     });
 
+    it('arredonda meio-centavo para cima como o Postgres, sem ruído de ponto flutuante', () => {
+      // 14,50 x 15% = 2,175 exato: o Postgres grava 2,18 (o float dá 2,1749999...).
+      const result = repository.calculateTotals(
+        [{ quantity: 1, unit_price: 14.5 }],
+        { type: 'percent', value: 15 },
+        0
+      );
+
+      expect(result.discount).toBe(2.18);
+      expect(result.total).toBe(12.32);
+    });
+
+    it('arredonda a gorjeta com 3 casas como o Postgres', () => {
+      const result = repository.calculateTotals([{ quantity: 1, unit_price: 10 }], 0, 2.135);
+
+      expect(result.tip).toBe(2.14);
+      expect(result.total).toBe(12.14);
+    });
+
     it('soma a gorjeta depois do desconto percentual', () => {
       const result = repository.calculateTotals(
         [{ quantity: 1, unit_price: 100 }],

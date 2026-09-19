@@ -452,6 +452,58 @@ describe('ComandaCheckoutModal', () => {
     });
   });
 
+  it('restaura o desconto percentual original ao carregar a comanda (spec 040)', async () => {
+    vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValueOnce({
+      id: 'com-1',
+      tenant_id: 't-1',
+      appointment_id: 'apt-1',
+      customer_id: 'cust-1',
+      status: 'aberta',
+      total_amount: 0,
+      discount_amount: 4.55,
+      discount_type: 'percent',
+      discount_percent: 15,
+      tip_amount: 0,
+      notes: null,
+      itens: [
+        {
+          id: 'item-1',
+          comanda_id: 'com-1',
+          tenant_id: 't-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          name: 'Corte Degradê',
+          quantity: 1,
+          unit_price: 30.3,
+          total_price: 30.3,
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    expect(screen.getByLabelText('Valor do desconto')).toHaveValue(15);
+    expect(screen.getByRole('tab', { name: '%' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('bloqueia finalizar com gorjeta e mais de um profissional sem escolher o destinatário (spec 040)', async () => {
     render(
       <ComandaCheckoutModal

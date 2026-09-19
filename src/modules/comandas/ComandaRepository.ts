@@ -7,8 +7,16 @@ import type {
   LiquidarComandaInput,
 } from './types';
 
-// Arredonda a centavo como o round(numeric, 2) do Postgres (meio para cima).
-const roundCents = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+// Arredonda a centavo como o round(numeric, 2) do Postgres (meio longe de zero).
+// O ruído de ponto flutuante (14.5 * 15 / 100 = 2.1749999...) é limpo com 12
+// dígitos significativos antes de arredondar; "e2" desloca a vírgula sem nova
+// multiplicação em float.
+const roundCents = (value: number) => {
+  const abs = Math.abs(value);
+  const clean = abs.toPrecision(12);
+  const cents = clean.includes('e') ? Math.round(abs * 100) : Math.round(Number(`${clean}e2`));
+  return (value < 0 ? -cents : cents) / 100;
+};
 
 export class ComandaValidationError extends Error {
   constructor(message: string) {
