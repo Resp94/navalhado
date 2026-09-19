@@ -15,3 +15,5 @@
 - [x] `npm run lint`, `npm test` e `npm run build` passam
 
 **Nota da implementação:** a RPC `cancel_appointment_by_manager`, o método `AgendaRepository.cancelar` e o handler de cancelamento da Agenda Geral estão prontos e testados, mas o modal "Cancelar Agendamento" da Agenda Geral hoje não é aberto por nenhuma tela (`MobileAgendaView` recebe `onOpenCancel` como `_onOpenCancel`, sem uso). O cancelamento que o gestor usa de fato é o botão "Cancelar atendimento" do modal de comanda, que chama `cancel_comanda_appointment` (sem motivo e sem guarda de estado do Agendamento). Migrar esse caminho para `AgendaRepository.cancelar` exige decidir a UX do motivo e fica no ticket 12.
+
+**Atualização:** o botão "Cancelar atendimento" do modal de comanda agora cancela pelo `AgendaRepository.cancelar` e pede o motivo (obrigatório) quando há agendamento. Comanda de balcão, sem agendamento, segue pela RPC `cancel_comanda_appointment`, que ficará com o repositório de Comandas no restante do ticket 12. O handler e o modal "Cancelar Agendamento" da Agenda Geral continuam sem ponto de entrada na tela.

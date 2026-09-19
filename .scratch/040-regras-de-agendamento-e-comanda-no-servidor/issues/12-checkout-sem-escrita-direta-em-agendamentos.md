@@ -15,4 +15,4 @@
 
 **Adição vinda do ticket 05:** o botão "Cancelar atendimento" do modal de comanda passa a cancelar pelo `AgendaRepository.cancelar` (RPC `cancel_appointment_by_manager`, com guarda de estado e motivo obrigatório), no lugar de `cancel_comanda_appointment`. Decidir onde o modal pede o motivo.
 
-- [ ] "Cancelar atendimento" do modal de comanda usa `AgendaRepository.cancelar` e pede o motivo
+- [x] "Cancelar atendimento" do modal de comanda usa `AgendaRepository.cancelar` e pede o motivo

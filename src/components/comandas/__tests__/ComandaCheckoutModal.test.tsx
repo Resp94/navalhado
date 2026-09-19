@@ -4,6 +4,8 @@ import { ComandaCheckoutModal } from '../ComandaCheckoutModal';
 import { ComandaRepository } from '../../../modules/comandas/ComandaRepository';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
 import { ProdutoRepository } from '../../../modules/produtos/ProdutoRepository';
+import { AgendaRepository } from '../../../modules/agenda/AgendaRepository';
+import { InMemoryAgendaAdapter } from '../../../modules/agenda/adapters/InMemoryAgendaAdapter';
 import type { IComandaAdapter } from '../../../modules/comandas/types';
 import type { ICaixaAdapter } from '../../../modules/caixa/types';
 import type { IProdutoAdapter } from '../../../modules/produtos/types';
@@ -502,6 +504,81 @@ describe('ComandaCheckoutModal', () => {
     expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
     expect(screen.getByLabelText('Valor do desconto')).toHaveValue(15);
     expect(screen.getByRole('tab', { name: '%' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('cancela o atendimento pelo AgendaRepository exigindo o motivo (spec 040)', async () => {
+    const agendaAdapter = new InMemoryAgendaAdapter();
+    agendaAdapter.seed({ id: 'apt-1', tenant_id: 't-1', status: 'confirmed', start_time: '2026-09-19T15:00:00Z' });
+    const cancelarSpy = vi.spyOn(agendaAdapter, 'cancelar');
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 35.0, professional_id: 'prof-1' },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+        agendaRepo={new AgendaRepository(agendaAdapter)}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar atendimento' }));
+
+    const confirmar = await screen.findByRole('button', { name: 'Confirmar cancelamento' });
+    expect(confirmar).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Motivo do cancelamento'), { target: { value: 'Cliente desistiu' } });
+    expect(confirmar).not.toBeDisabled();
+    fireEvent.click(confirmar);
+
+    await waitFor(() => expect(cancelarSpy).toHaveBeenCalledWith('t-1', 'apt-1', 'Cliente desistiu'));
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalled());
+    expect(mockSupabaseRpc).not.toHaveBeenCalledWith('cancel_comanda_appointment', expect.anything());
+  });
+
+  it('mostra o erro do banco quando o cancelamento é recusado (spec 040)', async () => {
+    const agendaAdapter = new InMemoryAgendaAdapter();
+    agendaAdapter.seed({ id: 'apt-1', tenant_id: 't-1', status: 'completed', start_time: '2026-09-19T15:00:00Z' });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 35.0, professional_id: 'prof-1' },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+        agendaRepo={new AgendaRepository(agendaAdapter)}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar atendimento' }));
+    fireEvent.change(await screen.findByLabelText('Motivo do cancelamento'), { target: { value: 'Motivo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelamento' }));
+
+    expect(
+      await screen.findByText('Somente atendimentos pendentes, confirmados ou em andamento podem ser cancelados.')
+    ).toBeInTheDocument();
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('mostra no resumo a gorjeta arredondada a centavo, igual à enviada (spec 040)', async () => {

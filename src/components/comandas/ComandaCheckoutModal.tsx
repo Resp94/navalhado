@@ -21,6 +21,8 @@ import {
 } from '@hugeicons/core-free-icons';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
 import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
+import { AgendaRepository } from '../../modules/agenda/AgendaRepository';
+import { SupabaseAgendaAdapter } from '../../modules/agenda/adapters/SupabaseAgendaAdapter';
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
@@ -77,6 +79,7 @@ interface ComandaCheckoutModalProps {
   comandaRepo?: ComandaRepository;
   caixaRepo?: CaixaRepository;
   produtoRepo?: ProdutoRepository;
+  agendaRepo?: AgendaRepository;
 }
 
 interface ItemLocal {
@@ -145,10 +148,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   comandaRepo,
   caixaRepo,
   produtoRepo,
+  agendaRepo,
 }) => {
   const comRepo = useMemo(() => comandaRepo || new ComandaRepository(new SupabaseComandaAdapter()), [comandaRepo]);
   const cxaRepo = useMemo(() => caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter()), [caixaRepo]);
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
+  const agenRepo = useMemo(() => agendaRepo || new AgendaRepository(new SupabaseAgendaAdapter()), [agendaRepo]);
 
   const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
   const checkoutOperationIdRef = useRef<string | null>(null);
@@ -182,6 +187,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [noShowConfirmOpen, setNoShowConfirmOpen] = useState(false);
   const [isMarkingNoShow, setIsMarkingNoShow] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -364,6 +370,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setIsSplitting(false);
     setReopenConfirmOpen(false);
     setCancelConfirmOpen(false);
+    setCancelReason('');
     setErrorMsg(null);
     setIsAddingService(false);
     setIsAddingProduct(false);
@@ -846,6 +853,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   };
 
+  const hasAppointmentToCancel = !!(appointmentId || loadedComanda?.appointment_id);
+
   const handleCancelComandaEAgendamento = async () => {
     setIsCanceling(true);
     setErrorMsg(null);
@@ -853,12 +862,18 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
       const targetComandaId = comandaId || loadedComanda?.id;
 
-      const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
-        p_comanda_id: targetComandaId || null,
-        p_appointment_id: targetAppointmentId || null,
-        p_tenant_id: tenantId,
-      });
-      if (cancelError) throw cancelError;
+      if (targetAppointmentId) {
+        // A Comanda aberta do agendamento é cancelada pelo gatilho do banco, na mesma transação.
+        await agenRepo.cancelar(tenantId, targetAppointmentId, cancelReason);
+      } else {
+        // Comanda de balcão, sem agendamento: continua pela RPC de cancelamento de comanda.
+        const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
+          p_comanda_id: targetComandaId || null,
+          p_appointment_id: null,
+          p_tenant_id: tenantId,
+        });
+        if (cancelError) throw cancelError;
+      }
 
       if (onFinalizado && loadedComanda) {
         onFinalizado({ ...loadedComanda, status: 'cancelada' });
@@ -1178,6 +1193,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     </p>
                   </div>
                 </div>
+                {hasAppointmentToCancel && (
+                  <input
+                    type="text"
+                    aria-label="Motivo do cancelamento"
+                    placeholder="Motivo do cancelamento (obrigatório)"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    disabled={isCanceling}
+                    className="w-full px-[0.85rem] py-[0.55rem] text-sm text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none border-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
+                  />
+                )}
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1188,7 +1214,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={isCanceling}
+                    disabled={isCanceling || (hasAppointmentToCancel && !cancelReason.trim())}
                     onClick={handleCancelComandaEAgendamento}
                     className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error-solid text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
