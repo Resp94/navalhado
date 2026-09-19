@@ -1512,11 +1512,7 @@ export const Agenda: React.FC = () => {
         origin: 'manual',
       };
 
-      const { data: insertedApp, error: insertErr } = await supabase
-        .from('appointments')
-        .insert(payload)
-        .select()
-        .single();
+      const { error: insertErr } = await supabase.from('appointments').insert(payload);
 
       if (insertErr) {
         if (insertErr.code === '23P01') {
@@ -1526,48 +1522,7 @@ export const Agenda: React.FC = () => {
         throw insertErr;
       }
 
-      // Garantir abertura automática de comanda vinculada ao agendamento / encaixe
-      if (insertedApp && tenant.tenantId) {
-        try {
-          const { data: existingCmd } = await supabase
-            .from('comandas')
-            .select('id')
-            .eq('appointment_id', insertedApp.id)
-            .maybeSingle();
-
-          if (!existingCmd) {
-            const srvPrice = Number(selectedService.price || 0);
-            const { data: newCmd, error: cmdErr } = await supabase
-              .from('comandas')
-              .insert({
-                tenant_id: tenant.tenantId,
-                appointment_id: insertedApp.id,
-                customer_id: finalCustomerId || null,
-                status: 'aberta',
-                total_amount: srvPrice,
-                discount_amount: 0,
-                tip_amount: 0,
-              })
-              .select()
-              .single();
-
-            if (!cmdErr && newCmd && formServiceId) {
-              await supabase.from('comanda_itens').insert({
-                comanda_id: newCmd.id,
-                tenant_id: tenant.tenantId,
-                item_type: 'servico',
-                service_id: formServiceId,
-                professional_id: selectedProfessionalId || null,
-                quantity: 1,
-                unit_price: srvPrice,
-                total_price: srvPrice,
-              });
-            }
-          }
-        } catch (comandaErr) {
-          console.error('Erro ao garantir comanda imediata ao salvar agendamento:', comandaErr);
-        }
-      }
+      // A Comanda e o item do serviço nascem no banco, pelo gatilho de inserção do agendamento.
 
       addToast(
         formIsFitting ? 'Encaixe agendado com sucesso!' : 'Agendamento criado com sucesso!',
@@ -1591,46 +1546,7 @@ export const Agenda: React.FC = () => {
     try {
       await agendaRepo.iniciarAtendimento(tenant.tenantId, app.id);
 
-      // Garantir abertura automática de comanda vinculada ao agendamento
-      try {
-        const { data: existingComanda } = await supabase
-          .from('comandas')
-          .select('id')
-          .eq('appointment_id', app.id)
-          .maybeSingle();
-
-        if (!existingComanda && tenant.tenantId) {
-          const servicePrice = Number(app.service?.price || 0);
-          const { data: newComanda, error: cmdError } = await supabase
-            .from('comandas')
-            .insert({
-              tenant_id: tenant.tenantId,
-              appointment_id: app.id,
-              customer_id: app.customer?.id || null,
-              status: 'aberta',
-              total_amount: servicePrice,
-              discount_amount: 0,
-              tip_amount: 0,
-            })
-            .select()
-            .single();
-
-          if (!cmdError && newComanda && app.service?.id) {
-            await supabase.from('comanda_itens').insert({
-              comanda_id: newComanda.id,
-              tenant_id: tenant.tenantId,
-              item_type: 'servico',
-              service_id: app.service.id,
-              professional_id: app.professional_id || null,
-              quantity: 1,
-              unit_price: servicePrice,
-              total_price: servicePrice,
-            });
-          }
-        }
-      } catch (comandaErr) {
-        console.error('Erro ao abrir comanda automática para agendamento:', comandaErr);
-      }
+      // A Comanda do agendamento já existe: nasce no banco, junto com o agendamento.
 
       addToast(`Atendimento de ${app.customer?.name || 'Cliente Balcão'} iniciado.`, 'success');
       fetchAppointments();
