@@ -128,5 +128,6 @@ export interface IComandaAdapter {
   adicionarItem(comandaId: string, tenantId: string, item: Omit<ComandaItem, 'id' | 'comanda_id' | 'tenant_id'>): Promise<ComandaItem>;
   removerItem(itemId: string, comandaId: string): Promise<void>;
   liquidarComanda(input: LiquidarComandaInput): Promise<Comanda>;
+  cancelarComanda(comandaId: string, tenantId: string): Promise<void>;
   reabrirComanda(comandaId: string, tenantId: string): Promise<Comanda>;
 }

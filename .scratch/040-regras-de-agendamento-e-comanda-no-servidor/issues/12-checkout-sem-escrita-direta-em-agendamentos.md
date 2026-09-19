@@ -4,15 +4,17 @@
 
 **Blocked by:** 11 (Reagendar por RPC na Agenda Geral), 03 (Totais únicos e desconto percentual registrado)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Reagendamento do modal usa o AgendaRepository
-- [ ] Grade fixa de fallback removida; falha na busca de horários mostra erro
-- [ ] Cancelamento de Comanda com Agendamento exposto pelo repositório de Comandas e usado pelo modal
-- [ ] Nenhuma chamada direta ao Supabase no modal de fechamento
-- [ ] Vitest do novo método do repositório de Comandas
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] Reagendamento do modal usa o AgendaRepository
+- [x] Grade fixa de fallback removida; falha na busca de horários mostra erro
+- [x] Cancelamento de Comanda com Agendamento exposto pelo repositório de Comandas e usado pelo modal
+- [x] Nenhuma chamada direta ao Supabase no modal de fechamento
+- [x] Vitest do novo método do repositório de Comandas
+- [x] `npm run lint`, `npm test` e `npm run build` passam
 
 **Adição vinda do ticket 05:** o botão "Cancelar atendimento" do modal de comanda passa a cancelar pelo `AgendaRepository.cancelar` (RPC `cancel_appointment_by_manager`, com guarda de estado e motivo obrigatório), no lugar de `cancel_comanda_appointment`. Decidir onde o modal pede o motivo.
 
 - [x] "Cancelar atendimento" do modal de comanda usa `AgendaRepository.cancelar` e pede o motivo
+
+**Nota da implementação:** o modal de comanda não importa mais o cliente Supabase. A busca de horários livres é `AgendaRepository.listarHorariosLivres` (RPC `get_available_slots`); falha vira mensagem de erro e a grade fixa de 08:00 a 19:30 saiu. O reagendamento é `AgendaRepository.reagendar`. O cancelamento com agendamento é `AgendaRepository.cancelar`, e o de Comanda de balcão, sem agendamento, é `ComandaRepository.cancelComanda`. A prop `appointmentDurationMinutes` saiu do modal, porque o fim agora é calculado no banco.

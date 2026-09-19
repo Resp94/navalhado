@@ -18,6 +18,15 @@ export interface ReagendarInput {
   professionalId?: string | null;
 }
 
+export interface HorariosLivresInput {
+  professionalId: string;
+  serviceId: string;
+  /** Data local no formato AAAA-MM-DD. */
+  date: string;
+  /** Agendamento a ignorar na busca (o que está sendo reagendado). */
+  excludeAppointmentId?: string | null;
+}
+
 export interface AgendaRescheduleResult extends AgendaTransitionResult {
   start_time: string;
   end_time: string;
@@ -36,5 +45,6 @@ export interface IAgendaAdapter {
   iniciarAtendimento(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
   cancelar(tenantId: string, appointmentId: string, motivo: string): Promise<AgendaTransitionResult>;
   reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult>;
+  listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]>;
   marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
 }

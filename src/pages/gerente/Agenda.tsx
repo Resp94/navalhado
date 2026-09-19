@@ -3059,9 +3059,6 @@ export const Agenda: React.FC = () => {
           availableServices={services}
           availableProfessionals={professionals}
           timezone={tenant.timezone}
-          appointmentDurationMinutes={
-            services.find((s) => s.id === checkoutAppointment.service?.id)?.duration_minutes || 30
-          }
           onClose={() => {
             setIsCheckoutModalOpen(false);
             setCheckoutAppointment(null);

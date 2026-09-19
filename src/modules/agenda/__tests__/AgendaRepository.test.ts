@@ -102,6 +102,37 @@ describe('AgendaRepository', () => {
     });
   });
 
+  describe('listarHorariosLivres', () => {
+    it('devolve os horários livres do profissional na data, excluindo o próprio agendamento', async () => {
+      adapter.seedSlots(['09:00', '09:30']);
+      const spy = vi.spyOn(adapter, 'listarHorariosLivres');
+
+      await expect(
+        repository.listarHorariosLivres(TENANT, {
+          professionalId: 'prof-1',
+          serviceId: 'srv-1',
+          date: '2026-09-21',
+          excludeAppointmentId: 'ap-conf',
+        })
+      ).resolves.toEqual(['09:00', '09:30']);
+      expect(spy).toHaveBeenCalledWith(TENANT, expect.objectContaining({ excludeAppointmentId: 'ap-conf' }));
+    });
+
+    it('exige profissional, serviço e data', async () => {
+      await expect(
+        repository.listarHorariosLivres(TENANT, { professionalId: '', serviceId: 'srv-1', date: '2026-09-21' })
+      ).rejects.toBeInstanceOf(AgendaValidationError);
+    });
+
+    it('propaga a falha da consulta em vez de inventar horários', async () => {
+      adapter.failSlotsWith(new AgendaOperationError('Falha ao buscar horários.', 'desconhecido'));
+
+      await expect(
+        repository.listarHorariosLivres(TENANT, { professionalId: 'prof-1', serviceId: 'srv-1', date: '2026-09-21' })
+      ).rejects.toMatchObject({ message: 'Falha ao buscar horários.' });
+    });
+  });
+
   describe('marcarFalta', () => {
     it('marca falta em agendamento que já começou', async () => {
       await expect(repository.marcarFalta(TENANT, 'ap-pend')).resolves.toMatchObject({ status: 'no_show' });
@@ -112,6 +143,7 @@ describe('AgendaRepository', () => {
         iniciarAtendimento: vi.fn(),
         cancelar: vi.fn(),
         reagendar: vi.fn(),
+        listarHorariosLivres: vi.fn(),
         marcarFalta: vi.fn().mockRejectedValue(new AgendaOperationError('Acesso negado.', 'acesso')),
       };
 

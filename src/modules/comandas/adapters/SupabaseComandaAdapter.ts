@@ -238,6 +238,18 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
     return data as Comanda;
   }
 
+  async cancelarComanda(comandaId: string, tenantId: string): Promise<void> {
+    const { error } = await supabase.rpc('cancel_comanda_appointment', {
+      p_comanda_id: comandaId,
+      p_appointment_id: null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao cancelar comanda.');
+    }
+  }
+
   async reabrirComanda(comandaId: string, tenantId: string): Promise<Comanda> {
     const { data, error } = await supabase.rpc('reopen_comanda', {
       p_comanda_id: comandaId,

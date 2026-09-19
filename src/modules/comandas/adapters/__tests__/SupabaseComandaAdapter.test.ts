@@ -137,6 +137,27 @@ describe('SupabaseComandaAdapter', () => {
     );
   });
 
+  it('cancela comanda de balcão pela RPC cancel_comanda_appointment, sem agendamento', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValueOnce({ data: { status: 'canceled' }, error: null });
+
+    await new SupabaseComandaAdapter().cancelarComanda('comanda-1', 'tenant-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('cancel_comanda_appointment', {
+      p_comanda_id: 'comanda-1',
+      p_appointment_id: null,
+      p_tenant_id: 'tenant-1',
+    });
+  });
+
+  it('falha ao cancelar comanda quando a RPC recusa', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'A comanda nao existe ou nao esta aberta.' } });
+
+    await expect(new SupabaseComandaAdapter().cancelarComanda('comanda-1', 'tenant-1')).rejects.toThrow(
+      'A comanda nao existe ou nao esta aberta.'
+    );
+  });
+
   it('reabre comanda por uma única RPC transacional', async () => {
     mockRpc.mockClear();
     mockRpc.mockResolvedValueOnce({

@@ -182,6 +182,17 @@ export class ComandaRepository {
     return await this.adapter.liquidarComanda(input);
   }
 
+  /** Cancela uma Comanda de balcão (sem agendamento); com agendamento, o cancelamento é do AgendaRepository. */
+  async cancelComanda(comandaId: string, tenantId: string): Promise<void> {
+    if (!comandaId || !comandaId.trim()) {
+      throw new ComandaValidationError('ID da comanda é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new ComandaValidationError('ID da barbearia é obrigatório.');
+    }
+    await this.adapter.cancelarComanda(comandaId, tenantId);
+  }
+
   async reopenComanda(comandaId: string, tenantId: string): Promise<Comanda> {
     if (!comandaId || !comandaId.trim()) {
       throw new ComandaValidationError('ID da comanda é obrigatório.');

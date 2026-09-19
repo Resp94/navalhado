@@ -13,6 +13,7 @@ describe('ComandaRepository', () => {
     removerItem: vi.fn(),
     liquidarComanda: vi.fn(),
     reabrirComanda: vi.fn(),
+    cancelarComanda: vi.fn(),
   };
 
   const repository = new ComandaRepository(mockAdapter);
@@ -128,6 +129,19 @@ describe('ComandaRepository', () => {
         total: 0,
       });
     });
+  });
+
+  it('cancela uma comanda de balcão pelo adaptador', async () => {
+    vi.mocked(mockAdapter.cancelarComanda).mockResolvedValueOnce(undefined);
+
+    await repository.cancelComanda('cmd-1', 't-1');
+
+    expect(mockAdapter.cancelarComanda).toHaveBeenCalledWith('cmd-1', 't-1');
+  });
+
+  it('exige ids ao cancelar uma comanda', async () => {
+    await expect(repository.cancelComanda('', 't-1')).rejects.toBeInstanceOf(ComandaValidationError);
+    await expect(repository.cancelComanda('cmd-1', ' ')).rejects.toBeInstanceOf(ComandaValidationError);
   });
 
   it('calcula troco em dinheiro com precisão', () => {

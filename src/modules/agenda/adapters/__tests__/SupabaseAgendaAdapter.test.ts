@@ -85,6 +85,39 @@ describe('SupabaseAgendaAdapter', () => {
     );
   });
 
+  it('lista horários livres pela RPC get_available_slots, aceitando objetos ou strings', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [{ slot_time: '09:00' }, { slot: '09:30' }, '10:00'], error: null });
+
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', {
+        professionalId: 'prof-1',
+        serviceId: 'srv-1',
+        date: '2026-09-21',
+        excludeAppointmentId: 'ap-1',
+      })
+    ).resolves.toEqual(['09:00', '09:30', '10:00']);
+
+    expect(mockRpc).toHaveBeenCalledWith('get_available_slots', {
+      p_tenant_id: 't-1',
+      p_professional_id: 'prof-1',
+      p_service_id: 'srv-1',
+      p_date: '2026-09-21',
+      p_exclude_appointment_id: 'ap-1',
+    });
+  });
+
+  it('devolve lista vazia quando não há horário livre e lança erro quando a consulta falha', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', { professionalId: 'p', serviceId: 's', date: '2026-09-21' })
+    ).resolves.toEqual([]);
+
+    mockRpc.mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'boom' } });
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', { professionalId: 'p', serviceId: 's', date: '2026-09-21' })
+    ).rejects.toMatchObject({ name: 'AgendaOperationError', message: 'boom' });
+  });
+
   it('marca falta pela RPC mark_appointment_no_show', async () => {
     mockRpc.mockResolvedValueOnce({
       data: { appointment_id: 'ap-1', tenant_id: 't-1', status: 'no_show' },

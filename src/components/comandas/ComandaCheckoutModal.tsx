@@ -28,7 +28,6 @@ import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixa
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
-import { supabase } from '../../lib/supabase';
 import { localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import { GorjetaValorInput } from './GorjetaValorInput';
@@ -71,7 +70,6 @@ interface ComandaCheckoutModalProps {
   availableServices?: ServiceOption[];
   availableProfessionals?: ProfessionalOption[];
   timezone?: string;
-  appointmentDurationMinutes?: number;
   onClose: () => void;
   onFinalizado: (comanda: Comanda) => void;
   onRescheduled?: (newStartTime: string, newProfessionalId?: string | null) => void;
@@ -140,7 +138,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   availableServices = [],
   availableProfessionals = [],
   timezone = 'America/Sao_Paulo',
-  appointmentDurationMinutes = 30,
   onClose,
   onFinalizado,
   onRescheduled,
@@ -215,36 +212,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     const fetchSlots = async () => {
       setLoadingRescheduleSlots(true);
       try {
-        if (firstServiceId && typeof (supabase as any)?.rpc === 'function') {
-          const { data, error } = await supabase.rpc('get_available_slots', {
-            p_tenant_id: tenantId,
-            p_professional_id: rescheduleProfessionalId,
-            p_service_id: firstServiceId,
-            p_date: rescheduleDate,
-            p_exclude_appointment_id: appointmentId || null,
-          });
-          if (!error && Array.isArray(data) && data.length > 0) {
-            const slots = data.map((d) => (typeof d === 'object' && d !== null ? d.slot_time || d.slot : String(d)));
-            if (isMounted) setComandaRescheduleSlots(slots);
-            return;
-          }
+        if (!firstServiceId) {
+          if (isMounted) setComandaRescheduleSlots([]);
+          return;
         }
-        if (isMounted) {
-          setComandaRescheduleSlots([
-            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
-            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-            '18:00', '18:30', '19:00', '19:30'
-          ]);
-        }
+        // Só o que o banco devolve: falha na busca é erro visível, nunca uma grade inventada.
+        const slots = await agenRepo.listarHorariosLivres(tenantId, {
+          professionalId: rescheduleProfessionalId,
+          serviceId: firstServiceId,
+          date: rescheduleDate,
+          excludeAppointmentId: appointmentId || null,
+        });
+        if (isMounted) setComandaRescheduleSlots(slots);
       } catch (err) {
         if (isMounted) {
-          setComandaRescheduleSlots([
-            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
-            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-            '18:00', '18:30', '19:00', '19:30'
-          ]);
+          setComandaRescheduleSlots([]);
+          setErrorMsg(err instanceof Error ? err.message : 'Não foi possível carregar os horários livres.');
         }
       } finally {
         if (isMounted) {
@@ -258,7 +241,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isRescheduleModalOpen, rescheduleDate, rescheduleProfessionalId, tenantId, appointmentId, firstServiceId]);
+  }, [isRescheduleModalOpen, rescheduleDate, rescheduleProfessionalId, tenantId, appointmentId, firstServiceId, agenRepo]);
 
   const inFlightAdditionsRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
 
@@ -272,25 +255,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setErrorMsg(null);
     try {
       const startTimeIso = localDateTimeToIso(rescheduleDate, rescheduleTime, timezone);
-      const durationMs = Math.max(15, appointmentDurationMinutes) * 60 * 1000;
-      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMs).toISOString();
 
-      const updatePayload: Record<string, unknown> = {
-        start_time: startTimeIso,
-        end_time: endTimeIso,
-        updated_at: new Date().toISOString(),
-      };
-      if (rescheduleProfessionalId) {
-        updatePayload.professional_id = rescheduleProfessionalId;
-      }
-
-      const { error: updErr } = await supabase
-        .from('appointments')
-        .update(updatePayload)
-        .eq('id', appointmentId)
-        .eq('tenant_id', tenantId);
-
-      if (updErr) throw updErr;
+      // O fim vem da duração do profissional, calculada no banco, que também confere
+      // conflito, Bloqueio de Horário, expediente e escala.
+      await agenRepo.reagendar(tenantId, appointmentId, {
+        startTimeIso,
+        professionalId: rescheduleProfessionalId || null,
+      });
 
       setCurrentStartTime(startTimeIso);
       setIsRescheduleModalOpen(false);
@@ -866,13 +837,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         // A Comanda aberta do agendamento é cancelada pelo gatilho do banco, na mesma transação.
         await agenRepo.cancelar(tenantId, targetAppointmentId, cancelReason);
       } else {
-        // Comanda de balcão, sem agendamento: continua pela RPC de cancelamento de comanda.
-        const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
-          p_comanda_id: targetComandaId || null,
-          p_appointment_id: null,
-          p_tenant_id: tenantId,
-        });
-        if (cancelError) throw cancelError;
+        // Comanda de balcão, sem agendamento: cancelamento de Comanda pelo ComandaRepository.
+        if (!targetComandaId) throw new Error('Comanda não encontrada para cancelar.');
+        await comRepo.cancelComanda(targetComandaId, tenantId);
       }
 
       if (onFinalizado && loadedComanda) {

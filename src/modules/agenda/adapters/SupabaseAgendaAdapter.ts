@@ -1,6 +1,12 @@
 import { supabase } from '../../../lib/supabase';
 import { AgendaOperationError } from '../AgendaRepository';
-import type { AgendaRescheduleResult, AgendaTransitionResult, IAgendaAdapter, ReagendarInput } from '../types';
+import type {
+  AgendaRescheduleResult,
+  AgendaTransitionResult,
+  HorariosLivresInput,
+  IAgendaAdapter,
+  ReagendarInput,
+} from '../types';
 
 type RpcError = { code?: string; message?: string };
 
@@ -42,6 +48,24 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       end_time: data.end_time,
       professional_id: data.professional_id,
     };
+  }
+
+  async listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]> {
+    const { data, error } = await supabase.rpc('get_available_slots', {
+      p_tenant_id: tenantId,
+      p_professional_id: input.professionalId,
+      p_service_id: input.serviceId,
+      p_date: input.date,
+      p_exclude_appointment_id: input.excludeAppointmentId ?? null,
+    });
+    if (error) throw toOperationError(error);
+    return ((data as unknown[]) || []).map((slot) => {
+      if (typeof slot === 'object' && slot !== null) {
+        const row = slot as { slot_time?: string; slot?: string };
+        return String(row.slot_time ?? row.slot ?? '');
+      }
+      return String(slot);
+    });
   }
 
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {

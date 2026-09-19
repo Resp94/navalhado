@@ -3,6 +3,7 @@ import type {
   AgendaRescheduleResult,
   AgendaTransitionResult,
   AgendamentoStatus,
+  HorariosLivresInput,
   IAgendaAdapter,
   ReagendarInput,
 } from '../types';
@@ -21,6 +22,21 @@ interface AgendamentoEmMemoria {
 /** Fake usado em testes: aplica a mesma tabela de transições que as RPCs do banco. */
 export class InMemoryAgendaAdapter implements IAgendaAdapter {
   private agendamentos = new Map<string, AgendamentoEmMemoria>();
+  private slots: string[] = [];
+  private slotsError: Error | null = null;
+
+  seedSlots(slots: string[]) {
+    this.slots = [...slots];
+  }
+
+  failSlotsWith(error: Error) {
+    this.slotsError = error;
+  }
+
+  async listarHorariosLivres(_tenantId: string, _input: HorariosLivresInput): Promise<string[]> {
+    if (this.slotsError) throw this.slotsError;
+    return [...this.slots];
+  }
 
   seed(agendamento: AgendamentoEmMemoria) {
     this.agendamentos.set(agendamento.id, { ...agendamento });

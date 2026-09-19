@@ -4,7 +4,7 @@ import { ComandaCheckoutModal } from '../ComandaCheckoutModal';
 import { ComandaRepository } from '../../../modules/comandas/ComandaRepository';
 import { CaixaRepository } from '../../../modules/caixa/CaixaRepository';
 import { ProdutoRepository } from '../../../modules/produtos/ProdutoRepository';
-import { AgendaRepository } from '../../../modules/agenda/AgendaRepository';
+import { AgendaOperationError, AgendaRepository } from '../../../modules/agenda/AgendaRepository';
 import { InMemoryAgendaAdapter } from '../../../modules/agenda/adapters/InMemoryAgendaAdapter';
 import type { IComandaAdapter } from '../../../modules/comandas/types';
 import type { ICaixaAdapter } from '../../../modules/caixa/types';
@@ -50,6 +50,7 @@ describe('ComandaCheckoutModal', () => {
     removerItem: vi.fn(),
     liquidarComanda: vi.fn(),
     reabrirComanda: vi.fn(),
+    cancelarComanda: vi.fn(),
   };
 
   const mockCaixaAdapter: ICaixaAdapter = {
@@ -87,6 +88,9 @@ describe('ComandaCheckoutModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Testes que atribuem estes mocks direto não podem vazar para os seguintes.
+    mockComandaAdapter.obterPorAppointmentId = vi.fn();
+    mockComandaAdapter.obterPorId = vi.fn();
     mockSupabaseUpdate.mockReturnValue({
       eq: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
@@ -581,6 +585,144 @@ describe('ComandaCheckoutModal', () => {
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 
+  const renderReagendamento = (agendaAdapter: InMemoryAgendaAdapter, onRescheduled = vi.fn()) => {
+    mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
+      id: 'com-123',
+      tenant_id: 't-1',
+      appointment_id: 'app-999',
+      customer_id: 'cust-1',
+      status: 'aberta',
+      total_amount: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+      itens: [
+        {
+          id: 'item-1',
+          comanda_id: 'com-123',
+          tenant_id: 't-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          name: 'Corte Tradicional',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+        },
+      ],
+      pagamentos: [],
+    });
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="app-999"
+        appointmentStartTime="2026-08-28T14:00:00.000Z"
+        appointmentServiceName="Corte Tradicional"
+        customerName="Carlos Silva"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        onRescheduled={onRescheduled}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+        agendaRepo={new AgendaRepository(agendaAdapter)}
+      />
+    );
+  };
+
+  it('mostra o erro e nenhuma grade fixa quando a busca de horários livres falha (spec 040)', async () => {
+    const agendaAdapter = new InMemoryAgendaAdapter();
+    agendaAdapter.failSlotsWith(new AgendaOperationError('Não foi possível carregar os horários.', 'desconhecido'));
+    renderReagendamento(agendaAdapter);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Reagendar atendimento/i }));
+    fireEvent.change(screen.getByLabelText(/Nova data/i), { target: { value: '2026-08-29' } });
+
+    expect(await screen.findByText('Não foi possível carregar os horários.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Novo horário/i).querySelector('option[value="08:00"]')).toBeNull();
+  });
+
+  it('mostra a recusa do banco ao reagendar e mantém o painel aberto (spec 040)', async () => {
+    const agendaAdapter = new InMemoryAgendaAdapter();
+    agendaAdapter.seedSlots(['16:30']);
+    agendaAdapter.seed({ id: 'app-999', tenant_id: 't-1', status: 'confirmed', start_time: '2026-08-28T14:00:00.000Z' });
+    vi.spyOn(agendaAdapter, 'reagendar').mockRejectedValueOnce(
+      new AgendaOperationError('O horário selecionado já está ocupado.', 'regra')
+    );
+    const onRescheduled = vi.fn();
+    renderReagendamento(agendaAdapter, onRescheduled);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Reagendar atendimento/i }));
+    fireEvent.change(screen.getByLabelText(/Nova data/i), { target: { value: '2026-08-29' } });
+    const timeInput = screen.getByLabelText(/Novo horário/i);
+    await waitFor(() => expect(timeInput.querySelector('option[value="16:30"]')).not.toBeNull());
+    fireEvent.change(timeInput, { target: { value: '16:30' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar reagendamento/i }));
+
+    expect(await screen.findByText('O horário selecionado já está ocupado.')).toBeInTheDocument();
+    expect(onRescheduled).not.toHaveBeenCalled();
+    expect(screen.getByRole('region', { name: /Painel de Reagendamento de Atendimento/i })).toBeInTheDocument();
+  });
+
+  it('cancela a comanda de balcão pelo ComandaRepository, sem pedir motivo (spec 040)', async () => {
+    mockComandaAdapter.obterPorId = vi.fn().mockResolvedValue({
+      id: 'cmd-9',
+      tenant_id: 't-1',
+      appointment_id: null,
+      customer_id: null,
+      status: 'aberta',
+      total_amount: 35.0,
+      discount_amount: 0,
+      tip_amount: 0,
+      notes: null,
+      itens: [
+        {
+          id: 'item-1',
+          comanda_id: 'cmd-9',
+          tenant_id: 't-1',
+          item_type: 'servico',
+          service_id: 'srv-1',
+          product_id: null,
+          professional_id: 'prof-1',
+          name: 'Corte Tradicional',
+          quantity: 1,
+          unit_price: 35.0,
+          total_price: 35.0,
+        },
+      ],
+      pagamentos: [],
+    });
+    vi.mocked(mockComandaAdapter.cancelarComanda).mockResolvedValue(undefined);
+
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        comandaId="cmd-9"
+        customerName="Balcão"
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Tradicional')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar atendimento' }));
+    expect(screen.queryByLabelText('Motivo do cancelamento')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar cancelamento' }));
+
+    await waitFor(() => expect(mockComandaAdapter.cancelarComanda).toHaveBeenCalledWith('cmd-9', 't-1'));
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalled());
+    expect(mockSupabaseRpc).not.toHaveBeenCalledWith('cancel_comanda_appointment', expect.anything());
+  });
+
   it('mostra no resumo a gorjeta arredondada a centavo, igual à enviada (spec 040)', async () => {
     render(
       <ComandaCheckoutModal
@@ -1062,6 +1204,10 @@ describe('ComandaCheckoutModal', () => {
   it('deve permitir abrir painel de reagendamento direto e salvar novo horário mantendo a comanda aberta', async () => {
     const mockOnRescheduled = vi.fn();
     const mockOnMarkNoShow = vi.fn();
+    const rescheduleAgenda = new InMemoryAgendaAdapter();
+    rescheduleAgenda.seed({ id: 'app-999', tenant_id: 't-1', status: 'confirmed', start_time: '2026-08-28T14:00:00.000Z' });
+    rescheduleAgenda.seedSlots(['16:00', '16:30']);
+    const reagendarSpy = vi.spyOn(rescheduleAgenda, 'reagendar');
     mockComandaAdapter.obterPorAppointmentId = vi.fn().mockResolvedValue({
       id: 'com-123',
       tenant_id: 't-1',
@@ -1104,6 +1250,7 @@ describe('ComandaCheckoutModal', () => {
         comandaRepo={comandaRepo}
         caixaRepo={caixaRepo}
         produtoRepo={produtoRepo}
+        agendaRepo={new AgendaRepository(rescheduleAgenda)}
       />
     );
 
@@ -1126,6 +1273,8 @@ describe('ComandaCheckoutModal', () => {
     await waitFor(() => {
       expect(timeInput.querySelector('option[value="16:30"]')).not.toBeNull();
     });
+    // Só os horários que o banco devolveu: nenhuma grade fixa inventada.
+    expect(timeInput.querySelector('option[value="08:00"]')).toBeNull();
     fireEvent.change(timeInput, { target: { value: '16:30' } });
 
     // 3. Confirmar Reagendamento
@@ -1133,15 +1282,14 @@ describe('ComandaCheckoutModal', () => {
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(mockSupabaseUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          start_time: expect.any(String),
-          end_time: expect.any(String),
-          updated_at: expect.any(String),
-        })
+      expect(reagendarSpy).toHaveBeenCalledWith(
+        't-1',
+        'app-999',
+        expect.objectContaining({ startTimeIso: expect.any(String) })
       );
       expect(mockOnRescheduled).toHaveBeenCalled();
     });
+    expect(mockSupabaseUpdate).not.toHaveBeenCalled();
   });
 
   it('exibe o painel inline de confirmação de Não Comparecimento e executa a confirmação', async () => {

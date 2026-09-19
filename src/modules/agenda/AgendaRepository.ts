@@ -2,6 +2,7 @@ import type {
   AgendaOperationErrorKind,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  HorariosLivresInput,
   IAgendaAdapter,
   ReagendarInput,
 } from './types';
@@ -55,6 +56,17 @@ export class AgendaRepository {
       throw new AgendaValidationError('Informe o novo horário.');
     }
     return await this.adapter.reagendar(tenantId, appointmentId, input);
+  }
+
+  /** Horários livres vindos do banco; falha na consulta é erro, nunca uma grade inventada. */
+  async listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]> {
+    if (!tenantId || !tenantId.trim()) {
+      throw new AgendaValidationError('ID da barbearia é obrigatório.');
+    }
+    if (!input.professionalId || !input.serviceId || !input.date) {
+      throw new AgendaValidationError('Informe profissional, serviço e data para buscar horários.');
+    }
+    return await this.adapter.listarHorariosLivres(tenantId, input);
   }
 
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {
