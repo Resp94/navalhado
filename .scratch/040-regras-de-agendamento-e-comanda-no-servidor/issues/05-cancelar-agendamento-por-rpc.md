@@ -13,3 +13,5 @@
 - [x] pgTAP: estados proibidos recusados, Comanda cancelada, acesso de outro tenant recusado
 - [x] Vitest do novo método do AgendaRepository
 - [x] `npm run lint`, `npm test` e `npm run build` passam
+
+**Nota da implementação:** a RPC `cancel_appointment_by_manager`, o método `AgendaRepository.cancelar` e o handler de cancelamento da Agenda Geral estão prontos e testados, mas o modal "Cancelar Agendamento" da Agenda Geral hoje não é aberto por nenhuma tela (`MobileAgendaView` recebe `onOpenCancel` como `_onOpenCancel`, sem uso). O cancelamento que o gestor usa de fato é o botão "Cancelar atendimento" do modal de comanda, que chama `cancel_comanda_appointment` (sem motivo e sem guarda de estado do Agendamento). Migrar esse caminho para `AgendaRepository.cancelar` exige decidir a UX do motivo e fica no ticket 12.

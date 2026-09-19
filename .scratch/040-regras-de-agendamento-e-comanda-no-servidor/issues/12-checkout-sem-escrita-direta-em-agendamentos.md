@@ -12,3 +12,7 @@
 - [ ] Nenhuma chamada direta ao Supabase no modal de fechamento
 - [ ] Vitest do novo método do repositório de Comandas
 - [ ] `npm run lint`, `npm test` e `npm run build` passam
+
+**Adição vinda do ticket 05:** o botão "Cancelar atendimento" do modal de comanda passa a cancelar pelo `AgendaRepository.cancelar` (RPC `cancel_appointment_by_manager`, com guarda de estado e motivo obrigatório), no lugar de `cancel_comanda_appointment`. Decidir onde o modal pede o motivo.
+
+- [ ] "Cancelar atendimento" do modal de comanda usa `AgendaRepository.cancelar` e pede o motivo
