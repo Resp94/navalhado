@@ -769,6 +769,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       return;
     }
 
+    if (tipValue > 0 && tipProfessionalOptions.length > 1 && !resolvedTipProfessionalId) {
+      setErrorMsg('Escolha o profissional que recebe a gorjeta.');
+      return;
+    }
+
     const effectivePagamentos =
       totalFinal === 0
         ? []

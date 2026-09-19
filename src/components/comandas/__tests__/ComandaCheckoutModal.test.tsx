@@ -410,6 +410,44 @@ describe('ComandaCheckoutModal', () => {
     });
   });
 
+  it('bloqueia finalizar com gorjeta e mais de um profissional sem escolher o destinatário (spec 040)', async () => {
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 35.0, professional_id: 'prof-1' },
+          { service_id: 'srv-2', name: 'Barba', price: 25.0, professional_id: 'prof-2' },
+        ]}
+        availableProfessionals={[
+          { id: 'prof-1', name: 'Carlos Barbeiro' },
+          { id: 'prof-2', name: 'Marcos Barbeiro' },
+        ]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Valor da gorjeta'), { target: { value: '10' } });
+    await screen.findByLabelText('Profissional que recebe a gorjeta');
+
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
+    fireEvent.click(btnFinalizar);
+
+    expect(
+      await screen.findByText('Escolha o profissional que recebe a gorjeta.')
+    ).toBeInTheDocument();
+    expect(mockComandaAdapter.liquidarComanda).not.toHaveBeenCalled();
+  });
+
   it('exibe modal em modo recibo somente leitura quando a comanda estiver fechada e permite reabrir', async () => {
     vi.mocked(mockComandaAdapter.obterPorAppointmentId).mockResolvedValueOnce({
       id: 'com-1',
