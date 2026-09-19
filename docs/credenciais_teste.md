@@ -80,6 +80,32 @@ Este documento registra as credenciais dos usuários e barbearias de teste utili
 * **Corte e Barba**: R$ 80,00 (45 minutos, categoria `Combo`)
 * **Hidratação e Selagem**: R$ 60,00 (45 minutos, categoria `Química ou Coloração`)
 
+### 💈 Usuário Barbeiro (Role: `barbeiro`)
+
+Vinculado ao profissional **Diego Barbeiro** da Barbearia Alpha Dev (`professionals.user_id`).
+
+| Campo | Valor |
+| :--- | :--- |
+| **Nome** | Diego Barbeiro |
+| **E-mail de Login** | `barbeiro.diego@navalhado.com.br` |
+| **Senha** | `Barbeiro@123456` |
+| **User ID (Supabase Auth & users)** | `33c35665-b8aa-42e9-8b20-d70a49ee684d` |
+| **Professional ID** | `a6363b17-7325-45d7-9d70-8a57cd15100d` |
+| **Perfil/Role** | `barbeiro` |
+| **Destino pós-login** | `/minha-agenda` (também `/minhas-comissoes`) |
+
+**Seed de teste (agendamento do Diego):**
+
+| Campo | Valor |
+| :--- | :--- |
+| **Cliente** | Cliente Teste Barbeiro, `(11) 90000-0001` |
+| **Appointment ID** | `6ff4f80c-b050-4daf-b3df-eebdad026483` |
+| **Data/hora** | 19/09/2026, 15:00–15:30 (`America/Sao_Paulo`) |
+| **Serviço** | Corte Tradicional (R$ 50,00) |
+| **Status** | `confirmed`, pagamento `pending`, origem `manual` |
+
+> Seed criado só para validar `/minha-agenda`. Não foi finalizado; a data fixa (19/09/2026) deixa de aparecer em "Hoje" depois desse dia.
+
 ---
 
 ## 👑 Administrador Geral SaaS (Role: `proprietario`)
