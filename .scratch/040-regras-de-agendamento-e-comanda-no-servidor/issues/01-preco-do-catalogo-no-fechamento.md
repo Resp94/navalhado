@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A RPC de liquidação da Comanda ignora o preço enviado pela tela para produto e para serviço `fixed` e grava o preço do catálogo
-- [ ] Serviço `starting_at` com valor abaixo do preço cadastrado é recusado com código de erro próprio e mensagem em português
-- [ ] Serviço `starting_at` com valor igual ou acima do mínimo é aceito pelo valor informado
-- [ ] Totais, rateio de desconto, snapshot e comissão continuam calculados sobre o preço efetivamente gravado
-- [ ] O modal de fechamento mostra a recusa do valor mínimo sem perder o que foi preenchido
-- [ ] pgTAP: produto e serviço `fixed` com preço adulterado gravam o preço do catálogo; `starting_at` abaixo do mínimo recusado; acima aceito
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] A RPC de liquidação da Comanda ignora o preço enviado pela tela para produto e para serviço `fixed` e grava o preço do catálogo
+- [x] Serviço `starting_at` com valor abaixo do preço cadastrado é recusado com código de erro próprio e mensagem em português
+- [x] Serviço `starting_at` com valor igual ou acima do mínimo é aceito pelo valor informado
+- [x] Totais, rateio de desconto, snapshot e comissão continuam calculados sobre o preço efetivamente gravado
+- [x] O modal de fechamento mostra a recusa do valor mínimo sem perder o que foi preenchido
+- [x] pgTAP: produto e serviço `fixed` com preço adulterado gravam o preço do catálogo; `starting_at` abaixo do mínimo recusado; acima aceito
+- [x] `npm run lint`, `npm test` e `npm run build` passam
