@@ -4,12 +4,12 @@
 
 **Blocked by:** 04 (AgendaRepository e iniciar atendimento por RPC)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] RPC de cancelar aceita só `pending`, `confirmed` e `in_progress`
-- [ ] Motivo do cancelamento obrigatório e gravado
-- [ ] Comanda aberta do Agendamento cancelada na mesma operação
-- [ ] Agenda Geral cancela só pelo AgendaRepository
-- [ ] pgTAP: estados proibidos recusados, Comanda cancelada, acesso de outro tenant recusado
-- [ ] Vitest do novo método do AgendaRepository
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] RPC de cancelar aceita só `pending`, `confirmed` e `in_progress`
+- [x] Motivo do cancelamento obrigatório e gravado
+- [x] Comanda aberta do Agendamento cancelada na mesma operação
+- [x] Agenda Geral cancela só pelo AgendaRepository
+- [x] pgTAP: estados proibidos recusados, Comanda cancelada, acesso de outro tenant recusado
+- [x] Vitest do novo método do AgendaRepository
+- [x] `npm run lint`, `npm test` e `npm run build` passam

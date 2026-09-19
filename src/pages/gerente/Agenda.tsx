@@ -19,6 +19,8 @@ import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
 import { CustomDatePicker } from '../../components/CustomDatePicker';
+import { AgendaOperationError } from '../../modules/agenda/AgendaRepository';
+import { useAgenda } from '../../modules/agenda/useAgenda';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
@@ -328,6 +330,7 @@ const getAppointmentCardClasses = (cardState: string, isFitting: boolean) => {
 export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
+  const agendaRepo = useAgenda();
   const { addToast } = useToast();
 
   const clienteRepository = useMemo(
@@ -1584,13 +1587,9 @@ export const Agenda: React.FC = () => {
 
   // Transição de Status: Iniciar Atendimento
   const handleStartService = async (app: Appointment) => {
+    if (!tenant.tenantId) return;
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-        .eq('id', app.id);
-
-      if (error) throw error;
+      await agendaRepo.iniciarAtendimento(tenant.tenantId, app.id);
 
       // Garantir abertura automática de comanda vinculada ao agendamento
       try {
@@ -1637,7 +1636,11 @@ export const Agenda: React.FC = () => {
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao iniciar atendimento:', err);
-      addToast('Erro ao atualizar status do atendimento.', 'error');
+      addToast(
+        err instanceof AgendaOperationError ? err.message : 'Erro ao atualizar status do atendimento.',
+        err instanceof AgendaOperationError && err.kind === 'regra' ? 'warning' : 'error'
+      );
+      if (err instanceof AgendaOperationError && err.kind === 'regra') fetchAppointments();
     }
   };
 
@@ -1680,24 +1683,9 @@ export const Agenda: React.FC = () => {
       return;
     }
 
+    if (!tenant.tenantId) return;
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ status: 'no_show', updated_at: new Date().toISOString() })
-        .eq('id', target.id)
-        .eq('tenant_id', tenant.tenantId)
-        .in('status', ['pending', 'confirmed'])
-        .select('id')
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        setIsNoShowModalOpen(false);
-        setNoShowAppointment(null);
-        addToast('O status deste atendimento mudou antes da atualização. Recarregue a agenda.', 'warning');
-        fetchAppointments();
-        return;
-      }
+      await agendaRepo.marcarFalta(tenant.tenantId, target.id);
 
       setAppointments((previous) =>
         previous.map((appointment) =>
@@ -1712,6 +1700,14 @@ export const Agenda: React.FC = () => {
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao marcar atendimento como não compareceu:', err);
+      if (err instanceof AgendaOperationError && err.kind === 'regra') {
+        // O estado mudou (ou o horário ainda não chegou) desde que a agenda foi carregada.
+        setIsNoShowModalOpen(false);
+        setNoShowAppointment(null);
+        addToast(err.message, 'warning');
+        fetchAppointments();
+        return;
+      }
       addToast(err?.message || 'Erro ao marcar atendimento como não compareceu.', 'error');
     }
   };
@@ -1752,20 +1748,15 @@ export const Agenda: React.FC = () => {
 
   // Confirmar Cancelamento
   const handleConfirmCancellation = async () => {
-    if (!targetAppointment) return;
+    if (!targetAppointment || !tenant.tenantId) return;
+    if (!cancellationReason.trim()) {
+      addToast('Informe o motivo do cancelamento.', 'warning');
+      return;
+    }
     setCancelingAppointment(true);
 
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          status: 'canceled',
-          cancellation_reason: cancellationReason.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetAppointment.id);
-
-      if (error) throw error;
+      await agendaRepo.cancelar(tenant.tenantId, targetAppointment.id, cancellationReason);
 
       // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
       setAppointments((prev) => prev.filter((a) => a.id !== targetAppointment.id));
@@ -1775,7 +1766,7 @@ export const Agenda: React.FC = () => {
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao cancelar agendamento:', err);
-      addToast('Erro ao cancelar agendamento.', 'error');
+      addToast(err instanceof AgendaOperationError ? err.message : 'Erro ao cancelar agendamento.', 'error');
     } finally {
       setCancelingAppointment(false);
     }
@@ -3268,7 +3259,7 @@ export const Agenda: React.FC = () => {
             </p>
 
             <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="cancel-reason">Motivo do Cancelamento (Opcional)</label>
+              <label htmlFor="cancel-reason">Motivo do Cancelamento</label>
               <textarea
                 id="cancel-reason"
                 rows={2}
@@ -3292,7 +3283,7 @@ export const Agenda: React.FC = () => {
                 type="button"
                 className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
                 onClick={handleConfirmCancellation}
-                disabled={cancelingAppointment}
+                disabled={cancelingAppointment || !cancellationReason.trim()}
               >
                 {cancelingAppointment ? 'Cancelando...' : 'Sim, Cancelar Horário'}
               </button>

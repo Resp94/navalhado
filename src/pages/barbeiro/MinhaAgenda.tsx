@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { AgendaOperationError } from '../../modules/agenda/AgendaRepository';
+import { useAgenda } from '../../modules/agenda/useAgenda';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
 import { dateInZone, formatTimeInZone, localDayUtcRange, shiftCalendarDate } from '../../lib/timezone';
@@ -116,6 +118,7 @@ export const MinhaAgenda: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const agendaRepo = useAgenda();
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -320,13 +323,9 @@ export const MinhaAgenda: React.FC = () => {
   const handleStartService = async (appId: string) => {
     try {
       const targetApp = appointments.find((a) => a.id === appId);
+      if (!professional) return;
 
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-        .eq('id', appId);
-
-      if (error) throw error;
+      await agendaRepo.iniciarAtendimento(professional.tenant_id, appId);
 
       // Garantir abertura automática de comanda vinculada ao agendamento
       if (targetApp && targetApp.tenant_id) {
@@ -375,6 +374,11 @@ export const MinhaAgenda: React.FC = () => {
       fetchDailyAppointments();
     } catch (err: any) {
       console.error('Error starting appointment:', err);
+      if (err instanceof AgendaOperationError && err.kind === 'regra') {
+        addToast(err.message, 'warning');
+        fetchDailyAppointments();
+        return;
+      }
       addToast('Não foi possível iniciar o atendimento.', 'error');
     }
   };

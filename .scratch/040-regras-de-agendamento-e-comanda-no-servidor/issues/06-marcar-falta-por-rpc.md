@@ -4,12 +4,14 @@
 
 **Blocked by:** 04 (AgendaRepository e iniciar atendimento por RPC)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Antes de implementar: ler o gatilho de proteção de falta e confirmar o que ele faz hoje com a Comanda; registrar no ticket
-- [ ] RPC de marcar falta recusa Agendamento antes do horário de início
-- [ ] RPC recusa estado de origem diferente de `pending` e `confirmed`
-- [ ] Comanda aberta cancelada na mesma operação
-- [ ] Agenda Geral marca falta só pelo AgendaRepository
-- [ ] pgTAP: antes do início recusado, estados proibidos recusados, Comanda cancelada, acesso de outro tenant recusado
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] Antes de implementar: ler o gatilho de proteção de falta e confirmar o que ele faz hoje com a Comanda; registrar no ticket
+- [x] RPC de marcar falta recusa Agendamento antes do horário de início
+- [x] RPC recusa estado de origem diferente de `pending` e `confirmed`
+- [x] Comanda aberta cancelada na mesma operação
+- [x] Agenda Geral marca falta só pelo AgendaRepository
+- [x] pgTAP: antes do início recusado, estados proibidos recusados, Comanda cancelada, acesso de outro tenant recusado
+- [x] `npm run lint`, `npm test` e `npm run build` passam
+
+**Nota da implementação:** o gatilho `trg_auto_cancel_comanda_on_appointment_cancel` já cancela a Comanda aberta nos estados `canceled` e `no_show`, então a RPC só muda o estado do Agendamento e a Comanda é cancelada na mesma transação. A promessa do modal de confirmação já era cumprida pelo banco.
