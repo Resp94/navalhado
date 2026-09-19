@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(21);
 
 create temporary table ticket40_01_context (
   user_id uuid not null,
@@ -13,7 +13,16 @@ create temporary table ticket40_01_context (
   comanda_produto_id uuid not null,
   comanda_abaixo_id uuid not null,
   comanda_acima_id uuid not null,
-  comanda_igual_id uuid not null
+  comanda_igual_id uuid not null,
+  professional_id uuid not null,
+  service_inativo_id uuid not null,
+  service_outro_id uuid not null,
+  comanda_rateio_id uuid not null,
+  comanda_mudou_id uuid not null,
+  comanda_inativo_id uuid not null,
+  comanda_outro_id uuid not null,
+  comanda_replay_id uuid not null,
+  operation_id uuid not null
 ) on commit drop;
 
 with t as (
@@ -44,11 +53,27 @@ with t as (
   select t.id, au.id, 0, 'open'
   from t, au
   returning id
+), prof as (
+  insert into public.professionals (tenant_id, name, phone, commission_percentage, is_active)
+  select t.id, 'Prof T40-01', '11988880051', 10, true from t returning id
+), svc_inativo as (
+  insert into public.services (tenant_id, name, price, price_type, category, is_active)
+  select t.id, 'Inativo T40', 100, 'fixed', 'corte', false from t returning id
+), t2 as (
+  insert into public.tenants (name, email, phone)
+  values ('__ticket40_01_outro__', '__ticket40_01_outro__@teste.com', '11999999997')
+  returning id
+), svc_outro as (
+  insert into public.services (tenant_id, name, price, price_type, category, is_active)
+  select t2.id, 'Outro Tenant T40', 100, 'fixed', 'corte', true from t2 returning id
 )
 insert into ticket40_01_context
 select au.id, t.id, cs.id, svc_fixed.id, svc_starting.id, prod.id,
-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
-from t, au, svc_fixed, svc_starting, prod, cs;
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  prof.id, svc_inativo.id, svc_outro.id,
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid()
+from t, au, svc_fixed, svc_starting, prod, cs, prof, svc_inativo, svc_outro;
 
 update public.users
 set tenant_id = (select tenant_id from ticket40_01_context), role = 'gerente', is_active = true
@@ -59,7 +84,7 @@ grant select on ticket40_01_context to authenticated;
 insert into public.comandas (id, tenant_id, status, total_amount, discount_amount, tip_amount)
 select c, tenant_id, 'aberta', 0, 0, 0
 from ticket40_01_context,
-  unnest(array[comanda_fixed_id, comanda_produto_id, comanda_abaixo_id, comanda_acima_id, comanda_igual_id]) as c;
+  unnest(array[comanda_fixed_id, comanda_produto_id, comanda_abaixo_id, comanda_acima_id, comanda_igual_id, comanda_rateio_id, comanda_mudou_id, comanda_inativo_id, comanda_outro_id, comanda_replay_id]) as c;
 
 select set_config('request.jwt.claim.sub', (select user_id::text from ticket40_01_context), true);
 set local role authenticated;
@@ -161,6 +186,108 @@ select is(
   (select snapshot_gross_amount from public.comanda_itens where comanda_id = (select comanda_fixed_id from ticket40_01_context)),
   100::numeric,
   'snapshot bruto do item usa o preco efetivo do catalogo'
+);
+
+-- Desconto rateado, snapshot liquido e comissao usam o preco efetivo (100), nao o enviado (1).
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_rateio_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 10, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_fixed_id from ticket40_01_context),'professional_id',(select professional_id from ticket40_01_context),'quantity',1,'unit_price',1)),
+    '[{"payment_method":"pix","amount":90}]'::jsonb
+  )$$,
+  'liquida com desconto sobre o preco efetivo do catalogo'
+);
+select is(
+  (select snapshot_discount_amount from public.comanda_itens where comanda_id = (select comanda_rateio_id from ticket40_01_context)),
+  10::numeric,
+  'desconto rateado sobre o preco efetivo'
+);
+select is(
+  (select snapshot_net_amount from public.comanda_itens where comanda_id = (select comanda_rateio_id from ticket40_01_context)),
+  90::numeric,
+  'snapshot liquido = preco efetivo menos desconto'
+);
+select is(
+  (select snapshot_commission_amount from public.comanda_itens where comanda_id = (select comanda_rateio_id from ticket40_01_context)),
+  10::numeric,
+  'comissao calculada sobre o preco efetivo (100 * 10%)'
+);
+
+-- Tela com preco desatualizado: mensagem explica a causa, nao so a soma dos pagamentos.
+select throws_ok(
+  $$select public.settle_comanda(
+    (select comanda_mudou_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_fixed_id from ticket40_01_context),'quantity',1,'unit_price',60)),
+    '[{"payment_method":"pix","amount":60}]'::jsonb
+  )$$,
+  'P0001',
+  'Os preços do catálogo mudaram desde que a comanda foi aberta. Recarregue os preços e tente novamente.',
+  'preco desatualizado na tela recebe mensagem propria'
+);
+
+-- Servico inativo e servico de outra unidade sao recusados.
+select throws_ok(
+  $$select public.settle_comanda(
+    (select comanda_inativo_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_inativo_id from ticket40_01_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":100}]'::jsonb
+  )$$,
+  'P0001',
+  'Serviço não encontrado ou inativo.',
+  'servico inativo e recusado'
+);
+select throws_ok(
+  $$select public.settle_comanda(
+    (select comanda_outro_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_outro_id from ticket40_01_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":100}]'::jsonb
+  )$$,
+  'P0001',
+  'Serviço não encontrado ou inativo.',
+  'servico de outra unidade e recusado'
+);
+
+-- Replay idempotente com a assinatura nova: mesma operacao devolve o resultado gravado, sem segundo pagamento.
+select lives_ok(
+  $$select public.settle_comanda_idempotent(
+    (select operation_id from ticket40_01_context),
+    (select comanda_replay_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_fixed_id from ticket40_01_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":100}]'::jsonb
+  )$$,
+  'primeira chamada idempotente liquida'
+);
+select lives_ok(
+  $$select public.settle_comanda_idempotent(
+    (select operation_id from ticket40_01_context),
+    (select comanda_replay_id from ticket40_01_context),
+    (select tenant_id from ticket40_01_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_01_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_fixed_id from ticket40_01_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":100}]'::jsonb
+  )$$,
+  'replay da mesma operacao nao falha'
+);
+select is(
+  (select count(*) from public.comanda_pagamentos where comanda_id = (select comanda_replay_id from ticket40_01_context)),
+  1::bigint,
+  'replay nao duplica o pagamento'
 );
 
 select * from finish(true);

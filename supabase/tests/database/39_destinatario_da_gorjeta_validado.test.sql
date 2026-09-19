@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(15);
 
 create temporary table ticket40_02_context (
   user_id uuid not null,
@@ -16,7 +16,11 @@ create temporary table ticket40_02_context (
   comanda_sem_destino_id uuid not null,
   comanda_dois_ok_id uuid not null,
   comanda_um_ok_id uuid not null,
-  comanda_trigger_id uuid not null
+  comanda_trigger_id uuid not null,
+  comanda_auto_id uuid not null,
+  comanda_zero_id uuid not null,
+  comanda_nulo_id uuid not null,
+  comanda_prop_id uuid not null
 ) on commit drop;
 
 with t as (
@@ -53,7 +57,8 @@ with t as (
 insert into ticket40_02_context
 select au.id, t.id, cs.id, svc.id, pa1.id, pa2.id, pa3.id, pb1.id,
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()
 from t, au, cs, svc, pa1, pa2, pa3, pb1;
 
 update public.users
@@ -67,7 +72,8 @@ select c, tenant_id, 'aberta', 0, 0, 0
 from ticket40_02_context,
   unnest(array[
     comanda_outro_tenant_id, comanda_fora_itens_id, comanda_sem_destino_id,
-    comanda_dois_ok_id, comanda_um_ok_id, comanda_trigger_id
+    comanda_dois_ok_id, comanda_um_ok_id, comanda_trigger_id,
+    comanda_auto_id, comanda_zero_id, comanda_nulo_id, comanda_prop_id
   ]) as c;
 
 -- O gatilho de credito recusa destinatario de outra unidade mesmo fora da RPC
@@ -187,6 +193,81 @@ select lives_ok(
     (select prof_a1_id from ticket40_02_context)
   )$$,
   'um profissional so, como destinatario, fecha a comanda'
+);
+
+-- Um profissional so nos itens e destinatario nulo: o banco assume o unico profissional,
+-- como a tela ja faz, e a gorjeta nao fica sem credito.
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_auto_id from ticket40_02_context),
+    (select tenant_id from ticket40_02_context),
+    null, null, 0, 10,
+    (select cash_session_id from ticket40_02_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket40_02_context),'professional_id',(select prof_a1_id from ticket40_02_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":110}]'::jsonb,
+    null
+  )$$,
+  'um profissional so e destinatario nulo fecha a comanda'
+);
+select is(
+  (select professional_id from public.professional_account_entries
+   where comanda_id = (select comanda_auto_id from ticket40_02_context) and entry_type = 'gorjeta'),
+  (select prof_a1_id from ticket40_02_context),
+  'gorjeta e creditada automaticamente ao unico profissional dos itens'
+);
+
+-- Sem gorjeta, dois profissionais nao exigem destinatario.
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_zero_id from ticket40_02_context),
+    (select tenant_id from ticket40_02_context),
+    null, null, 0, 0,
+    (select cash_session_id from ticket40_02_context),
+    jsonb_build_array(
+      jsonb_build_object('item_type','servico','service_id',(select service_id from ticket40_02_context),'professional_id',(select prof_a1_id from ticket40_02_context),'quantity',1,'unit_price',100),
+      jsonb_build_object('item_type','servico','service_id',(select service_id from ticket40_02_context),'professional_id',(select prof_a2_id from ticket40_02_context),'quantity',1,'unit_price',100)
+    ),
+    '[{"payment_method":"pix","amount":200}]'::jsonb,
+    null
+  )$$,
+  'gorjeta zero com dois profissionais nao exige destinatario'
+);
+
+-- Acesso: gerente sem unidade associada e recusado; proprietario e aceito.
+reset role;
+update public.users set tenant_id = null where id = (select user_id from ticket40_02_context);
+set local role authenticated;
+
+select throws_ok(
+  $$select public.settle_comanda(
+    (select comanda_nulo_id from ticket40_02_context),
+    (select tenant_id from ticket40_02_context),
+    null, null, 0, 10,
+    (select cash_session_id from ticket40_02_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket40_02_context),'professional_id',(select prof_a1_id from ticket40_02_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":110}]'::jsonb,
+    (select prof_a1_id from ticket40_02_context)
+  )$$,
+  '42501',
+  'Acesso negado para esta unidade.',
+  'gerente com tenant_id nulo nao liquida comanda de nenhuma unidade'
+);
+
+reset role;
+update public.users set role = 'proprietario' where id = (select user_id from ticket40_02_context);
+set local role authenticated;
+
+select lives_ok(
+  $$select public.settle_comanda(
+    (select comanda_prop_id from ticket40_02_context),
+    (select tenant_id from ticket40_02_context),
+    null, null, 0, 10,
+    (select cash_session_id from ticket40_02_context),
+    jsonb_build_array(jsonb_build_object('item_type','servico','service_id',(select service_id from ticket40_02_context),'professional_id',(select prof_a1_id from ticket40_02_context),'quantity',1,'unit_price',100)),
+    '[{"payment_method":"pix","amount":110}]'::jsonb,
+    (select prof_a1_id from ticket40_02_context)
+  )$$,
+  'proprietario liquida comanda de qualquer unidade'
 );
 
 select * from finish(true);
