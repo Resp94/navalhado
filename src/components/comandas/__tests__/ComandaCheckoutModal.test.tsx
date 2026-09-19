@@ -504,6 +504,32 @@ describe('ComandaCheckoutModal', () => {
     expect(screen.getByRole('tab', { name: '%' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('mostra no resumo a gorjeta arredondada a centavo, igual à enviada (spec 040)', async () => {
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 65.0, professional_id: 'prof-1' },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Valor da gorjeta'), { target: { value: '2.135' } });
+
+    expect(await screen.findByText('+ R$ 2.14')).toBeInTheDocument();
+  });
+
   it('bloqueia finalizar com gorjeta e mais de um profissional sem escolher o destinatário (spec 040)', async () => {
     render(
       <ComandaCheckoutModal

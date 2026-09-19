@@ -1484,10 +1484,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span>- R$ {discountAmount.toFixed(2)}</span>
                       </div>
                     )}
-                    {tipValue > 0 && (
+                    {totals.tip > 0 && (
                       <div className="flex justify-between items-center text-xs [&_span]:text-success [&_span]:font-bold">
                         <span>Gorjeta</span>
-                        <span>+ R$ {tipValue.toFixed(2)}</span>
+                        <span>+ R$ {totals.tip.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="h-px bg-text-primary/15 my-[0.2rem]" />
