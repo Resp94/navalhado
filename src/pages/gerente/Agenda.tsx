@@ -1358,7 +1358,9 @@ export const Agenda: React.FC = () => {
         return;
       }
 
-      // Validação de limite de 1 encaixe por horário/profissional
+      // Feedback antecipado do limite de 1 encaixe por horário/profissional. A regra é do banco
+      // (uq_appointments_one_fitting_per_slot): vale com "Tanto faz" e contra outra recepção, que
+      // esta checagem, feita só sobre os agendamentos carregados, não enxerga.
       if (formIsFitting) {
         const existingFittings = appointments.filter((a) => {
           return (
