@@ -1740,24 +1740,17 @@ export const Agenda: React.FC = () => {
       return;
     }
 
+    if (!tenant.tenantId) return;
     setIsAgendaRescheduling(true);
     try {
       const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
-      const durationMin = rescheduleDuration;
-      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMin * 60 * 1000).toISOString();
 
-      const { error: updErr } = await supabase
-        .from('appointments')
-        .update({
-          start_time: startTimeIso,
-          end_time: endTimeIso,
-          professional_id: agendaRescheduleProfId || agendaRescheduleAppointment.professional_id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', agendaRescheduleAppointment.id)
-        .eq('tenant_id', tenant.tenantId);
-
-      if (updErr) throw updErr;
+      // O fim é calculado no banco pela duração do profissional; conflito, Bloqueio de Horário,
+      // expediente e escala também são conferidos lá.
+      await agendaRepo.reagendar(tenant.tenantId, agendaRescheduleAppointment.id, {
+        startTimeIso,
+        professionalId: agendaRescheduleProfId || null,
+      });
 
       addToast('Agendamento reagendado com sucesso!', 'success');
       setIsAgendaRescheduleModalOpen(false);
@@ -1765,7 +1758,8 @@ export const Agenda: React.FC = () => {
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao reagendar agendamento na agenda:', err);
-      addToast(err?.message || 'Erro ao reagendar agendamento.', 'error');
+      addToast(err?.message || 'Erro ao reagendar agendamento.', err instanceof AgendaOperationError ? 'warning' : 'error');
+      if (err instanceof AgendaOperationError && err.kind === 'regra') fetchAppointments();
     } finally {
       setIsAgendaRescheduling(false);
     }

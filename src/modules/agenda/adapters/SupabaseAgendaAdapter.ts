@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { AgendaOperationError } from '../AgendaRepository';
-import type { AgendaTransitionResult, IAgendaAdapter } from '../types';
+import type { AgendaRescheduleResult, AgendaTransitionResult, IAgendaAdapter, ReagendarInput } from '../types';
 
 type RpcError = { code?: string; message?: string };
 
@@ -28,6 +28,22 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
     });
   }
 
+  async reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult> {
+    const data = await this.rpc('reschedule_appointment_by_manager', {
+      p_appointment_id: appointmentId,
+      p_tenant_id: tenantId,
+      p_new_start_time: input.startTimeIso,
+      p_new_professional_id: input.professionalId ?? null,
+    });
+    return {
+      appointment_id: data.appointment_id,
+      status: data.status,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      professional_id: data.professional_id,
+    };
+  }
+
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {
     return await this.call('mark_appointment_no_show', {
       p_appointment_id: appointmentId,
@@ -36,9 +52,14 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
   }
 
   private async call(fn: string, params: Record<string, string>): Promise<AgendaTransitionResult> {
+    const data = await this.rpc(fn, params);
+    return { appointment_id: data.appointment_id, status: data.status };
+  }
+
+  private async rpc(fn: string, params: Record<string, string | null>) {
     const { data, error } = await supabase.rpc(fn, params);
     if (error) throw toOperationError(error);
     if (!data) throw new AgendaOperationError('Resposta vazia ao atualizar o agendamento.');
-    return { appointment_id: data.appointment_id, status: data.status };
+    return data;
   }
 }

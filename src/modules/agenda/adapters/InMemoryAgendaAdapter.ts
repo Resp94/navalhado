@@ -1,11 +1,20 @@
 import { AgendaOperationError } from '../AgendaRepository';
-import type { AgendaTransitionResult, AgendamentoStatus, IAgendaAdapter } from '../types';
+import type {
+  AgendaRescheduleResult,
+  AgendaTransitionResult,
+  AgendamentoStatus,
+  IAgendaAdapter,
+  ReagendarInput,
+} from '../types';
 
 interface AgendamentoEmMemoria {
   id: string;
   tenant_id: string;
   status: AgendamentoStatus;
   start_time: string;
+  end_time?: string;
+  professional_id?: string;
+  duration_minutes?: number;
   cancellation_reason?: string | null;
 }
 
@@ -39,6 +48,24 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     }
     ap.cancellation_reason = motivo;
     return this.move(ap, 'canceled');
+  }
+
+  async reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult> {
+    const ap = this.find(tenantId, appointmentId);
+    if (!['pending', 'confirmed'].includes(ap.status)) {
+      throw new AgendaOperationError('Somente atendimentos pendentes ou confirmados podem ser reagendados.', 'regra');
+    }
+    const start = new Date(input.startTimeIso);
+    ap.start_time = start.toISOString();
+    ap.end_time = new Date(start.getTime() + (ap.duration_minutes ?? 40) * 60_000).toISOString();
+    ap.professional_id = input.professionalId ?? ap.professional_id ?? '';
+    return {
+      appointment_id: ap.id,
+      status: ap.status,
+      start_time: ap.start_time,
+      end_time: ap.end_time,
+      professional_id: ap.professional_id,
+    };
   }
 
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {

@@ -1,4 +1,10 @@
-import type { AgendaOperationErrorKind, AgendaTransitionResult, IAgendaAdapter } from './types';
+import type {
+  AgendaOperationErrorKind,
+  AgendaRescheduleResult,
+  AgendaTransitionResult,
+  IAgendaAdapter,
+  ReagendarInput,
+} from './types';
 
 export class AgendaValidationError extends Error {
   constructor(message: string) {
@@ -41,6 +47,14 @@ export class AgendaRepository {
       throw new AgendaValidationError('Informe o motivo do cancelamento.');
     }
     return await this.adapter.cancelar(tenantId, appointmentId, motivoLimpo);
+  }
+
+  async reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult> {
+    this.requireIds(tenantId, appointmentId);
+    if (!input?.startTimeIso || Number.isNaN(Date.parse(input.startTimeIso))) {
+      throw new AgendaValidationError('Informe o novo horário.');
+    }
+    return await this.adapter.reagendar(tenantId, appointmentId, input);
   }
 
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {

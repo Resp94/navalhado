@@ -11,6 +11,19 @@ export interface AgendaTransitionResult {
   status: AgendamentoStatus;
 }
 
+export interface ReagendarInput {
+  /** Novo início, em ISO 8601. O fim é calculado no banco pela duração do profissional. */
+  startTimeIso: string;
+  /** Novo profissional; omitido, mantém o atual. */
+  professionalId?: string | null;
+}
+
+export interface AgendaRescheduleResult extends AgendaTransitionResult {
+  start_time: string;
+  end_time: string;
+  professional_id: string;
+}
+
 /** regra: recusa de negócio do banco; acesso: papel/unidade; desconhecido: falha inesperada. */
 export type AgendaOperationErrorKind = 'regra' | 'acesso' | 'desconhecido';
 
@@ -22,5 +35,6 @@ export type AgendaOperationErrorKind = 'regra' | 'acesso' | 'desconhecido';
 export interface IAgendaAdapter {
   iniciarAtendimento(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
   cancelar(tenantId: string, appointmentId: string, motivo: string): Promise<AgendaTransitionResult>;
+  reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult>;
   marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
 }

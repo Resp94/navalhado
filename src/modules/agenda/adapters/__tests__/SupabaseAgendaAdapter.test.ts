@@ -43,6 +43,48 @@ describe('SupabaseAgendaAdapter', () => {
     });
   });
 
+  it('reagenda pela RPC reschedule_appointment_by_manager', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        appointment_id: 'ap-1',
+        tenant_id: 't-1',
+        status: 'confirmed',
+        start_time: '2026-09-21T14:00:00+00:00',
+        end_time: '2026-09-21T14:30:00+00:00',
+        professional_id: 'prof-2',
+      },
+      error: null,
+    });
+
+    await expect(
+      new SupabaseAgendaAdapter().reagendar('t-1', 'ap-1', {
+        startTimeIso: '2026-09-21T14:00:00.000Z',
+        professionalId: 'prof-2',
+      })
+    ).resolves.toMatchObject({ appointment_id: 'ap-1', professional_id: 'prof-2', status: 'confirmed' });
+
+    expect(mockRpc).toHaveBeenCalledWith('reschedule_appointment_by_manager', {
+      p_appointment_id: 'ap-1',
+      p_tenant_id: 't-1',
+      p_new_start_time: '2026-09-21T14:00:00.000Z',
+      p_new_professional_id: 'prof-2',
+    });
+  });
+
+  it('envia profissional nulo quando o reagendamento mantém o mesmo profissional', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', status: 'pending', start_time: 'x', end_time: 'y', professional_id: 'p' },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().reagendar('t-1', 'ap-1', { startTimeIso: '2026-09-21T14:00:00.000Z' });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'reschedule_appointment_by_manager',
+      expect.objectContaining({ p_new_professional_id: null })
+    );
+  });
+
   it('marca falta pela RPC mark_appointment_no_show', async () => {
     mockRpc.mockResolvedValueOnce({
       data: { appointment_id: 'ap-1', tenant_id: 't-1', status: 'no_show' },

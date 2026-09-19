@@ -67,6 +67,41 @@ describe('AgendaRepository', () => {
     });
   });
 
+  describe('reagendar', () => {
+    it('move o agendamento para o novo horário e profissional', async () => {
+      const result = await repository.reagendar(TENANT, 'ap-conf', {
+        startTimeIso: '2026-09-21T14:00:00.000Z',
+        professionalId: 'prof-2',
+      });
+
+      expect(result).toMatchObject({
+        appointment_id: 'ap-conf',
+        start_time: '2026-09-21T14:00:00.000Z',
+        professional_id: 'prof-2',
+      });
+      expect(adapter.get('ap-conf')?.start_time).toBe('2026-09-21T14:00:00.000Z');
+    });
+
+    it('recusa horário inválido sem chamar o adaptador', async () => {
+      const spy = vi.spyOn(adapter, 'reagendar');
+
+      await expect(repository.reagendar(TENANT, 'ap-conf', { startTimeIso: 'não é data' })).rejects.toMatchObject({
+        name: 'AgendaValidationError',
+        message: 'Informe o novo horário.',
+      });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('propaga a recusa de estado de origem do banco', async () => {
+      await expect(
+        repository.reagendar(TENANT, 'ap-done', { startTimeIso: '2026-09-21T14:00:00.000Z' })
+      ).rejects.toMatchObject({
+        kind: 'regra',
+        message: 'Somente atendimentos pendentes ou confirmados podem ser reagendados.',
+      });
+    });
+  });
+
   describe('marcarFalta', () => {
     it('marca falta em agendamento que já começou', async () => {
       await expect(repository.marcarFalta(TENANT, 'ap-pend')).resolves.toMatchObject({ status: 'no_show' });
@@ -76,6 +111,7 @@ describe('AgendaRepository', () => {
       const denied: IAgendaAdapter = {
         iniciarAtendimento: vi.fn(),
         cancelar: vi.fn(),
+        reagendar: vi.fn(),
         marcarFalta: vi.fn().mockRejectedValue(new AgendaOperationError('Acesso negado.', 'acesso')),
       };
 
