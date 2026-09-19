@@ -410,6 +410,48 @@ describe('ComandaCheckoutModal', () => {
     });
   });
 
+  it('envia o desconto percentual para a liquidação e mostra o total calculado pelo repositório (spec 040)', async () => {
+    render(
+      <ComandaCheckoutModal
+        isOpen={true}
+        tenantId="t-1"
+        appointmentId="apt-1"
+        customerId="cust-1"
+        customerName="Carlos Silva"
+        initialServices={[
+          { service_id: 'srv-1', name: 'Corte Degradê', price: 30.3, professional_id: 'prof-1' },
+        ]}
+        availableProfessionals={[{ id: 'prof-1', name: 'Carlos Barbeiro' }]}
+        onClose={mockOnClose}
+        onFinalizado={mockOnFinalizado}
+        comandaRepo={comandaRepo}
+        caixaRepo={caixaRepo}
+        produtoRepo={produtoRepo}
+      />
+    );
+
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '%' }));
+    fireEvent.change(screen.getByLabelText('Valor do desconto'), { target: { value: '15' } });
+
+    // 30,30 com 15% = 4,545 -> 4,55; total 25,75.
+    expect(await screen.findByText('- R$ 4.55')).toBeInTheDocument();
+
+    const btnFinalizar = await screen.findByRole('button', { name: /Finalizar/i });
+    await waitFor(() => expect(btnFinalizar).not.toBeDisabled());
+    fireEvent.click(btnFinalizar);
+
+    await waitFor(() => {
+      expect(mockComandaAdapter.liquidarComanda).toHaveBeenCalledWith(
+        expect.objectContaining({
+          discount_percent: 15,
+          discount_amount: 4.55,
+          pagamentos: [expect.objectContaining({ amount: 25.75 })],
+        })
+      );
+    });
+  });
+
   it('bloqueia finalizar com gorjeta e mais de um profissional sem escolher o destinatário (spec 040)', async () => {
     render(
       <ComandaCheckoutModal

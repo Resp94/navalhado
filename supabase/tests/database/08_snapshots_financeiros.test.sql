@@ -55,7 +55,7 @@ select ok((select count(*) from ticket08_context) = 1, 'encontra contexto com ge
 select has_function(
   'public',
   'settle_comanda',
-  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb'],
+  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb', 'uuid', 'numeric'],
   'RPC de finalização continua disponível'
 );
 select has_function(

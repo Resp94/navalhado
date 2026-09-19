@@ -443,23 +443,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const isClosed = loadedComanda?.status === 'fechada';
 
   // Cálculos de Totais
-  const subtotal = useMemo(() => {
-    return itens.reduce((acc, it) => acc + (it.quantity || 1) * (it.unit_price || 0), 0);
-  }, [itens]);
-
-  const discountAmount = useMemo(() => {
-    if (discountType === 'percent') {
-      return (subtotal * (discountValue || 0)) / 100;
-    }
-    return Math.min(discountValue || 0, subtotal);
-  }, [subtotal, discountType, discountValue]);
+  // Um único cálculo, o mesmo do repositório e da RPC de liquidação, para o total
+  // mostrado ser exatamente o total gravado.
+  const totals = useMemo(
+    () =>
+      comRepo.calculateTotals(
+        itens.map((it) => ({ quantity: it.quantity || 1, unit_price: it.unit_price || 0 })),
+        { type: discountType === 'percent' ? 'percent' : 'amount', value: discountValue || 0 },
+        tipValue || 0
+      ),
+    [comRepo, itens, discountType, discountValue, tipValue]
+  );
+  const subtotal = totals.subtotal;
+  const discountAmount = totals.discount;
 
   const totalFinal = useMemo(() => {
     if (isClosed && loadedComanda) {
       return loadedComanda.total_amount;
     }
-    return Math.max(0, subtotal - discountAmount + (tipValue || 0));
-  }, [subtotal, discountAmount, tipValue, isClosed, loadedComanda]);
+    return totals.total;
+  }, [totals, isClosed, loadedComanda]);
 
   // Profissionais distintos presentes nos itens da comanda (ticket 04 da spec 034).
   // A gorjeta pergunta de quem é apenas quando há mais de um; com um só, resolve sozinha.
@@ -807,6 +810,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         appointment_id: appointmentId ?? null,
         customer_id: customerId ?? null,
         discount_amount: discountAmount,
+        // Com percentual, o banco converte e grava o percentual original.
+        discount_percent: discountType === 'percent' ? Math.min(100, discountValue || 0) : null,
         tip_amount: tipValue,
         // Ticket 04 da spec 034: a atribuição de gorjeta é gravada no MESMO
         // fechamento, não por escrita separada antes -- o fluxo mais comum
@@ -1614,7 +1619,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                   <span>Troco a devolver:</span>
                                 </div>
                                 <strong className="text-base font-extrabold text-text-primary">
-                                  R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
+                                  R$ {comRepo.calculateChange(totalFinal, pagamentos[0].receivedCash).toFixed(2)}
                                 </strong>
                               </div>
                             )}
@@ -1627,9 +1632,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <div className="flex flex-col gap-3">
                           {pagamentos.map((pag, idx) => {
                             const change =
-                              pag.method === 'cash' && pag.receivedCash > pag.amount
-                                ? pag.receivedCash - pag.amount
-                                : 0;
+                              pag.method === 'cash' ? comRepo.calculateChange(pag.amount, pag.receivedCash) : 0;
 
                             return (
                               <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">

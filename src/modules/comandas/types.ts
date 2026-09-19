@@ -50,6 +50,8 @@ export interface Comanda {
   status: ComandaStatus;
   total_amount: number;
   discount_amount: number;
+  discount_type?: 'amount' | 'percent';
+  discount_percent?: number | null;
   tip_amount: number;
   tip_professional_id?: string | null;
   notes: string | null;
@@ -83,6 +85,11 @@ export interface ComandaItemInput {
   unit_price: number;
 }
 
+export interface DescontoComanda {
+  type: 'amount' | 'percent';
+  value: number;
+}
+
 export interface LiquidarComandaInput {
   comanda_id?: string | null;
   operation_id?: string | null;
@@ -90,6 +97,8 @@ export interface LiquidarComandaInput {
   appointment_id?: string | null;
   customer_id?: string | null;
   discount_amount?: number;
+  /** Quando informado (0 a 100), o banco converte em reais e ignora discount_amount. */
+  discount_percent?: number | null;
   tip_amount?: number;
   tip_professional_id?: string | null;
   cash_session_id?: string | null;

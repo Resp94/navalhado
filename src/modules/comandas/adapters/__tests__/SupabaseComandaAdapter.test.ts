@@ -116,7 +116,25 @@ describe('SupabaseComandaAdapter', () => {
       p_itens: input.itens,
       p_pagamentos: input.pagamentos,
       p_tip_professional_id: null,
+      p_discount_percent: null,
     });
+  });
+
+  it('repassa o percentual de desconto para a RPC de liquidação', async () => {
+    mockRpc.mockClear();
+    mockRpc.mockResolvedValueOnce({ data: { id: 'comanda-1', status: 'fechada' }, error: null });
+
+    await new SupabaseComandaAdapter().liquidarComanda({
+      tenant_id: 'tenant-1',
+      discount_percent: 15,
+      itens: [{ item_type: 'servico' as const, service_id: 'service-1', quantity: 1, unit_price: 50 }],
+      pagamentos: [{ payment_method: 'pix' as const, amount: 42.5 }],
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'settle_comanda_idempotent',
+      expect.objectContaining({ p_discount_percent: 15 })
+    );
   });
 
   it('reabre comanda por uma única RPC transacional', async () => {

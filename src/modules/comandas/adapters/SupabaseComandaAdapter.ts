@@ -228,6 +228,7 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       p_itens: input.itens ?? [],
       p_pagamentos: input.pagamentos,
       p_tip_professional_id: input.tip_professional_id ?? null,
+      p_discount_percent: input.discount_percent ?? null,
     });
 
     if (error || !data) {

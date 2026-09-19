@@ -40,6 +40,77 @@ describe('ComandaRepository', () => {
     expect(result.total).toBe(0.0);
   });
 
+  describe('desconto percentual e arredondamento (spec 040)', () => {
+    it('converte o percentual em reais arredondando a centavo', () => {
+      const result = repository.calculateTotals(
+        [{ quantity: 3, unit_price: 10.1 }],
+        { type: 'percent', value: 15 },
+        0
+      );
+
+      expect(result.subtotal).toBe(30.3);
+      expect(result.discount).toBe(4.55);
+      expect(result.total).toBe(25.75);
+    });
+
+    it('arredonda percentual quebrado para baixo quando a terceira casa é menor que 5', () => {
+      const result = repository.calculateTotals(
+        [{ quantity: 1, unit_price: 33.33 }],
+        { type: 'percent', value: 10 },
+        0
+      );
+
+      expect(result.discount).toBe(3.33);
+      expect(result.total).toBe(30);
+    });
+
+    it('limita o percentual a 100 e trata negativo como zero', () => {
+      const itens = [{ quantity: 1, unit_price: 50 }];
+
+      expect(repository.calculateTotals(itens, { type: 'percent', value: 150 }, 0)).toMatchObject({
+        discount: 50,
+        total: 0,
+      });
+      expect(repository.calculateTotals(itens, { type: 'percent', value: -10 }, 0)).toMatchObject({
+        discount: 0,
+        total: 50,
+      });
+    });
+
+    it('soma a gorjeta depois do desconto percentual', () => {
+      const result = repository.calculateTotals(
+        [{ quantity: 1, unit_price: 100 }],
+        { type: 'percent', value: 10 },
+        5
+      );
+
+      expect(result).toMatchObject({ subtotal: 100, discount: 10, tip: 5, total: 95 });
+    });
+
+    it('arredonda cada item antes de somar, como a RPC de liquidação', () => {
+      // 10.004 + 10.004 = 20.008 -> 20.01 se arredondasse só o total; item a item dá 10.00 + 10.00.
+      const result = repository.calculateTotals(
+        [
+          { quantity: 1, unit_price: 10.004 },
+          { quantity: 1, unit_price: 10.004 },
+        ],
+        0,
+        0
+      );
+
+      expect(result.subtotal).toBe(20);
+    });
+
+    it('mantém desconto em reais como número puro, limitado ao subtotal', () => {
+      const itens = [{ quantity: 2, unit_price: 20 }];
+
+      expect(repository.calculateTotals(itens, { type: 'amount', value: 500 }, 0)).toMatchObject({
+        discount: 40,
+        total: 0,
+      });
+    });
+  });
+
   it('calcula troco em dinheiro com precisão', () => {
     expect(repository.calculateChange(35.0, 50.0)).toBe(15.0);
     expect(repository.calculateChange(35.0, 35.0)).toBe(0.0);
