@@ -735,6 +735,20 @@ export const Agenda: React.FC = () => {
     return filterNormalServiceSlots(generateScheduleGridSlots(schedules, slotIntervalMinutes));
   }, [formDate, tenant.businessHours, formProfessionalId, formServiceId, professionals, services, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
 
+  // No encaixe em modo grade, o horário sugerido ao abrir o modal é contado desde 00:00 (10:00, 12:00...),
+  // mas a lista e a validação usam a grade real do profissional (09:00, 09:40, 10:20... quando o
+  // intervalo é 40 min e o expediente começa às 09:00). Sem este ajuste a tela sugeria um horário e
+  // depois o recusava com "deve seguir a grade". Leva o horário para o próximo da grade vigente
+  // (também vale ao trocar de profissional ou de data), sem tocar no modo personalizado.
+  useEffect(() => {
+    if (!isModalOpen || !formIsFitting || fittingTimeMode !== 'grid') return;
+    if (modalAvailableTimeSlots.length === 0 || modalAvailableTimeSlots.includes(formTime)) return;
+    setFormTime(
+      modalAvailableTimeSlots.find((slot) => slot >= formTime) ??
+        modalAvailableTimeSlots[modalAvailableTimeSlots.length - 1]
+    );
+  }, [isModalOpen, formIsFitting, fittingTimeMode, modalAvailableTimeSlots, formTime]);
+
   // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
   const agendaRescheduleAvailableSlots = useMemo(() => {
     if (!agendaRescheduleDate || !agendaRescheduleProfId) return [];

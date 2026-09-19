@@ -547,6 +547,52 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockProfessionals[0].weekly_schedule = originalSchedule;
   });
 
+  it('sugere para o encaixe um horário que está na grade do profissional, não só na grade do dia (spec 040)', async () => {
+    const originalInterval = mockOutletContext.slotIntervalMinutes;
+    const originalSchedules = mockProfessionals.map((p) => p.weekly_schedule);
+    mockOutletContext.slotIntervalMinutes = 40;
+    // Grade de 40 min ancorada às 09:00 (09:00, 09:40, 10:20...). Às 09:00 o horário padrão contado
+    // desde 00:00 seria 09:20, que não existe nessa grade.
+    mockProfessionals.forEach((p) => {
+      p.weekly_schedule = { sunday: { active: true, start: '09:00', end: '19:00' } };
+    });
+
+    try {
+      render(<Agenda />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /^Encaixe$/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+      const timeInput = await screen.findByLabelText(/Horário de início/i);
+      await waitFor(() => {
+        expect(timeInput.querySelector('option[value="09:40"]')).not.toBeNull();
+      });
+      expect(timeInput.querySelector('option[value="09:20"]')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /Confirmar encaixe na agenda/i }));
+
+      await waitFor(() => {
+        expect(mockAddToast).toHaveBeenCalledWith('Encaixe agendado com sucesso!', 'success');
+      });
+      expect(mockAddToast).not.toHaveBeenCalledWith(
+        'Horário de encaixe deve seguir a grade de 40 minutos.',
+        'warning'
+      );
+      expect(mockRpc).toHaveBeenCalledWith(
+        'create_appointment_by_manager',
+        expect.objectContaining({ p_start_time: '2026-08-16T12:40:00.000Z', p_is_fitting: true })
+      );
+    } finally {
+      mockOutletContext.slotIntervalMinutes = originalInterval;
+      mockProfessionals.forEach((p, i) => {
+        p.weekly_schedule = originalSchedules[i];
+      });
+    }
+  });
+
   it('salva um encaixe pela grade quando o slot reinicia no retorno do intervalo', async () => {
     const originalInterval = mockOutletContext.slotIntervalMinutes;
     const originalSchedule = mockProfessionals[0].weekly_schedule;
