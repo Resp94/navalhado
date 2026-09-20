@@ -78,7 +78,7 @@ export const GERENTE_NAV_ITEMS: NavItemConfig[] = [
     // Módulo de Relatórios (spec 038): rota própria, fora do Hub
     // Financeiro, exclusiva do desktop -- por isso não entra na barra
     // inferior nem na gaveta "Mais" do celular (`MobileBottomNav`,
-    // `MobileMaisDrawer`), só nesta sidebar (`GlassSidebar`), que já é
+    // `MobileMaisDrawer`), só na sidebar (`GlassSidebar`), que já é
     // exibida apenas acima de 768px.
     path: '/relatorios',
     label: 'Relatórios',

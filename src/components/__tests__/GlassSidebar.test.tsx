@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GlassSidebar, type NavItemConfig } from '../GlassSidebar';
 import { GERENTE_NAV_ITEMS } from '../gerenteNavItems';
@@ -33,6 +33,7 @@ describe('GlassSidebar Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockLocation.pathname = '/agenda';
   });
 
   it('renderiza o nome da barbearia e as rotas de navegação', () => {
@@ -40,6 +41,8 @@ describe('GlassSidebar Component', () => {
 
     expect(screen.getByText('Barbearia Navalha de Ouro')).toBeInTheDocument();
     expect(screen.getByText('Agenda')).toBeInTheDocument();
+    expect(screen.getByText('Comandas')).toBeInTheDocument();
+    expect(screen.getByText('Relatórios')).toBeInTheDocument();
     expect(screen.getByText('Clientes')).toBeInTheDocument();
     expect(screen.getByText('Equipe')).toBeInTheDocument();
     expect(screen.getByText('Serviços')).toBeInTheDocument();
@@ -47,6 +50,13 @@ describe('GlassSidebar Component', () => {
     expect(screen.getByText('Financeiro')).toBeInTheDocument();
     expect(screen.getByText('WhatsApp')).toBeInTheDocument();
     expect(screen.getByText('Ajustes')).toBeInTheDocument();
+  });
+
+  it('lista exatamente as dez telas do gestor', () => {
+    render(<GlassSidebar {...defaultProps} />);
+
+    const nav = screen.getByRole('navigation');
+    expect(within(nav).getAllByRole('button')).toHaveLength(10);
   });
 
   it('navega para a rota correta ao clicar em um item de navegação', () => {
@@ -124,6 +134,12 @@ describe('GlassSidebar Component', () => {
     const semPrefixo = GERENTE_NAV_ITEMS.map((i) => ({ ...i, matchPrefix: false }));
     rerender(<GlassSidebar {...defaultProps} items={semPrefixo} />);
     expect(screen.getByRole('button', { name: /Financeiro/i })).not.toHaveAttribute('aria-current');
-    mockLocation.pathname = '/agenda';
+  });
+
+  it('restaura a preferência recolhida gravada ao montar', () => {
+    localStorage.setItem('navalhado_sidebar_open', 'false');
+    render(<GlassSidebar {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: /Expandir menu lateral/i })).toBeInTheDocument();
   });
 });
