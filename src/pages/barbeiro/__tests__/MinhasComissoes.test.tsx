@@ -1,50 +1,31 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MinhasComissoes } from '../MinhasComissoes';
 
-vi.mock('gsap', () => ({
-  gsap: { fromTo: vi.fn() },
-}));
-
-vi.mock('@gsap/react', () => ({
-  useGSAP: (callback: () => void) => callback(),
-}));
-
-const {
-  mockAddToast,
-  mockGetSession,
-  mockNavigate,
-  mockPaymentResult,
-  mockProfileSingle,
-  mockAdvancesResult,
-  mockSupabaseClient,
-} = vi.hoisted(() => {
-  const mockAddToast = vi.fn();
-  const mockGetSession = vi.fn();
-  const mockNavigate = vi.fn();
-  const mockPaymentResult = vi.fn();
-  const mockProfileSingle = vi.fn();
+const { mockAddToast, mockOutletContext, mockRpc, mockAdvancesResult, mockSupabaseClient } = vi.hoisted(() => {
+  const mockRpc = vi.fn();
   const mockAdvancesResult = vi.fn();
-
   return {
-    mockAddToast,
-    mockGetSession,
-    mockNavigate,
-    mockPaymentResult,
-    mockProfileSingle,
+    mockAddToast: vi.fn(),
+    mockRpc,
     mockAdvancesResult,
+    mockOutletContext: {
+      tenantId: 'tenant-1',
+      tenantName: 'Barbearia Alpha',
+      logoUrl: null,
+      timezone: 'America/Sao_Paulo',
+      professionalId: 'prof-me',
+      professionalName: 'Diego Barbeiro',
+    },
     mockSupabaseClient: {
-      auth: {
-        getSession: mockGetSession,
-        signOut: vi.fn(),
-      },
+      rpc: (...args: unknown[]) => mockRpc(...args),
       from: vi.fn(),
     },
   };
 });
 
 vi.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate,
+  useOutletContext: () => mockOutletContext,
 }));
 
 vi.mock('../../../components/Toast', () => ({
@@ -55,37 +36,53 @@ vi.mock('../../../lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
-const createComandaItensBuilder = () => {
-  const builder: any = {
-    select: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    in: vi.fn(() => builder),
-    gte: vi.fn(() => builder),
-    lte: vi.fn(() => builder),
-    order: vi.fn(() => Promise.resolve(mockPaymentResult())),
-  };
-  return builder;
-};
+const item = (overrides: Record<string, unknown> = {}) => ({
+  item_id: 'item-1',
+  comanda_id: 'cmd-1',
+  accrued_at: '2026-09-19T15:00:00.000Z',
+  customer_name: 'Lucas Silva',
+  item_type: 'servico',
+  item_name: 'Corte Degradê',
+  net_amount: 50,
+  commission_percentage: 40,
+  commission_amount: 20,
+  ...overrides,
+});
+
+const rpcCalls = (fn: string) => mockRpc.mock.calls.filter(([name]) => name === fn);
 
 describe('MinhasComissoes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSession.mockResolvedValue({
-      data: { session: { user: { id: 'user-1', email: 'barbeiro@example.com' } } },
-    });
-    mockPaymentResult.mockReturnValue({ data: [], error: null });
+    mockOutletContext.professionalId = 'prof-me';
     mockAdvancesResult.mockReturnValue({ data: [], error: null });
-    mockSupabaseClient.from.mockImplementation((table: string) => {
-      if (table === 'professionals') {
+    mockRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
         return {
-          select: () => ({
-            eq: () => ({ single: mockProfileSingle }),
-          }),
+          data: { generated_commission: 30, suggested_net_amount: 12.5, current_open_balance: 30, paid_commission: 0 },
+          error: null,
         };
       }
-      if (table === 'comanda_itens') {
-        return createComandaItensBuilder();
+      if (fn === 'get_professional_commission_items') {
+        return {
+          data: [
+            item(),
+            item({
+              item_id: 'item-2',
+              comanda_id: 'cmd-2',
+              customer_name: null,
+              item_name: 'Pomada Matte',
+              net_amount: 100,
+              commission_percentage: 10,
+              commission_amount: 10,
+            }),
+          ],
+          error: null,
+        };
       }
+      return { data: [], error: null };
+    });
+    mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'professional_account_entries') {
         return {
           select: () => ({
@@ -99,141 +96,108 @@ describe('MinhasComissoes', () => {
     });
   });
 
-  it('nega acesso quando nao existe profissional associado ao usuario', async () => {
-    mockProfileSingle.mockResolvedValue({
-      data: null,
-      error: new Error('Profissional nao encontrado'),
-    });
-
+  it('mostra a comissão gravada, a receita e o saldo a receber vindos do banco', async () => {
     render(<MinhasComissoes />);
 
-    await waitFor(() => {
-      expect(mockAddToast).toHaveBeenCalledWith(expect.any(String), 'error');
-      expect(mockNavigate).toHaveBeenCalledWith('/');
-    });
-
-    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('comanda_itens');
+    await waitFor(() => expect(screen.getByText(/R\$\s*30,00/)).toBeInTheDocument());
+    // Receita: 50 + 100
+    expect(screen.getByText(/R\$\s*150,00/)).toBeInTheDocument();
+    // A receber: saldo sugerido (comissões e gorjetas em aberto, menos vales)
+    expect(screen.getByText(/R\$\s*12,50/)).toBeInTheDocument();
   });
 
-  it('mantem totais zerados quando a consulta financeira falha', async () => {
-    mockProfileSingle.mockResolvedValue({
-      data: {
-        id: 'prof-1',
-        name: 'Carlos',
-        tenant_id: 'tenant-1',
-        commission_percentage: 50,
-      },
-      error: null,
-    });
-    mockPaymentResult.mockReturnValue({
-      data: null,
-      error: new Error('Falha ao consultar comanda_itens'),
-    });
-
+  it('lista os itens pelo valor e pela porcentagem gravados, com Cliente Balcão para o cliente anônimo', async () => {
     render(<MinhasComissoes />);
 
-    await waitFor(() => {
-      expect(screen.getAllByText(/R\$\s*0,00/)).toHaveLength(2);
-    });
-
-    expect(mockAddToast).toHaveBeenCalledWith(expect.any(String), 'error');
-    expect(screen.queryByText('Arthur Pendragon')).not.toBeInTheDocument();
-  });
-
-  it('calcula faturamento e comissoes por item individual e exibe Cliente Balcão para clientes anonimos', async () => {
-    mockProfileSingle.mockResolvedValue({
-      data: {
-        id: 'prof-1',
-        name: 'Carlos',
-        tenant_id: 'tenant-1',
-        commission_percentage: 40,
-      },
-      error: null,
-    });
-
-    // Dois itens atribuídos ao prof-1: um serviço (R$ 50, comissão 50%) e um produto (R$ 100, comissão 10%)
-    mockPaymentResult.mockReturnValue({
-      data: [
-        {
-          id: 'item-1',
-          quantity: 1,
-          unit_price: 50,
-          total_price: 50,
-          item_type: 'service',
-          created_at: '2026-08-26T10:00:00Z',
-          professional_id: 'prof-1',
-          comanda: {
-            id: 'cmd-1',
-            status: 'fechada',
-            closed_at: '2026-08-26T10:30:00Z',
-            created_at: '2026-08-26T10:00:00Z',
-            customer: null, // Balcão sem cadastro!
-          },
-          service: {
-            name: 'Corte Degradê',
-            price: 50,
-            commission_percentage: 50,
-          },
-          product: null,
-        },
-        {
-          id: 'item-2',
-          quantity: 2,
-          unit_price: 50,
-          total_price: 100,
-          item_type: 'product',
-          created_at: '2026-08-26T11:00:00Z',
-          professional_id: 'prof-1',
-          comanda: {
-            id: 'cmd-2',
-            status: 'fechada',
-            closed_at: '2026-08-26T11:30:00Z',
-            created_at: '2026-08-26T11:00:00Z',
-            customer: { name: 'Lucas Silva' },
-          },
-          service: null,
-          product: {
-            name: 'Pomada Matte',
-            price: 50,
-            commission_percentage: 10,
-          },
-        },
-      ],
-      error: null,
-    });
-
-    render(<MinhasComissoes />);
-
-    await waitFor(() => {
-      // Total Revenue: 50 + 100 = 150 -> R$ 150,00
-      expect(screen.getByText(/R\$\s*150,00/)).toBeInTheDocument();
-      // Total Commission: (50 * 50%) + (100 * 10%) = 25 + 10 = 35 -> R$ 35,00
-      expect(screen.getByText(/R\$\s*35,00/)).toBeInTheDocument();
-    });
-
-    // Itens na listagem
-    expect(screen.getAllByText('Cliente Balcão').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByText('Corte Degradê').length).toBeGreaterThan(0));
     expect(screen.getAllByText('Lucas Silva').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Corte Degradê').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Cliente Balcão').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Pomada Matte').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/R\$\s*20,00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('40%').length).toBeGreaterThan(0);
   });
 
-  it('exibe os vales em aberto do próprio profissional (ticket 05)', async () => {
-    mockProfileSingle.mockResolvedValue({
-      data: {
-        id: 'prof-1',
-        name: 'Carlos',
-        tenant_id: 'tenant-1',
-        commission_percentage: 40,
-      },
-      error: null,
+  it('não recalcula: o valor exibido é o do banco mesmo que não bata com a porcentagem', async () => {
+    // O banco gravou R$ 7,00 sobre R$ 50,00 (14%): a tela mostra o que foi gravado.
+    mockRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_professional_commission_balance') {
+        return { data: { generated_commission: 7, suggested_net_amount: 7 }, error: null };
+      }
+      return {
+        data: [item({ net_amount: 50, commission_percentage: 14, commission_amount: 7 })],
+        error: null,
+      };
     });
+
+    render(<MinhasComissoes />);
+
+    await waitFor(() => expect(screen.getAllByText(/R\$\s*7,00/).length).toBeGreaterThan(0));
+    expect(screen.queryByText(/R\$\s*25,00/)).not.toBeInTheDocument();
+  });
+
+  it('consulta pelo profissional e pela barbearia do vínculo, no fuso da barbearia', async () => {
+    render(<MinhasComissoes />);
+
+    await waitFor(() => expect(rpcCalls('get_professional_commission_items')).toHaveLength(1));
+    const [, params] = rpcCalls('get_professional_commission_items')[0];
+    expect(params).toMatchObject({ p_professional_id: 'prof-me', p_tenant_id: 'tenant-1' });
+    // O recorte começa à meia-noite do dia 1 da barbearia (03:00 UTC em São Paulo).
+    expect(String(params.p_start_date)).toMatch(/T03:00:00\.000Z$/);
+    expect(rpcCalls('get_professional_commission_balance')[0][1]).toMatchObject({
+      p_professional_id: 'prof-me',
+      p_tenant_id: 'tenant-1',
+    });
+  });
+
+  it('refaz a consulta ao trocar o período', async () => {
+    render(<MinhasComissoes />);
+    await waitFor(() => expect(rpcCalls('get_professional_commission_items')).toHaveLength(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hoje' }));
+
+    await waitFor(() => expect(rpcCalls('get_professional_commission_items')).toHaveLength(2));
+    expect(screen.getByRole('button', { name: 'Hoje' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('mostra a recusa do banco como mensagem clara, sem totais', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'Acesso negado para este extrato.', code: '42501' } });
+
+    render(<MinhasComissoes />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Acesso negado para este extrato.');
+    expect(mockAddToast).toHaveBeenCalledWith('Acesso negado para este extrato.', 'error');
+    expect(screen.queryByText('Comissão do período')).not.toBeInTheDocument();
+  });
+
+  it('sem cadastro de profissional vinculado, mostra o aviso e não consulta o banco', async () => {
+    mockOutletContext.professionalId = '';
+
+    render(<MinhasComissoes />);
+
+    expect(screen.getByText('Acesso não vinculado')).toBeInTheDocument();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('período sem comissão mostra o estado vazio e totais zerados', async () => {
+    mockRpc.mockImplementation(async (fn: string) =>
+      fn === 'get_professional_commission_balance'
+        ? { data: { generated_commission: 0, suggested_net_amount: 0 }, error: null }
+        : { data: [], error: null }
+    );
+
+    render(<MinhasComissoes />);
+
+    expect(await screen.findByText('Nenhum atendimento com comissão registrada neste período.')).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s*0,00/)).toHaveLength(3);
+  });
+
+  it('exibe os vales em aberto do próprio profissional', async () => {
     mockAdvancesResult.mockReturnValue({
       data: [
         {
           id: 'entry-1',
           tenant_id: 'tenant-1',
-          professional_id: 'prof-1',
+          professional_id: 'prof-me',
           entry_type: 'vale',
           direction: 'debit',
           amount: 30,
@@ -254,29 +218,14 @@ describe('MinhasComissoes', () => {
 
     render(<MinhasComissoes />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Vales em aberto')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Vales em aberto')).toBeInTheDocument();
     expect(screen.getByText('Adiantamento para material de trabalho')).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s*30,00/)).toBeInTheDocument();
   });
 
   it('não exibe a seção de vales quando não há nenhum em aberto', async () => {
-    mockProfileSingle.mockResolvedValue({
-      data: {
-        id: 'prof-1',
-        name: 'Carlos',
-        tenant_id: 'tenant-1',
-        commission_percentage: 40,
-      },
-      error: null,
-    });
-
     render(<MinhasComissoes />);
 
-    await waitFor(() => {
-      expect(screen.getAllByText(/R\$\s*0,00/)).toHaveLength(2);
-    });
+    await waitFor(() => expect(screen.getByText(/R\$\s*30,00/)).toBeInTheDocument());
     expect(screen.queryByText('Vales em aberto')).not.toBeInTheDocument();
   });
 });

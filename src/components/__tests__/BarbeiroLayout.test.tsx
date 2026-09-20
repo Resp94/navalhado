@@ -44,6 +44,7 @@ const ContextProbe = () => {
       <span data-testid="tenant-name">{context.tenantName}</span>
       <span data-testid="professional-id">{context.professionalId || 'sem-vinculo'}</span>
       <span data-testid="timezone">{context.timezone}</span>
+      <span data-testid="professional-name">{context.professionalName}</span>
     </div>
   );
 };
@@ -96,6 +97,7 @@ describe('BarbeiroLayout', () => {
     expect(screen.getByTestId('tenant-name')).toHaveTextContent('Barbearia Alpha');
     expect(screen.getByTestId('professional-id')).toHaveTextContent('prof-diego');
     expect(screen.getByTestId('timezone')).toHaveTextContent('America/Manaus');
+    expect(screen.getByTestId('professional-name')).toHaveTextContent('Diego Barbeiro');
   });
 
   it('busca a barbearia e o profissional pelo usuário logado, sem valor externo', async () => {

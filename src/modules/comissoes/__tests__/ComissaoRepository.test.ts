@@ -8,6 +8,7 @@ describe('ComissaoRepository', () => {
     obterSaldoProfissional: vi.fn(),
     estornarQuitacao: vi.fn(),
     obterExtratoProfissional: vi.fn(),
+    obterItensComissao: vi.fn(),
   };
 
   const repository = new ComissaoRepository(mockAdapter);
@@ -246,6 +247,65 @@ describe('ComissaoRepository', () => {
 
       await expect(
         repository.getProfessionalStatement({ professional_id: 'prof-1' })
+      ).rejects.toThrow('Acesso negado para este extrato.');
+    });
+  });
+
+  describe('obterItensComissaoProfissional', () => {
+    const item = {
+      item_id: 'item-1',
+      comanda_id: 'comanda-1',
+      accrued_at: '2026-09-19T15:00:00.000Z',
+      customer_name: 'Pedro',
+      item_type: 'servico',
+      item_name: 'Corte Tradicional',
+      net_amount: 50,
+      commission_percentage: 40,
+      commission_amount: 20,
+    };
+
+    it('repassa profissional, período e barbearia ao adaptador e devolve os itens gravados', async () => {
+      vi.mocked(mockAdapter.obterItensComissao).mockResolvedValueOnce([item]);
+
+      const result = await repository.obterItensComissaoProfissional({
+        professional_id: 'prof-1',
+        start_date: '2026-09-01T03:00:00.000Z',
+        end_date: '2026-09-20T15:00:00.000Z',
+        tenant_id: 'tenant-1',
+      });
+
+      expect(result).toEqual([item]);
+      expect(mockAdapter.obterItensComissao).toHaveBeenCalledWith({
+        professional_id: 'prof-1',
+        start_date: '2026-09-01T03:00:00.000Z',
+        end_date: '2026-09-20T15:00:00.000Z',
+        tenant_id: 'tenant-1',
+      });
+    });
+
+    it('rejeita profissional em branco sem consultar o adaptador', async () => {
+      await expect(
+        repository.obterItensComissaoProfissional({ professional_id: ' ' })
+      ).rejects.toBeInstanceOf(ComissaoValidationError);
+      expect(mockAdapter.obterItensComissao).not.toHaveBeenCalled();
+    });
+
+    it('rejeita período invertido sem consultar o adaptador', async () => {
+      await expect(
+        repository.obterItensComissaoProfissional({
+          professional_id: 'prof-1',
+          start_date: '2026-09-20T00:00:00.000Z',
+          end_date: '2026-09-01T00:00:00.000Z',
+        })
+      ).rejects.toBeInstanceOf(ComissaoValidationError);
+      expect(mockAdapter.obterItensComissao).not.toHaveBeenCalled();
+    });
+
+    it('propaga a recusa de acesso do banco', async () => {
+      vi.mocked(mockAdapter.obterItensComissao).mockRejectedValueOnce(new Error('Acesso negado para este extrato.'));
+
+      await expect(
+        repository.obterItensComissaoProfissional({ professional_id: 'prof-colega' })
       ).rejects.toThrow('Acesso negado para este extrato.');
     });
   });

@@ -4,15 +4,15 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Total, saldo a receber e extrato vêm do ComissaoRepository; a tela não recalcula comissão pela porcentagem do catálogo
-- [ ] Comissão exibida bate com a Quitação de Comissão do gestor para o mesmo profissional e período
-- [ ] Filtros hoje, 7 dias e mês no fuso da barbearia
-- [ ] Vales em aberto e extrato da Conta do Profissional inalterados
-- [ ] Barbeiro não consegue ver dados de outro profissional nem de outra barbearia; a barbearia vem do vínculo de profissional, e a recusa da RPC vira mensagem clara na tela
-- [ ] Cadastro de profissional inativo ou arquivado: recusa tratada como mensagem, não como erro genérico
-- [ ] Layout alinhado ao padrão mobile do gestor
-- [ ] Testes de tela: comissão pelo valor gravado, mesmo com porcentagem do catálogo alterada
-- [ ] Verificado no navegador com o barbeiro de teste do DEV
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] Total, saldo a receber e extrato vêm do ComissaoRepository; a tela não recalcula comissão pela porcentagem do catálogo
+- [x] Comissão exibida bate com a Quitação de Comissão do gestor para o mesmo profissional e período
+- [x] Filtros hoje, 7 dias e mês no fuso da barbearia
+- [x] Vales em aberto e extrato da Conta do Profissional inalterados
+- [x] Barbeiro não consegue ver dados de outro profissional nem de outra barbearia; a barbearia vem do vínculo de profissional, e a recusa da RPC vira mensagem clara na tela
+- [x] Cadastro de profissional inativo ou arquivado: recusa tratada como mensagem, não como erro genérico
+- [x] Layout alinhado ao padrão mobile do gestor
+- [x] Testes de tela: comissão pelo valor gravado, mesmo com porcentagem do catálogo alterada
+- [x] Verificado no navegador com o barbeiro de teste do DEV
+- [x] `npm run lint`, `npm test` e `npm run build` passam

@@ -104,6 +104,8 @@ Vinculado ao profissional **Diego Barbeiro** da Barbearia Alpha Dev (`profession
 | **Serviço** | Corte Tradicional (R$ 50,00) |
 | **Status** | `confirmed`, pagamento `pending`, origem `manual` |
 
+**Seed de teste (comissão do Diego):** Comanda fechada em 20/09/2026 com um Corte Tradicional de R$ 50,00 para o Cliente Teste Barbeiro, comissão gravada de R$ 20,00 (40%), obrigação `30a77a1c-5b52-4ea6-a34e-691e1b38fa99`. Serve para validar `/minhas-comissoes`; a Comanda foi inserida direto no banco (não passou pelo fluxo de caixa).
+
 > Seed criado só para validar `/minha-agenda`. Não foi finalizado; a data fixa (21/09/2026) deixa de aparecer em "Hoje" depois desse dia. A barbearia Alpha Dev fecha aos domingos.
 
 ---

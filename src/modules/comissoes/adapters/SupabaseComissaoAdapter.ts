@@ -1,8 +1,10 @@
 import { supabase } from '../../../lib/supabase';
 import type {
+  ConsultarItensComissaoInput,
   ConsultarSaldoInput,
   EstornarQuitacaoInput,
   IComissaoAdapter,
+  ItemComissaoGerada,
   ObterExtratoInput,
   ProfessionalAccountStatement,
   QuitacaoEstornada,
@@ -72,5 +74,25 @@ export class SupabaseComissaoAdapter implements IComissaoAdapter {
     }
 
     return data as ProfessionalAccountStatement;
+  }
+
+  async obterItensComissao(input: ConsultarItensComissaoInput): Promise<ItemComissaoGerada[]> {
+    const { data, error } = await supabase.rpc('get_professional_commission_items', {
+      p_professional_id: input.professional_id,
+      p_start_date: input.start_date ?? null,
+      p_end_date: input.end_date ?? null,
+      p_tenant_id: input.tenant_id ?? null,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao consultar os itens de comissão do profissional.');
+    }
+
+    return ((data as ItemComissaoGerada[] | null) ?? []).map((item) => ({
+      ...item,
+      net_amount: Number(item.net_amount ?? 0),
+      commission_amount: Number(item.commission_amount ?? 0),
+      commission_percentage: item.commission_percentage == null ? null : Number(item.commission_percentage),
+    }));
   }
 }

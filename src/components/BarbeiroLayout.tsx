@@ -19,6 +19,8 @@ import { normalizeBusinessHours } from '../lib/schedule';
 export interface BarbeiroContextType extends TenantContextType {
   /** Cadastro de profissional vinculado ao usuário logado; vazio quando o vínculo não existe. */
   professionalId: string;
+  /** Nome do usuário barbeiro, para os títulos das telas dele. */
+  professionalName: string;
 }
 
 export const BarbeiroLayout: React.FC = () => {
@@ -249,7 +251,7 @@ export const BarbeiroLayout: React.FC = () => {
         {/* ÁREA DE CONTEÚDO PRINCIPAL COM ANIMAÇÃO DE ENTRADA SUAVE */}
         <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 py-6 md:px-10 md:py-8 flex flex-col max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
           <div key={location.pathname} className="w-full animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_forwards]">
-            <Outlet context={{ ...tenantInfo, professionalId: profissionalId } satisfies BarbeiroContextType} />
+            <Outlet context={{ ...tenantInfo, professionalId: profissionalId, professionalName: barberName } satisfies BarbeiroContextType} />
           </div>
         </main>
 
