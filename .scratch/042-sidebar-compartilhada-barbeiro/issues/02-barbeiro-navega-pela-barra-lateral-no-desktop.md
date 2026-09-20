@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Barra lateral recebe a navegação por propriedade)
 
-**Status:** ready-for-review
+**Status:** done
 
 - [x] O layout do barbeiro define a navegação dele com Minha Agenda e Minhas Comissões, com os ícones que a navegação horizontal já usava, e nenhum item ativo em subrotas
 - [x] O cabeçalho superior do desktop sai inteiro do layout do barbeiro, junto com a navegação horizontal, o sininho, o bloco de identidade e o botão Sair
@@ -14,5 +14,5 @@
 - [x] Nenhum import, variável ou função fica órfão no layout do barbeiro depois da remoção
 - [x] No celular o barbeiro continua com header e navegação inferior, sem a gaveta "Mais"
 - [x] Teste de tela do layout do barbeiro: a navegação do desktop é a barra lateral e traz só os dois itens dele
-- [ ] Verificado no navegador: login como barbeiro, recolher e expandir, os dois itens navegam, Sair funciona (pendente: exige login humano)
+- [x] Verificado no navegador: login como barbeiro, recolher e expandir, os dois itens navegam, Sair funciona
 - [x] `npm run lint`, `npm test` e `npm run build` passam
