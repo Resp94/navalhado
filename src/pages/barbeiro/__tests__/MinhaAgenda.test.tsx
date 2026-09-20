@@ -1,85 +1,324 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { BrowserRouter } from 'react-router-dom';
-import { ToastProvider } from '../../../components/Toast';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MinhaAgenda } from '../MinhaAgenda';
 
-// Mock do supabase auth
-vi.mock('../../../lib/supabase', () => {
-  return {
-    supabase: {
-      auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: {
-            session: {
-              user: { id: 'user-barber-1', email: 'barbeiro@navalhado.com' },
-            },
-          },
-        }),
-        signOut: vi.fn(),
-      },
-      from: vi.fn().mockImplementation((table: string) => {
-        if (table === 'professionals') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'prof-1',
-                    name: 'Barbeiro Teste',
-                    tenant_id: 'tenant-1',
-                    commission_percentage: 50,
-                    timezone: 'America/Sao_Paulo',
-                  },
-                }),
-              }),
-            }),
-          };
-        }
-        if (table === 'appointments') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                gte: vi.fn().mockReturnValue({
-                  lte: vi.fn().mockReturnValue({
-                    order: vi.fn().mockResolvedValue({
-                      data: [],
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          };
-        }
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-        };
-      }),
+const { mockAddToast, mockOutletContext, mockRpc, mockFrom, queries } = vi.hoisted(() => ({
+  mockAddToast: vi.fn(),
+  mockRpc: vi.fn(),
+  mockFrom: vi.fn(),
+  queries: [] as Array<{ table: string; filters: Array<[string, unknown]> }>,
+  mockOutletContext: {
+    tenantId: 'tenant-1',
+    tenantName: 'Barbearia Alpha',
+    logoUrl: null,
+    timezone: 'America/Sao_Paulo',
+    slotIntervalMinutes: 30,
+    professionalId: 'prof-me',
+    businessHours: {
+      segunda: { active: true, open: '08:00', close: '20:00' },
+      terca: { active: true, open: '08:00', close: '20:00' },
+      quarta: { active: true, open: '08:00', close: '20:00' },
+      quinta: { active: true, open: '08:00', close: '20:00' },
+      sexta: { active: true, open: '08:00', close: '20:00' },
+      sabado: { active: true, open: '08:00', close: '20:00' },
+      domingo: { active: true, open: '08:00', close: '20:00' },
     },
-  };
+  },
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useOutletContext: () => mockOutletContext };
 });
 
-describe('MinhaAgenda Page', () => {
+vi.mock('../../../components/Toast', () => ({
+  useToast: () => ({ addToast: mockAddToast }),
+}));
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
+    channel: () => ({ on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() }),
+    removeChannel: vi.fn(),
+  },
+}));
+
+const ME = { id: 'prof-me', name: 'Diego Barbeiro', is_active: true, phone: '11999990001', weekly_schedule: null };
+const SERVICE = { id: 'serv-1', name: 'Corte Tradicional', price: 50, duration_minutes: 30 };
+const CUSTOMER = { id: 'cust-1', name: 'Pedro Cliente', phone: '11988887777' };
+
+// Domingo, 12:00 em São Paulo. O Agendamento das 09:00 já começou.
+const NOW = new Date('2026-08-16T15:00:00.000Z');
+
+const appointmentRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 'app-1',
+  start_time: '2026-08-16T12:00:00.000Z',
+  end_time: '2026-08-16T12:30:00.000Z',
+  status: 'confirmed',
+  payment_status: 'pending',
+  is_fitting: false,
+  notes: null,
+  origin: 'manual',
+  professional_id: 'prof-me',
+  customer: CUSTOMER,
+  service: SERVICE,
+  ...overrides,
+});
+
+const tables: Record<string, () => unknown> = {};
+
+// Construtor encadeável que registra os filtros de cada consulta e responde a qualquer ponto da cadeia.
+const makeBuilder = (table: string) => {
+  const query = { table, filters: [] as Array<[string, unknown]> };
+  queries.push(query);
+  const result = () => ({ data: tables[table]?.() ?? [], error: null });
+  const builder: Record<string, unknown> = {};
+  for (const method of ['select', 'is', 'neq', 'gte', 'lt', 'order']) {
+    builder[method] = () => builder;
+  }
+  builder.eq = (column: string, value: unknown) => {
+    query.filters.push([column, value]);
+    return builder;
+  };
+  builder.maybeSingle = () => Promise.resolve({ data: tables[table]?.() ?? null, error: null });
+  builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve);
+  return builder;
+};
+
+describe('Minha Agenda do barbeiro', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
     vi.clearAllMocks();
+    queries.length = 0;
+    mockOutletContext.professionalId = 'prof-me';
+    tables.professionals = () => ME;
+    tables.services = () => [SERVICE];
+    tables.customers = () => [CUSTOMER];
+    tables.professional_services = () => [];
+    tables.appointments = () => [appointmentRow()];
+    tables.blocked_slots = () => [];
+    mockFrom.mockImplementation((table: string) => makeBuilder(table));
+    mockRpc.mockResolvedValue({
+      data: { appointment_id: 'app-1', status: 'canceled', customer_id: null, professional_id: 'prof-me' },
+      error: null,
+    });
   });
 
-  it('carrega o perfil do colaborador e renderiza os cards de estatísticas', async () => {
-    render(
-      <ToastProvider>
-        <BrowserRouter>
-          <MinhaAgenda />
-        </BrowserRouter>
-      </ToastProvider>
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const renderAgenda = async () => {
+    render(<MinhaAgenda />);
+    await waitFor(() => expect(screen.getByText('Pedro Cliente')).toBeInTheDocument());
+  };
+
+  it('mostra só o profissional dele e o Agendamento do dia, no formato da agenda do gestor', async () => {
+    await renderAgenda();
+
+    expect(screen.getByText('Diego')).toBeInTheDocument();
+    expect(screen.getByText('11988887777')).toBeInTheDocument();
+    expect(screen.getByText(/CORTE TRADICIONAL - R\$ 50\.00/i)).toBeInTheDocument();
+  });
+
+  it('não oferece Iniciar, Finalizar, cobrança nem os totais estimados', async () => {
+    await renderAgenda();
+
+    expect(screen.queryByRole('button', { name: /^Iniciar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Finalizar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Faturamento')).not.toBeInTheDocument();
+    expect(screen.queryByText('Minha Comissão')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cobrar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Lista de Espera/i)).not.toBeInTheDocument();
+  });
+
+  it('consulta a agenda pela barbearia e pelo profissional do vínculo do usuário', async () => {
+    await renderAgenda();
+
+    const appointmentQuery = queries.find((q) => q.table === 'appointments');
+    expect(appointmentQuery?.filters).toEqual(
+      expect.arrayContaining([
+        ['tenant_id', 'tenant-1'],
+        ['professional_id', 'prof-me'],
+      ])
     );
+    const professionalQuery = queries.find((q) => q.table === 'professionals');
+    expect(professionalQuery?.filters).toEqual(
+      expect.arrayContaining([
+        ['id', 'prof-me'],
+        ['tenant_id', 'tenant-1'],
+      ])
+    );
+  });
+
+  it('sem cadastro de profissional vinculado, mostra o aviso e não consulta agendamentos', async () => {
+    mockOutletContext.professionalId = '';
+
+    render(<MinhaAgenda />);
+
+    expect(screen.getByText('Acesso não vinculado')).toBeInTheDocument();
+    expect(queries.some((q) => q.table === 'appointments')).toBe(false);
+  });
+
+  it('o toque no card abre as ações: reagendar, não compareceu e cancelar', async () => {
+    await renderAgenda();
+
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByRole('button', { name: /Chamar no WhatsApp/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /^Reagendar$/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /Marcar não compareceu/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /Cancelar agendamento/i })).toBeInTheDocument();
+  });
+
+  it('cancela o Agendamento pela RPC com o motivo e a barbearia do vínculo', async () => {
+    await renderAgenda();
+
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+    const sheet = await screen.findByRole('dialog');
+    fireEvent.click(within(sheet).getByRole('button', { name: /Cancelar agendamento/i }));
+
+    fireEvent.change(await screen.findByLabelText(/Motivo do Cancelamento/i), {
+      target: { value: 'Cliente desistiu' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sim, Cancelar Horário/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Cortes Hoje')).toBeInTheDocument();
-      expect(screen.getByText('Concluídos')).toBeInTheDocument();
-      expect(screen.getByText('Faturamento')).toBeInTheDocument();
-      expect(screen.getByText('Minha Comissão')).toBeInTheDocument();
-      expect(screen.getByText('Atendimentos Agendados')).toBeInTheDocument();
+      expect(mockRpc).toHaveBeenCalledWith('cancel_appointment_by_manager', {
+        p_appointment_id: 'app-1',
+        p_tenant_id: 'tenant-1',
+        p_reason: 'Cliente desistiu',
+      });
     });
+    expect(mockAddToast).toHaveBeenCalledWith('Agendamento cancelado com sucesso.', 'success');
+  });
+
+  it('marca não compareceu pela RPC quando o horário já passou', async () => {
+    mockRpc.mockResolvedValue({ data: { appointment_id: 'app-1', status: 'no_show' }, error: null });
+    await renderAgenda();
+
+    fireEvent.click(screen.getByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Sim, não compareceu/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith('mark_appointment_no_show', {
+        p_appointment_id: 'app-1',
+        p_tenant_id: 'tenant-1',
+      });
+    });
+  });
+
+  it('não oferece não compareceu antes do horário de início', async () => {
+    tables.appointments = () => [
+      appointmentRow({ start_time: '2026-08-16T20:00:00.000Z', end_time: '2026-08-16T20:30:00.000Z' }),
+    ];
+    await renderAgenda();
+
+    expect(screen.queryByRole('button', { name: /Marcar Pedro Cliente como não compareceu/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).queryByRole('button', { name: /Marcar não compareceu/i })).not.toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /^Reagendar$/i })).toBeInTheDocument();
+  });
+
+  it('reagenda com o profissional travado nele', async () => {
+    await renderAgenda();
+
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+    const sheet = await screen.findByRole('dialog');
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Reagendar$/i }));
+
+    const professionalSelect = await screen.findByLabelText('Profissional');
+    expect(professionalSelect).toBeDisabled();
+    expect(professionalSelect).toHaveValue('prof-me');
+  });
+
+  it('cria Agendamento só na própria agenda: sem "Tanto faz" e com o profissional dele na RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        appointment_id: 'app-new',
+        status: 'confirmed',
+        customer_id: null,
+        professional_id: 'prof-me',
+        start_time: '2026-08-16T20:00:00.000Z',
+        end_time: '2026-08-16T20:30:00.000Z',
+        is_fitting: false,
+      },
+      error: null,
+    });
+    await renderAgenda();
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo agendamento/i }));
+
+    const professionalSelect = await screen.findByLabelText('Profissional');
+    expect(within(professionalSelect).queryByRole('option', { name: 'Tanto faz' })).not.toBeInTheDocument();
+    expect(professionalSelect).toHaveValue('prof-me');
+
+    fireEvent.change(screen.getByLabelText('Cliente'), { target: { value: 'cust-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar agendamento/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith(
+        'create_appointment_by_manager',
+        expect.objectContaining({
+          p_tenant_id: 'tenant-1',
+          p_professional_id: 'prof-me',
+          p_customer_id: 'cust-1',
+          p_waiting_list_id: null,
+        })
+      );
+    });
+  });
+
+  it('cria encaixe com cliente novo pela RPC', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        appointment_id: 'app-new',
+        status: 'confirmed',
+        customer_id: 'cust-new',
+        professional_id: 'prof-me',
+        start_time: '2026-08-16T15:00:00.000Z',
+        end_time: '2026-08-16T15:30:00.000Z',
+        is_fitting: true,
+      },
+      error: null,
+    });
+    await renderAgenda();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Novo cadastro/i }));
+    fireEvent.change(screen.getByLabelText('Nome do cliente'), { target: { value: 'Cliente Novo' } });
+    fireEvent.change(screen.getByLabelText('WhatsApp ou celular'), { target: { value: '11955550181' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar encaixe na agenda/i }));
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenCalledWith(
+        'create_appointment_by_manager',
+        expect.objectContaining({
+          p_professional_id: 'prof-me',
+          p_new_customer_name: 'Cliente Novo',
+          p_new_customer_phone: '11955550181',
+          p_is_fitting: true,
+        })
+      );
+    });
+  });
+
+  it('esconde os serviços que o profissional não executa', async () => {
+    tables.services = () => [SERVICE, { id: 'serv-2', name: 'Barba', price: 30, duration_minutes: 30 }];
+    tables.professional_services = () => [
+      { professional_id: 'prof-me', service_id: 'serv-2', custom_duration_minutes: null, is_enabled: false },
+    ];
+    await renderAgenda();
+
+    fireEvent.click(screen.getByRole('button', { name: /Novo agendamento/i }));
+
+    const serviceSelect = await screen.findByLabelText('Serviço');
+    expect(within(serviceSelect).getByRole('option', { name: 'Corte Tradicional' })).toBeInTheDocument();
+    expect(within(serviceSelect).queryByRole('option', { name: 'Barba' })).not.toBeInTheDocument();
   });
 });

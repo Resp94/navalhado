@@ -1,3 +1,6 @@
+import type { WeeklySchedule } from '../../lib/schedule';
+import type { BlockedSlot } from '../bloqueios/types';
+
 export type AgendamentoStatus =
   | 'pending'
   | 'confirmed'
@@ -62,6 +65,69 @@ export interface AgendaRescheduleResult extends AgendaTransitionResult {
 /** regra: recusa de negócio do banco; acesso: papel/unidade; desconhecido: falha inesperada. */
 export type AgendaOperationErrorKind = 'regra' | 'acesso' | 'desconhecido';
 
+/** Agendamento como a agenda o mostra: com o cliente e o serviço já resolvidos. */
+export interface AgendamentoDoDia {
+  id: string;
+  start_time: string;
+  end_time: string;
+  status: AgendamentoStatus;
+  payment_status: 'pending' | 'paid';
+  is_fitting: boolean;
+  notes?: string | null;
+  origin?: string;
+  professional_id: string;
+  customer: { id: string; name: string; phone: string };
+  service: { id: string; name: string; price: number; duration_minutes?: number };
+}
+
+export interface AgendaDoDiaInput {
+  professionalId: string;
+  /** Início do dia local, em ISO 8601. */
+  startIso: string;
+  /** Início do dia seguinte, em ISO 8601 (exclusivo). */
+  endExclusiveIso: string;
+}
+
+export interface AgendaDoDia {
+  appointments: AgendamentoDoDia[];
+  /** Bloqueios de Horário da barbearia no intervalo. */
+  blockedSlots: BlockedSlot[];
+}
+
+export interface ServicoDaAgenda {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+}
+
+export interface ClienteDaAgenda {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+export interface ProfissionalDaAgenda {
+  id: string;
+  name: string;
+  is_active: boolean;
+  phone?: string;
+  weekly_schedule?: WeeklySchedule | null;
+  professional_services: Array<{
+    service_id: string;
+    custom_duration_minutes?: number | null;
+    is_enabled?: boolean | null;
+  }>;
+}
+
+/** Cadastros que a agenda de um profissional precisa para criar e reagendar. */
+export interface CadastrosDoProfissional {
+  /** Nulo quando o cadastro não existe na barbearia. */
+  professional: ProfissionalDaAgenda | null;
+  services: ServicoDaAgenda[];
+  customers: ClienteDaAgenda[];
+}
+
 /**
  * Transições de estado do Agendamento feitas pelo gestor e pelo barbeiro. A regra
  * (estado de origem, horário, papel, unidade) mora no banco; o adaptador só chama
@@ -74,4 +140,8 @@ export interface IAgendaAdapter {
   listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]>;
   criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult>;
   marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
+  /** Agendamentos ativos do profissional no intervalo e Bloqueios de Horário da barbearia. */
+  carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia>;
+  /** Profissional, serviços ativos e clientes da barbearia. */
+  carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional>;
 }

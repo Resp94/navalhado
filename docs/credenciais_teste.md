@@ -100,11 +100,11 @@ Vinculado ao profissional **Diego Barbeiro** da Barbearia Alpha Dev (`profession
 | :--- | :--- |
 | **Cliente** | Cliente Teste Barbeiro, `(11) 90000-0001` |
 | **Appointment ID** | `6ff4f80c-b050-4daf-b3df-eebdad026483` |
-| **Data/hora** | 19/09/2026, 15:00–15:30 (`America/Sao_Paulo`) |
+| **Data/hora** | 21/09/2026 (segunda), 15:00–15:30 (`America/Sao_Paulo`). Criado para 19/09 e reagendado pelo próprio barbeiro na verificação do ticket 02 |
 | **Serviço** | Corte Tradicional (R$ 50,00) |
 | **Status** | `confirmed`, pagamento `pending`, origem `manual` |
 
-> Seed criado só para validar `/minha-agenda`. Não foi finalizado; a data fixa (19/09/2026) deixa de aparecer em "Hoje" depois desse dia.
+> Seed criado só para validar `/minha-agenda`. Não foi finalizado; a data fixa (21/09/2026) deixa de aparecer em "Hoje" depois desse dia. A barbearia Alpha Dev fecha aos domingos.
 
 ---
 

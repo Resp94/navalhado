@@ -12,6 +12,14 @@ import {
 } from '@hugeicons/core-free-icons';
 import { MobileBottomNav, type MobileNavItem } from './mobile/MobileBottomNav';
 import { MobileHeader } from './mobile/MobileHeader';
+import type { TenantContextType } from './GerenteLayout';
+import { normalizeBusinessHours } from '../lib/schedule';
+
+/** O que as páginas do barbeiro recebem pelo Outlet: a barbearia e o cadastro de profissional dele. */
+export interface BarbeiroContextType extends TenantContextType {
+  /** Cadastro de profissional vinculado ao usuário logado; vazio quando o vínculo não existe. */
+  professionalId: string;
+}
 
 export const BarbeiroLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -20,9 +28,10 @@ export const BarbeiroLayout: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [barberName, setBarberName] = useState('Barbeiro');
-  const [tenantName, setTenantName] = useState('');
-  const [tenantId, setTenantId] = useState('');
+  const [tenantInfo, setTenantInfo] = useState<TenantContextType | null>(null);
   const [profissionalId, setProfissionalId] = useState('');
+  const tenantId = tenantInfo?.tenantId ?? '';
+  const tenantName = tenantInfo?.tenantName ?? '';
 
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useRealtimeNotifications({
     tenantId,
@@ -61,33 +70,45 @@ export const BarbeiroLayout: React.FC = () => {
 
         if (isMounted) {
           setBarberName(profile.name);
-          if (profile.tenant_id) {
-            setTenantId(profile.tenant_id);
-          }
         }
 
-        // Se o barbeiro estiver associado a uma barbearia (tenant), buscar o nome dela
-        if (profile.tenant_id) {
-          const { data: tenant, error: tenantError } = await supabase
-            .from('tenants')
-            .select('name')
-            .eq('id', profile.tenant_id)
-            .single();
-
-          if (!tenantError && tenant && isMounted) {
-            setTenantName(tenant.name);
-          }
+        // A barbearia vem do vínculo do usuário, nunca de URL ou de estado do navegador.
+        if (!profile.tenant_id) {
+          throw new Error('Esta conta não está vinculada a nenhuma barbearia.');
         }
 
-        // Buscar também o ID do profissional associado na tabela professionals
-        const { data: profData, error: profError } = await supabase
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('id, name, slug, logo_url, timezone, business_hours, slot_interval_minutes, min_booking_lead_time_minutes, min_cancellation_lead_time_minutes')
+          .eq('id', profile.tenant_id)
+          .single();
+
+        if (tenantError || !tenant) {
+          throw new Error('Não foi possível carregar os dados da barbearia.');
+        }
+
+        // Cadastro de profissional associado ao usuário. Sem ele, a agenda mostra o aviso de vínculo.
+        const { data: profData } = await supabase
           .from('professionals')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .eq('tenant_id', tenant.id)
+          .maybeSingle();
 
-        if (!profError && profData && isMounted) {
-          setProfissionalId(profData.id);
+        if (isMounted) {
+          setProfissionalId(profData?.id ?? '');
+          setTenantInfo({
+            tenantId: tenant.id,
+            tenantName: tenant.name,
+            slug: tenant.slug || undefined,
+            logoUrl: tenant.logo_url,
+            timezone: tenant.timezone || 'America/Sao_Paulo',
+            onboardingCompleted: true,
+            businessHours: normalizeBusinessHours(tenant.business_hours),
+            slotIntervalMinutes: tenant.slot_interval_minutes ?? 30,
+            minBookingLeadTimeMinutes: tenant.min_booking_lead_time_minutes ?? 15,
+            minCancellationLeadTimeMinutes: tenant.min_cancellation_lead_time_minutes ?? 120,
+          });
         }
       } catch (error: any) {
         console.error('Error fetching barber data:', error);
@@ -118,7 +139,7 @@ export const BarbeiroLayout: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading || !tenantInfo) {
     return (
       <>
         <div className="noise-overlay" />
@@ -139,7 +160,7 @@ export const BarbeiroLayout: React.FC = () => {
   ];
 
   const mobileNavItems: MobileNavItem[] = [
-    { id: 'agenda', label: 'Minha Agenda', icon: Calendar03Icon, path: '/minha-agenda' },
+    { id: 'agenda', label: 'Agenda', icon: Calendar03Icon, path: '/minha-agenda' },
     { id: 'comissoes', label: 'Comissões', icon: Money01Icon, path: '/minhas-comissoes' },
     { id: 'perfil', label: 'Sair', icon: Logout01Icon, onClick: handleLogout },
   ];
@@ -148,10 +169,12 @@ export const BarbeiroLayout: React.FC = () => {
     <>
       <div className="noise-overlay" />
 
-      <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col relative pb-[84px] md:pb-0">
+      <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col relative">
         {/* HEADER MOBILE (<= 768px) */}
         <MobileHeader
           tenantName={tenantName || 'Barbeiro'}
+          logoUrl={tenantInfo.logoUrl}
+          homePath="/minha-agenda"
           notifications={notifications}
           unreadCount={unreadCount}
           onMarkAllAsRead={markAllAsRead}
@@ -226,7 +249,7 @@ export const BarbeiroLayout: React.FC = () => {
         {/* ÁREA DE CONTEÚDO PRINCIPAL COM ANIMAÇÃO DE ENTRADA SUAVE */}
         <main className="flex-1 w-full max-w-[1200px] mx-auto px-4 py-6 md:px-10 md:py-8 flex flex-col max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
           <div key={location.pathname} className="w-full animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_forwards]">
-            <Outlet />
+            <Outlet context={{ ...tenantInfo, professionalId: profissionalId } satisfies BarbeiroContextType} />
           </div>
         </main>
 

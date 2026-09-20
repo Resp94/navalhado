@@ -1,9 +1,14 @@
 import { supabase } from '../../../lib/supabase';
 import { AgendaOperationError } from '../AgendaRepository';
+import type { BlockedSlot } from '../../bloqueios/types';
 import type {
   AgendaCreateResult,
+  AgendaDoDia,
+  AgendaDoDiaInput,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  AgendamentoDoDia,
+  CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
@@ -100,6 +105,106 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       p_appointment_id: appointmentId,
       p_tenant_id: tenantId,
     });
+  }
+
+  async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+    const [apptRes, blockRes] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select(`
+          id,
+          start_time,
+          end_time,
+          status,
+          payment_status,
+          is_fitting,
+          notes,
+          origin,
+          professional_id,
+          customer:customers (id, name, phone),
+          service:services (id, name, price, duration_minutes)
+        `)
+        .eq('tenant_id', tenantId)
+        .eq('professional_id', input.professionalId)
+        .gte('start_time', input.startIso)
+        .lt('start_time', input.endExclusiveIso)
+        .neq('status', 'canceled')
+        .order('start_time', { ascending: true }),
+      supabase
+        .from('blocked_slots')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .gte('start_time', input.startIso)
+        .lt('start_time', input.endExclusiveIso)
+        .order('start_time', { ascending: true }),
+    ]);
+
+    if (apptRes.error) throw this.readError(apptRes.error, 'Não foi possível carregar os atendimentos.');
+    if (blockRes.error) throw this.readError(blockRes.error, 'Não foi possível carregar os bloqueios.');
+
+    const appointments: AgendamentoDoDia[] = (apptRes.data || []).map((item: any) => ({
+      id: item.id,
+      start_time: item.start_time,
+      end_time: item.end_time,
+      status: item.status,
+      payment_status: item.payment_status,
+      is_fitting: Boolean(item.is_fitting),
+      notes: item.notes,
+      origin: item.origin,
+      professional_id: item.professional_id,
+      customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
+      service: Array.isArray(item.service) ? item.service[0] : item.service,
+    }));
+
+    return { appointments, blockedSlots: (blockRes.data || []) as BlockedSlot[] };
+  }
+
+  async carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional> {
+    const [profRes, servsRes, custsRes, profServicesRes] = await Promise.all([
+      supabase
+        .from('professionals')
+        .select('id, name, is_active, phone, weekly_schedule')
+        .eq('id', professionalId)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .maybeSingle(),
+      supabase
+        .from('services')
+        .select('id, name, price, duration_minutes')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('name'),
+      supabase.from('customers').select('id, name, phone').eq('tenant_id', tenantId).order('name'),
+      supabase
+        .from('professional_services')
+        .select('professional_id, service_id, custom_duration_minutes, is_enabled')
+        .eq('tenant_id', tenantId)
+        .eq('professional_id', professionalId),
+    ]);
+
+    if (profRes.error) throw this.readError(profRes.error, 'Não foi possível carregar o profissional.');
+    if (servsRes.error) throw this.readError(servsRes.error, 'Não foi possível carregar os serviços.');
+    if (custsRes.error) throw this.readError(custsRes.error, 'Não foi possível carregar os clientes.');
+    if (profServicesRes.error) {
+      throw this.readError(profServicesRes.error, 'Não foi possível carregar os serviços do profissional.');
+    }
+
+    const professionalServices = (profServicesRes.data || []).map((item) => ({
+      service_id: item.service_id,
+      custom_duration_minutes: item.custom_duration_minutes,
+      is_enabled: item.is_enabled,
+    }));
+
+    return {
+      professional: profRes.data ? { ...profRes.data, professional_services: professionalServices } : null,
+      services: servsRes.data || [],
+      customers: custsRes.data || [],
+    };
+  }
+
+  private readError(error: RpcError, fallback: string): AgendaOperationError {
+    return new AgendaOperationError(error.message || fallback, error.code === '42501' ? 'acesso' : 'desconhecido');
   }
 
   private async call(fn: string, params: Record<string, string>): Promise<AgendaTransitionResult> {

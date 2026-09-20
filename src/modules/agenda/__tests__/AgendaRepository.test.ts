@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgendaOperationError, AgendaRepository, AgendaValidationError } from '../AgendaRepository';
 import { InMemoryAgendaAdapter } from '../adapters/InMemoryAgendaAdapter';
-import type { IAgendaAdapter } from '../types';
+import type { AgendamentoDoDia, IAgendaAdapter } from '../types';
 
 const TENANT = 'tenant-1';
 
@@ -212,11 +212,146 @@ describe('AgendaRepository', () => {
         listarHorariosLivres: vi.fn(),
         criarAgendamento: vi.fn(),
         marcarFalta: vi.fn().mockRejectedValue(new AgendaOperationError('Acesso negado.', 'acesso')),
+        carregarAgendaDoDia: vi.fn(),
+        carregarCadastrosDoProfissional: vi.fn(),
       };
 
       await expect(new AgendaRepository(denied).marcarFalta(TENANT, 'ap-pend')).rejects.toMatchObject({
         kind: 'acesso',
       });
+    });
+  });
+
+  describe('carregarAgendaDoDia', () => {
+    const agendamento = (overrides: Partial<AgendamentoDoDia>): AgendamentoDoDia => ({
+      id: 'ap-x',
+      start_time: '2026-09-21T13:00:00.000Z',
+      end_time: '2026-09-21T13:30:00.000Z',
+      status: 'confirmed',
+      payment_status: 'pending',
+      is_fitting: false,
+      professional_id: 'prof-1',
+      customer: { id: 'cust-1', name: 'Pedro', phone: '11988887777' },
+      service: { id: 'srv-1', name: 'Corte', price: 50, duration_minutes: 30 },
+      ...overrides,
+    });
+    const dia = { professionalId: 'prof-1', startIso: '2026-09-21T03:00:00.000Z', endExclusiveIso: '2026-09-22T03:00:00.000Z' };
+
+    beforeEach(() => {
+      adapter.seedAgendaDoDia({
+        appointments: [
+          agendamento({ id: 'ap-a', start_time: '2026-09-21T15:00:00.000Z' }),
+          agendamento({ id: 'ap-b', start_time: '2026-09-21T13:00:00.000Z' }),
+          agendamento({ id: 'ap-cancelado', status: 'canceled' }),
+          agendamento({ id: 'ap-colega', professional_id: 'prof-2' }),
+          agendamento({ id: 'ap-outro-dia', start_time: '2026-09-22T13:00:00.000Z' }),
+        ],
+        blockedSlots: [
+          {
+            id: 'blk-1',
+            tenant_id: TENANT,
+            professional_id: 'prof-1',
+            start_time: '2026-09-21T12:00:00.000Z',
+            end_time: '2026-09-21T12:30:00.000Z',
+            reason: 'Almoço',
+            is_all_day: false,
+          },
+          {
+            id: 'blk-outro-dia',
+            tenant_id: TENANT,
+            professional_id: 'prof-1',
+            start_time: '2026-09-23T12:00:00.000Z',
+            end_time: '2026-09-23T12:30:00.000Z',
+            reason: 'Folga',
+            is_all_day: false,
+          },
+        ],
+      });
+    });
+
+    it('devolve só os Agendamentos do profissional no dia, em ordem e sem os cancelados', async () => {
+      const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+
+      expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
+    });
+
+    it('devolve os Bloqueios de Horário do dia', async () => {
+      const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+
+      expect(agenda.blockedSlots.map((b) => b.id)).toEqual(['blk-1']);
+    });
+
+    it('recusa barbearia, profissional ou intervalo inválido sem consultar o adaptador', async () => {
+      const spy = vi.spyOn(adapter, 'carregarAgendaDoDia');
+
+      await expect(repository.carregarAgendaDoDia(' ', dia)).rejects.toBeInstanceOf(AgendaValidationError);
+      await expect(repository.carregarAgendaDoDia(TENANT, { ...dia, professionalId: '' })).rejects.toBeInstanceOf(
+        AgendaValidationError
+      );
+      await expect(
+        repository.carregarAgendaDoDia(TENANT, { ...dia, endExclusiveIso: dia.startIso })
+      ).rejects.toBeInstanceOf(AgendaValidationError);
+      await expect(
+        repository.carregarAgendaDoDia(TENANT, { ...dia, startIso: 'não é data' })
+      ).rejects.toBeInstanceOf(AgendaValidationError);
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('carregarCadastrosDoProfissional', () => {
+    const servico = (id: string) => ({ id, name: `Serviço ${id}`, price: 50, duration_minutes: 30 });
+
+    beforeEach(() => {
+      adapter.seedCadastros({
+        professional: {
+          id: 'prof-1',
+          name: 'Diego',
+          is_active: true,
+          professional_services: [
+            { service_id: 'srv-off', custom_duration_minutes: null, is_enabled: false },
+            { service_id: 'srv-on', custom_duration_minutes: 20, is_enabled: true },
+          ],
+        },
+        services: [servico('srv-on'), servico('srv-off'), servico('srv-livre')],
+        customers: [{ id: 'cust-1', name: 'Pedro', phone: '11988887777' }],
+      });
+    });
+
+    it('tira da lista os serviços que o profissional não executa', async () => {
+      const cadastros = await repository.carregarCadastrosDoProfissional(TENANT, 'prof-1');
+
+      expect(cadastros.services.map((s) => s.id)).toEqual(['srv-on', 'srv-livre']);
+    });
+
+    it('devolve o profissional com as durações próprias e os clientes da barbearia', async () => {
+      const cadastros = await repository.carregarCadastrosDoProfissional(TENANT, 'prof-1');
+
+      expect(cadastros.professional?.professional_services).toContainEqual({
+        service_id: 'srv-on',
+        custom_duration_minutes: 20,
+        is_enabled: true,
+      });
+      expect(cadastros.customers).toHaveLength(1);
+    });
+
+    it('devolve profissional nulo quando o cadastro não existe ou é de outro', async () => {
+      adapter.seedCadastros({ professional: null, services: [], customers: [] });
+
+      const cadastros = await repository.carregarCadastrosDoProfissional(TENANT, 'prof-1');
+
+      expect(cadastros.professional).toBeNull();
+    });
+
+    it('recusa barbearia ou profissional em branco sem consultar o adaptador', async () => {
+      const spy = vi.spyOn(adapter, 'carregarCadastrosDoProfissional');
+
+      await expect(repository.carregarCadastrosDoProfissional('', 'prof-1')).rejects.toBeInstanceOf(
+        AgendaValidationError
+      );
+      await expect(repository.carregarCadastrosDoProfissional(TENANT, ' ')).rejects.toBeInstanceOf(
+        AgendaValidationError
+      );
+      expect(spy).not.toHaveBeenCalled();
     });
   });
 });

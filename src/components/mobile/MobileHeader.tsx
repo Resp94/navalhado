@@ -6,6 +6,8 @@ import type { RealtimeNotification } from '../../lib/useRealtimeNotifications';
 interface MobileHeaderProps {
   tenantName: string;
   logoUrl?: string | null;
+  /** Rota da página inicial do papel (o gestor volta para a agenda dele, o barbeiro para a dele). */
+  homePath?: string;
   notifications: RealtimeNotification[];
   unreadCount: number;
   onMarkAllAsRead: () => void;
@@ -15,6 +17,7 @@ interface MobileHeaderProps {
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   tenantName,
   logoUrl,
+  homePath = '/agenda',
   notifications,
   unreadCount,
   onMarkAllAsRead,
@@ -27,7 +30,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       <button
         type="button"
         className="flex items-center gap-2.5 cursor-pointer min-w-0 bg-transparent border-none p-0 text-left"
-        onClick={() => navigate('/agenda')}
+        onClick={() => navigate(homePath)}
         aria-label={`Página inicial da barbearia ${tenantName}`}
       >
         {logoUrl ? (

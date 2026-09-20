@@ -1,8 +1,11 @@
 import type {
   AgendaCreateResult,
+  AgendaDoDia,
+  AgendaDoDiaInput,
   AgendaOperationErrorKind,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
@@ -102,6 +105,44 @@ export class AgendaRepository {
   async marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult> {
     this.requireIds(tenantId, appointmentId);
     return await this.adapter.marcarFalta(tenantId, appointmentId);
+  }
+
+  /**
+   * Agenda de um profissional no dia: Agendamentos ativos e Bloqueios de Horário. A leitura já vem
+   * limitada pelo banco ao que o usuário pode ver (o barbeiro só enxerga os próprios Agendamentos).
+   */
+  async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+    this.requireTenant(tenantId);
+    if (!input.professionalId || !input.professionalId.trim()) {
+      throw new AgendaValidationError('ID do profissional é obrigatório.');
+    }
+    const start = Date.parse(input.startIso);
+    const end = Date.parse(input.endExclusiveIso);
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+      throw new AgendaValidationError('Informe um intervalo de datas válido.');
+    }
+    return await this.adapter.carregarAgendaDoDia(tenantId, input);
+  }
+
+  /** Cadastros de apoio da agenda. Serviço que o profissional não executa fica fora da lista. */
+  async carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional> {
+    this.requireTenant(tenantId);
+    if (!professionalId || !professionalId.trim()) {
+      throw new AgendaValidationError('ID do profissional é obrigatório.');
+    }
+    const cadastros = await this.adapter.carregarCadastrosDoProfissional(tenantId, professionalId);
+    const desabilitados = new Set(
+      (cadastros.professional?.professional_services ?? [])
+        .filter((item) => item.is_enabled === false)
+        .map((item) => item.service_id)
+    );
+    return { ...cadastros, services: cadastros.services.filter((service) => !desabilitados.has(service.id)) };
+  }
+
+  private requireTenant(tenantId: string) {
+    if (!tenantId || !tenantId.trim()) {
+      throw new AgendaValidationError('ID da barbearia é obrigatório.');
+    }
   }
 
   private requireIds(tenantId: string, appointmentId: string) {

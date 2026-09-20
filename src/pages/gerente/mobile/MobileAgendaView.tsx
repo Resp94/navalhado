@@ -42,6 +42,8 @@ interface MobileAgendaViewProps {
   onRemoveBlock: (blk: BlockedSlot) => void | Promise<void>;
   onOpenBloqueio?: () => void;
   onOpenEspera?: () => void;
+  /** O que o toque no card faz, no fim de "Toque para ...". O gestor abre a comanda; o barbeiro, as ações do Agendamento. */
+  cardActionHint?: string;
 }
 
 interface TimelineItem {
@@ -105,6 +107,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   onRemoveBlock,
   onOpenBloqueio: _onOpenBloqueio,
   onOpenEspera: _onOpenEspera,
+  cardActionHint = 'abrir a comanda',
 }) => {
   // Filtrar profissionais ativos
   const activeProfessionals = useMemo(
@@ -530,8 +533,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         onOpenCheckout(app);
                       }
                     }}
-                    title="Toque para abrir a comanda"
-                    aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Toque para abrir comanda.`}
+                    title={`Toque para ${cardActionHint}`}
+                    aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Toque para ${cardActionHint}.`}
                   >
                     <div className="flex items-center justify-between gap-2 w-full min-w-0">
                       <div className="flex items-center min-w-11 shrink-0">

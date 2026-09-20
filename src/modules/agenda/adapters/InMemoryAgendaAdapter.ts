@@ -1,9 +1,12 @@
 import { AgendaOperationError } from '../AgendaRepository';
 import type {
   AgendaCreateResult,
+  AgendaDoDia,
+  AgendaDoDiaInput,
   AgendaRescheduleResult,
   AgendaTransitionResult,
   AgendamentoStatus,
+  CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
@@ -28,6 +31,8 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
   private slotsError: Error | null = null;
   private createError: Error | null = null;
   private nextId = 1;
+  private agendaDoDia: AgendaDoDia = { appointments: [], blockedSlots: [] };
+  private cadastros: CadastrosDoProfissional = { professional: null, services: [], customers: [] };
 
   failCreateWith(error: Error) {
     this.createError = error;
@@ -130,6 +135,31 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
       throw new AgendaOperationError('O atendimento ainda não começou.', 'regra');
     }
     return this.move(ap, 'no_show');
+  }
+
+  seedAgendaDoDia(agenda: AgendaDoDia) {
+    this.agendaDoDia = { appointments: [...agenda.appointments], blockedSlots: [...agenda.blockedSlots] };
+  }
+
+  seedCadastros(cadastros: CadastrosDoProfissional) {
+    this.cadastros = { ...cadastros };
+  }
+
+  async carregarAgendaDoDia(_tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+    const start = Date.parse(input.startIso);
+    const end = Date.parse(input.endExclusiveIso);
+    const dentro = (iso: string) => Date.parse(iso) >= start && Date.parse(iso) < end;
+
+    return {
+      appointments: this.agendaDoDia.appointments
+        .filter((a) => a.professional_id === input.professionalId && a.status !== 'canceled' && dentro(a.start_time))
+        .sort((a, b) => a.start_time.localeCompare(b.start_time)),
+      blockedSlots: this.agendaDoDia.blockedSlots.filter((b) => dentro(b.start_time)),
+    };
+  }
+
+  async carregarCadastrosDoProfissional(_tenantId: string, _professionalId: string): Promise<CadastrosDoProfissional> {
+    return { ...this.cadastros };
   }
 
   private find(tenantId: string, appointmentId: string) {

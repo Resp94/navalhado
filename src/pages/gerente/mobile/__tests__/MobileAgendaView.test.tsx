@@ -71,6 +71,15 @@ describe('MobileAgendaView Component', () => {
     expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
   });
 
+  it('troca o que o toque no card promete quando a tela é do barbeiro', () => {
+    render(<MobileAgendaView {...defaultProps} cardActionHint="ver as ações do agendamento" />);
+
+    expect(screen.queryByTitle('Toque para abrir a comanda')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+
+    expect(defaultProps.onOpenCheckout).toHaveBeenCalledWith(mockAppointments[0]);
+  });
+
   it('mantém no-show visível com rótulo próprio e sem ação de finalização', () => {
     const noShowAppointment: Appointment = {
       ...mockAppointments[0],
