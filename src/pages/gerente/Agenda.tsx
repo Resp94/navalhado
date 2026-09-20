@@ -3,12 +3,10 @@ import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
-import { Modal } from '../../components/Modal';
-import { Button, Tooltip, Select, Input } from '../../components/ui';
+import { Button, Tooltip } from '../../components/ui';
 import {
   dateInZone,
   formatTimeInZone,
-  localDateTimeToIso,
   localDayUtcRange,
   shiftCalendarDate,
 } from '../../lib/timezone';
@@ -16,10 +14,19 @@ import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutM
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
+import { NovoAgendamentoModal } from '../../components/agenda/NovoAgendamentoModal';
+import type { NovoAgendamentoInicial } from '../../components/agenda/NovoAgendamentoModal';
+import { CancelarAgendamentoModal } from '../../components/agenda/CancelarAgendamentoModal';
+import { NaoCompareceuModal } from '../../components/agenda/NaoCompareceuModal';
+import { ReagendarAgendamentoModal } from '../../components/agenda/ReagendarAgendamentoModal';
+import {
+  motivoRecusaNaoCompareceu,
+  useMarcarNaoCompareceu,
+} from '../../components/agenda/useMarcarNaoCompareceu';
+import type { ResultadoNaoCompareceu } from '../../components/agenda/useMarcarNaoCompareceu';
 import { CustomDatePicker } from '../../components/CustomDatePicker';
-import { AgendaOperationError, AgendaValidationError } from '../../modules/agenda/AgendaRepository';
+import { AgendaOperationError } from '../../modules/agenda/AgendaRepository';
 import { useAgenda } from '../../modules/agenda/useAgenda';
-import type { ClienteDoAgendamento } from '../../modules/agenda/types';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
@@ -58,6 +65,7 @@ import {
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
   timeToMinutes,
+  toScheduleGridSegment,
 } from '../../lib/schedule';
 import type {
   FittingTimeMode,
@@ -155,21 +163,6 @@ interface CardLayout {
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 76;
-const ANY_PROFESSIONAL = 'any';
-
-const toScheduleGridSegment = (
-  schedule: ProfessionalDaySchedule | null | undefined
-): ScheduleGridSegment | null => {
-  if (!schedule || schedule.active === false || !schedule.start || !schedule.end) return null;
-
-  return {
-    start: schedule.start,
-    end: schedule.end,
-    breakStart: schedule.break_start,
-    breakEnd: schedule.break_end,
-  };
-};
-
 interface AgendaGridSkeletonProps {
   viewMode: 'day' | 'week';
   professionals: Professional[];
@@ -330,8 +323,6 @@ export const Agenda: React.FC = () => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
   const agendaRepo = useAgenda();
-  // Entrada da Lista de Espera que será consumida quando o encaixe for salvo (nunca antes).
-  const [pendingWaitingEntryId, setPendingWaitingEntryId] = useState<string | null>(null);
   const { addToast } = useToast();
 
   const esperaRepository = useMemo(
@@ -407,32 +398,15 @@ export const Agenda: React.FC = () => {
     };
   }, [isDatePickerOpen]);
 
-  // Estados do Formulário de Agendamento / Encaixe
-  const [formDate, setFormDate] = useState(selectedDate);
-  const [formProfessionalId, setFormProfessionalId] = useState('');
-  const [formServiceId, setFormServiceId] = useState('');
-  const [formTime, setFormTime] = useState('09:00');
-  const [formIsFitting, setFormIsFitting] = useState(false);
-  const [fittingTimeMode, setFittingTimeMode] = useState<FittingTimeMode>('grid');
-  const [formNotes, setFormNotes] = useState('');
-  const [customerMode, setCustomerMode] = useState<'existing' | 'new' | 'none'>('existing');
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('');
-  const [savingAppointment, setSavingAppointment] = useState(false);
+  // Valores de partida do modal de novo agendamento/encaixe (um objeto novo a cada abertura).
+  const [novoInicial, setNovoInicial] = useState<NovoAgendamentoInicial | null>(null);
 
-  // Estados do Cancelamento
+  // Agendamentos alvo dos modais de cancelamento e de reagendamento.
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
-  const [cancellationReason, setCancellationReason] = useState('');
-  const [cancelingAppointment, setCancelingAppointment] = useState(false);
-
-  // Estados de Reagendamento Direto na Agenda
   const [isAgendaRescheduleModalOpen, setIsAgendaRescheduleModalOpen] = useState(false);
   const [agendaRescheduleAppointment, setAgendaRescheduleAppointment] = useState<Appointment | null>(null);
-  const [agendaRescheduleDate, setAgendaRescheduleDate] = useState('');
-  const [agendaRescheduleTime, setAgendaRescheduleTime] = useState('');
-  const [agendaRescheduleProfId, setAgendaRescheduleProfId] = useState('');
-  const [isAgendaRescheduling, setIsAgendaRescheduling] = useState(false);
+
+  const { marcar: marcarNaoCompareceu } = useMarcarNaoCompareceu(tenant.tenantId);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -455,25 +429,29 @@ export const Agenda: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const action = searchParams.get('action') || locState?.action;
 
+    const abrirNovo = (parcial: Partial<NovoAgendamentoInicial>) => {
+      setNovoInicial({
+        date: selectedDate,
+        time: '09:00',
+        professionalId: professionals[0]?.id || '',
+        isFitting: false,
+        customerMode: 'existing',
+        ...parcial,
+      });
+      setIsModalOpen(true);
+    };
+
     if (action === 'encaixe') {
-      setFormIsFitting(true);
-      setFittingTimeMode('grid');
-      if (locState?.customerId) {
-        setCustomerMode('existing');
-        setSelectedCustomerId(locState.customerId);
-      }
-      setIsModalOpen(true);
+      abrirNovo({ isFitting: true, customerId: locState?.customerId });
     } else if (locState?.openNewAppointment || locState?.customerId) {
-      if (locState?.customerId) {
-        setCustomerMode('existing');
-        setSelectedCustomerId(locState.customerId);
-      }
-      setIsModalOpen(true);
+      abrirNovo({ customerId: locState?.customerId });
     } else if (action === 'bloqueio') {
       setIsBloqueioModalOpen(true);
     } else if (action === 'espera') {
       setIsEsperaDrawerOpen(true);
     }
+    // Abre os modais só quando a navegação pede (URL ou estado); data e profissionais são a partida.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, location.search]);
 
   // Linha Vermelha de Tempo Real (Red Line)
@@ -635,248 +613,6 @@ export const Agenda: React.FC = () => {
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [selectedDate, tenant.businessHours, viewMode, appointments, blockedSlots, selectedProfessionalIds, professionals, slotIntervalMinutes, weekDays, tenant.timezone]);
 
-  // Slots de Horário válidos para seleção no Modal de Novo Agendamento
-  const modalAvailableTimeSlots = useMemo(() => {
-    const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-    if (!dayBh.active) return [];
-
-    const filterNormalServiceSlots = (slots: string[]): string[] => {
-      if (formIsFitting || !formServiceId) return slots;
-
-      const service = services.find((item) => item.id === formServiceId);
-      if (!service) return slots;
-
-      const candidateProfessionals = formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL
-        ? professionals.filter((professional) => professional.id === formProfessionalId)
-        : professionals.filter((professional) => professional.is_active);
-
-      if (candidateProfessionals.length === 0) return [];
-
-      return slots.filter((slot) => candidateProfessionals.some((professional) => {
-        const duration = getEffectiveServiceDuration(
-          service.duration_minutes,
-          service.id,
-          professional.professional_services
-        );
-
-        return isProfessionalWorkingAt(
-          professional,
-          formDate,
-          slot,
-          duration,
-          tenant.businessHours
-        );
-      }));
-    };
-
-    if (formIsFitting && fittingTimeMode === 'grid') {
-      if (formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
-        const selectedProf = professionals.find((p) => p.id === formProfessionalId);
-        const selectedProfSchedule = selectedProf
-          ? getEffectiveProfessionalDaySchedule(selectedProf, formDate, tenant.businessHours)
-          : null;
-
-        if (selectedProfSchedule?.active === false) return [];
-
-        const selectedSegment = selectedProfSchedule
-          ? toScheduleGridSegment(selectedProfSchedule)
-          : null;
-        if (selectedSegment) {
-          return generateScheduleGridSlots([selectedSegment], slotIntervalMinutes);
-        }
-      }
-
-      const fittingSchedules: ScheduleGridSegment[] = [];
-      professionals.forEach((professional) => {
-        if (!professional.is_active) return;
-        const schedule = getEffectiveProfessionalDaySchedule(
-          professional,
-          formDate,
-          tenant.businessHours
-        );
-        const segment = toScheduleGridSegment(schedule);
-        if (segment) fittingSchedules.push(segment);
-      });
-
-      if (fittingSchedules.length > 0) {
-        return generateScheduleGridSlots(fittingSchedules, slotIntervalMinutes);
-      }
-
-      return generateScheduleGridSlots(
-        [{ start: dayBh.open, end: dayBh.close }],
-        slotIntervalMinutes
-      );
-    }
-
-    if (formProfessionalId) {
-      const prof = professionals.find((p) => p.id === formProfessionalId);
-      const profSched = prof
-        ? getEffectiveProfessionalDaySchedule(prof, formDate, tenant.businessHours)
-        : null;
-      if (profSched?.active === false) return [];
-      const segment = profSched ? toScheduleGridSegment(profSched) : null;
-      if (segment) {
-        return filterNormalServiceSlots(generateScheduleGridSlots([segment], slotIntervalMinutes));
-      }
-    }
-
-    const schedules: ScheduleGridSegment[] = [];
-    professionals.forEach((p) => {
-      if (!p.is_active) return;
-      const sched = getEffectiveProfessionalDaySchedule(p, formDate, tenant.businessHours);
-      const segment = toScheduleGridSegment(sched);
-      if (segment) schedules.push(segment);
-    });
-
-    if (schedules.length === 0) {
-      schedules.push({ start: dayBh.open, end: dayBh.close });
-    }
-
-    return filterNormalServiceSlots(generateScheduleGridSlots(schedules, slotIntervalMinutes));
-  }, [formDate, tenant.businessHours, formProfessionalId, formServiceId, professionals, services, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
-
-  // No encaixe em modo grade, o horário sugerido ao abrir o modal é contado desde 00:00 (10:00, 12:00...),
-  // mas a lista e a validação usam a grade real do profissional (09:00, 09:40, 10:20... quando o
-  // intervalo é 40 min e o expediente começa às 09:00). Sem este ajuste a tela sugeria um horário e
-  // depois o recusava com "deve seguir a grade". Leva o horário para o próximo da grade vigente
-  // (também vale ao trocar de profissional ou de data), sem tocar no modo personalizado.
-  useEffect(() => {
-    if (!isModalOpen || !formIsFitting || fittingTimeMode !== 'grid') return;
-    if (modalAvailableTimeSlots.length === 0 || modalAvailableTimeSlots.includes(formTime)) return;
-    setFormTime(
-      modalAvailableTimeSlots.find((slot) => slot >= formTime) ??
-        modalAvailableTimeSlots[modalAvailableTimeSlots.length - 1]
-    );
-  }, [isModalOpen, formIsFitting, fittingTimeMode, modalAvailableTimeSlots, formTime]);
-
-  // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
-  const agendaRescheduleAvailableSlots = useMemo(() => {
-    if (!agendaRescheduleDate || !agendaRescheduleProfId) return [];
-
-    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
-    if (!dayBh.active) return [];
-
-    const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
-    if (!prof) return [];
-    const profSched = prof
-      ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
-      : null;
-    if (profSched?.active === false) return [];
-
-    const segment = profSched ? toScheduleGridSegment(profSched) : null;
-    const baseSlots = generateScheduleGridSlots(
-      [segment || { start: dayBh.open || '08:00', end: dayBh.close || '20:00' }],
-      slotIntervalMinutes
-    );
-
-    const durationMin = getEffectiveServiceDuration(
-      agendaRescheduleAppointment?.service?.duration_minutes || 30,
-      agendaRescheduleAppointment?.service?.id || '',
-      prof?.professional_services
-    );
-
-    return baseSlots.filter((slotTime) => {
-      if (!isProfessionalWorkingAt(
-        prof,
-        agendaRescheduleDate,
-        slotTime,
-        durationMin,
-        tenant.businessHours
-      )) return false;
-
-      const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
-      const slotEndIso = new Date(new Date(slotStartIso).getTime() + durationMin * 60 * 1000).toISOString();
-
-      // Permitir o próprio horário já ocupado pelo agendamento
-      const hasAppConflict = appointments.some((a) => {
-        if (a.id === agendaRescheduleAppointment?.id) return false;
-        if (a.status === 'canceled') return false;
-        if (a.professional_id !== agendaRescheduleProfId) return false;
-        return a.start_time < slotEndIso && a.end_time > slotStartIso;
-      });
-      if (hasAppConflict) return false;
-
-      const hasBlockConflict = blockedSlots.some((b) => {
-        if (b.professional_id && b.professional_id !== agendaRescheduleProfId) return false;
-        return b.start_time < slotEndIso && b.end_time > slotStartIso;
-      });
-      if (hasBlockConflict) return false;
-
-      return true;
-    });
-  }, [
-    agendaRescheduleDate,
-    agendaRescheduleProfId,
-    agendaRescheduleAppointment,
-    tenant.businessHours,
-    tenant.timezone,
-    professionals,
-    slotIntervalMinutes,
-    appointments,
-    blockedSlots,
-  ]);
-
-  const currentService = useMemo(
-    () => services.find((s) => s.id === formServiceId),
-    [services, formServiceId]
-  );
-
-  // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
-  // Em modo de Encaixe (formIsFitting), o gerente tem flexibilidade total para alocar qualquer profissional ativo
-  const availableProfessionalsForFormTime = useMemo(() => {
-    return professionals.filter((p) => {
-      if (!p.is_active) return false;
-      if (formIsFitting) return true;
-      const serviceDuration = currentService
-        ? getEffectiveServiceDuration(
-            currentService.duration_minutes,
-            currentService.id,
-            p.professional_services
-          )
-        : slotIntervalMinutes;
-      return isProfessionalWorkingAt(
-        p,
-        formDate,
-        formTime,
-        serviceDuration,
-        tenant.businessHours
-      );
-    });
-  }, [professionals, formIsFitting, formDate, formTime, currentService, slotIntervalMinutes, tenant.businessHours]);
-
-  const isPastFormTime = useMemo(() => {
-    const nowInstant = new Date();
-    const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
-    const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-    return (
-      formDate < currentLocalDate ||
-      (formDate === currentLocalDate && formTime < currentLocalTime)
-    );
-  }, [formDate, formTime, tenant.timezone]);
-
-  // Sincronizar barbeiro selecionado caso o atual não esteja disponível no horário
-  useEffect(() => {
-    if (isModalOpen) {
-      if (availableProfessionalsForFormTime.length > 0) {
-        if (
-          formProfessionalId !== ANY_PROFESSIONAL &&
-          !availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)
-        ) {
-          setFormProfessionalId(availableProfessionalsForFormTime[0].id);
-        }
-      } else if (formProfessionalId !== ANY_PROFESSIONAL) {
-        setFormProfessionalId('');
-      }
-    }
-  }, [isModalOpen, availableProfessionalsForFormTime, formProfessionalId]);
-
-  // Forçar encaixe de balcão para horários decorridos
-  useEffect(() => {
-    if (isModalOpen && isPastFormTime) {
-      setFormIsFitting(true);
-    }
-  }, [isModalOpen, isPastFormTime]);
-
   // Data formatada por extenso em PT-BR
   const formattedDateTitle = useMemo(() => {
     try {
@@ -973,13 +709,6 @@ export const Agenda: React.FC = () => {
       }
       setServices(servsRes.data || []);
       setCustomers(custsRes.data || []);
-
-      if (activeProfs.length > 0) {
-        setFormProfessionalId(activeProfs[0].id);
-      }
-      if (servsRes.data && servsRes.data.length > 0) {
-        setFormServiceId(servsRes.data[0].id);
-      }
     } catch (err: any) {
       console.error('Erro ao carregar dados base da agenda:', err);
       addToast('Não foi possível carregar profissionais e serviços.', 'error');
@@ -1238,11 +967,8 @@ export const Agenda: React.FC = () => {
         ? timeSlots.find((s) => s >= currentLocalTime && s >= dayBh.open && s < dayBh.close) || dayBh.open
         : dayBh.open);
 
-    setFormTime(targetTime);
-
-    if (profId) {
-      setFormProfessionalId(profId);
-    } else {
+    let professionalId = profId || '';
+    if (!profId) {
       const available = professionals.filter((p) => {
         if (!p.is_active) return false;
         if (finalIsFitting) return true;
@@ -1253,24 +979,23 @@ export const Agenda: React.FC = () => {
         if (finalIsFitting) {
           // Algoritmo de balanceamento de rodízio de balcão apenas entre profissionais disponíveis
           const suggested = esperaRepository.suggestRotationFromAppointments(available, appointments);
-          setFormProfessionalId(suggested?.id || available[0].id);
+          professionalId = suggested?.id || available[0].id;
         } else {
-          setFormProfessionalId(available[0].id);
+          professionalId = available[0].id;
         }
       } else if (professionals.length > 0) {
-        setFormProfessionalId(professionals[0].id);
+        professionalId = professionals[0].id;
       }
     }
 
-    setFormDate(dateToCheck);
-    setFormIsFitting(finalIsFitting);
-    setFittingTimeMode('grid');
-    setFormNotes('');
-    setCustomerMode('existing');
-    setSelectedCustomerId(customers.length > 0 ? customers[0].id : '');
-    setNewCustomerName('');
-    setNewCustomerPhone('');
-    setPendingWaitingEntryId(null);
+    setNovoInicial({
+      date: dateToCheck,
+      time: targetTime,
+      professionalId,
+      isFitting: finalIsFitting,
+      customerMode: 'existing',
+      customerId: customers.length > 0 ? customers[0].id : '',
+    });
     setIsModalOpen(true);
   };
 
@@ -1284,182 +1009,22 @@ export const Agenda: React.FC = () => {
       targetProfId = suggested?.id || professionals[0].id;
     }
 
-    setFormProfessionalId(targetProfId || professionals[0]?.id || '');
-    setFormServiceId(entry.service_id || (services[0]?.id ?? ''));
-    setFormDate(selectedDate);
     const nowInstant = new Date();
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-    setFormTime(
-      timeSlots.find((s) => s >= currentLocalTime) ||
-        timeSlots[0] ||
-        '09:00'
-    );
-    setCustomerMode('new');
-    setNewCustomerName(entry.customer_name);
-    setNewCustomerPhone(entry.customer_phone || '');
-    setFormNotes(
-      entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]'
-    );
-    setFormIsFitting(true);
-    setFittingTimeMode('grid');
-    // A entrada só sai da fila quando o Agendamento for salvo (na mesma transação do banco).
-    setPendingWaitingEntryId(entry.id);
+    setNovoInicial({
+      date: selectedDate,
+      time: timeSlots.find((s) => s >= currentLocalTime) || timeSlots[0] || '09:00',
+      professionalId: targetProfId || professionals[0]?.id || '',
+      serviceId: entry.service_id || (services[0]?.id ?? ''),
+      isFitting: true,
+      customerMode: 'new',
+      newCustomerName: entry.customer_name,
+      newCustomerPhone: entry.customer_phone || '',
+      notes: entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]',
+      // A entrada só sai da fila quando o Agendamento for salvo (na mesma transação do banco).
+      waitingEntryId: entry.id,
+    });
     setIsModalOpen(true);
-  };
-
-  // Salvar Novo Agendamento / Encaixe
-  const handleSaveAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
-      addToast('Selecione um profissional.', 'warning');
-      return;
-    }
-    if (!formServiceId) {
-      addToast('Selecione um serviço.', 'warning');
-      return;
-    }
-
-    const selectedService = services.find((s) => s.id === formServiceId);
-    if (!selectedService || !tenant.tenantId) {
-      addToast('Serviço inválido.', 'error');
-      return;
-    }
-
-    setSavingAppointment(true);
-
-    try {
-      let cliente: ClienteDoAgendamento;
-      if (customerMode === 'new') {
-        cliente = { tipo: 'novo', nome: newCustomerName, telefone: newCustomerPhone };
-      } else if (customerMode === 'none') {
-        cliente = { tipo: 'nenhum' };
-      } else {
-        if (!selectedCustomerId) {
-          addToast('Selecione ou cadastre um cliente.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-        cliente = { tipo: 'existente', id: selectedCustomerId };
-      }
-
-      // Expediente, escala, intervalo, conflito, Bloqueio de Horário, horário passado, "Tanto faz" e
-      // Cliente novo são decididos no banco (AgendaRepository.criarAgendamento). Ficam aqui só as
-      // regras de grade do encaixe, que dependem de como a tela monta o horário.
-      const selectedProfessionalId = formProfessionalId === ANY_PROFESSIONAL ? null : formProfessionalId;
-      const referenceProfessional = professionals.find(
-        (p) => p.id === (selectedProfessionalId ?? availableProfessionalsForFormTime[0]?.id)
-      );
-      const effectiveServiceDuration = getEffectiveServiceDuration(
-        selectedService.duration_minutes,
-        selectedService.id,
-        referenceProfessional?.professional_services
-      );
-
-      if (formIsFitting && !isValidFittingStartTime(
-        formTime,
-        fittingTimeMode,
-        slotIntervalMinutes,
-        fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined
-      )) {
-        addToast(
-          fittingTimeMode === 'grid'
-            ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
-            : 'Informe um horário de início válido.',
-          'warning'
-        );
-        setSavingAppointment(false);
-        return;
-      }
-
-      // Feedback antecipado do limite de 1 encaixe por horário/profissional. A regra é do banco
-      // (uq_appointments_one_fitting_per_slot): vale com "Tanto faz" e contra outra recepção, que
-      // esta checagem, feita só sobre os agendamentos carregados, não enxerga.
-      if (formIsFitting) {
-        const existingFittings = appointments.filter((a) => {
-          return (
-            a.professional_id === formProfessionalId &&
-            a.is_fitting &&
-            ['pending', 'confirmed', 'in_progress'].includes(a.status) &&
-            formatTimeInZone(a.start_time, tenant.timezone) === formTime
-          );
-        });
-
-        if (existingFittings.length >= 1) {
-          addToast('Limite atingido: já existe 1 encaixe agendado para este profissional neste horário.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-      }
-
-      // Início em ISO: o encaixe usa o seam compartilhado da grade; o fim é calculado no banco.
-      let startIso: string;
-      if (formIsFitting) {
-        try {
-          startIso = buildFittingAppointmentInterval({
-            date: formDate,
-            time: formTime,
-            timeZone: tenant.timezone,
-            durationMinutes: effectiveServiceDuration,
-            mode: fittingTimeMode,
-            slotIntervalMinutes,
-            gridSlots: fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined,
-          }).startIso;
-        } catch (error) {
-          const errorCode = error instanceof Error ? error.message : '';
-          addToast(
-            errorCode === 'FITTING_TIME_NOT_ALIGNED'
-              ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
-              : 'Informe uma data e horário válidos para o encaixe.',
-            'warning'
-          );
-          setSavingAppointment(false);
-          return;
-        }
-      } else {
-        startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
-      }
-
-      const created = await agendaRepo.criarAgendamento(tenant.tenantId, {
-        serviceId: formServiceId,
-        startTimeIso: startIso,
-        professionalId: selectedProfessionalId,
-        cliente,
-        isFitting: formIsFitting,
-        notes: formNotes.trim() || null,
-        waitingListId: pendingWaitingEntryId,
-      });
-
-      if (cliente.tipo === 'novo' && created.customer_id) {
-        const createdCustomerId = created.customer_id;
-        setCustomers((prev) => [
-          ...prev,
-          { id: createdCustomerId, name: newCustomerName.trim(), phone: newCustomerPhone.trim() },
-        ]);
-      }
-      setPendingWaitingEntryId(null);
-
-      // A Comanda e o item do serviço nascem no banco, pelo gatilho de inserção do agendamento.
-
-      addToast(
-        formIsFitting ? 'Encaixe agendado com sucesso!' : 'Agendamento criado com sucesso!',
-        'success'
-      );
-      setIsModalOpen(false);
-      clearActionUrl();
-      fetchAppointments();
-    } catch (err: unknown) {
-      console.error('Erro ao salvar agendamento:', err);
-      const message = err instanceof Error ? err.message : 'Erro ao agendar horário.';
-      addToast(
-        message,
-        err instanceof AgendaValidationError || (err instanceof AgendaOperationError && err.kind === 'regra')
-          ? 'warning'
-          : 'error'
-      );
-    } finally {
-      setSavingAppointment(false);
-    }
   };
 
   // Transição de Status: Iniciar Atendimento
@@ -1492,14 +1057,10 @@ export const Agenda: React.FC = () => {
     setIsCheckoutModalOpen(true);
   };
 
-  const handleMarkNoShow = async (app: Appointment) => {
-    if (!['pending', 'confirmed'].includes(app.status)) {
-      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
-      return;
-    }
-
-    if (new Date(app.start_time).getTime() > Date.now()) {
-      addToast('O atendimento ainda não começou.', 'warning');
+  const handleMarkNoShow = (app: Appointment) => {
+    const recusa = motivoRecusaNaoCompareceu(app);
+    if (recusa) {
+      addToast(recusa, 'warning');
       return;
     }
 
@@ -1507,47 +1068,24 @@ export const Agenda: React.FC = () => {
     setIsNoShowModalOpen(true);
   };
 
-  const handleConfirmNoShow = async (appToMark?: Appointment) => {
-    const target = appToMark || noShowAppointment;
-    if (!target) return;
-
-    if (!['pending', 'confirmed'].includes(target.status)) {
-      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
-      return;
-    }
-
-    if (new Date(target.start_time).getTime() > Date.now()) {
-      addToast('O atendimento ainda não começou.', 'warning');
-      return;
-    }
-
-    if (!tenant.tenantId) return;
-    try {
-      await agendaRepo.marcarFalta(tenant.tenantId, target.id);
-
+  const handleNaoCompareceuResultado = (appointmentId: string, resultado: ResultadoNaoCompareceu) => {
+    if (resultado === 'marcado') {
       setAppointments((previous) =>
         previous.map((appointment) =>
-          appointment.id === target.id ? { ...appointment, status: 'no_show' } : appointment
+          appointment.id === appointmentId ? { ...appointment, status: 'no_show' } : appointment
         )
       );
-      setIsNoShowModalOpen(false);
-      setNoShowAppointment(null);
       setIsCheckoutModalOpen(false);
       setCheckoutAppointment(null);
-      addToast('Atendimento marcado como não compareceu.', 'success');
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao marcar atendimento como não compareceu:', err);
-      if (err instanceof AgendaOperationError && err.kind === 'regra') {
-        // O estado mudou (ou o horário ainda não chegou) desde que a agenda foi carregada.
-        setIsNoShowModalOpen(false);
-        setNoShowAppointment(null);
-        addToast(err.message, 'warning');
-        fetchAppointments();
-        return;
-      }
-      addToast(err?.message || 'Erro ao marcar atendimento como não compareceu.', 'error');
     }
+    fetchAppointments();
+  };
+
+  // Falta marcada direto pela Comanda (checkout), sem a confirmação da agenda.
+  const handleNoShowFromCheckout = async (app: Appointment) => {
+    const resultado = await marcarNaoCompareceu(app);
+    if (resultado === 'erro') return;
+    handleNaoCompareceuResultado(app.id, resultado);
   };
 
   // Remover Bloqueio de Horário
@@ -1580,111 +1118,13 @@ export const Agenda: React.FC = () => {
   // Abrir Modal de Cancelamento
   const handleOpenCancelModal = (app: Appointment) => {
     setTargetAppointment(app);
-    setCancellationReason('');
     setIsCancelModalOpen(true);
-  };
-
-  // Confirmar Cancelamento
-  const handleConfirmCancellation = async () => {
-    if (!targetAppointment || !tenant.tenantId) return;
-    if (!cancellationReason.trim()) {
-      addToast('Informe o motivo do cancelamento.', 'warning');
-      return;
-    }
-    setCancelingAppointment(true);
-
-    try {
-      await agendaRepo.cancelar(tenant.tenantId, targetAppointment.id, cancellationReason);
-
-      // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
-      setAppointments((prev) => prev.filter((a) => a.id !== targetAppointment.id));
-
-      addToast('Agendamento cancelado com sucesso.', 'success');
-      setIsCancelModalOpen(false);
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao cancelar agendamento:', err);
-      addToast(err instanceof AgendaOperationError ? err.message : 'Erro ao cancelar agendamento.', 'error');
-    } finally {
-      setCancelingAppointment(false);
-    }
   };
 
   // Abrir Modal de Reagendamento Direto na Agenda
   const handleOpenRescheduleModal = (app: Appointment) => {
     setAgendaRescheduleAppointment(app);
-    if (app.start_time) {
-      const d = new Date(app.start_time);
-      setAgendaRescheduleDate(dateInZone(d, tenant.timezone));
-      setAgendaRescheduleTime(formatTimeInZone(app.start_time, tenant.timezone));
-    } else {
-      setAgendaRescheduleDate(selectedDate);
-      setAgendaRescheduleTime('09:00');
-    }
-    setAgendaRescheduleProfId(app.professional_id || professionals[0]?.id || '');
     setIsAgendaRescheduleModalOpen(true);
-  };
-
-  // Confirmar Reagendamento Direto na Agenda
-  const handleConfirmAgendaReschedule = async () => {
-    if (!agendaRescheduleAppointment || !agendaRescheduleDate || !agendaRescheduleTime) {
-      addToast('Selecione data e horário válidos para reagendar.', 'warning');
-      return;
-    }
-
-    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
-    if (!dayBh.active) {
-      addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-      return;
-    }
-    if (agendaRescheduleTime < dayBh.open || agendaRescheduleTime >= dayBh.close) {
-      addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-      return;
-    }
-
-    const rescheduleProfessional = professionals.find((p) => p.id === agendaRescheduleProfId);
-    const rescheduleDuration = getEffectiveServiceDuration(
-      agendaRescheduleAppointment.service?.duration_minutes || 30,
-      agendaRescheduleAppointment.service?.id || '',
-      rescheduleProfessional?.professional_services
-    );
-    if (
-      rescheduleProfessional &&
-      !isProfessionalWorkingAt(
-        rescheduleProfessional,
-        agendaRescheduleDate,
-        agendaRescheduleTime,
-        rescheduleDuration,
-        tenant.businessHours
-      )
-    ) {
-      addToast(`O profissional ${rescheduleProfessional.name} não atende neste horário.`, 'warning');
-      return;
-    }
-
-    if (!tenant.tenantId) return;
-    setIsAgendaRescheduling(true);
-    try {
-      const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
-
-      // O fim é calculado no banco pela duração do profissional; conflito, Bloqueio de Horário,
-      // expediente e escala também são conferidos lá.
-      await agendaRepo.reagendar(tenant.tenantId, agendaRescheduleAppointment.id, {
-        startTimeIso,
-        professionalId: agendaRescheduleProfId || null,
-      });
-
-      addToast('Agendamento reagendado com sucesso!', 'success');
-      setIsAgendaRescheduleModalOpen(false);
-      setAgendaRescheduleAppointment(null);
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao reagendar agendamento na agenda:', err);
-      addToast(err?.message || 'Erro ao reagendar agendamento.', err instanceof AgendaOperationError ? 'warning' : 'error');
-      if (err instanceof AgendaOperationError && err.kind === 'regra') fetchAppointments();
-    } finally {
-      setIsAgendaRescheduling(false);
-    }
   };
 
   // Disparar WhatsApp Direto
@@ -2653,306 +2093,26 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* 3. MODAL DE NOVO AGENDAMENTO / ENCAIXE */}
-      <Modal
+      <NovoAgendamentoModal
         isOpen={isModalOpen}
+        initial={novoInicial}
+        tenantId={tenant.tenantId}
+        timezone={tenant.timezone}
+        businessHours={tenant.businessHours}
+        slotIntervalMinutes={slotIntervalMinutes}
+        professionals={professionals}
+        services={services}
+        customers={customers}
+        appointments={appointments}
         onClose={() => {
           setIsModalOpen(false);
           clearActionUrl();
         }}
-        title={formIsFitting ? 'Novo encaixe rápido' : 'Novo agendamento'}
-      >
-        <form onSubmit={handleSaveAppointment} className="flex flex-col gap-4 w-full max-w-full min-w-0">
-          {/* Seletor de Modo do Cliente */}
-          <div className="flex bg-black/5 p-1 rounded-md gap-1">
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'existing' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('existing')}
-            >
-              Cliente cadastrado
-            </button>
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'new' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('new')}
-            >
-              Novo cadastro
-            </button>
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'none' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('none')}
-            >
-              Sem cadastro (Balcão)
-            </button>
-          </div>
-
-          {customerMode === 'existing' ? (
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Cliente"
-                id="select-customer"
-                value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                required
-              >
-                <option value="">Selecione um cliente...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-              {customers.find((c) => c.id === selectedCustomerId)?.phone && (
-                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
-                  <span>WhatsApp: <strong>{customers.find((c) => c.id === selectedCustomerId)?.phone}</strong></span>
-                </div>
-              )}
-            </div>
-          ) : customerMode === 'new' ? (
-            <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-                <label htmlFor="new-customer-name">Nome do cliente</label>
-                <input
-                  id="new-customer-name"
-                  type="text"
-                  placeholder="Ex: João da Silva"
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-                <label htmlFor="new-customer-phone">WhatsApp ou celular</label>
-                <input
-                  id="new-customer-phone"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={newCustomerPhone}
-                  onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="py-3 px-[0.85rem] bg-black/[0.02] border-none rounded-md text-[0.82rem] leading-relaxed text-text-primary mb-2 [&_span]:text-text-primary">
-              <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
-            </div>
-          )}
-
-          {/* Seleção de Profissional e Serviço */}
-          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Profissional"
-                id="select-professional"
-                value={formProfessionalId}
-                onChange={(e) => setFormProfessionalId(e.target.value)}
-                required
-              >
-                {availableProfessionalsForFormTime.length > 0 ? (
-                  <>
-                    <option value={ANY_PROFESSIONAL}>Tanto faz</option>
-                    {availableProfessionalsForFormTime.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </>
-                ) : (
-                  <option value="" disabled>
-                    Nenhum barbeiro disponível (intervalo/folga)
-                  </option>
-                )}
-              </Select>
-              {availableProfessionalsForFormTime.length === 0 && (
-                <span className="text-xs mt-1 block">
-                  Nenhum barbeiro disponível às {formTime} (intervalo ou folga).
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Serviço"
-                id="select-service"
-                value={formServiceId}
-                onChange={(e) => setFormServiceId(e.target.value)}
-                required
-              >
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-              {services.find((s) => s.id === formServiceId) && (
-                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
-                  <span>Duração: <strong>{services.find((s) => s.id === formServiceId)?.duration_minutes} min</strong></span>
-                  <span>•</span>
-                  <span>Valor: <strong>R$ {Number(services.find((s) => s.id === formServiceId)?.price).toFixed(2)}</strong></span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Data e Horário */}
-          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="form-date">Data do atendimento</label>
-              <input
-                id="form-date"
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="form-time">Horário de início</label>
-              {formIsFitting && fittingTimeMode === 'custom' ? (
-                <input
-                  id="form-time"
-                  type="time"
-                  step="60"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              ) : modalAvailableTimeSlots.length > 0 ? (
-                <Select
-                  id="form-time"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  required
-                >
-                  {formIsFitting && !modalAvailableTimeSlots.includes(formTime) && (
-                    <option value={formTime}>{formTime} (fora da grade)</option>
-                  )}
-                  {modalAvailableTimeSlots.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <input
-                  id="form-time"
-                  type="time"
-                  step="60"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Card de Encaixe de Balcão */}
-          <div className="p-3 px-[0.9rem] rounded-md bg-bg-primary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 min-w-0 box-border transition-all duration-200 max-[480px]:grid-cols-[minmax(0,1fr)]">
-            <div className="flex flex-col gap-[0.15rem] min-w-0">
-              <div className="flex items-center gap-[0.4rem] flex-wrap">
-                {isPastFormTime && (
-                  <span className="text-[0.62rem] font-bold py-[0.1rem] px-[0.35rem] rounded-sm uppercase bg-bg-secondary text-text-secondary">
-                    Obrigatório (passado)
-                  </span>
-                )}
-              </div>
-              <span className="text-[0.72rem] text-text-primary">
-                {formIsFitting && fittingTimeMode === 'custom'
-                  ? 'Horário personalizado: permite registrar uma exceção fora da grade e do expediente configurado.'
-                  : isPastFormTime
-                  ? 'Horário já decorrido: o registro neste horário é restrito a Encaixe de balcão.'
-                  : 'Permite atender dois clientes no mesmo horário dividindo a coluna da grade.'}
-              </span>
-            </div>
-            {formIsFitting && (
-              <div
-                className="flex items-center justify-end gap-[0.45rem] min-w-0 max-[480px]:justify-start max-[480px]:w-full"
-                role="group"
-                aria-label="Modalidade do horário do encaixe"
-              >
-                <span className="text-[0.68rem] font-bold text-text-primary transition-colors duration-200">
-                  Grade
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={fittingTimeMode === 'custom'}
-                  aria-label="Alternar entre horário da grade e personalizado"
-                  className={`relative w-[2.55rem] h-[1.35rem] p-[0.15rem] border-0 rounded-full cursor-pointer transition-[background-color,box-shadow] duration-200 box-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${fittingTimeMode === 'custom' ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]' : 'bg-[#D1D5DB] shadow-[0_0_0_0.8px_var(--color-text-primary)]'}`}
-                  onClick={() => setFittingTimeMode((current) => current === 'grid' ? 'custom' : 'grid')}
-                >
-                  <span className={`block w-[0.95rem] h-[0.95rem] rounded-full bg-bg-secondary shadow-sm transition-transform duration-200 ${fittingTimeMode === 'custom' ? 'translate-x-[1.05rem]' : 'translate-x-0'}`} />
-                </button>
-                <button
-                  type="button"
-                  className="border-0 p-0 bg-transparent font-[inherit] cursor-pointer text-[0.68rem] font-bold text-text-primary transition-colors duration-200"
-                  aria-label="Horário personalizado"
-                  onClick={() => setFittingTimeMode('custom')}
-                >
-                  Personalizado
-                </button>
-              </div>
-            )}
-            <label className={`flex items-center gap-2 text-sm m-0 whitespace-nowrap ${isPastFormTime ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-              <input
-                type="checkbox"
-                aria-label="Marcar como Encaixe de Balcão"
-                checked={formIsFitting}
-                disabled={isPastFormTime}
-                onChange={(e) => {
-                  setFormIsFitting(e.target.checked);
-                  if (!e.target.checked) setFittingTimeMode('grid');
-                }}
-              />
-              <span className="text-xs font-bold text-text-primary">Encaixe</span>
-            </label>
-          </div>
-
-          {/* Observações */}
-          <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-            <label htmlFor="form-notes">Observações do atendimento (opcional)</label>
-            <textarea
-              id="form-notes"
-              rows={2}
-              placeholder="Ex: Cliente prefere tesoura no topo, café sem açúcar..."
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
-            />
-          </div>
-
-          <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-            <button
-              type="button"
-              className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-              onClick={() => {
-                setIsModalOpen(false);
-                clearActionUrl();
-              }}
-              disabled={savingAppointment}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover" disabled={savingAppointment}>
-              {savingAppointment ? (
-                <span>Salvando...</span>
-              ) : formIsFitting ? (
-                <span>Confirmar encaixe na agenda</span>
-              ) : (
-                <span>Salvar agendamento</span>
-              )}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        onSaved={({ newCustomer }) => {
+          if (newCustomer) setCustomers((prev) => [...prev, newCustomer]);
+          fetchAppointments();
+        }}
+      />
 
       {/* 4. MODAL DE CHECKOUT DE COMANDA */}
       {checkoutAppointment && (
@@ -2989,7 +2149,7 @@ export const Agenda: React.FC = () => {
             addToast('Atendimento reagendado com sucesso!', 'success');
             fetchAppointments();
           }}
-          onMarkNoShow={() => handleConfirmNoShow(checkoutAppointment)}
+          onMarkNoShow={() => handleNoShowFromCheckout(checkoutAppointment)}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
             fetchAppointments();
@@ -3035,171 +2195,48 @@ export const Agenda: React.FC = () => {
       />
 
       {/* 5b. CONFIRMAÇÃO DE NÃO COMPARECIMENTO */}
-      <Modal
+      <NaoCompareceuModal
         isOpen={isNoShowModalOpen}
+        appointment={noShowAppointment}
+        tenantId={tenant.tenantId}
         onClose={() => {
           setIsNoShowModalOpen(false);
           setNoShowAppointment(null);
         }}
-        title="Confirmar não comparecimento"
-      >
-        {noShowAppointment && (
-          <div className="cancel-modal-body">
-            <p className="text-sm text-text-primary leading-relaxed mb-4">
-              Deseja marcar o atendimento de{' '}
-              <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
-              A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
-            </p>
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => {
-                  setIsNoShowModalOpen(false);
-                  setNoShowAppointment(null);
-                }}
-              >
-                Não marcar
-              </button>
-              <button
-                type="button"
-                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
-                onClick={() => void handleConfirmNoShow()}
-              >
-                Sim, não compareceu
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onResultado={handleNaoCompareceuResultado}
+      />
 
       {/* 6. MODAL DE CANCELAMENTO */}
-      <Modal
+      <CancelarAgendamentoModal
         isOpen={isCancelModalOpen}
+        appointment={targetAppointment}
+        tenantId={tenant.tenantId}
         onClose={() => setIsCancelModalOpen(false)}
-        title="Cancelar Agendamento"
-      >
-        {targetAppointment && (
-          <div className="cancel-modal-body">
-            <p className="text-sm text-text-primary leading-relaxed mb-4">
-              Deseja realmente cancelar o agendamento de{' '}
-              <strong>{targetAppointment.customer?.name}</strong> para o serviço{' '}
-              <strong>{targetAppointment.service?.name}</strong>?
-            </p>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="cancel-reason">Motivo do Cancelamento</label>
-              <textarea
-                id="cancel-reason"
-                rows={2}
-                placeholder="Ex: Cliente solicitou reagendamento por telefone..."
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
-              />
-            </div>
-
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => setIsCancelModalOpen(false)}
-                disabled={cancelingAppointment}
-              >
-                Não Cancelar
-              </button>
-              <button
-                type="button"
-                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
-                onClick={handleConfirmCancellation}
-                disabled={cancelingAppointment || !cancellationReason.trim()}
-              >
-                {cancelingAppointment ? 'Cancelando...' : 'Sim, Cancelar Horário'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onCancelado={(appointmentId) => {
+          // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
+          setAppointments((prev) => prev.filter((a) => a.id !== appointmentId));
+          fetchAppointments();
+        }}
+      />
 
       {/* 7. MODAL DE REAGENDAMENTO DIRETO NA AGENDA */}
-      <Modal
+      <ReagendarAgendamentoModal
         isOpen={isAgendaRescheduleModalOpen}
+        appointment={agendaRescheduleAppointment}
+        tenantId={tenant.tenantId}
+        timezone={tenant.timezone}
+        businessHours={tenant.businessHours}
+        slotIntervalMinutes={slotIntervalMinutes}
+        professionals={professionals}
+        appointments={appointments}
+        blockedSlots={blockedSlots}
+        fallbackDate={selectedDate}
         onClose={() => {
           setIsAgendaRescheduleModalOpen(false);
           setAgendaRescheduleAppointment(null);
         }}
-        title="Reagendar Atendimento"
-      >
-        {agendaRescheduleAppointment && (
-          <div className="reschedule-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
-              Reagendar horário de <strong>{agendaRescheduleAppointment.customer?.name}</strong> para o serviço{' '}
-              <strong>{agendaRescheduleAppointment.service?.name}</strong>.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Nova data"
-                id="agenda_reschedule_date"
-                type="date"
-                value={agendaRescheduleDate}
-                onChange={(e) => setAgendaRescheduleDate(e.target.value)}
-              />
-              <Select
-                label="Novo horário"
-                id="agenda_reschedule_time"
-                value={agendaRescheduleTime}
-                onChange={(e) => setAgendaRescheduleTime(e.target.value)}
-              >
-                <option value="">Selecione um horário livre...</option>
-                {agendaRescheduleAvailableSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
-                ))}
-                {agendaRescheduleAvailableSlots.length === 0 && (
-                  <option value="" disabled>
-                    Nenhum horário livre nesta data
-                  </option>
-                )}
-              </Select>
-            </div>
-
-            <Select
-              label="Profissional"
-              id="agenda_reschedule_prof"
-              value={agendaRescheduleProfId}
-              onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
-            >
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
-
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => {
-                  setIsAgendaRescheduleModalOpen(false);
-                  setAgendaRescheduleAppointment(null);
-                }}
-                disabled={isAgendaRescheduling}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover"
-                onClick={handleConfirmAgendaReschedule}
-                disabled={isAgendaRescheduling}
-              >
-                {isAgendaRescheduling ? 'Salvando...' : 'Confirmar Reagendamento'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onAtualizar={fetchAppointments}
+      />
 
       {/* 7. GAVETA DE LISTA DE ESPERA */}
       <ListaEsperaDrawer
