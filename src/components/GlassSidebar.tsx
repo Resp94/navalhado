@@ -2,14 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users,
-  UsersFour,
-  Scissors,
-  Package,
-  CurrencyDollar,
-  ChartBar,
-  WhatsappLogo,
-  Gear,
   SignOut,
   User,
   Bell,
@@ -17,9 +9,6 @@ import {
   ArrowRight,
   ArrowLeft,
 } from '@phosphor-icons/react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { CalendarUserIcon, Invoice01Icon } from '@hugeicons/core-free-icons';
-import type { TenantContextType } from './GerenteLayout';
 import type { Notification } from '../lib/useRealtimeNotifications';
 
 const COLLAPSED_WIDTH = 72;
@@ -30,103 +19,21 @@ const EXPANDED_WIDTH = 250;
 const GLASS_SURFACE_CLASSES =
   'bg-[radial-gradient(ellipse_70%_50%_at_20%_10%,rgba(217,108,0,0.06)_0%,transparent_70%),radial-gradient(ellipse_60%_40%_at_80%_90%,rgba(217,108,0,0.04)_0%,transparent_60%),linear-gradient(155deg,rgba(255,255,255,0.82)_0%,rgba(255,246,240,0.72)_50%,rgba(255,255,255,0.78)_100%)] backdrop-blur-[28px] backdrop-saturate-[190%] border border-[rgba(255,255,255,0.85)] shadow-[0_12px_36px_-6px_rgba(45,35,30,0.09),0_2px_8px_rgba(45,35,30,0.04),inset_0_1px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(234,222,214,0.5)] transition-[border-color,box-shadow] duration-200 ease-in';
 
-interface NavItemConfig {
+export interface NavItemConfig {
   path: string;
   label: string;
+  /** Mantém o item ativo também nas subrotas (`path/...`). */
+  matchPrefix?: boolean;
   renderIcon: (props: { size: number; isBold: boolean }) => React.ReactNode;
 }
 
-const NAV_ITEMS: NavItemConfig[] = [
-  {
-    path: '/agenda',
-    label: 'Agenda',
-    renderIcon: ({ size, isBold }) => (
-      <HugeiconsIcon
-        icon={CalendarUserIcon}
-        size={size}
-        color="currentColor"
-        strokeWidth={isBold ? 2.2 : 1.7}
-      />
-    ),
-  },
-  {
-    path: '/comandas',
-    label: 'Comandas',
-    renderIcon: ({ size, isBold }) => (
-      <HugeiconsIcon
-        icon={Invoice01Icon}
-        size={size}
-        color="currentColor"
-        strokeWidth={isBold ? 2.2 : 1.7}
-      />
-    ),
-  },
-  {
-    path: '/clientes',
-    label: 'Clientes',
-    renderIcon: ({ size, isBold }) => (
-      <Users size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/profissionais',
-    label: 'Equipe',
-    renderIcon: ({ size, isBold }) => (
-      <UsersFour size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/servicos/cadastro',
-    label: 'Serviços',
-    renderIcon: ({ size, isBold }) => (
-      <Scissors size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/produtos',
-    label: 'Produtos',
-    renderIcon: ({ size, isBold }) => (
-      <Package size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/financeiro',
-    label: 'Financeiro',
-    renderIcon: ({ size, isBold }) => (
-      <CurrencyDollar size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    // Módulo de Relatórios (spec 038): rota própria, fora do Hub
-    // Financeiro, exclusiva do desktop -- por isso não entra na barra
-    // inferior nem na gaveta "Mais" do celular (`MobileBottomNav`,
-    // `MobileMaisDrawer`), só nesta sidebar (`GlassSidebar`), que já é
-    // exibida apenas acima de 768px.
-    path: '/relatorios',
-    label: 'Relatórios',
-    renderIcon: ({ size, isBold }) => (
-      <ChartBar size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/whatsapp',
-    label: 'WhatsApp',
-    renderIcon: ({ size, isBold }) => (
-      <WhatsappLogo size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-  {
-    path: '/configuracoes',
-    label: 'Ajustes',
-    renderIcon: ({ size, isBold }) => (
-      <Gear size={size} weight={isBold ? 'bold' : 'regular'} style={{ color: 'currentColor' }} />
-    ),
-  },
-];
-
 export interface GlassSidebarProps {
-  tenantInfo: TenantContextType;
-  managerName: string;
+  items: NavItemConfig[];
+  homePath: string;
+  tenantName: string;
+  logoUrl?: string | null;
+  userName: string;
+  userRole: string;
   notifications: Notification[];
   unreadCount: number;
   onMarkAllAsRead: () => void;
@@ -430,10 +337,10 @@ function NotificationsFooterItem({
 
 function UserFooterItem({
   isOpen,
-  managerName,
+  userName,
 }: {
   isOpen: boolean;
-  managerName: string;
+  userName: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
@@ -477,7 +384,7 @@ function UserFooterItem({
               transform: 'translateY(-50%)',
             }}
           >
-            {managerName}
+            {userName}
           </motion.div>
         )}
       </AnimatePresence>
@@ -499,9 +406,9 @@ function UserFooterItem({
             >
               <span
                 className="text-sm font-semibold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis leading-[1.2]"
-                title={managerName}
+                title={userName}
               >
-                {managerName}
+                {userName}
               </span>
             </motion.div>
           )}
@@ -512,8 +419,12 @@ function UserFooterItem({
 }
 
 export const GlassSidebar: React.FC<GlassSidebarProps> = ({
-  tenantInfo,
-  managerName,
+  items,
+  homePath,
+  tenantName,
+  logoUrl,
+  userName,
+  userRole,
   notifications,
   unreadCount,
   onMarkAllAsRead,
@@ -564,7 +475,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
   return (
     <aside
       className="sticky top-0 h-dvh z-[90] pt-4 pb-4 pl-4 flex flex-col shrink-0 box-border max-[768px]:hidden"
-      aria-label="Navegação Principal do Gerente"
+      aria-label={`Navegação Principal do ${userRole}`}
     >
       <motion.div
         className={`relative h-full max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl py-3.5 px-2 box-border overflow-visible ${GLASS_SURFACE_CLASSES}`}
@@ -575,15 +486,15 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
         {/* Marca / Barbearia: Apenas a Logo e Nome da Barbearia sem container branco */}
         <button
           type="button"
-          onClick={() => navigate('/agenda')}
+          onClick={() => navigate(homePath)}
           className="flex items-center gap-2.5 bg-transparent border-none border-b border-b-[rgba(45,35,30,0.06)] p-0 h-15 min-h-15 max-h-15 cursor-pointer text-left w-full text-text-primary font-base mb-2 box-border overflow-hidden shrink-0"
-          title={tenantInfo.tenantName}
-          aria-label={`Página inicial de ${tenantInfo.tenantName}`}
+          title={tenantName}
+          aria-label={`Página inicial de ${tenantName}`}
         >
-          {tenantInfo.logoUrl ? (
+          {logoUrl ? (
             <img
-              src={tenantInfo.logoUrl}
-              alt={tenantInfo.tenantName}
+              src={logoUrl}
+              alt={tenantName}
               className="w-10 h-10 min-w-10 max-w-10 min-h-10 max-h-10 rounded-md object-cover shrink-0 self-center"
             />
           ) : (
@@ -605,7 +516,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
                 className="flex flex-col justify-center flex-1 min-w-0 overflow-hidden"
               >
                 <span className="text-sm font-bold text-text-primary whitespace-normal [overflow-wrap:break-word] leading-[1.25] line-clamp-3 overflow-hidden">
-                  {tenantInfo.tenantName}
+                  {tenantName}
                 </span>
               </motion.div>
             )}
@@ -614,11 +525,10 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
 
         {/* Links de Navegação */}
         <nav className="flex flex-col gap-1 flex-1 overflow-y-auto overflow-x-hidden py-0.5 box-border [scrollbar-width:thin] [scrollbar-color:transparent_transparent] transition-[scrollbar-color] duration-200 ease-in hover:[scrollbar-color:rgba(45,35,30,0.2)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-[4px] [&::-webkit-scrollbar-thumb]:transition-colors [&::-webkit-scrollbar-thumb]:duration-200 hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.2)]">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const isActive =
               location.pathname === item.path ||
-              ((item.path === '/profissionais' || item.path === '/financeiro') &&
-                location.pathname.startsWith(`${item.path}/`));
+              (!!item.matchPrefix && location.pathname.startsWith(`${item.path}/`));
 
             return (
               <NavItemRow
@@ -649,7 +559,7 @@ export const GlassSidebar: React.FC<GlassSidebarProps> = ({
           {/* Dados do Usuário (Apenas Nome) */}
           <UserFooterItem
             isOpen={isOpen}
-            managerName={managerName}
+            userName={userName}
           />
 
           {/* Botão de Sair (Logout) */}

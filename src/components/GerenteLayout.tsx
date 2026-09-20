@@ -5,6 +5,7 @@ import { normalizeBusinessHours } from '../lib/schedule';
 import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
 import { useToast } from './Toast';
 import { GlassSidebar } from './GlassSidebar';
+import { GERENTE_NAV_ITEMS } from './gerenteNavItems';
 
 // Interface do Contexto do Tenant a ser compartilhado com as sub-telas
 export interface TenantContextType {
@@ -224,8 +225,12 @@ export const GerenteLayout: React.FC = () => {
 
         {/* SIDEBAR RETRÁTIL DESKTOP (> 768px) */}
         <GlassSidebar
-          tenantInfo={tenantInfo}
-          managerName={managerName}
+          items={GERENTE_NAV_ITEMS}
+          homePath="/agenda"
+          tenantName={tenantInfo.tenantName}
+          logoUrl={tenantInfo.logoUrl}
+          userName={managerName}
+          userRole="Gerente"
           notifications={notifications}
           unreadCount={unreadCount}
           onMarkAllAsRead={markAllAsRead}
