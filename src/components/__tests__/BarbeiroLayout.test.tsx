@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useOutletContext } from 'react-router-dom';
 import { BarbeiroLayout } from '../BarbeiroLayout';
@@ -139,5 +139,24 @@ describe('BarbeiroLayout', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
     expect(mockAddToast).toHaveBeenCalledWith('Acesso restrito para colaboradores da barbearia.', 'warning');
     expect(screen.queryByTestId('tenant-id')).not.toBeInTheDocument();
+  });
+
+  it('no desktop a navegação é a barra lateral, só com Agenda e Comissões', async () => {
+    renderLayout();
+
+    const sidebar = await screen.findByLabelText('Navegação Principal do Barbeiro');
+    const nav = within(sidebar).getByRole('navigation');
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Agenda'), expect.stringContaining('Comissões')])
+    );
+    expect(within(nav).getAllByRole('button')).toHaveLength(2);
+    expect(screen.queryByText('Financeiro')).not.toBeInTheDocument();
+  });
+
+  it('não renderiza mais o cabeçalho superior do desktop', async () => {
+    renderLayout();
+
+    await screen.findByLabelText('Navegação Principal do Barbeiro');
+    expect(screen.queryByTitle('Sair da conta')).not.toBeInTheDocument();
   });
 });

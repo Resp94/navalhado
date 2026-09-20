@@ -33,7 +33,7 @@ export interface GlassSidebarProps {
   tenantName: string;
   logoUrl?: string | null;
   userName: string;
-  userRole: string;
+  userRole: 'Gerente' | 'Barbeiro';
   notifications: Notification[];
   unreadCount: number;
   onMarkAllAsRead: () => void;

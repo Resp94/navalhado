@@ -22,7 +22,7 @@ describe('GlassSidebar Component', () => {
     tenantName: 'Barbearia Navalha de Ouro',
     logoUrl: null,
     userName: 'Carlos Silva',
-    userRole: 'Gerente',
+    userRole: 'Gerente' as const,
     notifications: [],
     unreadCount: 2,
     onMarkAllAsRead: vi.fn(),
