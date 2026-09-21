@@ -207,8 +207,8 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', (select u_barb::text from t46), true);
 select throws_ok(
   $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1100 from t46), p_professional_id => (select prof2 from t46))$$,
-  '42501', 'Acesso negado.',
-  'barbeiro nao cria agendamento pela agenda do gestor'
+  '42501', 'Barbeiro só cria agendamento na própria agenda.',
+  'barbeiro nao cria agendamento na agenda de colega'
 );
 select set_config('request.jwt.claim.sub', (select u_ger_b::text from t46), true);
 select throws_ok(
