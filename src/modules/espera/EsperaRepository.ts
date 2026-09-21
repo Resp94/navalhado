@@ -29,12 +29,12 @@ export class EsperaRepository {
   }
 
   /**
-   * Nota do Agendamento criado pelo encaixe: a observação que a recepção anotou na
-   * entrada precisa chegar ao barbeiro que vai atender, junto do marcador de origem.
+   * Nota do Agendamento criado pelo encaixe: a observação que a recepção anotou na entrada
+   * precisa chegar ao barbeiro que vai atender. Que o Agendamento veio da fila não vai na nota:
+   * é uma coluna própria, que a RPC grava quando baixa a entrada.
    */
   notaDeEncaixe(entrada: Pick<WaitingListEntry, 'notes'>): string {
-    const observacao = entrada.notes?.trim();
-    return observacao ? `[Fila de Espera] ${observacao}` : '[Fila de Espera]';
+    return entrada.notes?.trim() ?? '';
   }
 
   /**

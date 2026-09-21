@@ -77,15 +77,15 @@ describe('EsperaRepository', () => {
       expect(atualizada.notes).toBe('Vai trazer o filho junto');
     });
 
-    it('leva a observação da recepção para a nota do Agendamento no encaixe', () => {
-      const nota = repo.notaDeEncaixe({ notes: 'Só pode depois das 18h, quer o Marcos' });
-
-      expect(nota).toContain('Só pode depois das 18h, quer o Marcos');
-      expect(nota).toContain('Fila de Espera');
+    it('leva só a observação da recepção para a nota do Agendamento no encaixe', () => {
+      expect(repo.notaDeEncaixe({ notes: '  Só pode depois das 18h, quer o Marcos ' })).toBe(
+        'Só pode depois das 18h, quer o Marcos'
+      );
     });
 
-    it('usa só o marcador de origem quando a entrada não tem observação', () => {
-      expect(repo.notaDeEncaixe({ notes: null })).toBe('[Fila de Espera]');
+    it('deixa a nota vazia quando a entrada não tem observação: a origem vive no banco, não no texto', () => {
+      expect(repo.notaDeEncaixe({ notes: null })).toBe('');
+      expect(repo.notaDeEncaixe({ notes: '   ' })).toBe('');
     });
   });
 
