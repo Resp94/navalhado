@@ -90,6 +90,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         start_time,
         status,
         payment_status,
+        cancellation_reason,
         services ( name, price ),
         professionals ( name )
       `)
@@ -110,6 +111,7 @@ export class SupabaseClienteAdapter implements IClienteAdapter {
         service_name: service?.name || 'Serviço',
         service_price: Number(service?.price ?? 0),
         professional_name: professional?.name || 'Barbeiro',
+        cancellation_reason: row.cancellation_reason?.trim() || null,
       };
     });
   }

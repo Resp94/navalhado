@@ -1122,6 +1122,12 @@ export const Clientes: React.FC = () => {
                                   {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
                                 </strong>
                               </div>
+                              {app.status === 'canceled' && app.cancellation_reason && (
+                                <div className="flex justify-between gap-3 text-xs mb-1">
+                                  <span className="text-text-secondary">Motivo:</span>
+                                  <span className="min-w-0 text-right break-words">{app.cancellation_reason}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}

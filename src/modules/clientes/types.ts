@@ -39,6 +39,7 @@ export interface HistoricoVisitasCliente {
   service_name: string;
   service_price: number;
   professional_name: string;
+  cancellation_reason?: string | null;
 }
 
 export interface ComandaItemHistorico {
