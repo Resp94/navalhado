@@ -93,6 +93,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   let mockBlockedSlots: any[] = [];
   let mockCanceledAppointments: any[] = [];
   let mockAppointmentsFail = false;
+  let mockBlockedSlotsFail = false;
 
   afterEach(() => {
     vi.useRealTimers();
@@ -105,6 +106,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     mockBlockedSlots = [];
     mockCanceledAppointments = [];
     mockAppointmentsFail = false;
+    mockBlockedSlotsFail = false;
     mockOutletContext.businessHours.domingo.active = true;
     // A criação de agendamento é uma RPC do banco (AgendaRepository.criarAgendamento).
     mockRpc.mockImplementation(async (fn: string, params: any) => {
@@ -247,7 +249,13 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           eq: () => builder,
           gte: () => builder,
           lt: () => builder,
-          order: vi.fn().mockImplementation(() => Promise.resolve({ data: mockBlockedSlots, error: null })),
+          order: vi.fn().mockImplementation(() =>
+            Promise.resolve(
+              mockBlockedSlotsFail
+                ? { data: null, error: { message: 'falha de rede' } }
+                : { data: mockBlockedSlots, error: null }
+            )
+          ),
           delete: () => ({
             eq: () => ({
               eq: vi.fn().mockResolvedValue({ error: null }),
@@ -320,6 +328,51 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
           expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThanOrEqual(1)
         );
       });
+    });
+  });
+
+  describe('Bloqueios de Horário lidos por caminho único (spec 043, ticket 08)', () => {
+    const bloqueioAlmoco = {
+      id: 'blk-1',
+      tenant_id: 'tenant-123',
+      professional_id: 'prof-1',
+      start_time: '2026-08-16T15:00:00.000Z',
+      end_time: '2026-08-16T16:00:00.000Z',
+      reason: 'Almoço',
+      is_all_day: false,
+    };
+    const consultasAoBanco = (tabela: string) => mockFrom.mock.calls.filter(([nome]) => nome === tabela).length;
+
+    it('lê a tabela de Bloqueios uma única vez por atualização', async () => {
+      mockBlockedSlots = [bloqueioAlmoco];
+      render(<Agenda />);
+      await waitFor(() => expect(screen.getByText('Almoço')).toBeInTheDocument());
+
+      expect(consultasAoBanco('blocked_slots')).toBe(1);
+    });
+
+    it('a falha na leitura de Bloqueios não esconde os Agendamentos nem acusa erro de agendamento', async () => {
+      mockBlockedSlotsFail = true;
+      const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<Agenda />);
+
+      await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+      await waitFor(() => expect(consoleErro).toHaveBeenCalledWith('Erro ao buscar bloqueios:', expect.anything()));
+      expect(mockAddToast).not.toHaveBeenCalledWith('Erro ao carregar os agendamentos do dia.', 'error');
+      consoleErro.mockRestore();
+    });
+
+    it('a falha na leitura de Agendamentos mantém os Bloqueios na grade e avisa o erro de agendamento', async () => {
+      mockBlockedSlots = [bloqueioAlmoco];
+      mockAppointmentsFail = true;
+      const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+      render(<Agenda />);
+
+      await waitFor(() =>
+        expect(mockAddToast).toHaveBeenCalledWith('Erro ao carregar os agendamentos do dia.', 'error')
+      );
+      expect(screen.getByText('Almoço')).toBeInTheDocument();
+      consoleErro.mockRestore();
     });
   });
 

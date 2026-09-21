@@ -354,6 +354,53 @@ describe('Minha Agenda do barbeiro', () => {
     });
   });
 
+  describe('Bloqueios de Horário lidos à parte (spec 043, ticket 08)', () => {
+    const BLOQUEIO_ALMOCO = {
+      id: 'blk-1',
+      tenant_id: 'tenant-1',
+      professional_id: 'prof-me',
+      start_time: '2026-08-16T16:00:00.000Z',
+      end_time: '2026-08-16T17:00:00.000Z',
+      reason: 'Almoço',
+      is_all_day: false,
+    };
+
+    it('mostra o Bloqueio de Horário do dia junto do Agendamento', async () => {
+      tables.blocked_slots = () => [BLOQUEIO_ALMOCO];
+
+      await renderAgenda();
+      expect(screen.getByText(/Bloqueio: Almoço/)).toBeInTheDocument();
+    });
+
+    it('a falha na leitura de Bloqueios não esconde os Agendamentos nem acusa erro de atendimento', async () => {
+      tables.blocked_slots = () => {
+        throw new Error('falha de rede');
+      };
+      const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await renderAgenda();
+
+      expect(mockAddToast).not.toHaveBeenCalledWith('Não foi possível carregar seus atendimentos.', 'error');
+      consoleErro.mockRestore();
+    });
+
+    it('a falha na leitura de Agendamentos mantém os Bloqueios e avisa o erro de atendimento', async () => {
+      tables.blocked_slots = () => [BLOQUEIO_ALMOCO];
+      tables.appointments = () => {
+        throw new Error('falha de rede');
+      };
+      const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      render(<MinhaAgenda />);
+
+      await waitFor(() =>
+        expect(mockAddToast).toHaveBeenCalledWith('Não foi possível carregar seus atendimentos.', 'error')
+      );
+      expect(screen.getByText(/Bloqueio: Almoço/)).toBeInTheDocument();
+      consoleErro.mockRestore();
+    });
+  });
+
   describe('cancelados do dia (spec 043, ticket 04)', () => {
     const CANCELADO_COM_MOTIVO = appointmentRow({
       id: 'app-c1',

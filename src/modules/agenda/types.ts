@@ -86,23 +86,26 @@ export interface AgendamentoDoDia {
   service: { id: string; name: string; price: number; duration_minutes?: number };
 }
 
-export interface AgendaDoDiaInput {
-  /** Omitido: tudo o que o usuário pode ver (o gerente, a barbearia; o barbeiro, só os próprios). */
-  professionalId?: string;
+/** Janela de leitura da agenda: início inclusivo, fim exclusivo. */
+export interface IntervaloDaAgenda {
   /** Início do dia local, em ISO 8601. */
   startIso: string;
   /** Início do dia seguinte, em ISO 8601 (exclusivo). */
   endExclusiveIso: string;
+}
+
+export interface AgendaDoDiaInput extends IntervaloDaAgenda {
+  /** Omitido: tudo o que o usuário pode ver (o gerente, a barbearia; o barbeiro, só os próprios). */
+  professionalId?: string;
   /** Desligado por padrão: pede também os Agendamentos cancelados, em coleção própria. */
   incluirCancelados?: boolean;
 }
 
-export interface AgendaDoDia {
+/** Só Agendamentos: os Bloqueios de Horário têm leitura própria, para que a falha de um não esconda o outro. */
+export interface AgendamentosDoDia {
   appointments: AgendamentoDoDia[];
   /** Vazia quando não pedidos; nunca se mistura com `appointments`, que alimenta a grade. */
   canceledAppointments: AgendamentoDoDia[];
-  /** Bloqueios de Horário da barbearia no intervalo. */
-  blockedSlots: BlockedSlot[];
 }
 
 export interface ServicoDaAgenda {
@@ -151,8 +154,10 @@ export interface IAgendaAdapter {
   listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]>;
   criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult>;
   marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
-  /** Agendamentos ativos do profissional no intervalo e Bloqueios de Horário da barbearia. */
-  carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia>;
+  /** Agendamentos do intervalo: ativos e, se pedidos, cancelados em coleção própria. */
+  carregarAgendamentosDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendamentosDoDia>;
+  /** Bloqueios de Horário da barbearia no intervalo, em ordem de início. */
+  carregarBloqueiosDoDia(tenantId: string, input: IntervaloDaAgenda): Promise<BlockedSlot[]>;
   /** Profissional, serviços ativos e clientes da barbearia. */
   carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional>;
 }

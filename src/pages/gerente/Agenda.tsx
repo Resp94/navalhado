@@ -721,7 +721,7 @@ export const Agenda: React.FC = () => {
     }
   }, [tenant.tenantId, addToast, selectedWeekProfId]);
 
-  // Carregar Bloqueios de Horário
+  // Carregar Bloqueios de Horário. Leitura própria: a falha dela não esconde os Agendamentos.
   const fetchBlockedSlots = useCallback(async () => {
     if (!tenant.tenantId) return;
     try {
@@ -739,20 +739,13 @@ export const Agenda: React.FC = () => {
         endIso = endExclusive;
       }
 
-      const { data, error } = await supabase
-        .from('blocked_slots')
-        .select('*')
-        .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .order('start_time', { ascending: true });
-
-      if (error) throw error;
-      setBlockedSlots((data || []) as BlockedSlot[]);
+      setBlockedSlots(
+        await agendaRepo.carregarBloqueiosDoDia(tenant.tenantId, { startIso, endExclusiveIso: endIso })
+      );
     } catch (err) {
       console.error('Erro ao buscar bloqueios:', err);
     }
-  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
+  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
 
   // Carregar Agendamentos do Período
   // Recorte de leitura sobre o que o banco já entregou: o filtro de equipe da tela não é fronteira de
@@ -787,7 +780,7 @@ export const Agenda: React.FC = () => {
         endIso = endExclusive;
       }
 
-      const agenda = await agendaRepo.carregarAgendaDoDia(tenant.tenantId, {
+      const agenda = await agendaRepo.carregarAgendamentosDoDia(tenant.tenantId, {
         startIso,
         endExclusiveIso: endIso,
         incluirCancelados: true,

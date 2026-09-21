@@ -101,23 +101,30 @@ export const MinhaAgenda: React.FC = () => {
     const requestId = ++latestDayRequest.current;
     try {
       const { start, endExclusive } = localDayUtcRange(selectedDate, timezone);
-      const agenda = await agendaRepo.carregarAgendaDoDia(tenantId, {
-        professionalId,
-        startIso: start,
-        endExclusiveIso: endExclusive,
-        incluirCancelados: true,
-      });
+      const intervalo = { startIso: start, endExclusiveIso: endExclusive };
+      // Duas leituras independentes: a falha de uma não esconde a outra.
+      const [agendamentos, bloqueios] = await Promise.allSettled([
+        agendaRepo.carregarAgendamentosDoDia(tenantId, { professionalId, ...intervalo, incluirCancelados: true }),
+        agendaRepo.carregarBloqueiosDoDia(tenantId, intervalo),
+      ]);
       if (requestId !== latestDayRequest.current) return;
-      setAppointments(agenda.appointments);
-      setBlockedSlots(agenda.blockedSlots);
-      setCancelados(agenda.canceledAppointments);
-      setCanceladosComErro(false);
-    } catch (err) {
-      if (requestId !== latestDayRequest.current) return;
-      console.error('Erro ao carregar a agenda do barbeiro:', err);
-      setCancelados([]);
-      setCanceladosComErro(true);
-      addToast('Não foi possível carregar seus atendimentos.', 'error');
+
+      if (bloqueios.status === 'fulfilled') {
+        setBlockedSlots(bloqueios.value);
+      } else {
+        console.error('Erro ao carregar os bloqueios do barbeiro:', bloqueios.reason);
+      }
+
+      if (agendamentos.status === 'fulfilled') {
+        setAppointments(agendamentos.value.appointments);
+        setCancelados(agendamentos.value.canceledAppointments);
+        setCanceladosComErro(false);
+      } else {
+        console.error('Erro ao carregar a agenda do barbeiro:', agendamentos.reason);
+        setCancelados([]);
+        setCanceladosComErro(true);
+        addToast('Não foi possível carregar seus atendimentos.', 'error');
+      }
     } finally {
       if (requestId === latestDayRequest.current) setLoading(false);
     }

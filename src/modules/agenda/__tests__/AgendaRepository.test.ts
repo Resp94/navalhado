@@ -212,7 +212,8 @@ describe('AgendaRepository', () => {
         listarHorariosLivres: vi.fn(),
         criarAgendamento: vi.fn(),
         marcarFalta: vi.fn().mockRejectedValue(new AgendaOperationError('Acesso negado.', 'acesso')),
-        carregarAgendaDoDia: vi.fn(),
+        carregarAgendamentosDoDia: vi.fn(),
+        carregarBloqueiosDoDia: vi.fn(),
         carregarCadastrosDoProfissional: vi.fn(),
       };
 
@@ -222,7 +223,7 @@ describe('AgendaRepository', () => {
     });
   });
 
-  describe('carregarAgendaDoDia', () => {
+  describe('carregarAgendamentosDoDia', () => {
     const agendamento = (overrides: Partial<AgendamentoDoDia>): AgendamentoDoDia => ({
       id: 'ap-x',
       start_time: '2026-09-21T13:00:00.000Z',
@@ -272,37 +273,76 @@ describe('AgendaRepository', () => {
     });
 
     it('devolve só os Agendamentos do profissional no dia, em ordem e sem os cancelados', async () => {
-      const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+      const agenda = await repository.carregarAgendamentosDoDia(TENANT, dia);
 
       expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
     });
 
-    it('devolve os Bloqueios de Horário do dia', async () => {
-      const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+    it('não traz Bloqueios de Horário junto: eles têm leitura própria', async () => {
+      const agenda = await repository.carregarAgendamentosDoDia(TENANT, dia);
 
-      expect(agenda.blockedSlots.map((b) => b.id)).toEqual(['blk-1']);
+      expect(Object.keys(agenda)).not.toContain('blockedSlots');
+    });
+
+    describe('carregarBloqueiosDoDia (spec 043, ticket 08)', () => {
+      const intervalo = { startIso: dia.startIso, endExclusiveIso: dia.endExclusiveIso };
+
+      it('devolve os Bloqueios de Horário do dia e deixa de fora os de outro dia', async () => {
+        const bloqueios = await repository.carregarBloqueiosDoDia(TENANT, intervalo);
+
+        expect(bloqueios.map((b) => b.id)).toEqual(['blk-1']);
+      });
+
+      it('recusa barbearia ou intervalo inválido sem consultar o adaptador', async () => {
+        const spy = vi.spyOn(adapter, 'carregarBloqueiosDoDia');
+
+        await expect(repository.carregarBloqueiosDoDia(' ', intervalo)).rejects.toBeInstanceOf(AgendaValidationError);
+        await expect(
+          repository.carregarBloqueiosDoDia(TENANT, { ...intervalo, endExclusiveIso: intervalo.startIso })
+        ).rejects.toBeInstanceOf(AgendaValidationError);
+        await expect(
+          repository.carregarBloqueiosDoDia(TENANT, { ...intervalo, startIso: 'não é data' })
+        ).rejects.toBeInstanceOf(AgendaValidationError);
+        expect(spy).not.toHaveBeenCalled();
+      });
+
+      it('a falha de uma leitura não impede a outra', async () => {
+        vi.spyOn(adapter, 'carregarBloqueiosDoDia').mockRejectedValue(new AgendaOperationError('falhou', 'desconhecido'));
+
+        await expect(repository.carregarBloqueiosDoDia(TENANT, intervalo)).rejects.toBeInstanceOf(AgendaOperationError);
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, dia);
+        expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
+      });
+
+      it('a falha na leitura de Agendamentos não impede a de Bloqueios', async () => {
+        vi.spyOn(adapter, 'carregarAgendamentosDoDia').mockRejectedValue(new AgendaOperationError('falhou', 'desconhecido'));
+
+        await expect(repository.carregarAgendamentosDoDia(TENANT, dia)).rejects.toBeInstanceOf(AgendaOperationError);
+        const bloqueios = await repository.carregarBloqueiosDoDia(TENANT, intervalo);
+        expect(bloqueios.map((b) => b.id)).toEqual(['blk-1']);
+      });
     });
 
     describe('sem informar o profissional (spec 043, ticket 03)', () => {
       const barbearia = { startIso: dia.startIso, endExclusiveIso: dia.endExclusiveIso };
 
       it('devolve os Agendamentos de toda a barbearia no dia, em ordem e sem os cancelados', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, barbearia);
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, barbearia);
 
         expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-colega', 'ap-a']);
       });
 
       it('continua recusando profissional em branco, que não é o mesmo que omitido', async () => {
-        const spy = vi.spyOn(adapter, 'carregarAgendaDoDia');
+        const spy = vi.spyOn(adapter, 'carregarAgendamentosDoDia');
 
         await expect(
-          repository.carregarAgendaDoDia(TENANT, { ...barbearia, professionalId: '   ' })
+          repository.carregarAgendamentosDoDia(TENANT, { ...barbearia, professionalId: '   ' })
         ).rejects.toBeInstanceOf(AgendaValidationError);
         expect(spy).not.toHaveBeenCalled();
       });
 
       it('mantém o filtro quando o profissional é informado', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...barbearia, professionalId: 'prof-2' });
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, { ...barbearia, professionalId: 'prof-2' });
 
         expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-colega']);
       });
@@ -310,33 +350,33 @@ describe('AgendaRepository', () => {
 
     describe('cancelados do dia (spec 043, ticket 04)', () => {
       it('sem pedir cancelados, a coleção deles vem vazia e os ativos ficam como antes', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, dia);
 
         expect(agenda.canceledAppointments).toEqual([]);
         expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
       });
 
       it('pedindo cancelados, eles chegam em coleção própria e continuam fora dos ativos', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, { ...dia, incluirCancelados: true });
 
         expect(agenda.canceledAppointments.map((a) => a.id)).toEqual(['ap-cancelado']);
         expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
       });
 
       it('leva o Motivo de Cancelamento da escrita até a leitura', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, { ...dia, incluirCancelados: true });
 
         expect(agenda.canceledAppointments[0].cancellation_reason).toBe('Cliente desistiu');
       });
 
       it('mantém exclusivo o limite superior do intervalo também para cancelado', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, { ...dia, incluirCancelados: true });
 
         expect(agenda.canceledAppointments.map((a) => a.id)).not.toContain('ap-cancelado-limite');
       });
 
       it('sem informar o profissional, traz os cancelados de todos, em ordem de horário', async () => {
-        const agenda = await repository.carregarAgendaDoDia(TENANT, {
+        const agenda = await repository.carregarAgendamentosDoDia(TENANT, {
           startIso: dia.startIso,
           endExclusiveIso: dia.endExclusiveIso,
           incluirCancelados: true,
@@ -347,17 +387,17 @@ describe('AgendaRepository', () => {
     });
 
     it('recusa barbearia, profissional ou intervalo inválido sem consultar o adaptador', async () => {
-      const spy = vi.spyOn(adapter, 'carregarAgendaDoDia');
+      const spy = vi.spyOn(adapter, 'carregarAgendamentosDoDia');
 
-      await expect(repository.carregarAgendaDoDia(' ', dia)).rejects.toBeInstanceOf(AgendaValidationError);
-      await expect(repository.carregarAgendaDoDia(TENANT, { ...dia, professionalId: '' })).rejects.toBeInstanceOf(
+      await expect(repository.carregarAgendamentosDoDia(' ', dia)).rejects.toBeInstanceOf(AgendaValidationError);
+      await expect(repository.carregarAgendamentosDoDia(TENANT, { ...dia, professionalId: '' })).rejects.toBeInstanceOf(
         AgendaValidationError
       );
       await expect(
-        repository.carregarAgendaDoDia(TENANT, { ...dia, endExclusiveIso: dia.startIso })
+        repository.carregarAgendamentosDoDia(TENANT, { ...dia, endExclusiveIso: dia.startIso })
       ).rejects.toBeInstanceOf(AgendaValidationError);
       await expect(
-        repository.carregarAgendaDoDia(TENANT, { ...dia, startIso: 'não é data' })
+        repository.carregarAgendamentosDoDia(TENANT, { ...dia, startIso: 'não é data' })
       ).rejects.toBeInstanceOf(AgendaValidationError);
       expect(spy).not.toHaveBeenCalled();
     });

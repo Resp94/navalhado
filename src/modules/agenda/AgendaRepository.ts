@@ -1,16 +1,18 @@
 import type {
   AgendaCreateResult,
-  AgendaDoDia,
   AgendaDoDiaInput,
   AgendaOperationErrorKind,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  AgendamentosDoDia,
   CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
+  IntervaloDaAgenda,
   ReagendarInput,
 } from './types';
+import type { BlockedSlot } from '../bloqueios/types';
 
 export class AgendaValidationError extends Error {
   constructor(message: string) {
@@ -108,21 +110,25 @@ export class AgendaRepository {
   }
 
   /**
-   * Agenda do dia: Agendamentos ativos e Bloqueios de Horário. Sem profissional, devolve tudo o que o
-   * usuário pode ver; o recorte vem do banco (o gerente, a barbearia; o barbeiro, só os próprios
-   * Agendamentos), então omitir o profissional não amplia acesso. Em branco não é omitido: é recusado.
+   * Agendamentos do dia. Sem profissional, devolve tudo o que o usuário pode ver; o recorte vem do banco
+   * (o gerente, a barbearia; o barbeiro, só os próprios Agendamentos), então omitir o profissional não
+   * amplia acesso. Em branco não é omitido: é recusado. Os Bloqueios de Horário têm leitura própria
+   * (`carregarBloqueiosDoDia`): a falha de uma leitura não esconde a outra.
    */
-  async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+  async carregarAgendamentosDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendamentosDoDia> {
     this.requireTenant(tenantId);
     if (input.professionalId !== undefined && !input.professionalId.trim()) {
       throw new AgendaValidationError('ID do profissional não pode ficar em branco.');
     }
-    const start = Date.parse(input.startIso);
-    const end = Date.parse(input.endExclusiveIso);
-    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
-      throw new AgendaValidationError('Informe um intervalo de datas válido.');
-    }
-    return await this.adapter.carregarAgendaDoDia(tenantId, input);
+    this.requireIntervalo(input);
+    return await this.adapter.carregarAgendamentosDoDia(tenantId, input);
+  }
+
+  /** Bloqueios de Horário da barbearia no intervalo. */
+  async carregarBloqueiosDoDia(tenantId: string, input: IntervaloDaAgenda): Promise<BlockedSlot[]> {
+    this.requireTenant(tenantId);
+    this.requireIntervalo(input);
+    return await this.adapter.carregarBloqueiosDoDia(tenantId, input);
   }
 
   /** Cadastros de apoio da agenda. Serviço que o profissional não executa fica fora da lista. */
@@ -138,6 +144,14 @@ export class AgendaRepository {
         .map((item) => item.service_id)
     );
     return { ...cadastros, services: cadastros.services.filter((service) => !desabilitados.has(service.id)) };
+  }
+
+  private requireIntervalo(input: IntervaloDaAgenda) {
+    const start = Date.parse(input.startIso);
+    const end = Date.parse(input.endExclusiveIso);
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+      throw new AgendaValidationError('Informe um intervalo de datas válido.');
+    }
   }
 
   private requireTenant(tenantId: string) {

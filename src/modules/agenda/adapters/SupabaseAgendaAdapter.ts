@@ -3,15 +3,16 @@ import { AgendaOperationError } from '../AgendaRepository';
 import type { BlockedSlot } from '../../bloqueios/types';
 import type {
   AgendaCreateResult,
-  AgendaDoDia,
   AgendaDoDiaInput,
   AgendaRescheduleResult,
   AgendaTransitionResult,
   AgendamentoDoDia,
+  AgendamentosDoDia,
   CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
+  IntervaloDaAgenda,
   ReagendarInput,
 } from '../types';
 
@@ -107,7 +108,7 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
     });
   }
 
-  async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+  async carregarAgendamentosDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendamentosDoDia> {
     const agendamentosDoDia = () => {
       let consulta = supabase
         .from('appointments')
@@ -134,29 +135,33 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       return consulta.gte('start_time', input.startIso).lt('start_time', input.endExclusiveIso);
     };
 
-    const [apptRes, cancelRes, blockRes] = await Promise.all([
+    const [apptRes, cancelRes] = await Promise.all([
       agendamentosDoDia().neq('status', 'canceled').order('start_time', { ascending: true }),
       input.incluirCancelados
         ? agendamentosDoDia().eq('status', 'canceled').order('start_time', { ascending: true })
         : Promise.resolve({ data: [], error: null }),
-      supabase
-        .from('blocked_slots')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', input.startIso)
-        .lt('start_time', input.endExclusiveIso)
-        .order('start_time', { ascending: true }),
     ]);
 
     if (apptRes.error) throw this.readError(apptRes.error, 'Não foi possível carregar os atendimentos.');
     if (cancelRes.error) throw this.readError(cancelRes.error, 'Não foi possível carregar os cancelamentos.');
-    if (blockRes.error) throw this.readError(blockRes.error, 'Não foi possível carregar os bloqueios.');
 
     return {
       appointments: (apptRes.data || []).map((item: any) => this.mapAgendamentoDoDia(item)),
       canceledAppointments: (cancelRes.data || []).map((item: any) => this.mapAgendamentoDoDia(item)),
-      blockedSlots: (blockRes.data || []) as BlockedSlot[],
     };
+  }
+
+  async carregarBloqueiosDoDia(tenantId: string, input: IntervaloDaAgenda): Promise<BlockedSlot[]> {
+    const { data, error } = await supabase
+      .from('blocked_slots')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .gte('start_time', input.startIso)
+      .lt('start_time', input.endExclusiveIso)
+      .order('start_time', { ascending: true });
+
+    if (error) throw this.readError(error, 'Não foi possível carregar os bloqueios.');
+    return (data || []) as BlockedSlot[];
   }
 
   private mapAgendamentoDoDia(item: any): AgendamentoDoDia {

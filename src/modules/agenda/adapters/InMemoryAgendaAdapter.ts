@@ -1,17 +1,20 @@
 import { AgendaOperationError } from '../AgendaRepository';
 import type {
   AgendaCreateResult,
-  AgendaDoDia,
   AgendaDoDiaInput,
   AgendaRescheduleResult,
   AgendaTransitionResult,
+  AgendamentoDoDia,
   AgendamentoStatus,
+  AgendamentosDoDia,
   CadastrosDoProfissional,
   CriarAgendamentoInput,
   HorariosLivresInput,
   IAgendaAdapter,
+  IntervaloDaAgenda,
   ReagendarInput,
 } from '../types';
+import type { BlockedSlot } from '../../bloqueios/types';
 
 interface AgendamentoEmMemoria {
   id: string;
@@ -31,7 +34,10 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
   private slotsError: Error | null = null;
   private createError: Error | null = null;
   private nextId = 1;
-  private agendaDoDia: Pick<AgendaDoDia, 'appointments' | 'blockedSlots'> = { appointments: [], blockedSlots: [] };
+  private agendaDoDia: { appointments: AgendamentoDoDia[]; blockedSlots: BlockedSlot[] } = {
+    appointments: [],
+    blockedSlots: [],
+  };
   private cadastros: CadastrosDoProfissional = { professional: null, services: [], customers: [] };
 
   failCreateWith(error: Error) {
@@ -137,7 +143,7 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     return this.move(ap, 'no_show');
   }
 
-  seedAgendaDoDia(agenda: Pick<AgendaDoDia, 'appointments' | 'blockedSlots'>) {
+  seedAgendaDoDia(agenda: { appointments: AgendamentoDoDia[]; blockedSlots: BlockedSlot[] }) {
     this.agendaDoDia = { appointments: [...agenda.appointments], blockedSlots: [...agenda.blockedSlots] };
   }
 
@@ -145,7 +151,7 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     this.cadastros = { ...cadastros };
   }
 
-  async carregarAgendaDoDia(_tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
+  async carregarAgendamentosDoDia(_tenantId: string, input: AgendaDoDiaInput): Promise<AgendamentosDoDia> {
     const start = Date.parse(input.startIso);
     const end = Date.parse(input.endExclusiveIso);
     const dentro = (iso: string) => Date.parse(iso) >= start && Date.parse(iso) < end;
@@ -159,8 +165,15 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     return {
       appointments: noDia((status) => status !== 'canceled'),
       canceledAppointments: input.incluirCancelados ? noDia((status) => status === 'canceled') : [],
-      blockedSlots: this.agendaDoDia.blockedSlots.filter((b) => dentro(b.start_time)),
     };
+  }
+
+  async carregarBloqueiosDoDia(_tenantId: string, input: IntervaloDaAgenda): Promise<BlockedSlot[]> {
+    const start = Date.parse(input.startIso);
+    const end = Date.parse(input.endExclusiveIso);
+    return this.agendaDoDia.blockedSlots
+      .filter((b) => Date.parse(b.start_time) >= start && Date.parse(b.start_time) < end)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
   }
 
   async carregarCadastrosDoProfissional(_tenantId: string, _professionalId: string): Promise<CadastrosDoProfissional> {

@@ -253,7 +253,10 @@ function colunasDeTopo(select: string): string[] {
  * qualquer que fosse o filtro, esconderia justamente o erro de filtrar (ou deixar de filtrar)
  * pelo profissional.
  */
-function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>>>) {
+function bancoQueAplicaFiltros(
+  tabelas: Record<string, Array<Record<string, any>>>,
+  tabelasComErro: string[] = []
+) {
   return (tabela: string) => {
     const filtros: Array<(linha: Record<string, any>) => boolean> = [];
     let colunasPedidas: string[] | null = null;
@@ -279,7 +282,7 @@ function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>
         return query;
       },
       order: (coluna: string, opcoes?: { ascending?: boolean }) =>
-        Promise.resolve({
+        Promise.resolve(tabelasComErro.includes(tabela) ? { data: null, error: { message: `falha em ${tabela}` } } : {
           data: (tabelas[tabela] ?? [])
             .filter((linha) => filtros.every((filtro) => filtro(linha)))
             .sort((a, b) => String(a[coluna]).localeCompare(String(b[coluna])) * (opcoes?.ascending === false ? -1 : 1))
@@ -295,7 +298,93 @@ function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>
   };
 }
 
-describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () => {
+describe('leitura separada de Agendamentos e Bloqueios (spec 043, ticket 08)', () => {
+  const dia = { startIso: '2026-09-21T03:00:00.000Z', endExclusiveIso: '2026-09-22T03:00:00.000Z' };
+  const agendamento = {
+    id: 'ap-1',
+    tenant_id: 't-1',
+    professional_id: 'prof-1',
+    start_time: '2026-09-21T13:00:00.000Z',
+    end_time: '2026-09-21T13:30:00.000Z',
+    status: 'confirmed',
+    payment_status: 'pending',
+    is_fitting: false,
+    customer: { id: 'c1', name: 'Pedro', phone: '11988887777' },
+    service: { id: 's1', name: 'Corte', price: 50, duration_minutes: 30 },
+  };
+  const bloqueio = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    tenant_id: 't-1',
+    professional_id: 'prof-1',
+    start_time: '2026-09-21T12:00:00.000Z',
+    end_time: '2026-09-21T12:30:00.000Z',
+    reason: 'Almoço',
+    is_all_day: false,
+    ...overrides,
+  });
+  const tabelasConsultadas = () => mockFrom.mock.calls.map(([tabela]) => tabela);
+
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
+  it('a leitura de Agendamentos não consulta a tabela de Bloqueios', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [bloqueio('blk-1')] }));
+
+    await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, incluirCancelados: true });
+
+    expect(tabelasConsultadas()).not.toContain('blocked_slots');
+  });
+
+  it('a leitura de Bloqueios consulta só a tabela de Bloqueios, uma vez', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [bloqueio('blk-1')] }));
+
+    await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(tabelasConsultadas()).toEqual(['blocked_slots']);
+  });
+
+  it('devolve os Bloqueios da barbearia no intervalo, em ordem, sem os de outra barbearia nem de outro dia', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        blocked_slots: [
+          bloqueio('blk-tarde', { start_time: '2026-09-21T18:00:00.000Z' }),
+          bloqueio('blk-cedo'),
+          bloqueio('blk-outra-barbearia', { tenant_id: 't-2' }),
+          bloqueio('blk-limite', { start_time: '2026-09-22T03:00:00.000Z' }),
+        ],
+      })
+    );
+
+    const bloqueios = await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(bloqueios.map((b) => b.id)).toEqual(['blk-cedo', 'blk-tarde']);
+  });
+
+  it('falha só na tabela de Bloqueios: os Agendamentos ainda carregam e a leitura de Bloqueios recusa', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [] }, ['blocked_slots']));
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia);
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
+    await expect(new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia)).rejects.toBeInstanceOf(
+      AgendaOperationError
+    );
+  });
+
+  it('falha só na tabela de Agendamentos: os Bloqueios ainda carregam e a leitura de Agendamentos recusa', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [], blocked_slots: [bloqueio('blk-1')] }, ['appointments']));
+
+    const bloqueios = await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(bloqueios.map((b) => b.id)).toEqual(['blk-1']);
+    await expect(new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia)).rejects.toBeInstanceOf(
+      AgendaOperationError
+    );
+  });
+});
+
+describe('SupabaseAgendaAdapter.carregarAgendamentosDoDia (spec 043, ticket 03)', () => {
   const linha = (id: string, professionalId: string, overrides: Record<string, unknown> = {}) => ({
     id,
     tenant_id: 't-1',
@@ -328,7 +417,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
   });
 
   it('com profissional informado, devolve só os Agendamentos dele', async () => {
-    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
 
     expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
   });
@@ -344,7 +433,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
       })
     );
 
-    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
 
     const marca = Object.fromEntries(agenda.appointments.map((a) => [a.id, a.from_waiting_list]));
     expect(marca['ap-da-fila']).toBe(true);
@@ -352,7 +441,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
   });
 
   it('sem profissional, devolve os Agendamentos de todos, sem cancelados e sem outros dias', async () => {
-    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', dia);
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia);
 
     expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1', 'ap-2']);
   });
@@ -384,7 +473,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     });
 
     it('pedindo cancelados, devolve-os em coleção própria, em ordem, e fora dos ativos', async () => {
-      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
         ...dia,
         professionalId: 'prof-1',
         incluirCancelados: true,
@@ -395,7 +484,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     });
 
     it('traz o motivo aparado e nulo quando o cancelamento não tem motivo', async () => {
-      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
         ...dia,
         professionalId: 'prof-1',
         incluirCancelados: true,
@@ -407,7 +496,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     });
 
     it('traz quem cancelou e devolve nulo, sem erro, quando a autoria é desconhecida', async () => {
-      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
         ...dia,
         incluirCancelados: true,
       });
@@ -419,7 +508,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     });
 
     it('mantém exclusivo o limite superior do intervalo para cancelado', async () => {
-      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
         ...dia,
         professionalId: 'prof-1',
         incluirCancelados: true,
@@ -429,7 +518,7 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     });
 
     it('sem pedir cancelados, devolve a coleção vazia e não faz consulta extra de Agendamentos', async () => {
-      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
 
       expect(agenda.canceledAppointments).toEqual([]);
       expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-ativo']);
