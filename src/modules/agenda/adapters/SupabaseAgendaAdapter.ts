@@ -108,10 +108,9 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
   }
 
   async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
-    const [apptRes, blockRes] = await Promise.all([
-      supabase
-        .from('appointments')
-        .select(`
+    let agendamentos = supabase
+      .from('appointments')
+      .select(`
           id,
           start_time,
           end_time,
@@ -124,8 +123,13 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
           customer:customers (id, name, phone),
           service:services (id, name, price, duration_minutes)
         `)
-        .eq('tenant_id', tenantId)
-        .eq('professional_id', input.professionalId)
+      .eq('tenant_id', tenantId);
+    if (input.professionalId !== undefined) {
+      agendamentos = agendamentos.eq('professional_id', input.professionalId);
+    }
+
+    const [apptRes, blockRes] = await Promise.all([
+      agendamentos
         .gte('start_time', input.startIso)
         .lt('start_time', input.endExclusiveIso)
         .neq('status', 'canceled')

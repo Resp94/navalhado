@@ -108,13 +108,14 @@ export class AgendaRepository {
   }
 
   /**
-   * Agenda de um profissional no dia: Agendamentos ativos e Bloqueios de Horário. A leitura já vem
-   * limitada pelo banco ao que o usuário pode ver (o barbeiro só enxerga os próprios Agendamentos).
+   * Agenda do dia: Agendamentos ativos e Bloqueios de Horário. Sem profissional, devolve tudo o que o
+   * usuário pode ver; o recorte vem do banco (o gerente, a barbearia; o barbeiro, só os próprios
+   * Agendamentos), então omitir o profissional não amplia acesso. Em branco não é omitido: é recusado.
    */
   async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
     this.requireTenant(tenantId);
-    if (!input.professionalId || !input.professionalId.trim()) {
-      throw new AgendaValidationError('ID do profissional é obrigatório.');
+    if (input.professionalId !== undefined && !input.professionalId.trim()) {
+      throw new AgendaValidationError('ID do profissional não pode ficar em branco.');
     }
     const start = Date.parse(input.startIso);
     const end = Date.parse(input.endExclusiveIso);

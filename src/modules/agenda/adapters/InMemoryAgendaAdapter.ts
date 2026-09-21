@@ -152,7 +152,12 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
 
     return {
       appointments: this.agendaDoDia.appointments
-        .filter((a) => a.professional_id === input.professionalId && a.status !== 'canceled' && dentro(a.start_time))
+        .filter(
+          (a) =>
+            (input.professionalId === undefined || a.professional_id === input.professionalId) &&
+            a.status !== 'canceled' &&
+            dentro(a.start_time)
+        )
         .sort((a, b) => a.start_time.localeCompare(b.start_time)),
       blockedSlots: this.agendaDoDia.blockedSlots.filter((b) => dentro(b.start_time)),
     };

@@ -768,52 +768,12 @@ export const Agenda: React.FC = () => {
         endIso = endExclusive;
       }
 
-      const { data, error } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          status,
-          payment_status,
-          is_fitting,
-          notes,
-          origin,
-          professional_id,
-          customer:customers (
-            id,
-            name,
-            phone
-          ),
-          service:services (
-            id,
-            name,
-            price
-          )
-        `)
-        .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .neq('status', 'canceled')
-        .order('start_time', { ascending: true });
+      const agenda = await agendaRepo.carregarAgendaDoDia(tenant.tenantId, {
+        startIso,
+        endExclusiveIso: endIso,
+      });
 
-      if (error) throw error;
-
-      const mapped: Appointment[] = (data || []).map((item: any) => ({
-        id: item.id,
-        start_time: item.start_time,
-        end_time: item.end_time,
-        status: item.status,
-        payment_status: item.payment_status,
-        is_fitting: Boolean(item.is_fitting),
-        notes: item.notes,
-        origin: item.origin,
-        professional_id: item.professional_id,
-        customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
-        service: Array.isArray(item.service) ? item.service[0] : item.service,
-      }));
-
-      setAppointments(mapped);
+      setAppointments(agenda.appointments);
     } catch (err: any) {
       console.error('Erro ao buscar agendamentos:', err);
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
@@ -826,7 +786,7 @@ export const Agenda: React.FC = () => {
         }, 320);
       }
     }
-  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
+  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
 
   useEffect(() => {
     loadInitialData();

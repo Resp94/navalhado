@@ -81,7 +81,8 @@ export interface AgendamentoDoDia {
 }
 
 export interface AgendaDoDiaInput {
-  professionalId: string;
+  /** Omitido: tudo o que o usuário pode ver (o gerente, a barbearia; o barbeiro, só os próprios). */
+  professionalId?: string;
   /** Início do dia local, em ISO 8601. */
   startIso: string;
   /** Início do dia seguinte, em ISO 8601 (exclusivo). */

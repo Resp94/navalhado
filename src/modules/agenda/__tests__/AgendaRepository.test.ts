@@ -281,6 +281,31 @@ describe('AgendaRepository', () => {
       expect(agenda.blockedSlots.map((b) => b.id)).toEqual(['blk-1']);
     });
 
+    describe('sem informar o profissional (spec 043, ticket 03)', () => {
+      const barbearia = { startIso: dia.startIso, endExclusiveIso: dia.endExclusiveIso };
+
+      it('devolve os Agendamentos de toda a barbearia no dia, em ordem e sem os cancelados', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, barbearia);
+
+        expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-colega', 'ap-a']);
+      });
+
+      it('continua recusando profissional em branco, que não é o mesmo que omitido', async () => {
+        const spy = vi.spyOn(adapter, 'carregarAgendaDoDia');
+
+        await expect(
+          repository.carregarAgendaDoDia(TENANT, { ...barbearia, professionalId: '   ' })
+        ).rejects.toBeInstanceOf(AgendaValidationError);
+        expect(spy).not.toHaveBeenCalled();
+      });
+
+      it('mantém o filtro quando o profissional é informado', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...barbearia, professionalId: 'prof-2' });
+
+        expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-colega']);
+      });
+    });
+
     it('recusa barbearia, profissional ou intervalo inválido sem consultar o adaptador', async () => {
       const spy = vi.spyOn(adapter, 'carregarAgendaDoDia');
 

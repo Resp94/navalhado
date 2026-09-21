@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRpc } = vi.hoisted(() => ({ mockRpc: vi.fn() }));
+const { mockRpc, mockFrom } = vi.hoisted(() => ({ mockRpc: vi.fn(), mockFrom: vi.fn() }));
 
-vi.mock('../../../../lib/supabase', () => ({ supabase: { rpc: mockRpc } }));
+vi.mock('../../../../lib/supabase', () => ({ supabase: { rpc: mockRpc, from: mockFrom } }));
 
 import { AgendaOperationError } from '../../AgendaRepository';
 import { SupabaseAgendaAdapter } from '../SupabaseAgendaAdapter';
@@ -10,6 +10,7 @@ import { SupabaseAgendaAdapter } from '../SupabaseAgendaAdapter';
 describe('SupabaseAgendaAdapter', () => {
   beforeEach(() => {
     mockRpc.mockReset();
+    mockFrom.mockReset();
   });
 
   it('inicia atendimento pela RPC start_appointment_service', async () => {
@@ -225,5 +226,86 @@ describe('SupabaseAgendaAdapter', () => {
     await expect(new SupabaseAgendaAdapter().iniciarAtendimento('t-1', 'ap-1')).rejects.toMatchObject({
       kind: 'desconhecido',
     });
+  });
+});
+
+/**
+ * Banco de mentira que aplica de verdade os filtros da consulta. Um fake que devolvesse tudo,
+ * qualquer que fosse o filtro, esconderia justamente o erro de filtrar (ou deixar de filtrar)
+ * pelo profissional.
+ */
+function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>>>) {
+  return (tabela: string) => {
+    const filtros: Array<(linha: Record<string, any>) => boolean> = [];
+    const query: any = {
+      select: () => query,
+      eq: (coluna: string, valor: unknown) => {
+        filtros.push((linha) => linha[coluna] === valor);
+        return query;
+      },
+      neq: (coluna: string, valor: unknown) => {
+        filtros.push((linha) => linha[coluna] !== valor);
+        return query;
+      },
+      gte: (coluna: string, valor: string) => {
+        filtros.push((linha) => linha[coluna] >= valor);
+        return query;
+      },
+      lt: (coluna: string, valor: string) => {
+        filtros.push((linha) => linha[coluna] < valor);
+        return query;
+      },
+      order: () =>
+        Promise.resolve({
+          data: (tabelas[tabela] ?? []).filter((linha) => filtros.every((filtro) => filtro(linha))),
+          error: null,
+        }),
+    };
+    return query;
+  };
+}
+
+describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () => {
+  const linha = (id: string, professionalId: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    tenant_id: 't-1',
+    professional_id: professionalId,
+    start_time: '2026-09-21T13:00:00.000Z',
+    end_time: '2026-09-21T13:30:00.000Z',
+    status: 'confirmed',
+    payment_status: 'pending',
+    is_fitting: false,
+    notes: null,
+    origin: 'manual',
+    customer: { id: 'c1', name: 'Pedro', phone: '11988887777' },
+    service: { id: 's1', name: 'Corte', price: 50, duration_minutes: 30 },
+    ...overrides,
+  });
+  const dia = { startIso: '2026-09-21T03:00:00.000Z', endExclusiveIso: '2026-09-22T03:00:00.000Z' };
+
+  beforeEach(() => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [
+          linha('ap-1', 'prof-1'),
+          linha('ap-2', 'prof-2', { start_time: '2026-09-21T14:00:00.000Z' }),
+          linha('ap-cancelado', 'prof-1', { status: 'canceled' }),
+          linha('ap-outro-dia', 'prof-1', { start_time: '2026-09-22T13:00:00.000Z' }),
+        ],
+        blocked_slots: [],
+      })
+    );
+  });
+
+  it('com profissional informado, devolve só os Agendamentos dele', async () => {
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
+  });
+
+  it('sem profissional, devolve os Agendamentos de todos, sem cancelados e sem outros dias', async () => {
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', dia);
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1', 'ap-2']);
   });
 });
