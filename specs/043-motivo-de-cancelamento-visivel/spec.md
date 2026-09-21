@@ -6,12 +6,12 @@ A barbearia digita dois textos operacionais que nunca mais alcança. Os dois tê
 
 ### Parte 1 — O Motivo de Cancelamento é gravado e nunca exibido para quem opera
 
-Hoje o Motivo de Cancelamento de um Agendamento é escrito por três caminhos e lido por apenas um — o cliente. A barbearia, que é quem opera a grade, nunca vê a informação que ela própria é obrigada a preencher.
+Hoje o Motivo de Cancelamento de um Agendamento é escrito por três caminhos e, quando se trata de um cancelamento específico, lido por apenas um — o cliente. A barbearia, que é quem opera a grade, nunca relê a informação que ela própria é obrigada a preencher; só o gerente enxerga um ranking agregado dos motivos, sem ligação com o Agendamento de origem.
 
 1. **O barbeiro é obrigado a justificar e não pode reler.** Ao cancelar pela Minha Agenda, o barbeiro preenche um motivo obrigatório. Esse texto é gravado em `appointments.cancellation_reason` e desaparece da interface no instante seguinte. Mesma coisa para o gerente na Agenda.
 2. **O cliente justifica e ninguém na barbearia fica sabendo.** No Canal do Cliente o motivo é opcional; quando o cliente não escreve nada, o banco grava o texto padrão `Cancelado pelo cliente`. Quando ele escreve de verdade — "fiquei doente", "consegui em outro horário" — esse texto não chega a nenhuma tela do gerente nem do barbeiro.
-3. **O único leitor é o próprio cliente.** O motivo aparece em exatamente um componente da aplicação, a linha do tempo de histórico do Canal do Cliente. É a página do cliente lendo de volta o que a barbearia escreveu.
-4. **Agendamento cancelado é invisível nas duas agendas.** As duas rotas de leitura filtram `status = 'canceled'` antes de devolver dados para a tela. Não existe nenhuma superfície no painel do gerente ou do barbeiro que liste o que foi cancelado no dia.
+3. **O texto de cada cancelamento só é lido, individualmente, pelo próprio cliente.** O motivo de um Agendamento específico aparece em um único componente da aplicação, a linha do tempo de histórico do Canal do Cliente. É a página do cliente lendo de volta o que a barbearia escreveu. O gerente tem uma visão apenas **agregada**: o relatório de agenda lista os dez motivos mais frequentes do período, com contagem, no cartão "Motivos de cancelamento". Esse relatório normaliza o texto (tira espaços e caixa) para agrupar, não diz qual Agendamento nem qual cliente, não diz quem cancelou, e não é acessível ao barbeiro. Também não distingue o motivo real do texto de preenchimento gravado quando o cliente não escreve nada, de modo que `cancelado pelo cliente` tende a dominar o ranking sem dizer nada.
+4. **Agendamento cancelado é invisível nas duas agendas.** As duas rotas de leitura filtram `status = 'canceled'` antes de devolver dados para a tela. Não existe nenhuma superfície no painel do gerente ou do barbeiro que liste, Agendamento a Agendamento, o que foi cancelado no dia.
 5. **Não se sabe quem cancelou.** Não há coluna de autoria. O único indício é o texto padrão do cliente, que some assim que ele digita um motivo real. O gerente não consegue responder a pergunta operacional mais básica diante de um horário vago: o cliente desmarcou ou fomos nós que desmarcamos?
 6. **A Central 360º do Cliente mostra "Cancelado" e para aí.** A aba de histórico lista o Agendamento cancelado sem o motivo, porque o contrato de leitura do módulo de clientes não carrega o campo.
 
@@ -199,7 +199,7 @@ Correção independente das decisões 1 a 5. Não compartilha tabela, módulo ne
 
 **Nenhuma mudança de escrita por RPC.** A Lista de Espera é escrita direto na tabela sob a política de acesso vigente, diferente do fluxo financeiro. Esta spec não altera esse desenho.
 
-**Encaixe.** Nenhuma alteração de lógica é necessária na Agenda: o encaixe a partir da Lista de Espera já monta a nota do Agendamento a partir da observação da entrada e já trata o caso de observação ausente. Com o campo passando a chegar preenchido, esse caminho começa a funcionar como sempre foi escrito para funcionar. É a evidência de que a intenção original do produto era essa, e apenas a persistência faltava.
+**Encaixe.** A regra da nota do encaixe já existia na Agenda — montar a nota do Agendamento a partir da observação da entrada e tratar o caso de observação ausente — e a intenção original do produto era essa; apenas a persistência faltava, e com o campo passando a chegar preenchido esse caminho passa a funcionar como sempre foi escrito. A única mudança na Agenda é de lugar, não de comportamento: a regra sai do corpo da página para o repositório da Lista de Espera, porque a página não oferece costura de teste e o critério de aceite do ticket exige prová-la. O resultado observável é idêntico.
 
 ### 7. Design System
 
@@ -312,7 +312,7 @@ Um caso que amarra as duas pontas e que hoje falharia: uma entrada da Lista de E
 - **Motivo para falta.** Marcar falta não registra motivo nenhum hoje. É lacuna real e vizinha, mas é outro fluxo e outra RPC.
 - **Backfill de autoria em registros antigos.** Inferir por texto produziria histórico falso.
 - **Tornar o motivo obrigatório para o cliente.** Fricção no Canal do Cliente contraria a estratégia de Perfil Progressivo do Cliente.
-- **Relatório ou métrica de cancelamento.** Taxa de cancelamento por período, por profissional ou por serviço pertence ao módulo de relatórios.
+- **Alterar o relatório de agenda.** O relatório já traz taxa de cancelamento e o ranking agregado de motivos, e pertence ao módulo de relatórios. Esta spec não o modifica: o painel serve a operação do dia, o relatório serve a análise do período. Os dois não competem, e o painel não substitui o relatório.
 - **Notificação no momento do cancelamento.** Avisar o barbeiro pelo sino quando o cliente desmarca é feature própria, com decisão de ruído a tomar.
 - **Restrição de cliente por cancelamento recorrente.** Bloqueio de cliente é spec separada.
 - **Exibir cancelado na grade de horários.** Descartado por decisão de produto: o slot está livre.
@@ -330,6 +330,8 @@ Um caso que amarra as duas pontas e que hoje falharia: uma entrada da Lista de E
 - Depois da unificação, a Agenda do gerente e a Minha Agenda do barbeiro passam a compartilhar o contrato de leitura de Agendamento. Qualquer coluna nova de Agendamento necessária a uma das telas passa a ser adicionada em um lugar só.
 - A Lista de Espera é a ponte operacional natural a partir do painel: cancelamento libera horário, e a Lista de Espera já tem encaixe com um clique. Conectar os dois fluxos não entra nesta spec, mas o painel deve ser desenhado sem impedir essa ligação depois.
 - Relação com a análise comparativa do concorrente: nenhum dos módulos de configuração mapeados cobre este problema. É lacuna própria do Navalhado, não paridade competitiva.
+- A autoria do cancelamento, uma vez gravada (ticket 06), abre a possibilidade de o relatório de motivos separar cancelamento da barbearia de cancelamento do cliente e deixar de misturar o texto de preenchimento com motivo real. Não entra nesta spec, que não altera o relatório, mas é o desdobramento natural e vale um ticket próprio.
+- Uma versão anterior deste documento afirmava que o motivo aparecia em exatamente um componente e que nenhuma superfície da barbearia o expunha. Isso desconsiderava o relatório de agenda. A conclusão do problema se mantém, agora afirmada com precisão: nenhum papel da barbearia consegue ler o motivo de um cancelamento específico, e só o gerente tem a visão agregada.
 - As duas partes tocam domínios diferentes e portanto **não** cabem no mesmo commit, pela regra de escopo único do projeto. A entrega se divide em pelo menos dois: um de correção na Lista de Espera e um de funcionalidade na agenda, cada um com o próprio escopo, ambos citando esta spec no corpo.
 - A parte da Lista de Espera é a menor das duas e não depende de nenhuma decisão de produto em aberto. Serve bem como primeira entrega, inclusive para validar o fluxo de migração desta spec antes da parte maior.
 - A ausência de adaptador em memória no módulo da Lista de Espera é a causa de fundo do defeito ter sobrevivido à suíte. Vale conferir se algum outro módulo do projeto está na mesma situação; se estiver, é assunto próprio e não desta spec.
