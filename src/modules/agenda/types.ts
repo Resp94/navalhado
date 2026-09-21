@@ -75,6 +75,8 @@ export interface AgendamentoDoDia {
   is_fitting: boolean;
   notes?: string | null;
   origin?: string;
+  /** Só preenchido nos Agendamentos cancelados. */
+  cancellation_reason?: string | null;
   professional_id: string;
   customer: { id: string; name: string; phone: string };
   service: { id: string; name: string; price: number; duration_minutes?: number };
@@ -87,10 +89,14 @@ export interface AgendaDoDiaInput {
   startIso: string;
   /** Início do dia seguinte, em ISO 8601 (exclusivo). */
   endExclusiveIso: string;
+  /** Desligado por padrão: pede também os Agendamentos cancelados, em coleção própria. */
+  incluirCancelados?: boolean;
 }
 
 export interface AgendaDoDia {
   appointments: AgendamentoDoDia[];
+  /** Vazia quando não pedidos; nunca se mistura com `appointments`, que alimenta a grade. */
+  canceledAppointments: AgendamentoDoDia[];
   /** Bloqueios de Horário da barbearia no intervalo. */
   blockedSlots: BlockedSlot[];
 }

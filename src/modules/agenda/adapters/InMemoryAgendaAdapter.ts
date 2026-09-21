@@ -31,7 +31,7 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
   private slotsError: Error | null = null;
   private createError: Error | null = null;
   private nextId = 1;
-  private agendaDoDia: AgendaDoDia = { appointments: [], blockedSlots: [] };
+  private agendaDoDia: Pick<AgendaDoDia, 'appointments' | 'blockedSlots'> = { appointments: [], blockedSlots: [] };
   private cadastros: CadastrosDoProfissional = { professional: null, services: [], customers: [] };
 
   failCreateWith(error: Error) {
@@ -137,7 +137,7 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     return this.move(ap, 'no_show');
   }
 
-  seedAgendaDoDia(agenda: AgendaDoDia) {
+  seedAgendaDoDia(agenda: Pick<AgendaDoDia, 'appointments' | 'blockedSlots'>) {
     this.agendaDoDia = { appointments: [...agenda.appointments], blockedSlots: [...agenda.blockedSlots] };
   }
 
@@ -149,16 +149,16 @@ export class InMemoryAgendaAdapter implements IAgendaAdapter {
     const start = Date.parse(input.startIso);
     const end = Date.parse(input.endExclusiveIso);
     const dentro = (iso: string) => Date.parse(iso) >= start && Date.parse(iso) < end;
+    const doProfissional = (profissionalDoAgendamento: string) =>
+      input.professionalId === undefined || profissionalDoAgendamento === input.professionalId;
+    const noDia = (statusPedido: (status: string) => boolean) =>
+      this.agendaDoDia.appointments
+        .filter((a) => doProfissional(a.professional_id) && statusPedido(a.status) && dentro(a.start_time))
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
     return {
-      appointments: this.agendaDoDia.appointments
-        .filter(
-          (a) =>
-            (input.professionalId === undefined || a.professional_id === input.professionalId) &&
-            a.status !== 'canceled' &&
-            dentro(a.start_time)
-        )
-        .sort((a, b) => a.start_time.localeCompare(b.start_time)),
+      appointments: noDia((status) => status !== 'canceled'),
+      canceledAppointments: input.incluirCancelados ? noDia((status) => status === 'canceled') : [],
       blockedSlots: this.agendaDoDia.blockedSlots.filter((b) => dentro(b.start_time)),
     };
   }

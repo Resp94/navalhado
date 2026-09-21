@@ -12,9 +12,12 @@ import { NovoAgendamentoModal } from '../../components/agenda/NovoAgendamentoMod
 import type { NovoAgendamentoInicial } from '../../components/agenda/NovoAgendamentoModal';
 import { CancelarAgendamentoModal } from '../../components/agenda/CancelarAgendamentoModal';
 import { NaoCompareceuModal } from '../../components/agenda/NaoCompareceuModal';
+import { PainelCanceladosDoDia } from '../../components/agenda/PainelCanceladosDoDia';
+import { Badge } from '../../components/ui/data-display/Badge';
 import { ReagendarAgendamentoModal } from '../../components/agenda/ReagendarAgendamentoModal';
 import { motivoRecusaNaoCompareceu } from '../../components/agenda/useMarcarNaoCompareceu';
 import { useAgenda } from '../../modules/agenda/useAgenda';
+import type { AgendamentoDoDia } from '../../modules/agenda/types';
 import { MobileAgendaView } from '../gerente/mobile/MobileAgendaView';
 import type { Appointment, Customer, Professional, Service } from '../gerente/Agenda';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
@@ -60,6 +63,9 @@ export const MinhaAgenda: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [cancelados, setCancelados] = useState<AgendamentoDoDia[]>([]);
+  const [canceladosComErro, setCanceladosComErro] = useState(false);
+  const [isCanceladosOpen, setIsCanceladosOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   // Só a resposta da consulta mais recente vale: ao trocar de dia rápido, a antiga chega depois e
   // mostraria os atendimentos de outro dia sob a data nova.
@@ -99,13 +105,18 @@ export const MinhaAgenda: React.FC = () => {
         professionalId,
         startIso: start,
         endExclusiveIso: endExclusive,
+        incluirCancelados: true,
       });
       if (requestId !== latestDayRequest.current) return;
       setAppointments(agenda.appointments);
       setBlockedSlots(agenda.blockedSlots);
+      setCancelados(agenda.canceledAppointments);
+      setCanceladosComErro(false);
     } catch (err) {
       if (requestId !== latestDayRequest.current) return;
       console.error('Erro ao carregar a agenda do barbeiro:', err);
+      setCancelados([]);
+      setCanceladosComErro(true);
       addToast('Não foi possível carregar seus atendimentos.', 'error');
     } finally {
       if (requestId === latestDayRequest.current) setLoading(false);
@@ -239,6 +250,18 @@ export const MinhaAgenda: React.FC = () => {
         >
           <HugeiconsIcon icon={UnavailableIcon} size={18} />
           Bloquear horário
+        </button>
+        <button
+          type="button"
+          className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md bg-bg-secondary border border-border text-text-primary text-sm font-bold cursor-pointer transition-colors duration-150 hover:border-brand-primary"
+          onClick={() => setIsCanceladosOpen(true)}
+        >
+          Cancelados
+          {!canceladosComErro && (
+            <Badge variant="neutral" badgeType="subtle" size="sm">
+              {cancelados.length}
+            </Badge>
+          )}
         </button>
       </div>
 
@@ -396,6 +419,14 @@ export const MinhaAgenda: React.FC = () => {
         }}
       />
 
+      <PainelCanceladosDoDia
+        isOpen={isCanceladosOpen}
+        onClose={() => setIsCanceladosOpen(false)}
+        cancelados={cancelados}
+        profissionais={professionals}
+        timezone={timezone}
+        falhouAoCarregar={canceladosComErro}
+      />
       <BloqueioModal
         isOpen={isBloqueioOpen}
         tenantId={tenantId}

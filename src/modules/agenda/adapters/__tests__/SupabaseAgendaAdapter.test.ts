@@ -229,6 +229,25 @@ describe('SupabaseAgendaAdapter', () => {
   });
 });
 
+/** Colunas de topo do select; o alias de relação (`customer:customers (...)`) vale pelo nome do alias. */
+function colunasDeTopo(select: string): string[] {
+  const colunas: string[] = [];
+  let profundidade = 0;
+  let atual = '';
+  for (const caractere of select) {
+    if (caractere === '(') profundidade += 1;
+    if (caractere === ')') profundidade -= 1;
+    if (caractere === ',' && profundidade === 0) {
+      colunas.push(atual);
+      atual = '';
+    } else {
+      atual += caractere;
+    }
+  }
+  colunas.push(atual);
+  return colunas.map((coluna) => coluna.trim().split(/[\s(]/)[0].split(':')[0]).filter(Boolean);
+}
+
 /**
  * Banco de mentira que aplica de verdade os filtros da consulta. Um fake que devolvesse tudo,
  * qualquer que fosse o filtro, esconderia justamente o erro de filtrar (ou deixar de filtrar)
@@ -237,8 +256,12 @@ describe('SupabaseAgendaAdapter', () => {
 function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>>>) {
   return (tabela: string) => {
     const filtros: Array<(linha: Record<string, any>) => boolean> = [];
+    let colunasPedidas: string[] | null = null;
     const query: any = {
-      select: () => query,
+      select: (colunas: string) => {
+        colunasPedidas = colunasDeTopo(colunas);
+        return query;
+      },
       eq: (coluna: string, valor: unknown) => {
         filtros.push((linha) => linha[coluna] === valor);
         return query;
@@ -255,9 +278,16 @@ function bancoQueAplicaFiltros(tabelas: Record<string, Array<Record<string, any>
         filtros.push((linha) => linha[coluna] < valor);
         return query;
       },
-      order: () =>
+      order: (coluna: string, opcoes?: { ascending?: boolean }) =>
         Promise.resolve({
-          data: (tabelas[tabela] ?? []).filter((linha) => filtros.every((filtro) => filtro(linha))),
+          data: (tabelas[tabela] ?? [])
+            .filter((linha) => filtros.every((filtro) => filtro(linha)))
+            .sort((a, b) => String(a[coluna]).localeCompare(String(b[coluna])) * (opcoes?.ascending === false ? -1 : 1))
+            .map((linha) =>
+              colunasPedidas && !colunasPedidas.includes('*')
+                ? Object.fromEntries(colunasPedidas.filter((coluna) => coluna in linha).map((coluna) => [coluna, linha[coluna]]))
+                : linha
+            ),
           error: null,
         }),
     };
@@ -307,5 +337,71 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', dia);
 
     expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1', 'ap-2']);
+  });
+  describe('cancelados do dia (spec 043, ticket 04)', () => {
+    beforeEach(() => {
+      mockFrom.mockReset();
+      mockFrom.mockImplementation(
+        bancoQueAplicaFiltros({
+          appointments: [
+            linha('ap-ativo', 'prof-1'),
+            linha('ap-canc-tarde', 'prof-1', {
+              status: 'canceled',
+              start_time: '2026-09-21T16:00:00.000Z',
+              cancellation_reason: '  Imprevisto no trabalho ',
+            }),
+            linha('ap-canc-cedo', 'prof-1', {
+              status: 'canceled',
+              start_time: '2026-09-21T12:00:00.000Z',
+              cancellation_reason: null,
+            }),
+            linha('ap-canc-colega', 'prof-2', { status: 'canceled', cancellation_reason: 'Cliente desistiu' }),
+            linha('ap-canc-limite', 'prof-1', { status: 'canceled', start_time: '2026-09-22T03:00:00.000Z' }),
+          ],
+          blocked_slots: [],
+        })
+      );
+    });
+
+    it('pedindo cancelados, devolve-os em coleção própria, em ordem, e fora dos ativos', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      expect(agenda.canceledAppointments.map((a) => a.id)).toEqual(['ap-canc-cedo', 'ap-canc-tarde']);
+      expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-ativo']);
+    });
+
+    it('traz o motivo aparado e nulo quando o cancelamento não tem motivo', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      const porId = Object.fromEntries(agenda.canceledAppointments.map((a) => [a.id, a.cancellation_reason]));
+      expect(porId['ap-canc-tarde']).toBe('Imprevisto no trabalho');
+      expect(porId['ap-canc-cedo']).toBeNull();
+    });
+
+    it('mantém exclusivo o limite superior do intervalo para cancelado', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      expect(agenda.canceledAppointments.map((a) => a.id)).not.toContain('ap-canc-limite');
+    });
+
+    it('sem pedir cancelados, devolve a coleção vazia e não faz consulta extra de Agendamentos', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+      expect(agenda.canceledAppointments).toEqual([]);
+      expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-ativo']);
+      expect(mockFrom.mock.calls.filter(([tabela]) => tabela === 'appointments')).toHaveLength(1);
+    });
   });
 });

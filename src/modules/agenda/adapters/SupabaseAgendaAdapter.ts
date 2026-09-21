@@ -108,9 +108,10 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
   }
 
   async carregarAgendaDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendaDoDia> {
-    let agendamentos = supabase
-      .from('appointments')
-      .select(`
+    const agendamentosDoDia = () => {
+      let consulta = supabase
+        .from('appointments')
+        .select(`
           id,
           start_time,
           end_time,
@@ -119,21 +120,23 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
           is_fitting,
           notes,
           origin,
+          cancellation_reason,
           professional_id,
           customer:customers (id, name, phone),
           service:services (id, name, price, duration_minutes)
         `)
-      .eq('tenant_id', tenantId);
-    if (input.professionalId !== undefined) {
-      agendamentos = agendamentos.eq('professional_id', input.professionalId);
-    }
+        .eq('tenant_id', tenantId);
+      if (input.professionalId !== undefined) {
+        consulta = consulta.eq('professional_id', input.professionalId);
+      }
+      return consulta.gte('start_time', input.startIso).lt('start_time', input.endExclusiveIso);
+    };
 
-    const [apptRes, blockRes] = await Promise.all([
-      agendamentos
-        .gte('start_time', input.startIso)
-        .lt('start_time', input.endExclusiveIso)
-        .neq('status', 'canceled')
-        .order('start_time', { ascending: true }),
+    const [apptRes, cancelRes, blockRes] = await Promise.all([
+      agendamentosDoDia().neq('status', 'canceled').order('start_time', { ascending: true }),
+      input.incluirCancelados
+        ? agendamentosDoDia().eq('status', 'canceled').order('start_time', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
       supabase
         .from('blocked_slots')
         .select('*')
@@ -144,9 +147,18 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
     ]);
 
     if (apptRes.error) throw this.readError(apptRes.error, 'Não foi possível carregar os atendimentos.');
+    if (cancelRes.error) throw this.readError(cancelRes.error, 'Não foi possível carregar os cancelamentos.');
     if (blockRes.error) throw this.readError(blockRes.error, 'Não foi possível carregar os bloqueios.');
 
-    const appointments: AgendamentoDoDia[] = (apptRes.data || []).map((item: any) => ({
+    return {
+      appointments: (apptRes.data || []).map((item: any) => this.mapAgendamentoDoDia(item)),
+      canceledAppointments: (cancelRes.data || []).map((item: any) => this.mapAgendamentoDoDia(item)),
+      blockedSlots: (blockRes.data || []) as BlockedSlot[],
+    };
+  }
+
+  private mapAgendamentoDoDia(item: any): AgendamentoDoDia {
+    return {
       id: item.id,
       start_time: item.start_time,
       end_time: item.end_time,
@@ -155,12 +167,11 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       is_fitting: Boolean(item.is_fitting),
       notes: item.notes,
       origin: item.origin,
+      cancellation_reason: item.cancellation_reason?.trim() || null,
       professional_id: item.professional_id,
       customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
       service: Array.isArray(item.service) ? item.service[0] : item.service,
-    }));
-
-    return { appointments, blockedSlots: (blockRes.data || []) as BlockedSlot[] };
+    };
   }
 
   async carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional> {

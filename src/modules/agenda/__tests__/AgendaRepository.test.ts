@@ -242,7 +242,9 @@ describe('AgendaRepository', () => {
         appointments: [
           agendamento({ id: 'ap-a', start_time: '2026-09-21T15:00:00.000Z' }),
           agendamento({ id: 'ap-b', start_time: '2026-09-21T13:00:00.000Z' }),
-          agendamento({ id: 'ap-cancelado', status: 'canceled' }),
+          agendamento({ id: 'ap-cancelado', status: 'canceled', cancellation_reason: 'Cliente desistiu' }),
+          agendamento({ id: 'ap-cancelado-colega', status: 'canceled', professional_id: 'prof-2', start_time: '2026-09-21T12:00:00.000Z' }),
+          agendamento({ id: 'ap-cancelado-limite', status: 'canceled', start_time: '2026-09-22T03:00:00.000Z' }),
           agendamento({ id: 'ap-colega', professional_id: 'prof-2' }),
           agendamento({ id: 'ap-outro-dia', start_time: '2026-09-22T13:00:00.000Z' }),
         ],
@@ -303,6 +305,44 @@ describe('AgendaRepository', () => {
         const agenda = await repository.carregarAgendaDoDia(TENANT, { ...barbearia, professionalId: 'prof-2' });
 
         expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-colega']);
+      });
+    });
+
+    describe('cancelados do dia (spec 043, ticket 04)', () => {
+      it('sem pedir cancelados, a coleção deles vem vazia e os ativos ficam como antes', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, dia);
+
+        expect(agenda.canceledAppointments).toEqual([]);
+        expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
+      });
+
+      it('pedindo cancelados, eles chegam em coleção própria e continuam fora dos ativos', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+
+        expect(agenda.canceledAppointments.map((a) => a.id)).toEqual(['ap-cancelado']);
+        expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-b', 'ap-a']);
+      });
+
+      it('leva o Motivo de Cancelamento da escrita até a leitura', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+
+        expect(agenda.canceledAppointments[0].cancellation_reason).toBe('Cliente desistiu');
+      });
+
+      it('mantém exclusivo o limite superior do intervalo também para cancelado', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, { ...dia, incluirCancelados: true });
+
+        expect(agenda.canceledAppointments.map((a) => a.id)).not.toContain('ap-cancelado-limite');
+      });
+
+      it('sem informar o profissional, traz os cancelados de todos, em ordem de horário', async () => {
+        const agenda = await repository.carregarAgendaDoDia(TENANT, {
+          startIso: dia.startIso,
+          endExclusiveIso: dia.endExclusiveIso,
+          incluirCancelados: true,
+        });
+
+        expect(agenda.canceledAppointments.map((a) => a.id)).toEqual(['ap-cancelado-colega', 'ap-cancelado']);
       });
     });
 

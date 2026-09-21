@@ -72,13 +72,28 @@ const tables: Record<string, () => unknown> = {};
 const makeBuilder = (table: string) => {
   const query = { table, filters: [] as Array<[string, unknown]> };
   queries.push(query);
-  const result = () => ({ data: tables[table]?.() ?? [], error: null });
+  const naoIguais: Array<[string, unknown]> = [];
+  // eq e neq aplicam de verdade nas linhas que têm a coluna; sem isso, a leitura de ativos e a de
+  // cancelados devolveriam as mesmas linhas e nenhum teste distinguiria uma da outra.
+  const filtrar = (dados: unknown) =>
+    Array.isArray(dados)
+      ? dados.filter(
+          (linha: Record<string, unknown>) =>
+            query.filters.every(([coluna, valor]) => !(coluna in linha) || linha[coluna] === valor) &&
+            naoIguais.every(([coluna, valor]) => !(coluna in linha) || linha[coluna] !== valor)
+        )
+      : dados;
+  const result = () => ({ data: filtrar(tables[table]?.() ?? []), error: null });
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'is', 'neq', 'gte', 'lt', 'order']) {
+  for (const method of ['select', 'is', 'gte', 'lt', 'order']) {
     builder[method] = () => builder;
   }
   builder.eq = (column: string, value: unknown) => {
     query.filters.push([column, value]);
+    return builder;
+  };
+  builder.neq = (column: string, value: unknown) => {
+    naoIguais.push([column, value]);
     return builder;
   };
   builder.maybeSingle = () => Promise.resolve({ data: tables[table]?.() ?? null, error: null });
@@ -320,5 +335,108 @@ describe('Minha Agenda do barbeiro', () => {
     const serviceSelect = await screen.findByLabelText('Serviço');
     expect(within(serviceSelect).getByRole('option', { name: 'Corte Tradicional' })).toBeInTheDocument();
     expect(within(serviceSelect).queryByRole('option', { name: 'Barba' })).not.toBeInTheDocument();
+  });
+  describe('cancelados do dia (spec 043, ticket 04)', () => {
+    const CANCELADO_COM_MOTIVO = appointmentRow({
+      id: 'app-c1',
+      status: 'canceled',
+      start_time: '2026-08-16T13:00:00.000Z',
+      customer: { id: 'cust-2', name: 'Marcos Desistente', phone: '11977776666' },
+      cancellation_reason: 'Imprevisto no trabalho',
+    });
+    const CANCELADO_SEM_MOTIVO = appointmentRow({
+      id: 'app-c2',
+      status: 'canceled',
+      start_time: '2026-08-16T14:00:00.000Z',
+      customer: { id: 'cust-3', name: 'Lucas Esquecido', phone: '11966665555' },
+      cancellation_reason: null,
+    });
+
+    const abrirPainel = async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Cancelados/i }));
+      return await screen.findByRole('dialog', { name: /Cancelados do dia/i });
+    };
+
+    it('mostra no cabeçalho o contador de cancelamentos do dia, sem pôr cancelado na grade', async () => {
+      tables.appointments = () => [appointmentRow(), CANCELADO_COM_MOTIVO, CANCELADO_SEM_MOTIVO];
+
+      await renderAgenda();
+
+      expect(screen.getByRole('button', { name: /Cancelados.*2/i })).toBeInTheDocument();
+      expect(screen.queryByText('Marcos Desistente')).not.toBeInTheDocument();
+      expect(screen.queryByText('Lucas Esquecido')).not.toBeInTheDocument();
+    });
+
+    it('abre o painel com horário, cliente, serviço, profissional e o motivo por extenso', async () => {
+      tables.appointments = () => [appointmentRow(), CANCELADO_COM_MOTIVO];
+      await renderAgenda();
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+      expect(within(painel).getByText('10:00')).toBeInTheDocument();
+      expect(within(painel).getByText('Corte Tradicional')).toBeInTheDocument();
+      expect(within(painel).getByText('Diego Barbeiro')).toBeInTheDocument();
+      expect(within(painel).getByText('Imprevisto no trabalho')).toBeInTheDocument();
+    });
+
+    it('nunca deixa o motivo em branco: sem motivo registrado mostra o aviso', async () => {
+      tables.appointments = () => [appointmentRow(), CANCELADO_SEM_MOTIVO];
+      await renderAgenda();
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Lucas Esquecido')).toBeInTheDocument();
+      expect(within(painel).getByText('Sem motivo informado')).toBeInTheDocument();
+    });
+
+    it('sem cancelamento no dia, mostra o estado vazio', async () => {
+      tables.appointments = () => [appointmentRow()];
+      await renderAgenda();
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Nenhum cancelamento neste dia')).toBeInTheDocument();
+    });
+
+    it('distingue falha de carregamento de dia sem cancelamento', async () => {
+      tables.appointments = () => {
+        throw new Error('falha de rede');
+      };
+      render(<MinhaAgenda />);
+      await waitFor(() =>
+        expect(mockAddToast).toHaveBeenCalledWith('Não foi possível carregar seus atendimentos.', 'error')
+      );
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Não foi possível carregar os cancelamentos')).toBeInTheDocument();
+      expect(within(painel).queryByText('Nenhum cancelamento neste dia')).not.toBeInTheDocument();
+    });
+
+    it('acompanha a troca do dia: o contador e o painel passam a mostrar os cancelados do dia novo', async () => {
+      let diaAtual = 1;
+      tables.appointments = () =>
+        diaAtual === 1 ? [appointmentRow(), CANCELADO_COM_MOTIVO] : [appointmentRow()];
+      await renderAgenda();
+      expect(screen.getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+
+      diaAtual = 2;
+      fireEvent.click(screen.getByLabelText('Próximo dia'));
+
+      expect(await screen.findByRole('button', { name: /Cancelados.*0/i })).toBeInTheDocument();
+      const painel = await abrirPainel();
+      expect(within(painel).getByText('Nenhum cancelamento neste dia')).toBeInTheDocument();
+      expect(within(painel).queryByText('Marcos Desistente')).not.toBeInTheDocument();
+    });
+
+    it('pede os cancelados só do próprio profissional na mesma leitura da agenda', async () => {
+      tables.appointments = () => [appointmentRow(), CANCELADO_COM_MOTIVO];
+      await renderAgenda();
+
+      const consultas = queries.filter((q) => q.table === 'appointments');
+      expect(consultas.some((q) => q.filters.some(([c, v]) => c === 'status' && v === 'canceled'))).toBe(true);
+      expect(consultas.every((q) => q.filters.some(([c, v]) => c === 'professional_id' && v === 'prof-me'))).toBe(true);
+    });
   });
 });
