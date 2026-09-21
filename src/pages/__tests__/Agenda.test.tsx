@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { Agenda } from '../gerente/Agenda';
@@ -91,6 +91,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
   ];
 
   let mockBlockedSlots: any[] = [];
+  let mockCanceledAppointments: any[] = [];
+  let mockAppointmentsFail = false;
 
   afterEach(() => {
     vi.useRealTimers();
@@ -101,6 +103,8 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     vi.setSystemTime(new Date('2026-08-16T12:00:00.000Z')); // 09:00 em SP
     vi.clearAllMocks();
     mockBlockedSlots = [];
+    mockCanceledAppointments = [];
+    mockAppointmentsFail = false;
     mockOutletContext.businessHours.domingo.active = true;
     // A criação de agendamento é uma RPC do banco (AgendaRepository.criarAgendamento).
     mockRpc.mockImplementation(async (fn: string, params: any) => {
@@ -174,13 +178,33 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         return builder;
       }
       if (table === 'appointments') {
+        // Aplica o status pedido: a leitura dos ativos (neq canceled) e a dos cancelados (eq canceled)
+        // nao podem devolver as mesmas linhas, senao nenhum teste distingue uma da outra.
+        let statusIgual: string | null = null;
+        let statusDiferente: string | null = null;
         const builder: any = {
           select: () => builder,
-          eq: () => builder,
+          eq: (coluna: string, valor: string) => {
+            if (coluna === 'status') statusIgual = valor;
+            return builder;
+          },
           gte: () => builder,
           lt: () => builder,
-          neq: () => builder,
-          order: vi.fn().mockResolvedValue({ data: mockAppointments, error: null }),
+          neq: (coluna: string, valor: string) => {
+            if (coluna === 'status') statusDiferente = valor;
+            return builder;
+          },
+          order: vi.fn().mockImplementation(async () => {
+            if (mockAppointmentsFail) return { data: null, error: { message: 'falha de rede' } };
+            return {
+              data: [...mockAppointments, ...mockCanceledAppointments].filter(
+                (a) =>
+                  (statusIgual === null || a.status === statusIgual) &&
+                  (statusDiferente === null || a.status !== statusDiferente)
+              ),
+              error: null,
+            };
+          }),
           update: () => {
             const updateBuilder: any = {
               eq: () => updateBuilder,
@@ -1112,6 +1136,209 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     await waitFor(() => {
       expect(screen.queryByText('Nenhum profissional selecionado')).toBeNull();
       expect(screen.getByText(/Visão semanal de 2 profissional\(is\)/i)).toBeInTheDocument();
+    });
+  });
+  describe('Painel de Cancelados do Dia (spec 043, ticket 05)', () => {
+    const cancelado = (overrides: Record<string, unknown> = {}) => ({
+      id: 'canc-x',
+      start_time: '2026-08-16T13:00:00.000Z',
+      end_time: '2026-08-16T13:30:00.000Z',
+      status: 'canceled',
+      payment_status: 'pending',
+      is_fitting: false,
+      notes: null,
+      origin: 'manual',
+      professional_id: 'prof-1',
+      customer: { id: 'cust-2', name: 'Marcos Desistente', phone: '11977776666' },
+      service: mockServices[0],
+      cancellation_reason: 'Imprevisto no trabalho',
+      ...overrides,
+    });
+    const CANC_CARLOS = cancelado({ id: 'canc-1' });
+    const CANC_MARCOS = cancelado({
+      id: 'canc-2',
+      professional_id: 'prof-2',
+      start_time: '2026-08-16T14:00:00.000Z',
+      customer: { id: 'cust-3', name: 'Lucas Esquecido', phone: '11966665555' },
+      cancellation_reason: 'Cliente desistiu',
+    });
+
+    const abrirPainel = async () => {
+      fireEvent.click(await screen.findByRole('button', { name: /Cancelados/i }));
+      return await screen.findByRole('dialog', { name: /Cancelados do dia/i });
+    };
+
+    it('mostra no cabeçalho o contador de cancelamentos do dia, sem pôr cancelado na grade', async () => {
+      mockCanceledAppointments = [CANC_CARLOS, CANC_MARCOS];
+      render(<Agenda />);
+
+      expect(await screen.findByRole('button', { name: /Cancelados.*2/i })).toBeInTheDocument();
+      expect(screen.queryByText('Marcos Desistente')).not.toBeInTheDocument();
+      expect(screen.queryByText('Lucas Esquecido')).not.toBeInTheDocument();
+    });
+
+    it('lista na mesma lista os cancelados de mais de um profissional, com o motivo por extenso', async () => {
+      mockCanceledAppointments = [CANC_CARLOS, CANC_MARCOS];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+      expect(within(painel).getByText('Lucas Esquecido')).toBeInTheDocument();
+      expect(within(painel).getByText('Carlos Barbeiro')).toBeInTheDocument();
+      expect(within(painel).getByText('Marcos Navalha')).toBeInTheDocument();
+      expect(within(painel).getByText('Imprevisto no trabalho')).toBeInTheDocument();
+      expect(within(painel).getByText('Cliente desistiu')).toBeInTheDocument();
+    });
+
+    it('respeita o filtro de equipe e, ao limpá-lo, revela o cancelado sem recarregar a leitura', async () => {
+      const user = userEvent.setup();
+      mockCanceledAppointments = [CANC_CARLOS, CANC_MARCOS];
+      render(<Agenda />);
+      await screen.findByRole('button', { name: /Cancelados.*2/i });
+      const leiturasAntes = mockFrom.mock.calls.filter(([tabela]) => tabela === 'appointments').length;
+
+      await user.click(screen.getByRole('button', { name: /Equipe/i }));
+      await user.click(screen.getByRole('menuitemcheckbox', { name: 'Carlos Barbeiro' }));
+      await user.keyboard('{Escape}');
+
+      expect(await screen.findByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+      let painel = await abrirPainel();
+      expect(within(painel).getByText('Lucas Esquecido')).toBeInTheDocument();
+      expect(within(painel).queryByText('Marcos Desistente')).not.toBeInTheDocument();
+
+      await user.click(within(painel).getByRole('button', { name: /Fechar painel/i }));
+      await user.click(screen.getByRole('button', { name: /Equipe/i }));
+      await user.click(screen.getByRole('button', { name: /Selecionar todos os barbeiros/i }));
+      await user.keyboard('{Escape}');
+
+      expect(await screen.findByRole('button', { name: /Cancelados.*2/i })).toBeInTheDocument();
+      painel = await abrirPainel();
+      expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+      expect(mockFrom.mock.calls.filter(([tabela]) => tabela === 'appointments').length).toBe(leiturasAntes);
+    });
+
+    it('só conta os cancelados do dia selecionado, mesmo quando a leitura traz outros dias', async () => {
+      mockCanceledAppointments = [
+        CANC_CARLOS,
+        cancelado({
+          id: 'canc-outro-dia',
+          start_time: '2026-08-17T13:00:00.000Z',
+          customer: { id: 'cust-9', name: 'Fora Do Dia', phone: '11955554444' },
+        }),
+      ];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+
+      expect(screen.getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+      expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+      expect(within(painel).queryByText('Fora Do Dia')).not.toBeInTheDocument();
+    });
+
+    it('acompanha a troca do dia selecionado', async () => {
+      mockCanceledAppointments = [CANC_CARLOS];
+      render(<Agenda />);
+      await screen.findByRole('button', { name: /Cancelados.*1/i });
+
+      mockCanceledAppointments = [
+        cancelado({
+          id: 'canc-dia-seguinte',
+          start_time: '2026-08-17T13:00:00.000Z',
+          customer: { id: 'cust-8', name: 'Ana Do Dia Seguinte', phone: '11944443333' },
+        }),
+      ];
+      // A visão de celular e a de desktop convivem no DOM; ambas trocam o mesmo dia selecionado.
+      fireEvent.click(screen.getAllByRole('button', { name: /Próximo Dia/i })[0]);
+
+      const painel = await abrirPainel();
+      expect(within(painel).getByText('Ana Do Dia Seguinte')).toBeInTheDocument();
+      expect(within(painel).queryByText('Marcos Desistente')).not.toBeInTheDocument();
+    });
+
+    it('oferece o atalho para chamar o cliente no WhatsApp a partir da entrada cancelada', async () => {
+      const abrirJanela = vi.spyOn(window, 'open').mockImplementation(() => null);
+      mockCanceledAppointments = [CANC_CARLOS];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+      fireEvent.click(within(painel).getByRole('button', { name: /Chamar no WhatsApp/i }));
+
+      expect(abrirJanela).toHaveBeenCalledWith(
+        expect.stringContaining('wa.me/5511977776666'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+      abrirJanela.mockRestore();
+    });
+
+    it('na visão semanal, o painel continua sendo do dia selecionado, não da semana inteira', async () => {
+      mockCanceledAppointments = [
+        CANC_CARLOS,
+        cancelado({
+          id: 'canc-terca',
+          start_time: '2026-08-18T13:00:00.000Z',
+          customer: { id: 'cust-7', name: 'Da Terça', phone: '11933332222' },
+        }),
+      ];
+      render(<Agenda />);
+      await screen.findByRole('button', { name: /Cancelados.*1/i });
+
+      fireEvent.click(screen.getByText('Semana'));
+
+      const painel = await abrirPainel();
+      expect(screen.getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+      expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+      expect(within(painel).queryByText('Da Terça')).not.toBeInTheDocument();
+    });
+
+    it('não cai quando o cancelado é de um encaixe de balcão sem cliente cadastrado', async () => {
+      mockCanceledAppointments = [cancelado({ id: 'canc-balcao', customer: null, customer_id: null })];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Cliente Balcão')).toBeInTheDocument();
+      expect(within(painel).getByRole('button', { name: /Chamar no WhatsApp/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+    });
+
+    it('desabilita o atalho de WhatsApp quando o cliente não tem telefone, em vez de não fazer nada', async () => {
+      const abrirJanela = vi.spyOn(window, 'open').mockImplementation(() => null);
+      mockCanceledAppointments = [
+        cancelado({ customer: { id: 'cust-6', name: 'Sem Telefone', phone: '' } }),
+      ];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+      const botao = within(painel).getByRole('button', { name: /Chamar no WhatsApp/i });
+      fireEvent.click(botao);
+
+      expect(botao).toBeDisabled();
+      expect(abrirJanela).not.toHaveBeenCalled();
+      abrirJanela.mockRestore();
+    });
+
+    it('sem cancelamento no dia, mostra o estado vazio', async () => {
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+
+      expect(screen.getByRole('button', { name: /Cancelados.*0/i })).toBeInTheDocument();
+      expect(within(painel).getByText('Nenhum cancelamento neste dia')).toBeInTheDocument();
+    });
+
+    it('distingue falha de carregamento de dia sem cancelamento', async () => {
+      mockAppointmentsFail = true;
+      render(<Agenda />);
+      await waitFor(() =>
+        expect(mockAddToast).toHaveBeenCalledWith('Erro ao carregar os agendamentos do dia.', 'error')
+      );
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Não foi possível carregar os cancelamentos')).toBeInTheDocument();
+      expect(within(painel).queryByText('Nenhum cancelamento neste dia')).not.toBeInTheDocument();
     });
   });
 });

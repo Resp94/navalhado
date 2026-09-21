@@ -1,19 +1,32 @@
 import React from 'react';
 import { Drawer } from '../ui/feedback/Drawer';
 import { EmptyState } from '../ui/data-display/EmptyState';
+import { Button } from '../ui/forms/Button';
 import { formatTimeInZone } from '../../lib/timezone';
 import type { AgendamentoDoDia } from '../../modules/agenda/types';
 
 export const MOTIVO_NAO_INFORMADO = 'Sem motivo informado';
+export const CLIENTE_DE_BALCAO = 'Cliente Balcão';
+
+/**
+ * O encaixe de balcão pode não ter cliente cadastrado: `customer_id` aceita nulo no banco. O tipo
+ * de leitura do Agendamento ainda declara `customer` como obrigatório, então o painel aceita o
+ * nulo por conta própria em vez de confiar nele.
+ */
+export type CanceladoDoPainel = Omit<AgendamentoDoDia, 'customer'> & {
+  customer: AgendamentoDoDia['customer'] | null;
+};
 
 interface PainelCanceladosDoDiaProps {
   isOpen: boolean;
   onClose: () => void;
-  cancelados: AgendamentoDoDia[];
+  cancelados: CanceladoDoPainel[];
   profissionais: Array<{ id: string; name: string }>;
   timezone: string;
   /** A leitura falhou: não é o mesmo que um dia sem cancelamento. */
   falhouAoCarregar?: boolean;
+  /** Quando informado, cada entrada oferece o atalho para chamar o cliente e tentar reocupar o horário. */
+  onContatarCliente?: (cancelado: CanceladoDoPainel) => void;
 }
 
 /** Cancelados do dia, já recortados pelo banco para o usuário; o painel só apresenta o que recebe. */
@@ -24,6 +37,7 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
   profissionais,
   timezone,
   falhouAoCarregar = false,
+  onContatarCliente,
 }) => {
   const nomeDoProfissional = (id: string) => profissionais.find((p) => p.id === id)?.name ?? 'Profissional';
 
@@ -59,7 +73,7 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
             >
               <div className="flex items-baseline justify-between gap-3">
                 <strong className="text-sm font-bold text-text-primary min-w-0 break-words">
-                  {cancelado.customer.name}
+                  {cancelado.customer?.name || CLIENTE_DE_BALCAO}
                 </strong>
                 <span className="text-sm font-bold text-text-primary tabular-nums shrink-0">
                   {formatTimeInZone(cancelado.start_time, timezone)}
@@ -81,6 +95,18 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
                   {cancelado.cancellation_reason || MOTIVO_NAO_INFORMADO}
                 </p>
               </div>
+              {onContatarCliente && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start [@media(pointer:coarse)]:min-h-11"
+                  disabled={!cancelado.customer?.phone?.trim()}
+                  title={cancelado.customer?.phone?.trim() ? undefined : 'Cliente sem telefone cadastrado'}
+                  onClick={() => onContatarCliente(cancelado)}
+                >
+                  Chamar no WhatsApp
+                </Button>
+              )}
             </li>
           ))}
         </ul>

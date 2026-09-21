@@ -390,6 +390,19 @@ describe('Minha Agenda do barbeiro', () => {
       expect(within(painel).getByText('Sem motivo informado')).toBeInTheDocument();
     });
 
+    it('não cai quando o cancelado é de um encaixe de balcão sem cliente cadastrado', async () => {
+      tables.appointments = () => [
+        appointmentRow(),
+        appointmentRow({ id: 'app-balcao', status: 'canceled', customer: null, cancellation_reason: 'Desistiu' }),
+      ];
+      await renderAgenda();
+
+      const painel = await abrirPainel();
+
+      expect(within(painel).getByText('Cliente Balcão')).toBeInTheDocument();
+      expect(within(painel).getByText('Desistiu')).toBeInTheDocument();
+    });
+
     it('sem cancelamento no dia, mostra o estado vazio', async () => {
       tables.appointments = () => [appointmentRow()];
       await renderAgenda();

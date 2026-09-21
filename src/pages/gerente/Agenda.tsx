@@ -3,7 +3,9 @@ import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
-import { Button, Tooltip } from '../../components/ui';
+import { Badge, Button, Tooltip } from '../../components/ui';
+import { PainelCanceladosDoDia } from '../../components/agenda/PainelCanceladosDoDia';
+import type { AgendamentoDoDia } from '../../modules/agenda/types';
 import {
   dateInZone,
   formatTimeInZone,
@@ -372,6 +374,9 @@ export const Agenda: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
+  const [cancelados, setCancelados] = useState<AgendamentoDoDia[]>([]);
+  const [canceladosComErro, setCanceladosComErro] = useState(false);
+  const [isCanceladosOpen, setIsCanceladosOpen] = useState(false);
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
@@ -749,6 +754,19 @@ export const Agenda: React.FC = () => {
   }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
 
   // Carregar Agendamentos do Período
+  // Recorte de leitura sobre o que o banco já entregou: o filtro de equipe da tela não é fronteira de
+  // acesso, então limpar o filtro revela os cancelados sem nova consulta. Na visão semanal a leitura
+  // traz os sete dias; o painel é do dia selecionado.
+  const canceladosDoDia = useMemo(() => {
+    const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
+    const inicio = Date.parse(start);
+    const fim = Date.parse(endExclusive);
+    return cancelados.filter((cancelado) => {
+      const instante = Date.parse(cancelado.start_time);
+      return selectedProfessionalIds.includes(cancelado.professional_id) && instante >= inicio && instante < fim;
+    });
+  }, [cancelados, selectedDate, selectedProfessionalIds, tenant.timezone]);
+
   const fetchAppointments = useCallback(async () => {
     try {
       if (!tenant.tenantId) return;
@@ -771,11 +789,16 @@ export const Agenda: React.FC = () => {
       const agenda = await agendaRepo.carregarAgendaDoDia(tenant.tenantId, {
         startIso,
         endExclusiveIso: endIso,
+        incluirCancelados: true,
       });
 
       setAppointments(agenda.appointments);
+      setCancelados(agenda.canceledAppointments);
+      setCanceladosComErro(false);
     } catch (err: any) {
       console.error('Erro ao buscar agendamentos:', err);
+      setCancelados([]);
+      setCanceladosComErro(true);
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
       setLoading(false);
@@ -1414,6 +1437,22 @@ export const Agenda: React.FC = () => {
             >
               <HugeiconsIcon icon={UserGroupIcon} size={16} />
               <span>Espera</span>
+            </button>
+          </Tooltip>
+
+          {/* Botão Cancelados do dia */}
+          <Tooltip content="Ver os atendimentos cancelados do dia e o motivo">
+            <button
+              type="button"
+              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
+              onClick={() => setIsCanceladosOpen(true)}
+            >
+              <span>Cancelados</span>
+              {!canceladosComErro && (
+                <Badge variant="neutral" badgeType="subtle" size="xs">
+                  {canceladosDoDia.length}
+                </Badge>
+              )}
             </button>
           </Tooltip>
 
@@ -2211,6 +2250,17 @@ export const Agenda: React.FC = () => {
         }}
         onEncaixar={handleEncaixarFromWaitingList}
         esperaRepo={esperaRepository}
+      />
+
+      {/* 8. PAINEL DE CANCELADOS DO DIA */}
+      <PainelCanceladosDoDia
+        isOpen={isCanceladosOpen}
+        onClose={() => setIsCanceladosOpen(false)}
+        cancelados={canceladosDoDia}
+        profissionais={professionals}
+        timezone={tenant.timezone}
+        falhouAoCarregar={canceladosComErro}
+        onContatarCliente={(cancelado) => openWhatsApp(cancelado.customer?.phone ?? '')}
       />
     </div>
   );
