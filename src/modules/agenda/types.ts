@@ -77,6 +77,8 @@ export interface AgendamentoDoDia {
   origin?: string;
   /** Só preenchido nos Agendamentos cancelados. */
   cancellation_reason?: string | null;
+  /** Quem cancelou; nulo quando desconhecido (cancelamento anterior à autoria) ou não cancelado. */
+  canceled_by?: 'shop' | 'customer' | null;
   professional_id: string;
   customer: { id: string; name: string; phone: string };
   service: { id: string; name: string; price: number; duration_minutes?: number };

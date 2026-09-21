@@ -121,6 +121,7 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
           notes,
           origin,
           cancellation_reason,
+          canceled_by,
           professional_id,
           customer:customers (id, name, phone),
           service:services (id, name, price, duration_minutes)
@@ -168,6 +169,7 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       notes: item.notes,
       origin: item.origin,
       cancellation_reason: item.cancellation_reason?.trim() || null,
+      canceled_by: item.canceled_by ?? null,
       professional_id: item.professional_id,
       customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
       service: Array.isArray(item.service) ? item.service[0] : item.service,

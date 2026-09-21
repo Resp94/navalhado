@@ -1292,6 +1292,36 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(within(painel).queryByText('Da Terça')).not.toBeInTheDocument();
     });
 
+    it('mostra quem cancelou em cada entrada, sem adivinhar quando a autoria é desconhecida', async () => {
+      mockCanceledAppointments = [
+        cancelado({
+          id: 'canc-a',
+          canceled_by: 'customer',
+          customer: { id: 'c-a', name: 'Ana Autora', phone: '11900000001' },
+        }),
+        cancelado({
+          id: 'canc-b',
+          canceled_by: 'shop',
+          start_time: '2026-08-16T14:00:00.000Z',
+          customer: { id: 'c-b', name: 'Bruno Autor', phone: '11900000002' },
+        }),
+        cancelado({
+          id: 'canc-c',
+          canceled_by: null,
+          start_time: '2026-08-16T15:00:00.000Z',
+          customer: { id: 'c-c', name: 'Caio Antigo', phone: '11900000003' },
+        }),
+      ];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+      const entrada = (nome: string) => within(painel).getByText(nome).closest('li') as HTMLElement;
+
+      expect(within(entrada('Ana Autora')).getByText('Cliente')).toBeInTheDocument();
+      expect(within(entrada('Bruno Autor')).getByText('Barbearia')).toBeInTheDocument();
+      expect(within(entrada('Caio Antigo')).getByText('Desconhecido')).toBeInTheDocument();
+    });
+
     it('não cai quando o cancelado é de um encaixe de balcão sem cliente cadastrado', async () => {
       mockCanceledAppointments = [cancelado({ id: 'canc-balcao', customer: null, customer_id: null })];
       render(<Agenda />);

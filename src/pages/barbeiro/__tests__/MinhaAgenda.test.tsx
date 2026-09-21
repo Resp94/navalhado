@@ -390,6 +390,41 @@ describe('Minha Agenda do barbeiro', () => {
       expect(within(painel).getByText('Sem motivo informado')).toBeInTheDocument();
     });
 
+    it('mostra quem cancelou em cada entrada, sem adivinhar quando a autoria é desconhecida', async () => {
+      tables.appointments = () => [
+        appointmentRow(),
+        appointmentRow({
+          id: 'app-a',
+          status: 'canceled',
+          start_time: '2026-08-16T13:00:00.000Z',
+          customer: { id: 'c-a', name: 'Ana Autora', phone: '11900000001' },
+          canceled_by: 'customer',
+        }),
+        appointmentRow({
+          id: 'app-b',
+          status: 'canceled',
+          start_time: '2026-08-16T14:00:00.000Z',
+          customer: { id: 'c-b', name: 'Bruno Autor', phone: '11900000002' },
+          canceled_by: 'shop',
+        }),
+        appointmentRow({
+          id: 'app-c',
+          status: 'canceled',
+          start_time: '2026-08-16T15:00:00.000Z',
+          customer: { id: 'c-c', name: 'Caio Antigo', phone: '11900000003' },
+          canceled_by: null,
+        }),
+      ];
+      await renderAgenda();
+
+      const painel = await abrirPainel();
+      const entrada = (nome: string) => within(painel).getByText(nome).closest('li') as HTMLElement;
+
+      expect(within(entrada('Ana Autora')).getByText('Cliente')).toBeInTheDocument();
+      expect(within(entrada('Bruno Autor')).getByText('Barbearia')).toBeInTheDocument();
+      expect(within(entrada('Caio Antigo')).getByText('Desconhecido')).toBeInTheDocument();
+    });
+
     it('não cai quando o cancelado é de um encaixe de balcão sem cliente cadastrado', async () => {
       tables.appointments = () => [
         appointmentRow(),

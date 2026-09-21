@@ -1,5 +1,7 @@
 import React from 'react';
 import { Drawer } from '../ui/feedback/Drawer';
+import { Badge } from '../ui/data-display/Badge';
+import type { BadgeVariant } from '../ui/data-display/Badge';
 import { EmptyState } from '../ui/data-display/EmptyState';
 import { Button } from '../ui/forms/Button';
 import { formatTimeInZone } from '../../lib/timezone';
@@ -7,6 +9,13 @@ import type { AgendamentoDoDia } from '../../modules/agenda/types';
 
 export const MOTIVO_NAO_INFORMADO = 'Sem motivo informado';
 export const CLIENTE_DE_BALCAO = 'Cliente Balcão';
+
+/** Cancelamento anterior à autoria fica desconhecido: o painel não infere pelo texto do motivo. */
+const AUTORIA: Record<'shop' | 'customer' | 'desconhecida', { rotulo: string; variante: BadgeVariant }> = {
+  shop: { rotulo: 'Barbearia', variante: 'brand' },
+  customer: { rotulo: 'Cliente', variante: 'info' },
+  desconhecida: { rotulo: 'Desconhecido', variante: 'neutral' },
+};
 
 /**
  * O encaixe de balcão pode não ter cliente cadastrado: `customer_id` aceita nulo no banco. O tipo
@@ -87,6 +96,16 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
                 <div className="flex justify-between gap-3">
                   <span className="text-text-secondary">Profissional:</span>
                   <span className="min-w-0 text-right break-words">{nomeDoProfissional(cancelado.professional_id)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-text-secondary">Cancelado por:</span>
+                  <Badge
+                    variant={AUTORIA[cancelado.canceled_by ?? 'desconhecida'].variante}
+                    badgeType="subtle"
+                    size="xs"
+                  >
+                    {AUTORIA[cancelado.canceled_by ?? 'desconhecida'].rotulo}
+                  </Badge>
                 </div>
               </div>
               <div className="flex flex-col gap-1 pt-2 border-t border-dashed border-border">

@@ -349,13 +349,15 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
               status: 'canceled',
               start_time: '2026-09-21T16:00:00.000Z',
               cancellation_reason: '  Imprevisto no trabalho ',
+              canceled_by: 'customer',
             }),
             linha('ap-canc-cedo', 'prof-1', {
               status: 'canceled',
               start_time: '2026-09-21T12:00:00.000Z',
               cancellation_reason: null,
+              canceled_by: null,
             }),
-            linha('ap-canc-colega', 'prof-2', { status: 'canceled', cancellation_reason: 'Cliente desistiu' }),
+            linha('ap-canc-colega', 'prof-2', { status: 'canceled', cancellation_reason: 'Cliente desistiu', canceled_by: 'shop' }),
             linha('ap-canc-limite', 'prof-1', { status: 'canceled', start_time: '2026-09-22T03:00:00.000Z' }),
           ],
           blocked_slots: [],
@@ -384,6 +386,18 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
       const porId = Object.fromEntries(agenda.canceledAppointments.map((a) => [a.id, a.cancellation_reason]));
       expect(porId['ap-canc-tarde']).toBe('Imprevisto no trabalho');
       expect(porId['ap-canc-cedo']).toBeNull();
+    });
+
+    it('traz quem cancelou e devolve nulo, sem erro, quando a autoria é desconhecida', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', {
+        ...dia,
+        incluirCancelados: true,
+      });
+
+      const autoria = Object.fromEntries(agenda.canceledAppointments.map((a) => [a.id, a.canceled_by]));
+      expect(autoria['ap-canc-tarde']).toBe('customer');
+      expect(autoria['ap-canc-colega']).toBe('shop');
+      expect(autoria['ap-canc-cedo']).toBeNull();
     });
 
     it('mantém exclusivo o limite superior do intervalo para cancelado', async () => {
