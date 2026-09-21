@@ -1020,7 +1020,7 @@ export const Agenda: React.FC = () => {
       customerMode: 'new',
       newCustomerName: entry.customer_name,
       newCustomerPhone: entry.customer_phone || '',
-      notes: entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]',
+      notes: esperaRepository.notaDeEncaixe(entry),
       // A entrada só sai da fila quando o Agendamento for salvo (na mesma transação do banco).
       waitingEntryId: entry.id,
     });

@@ -12,7 +12,7 @@ export class EsperaRepository {
   }
 
   async addEntry(
-    entrada: Omit<WaitingListEntry, 'id' | 'created_at' | 'updated_at'>
+    entrada: Omit<WaitingListEntry, 'id' | 'created_at'>
   ): Promise<WaitingListEntry> {
     if (!entrada.customer_name.trim()) {
       throw new Error('Nome do cliente é obrigatório para a lista de espera.');
@@ -26,6 +26,15 @@ export class EsperaRepository {
 
   async removeEntry(id: string): Promise<void> {
     return this.adapter.remover(id);
+  }
+
+  /**
+   * Nota do Agendamento criado pelo encaixe: a observação que a recepção anotou na
+   * entrada precisa chegar ao barbeiro que vai atender, junto do marcador de origem.
+   */
+  notaDeEncaixe(entrada: Pick<WaitingListEntry, 'notes'>): string {
+    const observacao = entrada.notes?.trim();
+    return observacao ? `[Fila de Espera] ${observacao}` : '[Fila de Espera]';
   }
 
   /**

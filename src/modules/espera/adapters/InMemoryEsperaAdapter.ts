@@ -1,25 +1,32 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabase as defaultClient } from '../../../lib/supabase';
 import type { IEsperaAdapter, WaitingListEntry, WaitingListStatus } from '../types';
 
+/**
+ * Espelha as colunas realmente persistidas em public.waiting_list e traduz o
+ * vocabulário de status na fronteira, como o adaptador real. Guardar aqui um
+ * campo que a tabela não tem foi o que manteve a suíte verde enquanto a
+ * observação se perdia; este dublê só conhece o que o banco guarda.
+ */
 interface DbWaitingListRow {
   id: string;
   tenant_id: string;
-  customer_id?: string | null;
+  customer_id: string | null;
   name: string;
   phone: string;
-  service_id?: string | null;
-  professional_id?: string | null;
+  service_id: string | null;
+  professional_id: string | null;
   status: 'waiting' | 'scheduled' | 'expired' | 'canceled';
   notes: string | null;
   created_at: string;
 }
 
-export class SupabaseEsperaAdapter implements IEsperaAdapter {
-  private client: SupabaseClient;
+export class InMemoryEsperaAdapter implements IEsperaAdapter {
+  private rows: DbWaitingListRow[];
+  private now: () => Date;
+  private sequence = 0;
 
-  constructor(client: SupabaseClient = defaultClient) {
-    this.client = client;
+  constructor(seed: DbWaitingListRow[] = [], now: () => Date = () => new Date()) {
+    this.rows = [...seed];
+    this.now = now;
   }
 
   private mapStatusToDb(status: WaitingListStatus): 'waiting' | 'scheduled' | 'canceled' {
@@ -63,25 +70,18 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
   }
 
   async listarPorData(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
-    const startOfDay = `${dataIso}T00:00:00.000Z`;
-    const endOfDay = `${dataIso}T23:59:59.999Z`;
-
-    const { data, error } = await this.client
-      .from('waiting_list')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return (data || []).map((row) => this.mapRowToEntry(row as DbWaitingListRow));
+    return this.rows
+      .filter((row) => row.tenant_id === tenantId && row.created_at.slice(0, 10) === dataIso)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((row) => this.mapRowToEntry(row));
   }
 
   async adicionar(
     entrada: Omit<WaitingListEntry, 'id' | 'created_at'>
   ): Promise<WaitingListEntry> {
-    const payload = {
+    this.sequence += 1;
+    const row: DbWaitingListRow = {
+      id: `espera-${this.sequence}`,
       tenant_id: entrada.tenant_id,
       customer_id: entrada.customer_id || null,
       name: entrada.customer_name,
@@ -90,37 +90,20 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
       professional_id: entrada.professional_id || null,
       status: this.mapStatusToDb(entrada.status),
       notes: entrada.notes || null,
+      created_at: this.now().toISOString(),
     };
-
-    const { data, error } = await this.client
-      .from('waiting_list')
-      .insert(payload)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return this.mapRowToEntry(data as DbWaitingListRow);
+    this.rows.push(row);
+    return this.mapRowToEntry(row);
   }
 
   async atualizarStatus(id: string, status: WaitingListStatus): Promise<WaitingListEntry> {
-    const dbStatus = this.mapStatusToDb(status);
-    const { data, error } = await this.client
-      .from('waiting_list')
-      .update({ status: dbStatus })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return this.mapRowToEntry(data as DbWaitingListRow);
+    const row = this.rows.find((candidate) => candidate.id === id);
+    if (!row) throw new Error(`Entrada ${id} não encontrada na lista de espera.`);
+    row.status = this.mapStatusToDb(status);
+    return this.mapRowToEntry(row);
   }
 
   async remover(id: string): Promise<void> {
-    const { error } = await this.client
-      .from('waiting_list')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    this.rows = this.rows.filter((row) => row.id !== id);
   }
 }

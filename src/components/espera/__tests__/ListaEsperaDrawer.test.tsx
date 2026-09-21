@@ -100,6 +100,85 @@ describe('ListaEsperaDrawer', () => {
     expect(mockOnEncaixar).toHaveBeenCalledWith(fakeEntry);
   });
 
+  describe('observação da entrada (spec 043, ticket 01)', () => {
+    const renderDrawer = () =>
+      render(
+        <ListaEsperaDrawer
+          isOpen={true}
+          tenantId="t-1"
+          currentDateIso="2026-08-16"
+          professionals={professionals}
+          services={services}
+          onClose={mockOnClose}
+          onEncaixar={mockOnEncaixar}
+          esperaRepo={mockRepo}
+        />
+      );
+
+    it('exibe no cartão a observação salva na entrada', async () => {
+      vi.mocked(mockAdapter.listarPorData).mockResolvedValueOnce([
+        {
+          id: 'w-1',
+          tenant_id: 't-1',
+          customer_name: 'Marcos Paulo',
+          customer_phone: '11988887777',
+          status: 'aguardando',
+          notes: 'Só pode depois das 18h',
+        },
+      ]);
+
+      renderDrawer();
+
+      expect(await screen.findByText(/Só pode depois das 18h/)).toBeInTheDocument();
+    });
+
+    it('não desenha aspas vazias no cartão quando a entrada não tem observação', async () => {
+      vi.mocked(mockAdapter.listarPorData).mockResolvedValueOnce([
+        {
+          id: 'w-1',
+          tenant_id: 't-1',
+          customer_name: 'Marcos Paulo',
+          customer_phone: '11988887777',
+          status: 'aguardando',
+          notes: null,
+        },
+      ]);
+
+      renderDrawer();
+
+      await screen.findByText('Marcos Paulo');
+      expect(screen.queryByText('""')).toBeNull();
+    });
+
+    it('entrega ao adaptador a observação digitada no formulário', async () => {
+      vi.mocked(mockAdapter.listarPorData).mockResolvedValue([]);
+      vi.mocked(mockAdapter.adicionar).mockResolvedValueOnce({
+        id: 'w-9',
+        tenant_id: 't-1',
+        customer_name: 'Paulo Vieira',
+        customer_phone: '',
+        status: 'aguardando',
+        notes: 'Quer o Marcos, aceita esperar',
+      });
+
+      renderDrawer();
+
+      fireEvent.change(screen.getByPlaceholderText('Ex: Pedro Henrique'), {
+        target: { value: 'Paulo Vieira' },
+      });
+      fireEvent.change(screen.getByLabelText('OBSERVAÇÕES'), {
+        target: { value: 'Quer o Marcos, aceita esperar' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar à fila de espera/i }));
+
+      await vi.waitFor(() => expect(mockAdapter.adicionar).toHaveBeenCalled());
+      expect(vi.mocked(mockAdapter.adicionar).mock.calls[0][0]).toMatchObject({
+        customer_name: 'Paulo Vieira',
+        notes: 'Quer o Marcos, aceita esperar',
+      });
+    });
+  });
+
   it('permite trocar a data da fila de espera pelo seletor de data', async () => {
     const mockOnDateChange = vi.fn();
     vi.mocked(mockAdapter.listarPorData).mockResolvedValue([
