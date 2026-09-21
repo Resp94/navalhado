@@ -16,6 +16,7 @@ import {
 import { getDayBusinessHours } from '../Agenda';
 import type { Appointment, Professional } from '../Agenda';
 import { CustomDatePicker } from '../../../components/CustomDatePicker';
+import { Badge } from '../../../components/ui/data-display/Badge';
 import {
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
@@ -558,6 +559,9 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         </span>
                         {isFitting && (
                           <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b45309] text-white text-[0.65rem] font-bold">Encaixe</span>
+                        )}
+                        {app.from_waiting_list && (
+                          <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                         )}
                         {isCompletedAndPaid && (
                           <span className="text-[0.5625rem] font-bold text-[#065f46] bg-[rgba(16,185,129,0.25)] py-px px-[5px] rounded-[3px] uppercase">Pago</span>

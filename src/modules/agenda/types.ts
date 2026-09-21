@@ -79,6 +79,8 @@ export interface AgendamentoDoDia {
   cancellation_reason?: string | null;
   /** Quem cancelou; nulo quando desconhecido (cancelamento anterior à autoria) ou não cancelado. */
   canceled_by?: 'shop' | 'customer' | null;
+  /** Criado consumindo uma entrada da Lista de Espera. */
+  from_waiting_list?: boolean;
   professional_id: string;
   customer: { id: string; name: string; phone: string };
   service: { id: string; name: string; price: number; duration_minutes?: number };

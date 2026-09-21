@@ -333,6 +333,24 @@ describe('SupabaseAgendaAdapter.carregarAgendaDoDia (spec 043, ticket 03)', () =
     expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
   });
 
+  it('traz o indicador de que o Agendamento veio da Lista de Espera, falso quando a coluna não o marca', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [
+          linha('ap-da-fila', 'prof-1', { from_waiting_list: true }),
+          linha('ap-avulso', 'prof-1', { from_waiting_list: false, start_time: '2026-09-21T14:00:00.000Z' }),
+        ],
+        blocked_slots: [],
+      })
+    );
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    const marca = Object.fromEntries(agenda.appointments.map((a) => [a.id, a.from_waiting_list]));
+    expect(marca['ap-da-fila']).toBe(true);
+    expect(marca['ap-avulso']).toBe(false);
+  });
+
   it('sem profissional, devolve os Agendamentos de todos, sem cancelados e sem outros dias', async () => {
     const agenda = await new SupabaseAgendaAdapter().carregarAgendaDoDia('t-1', dia);
 

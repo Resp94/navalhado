@@ -280,6 +280,49 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
+  describe('selo de Agendamento vindo da Lista de Espera (spec 043, ticket 07)', () => {
+    const comMarca = async (marcado: boolean, aoVerificar: () => Promise<void>) => {
+      const original = (mockAppointments[0] as any).from_waiting_list;
+      (mockAppointments[0] as any).from_waiting_list = marcado;
+      try {
+        await aoVerificar();
+      } finally {
+        (mockAppointments[0] as any).from_waiting_list = original;
+      }
+    };
+
+    it('marca no cartão do dia o Agendamento que veio da fila', async () => {
+      await comMarca(true, async () => {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('não marca o Agendamento que não veio da fila', async () => {
+      await comMarca(false, async () => {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        expect(screen.queryAllByTitle('Veio da Lista de Espera')).toHaveLength(0);
+      });
+    });
+
+    it('marca também no cartão da visão semanal', async () => {
+      await comMarca(true, async () => {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        fireEvent.click(screen.getByText('Semana'));
+
+        await waitFor(() =>
+          expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThanOrEqual(1)
+        );
+      });
+    });
+  });
+
   it('abre o modal de encaixe rápido com a flag ativa ao clicar no botão + Encaixe', async () => {
     render(<Agenda />);
 

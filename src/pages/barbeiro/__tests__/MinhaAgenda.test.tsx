@@ -336,6 +336,24 @@ describe('Minha Agenda do barbeiro', () => {
     expect(within(serviceSelect).getByRole('option', { name: 'Corte Tradicional' })).toBeInTheDocument();
     expect(within(serviceSelect).queryByRole('option', { name: 'Barba' })).not.toBeInTheDocument();
   });
+  describe('selo de Agendamento vindo da Lista de Espera (spec 043, ticket 07)', () => {
+    it('marca no cartão do barbeiro o Agendamento que o gerente criou a partir da fila', async () => {
+      tables.appointments = () => [appointmentRow({ from_waiting_list: true })];
+
+      await renderAgenda();
+
+      expect(screen.getByTitle('Veio da Lista de Espera')).toBeInTheDocument();
+    });
+
+    it('não marca o Agendamento que não veio da fila', async () => {
+      tables.appointments = () => [appointmentRow({ from_waiting_list: false })];
+
+      await renderAgenda();
+
+      expect(screen.queryByTitle('Veio da Lista de Espera')).not.toBeInTheDocument();
+    });
+  });
+
   describe('cancelados do dia (spec 043, ticket 04)', () => {
     const CANCELADO_COM_MOTIVO = appointmentRow({
       id: 'app-c1',

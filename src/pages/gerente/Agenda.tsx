@@ -140,6 +140,7 @@ export interface Appointment {
   is_fitting: boolean;
   notes?: string | null;
   origin?: string;
+  from_waiting_list?: boolean;
   customer: {
     id: string;
     name: string;
@@ -1781,6 +1782,9 @@ export const Agenda: React.FC = () => {
                                         Encaixe
                                       </span>
                                     )}
+                                    {app.from_waiting_list && (
+                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
+                                    )}
                                     {app.status === 'no_show' && (
                                       <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-[#b91c1c] text-white" title="Não compareceu">
                                         Não compareceu
@@ -2057,6 +2061,9 @@ export const Agenda: React.FC = () => {
                                       <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-brand-deep text-white" title="Encaixe">
                                         Encaixe
                                       </span>
+                                    )}
+                                    {app.from_waiting_list && (
+                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                                     )}
                                     {app.status === 'no_show' && (
                                       <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-[#b91c1c] text-white" title="Não compareceu">
