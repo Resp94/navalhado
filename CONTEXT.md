@@ -98,8 +98,8 @@ Item físico comercializado pela barbearia (`public.products`), com controle de 
 _Avoid_: Mercadoria avulsa, serviço de balcão, item físico genérico
 
 **Lista de Espera**:
-Fila diária de clientes cadastrados que aguardam abertura de vagas ou cancelamentos no mesmo dia (`public.waiting_list`), com disparo de alertas e atalho de encaixe com 1 clique para a recepção.
-_Avoid_: Fila solta, lista de encaixe manual, anotação de espera
+Fila diária de clientes cadastrados que aguardam abertura de vagas ou cancelamentos no mesmo dia (`public.waiting_list`), com disparo de alertas e atalho de encaixe com 1 clique para a recepção. O Agendamento criado pelo encaixe fica marcado no banco (`appointments.from_waiting_list`), gravado na mesma transação que baixa a entrada, e a Agenda o exibe com o selo "Espera". A marca não é texto na nota do Agendamento e não altera a origem (`origin`), que descreve o canal de entrada.
+_Avoid_: Fila solta, lista de encaixe manual, anotação de espera, prefixo `[Fila de Espera]` na nota, valor de origem para a fila
 
 **Rodízio de Barbeiros**:
 Lógica de ordenação e sugestão de atendimento de balcão (*walk-in*) para balancear a quantidade de clientes atendidos entre os profissionais ativos sem preferência específica indicada.
