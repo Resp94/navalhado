@@ -11,6 +11,7 @@ create temporary table t42 (
   u_prop uuid not null,
   u_barb uuid not null,
   prof1 uuid not null,
+  prof2 uuid not null,
   ap_pend uuid not null,
   ap_prog uuid not null,
   ap_completed uuid not null,
@@ -39,7 +40,7 @@ select
   (select id from auth.users where email = '__t42_gerb__@teste.com'),
   (select id from auth.users where email = '__t42_prop__@teste.com'),
   (select id from auth.users where email = '__t42_barb__@teste.com'),
-  gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
 
 update public.users u set tenant_id = t.tenant_a, role = 'gerente', is_active = true from t42 t where u.id = t.u_ger;
@@ -51,24 +52,30 @@ update public.users u set tenant_id = t.tenant_a, role = 'barbeiro', is_active =
 insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active, user_id)
 select t.prof1, t.tenant_a, 'Prof1 t42', '11988880151', 10, true, t.u_barb from t42 t;
 
+-- Colega do barbeiro: o barbeiro so opera a propria agenda (spec 041, ticket 01).
+insert into public.professionals (id, tenant_id, name, phone, commission_percentage, is_active)
+select t.prof2, t.tenant_a, 'Prof2 t42', '11988880152', 10, true from t42 t;
+
 insert into public.services (tenant_id, name, price, price_type, category, is_active)
 select tenant_a, 'Servico t42', 50, 'fixed', 'corte', true from t42;
 
--- is_fitting = true dispensa a validacao de expediente na insercao do teste.
+-- is_fitting = true dispensa a validacao de expediente na insercao do teste. Os Agendamentos ativos
+-- ficam em horarios distintos: o indice uq_appointments_one_fitting_per_slot (spec 040, ticket 09)
+-- recusa dois encaixes ativos do mesmo profissional no mesmo instante.
 insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, is_fitting)
 select a.id, t.tenant_a, a.prof, (select id from public.services where tenant_id = t.tenant_a limit 1),
   a.inicio, a.inicio + interval '30 minutes', a.status, 'pending', 'manual', true
 from t42 t,
   lateral (values
     (t.ap_pend, t.prof1, 'pending', now() + interval '2 hours'),
-    (t.ap_prog, t.prof1, 'in_progress', now() + interval '2 hours'),
+    (t.ap_prog, t.prof1, 'in_progress', now() + interval '3 hours'),
     (t.ap_completed, t.prof1, 'completed', now() + interval '2 hours'),
     (t.ap_canceled, t.prof1, 'canceled', now() + interval '2 hours'),
     (t.ap_noshow, t.prof1, 'no_show', now() - interval '2 hours'),
-    (t.ap_branco, t.prof1, 'confirmed', now() + interval '2 hours'),
-    (t.ap_barb, t.prof1, 'confirmed', now() + interval '2 hours'),
-    (t.ap_outra, t.prof1, 'confirmed', now() + interval '2 hours'),
-    (t.ap_prop, t.prof1, 'confirmed', now() + interval '2 hours')
+    (t.ap_branco, t.prof1, 'confirmed', now() + interval '4 hours'),
+    (t.ap_barb, t.prof2, 'confirmed', now() + interval '5 hours'),
+    (t.ap_outra, t.prof1, 'confirmed', now() + interval '6 hours'),
+    (t.ap_prop, t.prof1, 'confirmed', now() + interval '7 hours')
   ) as a(id, prof, status, inicio);
 
 grant select on t42 to authenticated;
@@ -122,8 +129,8 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', (select u_barb::text from t42), true);
 select throws_ok(
   $$select public.cancel_appointment_by_manager((select ap_barb from t42), (select tenant_a from t42), 'Motivo')$$,
-  '42501', 'Acesso negado.',
-  'barbeiro nao cancela agendamento'
+  '42501', 'Acesso negado a este agendamento.',
+  'barbeiro nao cancela agendamento de colega'
 );
 select set_config('request.jwt.claim.sub', (select u_ger_b::text from t42), true);
 select throws_ok(
