@@ -13,6 +13,7 @@ import type {
   RelatorioAgenda,
   RelatorioAgendaHeatmap,
   RelatorioAgendaMotivoCancelamento,
+  RelatorioAgendaMotivosCancelamento,
   RelatorioAgendaOrigem,
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
@@ -254,7 +255,7 @@ function toAgendaByProfessional(value: unknown): RelatorioAgendaProfissionalTota
   });
 }
 
-function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCancelamento[] {
+function toAgendaCancellationReasonList(value: unknown): RelatorioAgendaMotivoCancelamento[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => {
     const raw = (item || {}) as Record<string, unknown>;
@@ -263,6 +264,16 @@ function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCance
       count: toNumber(raw.count),
     };
   });
+}
+
+/** Objeto {shop, customer, desconhecida} (spec 044, ticket 16); grupo ausente ou de formato inesperado vira lista vazia. */
+function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivosCancelamento {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    shop: toAgendaCancellationReasonList(raw.shop),
+    customer: toAgendaCancellationReasonList(raw.customer),
+    desconhecida: toAgendaCancellationReasonList(raw.desconhecida),
+  };
 }
 
 /**

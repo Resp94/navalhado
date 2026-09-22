@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(47);
 
 -- Spec 038 (Modulo de Relatorios), ticket 07: Comparecimento, cancelamento e
 -- no-show (pagina Agenda). Cobre o contrato de leitura
@@ -492,7 +492,10 @@ select is(
 );
 
 -- p_professional_id FILTRA cancellation_reasons: prof_dois nao tem
--- cancelamento, entao a lista fica vazia.
+-- cancelamento, entao os tres grupos ficam vazios. Os Agendamentos cancelados
+-- desta fixture nunca tiveram canceled_by gravado (fixture anterior a spec
+-- 043, mesmo caso de cancelamento sem autoria) -- caem todos em
+-- 'desconhecida' (spec 044, ticket 16).
 select is(
   (
     select private.get_schedule_report_core(
@@ -500,14 +503,15 @@ select is(
       (select prof_dois_id from t07_fix), '2026-08-24'::date, '2026-08-24 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
     ) -> 'cancellation_reasons'
   ),
-  '[]'::jsonb,
-  'p_professional_id filtra cancellation_reasons (prof_dois nao cancelou nada no periodo)'
+  jsonb_build_object('shop', '[]'::jsonb, 'customer', '[]'::jsonb, 'desconhecida', '[]'::jsonb),
+  'p_professional_id filtra cancellation_reasons nos tres grupos (prof_dois nao cancelou nada no periodo)'
 );
 
 -- ---------------------------------------------------------------------------
 -- cancellation_reasons: normalizacao (trim+lower agrupa "  Cliente
 -- Desmarcou  " e "cliente desmarcou"), vazio vira "sem motivo informado",
--- ordenado por frequencia desc.
+-- ordenado por frequencia desc. Todos sem canceled_by, entao caem em
+-- 'desconhecida' (spec 044, ticket 16); shop/customer ficam vazios.
 -- ---------------------------------------------------------------------------
 select is(
   (
@@ -516,7 +520,7 @@ select is(
       private.get_schedule_report_core(
         (select tenant_a_id from t07_context), '2026-08-20'::date, '2026-08-24'::date, null,
         '2026-08-24'::date, '2026-08-24 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
-      ) -> 'cancellation_reasons'
+      ) -> 'cancellation_reasons' -> 'desconhecida'
     ) as cr
   ),
   jsonb_build_array(
@@ -524,7 +528,7 @@ select is(
     jsonb_build_object('reason', 'outro motivo', 'count', 1),
     jsonb_build_object('reason', 'sem motivo informado', 'count', 1)
   ),
-  'motivos de cancelamento normalizados (trim+lower agrupa grafias diferentes do mesmo motivo), vazio vira "sem motivo informado", ordenados por frequencia'
+  'motivos de cancelamento normalizados (trim+lower agrupa grafias diferentes do mesmo motivo), vazio vira "sem motivo informado", ordenados por frequencia, dentro do grupo desconhecida'
 );
 
 select is(
@@ -532,7 +536,24 @@ select is(
     select private.get_schedule_report_core(
       (select tenant_a_id from t07_context), '2026-08-20'::date, '2026-08-24'::date, null,
       '2026-08-24'::date, '2026-08-24 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
-    ) -> 'cancellation_reasons'
+    ) -> 'cancellation_reasons' -> 'shop'
+  ) = '[]'::jsonb
+  and (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-08-20'::date, '2026-08-24'::date, null,
+      '2026-08-24'::date, '2026-08-24 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'cancellation_reasons' -> 'customer'
+  ) = '[]'::jsonb,
+  true,
+  'shop e customer ficam vazios quando nenhum cancelamento da fixture tem canceled_by gravado'
+);
+
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-08-20'::date, '2026-08-24'::date, null,
+      '2026-08-24'::date, '2026-08-24 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'cancellation_reasons' -> 'desconhecida'
   ) @> jsonb_build_array(jsonb_build_object('reason', 'cliente desmarcou', 'count', 2)),
   true,
   'o motivo mais frequente aparece primeiro com a contagem agrupada'
@@ -797,6 +818,102 @@ select is(
   ),
   jsonb_build_array(jsonb_build_object('weekday', 5, 'hour', 15, 'count', 1)),
   'p_professional_id filtra o heatmap: mostra so a celula do profissional filtrado (prof_h2, sexta as 15h)'
+);
+
+-- ---------------------------------------------------------------------------
+-- cancellation_reasons separado por autoria (spec 044, ticket 16): grupos
+-- shop/customer/desconhecida, exclusao do texto de preenchimento do Canal do
+-- Cliente do ranking (mas nao do total), filtro de profissional e isolamento
+-- por barbearia. Periodo proprio (2026-09-05), fora do periodo 20-24 usado
+-- acima e do 2026-09-01 usado no teste de totais zerados, para nao alterar
+-- nenhuma contagem ja testada.
+-- ---------------------------------------------------------------------------
+create temporary table t16_fix (
+  ap_shop_id uuid not null,
+  ap_customer_id uuid not null,
+  ap_customer_preenchido_id uuid not null,
+  ap_desconhecida_id uuid not null
+) on commit drop;
+insert into t16_fix (ap_shop_id, ap_customer_id, ap_customer_preenchido_id, ap_desconhecida_id)
+values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid());
+grant select on t16_fix to authenticated;
+
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason, canceled_by)
+select ap_shop_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-05 10:00:00-03'::timestamptz, '2026-09-05 10:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', 'Falta de horário', 'shop'
+from t16_fix;
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason, canceled_by)
+select ap_customer_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-05 11:00:00-03'::timestamptz, '2026-09-05 11:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', 'Imprevisto', 'customer'
+from t16_fix;
+-- Motivo e literalmente o texto de preenchimento do Canal do Cliente
+-- (MOTIVO_CANCELAMENTO_PADRAO_CLIENTE): deve desaparecer do ranking, mas
+-- continuar contado em status_totals.canceled.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason, canceled_by)
+select ap_customer_preenchido_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-05 12:00:00-03'::timestamptz, '2026-09-05 12:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', 'Cancelado pelo cliente', 'customer'
+from t16_fix;
+-- canceled_by nulo: cancelamento anterior a spec 043 (ou de uma via que
+-- ainda nao grava autoria) -- cai em 'desconhecida', nunca inferido pelo
+-- texto do motivo.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, cancellation_reason, canceled_by)
+select ap_desconhecida_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-05 13:00:00-03'::timestamptz, '2026-09-05 13:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', 'Motivo antigo', null
+from t16_fix;
+
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-09-05'::date, '2026-09-05'::date, null,
+      '2026-09-05'::date, '2026-09-05 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'cancellation_reasons'
+  ),
+  jsonb_build_object(
+    'shop', jsonb_build_array(jsonb_build_object('reason', 'falta de horário', 'count', 1)),
+    'customer', jsonb_build_array(jsonb_build_object('reason', 'imprevisto', 'count', 1)),
+    'desconhecida', jsonb_build_array(jsonb_build_object('reason', 'motivo antigo', 'count', 1))
+  ),
+  'cancellation_reasons separa shop/customer/desconhecida, e o texto de preenchimento do Canal do Cliente some do ranking do grupo customer'
+);
+
+select is(
+  (
+    select (
+      private.get_schedule_report_core(
+        (select tenant_a_id from t07_context), '2026-09-05'::date, '2026-09-05'::date, null,
+        '2026-09-05'::date, '2026-09-05 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+      ) -> 'status_totals' ->> 'canceled'
+    )::int
+  ),
+  4,
+  'o cancelamento com o texto de preenchimento continua contado em status_totals.canceled, so sai do ranking de motivos'
+);
+
+-- p_professional_id filtra os tres grupos: nenhum dos quatro cancelamentos
+-- desta fixture e do prof_dois.
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-09-05'::date, '2026-09-05'::date,
+      (select prof_dois_id from t07_fix), '2026-09-05'::date, '2026-09-05 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'cancellation_reasons'
+  ),
+  jsonb_build_object('shop', '[]'::jsonb, 'customer', '[]'::jsonb, 'desconhecida', '[]'::jsonb),
+  'p_professional_id filtra os tres grupos de cancellation_reasons (prof_dois nao cancelou nada no periodo)'
+);
+
+-- Isolamento por barbearia: tenant_b nao tem nenhum Agendamento -- os tres
+-- grupos ficam vazios mesmo no mesmo periodo em que tenant_a tem os quatro
+-- cancelamentos acima.
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_b_id from t07_context), '2026-09-05'::date, '2026-09-05'::date, null,
+      '2026-09-05'::date, '2026-09-05 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'cancellation_reasons'
+  ),
+  jsonb_build_object('shop', '[]'::jsonb, 'customer', '[]'::jsonb, 'desconhecida', '[]'::jsonb),
+  'isolamento por barbearia: tenant_b nao ve os cancelamentos de tenant_a no mesmo periodo'
 );
 
 select * from finish(true);

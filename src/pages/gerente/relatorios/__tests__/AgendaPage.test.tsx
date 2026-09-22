@@ -101,7 +101,11 @@ function respostaBase(overrides: Partial<RelatorioAgenda> = {}): RelatorioAgenda
         attendance_rate: 1,
       },
     ],
-    cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+    cancellation_reasons: {
+      shop: [{ reason: 'cliente desistiu', count: 2 }],
+      customer: [],
+      desconhecida: [],
+    },
     heatmap: {
       hours: [9, 10],
       cells: [

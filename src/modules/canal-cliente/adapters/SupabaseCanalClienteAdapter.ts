@@ -5,6 +5,7 @@ import {
   AgendamentoRegraCancelamentoError,
   CanalClienteValidationError,
 } from '../errors';
+import { MOTIVO_CANCELAMENTO_PADRAO_CLIENTE } from '../types';
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
@@ -334,7 +335,7 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
   async cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void> {
     const { error } = await publicSupabase.rpc('cancel_appointment_by_public_session', {
       p_appointment_id: appointmentId,
-      p_reason: motivo || 'Cancelado pelo cliente',
+      p_reason: motivo || MOTIVO_CANCELAMENTO_PADRAO_CLIENTE,
     });
 
     if (error) {
@@ -622,14 +623,14 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     let res = await supabase.rpc('cancel_appointment_by_token', {
       p_token: token,
       p_appointment_id: appointmentId,
-      p_reason: motivo || 'Cancelado pelo cliente',
+      p_reason: motivo || MOTIVO_CANCELAMENTO_PADRAO_CLIENTE,
     });
 
     if (res.error && (res.error.code === 'PGRST202' || res.error.message?.includes('function'))) {
       res = await supabase.rpc('cancel_appointment_by_customer_token', {
         p_token: token,
         p_appointment_id: appointmentId,
-        p_cancellation_reason: motivo || 'Cancelado pelo cliente',
+        p_cancellation_reason: motivo || MOTIVO_CANCELAMENTO_PADRAO_CLIENTE,
       });
     }
 

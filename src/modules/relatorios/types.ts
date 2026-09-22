@@ -278,6 +278,22 @@ export interface RelatorioAgendaMotivoCancelamento {
 }
 
 /**
+ * Motivos de cancelamento do período, separados por quem cancelou (spec 044,
+ * ticket 16): `shop` (a barbearia cancelou), `customer` (o cliente cancelou)
+ * e `desconhecida` (cancelamento anterior à spec 043, sem autoria gravada —
+ * nunca inferida pelo texto do motivo). Cada grupo segue o mesmo formato de
+ * antes (top 10 + "outros"), agora particionado por grupo. O texto de
+ * preenchimento gravado pelo Canal do Cliente quando o cliente não escreve
+ * motivo (`MOTIVO_CANCELAMENTO_PADRAO_CLIENTE`, módulo canal-cliente) não
+ * aparece em nenhum grupo — ele não diz nada sobre a causa real.
+ */
+export interface RelatorioAgendaMotivosCancelamento {
+  shop: RelatorioAgendaMotivoCancelamento[];
+  customer: RelatorioAgendaMotivoCancelamento[];
+  desconhecida: RelatorioAgendaMotivoCancelamento[];
+}
+
+/**
  * Célula do mapa de calor da Agenda (spec 038, ticket 08): `weekday` usa a
  * convenção nativa do Postgres (`extract(dow)`), `0` = domingo até `6` =
  * sábado -- nunca a convenção ISO (segunda = 1). `count` é sempre um
@@ -323,7 +339,7 @@ export interface RelatorioAgenda {
   previous_status_totals: RelatorioAgendaStatusTotais;
   by_origin: RelatorioAgendaOrigemTotais[];
   by_professional: RelatorioAgendaProfissionalTotais[];
-  cancellation_reasons: RelatorioAgendaMotivoCancelamento[];
+  cancellation_reasons: RelatorioAgendaMotivosCancelamento;
   heatmap: RelatorioAgendaHeatmap;
 }
 

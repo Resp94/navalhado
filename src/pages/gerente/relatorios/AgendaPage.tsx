@@ -8,7 +8,7 @@ import { SupabaseRelatoriosAdapter } from '../../../modules/relatorios/adapters/
 import { useAgenda } from '../../../modules/relatorios/useAgenda';
 import type { CsvColumn } from '../../../modules/relatorios/csv';
 import type {
-  RelatorioAgendaMotivoCancelamento,
+  RelatorioAgendaMotivosCancelamento,
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
 } from '../../../modules/relatorios/types';
@@ -48,7 +48,28 @@ const COLUNAS_CSV_PROFISSIONAL: CsvColumn<RelatorioAgendaProfissionalTotais>[] =
   { header: 'Taxa de comparecimento', accessor: (item) => formatPercent(item.attendance_rate) },
 ];
 
-const COLUNAS_CSV_MOTIVOS: CsvColumn<RelatorioAgendaMotivoCancelamento>[] = [
+/** Linha achatada do CSV de motivos (spec 044, ticket 16): uma linha por (grupo, motivo). */
+interface LinhaCsvMotivo {
+  grupo: string;
+  reason: string;
+  count: number;
+}
+
+const ROTULO_GRUPO_MOTIVO: Record<keyof RelatorioAgendaMotivosCancelamento, string> = {
+  shop: 'Barbearia',
+  customer: 'Cliente',
+  desconhecida: 'Desconhecido',
+};
+
+/** Achata os três grupos em linhas para o CSV, na mesma ordem em que a tela mostra os grupos. */
+function achatarMotivosParaCsv(reasons: RelatorioAgendaMotivosCancelamento): LinhaCsvMotivo[] {
+  return (['shop', 'customer', 'desconhecida'] as const).flatMap((grupo) =>
+    reasons[grupo].map((motivo) => ({ grupo: ROTULO_GRUPO_MOTIVO[grupo], reason: motivo.reason, count: motivo.count }))
+  );
+}
+
+const COLUNAS_CSV_MOTIVOS: CsvColumn<LinhaCsvMotivo>[] = [
+  { header: 'Cancelado por', accessor: (item) => item.grupo },
   { header: 'Motivo', accessor: (item) => item.reason },
   { header: 'Cancelamentos', accessor: (item) => String(item.count) },
 ];
@@ -115,7 +136,8 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
 
   const professionals = data?.by_professional ?? [];
   const origins = data?.by_origin ?? [];
-  const reasons = data?.cancellation_reasons ?? [];
+  const reasons: RelatorioAgendaMotivosCancelamento = data?.cancellation_reasons ?? { shop: [], customer: [], desconhecida: [] };
+  const reasonsCsvRows = achatarMotivosParaCsv(reasons);
   const heatmapRows = data?.heatmap ? construirLinhasMapaDeCalor(data.heatmap) : [];
 
   // O filtro de profissional some do <Select> quando o profissional
@@ -225,7 +247,7 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
             exportButton={
               <ExportarCsvButton
                 columns={COLUNAS_CSV_MOTIVOS}
-                rows={reasons}
+                rows={reasonsCsvRows}
                 reportSlug="agenda_motivos_cancelamento"
                 startDate={periodo.startDate}
                 endDate={periodo.endDate}

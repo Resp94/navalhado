@@ -592,7 +592,11 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
             attendance_rate: 0.75,
           },
         ],
-        cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+        cancellation_reasons: {
+          shop: [{ reason: 'cliente desistiu', count: 2 }],
+          customer: [],
+          desconhecida: [],
+        },
         heatmap: {
           hours: [9, 10, 11],
           cells: [
@@ -645,13 +649,42 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
         attendance_rate: 0.75,
       },
     ]);
-    expect(result.cancellation_reasons).toEqual([{ reason: 'cliente desistiu', count: 2 }]);
+    expect(result.cancellation_reasons).toEqual({
+      shop: [{ reason: 'cliente desistiu', count: 2 }],
+      customer: [],
+      desconhecida: [],
+    });
     expect(result.heatmap).toEqual({
       hours: [9, 10, 11],
       cells: [
         { weekday: 1, hour: 9, count: 3 },
         { weekday: 1, hour: 10, count: 1 },
       ],
+    });
+  });
+
+  it('converte os três grupos de cancellation_reasons (spec 044, ticket 16), grupo ausente na resposta vira lista vazia', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        cancellation_reasons: {
+          shop: [{ reason: 'falta de horário', count: 3 }],
+          customer: [{ reason: 'imprevisto', count: 1 }],
+          // desconhecida ausente na resposta -- deve virar lista vazia, nao lançar.
+        },
+      },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.cancellation_reasons).toEqual({
+      shop: [{ reason: 'falta de horário', count: 3 }],
+      customer: [{ reason: 'imprevisto', count: 1 }],
+      desconhecida: [],
     });
   });
 
@@ -736,7 +769,7 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
     });
     expect(result.by_origin).toEqual([]);
     expect(result.by_professional).toEqual([]);
-    expect(result.cancellation_reasons).toEqual([]);
+    expect(result.cancellation_reasons).toEqual({ shop: [], customer: [], desconhecida: [] });
     expect(result.heatmap).toEqual({ hours: [], cells: [] });
   });
 

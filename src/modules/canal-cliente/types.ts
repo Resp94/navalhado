@@ -1,3 +1,12 @@
+/**
+ * Texto gravado como motivo do cancelamento quando o cliente cancela pelo Canal do Cliente sem
+ * escrever um motivo próprio. Definição única (spec 044, ticket 16): antes estava repetido em três
+ * pontos do adaptador Supabase e mais um do adaptador em memória, e o relatório de Agenda precisa
+ * reconhecer exatamente este texto (normalizado, trim+lower) para excluí-lo do ranking de motivos —
+ * ele não diz nada sobre a causa real, só tende a ocupar o topo por ser o preenchimento mais comum.
+ */
+export const MOTIVO_CANCELAMENTO_PADRAO_CLIENTE = 'Cancelado pelo cliente';
+
 export interface PerfilClienteCanal {
   customer_id: string;
   customer_name: string;
