@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseClienteAdapter } from '../SupabaseClienteAdapter';
+import { colunasDeTopo, projetarColunas } from '../../../../test/fakePostgrestColunas';
 
 function fakeSupabase(rows: unknown[]) {
   const query: any = {
@@ -39,25 +40,6 @@ describe('SupabaseClienteAdapter.buscarHistoricoComandas', () => {
   });
 });
 
-/** Colunas de topo do select, ignorando o conteúdo entre parênteses das relações embutidas. */
-function colunasDeTopo(select: string): string[] {
-  const colunas: string[] = [];
-  let profundidade = 0;
-  let atual = '';
-  for (const caractere of select) {
-    if (caractere === '(') profundidade += 1;
-    if (caractere === ')') profundidade -= 1;
-    if (caractere === ',' && profundidade === 0) {
-      colunas.push(atual);
-      atual = '';
-    } else {
-      atual += caractere;
-    }
-  }
-  colunas.push(atual);
-  return colunas.map((coluna) => coluna.trim().split(/[\s(]/)[0]).filter(Boolean);
-}
-
 /**
  * Como o PostgREST: só devolve as colunas pedidas no select. Um fake que devolvesse a linha
  * inteira esconderia justamente o defeito de esquecer uma coluna na consulta.
@@ -72,9 +54,7 @@ function fakeSupabaseQueRespeitaSelect(rows: Array<Record<string, unknown>>) {
     eq: () => query,
     order: () =>
       Promise.resolve({
-        data: rows.map((row) =>
-          Object.fromEntries(colunasPedidas.filter((coluna) => coluna in row).map((coluna) => [coluna, row[coluna]]))
-        ),
+        data: rows.map((row) => projetarColunas(colunasPedidas, row)),
         error: null,
       }),
   };

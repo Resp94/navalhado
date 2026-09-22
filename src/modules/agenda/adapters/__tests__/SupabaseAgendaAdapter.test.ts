@@ -6,6 +6,7 @@ vi.mock('../../../../lib/supabase', () => ({ supabase: { rpc: mockRpc, from: moc
 
 import { AgendaOperationError } from '../../AgendaRepository';
 import { SupabaseAgendaAdapter } from '../SupabaseAgendaAdapter';
+import { colunasDeTopo, projetarColunas } from '../../../../test/fakePostgrestColunas';
 
 describe('SupabaseAgendaAdapter', () => {
   beforeEach(() => {
@@ -229,25 +230,6 @@ describe('SupabaseAgendaAdapter', () => {
   });
 });
 
-/** Colunas de topo do select; o alias de relação (`customer:customers (...)`) vale pelo nome do alias. */
-function colunasDeTopo(select: string): string[] {
-  const colunas: string[] = [];
-  let profundidade = 0;
-  let atual = '';
-  for (const caractere of select) {
-    if (caractere === '(') profundidade += 1;
-    if (caractere === ')') profundidade -= 1;
-    if (caractere === ',' && profundidade === 0) {
-      colunas.push(atual);
-      atual = '';
-    } else {
-      atual += caractere;
-    }
-  }
-  colunas.push(atual);
-  return colunas.map((coluna) => coluna.trim().split(/[\s(]/)[0].split(':')[0]).filter(Boolean);
-}
-
 /**
  * Banco de mentira que aplica de verdade os filtros da consulta. Um fake que devolvesse tudo,
  * qualquer que fosse o filtro, esconderia justamente o erro de filtrar (ou deixar de filtrar)
@@ -287,9 +269,7 @@ function bancoQueAplicaFiltros(
             .filter((linha) => filtros.every((filtro) => filtro(linha)))
             .sort((a, b) => String(a[coluna]).localeCompare(String(b[coluna])) * (opcoes?.ascending === false ? -1 : 1))
             .map((linha) =>
-              colunasPedidas && !colunasPedidas.includes('*')
-                ? Object.fromEntries(colunasPedidas.filter((coluna) => coluna in linha).map((coluna) => [coluna, linha[coluna]]))
-                : linha
+              colunasPedidas && !colunasPedidas.includes('*') ? projetarColunas(colunasPedidas, linha) : linha
             ),
           error: null,
         }),
