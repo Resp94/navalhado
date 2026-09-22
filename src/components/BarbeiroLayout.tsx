@@ -175,11 +175,19 @@ export const BarbeiroLayout: React.FC = () => {
     { id: 'perfil', label: 'Sair', icon: Logout01Icon, onClick: handleLogout },
   ];
 
+  // A Minha Agenda usa a mesma Grade Temporal com rolagem própria da Agenda do gerente (spec 045);
+  // precisa da mesma altura travada à viewport, senão a grade desktop não tem onde rolar.
+  const isMinhaAgenda = location.pathname.startsWith('/minha-agenda');
+
   return (
     <>
       <div className="noise-overlay" />
 
-      <div className="min-h-screen bg-bg-primary text-text-primary flex flex-row max-md:flex-col relative">
+      <div
+        className={`min-h-screen bg-bg-primary text-text-primary flex flex-row max-md:flex-col relative ${
+          isMinhaAgenda ? 'h-dvh max-h-dvh overflow-hidden max-md:h-auto max-md:max-h-none max-md:overflow-visible' : ''
+        }`}
+      >
         {/* HEADER MOBILE (<= 768px) */}
         <MobileHeader
           tenantName={tenantName || 'Barbeiro'}
@@ -207,8 +215,19 @@ export const BarbeiroLayout: React.FC = () => {
         />
 
         {/* ÁREA DE CONTEÚDO PRINCIPAL COM ANIMAÇÃO DE ENTRADA SUAVE */}
-        <main className="flex-1 w-full min-w-0 max-w-[1440px] mx-auto px-4 py-6 md:px-8 md:py-6 flex flex-col max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
-          <div key={location.pathname} className="w-full animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_forwards]">
+        <main
+          className={
+            isMinhaAgenda
+              ? 'flex-1 w-full min-w-0 max-w-full mx-auto px-4 py-6 md:px-8 md:py-6 flex flex-col min-h-0 h-full overflow-hidden max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] max-md:h-auto max-md:overflow-visible'
+              : 'flex-1 w-full min-w-0 max-w-[1440px] mx-auto px-4 py-6 md:px-8 md:py-6 flex flex-col max-md:px-[0.875rem] max-md:py-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+          }
+        >
+          <div
+            key={location.pathname}
+            className={`w-full animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)_forwards] ${
+              isMinhaAgenda ? 'flex-1 min-h-0 flex flex-col' : ''
+            }`}
+          >
             <Outlet context={{ ...tenantInfo, professionalId: profissionalId, professionalName: barberName } satisfies BarbeiroContextType} />
           </div>
         </main>

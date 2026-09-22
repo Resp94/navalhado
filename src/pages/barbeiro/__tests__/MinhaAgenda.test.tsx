@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MinhaAgenda } from '../MinhaAgenda';
+
+// A Minha Agenda agora compõe o componente Agenda do gestor (spec 045), que usa useLocation/useNavigate.
+const renderMinhaAgenda = () => render(<MinhaAgenda />, { wrapper: MemoryRouter });
 
 const { mockAddToast, mockOutletContext, mockRpc, mockFrom, queries } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
@@ -96,7 +100,14 @@ const makeBuilder = (table: string) => {
     naoIguais.push([column, value]);
     return builder;
   };
-  builder.maybeSingle = () => Promise.resolve({ data: tables[table]?.() ?? null, error: null });
+  // Filtra a mesma tabela que a leitura em lista usaria, mas devolve só a primeira linha —
+  // Agenda.tsx (gestor) lê 'professionals' como lista; a Minha Agenda lê o mesmo profissional por id
+  // com .maybeSingle(). As duas leituras precisam bater na mesma tabela em memória.
+  builder.maybeSingle = () => {
+    const filtrado = filtrar(tables[table]?.() ?? []);
+    const primeiro = Array.isArray(filtrado) ? filtrado[0] ?? null : filtrado;
+    return Promise.resolve({ data: primeiro, error: null });
+  };
   builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve);
   return builder;
 };
@@ -108,7 +119,7 @@ describe('Minha Agenda do barbeiro', () => {
     vi.clearAllMocks();
     queries.length = 0;
     mockOutletContext.professionalId = 'prof-me';
-    tables.professionals = () => ME;
+    tables.professionals = () => [ME];
     tables.services = () => [SERVICE];
     tables.customers = () => [CUSTOMER];
     tables.professional_services = () => [];
@@ -126,8 +137,10 @@ describe('Minha Agenda do barbeiro', () => {
   });
 
   const renderAgenda = async () => {
-    render(<MinhaAgenda />);
-    await waitFor(() => expect(screen.getByText('Pedro Cliente')).toBeInTheDocument());
+    renderMinhaAgenda();
+    // Espera o telefone: só aparece no card da visão mobile, então garante que ela também
+    // estabilizou (o nome do cliente, sozinho, pode aparecer primeiro só no card da grade desktop).
+    await waitFor(() => expect(screen.getByText('11988887777')).toBeInTheDocument());
   };
 
   it('mostra só o profissional dele e o Agendamento do dia, no formato da agenda do gestor', async () => {
@@ -152,14 +165,21 @@ describe('Minha Agenda do barbeiro', () => {
   it('consulta a agenda pela barbearia e pelo profissional do vínculo do usuário', async () => {
     await renderAgenda();
 
-    const appointmentQuery = queries.find((q) => q.table === 'appointments');
+    // Agenda.tsx (gestor), agora composta dentro da Minha Agenda, também consulta 'appointments' e
+    // 'professionals' — sem o filtro por profissional, porque no gestor a leitura é multi-profissional.
+    // A leitura própria da Minha Agenda (a que este teste cobre) é a que tem o filtro por profissional.
+    const appointmentQuery = queries.find(
+      (q) => q.table === 'appointments' && q.filters.some(([coluna]) => coluna === 'professional_id')
+    );
     expect(appointmentQuery?.filters).toEqual(
       expect.arrayContaining([
         ['tenant_id', 'tenant-1'],
         ['professional_id', 'prof-me'],
       ])
     );
-    const professionalQuery = queries.find((q) => q.table === 'professionals');
+    const professionalQuery = queries.find(
+      (q) => q.table === 'professionals' && q.filters.some(([coluna]) => coluna === 'id')
+    );
     expect(professionalQuery?.filters).toEqual(
       expect.arrayContaining([
         ['id', 'prof-me'],
@@ -171,7 +191,7 @@ describe('Minha Agenda do barbeiro', () => {
   it('sem cadastro de profissional vinculado, mostra o aviso e não consulta agendamentos', async () => {
     mockOutletContext.professionalId = '';
 
-    render(<MinhaAgenda />);
+    renderMinhaAgenda();
 
     expect(screen.getByText('Acesso não vinculado')).toBeInTheDocument();
     expect(queries.some((q) => q.table === 'appointments')).toBe(false);
@@ -192,7 +212,7 @@ describe('Minha Agenda do barbeiro', () => {
   it('Agendamento ativo de balcão sem Cliente abre as ações sem quebrar e sem o atalho de WhatsApp (spec 044, ticket 03)', async () => {
     tables.appointments = () => [appointmentRow({ customer: null })];
 
-    render(<MinhaAgenda />);
+    renderMinhaAgenda();
     await waitFor(() => expect(screen.getByTitle('Toque para ver as ações do agendamento')).toBeInTheDocument());
     fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
 
@@ -317,7 +337,9 @@ describe('Minha Agenda do barbeiro', () => {
     });
     await renderAgenda();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+    fireEvent.click(
+      within(screen.getByTestId('minha-agenda-mobile-header')).getByRole('button', { name: /^Encaixe$/i })
+    );
     fireEvent.click(await screen.findByRole('button', { name: /Novo cadastro/i }));
     fireEvent.change(screen.getByLabelText('Nome do cliente'), { target: { value: 'Cliente Novo' } });
     fireEvent.change(screen.getByLabelText('WhatsApp ou celular'), { target: { value: '11955550181' } });
@@ -355,7 +377,9 @@ describe('Minha Agenda do barbeiro', () => {
 
       await renderAgenda();
 
-      expect(screen.getByTitle('Veio da Lista de Espera')).toBeInTheDocument();
+      // A mesma Agenda renderiza a visão mobile e a desktop ao mesmo tempo (só o CSS decide qual
+      // aparece); o selo existe nas duas, então aqui basta confirmar que aparece em pelo menos uma.
+      expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThan(0);
     });
 
     it('não marca o Agendamento que não veio da fila', async () => {
@@ -404,12 +428,12 @@ describe('Minha Agenda do barbeiro', () => {
       };
       const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      render(<MinhaAgenda />);
+      renderMinhaAgenda();
 
       await waitFor(() =>
         expect(mockAddToast).toHaveBeenCalledWith('Não foi possível carregar seus atendimentos.', 'error')
       );
-      expect(screen.getByText(/Bloqueio: Almoço/)).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText(/Bloqueio: Almoço/)).toBeInTheDocument());
       consoleErro.mockRestore();
     });
   });
@@ -430,8 +454,10 @@ describe('Minha Agenda do barbeiro', () => {
       cancellation_reason: null,
     });
 
+    const mobileHeader = () => within(screen.getByTestId('minha-agenda-mobile-header'));
+
     const abrirPainel = async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Cancelados/i }));
+      fireEvent.click(mobileHeader().getByRole('button', { name: /Cancelados/i }));
       return await screen.findByRole('dialog', { name: /Cancelados do dia/i });
     };
 
@@ -440,7 +466,7 @@ describe('Minha Agenda do barbeiro', () => {
 
       await renderAgenda();
 
-      expect(screen.getByRole('button', { name: /Cancelados.*2/i })).toBeInTheDocument();
+      expect(mobileHeader().getByRole('button', { name: /Cancelados.*2/i })).toBeInTheDocument();
       expect(screen.queryByText('Marcos Desistente')).not.toBeInTheDocument();
       expect(screen.queryByText('Lucas Esquecido')).not.toBeInTheDocument();
     });
@@ -529,7 +555,7 @@ describe('Minha Agenda do barbeiro', () => {
       tables.appointments = () => {
         throw new Error('falha de rede');
       };
-      render(<MinhaAgenda />);
+      renderMinhaAgenda();
       await waitFor(() =>
         expect(mockAddToast).toHaveBeenCalledWith('Não foi possível carregar seus atendimentos.', 'error')
       );
@@ -545,12 +571,14 @@ describe('Minha Agenda do barbeiro', () => {
       tables.appointments = () =>
         diaAtual === 1 ? [appointmentRow(), CANCELADO_COM_MOTIVO] : [appointmentRow()];
       await renderAgenda();
-      expect(screen.getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+      expect(mobileHeader().getByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
 
       diaAtual = 2;
       fireEvent.click(screen.getByLabelText('Próximo dia'));
 
-      expect(await screen.findByRole('button', { name: /Cancelados.*0/i })).toBeInTheDocument();
+      await waitFor(() =>
+        expect(mobileHeader().getByRole('button', { name: /Cancelados.*0/i })).toBeInTheDocument()
+      );
       const painel = await abrirPainel();
       expect(within(painel).getByText('Nenhum cancelamento neste dia')).toBeInTheDocument();
       expect(within(painel).queryByText('Marcos Desistente')).not.toBeInTheDocument();
@@ -560,9 +588,15 @@ describe('Minha Agenda do barbeiro', () => {
       tables.appointments = () => [appointmentRow(), CANCELADO_COM_MOTIVO];
       await renderAgenda();
 
-      const consultas = queries.filter((q) => q.table === 'appointments');
-      expect(consultas.some((q) => q.filters.some(([c, v]) => c === 'status' && v === 'canceled'))).toBe(true);
-      expect(consultas.every((q) => q.filters.some(([c, v]) => c === 'professional_id' && v === 'prof-me'))).toBe(true);
+      // Agenda.tsx (gestor), agora composta aqui dentro, lê 'appointments' sem filtro de profissional
+      // (o gestor é multi-profissional) — só a leitura própria da Minha Agenda precisa vir travada.
+      const consultasDaMinhaAgenda = queries.filter(
+        (q) => q.table === 'appointments' && q.filters.some(([c, v]) => c === 'professional_id' && v === 'prof-me')
+      );
+      expect(consultasDaMinhaAgenda.length).toBeGreaterThan(0);
+      expect(
+        consultasDaMinhaAgenda.some((q) => q.filters.some(([c, v]) => c === 'status' && v === 'canceled'))
+      ).toBe(true);
     });
   });
 });

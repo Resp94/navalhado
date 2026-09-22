@@ -327,7 +327,29 @@ const getAppointmentCardClasses = (cardState: string, isFitting: boolean) => {
   return `absolute rounded-md py-[0.4rem] px-[0.55rem] z-10 flex flex-col justify-start gap-1 min-h-[69px] overflow-hidden box-border bg-bg-secondary shadow-sm border cursor-pointer transition-[box-shadow,border-color] duration-75 hover:shadow-md hover:border-brand-primary/45 hover:z-[15] ${statusClass} ${borderLeftClass}`;
 };
 
-export const Agenda: React.FC = () => {
+interface AgendaProps {
+  /**
+   * Trava a grade a um único profissional (a Minha Agenda do barbeiro): oculta filtro de equipe,
+   * alternância Dia/Semana e Lista de Espera, e desvia o clique no Agendamento para
+   * `onLockedAppointmentAction` em vez do Checkout de Comanda (exclusivo do gestor).
+   */
+  lockedProfessionalId?: string;
+  onLockedAppointmentAction?: (app: Appointment) => void;
+  /**
+   * Data exibida, sob controle de quem usa o componente (a Minha Agenda do barbeiro acompanha o dia
+   * navegado para os próprios botões de Novo Agendamento/Encaixe/Bloqueio). Sem os dois, `Agenda`
+   * guarda a data internamente, como sempre guardou.
+   */
+  selectedDate?: string;
+  onSelectedDateChange?: (date: string) => void;
+}
+
+export const Agenda: React.FC<AgendaProps> = ({
+  lockedProfessionalId,
+  onLockedAppointmentAction,
+  selectedDate: controlledSelectedDate,
+  onSelectedDateChange,
+}) => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
   const agendaRepo = useAgenda();
@@ -346,9 +368,12 @@ export const Agenda: React.FC = () => {
 
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string>(() =>
+  const [internalSelectedDate, setInternalSelectedDate] = useState<string>(() =>
     dateInZone(new Date(), tenant.timezone)
   );
+  // Controlada por quem usa o componente quando informada (Minha Agenda do barbeiro); senão, interna.
+  const selectedDate = controlledSelectedDate ?? internalSelectedDate;
+  const setSelectedDate = onSelectedDateChange ?? setInternalSelectedDate;
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
@@ -719,7 +744,9 @@ export const Agenda: React.FC = () => {
         professional_services: servicesByProfessional.get(professional.id) || [],
       }));
       setProfessionals(activeProfs);
-      setSelectedProfessionalIds(activeProfs.map((p) => p.id));
+      setSelectedProfessionalIds(
+        lockedProfessionalId ? [lockedProfessionalId] : activeProfs.map((p) => p.id)
+      );
       if (activeProfs.length > 0 && !selectedWeekProfId) {
         setSelectedWeekProfId(activeProfs[0].id);
       }
@@ -729,7 +756,7 @@ export const Agenda: React.FC = () => {
       console.error('Erro ao carregar dados base da agenda:', err);
       addToast('Não foi possível carregar profissionais e serviços.', 'error');
     }
-  }, [tenant.tenantId, addToast, selectedWeekProfId]);
+  }, [tenant.tenantId, addToast, selectedWeekProfId, lockedProfessionalId]);
 
   // Carregar Bloqueios de Horário. Leitura própria: a falha dela não esconde os Agendamentos.
   const fetchBlockedSlots = useCallback(async () => {
@@ -860,14 +887,14 @@ export const Agenda: React.FC = () => {
     isViewTransitioningRef.current = true;
     setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? -7 : -1;
-    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
+    setSelectedDate(shiftCalendarDate(selectedDate, shift));
   };
 
   const handleNextDay = () => {
     isViewTransitioningRef.current = true;
     setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? 7 : 1;
-    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
+    setSelectedDate(shiftCalendarDate(selectedDate, shift));
   };
 
   const handleToday = () => {
@@ -1036,6 +1063,10 @@ export const Agenda: React.FC = () => {
   const handleOpenCheckout = (app: Appointment) => {
     if (app.status === 'no_show') {
       addToast('Este atendimento foi marcado como não compareceu e não pode gerar movimento financeiro.', 'warning');
+      return;
+    }
+    if (lockedProfessionalId) {
+      onLockedAppointmentAction?.(app);
       return;
     }
     setCheckoutAppointment(app);
@@ -1296,10 +1327,11 @@ export const Agenda: React.FC = () => {
           businessHours={tenant.businessHours}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          professionals={professionals}
+          professionals={lockedProfessionalId ? visibleProfessionals : professionals}
           appointments={appointments}
           blockedSlots={blockedSlots}
           timeSlots={timeSlots}
+          cardActionHint={lockedProfessionalId ? 'ver as ações do agendamento' : undefined}
           onOpenNewAppointment={(profId, slot, isFitting) =>
             handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
@@ -1333,23 +1365,25 @@ export const Agenda: React.FC = () => {
           </div>
 
         <div className="flex items-center flex-wrap gap-3">
-          {/* Seletor de Escopo Temporal: Dia vs Semana */}
-          <div className="flex items-center p-[3px] bg-white border border-border rounded-md gap-0.5">
-            <button
-              type="button"
-              onClick={() => handleViewModeChange('day')}
-              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-primary text-black hover:text-black' : 'bg-transparent text-text-secondary'}`}
-            >
-              Dia
-            </button>
-            <button
-              type="button"
-              onClick={() => handleViewModeChange('week')}
-              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'week' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
-            >
-              Semana
-            </button>
-          </div>
+          {/* Seletor de Escopo Temporal: Dia vs Semana (oculto no modo travado ao profissional) */}
+          {!lockedProfessionalId && (
+            <div className="flex items-center p-[3px] bg-white border border-border rounded-md gap-0.5">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('day')}
+                className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-primary text-black hover:text-black' : 'bg-transparent text-text-secondary'}`}
+              >
+                Dia
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('week')}
+                className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'week' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
+              >
+                Semana
+              </button>
+            </div>
+          )}
 
           {/* Navegação de Datas */}
           <div className="flex items-center bg-white/80 border border-border rounded-md relative">
@@ -1420,27 +1454,31 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
 
-          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) */}
-          <AgendaEquipeFilter
-            professionals={professionals}
-            selectedProfessionalIds={selectedProfessionalIds}
-            onToggleProfessional={toggleProfessionalFilter}
-            onSelectAllProfessionals={() =>
-              setSelectedProfessionalIds(professionals.map((p) => p.id))
-            }
-          />
+          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) — oculto no modo travado ao profissional */}
+          {!lockedProfessionalId && (
+            <AgendaEquipeFilter
+              professionals={professionals}
+              selectedProfessionalIds={selectedProfessionalIds}
+              onToggleProfessional={toggleProfessionalFilter}
+              onSelectAllProfessionals={() =>
+                setSelectedProfessionalIds(professionals.map((p) => p.id))
+              }
+            />
+          )}
 
-          {/* Botão Fila de Espera */}
-          <Tooltip content="Ver fila de clientes aguardando no balcão">
-            <button
-              type="button"
-              className={HEADER_SECONDARY_BUTTON_CLASS}
-              onClick={() => setIsEsperaDrawerOpen(true)}
-            >
-              <HugeiconsIcon icon={UserGroupIcon} size={16} />
-              <span>Espera</span>
-            </button>
-          </Tooltip>
+          {/* Botão Fila de Espera — oculto no modo travado ao profissional */}
+          {!lockedProfessionalId && (
+            <Tooltip content="Ver fila de clientes aguardando no balcão">
+              <button
+                type="button"
+                className={HEADER_SECONDARY_BUTTON_CLASS}
+                onClick={() => setIsEsperaDrawerOpen(true)}
+              >
+                <HugeiconsIcon icon={UserGroupIcon} size={16} />
+                <span>Espera</span>
+              </button>
+            </Tooltip>
+          )}
 
           {/* Botão Cancelados do dia */}
           <Tooltip content="Ver os atendimentos cancelados do dia e o motivo">
@@ -1765,7 +1803,11 @@ export const Agenda: React.FC = () => {
                                 className={getAppointmentCardClasses(cardState, app.is_fitting)}
                                 data-testid="appointment-card"
                                 onClick={() => handleOpenCheckout(app)}
-                                title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
+                                title={
+                                  lockedProfessionalId
+                                    ? `Clique para ver as ações de ${app.customer?.name || 'Cliente'}`
+                                    : `Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`
+                                }
                                 style={{
                                   top: `${layout.topPx}px`,
                                   height: `${layout.heightPx}px`,
@@ -2245,20 +2287,22 @@ export const Agenda: React.FC = () => {
         onAtualizar={fetchAppointments}
       />
 
-      {/* 7. GAVETA DE LISTA DE ESPERA */}
-      <ListaEsperaDrawer
-        isOpen={isEsperaDrawerOpen}
-        tenantId={tenant.tenantId}
-        currentDateIso={selectedDate}
-        professionals={professionals}
-        services={services}
-        onClose={() => {
-          setIsEsperaDrawerOpen(false);
-          clearActionUrl();
-        }}
-        onEncaixar={handleEncaixarFromWaitingList}
-        esperaRepo={esperaRepository}
-      />
+      {/* 7. GAVETA DE LISTA DE ESPERA — oculta no modo travado ao profissional */}
+      {!lockedProfessionalId && (
+        <ListaEsperaDrawer
+          isOpen={isEsperaDrawerOpen}
+          tenantId={tenant.tenantId}
+          currentDateIso={selectedDate}
+          professionals={professionals}
+          services={services}
+          onClose={() => {
+            setIsEsperaDrawerOpen(false);
+            clearActionUrl();
+          }}
+          onEncaixar={handleEncaixarFromWaitingList}
+          esperaRepo={esperaRepository}
+        />
+      )}
 
       {/* 8. PAINEL DE CANCELADOS DO DIA */}
       <PainelCanceladosDoDia

@@ -18,7 +18,7 @@ import { Badge } from '../../components/ui/data-display/Badge';
 import { ReagendarAgendamentoModal } from '../../components/agenda/ReagendarAgendamentoModal';
 import { motivoRecusaNaoCompareceu } from '../../components/agenda/useMarcarNaoCompareceu';
 import { useAgenda } from '../../modules/agenda/useAgenda';
-import { MobileAgendaView } from '../gerente/mobile/MobileAgendaView';
+import { Agenda } from '../gerente/Agenda';
 import type { Appointment, Customer, Professional, Service } from '../gerente/Agenda';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
 import { SupabaseBloqueioAdapter } from '../../modules/bloqueios/adapters/SupabaseBloqueioAdapter';
@@ -75,7 +75,6 @@ export const MinhaAgenda: React.FC = () => {
     abrirCancelados,
     fecharCancelados,
   } = useCanceladosDoDia();
-  const [loading, setLoading] = useState(true);
   // Só a resposta da consulta mais recente vale: ao trocar de dia rápido, a antiga chega depois e
   // mostraria os atendimentos de outro dia sob a data nova.
   const latestDayRequest = useRef(0);
@@ -108,32 +107,28 @@ export const MinhaAgenda: React.FC = () => {
   const fetchDay = useCallback(async () => {
     if (!tenantId || !professionalId) return;
     const requestId = ++latestDayRequest.current;
-    try {
-      const { start, endExclusive } = localDayUtcRange(selectedDate, timezone);
-      const intervalo = { startIso: start, endExclusiveIso: endExclusive };
-      // Duas leituras independentes: a falha de uma não esconde a outra.
-      const [agendamentos, bloqueios] = await Promise.allSettled([
-        agendaRepo.carregarAgendamentosDoDia(tenantId, { professionalId, ...intervalo, incluirCancelados: true }),
-        agendaRepo.carregarBloqueiosDoDia(tenantId, intervalo),
-      ]);
-      if (requestId !== latestDayRequest.current) return;
+    const { start, endExclusive } = localDayUtcRange(selectedDate, timezone);
+    const intervalo = { startIso: start, endExclusiveIso: endExclusive };
+    // Duas leituras independentes: a falha de uma não esconde a outra.
+    const [agendamentos, bloqueios] = await Promise.allSettled([
+      agendaRepo.carregarAgendamentosDoDia(tenantId, { professionalId, ...intervalo, incluirCancelados: true }),
+      agendaRepo.carregarBloqueiosDoDia(tenantId, intervalo),
+    ]);
+    if (requestId !== latestDayRequest.current) return;
 
-      if (bloqueios.status === 'fulfilled') {
-        setBlockedSlots(bloqueios.value);
-      } else {
-        console.error('Erro ao carregar os bloqueios do barbeiro:', bloqueios.reason);
-      }
+    if (bloqueios.status === 'fulfilled') {
+      setBlockedSlots(bloqueios.value);
+    } else {
+      console.error('Erro ao carregar os bloqueios do barbeiro:', bloqueios.reason);
+    }
 
-      if (agendamentos.status === 'fulfilled') {
-        setAppointments(agendamentos.value.appointments);
-        registrarCancelados(agendamentos.value.canceledAppointments);
-      } else {
-        console.error('Erro ao carregar a agenda do barbeiro:', agendamentos.reason);
-        registrarCancelados('falhou');
-        addToast('Não foi possível carregar seus atendimentos.', 'error');
-      }
-    } finally {
-      if (requestId === latestDayRequest.current) setLoading(false);
+    if (agendamentos.status === 'fulfilled') {
+      setAppointments(agendamentos.value.appointments);
+      registrarCancelados(agendamentos.value.canceledAppointments);
+    } else {
+      console.error('Erro ao carregar a agenda do barbeiro:', agendamentos.reason);
+      registrarCancelados('falhou');
+      addToast('Não foi possível carregar seus atendimentos.', 'error');
     }
   }, [agendaRepo, tenantId, professionalId, selectedDate, timezone, addToast, registrarCancelados]);
 
@@ -142,10 +137,7 @@ export const MinhaAgenda: React.FC = () => {
   }, [loadSupportData]);
 
   useEffect(() => {
-    if (!professionalId) {
-      setLoading(false);
-      return;
-    }
+    if (!professionalId) return;
     void fetchDay();
 
     if (typeof supabase.channel !== 'function') return;
@@ -240,8 +232,10 @@ export const MinhaAgenda: React.FC = () => {
   const canCancel = (app: Appointment) => ACTIVE_STATUSES_TO_CANCEL.includes(app.status);
 
   return (
-    <div className="max-w-[640px] w-full mx-auto flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
+    <div className="w-full h-full min-h-0 flex-1 flex flex-col gap-3 max-md:h-auto max-md:max-w-[640px] max-md:mx-auto">
+      {/* Cabeçalho próprio do barbeiro, só no mobile: no desktop, o mesmo cabeçalho da Grade Temporal
+          (componente Agenda, abaixo) já oferece Encaixe, Bloquear horário e Cancelados. */}
+      <div data-testid="minha-agenda-mobile-header" className="hidden max-md:flex max-md:flex-wrap gap-2">
         <button
           type="button"
           className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md border-none bg-brand-primary text-brand-lightest text-sm font-bold cursor-pointer transition-colors duration-150 hover:bg-brand-hover"
@@ -279,27 +273,15 @@ export const MinhaAgenda: React.FC = () => {
         </button>
       </div>
 
-      {loading ? (
-        <div className="h-[220px] w-full rounded-lg bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
-      ) : (
-        <MobileAgendaView
-          timezone={timezone}
-          businessHours={businessHours}
+      {/* Grade Temporal: componente Agenda do gestor, travado ao profissional autenticado (spec 045). */}
+      <div className="flex-1 min-h-0 max-md:flex-none">
+        <Agenda
+          lockedProfessionalId={professionalId}
+          onLockedAppointmentAction={setActionAppointment}
           selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          professionals={professionals}
-          appointments={appointments}
-          blockedSlots={blockedSlots}
-          timeSlots={timeSlots}
-          cardActionHint="ver as ações do agendamento"
-          onOpenNewAppointment={(_professionalId, timeSlot, isFitting) =>
-            abrirNovo({ isFitting: Boolean(isFitting), time: timeSlot })
-          }
-          onOpenCheckout={setActionAppointment}
-          onMarkNoShow={handleMarkNoShow}
-          onRemoveBlock={setBlockPendingRemoval}
+          onSelectedDateChange={setSelectedDate}
         />
-      )}
+      </div>
 
       {/* Ações do Agendamento */}
       <MobileBottomSheet
