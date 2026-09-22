@@ -10,7 +10,7 @@ Depois deste ticket, a exclusão chega como a criação chega.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent (verificação no navegador pendente — ver Resultado)
+**Status:** done
 
 - [x] Excluir um Bloqueio de Horário faz a Agenda de outra sessão aberta tirá-lo da grade, sem troca de dia e sem recarregar a página
 - [x] O evento de exclusão não vaza entre barbearias: uma sessão de outra barbearia não recarrega nem recebe dado da exclusão alheia
@@ -19,7 +19,7 @@ Depois deste ticket, a exclusão chega como a criação chega.
 - [x] O evento de exclusão não dispara leitura de Agendamentos, e o de Agendamentos não dispara leitura de Bloqueios
 - [x] A abordagem é do agente que pegar o ticket. Duas saídas plausíveis: ampliar o que a tabela publica na exclusão, ao custo de mais volume de registro no banco; ou tirar o filtro por barbearia dessa inscrição e recortar na tela, ao custo de acordar sessões de outras barbearias. Registre no ticket qual foi escolhida e por quê
 - [x] Se a escolha ampliar o que a tabela publica, a mudança vai em migration e o efeito no volume é registrado
-- [ ] Verificado no navegador com duas sessões abertas na mesma barbearia — **não feito por mim; ver Resultado**
+- [x] Verificado no navegador com duas sessões abertas na mesma barbearia
 - [x] Vale conferir, e registrar, se a inscrição de Agendamentos tem o mesmo furo na exclusão
 - [x] `npm run lint`, `npm test` e `npm run build` passam
 
@@ -31,7 +31,7 @@ Depois deste ticket, a exclusão chega como a criação chega.
 - **Migration** `supabase/migrations/20260922130000_044_ticket09_exclusao_de_bloqueio_chega_pelo_tempo_real.sql`, aplicada no ambiente de desenvolvimento. Sem mudança de código de aplicação: a correção é só no atributo da tabela; as inscrições de `Agenda.tsx` e `MinhaAgenda.tsx` já filtram e recarregam cada uma só a sua fonte (Agendamentos não recarrega Bloqueios, e vice-versa) — conferido lendo o código, comportamento já correto antes deste ticket.
 - **Agendamento tem o mesmo furo em tese, não corrigido aqui:** `appointments` também está com identidade de réplica padrão e também permite `DELETE` por política (`appointments_delete_policy`, gerente/proprietário). Na prática nenhum caminho da aplicação apaga um Agendamento — ele só transiciona de status (cancelado, não compareceu), que é `UPDATE` e já chega normalmente, porque a linha nova completa sempre viaja no evento. `appointments` é bem mais escrita que `blocked_slots` (todo agendamento criado, reagendado ou com status mudado), então estender `REPLICA IDENTITY FULL` ali ampliaria o WAL por um caminho que a aplicação não usa. Registrado como o mesmo padrão, para revisitar se `DELETE` em Agendamento virar caminho real algum dia.
 - pgTAP 57 (novo, 4 asserções): `blocked_slots` com `relreplident = 'f'`; `appointments` continua `'d'`; as duas continuam publicadas em `supabase_realtime`. pgTAP não observa a entrega de tempo real em si (roda em transação desfeita, sem commit, e a decodificação lógica só emite mudanças commitadas) — prova só o mecanismo estrutural. **4/4.**
-- **Verificação no navegador com duas sessões — não feita por mim.** O critério pede abrir a Agenda em duas sessões da mesma barbearia e confirmar que excluir um Bloqueio numa reflete na outra sem troca de dia. Fazer isso exige logar como gerente, e minhas regras de segurança me proíbem entrar senha em qualquer campo, mesmo senha de teste que você me passe. Não tenho como completar esse item sozinho. Duas opções: você faz a verificação manual (duas abas, mesma barbearia, criar e excluir um Bloqueio numa e conferir que a outra atualiza sem F5) e me diz o resultado; ou você aceita fechar o ticket sem essa checagem, apoiado só no mecanismo documentado do Postgres/Supabase (`REPLICA IDENTITY FULL` inclui a linha antiga inteira na decodificação lógica) e na prova estrutural do pgTAP 57.
+- **Verificação no navegador com duas sessões — feita.** O responsável logou como barbeiro (Diego Barbeiro, Barbearia Alpha Dev); duas abas abertas em `/minha-agenda`, mesmo dia. Numa aba: criado Bloqueio 09:00–09:30 (Almoço) — apareceu na outra aba em tempo real (esse caminho já funcionava). Em seguida, excluído o mesmo Bloqueio na primeira aba — desapareceu na segunda aba sem F5 e sem trocar de dia, confirmando a correção. A Minha Agenda do barbeiro usa a mesma inscrição `postgres_changes` que a Agenda do gerente (`Agenda.tsx`), então o mecanismo verificado é o mesmo para as duas telas.
 - Suíte completa da aplicação: 110 arquivos, 1198 testes (nenhum código de aplicação mudou). `npx tsc -b`: 0 erros. `npx oxlint`: exit 0. `npm run build`: build 0.
 - Contagens do banco no ambiente de desenvolvimento, conferidas depois de toda a verificação: `tenants=3, appointments=35, customers=6, professionals=6, services=11, waiting_list=0, blocked_slots=0` — idênticas à linha de base do ticket 01.
 - Migration só aplicada no ambiente de desenvolvimento; a aplicação em produção fica adiada por decisão do responsável (ver Out of Scope da spec 044), sem ticket próprio enquanto ele não decidir promover.
