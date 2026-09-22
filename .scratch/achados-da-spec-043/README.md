@@ -1,5 +1,7 @@
 # Achados da spec 043
 
+> **Substituída pela spec 044 em 2026-09-22.** Os tickets válidos estão em `.scratch/044-achados-da-spec-043/issues/`, e a spec em `specs/044-achados-da-spec-043/spec.md`. A spec 044 renumerou os tickets 15 a 17 desta pasta para 18 a 20, acrescentou três tickets novos (15, 16 e 17) e traz a tabela de rastreabilidade de cada achado. Esta pasta fica como histórico e não deve ser trabalhada.
+
 Esta pasta não é uma spec. São os achados, débitos e provas pendentes que a implementação da spec 043 (Motivo de Cancelamento visível) deixou registrados nos próprios tickets, reunidos aqui como trabalho independente. Cada ticket cita onde o achado foi registrado.
 
 Os oito tickets da spec 043 estão fechados e mesclados em `dev`. Nenhum item desta pasta é pré-requisito daqueles; todos são posteriores.
