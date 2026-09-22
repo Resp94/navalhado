@@ -10,6 +10,8 @@ Hoje o Motivo de Cancelamento de um Agendamento é escrito por três caminhos e,
 
 1. **O barbeiro é obrigado a justificar e não pode reler.** Ao cancelar pela Minha Agenda, o barbeiro preenche um motivo obrigatório. Esse texto é gravado em `appointments.cancellation_reason` e desaparece da interface no instante seguinte. Mesma coisa para o gerente na Agenda.
 2. **O cliente justifica e ninguém na barbearia fica sabendo.** No Canal do Cliente o motivo é opcional; quando o cliente não escreve nada, o banco grava o texto padrão `Cancelado pelo cliente`. Quando ele escreve de verdade — "fiquei doente", "consegui em outro horário" — esse texto não chega a nenhuma tela do gerente nem do barbeiro.
+
+   > **Nota de entrega (2026-09-22, spec 044, ticket 19):** quem monta o texto padrão não é o banco, é o adaptador do Canal do Cliente, no front, antes de chamar a RPC de cancelamento — hoje como a constante `MOTIVO_CANCELAMENTO_PADRAO_CLIENTE` (`src/modules/canal-cliente/types.ts`), reusada nos quatro pontos que gravam o texto (spec 044, ticket 16). Cancelamento sem motivo gravado antes desta distinção existir aparece no Painel de Cancelados do Dia e no relatório como "Sem motivo informado", não como o texto padrão — os dois casos ficam visualmente distintos.
 3. **O texto de cada cancelamento só é lido, individualmente, pelo próprio cliente.** O motivo de um Agendamento específico aparece em um único componente da aplicação, a linha do tempo de histórico do Canal do Cliente. É a página do cliente lendo de volta o que a barbearia escreveu. O gerente tem uma visão apenas **agregada**: o relatório de agenda lista os dez motivos mais frequentes do período, com contagem, no cartão "Motivos de cancelamento". Esse relatório normaliza o texto (tira espaços e caixa) para agrupar, não diz qual Agendamento nem qual cliente, não diz quem cancelou, e não é acessível ao barbeiro. Também não distingue o motivo real do texto de preenchimento gravado quando o cliente não escreve nada, de modo que `cancelado pelo cliente` tende a dominar o ranking sem dizer nada.
 4. **Agendamento cancelado é invisível nas duas agendas.** As duas rotas de leitura filtram `status = 'canceled'` antes de devolver dados para a tela. Não existe nenhuma superfície no painel do gerente ou do barbeiro que liste, Agendamento a Agendamento, o que foi cancelado no dia.
 5. **Não se sabe quem cancelou.** Não há coluna de autoria. O único indício é o texto padrão do cliente, que some assim que ele digita um motivo real. O gerente não consegue responder a pergunta operacional mais básica diante de um horário vago: o cliente desmarcou ou fomos nós que desmarcamos?
@@ -24,6 +26,8 @@ A gaveta da Lista de Espera oferece um campo de observação. A recepção usa e
 7. **A coluna nunca existiu.** A tabela da Lista de Espera foi criada sem campo de observação e nenhuma migração posterior acrescentou um. O banco não tem onde guardar o texto.
 8. **A aplicação finge que tem.** O tipo de domínio da Lista de Espera declara o campo de observação, a gaveta coleta o texto e o entrega ao repositório. O adaptador que fala com o banco monta a carga de inserção sem esse campo e, na leitura, nunca o copia de volta. O descarte é silencioso: ninguém recebe erro, o registro é criado, a recepção acredita que anotou.
 9. **Duas consequências visíveis.** O cartão da própria gaveta tenta exibir a observação e sempre encontra vazio. E o encaixe criado a partir da Lista de Espera monta a nota do Agendamento a partir dessa observação, caindo invariavelmente no texto genérico de origem — o contexto que a recepção escreveu não chega ao barbeiro que vai atender.
+
+   > **Nota de entrega (2026-09-22, spec 044, ticket 19):** o "marcador genérico de origem" citado aqui era o prefixo de texto `[Fila de Espera]` que a nota carregava antes da correção — um problema de nota, não de origem no sentido de canal de entrada. O ticket 07 da spec 043 (ver `.scratch/043-motivo-de-cancelamento-visivel/issues/07-...md`) chegou a propor um valor novo na coluna `origin` para marcar o encaixe, mas a decisão registrada nesse mesmo ticket mudou o desenho antes da entrega: coluna booleana própria (`appointments.from_waiting_list`), `origin` nunca tocada, nota passando a levar só a observação. O relatório "Agendamentos por origem" nunca teve linha nova; a medida de quantos Agendamentos vieram da Lista de Espera só chegou ao relatório depois, pelo ticket 17 da spec 044.
 10. **O teste não pega.** O módulo da Lista de Espera é o único do projeto sem adaptador em memória próprio; o teste do repositório usa um dublê declarado dentro do próprio arquivo, que guarda a observação como se o banco guardasse. A suíte fica verde exatamente sobre o campo que se perde em produção.
 11. **Há uma segunda divergência do mesmo tipo.** O tipo de domínio também declara um carimbo de atualização que não existe na tabela. Ninguém lê esse campo hoje, então não há sintoma — mas é a mesma fresta pela qual o defeito da observação passou.
 
@@ -136,6 +140,10 @@ A coluna é escrita exclusivamente pelas RPCs de cancelamento já existentes, nu
 - A RPC de cancelamento pelo gestor — usada tanto pela Agenda do gerente quanto pela Minha Agenda do barbeiro — grava autoria de barbearia.
 - As duas RPCs do Canal do Cliente, a por token e a por sessão pública, gravam autoria de cliente.
 
+> **Nota de entrega (2026-09-22, spec 044, ticket 19):** são quatro funções, não três. A RPC que cancela Comanda e Agendamento juntos pela tela de Comandas (`cancel_comanda_appointment`) também grava autoria de barbearia — o ticket 06 da spec 043 a incluiu na autoria, mas deixou de fora do escopo gravar o Motivo de Cancelamento por essa via, o que fazia esses cancelamentos aparecerem como "Sem motivo informado" mesmo quando a recepção não tinha motivo nenhum pra dar. O ticket 07 da spec 044 fechou essa lacuna: cancelar pela tela de Comandas agora pede e grava o motivo, como a Agenda já fazia.
+>
+> Também: "escrita exclusivamente pelas RPCs" descreve o comportamento da aplicação, não uma garantia do banco. Até o ticket 08 da spec 044, nada impedia um `UPDATE` direto na coluna por quem tivesse privilégio de escrita na tabela — a exclusividade era de fato, não de política. O ticket 08 da spec 044 revogou a escrita direta e a protegeu só pelas RPCs `SECURITY DEFINER`.
+
 Decisão consciente de **não** distinguir gerente de barbeiro nesta coluna. As duas telas chamam a mesma RPC e o banco hoje não identifica o autor individual nessa função. Distinguir exigiria propagar identidade de usuário por um caminho que não existe, o que é escopo maior do que o problema pede. "Barbearia" contra "cliente" é a distinção que responde à pergunta operacional.
 
 Registros anteriores permanecem nulos. Nenhum backfill por heurística de texto: inferir autoria a partir da frase padrão produziria histórico falso para clientes que escreveram motivo próprio.
@@ -171,6 +179,8 @@ A Agenda do gerente hoje monta uma consulta própria na tabela de Agendamento de
 
 Escopo restrito à leitura de Agendamento. As demais consultas da página — profissionais, serviços, clientes, Bloqueios de Horário — não são tocadas nesta spec. O objetivo é eliminar a duplicação do contrato de Agendamento, não refatorar a tela inteira.
 
+> **Nota de entrega (2026-09-22, spec 044, ticket 19):** a leitura de Bloqueios de Horário acabou tocada, mas não pela migração da Agenda do gerente para o repositório — pelo ticket 08 da spec 043, que dividiu o que antes era uma consulta só (Agendamentos e Bloqueios juntos) em duas consultas separadas, cada uma com o próprio tratamento de falha. A decisão registrada aqui (não tocar Bloqueios) valeu para esta parte da spec; o ticket 08 é trabalho posterior, dentro da própria spec 043, que mudou esse contrato por outro motivo (isolar a falha de um dos dois lados).
+
 A filtragem por profissional selecionado continua acontecendo na tela, como hoje, já que é estado de interface e não regra de negócio.
 
 ### 4. Painel de Cancelados do Dia
@@ -204,6 +214,8 @@ Correção independente das decisões 1 a 5. Não compartilha tabela, módulo ne
 ### 7. Design System
 
 O painel usa exclusivamente componentes já catalogados em `src/components/ui`, sem componente novo: gaveta, estado vazio, selo e diálogo já existem e cobrem a tela.
+
+> **Nota de entrega (2026-09-22, spec 044, ticket 19):** "sem componente novo" foi lido como sem componente novo *na biblioteca de interface* (`src/components/ui`), não como zero arquivo novo. O Painel de Cancelados do Dia em si é um componente novo — `PainelCanceladosDoDia` (`src/components/agenda/`) — só que ele é um componente de **domínio da Agenda**, montado inteiramente com peças já catalogadas da biblioteca (`Drawer`, `EmptyState`, `Badge`, `Button`), igual ao resto da árvore de componentes de Agenda já existente antes desta spec. A leitura restritiva (nenhum arquivo `.tsx` novo em lugar nenhum) teria sido incompatível com o próprio pedido de um painel novo.
 
 Regras que valem aqui:
 
@@ -243,6 +255,8 @@ Limite desta costura, que precisa ficar explícito para ninguém se enganar: o a
 - Autoria de cliente no cancelamento feito pela via do Canal do Cliente.
 - Agendamento cancelado sem autoria registrada volta com autoria nula, sem erro.
 - O intervalo do dia continua exclusivo no limite superior, para cancelado como já é para ativo.
+
+> **Nota de entrega (2026-09-22, spec 044, ticket 19):** os três casos de autoria acima (barbearia, cliente, nula) não ficaram no repositório de agenda contra o adaptador em memória — foram substituídos por pgTAP contra as RPCs reais. No adaptador em memória, gravar e ler autoria seria afirmação por construção: o fake não tem uma RPC real gravando o valor, então o teste provaria só que o fake devolve o que ele mesmo recebeu, não que a autoria certa é gravada por cada via de cancelamento. Essa garantia só o pgTAP tem autoridade para afirmar — mesmo raciocínio já registrado nesta spec para o escopo de visibilidade de cancelado, aplicado aqui também.
 
 Arte prévia: o arquivo de teste do repositório de agenda já existente, que é a referência de estilo e de montagem do fake.
 
