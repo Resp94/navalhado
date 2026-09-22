@@ -1,0 +1,28 @@
+-- Spec 044, ticket 09: exclusao de Bloqueio de Horario chega pelo tempo real.
+--
+-- A Agenda (gerente e barbeiro) assina postgres_changes em blocked_slots com
+-- filter: `tenant_id=eq.<tenant>`. Criar e alterar chegam porque o Postgres sempre inclui a linha
+-- nova inteira no evento. Excluir nao chega: com a identidade de replica padrao (so a chave
+-- primaria), o evento de DELETE so carrega o id da linha apagada -- sem tenant_id, o filtro do lado
+-- do servidor nunca casa, e o evento e descartado antes de sair do Postgres.
+--
+-- Das duas saidas plausiveis (ampliar o que a tabela publica na exclusao vs. tirar o filtro da
+-- inscricao e recortar na tela), escolhida a primeira: REPLICA IDENTITY FULL em blocked_slots.
+-- A segunda acordaria toda sessao de toda barbearia a cada Bloqueio criado, alterado ou excluido em
+-- qualquer barbearia do sistema -- o volume cresce com o numero de barbearias, nao com o de
+-- bloqueios, e transmite (mesmo que descartado no cliente) o id de linha de uma barbearia para a
+-- sessao de outra. REPLICA IDENTITY FULL custa WAL maior por UPDATE/DELETE (grava a linha antiga
+-- inteira, nao so a chave), mas blocked_slots e uma tabela pequena com escrita rara e manual (o
+-- gerente bloqueia/libera horario avulso); o custo extra de WAL e desprezivel perto do ganho de
+-- isolamento por barbearia continuar sendo feito no servidor, como ja e para insercao e alteracao.
+--
+-- appointments tem a mesma identidade de replica padrao e o mesmo filtro por tenant_id nas duas
+-- telas, e permite DELETE por politica (appointments_delete_policy, gerente/proprietario) -- o
+-- mesmo furo existe ali em tese. Na pratica nenhum caminho da aplicacao apaga um Agendamento: ele so
+-- transiciona de status (cancelado, nao compareceu), que e UPDATE e chega normalmente porque a
+-- linha nova completa sempre viaja no evento. Por isso este ticket nao estende REPLICA IDENTITY
+-- FULL a appointments -- ampliaria o WAL de uma tabela bem mais escrita (todo agendamento criado,
+-- reagendado ou com status mudado) por um caminho que a aplicacao nao usa. Fica registrado como o
+-- mesmo padrao, para se algum dia DELETE em Agendamento virar caminho real.
+
+alter table public.blocked_slots replica identity full;
