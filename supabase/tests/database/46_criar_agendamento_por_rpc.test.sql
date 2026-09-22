@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(31);
 
 create temporary table t46 (
   tenant_a uuid not null,
@@ -179,6 +179,41 @@ select is(
   (select count(*) from public.customers where name = 'Sem Telefone T46'),
   0::bigint,
   'recusa nao deixa cliente criado'
+);
+-- Spec 044, ticket 06: a validacao de telefone passa a contar digitos, ignorando mascara.
+-- DDD (2 digitos) + 8 digitos = 10 no total e o minimo aceito.
+select lives_ok(
+  $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1630 from t46), p_professional_id => (select prof1 from t46), p_new_customer_name => 'Telefone Mascarado T46', p_new_customer_phone => '(11) 8765-4321')$$,
+  'aceita telefone com 10 digitos e mascara'
+);
+select is(
+  (select count(*) from public.customers where name = 'Telefone Mascarado T46'),
+  1::bigint,
+  'telefone com mascara e 10 digitos cria o cliente'
+);
+select lives_ok(
+  $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1630 from t46) - interval '3 hours', p_professional_id => (select prof1 from t46), p_new_customer_name => 'Telefone Sem Mascara T46', p_new_customer_phone => '1187654322')$$,
+  'aceita telefone com 10 digitos sem mascara'
+);
+select is(
+  (select count(*) from public.customers where name = 'Telefone Sem Mascara T46'),
+  1::bigint,
+  'telefone sem mascara e 10 digitos cria o cliente'
+);
+select throws_ok(
+  $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1900 from t46), p_professional_id => (select prof1 from t46), p_new_customer_name => 'Nove Digitos Mascara T46', p_new_customer_phone => '(11) 876-5432')$$,
+  'P0001', 'Telefone inválido (mínimo DDD + 8 dígitos).',
+  'recusa telefone com 9 digitos e mascara'
+);
+select throws_ok(
+  $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1900 from t46), p_professional_id => (select prof1 from t46), p_new_customer_name => 'Nove Digitos T46', p_new_customer_phone => '119876543')$$,
+  'P0001', 'Telefone inválido (mínimo DDD + 8 dígitos).',
+  'recusa telefone com 9 digitos sem mascara'
+);
+select throws_ok(
+  $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1900 from t46), p_professional_id => (select prof1 from t46), p_new_customer_name => 'Sem Digito Nenhum T46', p_new_customer_phone => 'ligar-na-barbearia')$$,
+  'P0001', 'Telefone inválido (mínimo DDD + 8 dígitos).',
+  'recusa texto sem nenhum digito, por mais longo que seja'
 );
 select lives_ok(
   $$select public.create_appointment_by_manager(p_tenant_id => (select tenant_a from t46), p_service_id => (select service_id from t46), p_start_time => (select t_1500 from t46), p_professional_id => (select prof1 from t46), p_waiting_list_id => (select w_ok from t46))$$,
