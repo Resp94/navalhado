@@ -22,7 +22,6 @@ O que está em jogo, do ponto de vista de quem usa o sistema:
 
 Uma spec de acompanhamento que transforma cada achado em trabalho agendado, rastreável até o ticket da spec 043 onde foi registrado.
 
-- **Liberar a entrega primeiro.** Aplicar em produção as migrations da spec 043, conferindo estrutura e permissões, sem executar teste contra produção.
 - **Fechar os furos que fazem a recepção errar.** A exclusão de Bloqueio passa a chegar pelo tempo real. A falha na leitura de Bloqueios passa a ser visível na tela.
 - **Devolver ao banco a última palavra.** A validação de telefone passa a contar dígitos. A autoria do cancelamento passa a ser protegida contra escrita fora das funções que cancelam.
 - **Completar o Painel de Cancelados do Dia.** O cancelamento pela tela de Comandas passa a gravar o motivo. Os cancelamentos de profissional desativado passam a aparecer. As respostas obsoletas passam a ser descartadas. O gerente passa a alcançar o painel no celular. A entrada passa a mostrar o telefone, e o atalho de WhatsApp passa a abrir com uma mensagem-base.
@@ -35,92 +34,81 @@ Nenhum item desta spec muda o desenho da spec 043. Todos completam, corrigem ou 
 
 ## User Stories
 
-### A. Entrega em produção
+### A. A recepção não vê como livre um horário bloqueado
 
-1. As a Desenvolvedor, I want the spec 043 migrations applied in production, so that the code already in `dev` can be released without breaking the Agenda.
-2. As a Desenvolvedor, I want each migrated function to keep the exact execution grants it had before, so that the release does not widen or narrow access by accident.
-3. As a Desenvolvedor, I want production data to stay untouched by the migrations, so that old Agendamentos do not gain an invented authorship or waiting-list mark.
-4. As a Desenvolvedor, I want production verified by structure and grants only, so that no test ever writes to production.
+1. As a Gerente, I want a Bloqueio de Horário deleted on another device to disappear from my open Agenda, so that I do not refuse a slot that is actually free.
+2. As a Gerente, I want a Bloqueio deleted in another barbershop to never reach my session, so that realtime does not leak between tenants.
+3. As a Barbeiro, I want Minha Agenda to follow Bloqueio deletions in real time, like the Agenda Geral, so that my day is current.
+4. As a Gerente, I want to be told when the Bloqueios failed to load, so that I do not book on top of a blocked slot believing it is free.
+5. As a Gerente, I want my Agendamentos to keep showing when only the Bloqueios failed, so that a partial failure does not blank the grid.
+6. As a Gerente, I want the failure notice to disappear once the Bloqueios load again, so that a stale warning does not train me to ignore warnings.
+7. As a Barbeiro, I want the same failure notice on Minha Agenda, so that I am not misled about my own blocked time.
 
-### B. A recepção não vê como livre um horário bloqueado
+### B. O banco guarda a regra
 
-5. As a Gerente, I want a Bloqueio de Horário deleted on another device to disappear from my open Agenda, so that I do not refuse a slot that is actually free.
-6. As a Gerente, I want a Bloqueio deleted in another barbershop to never reach my session, so that realtime does not leak between tenants.
-7. As a Barbeiro, I want Minha Agenda to follow Bloqueio deletions in real time, like the Agenda Geral, so that my day is current.
-8. As a Gerente, I want to be told when the Bloqueios failed to load, so that I do not book on top of a blocked slot believing it is free.
-9. As a Gerente, I want my Agendamentos to keep showing when only the Bloqueios failed, so that a partial failure does not blank the grid.
-10. As a Gerente, I want the failure notice to disappear once the Bloqueios load again, so that a stale warning does not train me to ignore warnings.
-11. As a Barbeiro, I want the same failure notice on Minha Agenda, so that I am not misled about my own blocked time.
+8. As a Gerente, I want the database to reject a new-customer phone with fewer than ten digits, whatever mask it carries, so that a malformed contact never reaches the customer base.
+9. As a Gerente, I want a text with no digits at all to be rejected as a phone, so that garbage cannot pass validation by being long.
+10. As a Gerente, I want the authorship of a cancellation to be unchangeable outside the functions that cancel, so that "who canceled" stays trustworthy.
+11. As a Gerente, I want my legitimate edits to Agendamentos to keep working after that protection, so that the fix does not block the daily operation.
+12. As a Desenvolvedor, I want that protection enforced by the database and not by a screen, so that a new screen cannot bypass it.
 
-### C. O banco guarda a regra
+### C. Painel de Cancelados do Dia completo
 
-12. As a Gerente, I want the database to reject a new-customer phone with fewer than ten digits, whatever mask it carries, so that a malformed contact never reaches the customer base.
-13. As a Gerente, I want a text with no digits at all to be rejected as a phone, so that garbage cannot pass validation by being long.
-14. As a Gerente, I want the authorship of a cancellation to be unchangeable outside the functions that cancel, so that "who canceled" stays trustworthy.
-15. As a Gerente, I want my legitimate edits to Agendamentos to keep working after that protection, so that the fix does not block the daily operation.
-16. As a Desenvolvedor, I want that protection enforced by the database and not by a screen, so that a new screen cannot bypass it.
+13. As a Gerente, I want a cancellation made from the Comandas screen to ask for and record the Motivo de Cancelamento, so that the same cancellation does not look different depending on the screen used.
+14. As a Barbeiro, I want to read the reason of a cancellation made from the Comandas screen on my panel, so that my empty slot has an explanation.
+15. As a Gerente, I want the Comanda and its Agendamento to still be canceled together or not at all, so that recording the reason does not break the atomic cancellation.
+16. As a Gerente, I want the cancellations of a deactivated professional to appear on the panel, so that the slots of someone who left can still be rebooked.
+17. As a Gerente, I want those entries flagged as belonging to a deactivated professional, so that I do not look for that person in the team filter.
+18. As a Gerente, I want the counter to include those cancellations, so that the number matches the list.
+19. As a Gerente, I want the Agenda to ignore a late answer from a day I already left, so that the grid and the panel always show the day in the header.
+20. As a Gerente, I want the loading indicator to settle even when a stale answer arrives last, so that the screen does not look stuck.
+21. As a Gerente, I want to open the canceled panel on my phone, so that I can act on a vacated slot without a computer.
+22. As a Gerente, I want the phone panel to follow the same team filter and day as the grid, so that it agrees with what I see.
+23. As a Gerente, I want each canceled entry to show the customer phone, so that I can call a customer who does not use WhatsApp.
+24. As a Gerente, I want the WhatsApp shortcut to open with a ready draft, so that I only adjust the text before sending.
+25. As a Gerente, I want that draft to never be sent by the system, so that every message to the customer passes through my review.
 
-### D. Painel de Cancelados do Dia completo
+### D. Relatório de agenda
 
-17. As a Gerente, I want a cancellation made from the Comandas screen to ask for and record the Motivo de Cancelamento, so that the same cancellation does not look different depending on the screen used.
-18. As a Barbeiro, I want to read the reason of a cancellation made from the Comandas screen on my panel, so that my empty slot has an explanation.
-19. As a Gerente, I want the Comanda and its Agendamento to still be canceled together or not at all, so that recording the reason does not break the atomic cancellation.
-20. As a Gerente, I want the cancellations of a deactivated professional to appear on the panel, so that the slots of someone who left can still be rebooked.
-21. As a Gerente, I want those entries flagged as belonging to a deactivated professional, so that I do not look for that person in the team filter.
-22. As a Gerente, I want the counter to include those cancellations, so that the number matches the list.
-23. As a Gerente, I want the Agenda to ignore a late answer from a day I already left, so that the grid and the panel always show the day in the header.
-24. As a Gerente, I want the loading indicator to settle even when a stale answer arrives last, so that the screen does not look stuck.
-25. As a Gerente, I want to open the canceled panel on my phone, so that I can act on a vacated slot without a computer.
-26. As a Gerente, I want the phone panel to follow the same team filter and day as the grid, so that it agrees with what I see.
-27. As a Gerente, I want each canceled entry to show the customer phone, so that I can call a customer who does not use WhatsApp.
-28. As a Gerente, I want the WhatsApp shortcut to open with a ready draft, so that I only adjust the text before sending.
-29. As a Gerente, I want that draft to never be sent by the system, so that every message to the customer passes through my review.
+26. As a Gerente, I want the cancellation reasons ranking to separate barbershop cancellations from customer cancellations, so that I can measure customer-driven churn apart from our own decisions.
+27. As a Gerente, I want the default filler text of a customer who wrote nothing to stop counting as a reason, so that the ranking shows real reasons.
+28. As a Gerente, I want cancellations without authorship, from before spec 043, to be reported as unknown authorship, so that old data is not assigned to anyone.
+29. As a Gerente, I want the agenda report to show how many Agendamentos came from the Lista de Espera in the period, so that I can tell whether the waiting list fills chairs.
+30. As a Gerente, I want that measure to leave the "Agendamentos por origem" breakdown unchanged, so that past periods remain comparable.
+31. As a Gerente, I want both measures to follow the report's existing professional filter, so that the report stays consistent.
 
-### E. Relatório de agenda
+### E. Débitos que já custaram defeito
 
-30. As a Gerente, I want the cancellation reasons ranking to separate barbershop cancellations from customer cancellations, so that I can measure customer-driven churn apart from our own decisions.
-31. As a Gerente, I want the default filler text of a customer who wrote nothing to stop counting as a reason, so that the ranking shows real reasons.
-32. As a Gerente, I want cancellations without authorship, from before spec 043, to be reported as unknown authorship, so that old data is not assigned to anyone.
-33. As a Gerente, I want the agenda report to show how many Agendamentos came from the Lista de Espera in the period, so that I can tell whether the waiting list fills chairs.
-34. As a Gerente, I want that measure to leave the "Agendamentos por origem" breakdown unchanged, so that past periods remain comparable.
-35. As a Gerente, I want both measures to follow the report's existing professional filter, so that the report stays consistent.
+32. As a Desenvolvedor, I want the Agendamento customer type to admit null, so that the type checker points out every place that could crash on a walk-in Agendamento.
+33. As a Gerente, I want every screen that shows a walk-in Agendamento to show the same label the grid uses, so that no screen shows an empty or broken name.
+34. As a Gerente, I want the badges on an Agendamento card to share one visual language, so that the card reads at a glance in light and dark themes.
+35. As a Gerente, I want the badges to fit on the small week-view cards and at 375 pixels, so that no badge is clipped.
+36. As a Desenvolvedor, I want the canceled panel state and its header button defined once, so that the next change to the panel is made in one place.
+37. As a Desenvolvedor, I want the test helper that reads the columns of a query to live in one place, so that a divergent copy cannot make an adapter test stop covering a missing column.
 
-### F. Débitos que já custaram defeito
+### F. Documentação
 
-36. As a Desenvolvedor, I want the Agendamento customer type to admit null, so that the type checker points out every place that could crash on a walk-in Agendamento.
-37. As a Gerente, I want every screen that shows a walk-in Agendamento to show the same label the grid uses, so that no screen shows an empty or broken name.
-38. As a Gerente, I want the badges on an Agendamento card to share one visual language, so that the card reads at a glance in light and dark themes.
-39. As a Gerente, I want the badges to fit on the small week-view cards and at 375 pixels, so that no badge is clipped.
-40. As a Desenvolvedor, I want the canceled panel state and its header button defined once, so that the next change to the panel is made in one place.
-41. As a Desenvolvedor, I want the test helper that reads the columns of a query to live in one place, so that a divergent copy cannot make an adapter test stop covering a missing column.
+38. As a Desenvolvedor, I want spec 043 to state that the default cancellation text is built by the front-end adapter, so that I look for the rule in the right place.
+39. As a Desenvolvedor, I want spec 043 to record every point where what shipped differs from what it decided, so that the spec matches what shipped without erasing the original decision.
+40. As a Desenvolvedor, I want the glossary to define Motivo de Cancelamento, Painel de Cancelados do Dia and autoria do cancelamento, so that code and commits use one vocabulary.
+41. As a Desenvolvedor, I want the glossary to list the terms to avoid that spec 043 already named, so that synonyms stop spreading.
 
-### G. Documentação
+### G. Provas e causa de fundo
 
-42. As a Desenvolvedor, I want spec 043 to state that the default cancellation text is built by the front-end adapter, so that I look for the rule in the right place.
-43. As a Desenvolvedor, I want spec 043 to record every point where what shipped differs from what it decided, so that the spec matches what shipped without erasing the original decision.
-44. As a Desenvolvedor, I want the glossary to define Motivo de Cancelamento, Painel de Cancelados do Dia and autoria do cancelamento, so that code and commits use one vocabulary.
-45. As a Desenvolvedor, I want the glossary to list the terms to avoid that spec 043 already named, so that synonyms stop spreading.
-
-### H. Provas e causa de fundo
-
-46. As a Desenvolvedor, I want every database test that spec 043 created, changed, or whose functions it changed, re-run in full after its last change, so that "green" means executed, not assumed.
-47. As a Desenvolvedor, I want the full application suite run once on the current `dev`, so that the last-mile edits of tickets 02 and 04 are covered.
-48. As a Gerente, I want a customer cancellation made through the public Canal do Cliente page verified end to end, so that the reason and authorship I read on the panel are proven, not inferred.
-49. As a Desenvolvedor, I want the remaining Agenda browser checks of spec 043 ticket 08 performed, so that removing and creating a Bloqueio are proven to refresh the grid.
-50. As a Desenvolvedor, I want every verification to leave the database as it found it and to never trigger a real WhatsApp message, so that testing has no external effect.
-51. As a Desenvolvedor, I want to know which modules test their repository against a fake more generous than the table, so that the silent data loss of the Lista de Espera cannot repeat elsewhere.
+42. As a Desenvolvedor, I want every database test that spec 043 created, changed, or whose functions it changed, re-run in full after its last change, so that "green" means executed, not assumed.
+43. As a Desenvolvedor, I want the full application suite run once on the current `dev`, so that the last-mile edits of tickets 02 and 04 are covered.
+44. As a Gerente, I want a customer cancellation made through the public Canal do Cliente page verified end to end, so that the reason and authorship I read on the panel are proven, not inferred.
+45. As a Desenvolvedor, I want the remaining Agenda browser checks of spec 043 ticket 08 performed, so that removing and creating a Bloqueio are proven to refresh the grid.
+46. As a Desenvolvedor, I want every verification to leave the database as it found it and to never trigger a real WhatsApp message, so that testing has no external effect.
+47. As a Desenvolvedor, I want to know which modules test their repository against a fake more generous than the table, so that the silent data loss of the Lista de Espera cannot repeat elsewhere.
 
 ## Implementation Decisions
 
-### 1. Produção
+### 1. Linha de base de banco
 
-Antes de produção, os testes de banco que a spec 043 tocou são reexecutados no ambiente de desenvolvimento, e a suíte da aplicação roda uma vez. É a linha de base: nenhuma migration vai para produção, e nenhuma função coberta por esses testes é alterada, antes dela.
+Antes de qualquer alteração nas funções que a spec 043 já testou, os testes de banco que ela tocou são reexecutados no ambiente de desenvolvimento, e a suíte da aplicação roda uma vez. É a linha de base: nenhuma função coberta por esses testes é alterada antes dela, e nenhuma migration desta spec é aplicada em produção antes dela.
 
-As migrations são aplicadas em produção uma a uma, pela ordem da numeração, pelo servidor MCP do Supabase, com confirmação do responsável antes de cada uma. Antes e depois de cada aplicação, são conferidas a estrutura das colunas e as permissões de execução das funções alteradas. Nenhum teste pgTAP roda contra produção, nem dentro de transação desfeita: a prova de comportamento é a do ambiente de desenvolvimento, e produção recebe só verificação por leitura.
-
-A linha de base e a aplicação das migrations da spec 043 (tickets 01 e 02) são o que bloqueia a promoção de `dev` para `main`. Os demais tickets podem ser entregues antes ou depois dela.
-
-As migrations que esta própria spec cria seguem o mesmo caminho, num ticket próprio, depois que os tickets que as criam estiverem feitos.
+**A aplicação em produção fica fora desta spec, por decisão do responsável em 2026-09-22: ele ainda não vai mexer em produção.** As migrations da spec 043 e as que esta spec cria continuam só no ambiente de desenvolvimento, provadas por pgTAP. Quando o responsável decidir promover, a aplicação em produção é trabalho à parte, uma migration de cada vez, com confirmação antes de cada uma, conferindo estrutura e permissões antes e depois; nenhum teste roda contra produção. Até lá, a promoção de `dev` para `main` fica bloqueada.
 
 ### 2. Validação de telefone
 
@@ -199,7 +187,7 @@ Todo teste novo que protege contra um defeito já observado é conferido por mut
 
 ### Critério de pronto
 
-`npm run lint`, `npm test` e `npm run build` passam. O pgTAP novo passa pelo servidor MCP contra o ambiente de desenvolvimento. O ticket de produção é pronto quando a estrutura e as permissões conferidas em produção batem com as do ambiente de desenvolvimento.
+`npm run lint`, `npm test` e `npm run build` passam. O pgTAP novo passa pelo servidor MCP contra o ambiente de desenvolvimento.
 
 ## Out of Scope
 
@@ -224,7 +212,8 @@ Novos, desta spec:
 - **Acesso do proprietário a qualquer barbearia.** O proprietário é o administrador do SaaS e alcança qualquer barbearia por desenho, como o pgTAP 52 da spec 043 documenta. Nenhum ticket desta spec muda isso.
 - **Criar adaptadores em memória nos módulos que não têm.** A auditoria só levanta. Criar é trabalho por módulo.
 - **O botão "Remover" do Bloqueio na Minha Agenda.** Levantado como dúvida no ticket 08 da spec 043 e conferido no banco em 2026-09-21. A política de exclusão permite ao barbeiro excluir os Bloqueios do próprio profissional, e a tela só lhe mostra esses. Funciona por desenho.
-- **Decisões do responsável, que não são trabalho de engenharia.** Estas três ficam fora:
+- **Decisões do responsável, que não são trabalho de engenharia.** Estas quatro ficam fora:
+  - Aplicar em produção as migrations da spec 043 e as desta spec. Decidido em 2026-09-22: adiado até o responsável decidir promover. Nenhum ticket desta spec cobre a aplicação; a linha de base (decisão 1) continua provando tudo no ambiente de desenvolvimento.
   - As 4 mensagens de WhatsApp enviadas durante a verificação do ticket 06 da spec 043. As linhas da fila de saída foram mantidas como registro, e apagá-las ou não é decisão do responsável.
   - O push de `dev`.
   - A remoção das branches locais já mescladas.
@@ -232,11 +221,12 @@ Novos, desta spec:
 ## Further Notes
 
 - Pasta dos tickets: `.scratch/044-achados-da-spec-043/issues/`. A pasta `.scratch/achados-da-spec-043/`, criada antes desta spec, fica como histórico e aponta para cá.
-- Ordem dos tickets: o número é ordem de dependência. Primeiro a linha de base de banco e produção da spec 043 (01 e 02), depois os prefactors (03, 04 e 05), depois o resto. Arestas: 02, 06 e 07 esperam o 01; 08 espera o 07; 11 espera o 10; 13 e 15 esperam o 04; 14 espera o 03; 17 espera o 16; 22 espera o 02 e os tickets que criam migration.
-- Validação: spec e tickets foram conferidos em 2026-09-22 contra as skills de spec e de tickets do projeto. A conferência reordenou os prefactors, corrigiu uma aresta falsa entre a extração do painel e os selos, acrescentou as arestas que evitam duas migrations sobrescreverem a mesma função, dividiu as provas pendentes em banco e navegador, acrescentou o ticket de produção das migrations desta spec e trocou "Agenda do gerente" e "fila" pelos termos do glossário, Agenda Geral e Lista de Espera. As três decisões de produto que os tickets deixavam para o agente foram tomadas pelo responsável.
+- Os tickets 02 ("Migrations da spec 043 aplicadas em produção") e 22 ("Migrations da spec 044 aplicadas em produção") foram removidos em 2026-09-22, a pedido do responsável: aplicar em produção não é trabalho agendado enquanto ele não decidir promover (ver Out of Scope). A numeração dos tickets restantes não muda; 02 e 22 ficam vagos.
+- Ordem dos tickets: o número é ordem de dependência. Primeiro a linha de base de banco da spec 043 (01), depois os prefactors (03, 04 e 05), depois o resto. Arestas: 06 e 07 esperam o 01; 08 espera o 07; 11 espera o 10; 13 e 15 esperam o 04; 14 espera o 03; 17 espera o 16.
+- Validação: spec e tickets foram conferidos em 2026-09-22 contra as skills de spec e de tickets do projeto. A conferência reordenou os prefactors, corrigiu uma aresta falsa entre a extração do painel e os selos, acrescentou as arestas que evitam duas migrations sobrescreverem a mesma função, dividiu as provas pendentes em banco e navegador e trocou "Agenda do gerente" e "fila" pelos termos do glossário, Agenda Geral e Lista de Espera. As três decisões de produto que os tickets deixavam para o agente foram tomadas pelo responsável.
 - Os tickets de defeito levam o escopo do domínio onde o código muda (`agenda`, `comandas`, `relatorios`, `db`), um por commit. O número desta spec vai no corpo do commit: `Spec: 044`.
 - A contagem de módulos sem adaptador em memória (11 de 16) é preliminar. Ela contou só arquivos com o prefixo usual na pasta de adaptadores. A auditoria confirma ou corrige esse número.
-- Duas prioridades de risco, depois do ticket de produção: a exclusão de Bloqueio pelo tempo real e a falha silenciosa na leitura de Bloqueios. As duas levam ao mesmo erro visível, a recepção agendar em cima de um bloqueio.
+- Duas prioridades de risco, depois da linha de base (decisão 1): a exclusão de Bloqueio pelo tempo real e a falha silenciosa na leitura de Bloqueios. As duas levam ao mesmo erro visível, a recepção agendar em cima de um bloqueio.
 
 ## Rastreabilidade
 
@@ -244,7 +234,7 @@ Cada achado registrado na spec 043 e nos seus tickets, com o ticket desta spec q
 
 | Origem | Achado | Ticket 044 |
 |---|---|---|
-| Tickets 01, 06 e 07 | Migrations aplicadas só no ambiente de desenvolvimento | 02 |
+| Tickets 01, 06 e 07 | Migrations aplicadas só no ambiente de desenvolvimento | Decisão do responsável (fora do escopo): aplicação em produção adiada |
 | Ticket 07 | Validação de telefone com `'\\D'` conta caracteres, não dígitos | 06 |
 | Conferência de 2026-09-21 | Ramo de Bloqueio sem profissional inalcançável na mesma função | 06 |
 | Ticket 06 | Cancelamento pela tela de Comandas sem motivo | 07 |
