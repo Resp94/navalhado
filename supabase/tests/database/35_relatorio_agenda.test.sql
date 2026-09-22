@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(52);
 
 -- Spec 038 (Modulo de Relatorios), ticket 07: Comparecimento, cancelamento e
 -- no-show (pagina Agenda). Cobre o contrato de leitura
@@ -914,6 +914,101 @@ select is(
   ),
   jsonb_build_object('shop', '[]'::jsonb, 'customer', '[]'::jsonb, 'desconhecida', '[]'::jsonb),
   'isolamento por barbearia: tenant_b nao ve os cancelamentos de tenant_a no mesmo periodo'
+);
+
+-- ---------------------------------------------------------------------------
+-- waiting_list (spec 044, ticket 17): quantos Agendamentos do periodo vieram
+-- da Lista de Espera (cancelados inclusive) e, desses, quantos concluidos.
+-- Periodo proprio (2026-09-06), fora dos periodos ja usados pelos tickets
+-- anteriores desta spec neste arquivo.
+-- ---------------------------------------------------------------------------
+create temporary table t17_fix (
+  ap_wl_completed_id uuid not null,
+  ap_wl_canceled_id uuid not null,
+  ap_wl_no_show_id uuid not null,
+  ap_no_wl_completed_id uuid not null
+) on commit drop;
+insert into t17_fix (ap_wl_completed_id, ap_wl_canceled_id, ap_wl_no_show_id, ap_no_wl_completed_id)
+values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid());
+grant select on t17_fix to authenticated;
+
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, from_waiting_list)
+select ap_wl_completed_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-06 10:00:00-03'::timestamptz, '2026-09-06 10:30:00-03'::timestamptz, 'completed', 'pending', 'manual', true
+from t17_fix;
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, from_waiting_list)
+select ap_wl_canceled_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-06 11:00:00-03'::timestamptz, '2026-09-06 11:30:00-03'::timestamptz, 'canceled', 'pending', 'manual', true
+from t17_fix;
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, from_waiting_list)
+select ap_wl_no_show_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-06 12:00:00-03'::timestamptz, '2026-09-06 12:30:00-03'::timestamptz, 'no_show', 'pending', 'manual', true
+from t17_fix;
+-- controle: concluido, mas SEM a marca -- nao deve entrar em waiting_list.
+insert into public.appointments (id, tenant_id, professional_id, service_id, start_time, end_time, status, payment_status, origin, from_waiting_list)
+select ap_no_wl_completed_id, (select tenant_a_id from t07_context), (select prof_um_id from t07_fix), (select servico_id from t07_fix),
+  '2026-09-06 13:00:00-03'::timestamptz, '2026-09-06 13:30:00-03'::timestamptz, 'completed', 'pending', 'manual', false
+from t17_fix;
+
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-09-06'::date, '2026-09-06'::date, null,
+      '2026-09-06'::date, '2026-09-06 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'waiting_list'
+  ),
+  jsonb_build_object('total', 3, 'completed', 1),
+  'waiting_list conta os 3 Agendamentos marcados (concluido, cancelado e falta), so 1 concluido; o sem marca nao entra'
+);
+
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-09-06'::date, '2026-09-06'::date,
+      (select prof_dois_id from t07_fix), '2026-09-06'::date, '2026-09-06 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'waiting_list'
+  ),
+  jsonb_build_object('total', 0, 'completed', 0),
+  'p_professional_id filtra waiting_list (prof_dois nao tem Agendamento no periodo)'
+);
+
+select is(
+  (
+    select (o ->> 'total')::int
+    from jsonb_array_elements(
+      private.get_schedule_report_core(
+        (select tenant_a_id from t07_context), '2026-09-06'::date, '2026-09-06'::date, null,
+        '2026-09-06'::date, '2026-09-06 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+      ) -> 'by_origin'
+    ) as o
+    where o ->> 'origin' = 'manual'
+  ),
+  4,
+  'by_origin continua contando os 4 Agendamentos do periodo (marcados e nao marcados), sem linha nova nem numero diferente'
+);
+
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_b_id from t07_context), '2026-09-06'::date, '2026-09-06'::date, null,
+      '2026-09-06'::date, '2026-09-06 20:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'waiting_list'
+  ),
+  jsonb_build_object('total', 0, 'completed', 0),
+  'isolamento por barbearia: tenant_b nao ve os Agendamentos da Lista de Espera de tenant_a no mesmo periodo'
+);
+
+-- Periodo sem nenhum Agendamento (mesmo periodo ja usado no teste de totais
+-- zerados): waiting_list mostra zero, nao vazio.
+select is(
+  (
+    select private.get_schedule_report_core(
+      (select tenant_a_id from t07_context), '2026-09-01'::date, '2026-09-01'::date, null,
+      '2026-09-01'::date, '2026-09-01 08:00:00-03'::timestamptz, 'America/Sao_Paulo'
+    ) -> 'waiting_list'
+  ),
+  jsonb_build_object('total', 0, 'completed', 0),
+  'periodo sem Agendamento mostra waiting_list zerado, nao vazio'
 );
 
 select * from finish(true);

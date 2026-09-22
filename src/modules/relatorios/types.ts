@@ -322,6 +322,21 @@ export interface RelatorioAgendaHeatmap {
 }
 
 /**
+ * Encaixes vindos da Lista de Espera no período (spec 044, ticket 17):
+ * `total` conta todo Agendamento com `from_waiting_list = true` (cancelado
+ * inclusive), `completed` conta desses quantos foram concluídos, pela mesma
+ * classificação de desfecho usada em `status_totals`. Agendamento anterior à
+ * marca (spec 043, ticket 07) nunca entra — sem backfill, o default `false`
+ * da coluna já resolve isso. `p_professional_id` filtra; `by_origin` não
+ * muda (a marca é independente da origem, decisão já tomada no ticket 07 da
+ * spec 043).
+ */
+export interface RelatorioAgendaListaDeEspera {
+  total: number;
+  completed: number;
+}
+
+/**
  * Contrato de leitura da Agenda (`get_schedule_report`, spec 038,
  * relatórios 6-7, tickets 07-08): comparecimento, cancelamento, no-show e
  * mapa de calor do período. Sem `granularity` (ranking/totais de período
@@ -340,6 +355,7 @@ export interface RelatorioAgenda {
   by_origin: RelatorioAgendaOrigemTotais[];
   by_professional: RelatorioAgendaProfissionalTotais[];
   cancellation_reasons: RelatorioAgendaMotivosCancelamento;
+  waiting_list: RelatorioAgendaListaDeEspera;
   heatmap: RelatorioAgendaHeatmap;
 }
 

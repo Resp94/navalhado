@@ -211,6 +211,7 @@ export const AgendaPage: React.FC<AgendaPageProps> = ({ repository: injectedRepo
           <AgendaResumo
             statusTotals={data?.status_totals ?? null}
             previousStatusTotals={data?.previous_status_totals ?? null}
+            waitingList={data?.waiting_list ?? null}
             loading={loading}
           />
 

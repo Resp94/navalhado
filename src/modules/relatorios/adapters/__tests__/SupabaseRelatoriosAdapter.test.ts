@@ -688,6 +688,33 @@ describe('SupabaseRelatoriosAdapter.obterAgenda', () => {
     });
   });
 
+  it('converte waiting_list (spec 044, ticket 17), campo ausente na resposta vira zero', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { waiting_list: { total: 5, completed: 2 } },
+      error: null,
+    });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.waiting_list).toEqual({ total: 5, completed: 2 });
+  });
+
+  it('waiting_list ausente na resposta vira {total: 0, completed: 0}', async () => {
+    mockRpc.mockResolvedValueOnce({ data: {}, error: null });
+
+    const result = await new SupabaseRelatoriosAdapter().obterAgenda({
+      tenantId: 'tenant-1',
+      startDate: '2026-06-01',
+      endDate: '2026-06-15',
+    });
+
+    expect(result.waiting_list).toEqual({ total: 0, completed: 0 });
+  });
+
   it('passa p_professional_id quando informado', async () => {
     mockRpc.mockResolvedValueOnce({ data: {}, error: null });
 

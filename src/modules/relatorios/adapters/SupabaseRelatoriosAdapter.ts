@@ -12,6 +12,7 @@ import type {
   RegistrationOrigemItem,
   RelatorioAgenda,
   RelatorioAgendaHeatmap,
+  RelatorioAgendaListaDeEspera,
   RelatorioAgendaMotivoCancelamento,
   RelatorioAgendaMotivosCancelamento,
   RelatorioAgendaOrigem,
@@ -300,6 +301,15 @@ function toAgendaHeatmap(value: unknown): RelatorioAgendaHeatmap {
   return { hours, cells };
 }
 
+/** Encaixes vindos da Lista de Espera (spec 044, ticket 17): campo ausente vira zero, nunca `undefined`. */
+function toAgendaWaitingList(value: unknown): RelatorioAgendaListaDeEspera {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    total: toNumber(raw.total),
+    completed: toNumber(raw.completed),
+  };
+}
+
 /**
  * Adaptador Supabase do Faturamento por período (`get_revenue_report`,
  * spec 038, ticket 01): converte o `jsonb` da RPC em números e tipos do
@@ -461,6 +471,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin?: unknown;
       by_professional?: unknown;
       cancellation_reasons?: unknown;
+      waiting_list?: unknown;
       heatmap?: unknown;
     };
 
@@ -480,6 +491,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin: toAgendaByOrigin(raw.by_origin),
       by_professional: toAgendaByProfessional(raw.by_professional),
       cancellation_reasons: toAgendaCancellationReasons(raw.cancellation_reasons),
+      waiting_list: toAgendaWaitingList(raw.waiting_list),
       heatmap: toAgendaHeatmap(raw.heatmap),
     };
   }
