@@ -137,8 +137,9 @@ select is(
 -- Cancelamento pela Comanda: quarto caminho que grava canceled
 -- ---------------------------------------------------------------------------
 
+-- Spec 044, ticket 07: a partir daqui a RPC tambem exige motivo quando ha Agendamento a cancelar.
 select lives_ok(
-  $$select public.cancel_comanda_appointment(null, (select ap_com from t53), (select tenant_a from t53))$$,
+  $$select public.cancel_comanda_appointment(null, (select ap_com from t53), (select tenant_a from t53), 'Motivo t53')$$,
   'Gerente cancela o Agendamento pela Comanda'
 );
 select is(
