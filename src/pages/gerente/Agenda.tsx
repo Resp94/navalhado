@@ -4,7 +4,7 @@ import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Badge, Button, Tooltip } from '../../components/ui';
-import { PainelCanceladosDoDia } from '../../components/agenda/PainelCanceladosDoDia';
+import { PainelCanceladosDoDia, CLIENTE_DE_BALCAO } from '../../components/agenda/PainelCanceladosDoDia';
 import { useCanceladosDoDia } from '../../components/agenda/useCanceladosDoDia';
 import {
   dateInZone,
@@ -2349,7 +2349,16 @@ export const Agenda: React.FC<AgendaProps> = ({
         cancelados={canceladosDoDia}
         timezone={tenant.timezone}
         falhouAoCarregar={canceladosComErro}
-        onContatarCliente={(cancelado) => openWhatsApp(cancelado.customer?.phone ?? '')}
+        onContatarCliente={(cancelado) => {
+          const phone = cancelado.customer?.phone;
+          if (!phone) return;
+          const nome = cancelado.customer?.name || CLIENTE_DE_BALCAO;
+          const horario = formatTimeInZone(cancelado.start_time, tenant.timezone);
+          openWhatsApp(
+            phone,
+            `Olá ${nome}! O horário das ${horario} ficou livre na ${tenant.tenantName}. Quer remarcar?`
+          );
+        }}
       />
     </div>
   );

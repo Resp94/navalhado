@@ -1605,7 +1605,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(within(painel).queryByText('Marcos Desistente')).not.toBeInTheDocument();
     });
 
-    it('oferece o atalho para chamar o cliente no WhatsApp a partir da entrada cancelada', async () => {
+    it('oferece o atalho para chamar o cliente no WhatsApp, com a conversa já levando uma mensagem-base', async () => {
       const abrirJanela = vi.spyOn(window, 'open').mockImplementation(() => null);
       mockCanceledAppointments = [CANC_CARLOS];
       render(<Agenda />);
@@ -1613,12 +1613,30 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       const painel = await abrirPainel();
       fireEvent.click(within(painel).getByRole('button', { name: /Chamar no WhatsApp/i }));
 
-      expect(abrirJanela).toHaveBeenCalledWith(
-        expect.stringContaining('wa.me/5511977776666'),
-        '_blank',
-        'noopener,noreferrer'
-      );
+      expect(abrirJanela).toHaveBeenCalledTimes(1);
+      const url = abrirJanela.mock.calls[0][0] as string;
+      expect(url).toContain('wa.me/5511977776666');
+      const mensagem = decodeURIComponent(new URL(url).search.replace('?text=', ''));
+      expect(mensagem).toContain('Marcos Desistente');
+      expect(mensagem).toContain('10:00');
+      expect(mensagem).toContain(mockOutletContext.tenantName);
       abrirJanela.mockRestore();
+    });
+
+    it('cada entrada mostra o telefone do cliente, e a entrada sem telefone mostra a ausência de forma limpa', async () => {
+      mockCanceledAppointments = [
+        CANC_CARLOS,
+        cancelado({ id: 'canc-sem-tel', customer: { id: 'cust-6', name: 'Sem Telefone', phone: '' } }),
+        cancelado({ id: 'canc-balcao', customer: null, customer_id: null }),
+      ];
+      render(<Agenda />);
+
+      const painel = await abrirPainel();
+      const entrada = (nome: string) => within(painel).getByText(nome).closest('li') as HTMLElement;
+
+      expect(within(entrada('Marcos Desistente')).getByText(/\(11\) 9777\S?-6666/)).toBeInTheDocument();
+      expect(within(entrada('Sem Telefone')).getByText('Sem telefone')).toBeInTheDocument();
+      expect(within(entrada('Cliente Balcão')).getByText('Sem telefone')).toBeInTheDocument();
     });
 
     it('na visão semanal, o painel continua sendo do dia selecionado, não da semana inteira', async () => {

@@ -5,10 +5,12 @@ import type { BadgeVariant } from '../ui/data-display/Badge';
 import { EmptyState } from '../ui/data-display/EmptyState';
 import { Button } from '../ui/forms/Button';
 import { formatTimeInZone } from '../../lib/timezone';
+import { maskPhone } from '../../lib/whatsapp';
 import type { AgendamentoDoDia } from '../../modules/agenda/types';
 
 export const MOTIVO_NAO_INFORMADO = 'Sem motivo informado';
 export const CLIENTE_DE_BALCAO = 'Cliente Balcão';
+export const TELEFONE_NAO_INFORMADO = 'Sem telefone';
 
 /** Cancelamento anterior à autoria fica desconhecido: o painel não infere pelo texto do motivo. */
 const AUTORIA: Record<'shop' | 'customer' | 'desconhecida', { rotulo: string; variante: BadgeVariant }> = {
@@ -101,6 +103,14 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
                         Desativado
                       </Badge>
                     )}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-text-secondary">Telefone:</span>
+                  <span className="min-w-0 text-right break-words">
+                    {cancelado.customer?.phone?.trim()
+                      ? maskPhone(cancelado.customer.phone)
+                      : TELEFONE_NAO_INFORMADO}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
