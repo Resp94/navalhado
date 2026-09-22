@@ -13,11 +13,11 @@ import type { NovoAgendamentoInicial } from '../../components/agenda/NovoAgendam
 import { CancelarAgendamentoModal } from '../../components/agenda/CancelarAgendamentoModal';
 import { NaoCompareceuModal } from '../../components/agenda/NaoCompareceuModal';
 import { PainelCanceladosDoDia } from '../../components/agenda/PainelCanceladosDoDia';
+import { useCanceladosDoDia } from '../../components/agenda/useCanceladosDoDia';
 import { Badge } from '../../components/ui/data-display/Badge';
 import { ReagendarAgendamentoModal } from '../../components/agenda/ReagendarAgendamentoModal';
 import { motivoRecusaNaoCompareceu } from '../../components/agenda/useMarcarNaoCompareceu';
 import { useAgenda } from '../../modules/agenda/useAgenda';
-import type { AgendamentoDoDia } from '../../modules/agenda/types';
 import { MobileAgendaView } from '../gerente/mobile/MobileAgendaView';
 import type { Appointment, Customer, Professional, Service } from '../gerente/Agenda';
 import { BloqueioRepository } from '../../modules/bloqueios/BloqueioRepository';
@@ -45,6 +45,10 @@ const ACTIVE_STATUSES_TO_RESCHEDULE: Appointment['status'][] = ['pending', 'conf
 const ACTION_BUTTON_CLASS =
   'w-full flex items-center justify-center gap-2 min-h-11 py-[0.6rem] px-4 rounded-md text-sm font-bold cursor-pointer border-0 box-border transition-colors duration-150';
 
+/** Botão secundário do cabeçalho (Encaixe, Bloquear horário, Cancelados): mesma aparência, um lugar só. */
+const HEADER_SECONDARY_BUTTON_CLASS =
+  'flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md bg-bg-secondary border border-border text-text-primary text-sm font-bold cursor-pointer transition-colors duration-150 hover:border-brand-primary';
+
 /**
  * Agenda do barbeiro: os Agendamentos dele, no mesmo componente que o gestor usa no celular. Toda
  * escrita passa pelas RPCs do banco (AgendaRepository); a Comanda e a cobrança ficam com o gestor.
@@ -63,9 +67,14 @@ export const MinhaAgenda: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
-  const [cancelados, setCancelados] = useState<AgendamentoDoDia[]>([]);
-  const [canceladosComErro, setCanceladosComErro] = useState(false);
-  const [isCanceladosOpen, setIsCanceladosOpen] = useState(false);
+  const {
+    cancelados,
+    canceladosComErro,
+    isCanceladosOpen,
+    registrarCancelados,
+    abrirCancelados,
+    fecharCancelados,
+  } = useCanceladosDoDia();
   const [loading, setLoading] = useState(true);
   // Só a resposta da consulta mais recente vale: ao trocar de dia rápido, a antiga chega depois e
   // mostraria os atendimentos de outro dia sob a data nova.
@@ -117,18 +126,16 @@ export const MinhaAgenda: React.FC = () => {
 
       if (agendamentos.status === 'fulfilled') {
         setAppointments(agendamentos.value.appointments);
-        setCancelados(agendamentos.value.canceledAppointments);
-        setCanceladosComErro(false);
+        registrarCancelados(agendamentos.value.canceledAppointments);
       } else {
         console.error('Erro ao carregar a agenda do barbeiro:', agendamentos.reason);
-        setCancelados([]);
-        setCanceladosComErro(true);
+        registrarCancelados('falhou');
         addToast('Não foi possível carregar seus atendimentos.', 'error');
       }
     } finally {
       if (requestId === latestDayRequest.current) setLoading(false);
     }
-  }, [agendaRepo, tenantId, professionalId, selectedDate, timezone, addToast]);
+  }, [agendaRepo, tenantId, professionalId, selectedDate, timezone, addToast, registrarCancelados]);
 
   useEffect(() => {
     void loadSupportData();
@@ -245,14 +252,14 @@ export const MinhaAgenda: React.FC = () => {
         </button>
         <button
           type="button"
-          className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md bg-bg-secondary border border-border text-text-primary text-sm font-bold cursor-pointer transition-colors duration-150 hover:border-brand-primary"
+          className={HEADER_SECONDARY_BUTTON_CLASS}
           onClick={() => abrirNovo({ isFitting: true })}
         >
           Encaixe
         </button>
         <button
           type="button"
-          className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md bg-bg-secondary border border-border text-text-primary text-sm font-bold cursor-pointer transition-colors duration-150 hover:border-brand-primary"
+          className={HEADER_SECONDARY_BUTTON_CLASS}
           onClick={() => setIsBloqueioOpen(true)}
         >
           <HugeiconsIcon icon={UnavailableIcon} size={18} />
@@ -260,8 +267,8 @@ export const MinhaAgenda: React.FC = () => {
         </button>
         <button
           type="button"
-          className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 py-2 px-4 rounded-md bg-bg-secondary border border-border text-text-primary text-sm font-bold cursor-pointer transition-colors duration-150 hover:border-brand-primary"
-          onClick={() => setIsCanceladosOpen(true)}
+          className={HEADER_SECONDARY_BUTTON_CLASS}
+          onClick={abrirCancelados}
         >
           Cancelados
           {!canceladosComErro && (
@@ -430,7 +437,7 @@ export const MinhaAgenda: React.FC = () => {
 
       <PainelCanceladosDoDia
         isOpen={isCanceladosOpen}
-        onClose={() => setIsCanceladosOpen(false)}
+        onClose={fecharCancelados}
         cancelados={cancelados}
         profissionais={professionals}
         timezone={timezone}

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Badge, Button, Tooltip } from '../../components/ui';
 import { PainelCanceladosDoDia } from '../../components/agenda/PainelCanceladosDoDia';
-import type { AgendamentoDoDia } from '../../modules/agenda/types';
+import { useCanceladosDoDia } from '../../components/agenda/useCanceladosDoDia';
 import {
   dateInZone,
   formatTimeInZone,
@@ -167,6 +167,10 @@ interface CardLayout {
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 76;
+
+/** Botão secundário do cabeçalho (Espera, Cancelados): mesma aparência, um lugar só. */
+const HEADER_SECONDARY_BUTTON_CLASS =
+  'w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary';
 interface AgendaGridSkeletonProps {
   viewMode: 'day' | 'week';
   professionals: Professional[];
@@ -376,9 +380,14 @@ export const Agenda: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
-  const [cancelados, setCancelados] = useState<AgendamentoDoDia[]>([]);
-  const [canceladosComErro, setCanceladosComErro] = useState(false);
-  const [isCanceladosOpen, setIsCanceladosOpen] = useState(false);
+  const {
+    cancelados,
+    canceladosComErro,
+    isCanceladosOpen,
+    registrarCancelados,
+    abrirCancelados,
+    fecharCancelados,
+  } = useCanceladosDoDia();
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
@@ -788,12 +797,10 @@ export const Agenda: React.FC = () => {
       });
 
       setAppointments(agenda.appointments);
-      setCancelados(agenda.canceledAppointments);
-      setCanceladosComErro(false);
+      registrarCancelados(agenda.canceledAppointments);
     } catch (err: any) {
       console.error('Erro ao buscar agendamentos:', err);
-      setCancelados([]);
-      setCanceladosComErro(true);
+      registrarCancelados('falhou');
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
       setLoading(false);
@@ -804,7 +811,7 @@ export const Agenda: React.FC = () => {
         }, 320);
       }
     }
-  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
+  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast, registrarCancelados]);
 
   useEffect(() => {
     loadInitialData();
@@ -1427,7 +1434,7 @@ export const Agenda: React.FC = () => {
           <Tooltip content="Ver fila de clientes aguardando no balcão">
             <button
               type="button"
-              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
+              className={HEADER_SECONDARY_BUTTON_CLASS}
               onClick={() => setIsEsperaDrawerOpen(true)}
             >
               <HugeiconsIcon icon={UserGroupIcon} size={16} />
@@ -1439,8 +1446,8 @@ export const Agenda: React.FC = () => {
           <Tooltip content="Ver os atendimentos cancelados do dia e o motivo">
             <button
               type="button"
-              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
-              onClick={() => setIsCanceladosOpen(true)}
+              className={HEADER_SECONDARY_BUTTON_CLASS}
+              onClick={abrirCancelados}
             >
               <span>Cancelados</span>
               {!canceladosComErro && (
@@ -2256,7 +2263,7 @@ export const Agenda: React.FC = () => {
       {/* 8. PAINEL DE CANCELADOS DO DIA */}
       <PainelCanceladosDoDia
         isOpen={isCanceladosOpen}
-        onClose={() => setIsCanceladosOpen(false)}
+        onClose={fecharCancelados}
         cancelados={canceladosDoDia}
         profissionais={professionals}
         timezone={tenant.timezone}
