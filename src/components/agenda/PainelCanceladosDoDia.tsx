@@ -28,7 +28,6 @@ interface PainelCanceladosDoDiaProps {
   isOpen: boolean;
   onClose: () => void;
   cancelados: CanceladoDoPainel[];
-  profissionais: Array<{ id: string; name: string }>;
   timezone: string;
   /** A leitura falhou: não é o mesmo que um dia sem cancelamento. */
   falhouAoCarregar?: boolean;
@@ -41,13 +40,10 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
   isOpen,
   onClose,
   cancelados,
-  profissionais,
   timezone,
   falhouAoCarregar = false,
   onContatarCliente,
 }) => {
-  const nomeDoProfissional = (id: string) => profissionais.find((p) => p.id === id)?.name ?? 'Profissional';
-
   return (
     <Drawer
       isOpen={isOpen}
@@ -93,7 +89,19 @@ export const PainelCanceladosDoDia: React.FC<PainelCanceladosDoDiaProps> = ({
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-text-secondary">Profissional:</span>
-                  <span className="min-w-0 text-right break-words">{nomeDoProfissional(cancelado.professional_id)}</span>
+                  <span className="min-w-0 text-right break-words flex items-center justify-end gap-1.5 flex-wrap">
+                    {cancelado.professional?.name ?? 'Profissional'}
+                    {cancelado.professional && !cancelado.professional.is_active && (
+                      <Badge
+                        variant="neutral"
+                        badgeType="subtle"
+                        size="xs"
+                        title="Este profissional não faz mais parte da equipe"
+                      >
+                        Desativado
+                      </Badge>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-text-secondary">Cancelado por:</span>

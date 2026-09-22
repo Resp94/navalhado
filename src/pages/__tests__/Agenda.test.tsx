@@ -1457,6 +1457,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       notes: null,
       origin: 'manual',
       professional_id: 'prof-1',
+      professional: mockProfessionals[0],
       customer: { id: 'cust-2', name: 'Marcos Desistente', phone: '11977776666' },
       service: mockServices[0],
       cancellation_reason: 'Imprevisto no trabalho',
@@ -1466,6 +1467,7 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     const CANC_MARCOS = cancelado({
       id: 'canc-2',
       professional_id: 'prof-2',
+      professional: mockProfessionals[1],
       start_time: '2026-08-16T14:00:00.000Z',
       customer: { id: 'cust-3', name: 'Lucas Esquecido', phone: '11966665555' },
       cancellation_reason: 'Cliente desistiu',
@@ -1677,6 +1679,56 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
 
       expect(within(painel).getByText('Não foi possível carregar os cancelamentos')).toBeInTheDocument();
       expect(within(painel).queryByText('Nenhum cancelamento neste dia')).not.toBeInTheDocument();
+    });
+
+    describe('cancelamento de profissional desativado (spec 044, ticket 13)', () => {
+      const PROF_DESATIVADO = { id: 'prof-saiu', name: 'Zeca Saído', is_active: false, phone: '11900000009' };
+      const CANC_DESATIVADO = cancelado({
+        id: 'canc-desativado',
+        professional_id: 'prof-saiu',
+        professional: PROF_DESATIVADO,
+        customer: { id: 'cust-9', name: 'Cliente Do Zeca', phone: '11900000009' },
+      });
+
+      it('mostra o nome e o aviso de desativado, com o filtro de equipe em todos', async () => {
+        mockCanceledAppointments = [CANC_DESATIVADO];
+        render(<Agenda />);
+
+        expect(await screen.findByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+        const painel = await abrirPainel();
+        expect(within(painel).getByText('Cliente Do Zeca')).toBeInTheDocument();
+        expect(within(painel).getByText('Zeca Saído')).toBeInTheDocument();
+        expect(
+          within(painel).getByTitle('Este profissional não faz mais parte da equipe')
+        ).toBeInTheDocument();
+      });
+
+      it('some do painel e do contador quando o gerente restringe o filtro de equipe a alguns', async () => {
+        const user = userEvent.setup();
+        mockCanceledAppointments = [CANC_DESATIVADO, CANC_CARLOS];
+        render(<Agenda />);
+        await screen.findByRole('button', { name: /Cancelados.*2/i });
+
+        await user.click(screen.getByRole('button', { name: /Equipe/i }));
+        await user.click(screen.getByRole('menuitemcheckbox', { name: 'Marcos Navalha' }));
+        await user.keyboard('{Escape}');
+
+        expect(await screen.findByRole('button', { name: /Cancelados.*1/i })).toBeInTheDocument();
+        const painel = await abrirPainel();
+        expect(within(painel).getByText('Marcos Desistente')).toBeInTheDocument();
+        expect(within(painel).queryByText('Cliente Do Zeca')).not.toBeInTheDocument();
+      });
+
+      it('o profissional desativado não entra na lista de opções do filtro de equipe', async () => {
+        const user = userEvent.setup();
+        mockCanceledAppointments = [CANC_DESATIVADO];
+        render(<Agenda />);
+        await screen.findByRole('button', { name: /Cancelados.*1/i });
+
+        await user.click(screen.getByRole('button', { name: /Equipe/i }));
+
+        expect(screen.queryByRole('menuitemcheckbox', { name: 'Zeca Saído' })).not.toBeInTheDocument();
+      });
     });
   });
 });

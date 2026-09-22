@@ -126,7 +126,8 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
           from_waiting_list,
           professional_id,
           customer:customers (id, name, phone),
-          service:services (id, name, price, duration_minutes)
+          service:services (id, name, price, duration_minutes),
+          professional:professionals (id, name, is_active)
         `)
         .eq('tenant_id', tenantId);
       if (input.professionalId !== undefined) {
@@ -180,6 +181,7 @@ export class SupabaseAgendaAdapter implements IAgendaAdapter {
       professional_id: item.professional_id,
       customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
       service: Array.isArray(item.service) ? item.service[0] : item.service,
+      professional: Array.isArray(item.professional) ? item.professional[0] : item.professional,
     };
   }
 

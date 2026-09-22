@@ -421,7 +421,6 @@ export const MinhaAgenda: React.FC = () => {
         isOpen={isCanceladosOpen}
         onClose={fecharCancelados}
         cancelados={cancelados}
-        profissionais={professionals}
         timezone={timezone}
         falhouAoCarregar={canceladosComErro}
       />

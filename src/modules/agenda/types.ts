@@ -85,6 +85,12 @@ export interface AgendamentoDoDia {
   /** Nulo no Agendamento de balcão sem Cliente cadastrado (`customer_id` aceita nulo no banco). */
   customer: { id: string; name: string; phone: string } | null;
   service: { id: string; name: string; price: number; duration_minutes?: number };
+  /**
+   * Nome e situação do profissional, direto da leitura — não depende de uma lista de profissionais
+   * ativos à parte. Sem isso, o cancelamento de um profissional já desativado não teria nome para
+   * mostrar, porque essa lista só traz quem está ativo hoje (spec 044, ticket 13).
+   */
+  professional?: { id: string; name: string; is_active: boolean } | null;
 }
 
 /** Janela de leitura da agenda: início inclusivo, fim exclusivo. */

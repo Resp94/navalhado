@@ -65,6 +65,7 @@ const appointmentRow = (overrides: Record<string, unknown> = {}) => ({
   notes: null,
   origin: 'manual',
   professional_id: 'prof-me',
+  professional: ME,
   customer: CUSTOMER,
   service: SERVICE,
   ...overrides,

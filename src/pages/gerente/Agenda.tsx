@@ -811,11 +811,18 @@ export const Agenda: React.FC<AgendaProps> = ({
     const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
     const inicio = Date.parse(start);
     const fim = Date.parse(endExclusive);
+    // Com todos os profissionais ativos selecionados, o filtro de equipe é recorte nenhum: mostra
+    // também o cancelamento de quem já foi desativado, que nunca entra na lista do filtro (ela só
+    // lista quem está ativo hoje). Basta restringir a alguns para esses casos somerem de novo —
+    // decisão de 2026-09-22 (spec 044, ticket 13).
+    const filtroCompleto = selectedProfessionalIds.length === professionals.length;
     return cancelados.filter((cancelado) => {
       const instante = Date.parse(cancelado.start_time);
-      return selectedProfessionalIds.includes(cancelado.professional_id) && instante >= inicio && instante < fim;
+      const dentroDoDia = instante >= inicio && instante < fim;
+      const passaNoFiltro = filtroCompleto || selectedProfessionalIds.includes(cancelado.professional_id);
+      return dentroDoDia && passaNoFiltro;
     });
-  }, [cancelados, selectedDate, selectedProfessionalIds, tenant.timezone]);
+  }, [cancelados, selectedDate, selectedProfessionalIds, professionals, tenant.timezone]);
 
   const fetchAppointments = useCallback(async () => {
     if (!tenant.tenantId) return;
@@ -2323,7 +2330,6 @@ export const Agenda: React.FC<AgendaProps> = ({
         isOpen={isCanceladosOpen}
         onClose={fecharCancelados}
         cancelados={canceladosDoDia}
-        profissionais={professionals}
         timezone={tenant.timezone}
         falhouAoCarregar={canceladosComErro}
         onContatarCliente={(cancelado) => openWhatsApp(cancelado.customer?.phone ?? '')}
