@@ -1888,7 +1888,7 @@ export const Agenda: React.FC<AgendaProps> = ({
                                     {app.status === 'in_progress' && (
                                       <Badge variant="info" badgeType="solid" size="xs" title="Em Atendimento">Atendendo</Badge>
                                     )}
-                                    {app.payment_status === 'paid' && (
+                                    {cardState === 'completed' && (
                                       <Badge variant="success" badgeType="solid" size="xs" title="Pago">Pago</Badge>
                                     )}
                                   </div>
@@ -1906,7 +1906,7 @@ export const Agenda: React.FC<AgendaProps> = ({
 
                                 </div>
 
-                                {app.payment_status === 'paid' && (
+                                {cardState === 'completed' && (
                                   <div className="flex items-center gap-1 mt-auto pt-[0.2rem] border-t border-black/5">
                                     <span className="text-success flex items-center">
                                       <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Pago
@@ -2157,7 +2157,7 @@ export const Agenda: React.FC<AgendaProps> = ({
                                     {app.status === 'no_show' && (
                                       <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu" className={CARD_BADGE_WEEK_CLASS}>Não compareceu</Badge>
                                     )}
-                                    {app.payment_status === 'paid' && (
+                                    {cardState === 'completed' && (
                                       <Badge variant="success" badgeType="solid" size="xs" title="Pago" className={CARD_BADGE_WEEK_CLASS}>Pago</Badge>
                                     )}
                                   </div>
