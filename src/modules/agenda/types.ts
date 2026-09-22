@@ -82,7 +82,8 @@ export interface AgendamentoDoDia {
   /** Criado consumindo uma entrada da Lista de Espera. */
   from_waiting_list?: boolean;
   professional_id: string;
-  customer: { id: string; name: string; phone: string };
+  /** Nulo no Agendamento de balcão sem Cliente cadastrado (`customer_id` aceita nulo no banco). */
+  customer: { id: string; name: string; phone: string } | null;
   service: { id: string; name: string; price: number; duration_minutes?: number };
 }
 

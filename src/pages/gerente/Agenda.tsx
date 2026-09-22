@@ -141,11 +141,12 @@ export interface Appointment {
   notes?: string | null;
   origin?: string;
   from_waiting_list?: boolean;
+  /** Nulo no Agendamento de balcão sem Cliente cadastrado. */
   customer: {
     id: string;
     name: string;
     phone: string;
-  };
+  } | null;
   service: {
     id: string;
     name: string;

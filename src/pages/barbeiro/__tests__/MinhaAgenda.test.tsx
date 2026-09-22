@@ -189,6 +189,19 @@ describe('Minha Agenda do barbeiro', () => {
     expect(within(sheet).getByRole('button', { name: /Cancelar agendamento/i })).toBeInTheDocument();
   });
 
+  it('Agendamento ativo de balcão sem Cliente abre as ações sem quebrar e sem o atalho de WhatsApp (spec 044, ticket 03)', async () => {
+    tables.appointments = () => [appointmentRow({ customer: null })];
+
+    render(<MinhaAgenda />);
+    await waitFor(() => expect(screen.getByTitle('Toque para ver as ações do agendamento')).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle('Toque para ver as ações do agendamento'));
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('Cliente Balcão')).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button', { name: /Chamar no WhatsApp/i })).not.toBeInTheDocument();
+    expect(within(sheet).getByRole('button', { name: /^Reagendar$/i })).toBeInTheDocument();
+  });
+
   it('cancela o Agendamento pela RPC com o motivo e a barbearia do vínculo', async () => {
     await renderAgenda();
 

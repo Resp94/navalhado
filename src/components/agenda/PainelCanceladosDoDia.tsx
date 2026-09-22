@@ -18,13 +18,11 @@ const AUTORIA: Record<'shop' | 'customer' | 'desconhecida', { rotulo: string; va
 };
 
 /**
- * O encaixe de balcão pode não ter cliente cadastrado: `customer_id` aceita nulo no banco. O tipo
- * de leitura do Agendamento ainda declara `customer` como obrigatório, então o painel aceita o
- * nulo por conta própria em vez de confiar nele.
+ * O encaixe de balcão pode não ter cliente cadastrado: `customer_id` aceita nulo no banco, e o tipo
+ * de leitura do Agendamento já declara isso (spec 044, ticket 03). O alias fica só pelo nome, mais
+ * claro no contexto do painel.
  */
-export type CanceladoDoPainel = Omit<AgendamentoDoDia, 'customer'> & {
-  customer: AgendamentoDoDia['customer'] | null;
-};
+export type CanceladoDoPainel = AgendamentoDoDia;
 
 interface PainelCanceladosDoDiaProps {
   isOpen: boolean;

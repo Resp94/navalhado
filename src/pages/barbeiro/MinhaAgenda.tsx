@@ -312,9 +312,11 @@ export const MinhaAgenda: React.FC = () => {
                 type="button"
                 className={`${ACTION_BUTTON_CLASS} bg-bg-secondary text-success shadow-[0_0_0_0.8px_var(--color-text-primary)]`}
                 onClick={() => {
+                  const customer = actionAppointment.customer;
+                  if (!customer) return;
                   openWhatsApp(
-                    actionAppointment.customer.phone,
-                    `Olá ${actionAppointment.customer.name}! Confirmando seu horário de atendimento às ${formatTimeInZone(
+                    customer.phone,
+                    `Olá ${customer.name}! Confirmando seu horário de atendimento às ${formatTimeInZone(
                       actionAppointment.start_time,
                       timezone
                     )} na ${tenant.tenantName}.`

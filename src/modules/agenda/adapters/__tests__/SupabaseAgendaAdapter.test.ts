@@ -422,6 +422,19 @@ describe('SupabaseAgendaAdapter.carregarAgendamentosDoDia (spec 043, ticket 03)'
     expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
   });
 
+  it('traz nulo, e não um objeto quebrado, quando o Agendamento de balcão não tem Cliente (spec 044, ticket 03)', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [linha('ap-balcao', 'prof-1', { customer: null })],
+        blocked_slots: [],
+      })
+    );
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    expect(agenda.appointments[0].customer).toBeNull();
+  });
+
   it('traz o indicador de que o Agendamento veio da Lista de Espera, falso quando a coluna não o marca', async () => {
     mockFrom.mockImplementation(
       bancoQueAplicaFiltros({
