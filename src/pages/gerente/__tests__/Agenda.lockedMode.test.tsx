@@ -185,6 +185,21 @@ describe('Agenda em modo travado ao profissional (spec 045, ticket 01)', () => {
     expect(within(professionalSelect).queryByRole('option', { name: 'Tanto faz' })).not.toBeInTheDocument();
   });
 
+  it('o Bloquear horário do cabeçalho desktop trava o profissional, sem opção de outro profissional', async () => {
+    render(
+      <MemoryRouter>
+        <Agenda lockedProfessionalId="prof-me" onLockedAppointmentAction={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Pedro Cliente')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^Bloquear$/i }));
+
+    const professionalSelect = await screen.findByLabelText('Profissional *');
+    expect(professionalSelect).toHaveValue('prof-me');
+    expect(within(professionalSelect).queryByRole('option', { name: 'Marcos Titular' })).not.toBeInTheDocument();
+  });
+
   it('sem o modo travado, o filtro de equipe, a alternância Dia/Semana e a Espera continuam disponíveis', async () => {
     render(
       <MemoryRouter>

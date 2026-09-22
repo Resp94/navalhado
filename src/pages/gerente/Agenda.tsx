@@ -2253,7 +2253,7 @@ export const Agenda: React.FC<AgendaProps> = ({
       <BloqueioModal
         isOpen={isBloqueioModalOpen}
         tenantId={tenant.tenantId}
-        professionals={professionals}
+        professionals={lockedProfessionalId ? visibleProfessionals : professionals}
         appointments={appointments}
         blockedSlots={blockedSlots}
         defaultDateIso={selectedDate}
