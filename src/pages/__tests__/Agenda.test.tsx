@@ -331,6 +331,80 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
     });
   });
 
+  describe('Selos do cartão usam o componente Badge da biblioteca (spec 044, ticket 12)', () => {
+    const comSelosMultiplos = async (aoVerificar: () => Promise<void>) => {
+      const original = { ...mockAppointments[0] };
+      (mockAppointments[0] as any).is_fitting = true;
+      (mockAppointments[0] as any).from_waiting_list = true;
+      (mockAppointments[0] as any).payment_status = 'paid';
+      try {
+        await aoVerificar();
+      } finally {
+        Object.assign(mockAppointments[0], original);
+      }
+    };
+
+    // A grade desktop e a visão de celular (MobileAgendaView) são renderizadas juntas o tempo todo,
+    // uma escondida da outra só por CSS de breakpoint (max-md:) — por isso os selos aparecem em
+    // dobro no jsdom, que não avalia media query. getAllBy* cobre as duas superfícies de uma vez.
+    it('mostra Encaixe, Espera e Pago juntos no cartão do dia (grade e visão de celular), cada um com o par de tokens sólidos do Badge', async () => {
+      await comSelosMultiplos(async () => {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        const encaixes = screen.getAllByTitle('Encaixe');
+        const esperas = screen.getAllByTitle('Veio da Lista de Espera');
+        const pagos = screen.getAllByTitle('Pago');
+        expect(encaixes.length).toBeGreaterThanOrEqual(1);
+        expect(esperas.length).toBeGreaterThanOrEqual(1);
+        expect(pagos.length).toBeGreaterThanOrEqual(1);
+
+        // Classe exata que o Badge gera para cada variante/tipo — só aparece vindo do componente da
+        // biblioteca, nunca do span solto antigo. Prova que a troca de componente aconteceu de
+        // verdade, não só que os três selos têm classes diferentes entre si.
+        encaixes.forEach((selo) => expect(selo.className).toMatch(/\bbg-brand-primary-solid\b/));
+        pagos.forEach((selo) => expect(selo.className).toMatch(/\bbg-success-solid\b/));
+        esperas.forEach((selo) => expect(selo.className).toMatch(/\bbg-brand-lightest\b/)); // subtle, como antes
+
+        // Nenhum selo carrega mais uma cor hexadecimal solta.
+        [...encaixes, ...esperas, ...pagos].forEach((selo) => {
+          expect(selo.className).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+        });
+      });
+    });
+
+    it('mostra "Não compareceu" com o token de erro sólido, sem a cor hexadecimal antiga', async () => {
+      const original = { ...mockAppointments[0] };
+      (mockAppointments[0] as any).status = 'no_show';
+      try {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        const selos = screen.getAllByTitle('Não compareceu');
+        expect(selos.length).toBeGreaterThanOrEqual(1);
+        selos.forEach((selo) => {
+          expect(selo.className).toMatch(/\bbg-error-solid\b/);
+          expect(selo.className).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+        });
+      } finally {
+        Object.assign(mockAppointments[0], original);
+      }
+    });
+
+    it('mostra os mesmos selos, encolhidos para caber, no cartão da visão semanal', async () => {
+      await comSelosMultiplos(async () => {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        fireEvent.click(screen.getByText('Semana'));
+
+        await waitFor(() => expect(screen.getAllByTitle('Pago').length).toBeGreaterThanOrEqual(1));
+        expect(screen.getAllByTitle('Encaixe').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThanOrEqual(1);
+      });
+    });
+  });
+
   describe('Bloqueios de Horário lidos por caminho único (spec 043, ticket 08)', () => {
     const bloqueioAlmoco = {
       id: 'blk-1',

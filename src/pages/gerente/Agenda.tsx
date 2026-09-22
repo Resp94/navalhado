@@ -327,6 +327,16 @@ const getAppointmentCardClasses = (cardState: string, isFitting: boolean) => {
   return `absolute rounded-md py-[0.4rem] px-[0.55rem] z-10 flex flex-col justify-start gap-1 min-h-[69px] overflow-hidden box-border bg-bg-secondary shadow-sm border cursor-pointer transition-[box-shadow,border-color] duration-75 hover:shadow-md hover:border-brand-primary/45 hover:z-[15] ${statusClass} ${borderLeftClass}`;
 };
 
+/**
+ * Selos do cartão (Encaixe, Espera, Não compareceu, Atendendo, Pago): todos usam o componente Badge
+ * da biblioteca, em `badgeType="solid"` (o par de tokens previsto para fundo sólido com texto
+ * branco) exceto Espera, que já usava `subtle` desde a spec 043 e continua assim — é o selo de
+ * origem, não de status, e precisa continuar visualmente mais leve que os demais (ticket 12/044).
+ * A grade da semana é bem mais estreita que a do dia: o texto e o preenchimento do Badge encolhem
+ * ali para não estourar o cartão, sem trocar de componente nem de cor.
+ */
+const CARD_BADGE_WEEK_CLASS = '!text-[0.52rem] !px-[3px] !py-px !leading-none !tracking-[0.2px] !gap-px';
+
 interface AgendaProps {
   /**
    * Trava a grade a um único profissional (a Minha Agenda do barbeiro): oculta filtro de equipe,
@@ -1838,27 +1848,19 @@ export const Agenda: React.FC<AgendaProps> = ({
                                   </span>
                                   <div className="flex items-center gap-1">
                                     {app.is_fitting && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-brand-deep text-white" title="Encaixe">
-                                        Encaixe
-                                      </span>
+                                      <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe">Encaixe</Badge>
                                     )}
                                     {app.from_waiting_list && (
                                       <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-[#b91c1c] text-white" title="Não compareceu">
-                                        Não compareceu
-                                      </span>
+                                      <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu">Não compareceu</Badge>
                                     )}
                                     {app.status === 'in_progress' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-info text-white" title="Em Atendimento">
-                                        Atendendo
-                                      </span>
+                                      <Badge variant="info" badgeType="solid" size="xs" title="Em Atendimento">Atendendo</Badge>
                                     )}
                                     {app.payment_status === 'paid' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-success text-white" title="Pago">
-                                        Pago
-                                      </span>
+                                      <Badge variant="success" badgeType="solid" size="xs" title="Pago">Pago</Badge>
                                     )}
                                   </div>
                                 </div>
@@ -2118,22 +2120,16 @@ export const Agenda: React.FC<AgendaProps> = ({
                                   </span>
                                   <div className="flex items-center gap-0.5 shrink-0">
                                     {app.is_fitting && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-brand-deep text-white" title="Encaixe">
-                                        Encaixe
-                                      </span>
+                                      <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe" className={CARD_BADGE_WEEK_CLASS}>Encaixe</Badge>
                                     )}
                                     {app.from_waiting_list && (
-                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
+                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera" className={CARD_BADGE_WEEK_CLASS}>Espera</Badge>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-[#b91c1c] text-white" title="Não compareceu">
-                                        Não compareceu
-                                      </span>
+                                      <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu" className={CARD_BADGE_WEEK_CLASS}>Não compareceu</Badge>
                                     )}
                                     {app.payment_status === 'paid' && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-success text-white" title="Pago">
-                                        Pago
-                                      </span>
+                                      <Badge variant="success" badgeType="solid" size="xs" title="Pago" className={CARD_BADGE_WEEK_CLASS}>Pago</Badge>
                                     )}
                                   </div>
                                 </div>

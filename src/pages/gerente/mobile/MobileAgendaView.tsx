@@ -558,16 +558,16 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                           {(app.service?.name || 'Serviço').toUpperCase()} - R$ {Number(app.service?.price || 0).toFixed(2)}
                         </span>
                         {isFitting && (
-                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b45309] text-white text-[0.65rem] font-bold">Encaixe</span>
+                          <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe">Encaixe</Badge>
                         )}
                         {app.from_waiting_list && (
                           <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                         )}
                         {isCompletedAndPaid && (
-                          <span className="text-[0.5625rem] font-bold text-[#065f46] bg-[rgba(16,185,129,0.25)] py-px px-[5px] rounded-[3px] uppercase">Pago</span>
+                          <Badge variant="success" badgeType="solid" size="xs" title="Pago">Pago</Badge>
                         )}
                         {isNoShow && (
-                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b91c1c] text-white text-[0.65rem] font-bold">Não compareceu</span>
+                          <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu">Não compareceu</Badge>
                         )}
                       </div>
                     </div>
