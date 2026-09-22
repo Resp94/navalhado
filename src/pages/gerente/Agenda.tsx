@@ -365,6 +365,12 @@ export const Agenda: React.FC<AgendaProps> = ({
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
   const isViewTransitioningRef = useRef(false);
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
+  // Só a resposta da consulta mais recente vale: ao trocar de dia (ou semana, ou dia/semana) rápido,
+  // a leitura antiga pode responder depois da nova e mostraria o período errado sob o cabeçalho
+  // certo. Agendamentos e Bloqueios são leituras independentes (spec 043, ticket 05): cada uma tem
+  // seu próprio número de sequência.
+  const latestAppointmentsRequest = useRef(0);
+  const latestBlockedSlotsRequest = useRef(0);
 
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
@@ -761,6 +767,7 @@ export const Agenda: React.FC<AgendaProps> = ({
   // Carregar Bloqueios de Horário. Leitura própria: a falha dela não esconde os Agendamentos.
   const fetchBlockedSlots = useCallback(async () => {
     if (!tenant.tenantId) return;
+    const requestId = ++latestBlockedSlotsRequest.current;
     try {
       let startIso: string;
       let endIso: string;
@@ -776,10 +783,12 @@ export const Agenda: React.FC<AgendaProps> = ({
         endIso = endExclusive;
       }
 
-      setBlockedSlots(
-        await agendaRepo.carregarBloqueiosDoDia(tenant.tenantId, { startIso, endExclusiveIso: endIso })
-      );
+      const bloqueios = await agendaRepo.carregarBloqueiosDoDia(tenant.tenantId, { startIso, endExclusiveIso: endIso });
+      // Resposta de uma leitura já superada por uma troca de dia/semana mais recente: descartada.
+      if (requestId !== latestBlockedSlotsRequest.current) return;
+      setBlockedSlots(bloqueios);
     } catch (err) {
+      if (requestId !== latestBlockedSlotsRequest.current) return;
       console.error('Erro ao buscar bloqueios:', err);
     }
   }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
@@ -799,10 +808,11 @@ export const Agenda: React.FC<AgendaProps> = ({
   }, [cancelados, selectedDate, selectedProfessionalIds, tenant.timezone]);
 
   const fetchAppointments = useCallback(async () => {
-    try {
-      if (!tenant.tenantId) return;
-      setLoading(true);
+    if (!tenant.tenantId) return;
+    const requestId = ++latestAppointmentsRequest.current;
+    setLoading(true);
 
+    try {
       let startIso: string;
       let endIso: string;
 
@@ -823,19 +833,26 @@ export const Agenda: React.FC<AgendaProps> = ({
         incluirCancelados: true,
       });
 
+      // Resposta de uma leitura já superada por uma troca de dia/semana mais recente: descartada,
+      // sem tocar o indicador de carregamento nem mostrar erro — quem pediu já pediu outra coisa.
+      if (requestId !== latestAppointmentsRequest.current) return;
+
       setAppointments(agenda.appointments);
       registrarCancelados(agenda.canceledAppointments);
     } catch (err: any) {
+      if (requestId !== latestAppointmentsRequest.current) return;
       console.error('Erro ao buscar agendamentos:', err);
       registrarCancelados('falhou');
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
-      setLoading(false);
-      if (isViewTransitioningRef.current) {
-        setTimeout(() => {
-          isViewTransitioningRef.current = false;
-          setIsViewTransitioning(false);
-        }, 320);
+      if (requestId === latestAppointmentsRequest.current) {
+        setLoading(false);
+        if (isViewTransitioningRef.current) {
+          setTimeout(() => {
+            isViewTransitioningRef.current = false;
+            setIsViewTransitioning(false);
+          }, 320);
+        }
       }
     }
   }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast, registrarCancelados]);

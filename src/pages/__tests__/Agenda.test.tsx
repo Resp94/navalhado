@@ -1234,6 +1234,144 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByText(/Visão semanal de 2 profissional\(is\)/i)).toBeInTheDocument();
     });
   });
+
+  describe('Resposta obsoleta descartada ao trocar de dia rápido (spec 044, ticket 10)', () => {
+    it('duas trocas de dia, a primeira resposta chegando por último: a grade mostra o dia pedido por último', async () => {
+      // A leitura de montagem (índice 0) resolve na hora, com os dados padrão do arquivo (Pedro
+      // Cliente), como em todo outro teste. A partir do primeiro clique em "Próximo Dia", cada
+      // leitura de Agendamentos ativos fica pendurada até o teste decidir resolvê-la — permite
+      // inverter a ordem de chegada das duas trocas de dia seguintes.
+      const pendentes: Array<(nome: string) => void> = [];
+      let chamada = -1;
+      const originalFrom = mockFrom.getMockImplementation()!;
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table !== 'appointments') return originalFrom(table);
+
+        let statusDiferente: string | null = null;
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          neq: (coluna: string, valor: string) => {
+            if (coluna === 'status') statusDiferente = valor;
+            return builder;
+          },
+          gte: () => builder,
+          lt: () => builder,
+          order: vi.fn().mockImplementation(() => {
+            // A consulta de cancelados (eq status = canceled) não participa da corrida: sempre vazia.
+            if (statusDiferente !== 'canceled') return Promise.resolve({ data: [], error: null });
+
+            chamada += 1;
+            const indiceDaChamada = chamada;
+            if (indiceDaChamada === 0) {
+              return Promise.resolve({ data: mockAppointments, error: null });
+            }
+            return new Promise((resolve) => {
+              pendentes[indiceDaChamada] = (nome: string) =>
+                resolve({
+                  data: [{ ...mockAppointments[0], id: `app-${indiceDaChamada}`, customer: { ...mockCustomers[0], name: nome } }],
+                  error: null,
+                });
+            });
+          }),
+        };
+        return builder;
+      });
+
+      render(<Agenda />);
+      await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+      const proximoDia = screen.getByRole('button', { name: 'Próximo Dia' });
+      fireEvent.click(proximoDia); // dispara a leitura 1 (pendente)
+      fireEvent.click(proximoDia); // dispara a leitura 2 (pendente), antes da 1 responder
+
+      await waitFor(() => expect(pendentes[1]).toBeDefined());
+      await waitFor(() => expect(pendentes[2]).toBeDefined());
+
+      // Inverte a ordem: a leitura 2 (mais recente) responde primeiro; a leitura 1 (obsoleta) só depois.
+      pendentes[2]('Cliente Dia Novo');
+      await waitFor(() => expect(screen.getAllByText('Cliente Dia Novo').length).toBeGreaterThanOrEqual(1));
+
+      pendentes[1]('Cliente Dia Antigo');
+      // A leitura obsoleta nunca chega a aparecer: nem antes, nem depois de resolvida.
+      expect(screen.queryByText('Cliente Dia Antigo')).toBeNull();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(screen.queryByText('Cliente Dia Antigo')).toBeNull();
+      expect(screen.getAllByText('Cliente Dia Novo').length).toBeGreaterThanOrEqual(1);
+
+      // O indicador de carregamento não fica preso ligado pela resposta obsoleta chegando por último
+      // (a leitura válida, mais recente, já desligou; sobra só a transição de troca de dia, que some
+      // sozinha depois do próprio atraso de animação, sem depender da leitura obsoleta).
+      await waitFor(() => expect(screen.queryByLabelText('Carregando grade da agenda')).toBeNull(), {
+        timeout: 1000,
+      });
+      // A leitura obsoleta não é erro: nenhum toast de falha foi disparado.
+      expect(mockAddToast).not.toHaveBeenCalledWith('Erro ao carregar os agendamentos do dia.', 'error');
+    });
+
+    it('o mesmo vale para a leitura de Bloqueios de Horário, que também acompanha o dia', async () => {
+      const pendentes: Array<(reason: string) => void> = [];
+      let chamada = -1;
+      const originalFrom = mockFrom.getMockImplementation()!;
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table !== 'blocked_slots') return originalFrom(table);
+
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          gte: () => builder,
+          lt: () => builder,
+          order: vi.fn().mockImplementation(() => {
+            chamada += 1;
+            const indiceDaChamada = chamada;
+            if (indiceDaChamada === 0) return Promise.resolve({ data: [], error: null });
+            return new Promise((resolve) => {
+              pendentes[indiceDaChamada] = (reason: string) =>
+                resolve({
+                  data: [
+                    {
+                      id: `blk-${indiceDaChamada}`,
+                      tenant_id: 'tenant-123',
+                      professional_id: 'prof-1',
+                      start_time: '2026-08-16T15:00:00.000Z',
+                      end_time: '2026-08-16T16:00:00.000Z',
+                      reason,
+                      is_all_day: false,
+                    },
+                  ],
+                  error: null,
+                });
+            });
+          }),
+          delete: () => ({ eq: () => ({ eq: vi.fn().mockResolvedValue({ error: null }) }) }),
+        };
+        return builder;
+      });
+
+      render(<Agenda />);
+      await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+      const proximoDia = screen.getByRole('button', { name: 'Próximo Dia' });
+      fireEvent.click(proximoDia); // dispara a leitura 1 de bloqueios (pendente)
+      fireEvent.click(proximoDia); // dispara a leitura 2 (pendente), antes da 1 responder
+
+      await waitFor(() => expect(pendentes[1]).toBeDefined());
+      await waitFor(() => expect(pendentes[2]).toBeDefined());
+
+      // Inverte a ordem: a leitura 2 (mais recente) responde primeiro; a leitura 1 (obsoleta) só depois.
+      pendentes[2]('Bloqueio Dia Novo');
+      await waitFor(() => expect(screen.getByText('Bloqueio Dia Novo')).toBeInTheDocument());
+
+      pendentes[1]('Bloqueio Dia Antigo');
+      expect(screen.queryByText('Bloqueio Dia Antigo')).toBeNull();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(screen.queryByText('Bloqueio Dia Antigo')).toBeNull();
+      expect(screen.getByText('Bloqueio Dia Novo')).toBeInTheDocument();
+    });
+  });
+
   describe('Painel de Cancelados do Dia (spec 043, ticket 05)', () => {
     const cancelado = (overrides: Record<string, unknown> = {}) => ({
       id: 'canc-x',
