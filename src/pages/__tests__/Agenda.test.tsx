@@ -448,6 +448,45 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(screen.getByText('Almoço')).toBeInTheDocument();
       consoleErro.mockRestore();
     });
+
+    describe('aviso de falha na tela (spec 044, ticket 11)', () => {
+      const AVISO = /Não foi possível carregar os Bloqueios de Horário/i;
+
+      it('mostra o aviso, e os Agendamentos continuam na grade e na visão de celular', async () => {
+        mockBlockedSlotsFail = true;
+        const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        render(<Agenda />);
+
+        await waitFor(() => expect(screen.getAllByText(AVISO).length).toBe(2));
+        screen.getAllByText(AVISO).forEach((aviso) => expect(aviso.closest('[role="status"]')).toBeInTheDocument());
+        expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1);
+        consoleErro.mockRestore();
+      });
+
+      it('não mostra o aviso quando a leitura tem sucesso e simplesmente não há Bloqueio no dia', async () => {
+        render(<Agenda />);
+
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+        expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
+      });
+
+      it('o aviso some sozinho quando uma leitura seguinte tem sucesso', async () => {
+        mockBlockedSlotsFail = true;
+        const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        render(<Agenda />);
+
+        await waitFor(() => expect(screen.getAllByText(AVISO).length).toBe(2));
+
+        mockBlockedSlotsFail = false;
+        mockBlockedSlots = [bloqueioAlmoco];
+        // A visão de celular e a de desktop convivem no DOM; ambas trocam o mesmo dia selecionado.
+        fireEvent.click(screen.getAllByRole('button', { name: /Próximo Dia/i })[0]);
+
+        await waitFor(() => expect(screen.getAllByText('Almoço').length).toBeGreaterThanOrEqual(1));
+        expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
+        consoleErro.mockRestore();
+      });
+    });
   });
 
   it('abre o modal de encaixe rápido com a flag ativa ao clicar no botão + Encaixe', async () => {

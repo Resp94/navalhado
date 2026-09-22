@@ -7,6 +7,7 @@ import {
   PlusSignIcon,
   UnavailableIcon,
   Clock01Icon,
+  AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 import {
   dateInZone,
@@ -32,6 +33,8 @@ interface MobileAgendaViewProps {
   professionals: Professional[];
   appointments: Appointment[];
   blockedSlots: BlockedSlot[];
+  /** A leitura de Bloqueios falhou: os Agendamentos continuam na lista, mas ela pode não estar completa. */
+  blockedSlotsComErro?: boolean;
   timeSlots: string[];
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
@@ -97,6 +100,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   professionals,
   appointments,
   blockedSlots,
+  blockedSlotsComErro = false,
   timeSlots,
   onOpenNewAppointment,
   onOpenCheckout,
@@ -350,6 +354,16 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           );
         })}
       </div>
+
+      {blockedSlotsComErro && (
+        <div
+          className="flex items-center gap-2 bg-warning-bg border border-warning text-warning rounded-xl px-3 py-2 text-[0.75rem] font-bold w-full box-border"
+          role="status"
+        >
+          <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+          <span>Não foi possível carregar os Bloqueios de Horário. A lista pode não refletir horários bloqueados.</span>
+        </div>
+      )}
 
       {/* ─── LINHA DO TEMPO CRONOLÓGICA ─── */}
       <div className="flex flex-col gap-3 w-full box-border">

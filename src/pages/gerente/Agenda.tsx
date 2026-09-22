@@ -395,6 +395,10 @@ export const Agenda: React.FC<AgendaProps> = ({
   const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  // A falha some sozinha na próxima leitura bem-sucedida; até lá, os Agendamentos continuam na
+  // grade (leitura própria, a de Bloqueios não esconde a outra) e o aviso avisa que Bloqueios
+  // pode estar faltando ali, em vez de deixar a grade parecer completa (spec 044, ticket 11).
+  const [blockedSlotsComErro, setBlockedSlotsComErro] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
@@ -797,9 +801,11 @@ export const Agenda: React.FC<AgendaProps> = ({
       // Resposta de uma leitura já superada por uma troca de dia/semana mais recente: descartada.
       if (requestId !== latestBlockedSlotsRequest.current) return;
       setBlockedSlots(bloqueios);
+      setBlockedSlotsComErro(false);
     } catch (err) {
       if (requestId !== latestBlockedSlotsRequest.current) return;
       console.error('Erro ao buscar bloqueios:', err);
+      setBlockedSlotsComErro(true);
     }
   }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
 
@@ -1364,6 +1370,7 @@ export const Agenda: React.FC<AgendaProps> = ({
           professionals={lockedProfessionalId ? visibleProfessionals : professionals}
           appointments={appointments}
           blockedSlots={blockedSlots}
+          blockedSlotsComErro={blockedSlotsComErro}
           timeSlots={timeSlots}
           cardActionHint={lockedProfessionalId ? 'ver as ações do agendamento' : undefined}
           onOpenNewAppointment={(profId, slot, isFitting) =>
@@ -1556,6 +1563,16 @@ export const Agenda: React.FC<AgendaProps> = ({
           </Tooltip>
         </div>
       </header>
+
+      {blockedSlotsComErro && (
+        <div
+          className="flex items-center gap-2 bg-warning-bg border border-warning text-warning rounded-lg px-4 py-2 text-xs font-bold shrink-0"
+          role="status"
+        >
+          <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+          <span>Não foi possível carregar os Bloqueios de Horário. A grade pode não refletir horários bloqueados.</span>
+        </div>
+      )}
 
       {/* 2. GRADE TEMPORAL CONTÍNUA */}
       <div className="w-full flex-1 min-h-0 max-h-none overflow-auto overscroll-contain bg-bg-secondary border border-border/70 rounded-lg p-0 shadow-sm relative top-0 left-0 [scrollbar-width:thin] [scrollbar-color:rgba(45,35,30,0.25)_transparent] hover:[scrollbar-color:rgba(45,35,30,0.45)_transparent] [&::-webkit-scrollbar]:h-[5px] [&::-webkit-scrollbar]:w-[5px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.15)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.35)]">
