@@ -8,6 +8,7 @@ import {
   UnavailableIcon,
   Clock01Icon,
   AlertCircleIcon,
+  CancelCircleIcon,
 } from '@hugeicons/core-free-icons';
 import {
   dateInZone,
@@ -48,6 +49,8 @@ interface MobileAgendaViewProps {
   onOpenEspera?: () => void;
   /** O que o toque no card faz, no fim de "Toque para ...". O gestor abre a comanda; o barbeiro, as ações do Agendamento. */
   cardActionHint?: string;
+  /** Cancelamentos do dia selecionado, já recortados pelo filtro de equipe; abre o Painel de Cancelados do Dia (spec 044, ticket 15). Omitido, a faixa não aparece — hoje só o gerente tem o painel no celular. */
+  cancelamentosDoDia?: { quantidade: number; comErro: boolean; onAbrir: () => void };
 }
 
 interface TimelineItem {
@@ -113,6 +116,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   onOpenBloqueio: _onOpenBloqueio,
   onOpenEspera: _onOpenEspera,
   cardActionHint = 'abrir a comanda',
+  cancelamentosDoDia,
 }) => {
   // Filtrar profissionais ativos
   const activeProfessionals = useMemo(
@@ -363,6 +367,30 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
           <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
           <span>Não foi possível carregar os Bloqueios de Horário. A lista pode não refletir horários bloqueados.</span>
         </div>
+      )}
+
+      {/* ─── FAIXA DE CANCELADOS DO DIA (spec 044, ticket 15) ─── */}
+      {cancelamentosDoDia && (cancelamentosDoDia.comErro || cancelamentosDoDia.quantidade > 0) && (
+        <button
+          type="button"
+          onClick={cancelamentosDoDia.onAbrir}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 min-h-11 text-[0.75rem] font-bold w-full box-border border cursor-pointer ${
+            cancelamentosDoDia.comErro
+              ? 'bg-warning-bg border-warning text-warning'
+              : 'bg-info-bg border-info text-info'
+          }`}
+        >
+          <HugeiconsIcon
+            icon={cancelamentosDoDia.comErro ? AlertCircleIcon : CancelCircleIcon}
+            size={16}
+            className="shrink-0"
+          />
+          <span>
+            {cancelamentosDoDia.comErro
+              ? 'Não foi possível carregar os cancelamentos do dia.'
+              : `${cancelamentosDoDia.quantidade} ${cancelamentosDoDia.quantidade === 1 ? 'cancelamento' : 'cancelamentos'} no dia. Toque para ver.`}
+          </span>
+        </button>
       )}
 
       {/* ─── LINHA DO TEMPO CRONOLÓGICA ─── */}

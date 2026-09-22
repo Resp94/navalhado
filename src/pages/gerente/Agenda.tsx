@@ -1385,6 +1385,11 @@ export const Agenda: React.FC<AgendaProps> = ({
           onRemoveBlock={handleRemoveBlock}
           onOpenBloqueio={() => setIsBloqueioModalOpen(true)}
           onOpenEspera={() => setIsEsperaDrawerOpen(true)}
+          cancelamentosDoDia={{
+            quantidade: canceladosDoDia.length,
+            comErro: canceladosComErro,
+            onAbrir: abrirCancelados,
+          }}
         />
       </div>
 

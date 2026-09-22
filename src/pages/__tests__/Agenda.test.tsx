@@ -1738,6 +1738,75 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       expect(within(painel).queryByText('Nenhum cancelamento neste dia')).not.toBeInTheDocument();
     });
 
+    describe('faixa de Cancelados do Dia na visão de celular (spec 044, ticket 15)', () => {
+      const faixaCelular = () =>
+        screen.findByRole('button', { name: /cancelamento.*no dia\. Toque para ver/i });
+
+      it('some quando não há nenhum cancelamento no dia', async () => {
+        mockCanceledAppointments = [];
+        render(<Agenda />);
+        await screen.findByRole('button', { name: /Cancelados.*0/i });
+
+        expect(screen.queryByRole('button', { name: /cancelamento.*no dia/i })).not.toBeInTheDocument();
+      });
+
+      it('a faixa aparece com o número de cancelamentos do dia', async () => {
+        mockCanceledAppointments = [CANC_CARLOS, CANC_MARCOS];
+        render(<Agenda />);
+
+        expect(await faixaCelular()).toHaveTextContent('2 cancelamentos no dia. Toque para ver.');
+      });
+
+      it('no singular, com um só cancelamento', async () => {
+        mockCanceledAppointments = [CANC_CARLOS];
+        render(<Agenda />);
+
+        expect(await faixaCelular()).toHaveTextContent('1 cancelamento no dia. Toque para ver.');
+      });
+
+      it('sinaliza a falha de leitura na faixa, distinguível de dia sem cancelamento', async () => {
+        mockAppointmentsFail = true;
+        render(<Agenda />);
+        await waitFor(() =>
+          expect(mockAddToast).toHaveBeenCalledWith('Erro ao carregar os agendamentos do dia.', 'error')
+        );
+
+        const faixa = await screen.findByRole('button', {
+          name: 'Não foi possível carregar os cancelamentos do dia.',
+        });
+        expect(faixa).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /cancelamento.*no dia\. Toque para ver/i })).not.toBeInTheDocument();
+      });
+
+      it('abre o painel ao tocar na faixa, com entradas de mais de um profissional', async () => {
+        mockCanceledAppointments = [CANC_CARLOS, CANC_MARCOS];
+        render(<Agenda />);
+
+        fireEvent.click(await faixaCelular());
+
+        const painel = await screen.findByRole('dialog', { name: /Cancelados do dia/i });
+        expect(within(painel).getByText('Carlos Barbeiro')).toBeInTheDocument();
+        expect(within(painel).getByText('Marcos Navalha')).toBeInTheDocument();
+      });
+
+      it('acompanha a troca do dia selecionado', async () => {
+        mockCanceledAppointments = [CANC_CARLOS];
+        render(<Agenda />);
+        await faixaCelular();
+
+        mockCanceledAppointments = [
+          cancelado({
+            id: 'canc-dia-seguinte-mobile',
+            start_time: '2026-08-17T13:00:00.000Z',
+            customer: { id: 'cust-mobile', name: 'Ana Do Dia Seguinte Mobile', phone: '11944440000' },
+          }),
+        ];
+        fireEvent.click(screen.getAllByRole('button', { name: /Próximo Dia/i })[0]);
+
+        await waitFor(async () => expect(await faixaCelular()).toHaveTextContent('1 cancelamento no dia. Toque para ver.'));
+      });
+    });
+
     describe('cancelamento de profissional desativado (spec 044, ticket 13)', () => {
       const PROF_DESATIVADO = { id: 'prof-saiu', name: 'Zeca Saído', is_active: false, phone: '11900000009' };
       const CANC_DESATIVADO = cancelado({
