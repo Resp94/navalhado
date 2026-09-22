@@ -1,4 +1,4 @@
-# 11: Painel de Cancelados mostra o telefone e o atalho de WhatsApp leva mensagem-base
+# 14: Painel de Cancelados mostra o telefone e o atalho de WhatsApp leva mensagem-base
 
 **What to build:** o Painel de Cancelados do Dia tem um atalho para falar com o cliente no WhatsApp, pensado para tentar reocupar o horário. Ele abre a conversa vazia. Todo o resto do sistema que abre o WhatsApp leva um texto pronto.
 
@@ -10,7 +10,7 @@ Depois deste ticket, a entrada mostra o telefone, e o atalho abre a conversa com
 
 **Onde foi achado:** limite registrado no ticket 05 da spec 043 (mensagem), e história 3 da spec 043 não atendida pelo painel entregue (telefone), apontada na auditoria de cobertura da spec 044.
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** 03 (Tipo do cliente do Agendamento aceita nulo) — o telefone e o atalho precisam tratar o Agendamento sem Cliente, e o 03 faz a verificação de tipos apontar onde
 
 **Status:** ready-for-agent
 

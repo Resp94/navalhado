@@ -1,10 +1,10 @@
-# 06: Agenda do gerente descarta resposta obsoleta na troca rápida de dia
+# 10: Agenda Geral descarta resposta obsoleta na troca rápida de dia
 
 **What to build:** trocar de dia dispara uma leitura da agenda. Trocar de dia de novo antes da primeira responder dispara outra. Se a primeira responder depois da segunda, a tela mostra os Agendamentos do dia errado, com o cabeçalho indicando o dia certo.
 
-A Minha Agenda do barbeiro já resolve isso: ela numera as leituras e ignora a resposta que não é a mais recente. A Agenda do gerente não, e desde a spec 043 o mesmo vale para o contador de cancelamentos e para o Painel de Cancelados do Dia, que passaram a vir da mesma leitura.
+A Minha Agenda do barbeiro já resolve isso: ela numera as leituras e ignora a resposta que não é a mais recente. A Agenda Geral não, e desde a spec 043 o mesmo vale para o contador de cancelamentos e para o Painel de Cancelados do Dia, que passaram a vir da mesma leitura.
 
-Depois deste ticket, a Agenda do gerente ignora resposta obsoleta como a Minha Agenda já ignora.
+Depois deste ticket, a Agenda Geral ignora resposta obsoleta como a Minha Agenda já ignora.
 
 **Onde foi achado:** limite registrado no ticket 05 da spec 043.
 

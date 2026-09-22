@@ -1,4 +1,4 @@
-# 03: Cancelamento pela tela de Comandas grava o Motivo de Cancelamento
+# 07: Cancelamento pela tela de Comandas grava o Motivo de Cancelamento
 
 **What to build:** cancelar pela tela de Comandas encerra a Comanda e o Agendamento na mesma operação. Depois da spec 043, essa via grava a autoria (barbearia), mas continua sem gravar o Motivo de Cancelamento. O Painel de Cancelados do Dia mostra esses casos como "Sem motivo informado", ao lado de cancelamentos idênticos feitos pela Agenda que trazem o motivo por extenso.
 
@@ -6,7 +6,7 @@ Para quem lê o painel, a diferença não tem explicação: o mesmo cancelamento
 
 **Onde foi achado:** desvio registrado no ticket 06 da spec 043, que incluiu essa quarta via na autoria mas deixou o motivo de fora do escopo.
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** 01 (Provas de banco da spec 043) — os testes de banco das funções de cancelamento precisam estar verdes antes de elas serem alteradas
 
 **Status:** ready-for-agent
 

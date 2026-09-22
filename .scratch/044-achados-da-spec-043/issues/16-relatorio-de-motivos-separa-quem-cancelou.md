@@ -1,10 +1,10 @@
-# 15: Relatório de motivos separa quem cancelou
+# 16: Relatório de motivos separa quem cancelou
 
 **What to build:** o relatório de agenda tem um ranking dos motivos de cancelamento do período. A spec 043 começou justamente por um defeito dele: o ranking mistura o cancelamento que a barbearia fez com o que o cliente fez, e o texto de preenchimento gravado quando o cliente não escreve nada (`cancelado pelo cliente`) tende a ocupar o topo sem dizer nada. A spec 043 criou a autoria do cancelamento, mas deixou o relatório de fora e registrou que a separação merecia ticket próprio.
 
 Depois deste ticket, o gerente lê no relatório os motivos reais, separados por quem cancelou.
 
-**Onde foi achado:** notas finais da spec 043, que registram a separação por autoria como desdobramento natural do ticket 06 e pedem ticket próprio.
+**Onde foi achado:** notas finais da spec 043, que registram a separação por autoria como desdobramento natural do ticket 06 da spec 043 e pedem ticket próprio.
 
 **Blocked by:** None (can start immediately)
 

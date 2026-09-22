@@ -1,4 +1,4 @@
-# 09: Selos do cartão da Agenda usam o componente da biblioteca
+# 12: Selos do cartão da Agenda usam o componente da biblioteca
 
 **What to build:** o cartão do Agendamento na Agenda carrega vários selos: Encaixe, Pago, Não compareceu e, desde a spec 043, Espera. O selo novo usa o componente de selo da biblioteca de interface, em variante sutil. Os antigos são marcação solta, com fundo sólido e cores escritas à mão em hexadecimal, fora dos tokens.
 
@@ -6,7 +6,7 @@ O resultado é um cartão com dois vocabulários visuais lado a lado, e cores qu
 
 Depois deste ticket, os selos do cartão falam a mesma língua.
 
-**Onde foi achado:** limite registrado no ticket 07 da spec 043. A observação de que o selo "Espera" fica apertado nos cartões pequenos da visão semanal foi feita durante a verificação no navegador daquele ticket e não chegou ao arquivo dele. O rótulo curto "Espera" substituiu o "Lista de Espera" que o ticket 07 original prometia.
+**Onde foi achado:** limite registrado no ticket 07 da spec 043. A observação de que o selo "Espera" fica apertado nos cartões pequenos da visão semanal foi feita durante a verificação no navegador daquele ticket e não chegou ao arquivo dele. O rótulo curto "Espera" substituiu o "Lista de Espera" que o ticket 07 original da spec 043 prometia.
 
 **Blocked by:** None (can start immediately)
 

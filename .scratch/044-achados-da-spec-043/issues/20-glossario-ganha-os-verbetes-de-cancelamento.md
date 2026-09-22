@@ -1,4 +1,4 @@
-# 19: Glossário ganha os verbetes de cancelamento
+# 20: Glossário ganha os verbetes de cancelamento
 
 **What to build:** a decisão 8 da spec 043 mandava acrescentar o Motivo de Cancelamento ao glossário do projeto, com os termos a evitar. Isso não foi entregue. A spec 043 também criou o Painel de Cancelados do Dia e a autoria do cancelamento, e nenhum dos dois tem verbete. O glossário é o documento canônico de vocabulário e o primeiro a ser lido antes de mexer em regra de negócio.
 
@@ -6,7 +6,7 @@ Sem verbete, cada tela e cada commit escolhe o próprio sinônimo, que é exatam
 
 Depois deste ticket, o vocabulário de cancelamento tem definição única.
 
-**Onde foi achado:** decisão 8 da spec 043, não entregue, conferida contra o glossário em 2026-09-22. O ticket 07 atualizou só o verbete da Lista de Espera. A falta dos verbetes de Painel e de autoria não está registrada em nenhum ticket; decorre da mesma conferência.
+**Onde foi achado:** decisão 8 da spec 043, não entregue, conferida contra o glossário em 2026-09-22. O ticket 07 da spec 043 atualizou só o verbete da Lista de Espera. A falta dos verbetes de Painel e de autoria não está registrada em nenhum ticket; decorre da mesma conferência.
 
 **Blocked by:** None (can start immediately)
 

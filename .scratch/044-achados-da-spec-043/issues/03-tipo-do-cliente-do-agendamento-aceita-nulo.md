@@ -1,14 +1,14 @@
-# 10: Tipo do cliente do Agendamento aceita nulo
+# 03: Tipo do cliente do Agendamento aceita nulo
 
 **What to build:** o Agendamento pode não ter Cliente: o encaixe de balcão cria um atendimento sem cadastro, e a coluna do cliente aceita nulo no banco. O tipo que a aplicação usa para ler Agendamento declara o cliente como obrigatório, o que não corresponde ao dado.
 
 Isso já custou um defeito real na spec 043: o Painel de Cancelados do Dia lia o nome do cliente sem checar e derrubava a Agenda inteira quando havia um cancelamento de balcão no dia. A correção foi pontual, dentro do painel. O tipo continua mentindo, então o próximo lugar que ler o cliente sem checar repete o mesmo defeito, e a verificação de tipos não vai avisar.
 
-Depois deste ticket, o tipo diz a verdade e a verificação de tipos passa a apontar quem precisa tratar o nulo.
+Depois deste ticket, o tipo diz a verdade e a verificação de tipos passa a apontar quem precisa tratar o nulo. É prefactor do ticket 14, que acrescenta o telefone ao painel e precisa tratar o Agendamento sem Cliente.
 
 **Onde foi achado:** limite registrado no ticket 05 da spec 043, onde a correção pontual foi feita e a propagação do tipo, medida em seis erros, ficou de fora.
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** None (can start immediately). É prefactor do ticket 14
 
 **Status:** ready-for-agent
 

@@ -1,4 +1,4 @@
-# 17: Auditoria dos módulos sem adaptador em memória
+# 18: Auditoria dos módulos sem adaptador em memória
 
 **What to build:** a observação da Lista de Espera se perdia a caminho do banco com a suíte verde. A causa de fundo foi o módulo não ter adaptador em memória próprio: o teste usava um dublê declarado dentro do arquivo, mais generoso que a tabela, que guardava o campo que o banco descartava. A spec 043 corrigiu isso na Lista de Espera e registrou que valia conferir os outros módulos.
 

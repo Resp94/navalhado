@@ -1,4 +1,4 @@
-# 04: Autoria do cancelamento protegida contra escrita fora das funções
+# 08: Autoria do cancelamento protegida contra escrita fora das funções
 
 **What to build:** a autoria do cancelamento existe para responder quem desmarcou: a barbearia ou o cliente. Ela só tem valor se ninguém puder alterá-la fora das funções que cancelam.
 
@@ -8,7 +8,7 @@ Depois deste ticket, a autoria só muda pelo caminho que a define.
 
 **Onde foi achado:** limite registrado no ticket 06 da spec 043. Confirmado em 2026-09-21: a política de atualização de Agendamento alcança a coluna da autoria.
 
-**Blocked by:** 03 (Cancelamento pela tela de Comandas grava o Motivo de Cancelamento) — o 03 mexe no mesmo conjunto de funções de cancelamento, e fazer este antes obrigaria a rever a proteção depois
+**Blocked by:** 07 (Cancelamento pela tela de Comandas grava o Motivo de Cancelamento) — os dois mexem no mesmo conjunto de funções de cancelamento, e fazer este antes obrigaria a rever a proteção depois
 
 **Status:** ready-for-agent
 

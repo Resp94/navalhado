@@ -12,9 +12,9 @@ O que está em jogo, do ponto de vista de quem usa o sistema:
 2. **A recepção pode ver como livre um horário bloqueado.** Isso acontece por dois caminhos independentes. A exclusão de um Bloqueio de Horário não chega pelo tempo real a outras sessões abertas. E, quando a leitura de Bloqueios falha, a Agenda abre sem eles e sem aviso.
 3. **O banco confia em quem não deveria.** A validação de telefone da criação de Agendamento conta caracteres, não dígitos. A autoria do cancelamento, que existe para responder quem desmarcou, pode ser reescrita por uma atualização direta do gerente.
 4. **O Painel de Cancelados do Dia não conta a história inteira.** O cancelamento feito pela tela de Comandas chega sem motivo, e o de um profissional desativado não aparece. Numa troca rápida de dia, o painel pode mostrar os cancelamentos do dia errado. A entrada não mostra o telefone do cliente, que a spec 043 pedia. E o gerente não alcança o painel no celular.
-5. **O relatório continua sem distinguir quem cancelou.** A spec 043 criou a autoria, mas o ranking de motivos do relatório de agenda continua misturando cancelamento da barbearia com cancelamento do cliente, e continua deixando o texto de preenchimento `cancelado pelo cliente` dominar o ranking. A decisão do ticket 07 também tirou do relatório de origem a linha "Lista de Espera" que o ticket original prometia, e hoje não há onde medir quantos encaixes a fila produz.
-6. **O código carrega débitos que já custaram um defeito.** O tipo do cliente do Agendamento diz que ele é obrigatório, e não é. Foi essa divergência que derrubou a Agenda inteira no ticket 05. Os selos do cartão usam dois vocabulários visuais. Há código repetido entre as duas agendas e entre os fakes de teste.
-7. **A documentação descreve outro sistema.** A spec 043 afirma que o banco grava o texto padrão do cancelamento, e quem grava é o front. Ela fala em três funções de cancelamento, e são quatro. Diz que os Bloqueios não seriam tocados, e o ticket 08 dividiu o contrato de leitura deles. O glossário não tem os termos que a spec 043 mandou acrescentar.
+5. **O relatório continua sem distinguir quem cancelou.** A spec 043 criou a autoria, mas o ranking de motivos do relatório de agenda continua misturando cancelamento da barbearia com cancelamento do cliente, e continua deixando o texto de preenchimento `cancelado pelo cliente` dominar o ranking. A decisão do ticket 07 da spec 043 também tirou do relatório de origem a linha "Lista de Espera" que o ticket original prometia, e hoje não há onde medir quantos encaixes a Lista de Espera produz.
+6. **O código carrega débitos que já custaram um defeito.** O tipo do cliente do Agendamento diz que ele é obrigatório, e não é. Foi essa divergência que derrubou a Agenda inteira no ticket 05 da spec 043. Os selos do cartão usam dois vocabulários visuais. Há código repetido entre as duas agendas e entre os fakes de teste.
+7. **A documentação descreve outro sistema.** A spec 043 afirma que o banco grava o texto padrão do cancelamento, e quem grava é o front. Ela fala em três funções de cancelamento, e são quatro. Diz que os Bloqueios não seriam tocados, e o ticket 08 da spec 043 dividiu o contrato de leitura deles. O glossário não tem os termos que a spec 043 mandou acrescentar.
 8. **Parte do que foi declarado verde não foi executado de novo.** Testes de banco tocados pela spec 043 e a suíte completa não rodaram inteiros depois das últimas mudanças. O cancelamento pelo Canal do Cliente nunca foi exercitado pela tela pública.
 9. **A causa de fundo do defeito da Lista de Espera pode estar em outros módulos.** A observação da Lista de Espera se perdia com a suíte verde porque o módulo não tinha adaptador em memória próprio. Numa contagem preliminar feita em 2026-09-22, só 5 dos 16 módulos têm um.
 
@@ -37,16 +37,16 @@ Nenhum item desta spec muda o desenho da spec 043. Todos completam, corrigem ou 
 
 ### A. Entrega em produção
 
-1. As a Proprietario, I want the spec 043 migrations applied in production, so that the code already in `dev` can be released without breaking the Agenda.
-2. As a Proprietario, I want each migrated function to keep the exact execution grants it had before, so that the release does not widen or narrow access by accident.
-3. As a Proprietario, I want production data to stay untouched by the migrations, so that old Agendamentos do not gain an invented authorship or waiting-list mark.
+1. As a Desenvolvedor, I want the spec 043 migrations applied in production, so that the code already in `dev` can be released without breaking the Agenda.
+2. As a Desenvolvedor, I want each migrated function to keep the exact execution grants it had before, so that the release does not widen or narrow access by accident.
+3. As a Desenvolvedor, I want production data to stay untouched by the migrations, so that old Agendamentos do not gain an invented authorship or waiting-list mark.
 4. As a Desenvolvedor, I want production verified by structure and grants only, so that no test ever writes to production.
 
 ### B. A recepção não vê como livre um horário bloqueado
 
 5. As a Gerente, I want a Bloqueio de Horário deleted on another device to disappear from my open Agenda, so that I do not refuse a slot that is actually free.
 6. As a Gerente, I want a Bloqueio deleted in another barbershop to never reach my session, so that realtime does not leak between tenants.
-7. As a Barbeiro, I want Minha Agenda to follow Bloqueio deletions in real time, like the manager Agenda, so that my day is current.
+7. As a Barbeiro, I want Minha Agenda to follow Bloqueio deletions in real time, like the Agenda Geral, so that my day is current.
 8. As a Gerente, I want to be told when the Bloqueios failed to load, so that I do not book on top of a blocked slot believing it is free.
 9. As a Gerente, I want my Agendamentos to keep showing when only the Bloqueios failed, so that a partial failure does not blank the grid.
 10. As a Gerente, I want the failure notice to disappear once the Bloqueios load again, so that a stale warning does not train me to ignore warnings.
@@ -114,9 +114,13 @@ Nenhum item desta spec muda o desenho da spec 043. Todos completam, corrigem ou 
 
 ### 1. Produção
 
+Antes de produção, os testes de banco que a spec 043 tocou são reexecutados no ambiente de desenvolvimento, e a suíte da aplicação roda uma vez. É a linha de base: nenhuma migration vai para produção, e nenhuma função coberta por esses testes é alterada, antes dela.
+
 As migrations são aplicadas em produção uma a uma, pela ordem da numeração, pelo servidor MCP do Supabase, com confirmação do responsável antes de cada uma. Antes e depois de cada aplicação, são conferidas a estrutura das colunas e as permissões de execução das funções alteradas. Nenhum teste pgTAP roda contra produção, nem dentro de transação desfeita: a prova de comportamento é a do ambiente de desenvolvimento, e produção recebe só verificação por leitura.
 
-Este é o único item que bloqueia a promoção de `dev` para `main`. Os demais podem ser entregues antes ou depois dela.
+A linha de base e a aplicação das migrations da spec 043 (tickets 01 e 02) são o que bloqueia a promoção de `dev` para `main`. Os demais tickets podem ser entregues antes ou depois dela.
+
+As migrations que esta própria spec cria seguem o mesmo caminho, num ticket próprio, depois que os tickets que as criam estiverem feitos.
 
 ### 2. Validação de telefone
 
@@ -144,21 +148,21 @@ Em qualquer das duas, nenhum dado de uma barbearia chega à outra, e o evento de
 As duas medidas novas entram no relatório de agenda que já existe, no módulo de relatórios, e seguem o filtro de profissional que o relatório já aplica. A quebra "Agendamentos por origem" não muda.
 
 - **Motivos por autoria.** O ranking passa a separar barbearia, cliente e autoria desconhecida. O texto de preenchimento usado quando o cliente não escreve motivo deixa de contar como motivo. Hoje esse texto é montado no front, repetido em três pontos do adaptador do Canal do Cliente e em um do adaptador em memória. Para o relatório reconhecê-lo, ele precisa ter uma definição única, e o ticket decide onde ela mora. A comparação com o texto é normalizada da mesma forma que o ranking já normaliza.
-- **Encaixes vindos da Lista de Espera.** O relatório passa a contar os Agendamentos marcados como vindos da fila no período.
+- **Encaixes vindos da Lista de Espera.** Decidido em 2026-09-22: o relatório passa a devolver dois números do período, quantos Agendamentos vieram da Lista de Espera, cancelados inclusive, e desses quantos foram concluídos. Altera a mesma função do relatório que o ranking por autoria, então os dois são feitos em sequência.
 
 ### 6. Painel de Cancelados do Dia
 
 - **Motivo pela tela de Comandas.** A função que cancela a Comanda e o Agendamento juntos passa a receber o motivo, com a mesma exigência da Agenda, e a tela de Comandas passa a pedi-lo. A atomicidade não muda.
-- **Profissional desativado.** O painel passa a mostrar os cancelamentos dos profissionais desativados, sinalizados como tal. A grade continua sem coluna para eles. O ticket decide como esses cancelamentos se comportam no filtro de equipe.
-- **Resposta obsoleta.** A Agenda do gerente adota o mesmo descarte que a Minha Agenda já usa, para Agendamentos e para Bloqueios.
-- **Celular do gerente.** A visão de celular ignora as ações do cabeçalho por desenho. O ticket escolhe o caminho de acesso ao painel e justifica, sem desfazer essa decisão em silêncio.
+- **Profissional desativado.** O painel passa a mostrar os cancelamentos dos profissionais desativados, sinalizados como tal. A grade continua sem coluna para eles. Decidido em 2026-09-22: eles aparecem quando o filtro de equipe está com todos os profissionais e somem quando o gerente restringe o filtro; o desativado não entra na lista do filtro.
+- **Resposta obsoleta.** A Agenda Geral adota o mesmo descarte que a Minha Agenda já usa, para Agendamentos e para Bloqueios.
+- **Celular do gerente.** A visão de celular ignora as ações do cabeçalho por desenho, e a decisão é mantida. Decidido em 2026-09-22: o painel abre por uma faixa discreta acima da grade da visão do dia, com o número de cancelamentos, que só aparece quando há cancelamento no dia ou quando a leitura dos cancelados falha.
 - **Contato com o cliente.** A entrada passa a mostrar o telefone, como a história 3 da spec 043 pedia e o painel entregue não fez. O atalho de WhatsApp abre um rascunho que a recepção revisa. O sistema nunca envia.
 
 ### 7. Débitos de código
 
-- **Tipo do cliente.** Aceita nulo no contrato do módulo de agenda e no tipo que a página espelha. Os pontos que a verificação de tipos apontar passam a tratar o nulo, sem conversão forçada de tipo.
+- **Tipo do cliente.** Aceita nulo no contrato do módulo de agenda e no tipo que a página espelha. Os pontos que a verificação de tipos apontar passam a tratar o nulo, sem conversão forçada de tipo. É prefactor: vem antes do telefone no painel.
 - **Selos.** Passam ao componente de selo da biblioteca de interface, com cor por token. Cada selo continua distinguível dos outros.
-- **Repetição entre as agendas.** Os estados do painel e o botão do cabeçalho ganham definição única. O que é particular de uma página continua nela. Vem depois dos selos, porque os dois mexem na mesma marcação.
+- **Repetição entre as agendas.** Os estados do painel e o botão do cabeçalho ganham definição única. O que é particular de uma página continua nela. É prefactor: vem antes do cancelado de profissional desativado e do painel no celular, que mexem no mesmo estado.
 - **Leitor de colunas dos testes.** Passa a existir em um lugar só, no apoio de teste do projeto. Nenhum código de produção muda.
 
 ### 8. Documentação
@@ -181,12 +185,12 @@ O mesmo critério da spec 043: comportamento externo observável. Um teste que q
 
 ### Costuras
 
-Nenhuma costura nova. Cada ticket usa a costura existente mais alta do seu assunto:
+Confirmadas com o responsável em 2026-09-22. Nenhuma costura nova. Cada ticket usa a costura existente mais alta do seu assunto:
 
 - **Banco:** pgTAP numerado a partir do maior prefixo existente, pelo servidor MCP, dentro de `begin; ... rollback;`. É a costura dos tickets de validação de telefone, motivo pela tela de Comandas, autoria protegida e relatório. Cada função alterada que recebe identificador de barbearia ganha asserção de isolamento, incluindo o gestor com identificador de barbearia nulo.
 - **Repositório do módulo contra o adaptador em memória:** para regra de aplicação, onde o fake não precisa afirmar acesso.
 - **Adaptador real com banco falso que respeita colunas, filtros e ordem:** para provar que a consulta pede e devolve o que precisa. Arte prévia nos testes de adaptador de agenda e de clientes.
-- **Página:** os arquivos de teste de página já existentes da Agenda do gerente, da Minha Agenda, da Comanda e do relatório de agenda.
+- **Página:** os arquivos de teste de página já existentes da Agenda Geral, da Minha Agenda, da Comanda e do relatório de agenda.
 - **Navegador:** prova final dos tickets com efeito visível, e a única prova possível para tempo real entre duas sessões e para alvo de toque.
 
 ### Mutação
@@ -211,7 +215,7 @@ Continuam fora, como a spec 043 decidiu, e ficam como backlog de produto:
 - **Data desejada na Lista de Espera.** Muda a natureza da funcionalidade.
 - **Acionar a Lista de Espera a partir de um cancelamento.** Ligação para depois. O painel não deve impedi-la.
 - **Reescrever o mapeamento de status da Lista de Espera.** Funciona e não é defeito.
-- **Alterar a política de leitura de Agendamento.** Ela entrega o recorte de que as duas agendas precisam, inclusive para cancelado. Vale também para os tickets desta spec: o 07 e o 14 reusam a política como está, e o 04 mexe na escrita da autoria, não na leitura.
+- **Alterar a política de leitura de Agendamento.** Ela entrega o recorte de que as duas agendas precisam, inclusive para cancelado. Vale também para os tickets desta spec: o 13 e o 15 reusam a política como está, e o 08 mexe na escrita da autoria, não na leitura.
 - **Dar ao barbeiro qualquer visão da barbearia inteira.** Nem no painel, nem em contador, nem em relatório. O recorte do banco é o teto.
 
 Novos, desta spec:
@@ -228,6 +232,8 @@ Novos, desta spec:
 ## Further Notes
 
 - Pasta dos tickets: `.scratch/044-achados-da-spec-043/issues/`. A pasta `.scratch/achados-da-spec-043/`, criada antes desta spec, fica como histórico e aponta para cá.
+- Ordem dos tickets: o número é ordem de dependência. Primeiro a linha de base de banco e produção da spec 043 (01 e 02), depois os prefactors (03, 04 e 05), depois o resto. Arestas: 02, 06 e 07 esperam o 01; 08 espera o 07; 11 espera o 10; 13 e 15 esperam o 04; 14 espera o 03; 17 espera o 16; 22 espera o 02 e os tickets que criam migration.
+- Validação: spec e tickets foram conferidos em 2026-09-22 contra as skills de spec e de tickets do projeto. A conferência reordenou os prefactors, corrigiu uma aresta falsa entre a extração do painel e os selos, acrescentou as arestas que evitam duas migrations sobrescreverem a mesma função, dividiu as provas pendentes em banco e navegador, acrescentou o ticket de produção das migrations desta spec e trocou "Agenda do gerente" e "fila" pelos termos do glossário, Agenda Geral e Lista de Espera. As três decisões de produto que os tickets deixavam para o agente foram tomadas pelo responsável.
 - Os tickets de defeito levam o escopo do domínio onde o código muda (`agenda`, `comandas`, `relatorios`, `db`), um por commit. O número desta spec vai no corpo do commit: `Spec: 044`.
 - A contagem de módulos sem adaptador em memória (11 de 16) é preliminar. Ela contou só arquivos com o prefixo usual na pasta de adaptadores. A auditoria confirma ou corrige esse número.
 - Duas prioridades de risco, depois do ticket de produção: a exclusão de Bloqueio pelo tempo real e a falha silenciosa na leitura de Bloqueios. As duas levam ao mesmo erro visível, a recepção agendar em cima de um bloqueio.
@@ -238,50 +244,50 @@ Cada achado registrado na spec 043 e nos seus tickets, com o ticket desta spec q
 
 | Origem | Achado | Ticket 044 |
 |---|---|---|
-| Tickets 01, 06 e 07 | Migrations aplicadas só no ambiente de desenvolvimento | 01 |
-| Ticket 07 | Validação de telefone com `'\\D'` conta caracteres, não dígitos | 02 |
-| Conferência de 2026-09-21 | Ramo de Bloqueio sem profissional inalcançável na mesma função | 02 |
-| Ticket 06 | Cancelamento pela tela de Comandas sem motivo | 03 |
-| Ticket 06 | Autoria alcançável por `UPDATE` direto do gerente | 04 |
-| Ticket 08 | Exclusão de Bloqueio não chega pelo tempo real | 05 |
-| Ticket 05 | Agenda do gerente não descarta resposta obsoleta | 06 |
-| Ticket 05 | Cancelado de profissional desativado some do painel | 07 |
-| Ticket 08 | Falha de leitura de Bloqueios só no console, e não provada no navegador | 08 |
-| Ticket 07 | Selos do cartão fora da biblioteca, com hexadecimal | 09 |
-| Verificação no navegador do ticket 07, fora do arquivo do ticket | Selo "Espera" apertado nos cartões pequenos da visão semanal | 09 |
-| Ticket 07 original | Rótulo "Lista de Espera" no selo, entregue como "Espera" | 09 |
-| Ticket 05 | Tipo do cliente declarado não-nulo | 10 |
-| Ticket 05 | Atalho de WhatsApp sem mensagem pré-preenchida | 11 |
-| Spec 043, história 3 | Entrada do painel sem o telefone do cliente | 11 |
-| Ticket 05 | Botão do cabeçalho e estados do painel repetidos entre as agendas | 12 |
-| Ticket 04 | Leitor de colunas do `select` copiado em dois arquivos de teste | 13 |
-| Ticket 05 | Painel de Cancelados ausente no celular do gerente | 14 |
-| Spec 043, notas finais | Relatório de motivos não separa autoria nem descarta o preenchimento | 15 |
-| Ticket 07 (decisão) | Linha "Lista de Espera" prometida no relatório de origem e não entregue | 16 |
-| Spec 043, notas finais | Conferir outros módulos sem adaptador em memória | 17 |
-| Ticket 04 | Spec afirma que o banco grava o texto padrão | 18 |
-| Ticket 06 | Spec fala em três funções de cancelamento; são quatro | 18 |
-| Ticket 08 | Spec diz que os Bloqueios não seriam tocados | 18 |
-| Spec 043 e ticket 07 original | Marcador na nota e valor novo de origem, substituídos pela coluna própria | 18 |
-| Spec 043, decisão 1, e ticket 06 | Spec diz que a autoria é escrita só pelas funções; o banco não impede | 18 (e 04) |
-| Spec 043, testes, e ticket 06 | Testes de autoria no repositório substituídos por pgTAP | 18 |
-| Spec 043, decisão 7, e ticket 04 | "Nenhum componente novo" lido como nenhum na biblioteca | 18 |
-| Spec 043, decisão 8 | Verbete de Motivo de Cancelamento nunca acrescentado | 19 |
-| Conferência do glossário em 2026-09-22 | Painel de Cancelados e autoria sem verbete no glossário | 19 |
-| Ticket 07 | pgTAP 46 não reexecutado depois do ajuste | 20 |
-| Ticket 06 | pgTAP 32 não reexecutado depois da migration de autoria | 20 |
-| Ticket 06 | pgTAP 17 conferido só nas asserções da função da Comanda | 20 (e 03, 04) |
-| Ticket 02 | Motivo escrito por cliente real nunca observado na Central 360º | 20 |
-| Tickets 02 e 04 | Suíte completa não repetida depois da última mudança | 20 |
-| Tickets 04 e 06 | Cancelamento pelo Canal do Cliente não exercitado pela tela pública | 20 |
-| Ticket 08 | Remoção e criação de Bloqueio não conferidas no navegador | 20 |
-| Ticket 08 | Evento de Agendamento sem leitura de Bloqueios não medido na rede | 20 |
-| Ticket 06 | Lição: Agendamento ativo de teste envia WhatsApp real | 20 (critério) |
+| Tickets 01, 06 e 07 | Migrations aplicadas só no ambiente de desenvolvimento | 02 |
+| Ticket 07 | Validação de telefone com `'\\D'` conta caracteres, não dígitos | 06 |
+| Conferência de 2026-09-21 | Ramo de Bloqueio sem profissional inalcançável na mesma função | 06 |
+| Ticket 06 | Cancelamento pela tela de Comandas sem motivo | 07 |
+| Ticket 06 | Autoria alcançável por `UPDATE` direto do gerente | 08 |
+| Ticket 08 | Exclusão de Bloqueio não chega pelo tempo real | 09 |
+| Ticket 05 | Agenda Geral não descarta resposta obsoleta | 10 |
+| Ticket 05 | Cancelado de profissional desativado some do painel | 13 |
+| Ticket 08 | Falha de leitura de Bloqueios só no console, e não provada no navegador | 11 |
+| Ticket 07 | Selos do cartão fora da biblioteca, com hexadecimal | 12 |
+| Verificação no navegador do ticket 07, fora do arquivo do ticket | Selo "Espera" apertado nos cartões pequenos da visão semanal | 12 |
+| Ticket 07 original | Rótulo "Lista de Espera" no selo, entregue como "Espera" | 12 |
+| Ticket 05 | Tipo do cliente declarado não-nulo | 03 |
+| Ticket 05 | Atalho de WhatsApp sem mensagem pré-preenchida | 14 |
+| Spec 043, história 3 | Entrada do painel sem o telefone do cliente | 14 |
+| Ticket 05 | Botão do cabeçalho e estados do painel repetidos entre as agendas | 04 |
+| Ticket 04 | Leitor de colunas do `select` copiado em dois arquivos de teste | 05 |
+| Ticket 05 | Painel de Cancelados ausente no celular do gerente | 15 |
+| Spec 043, notas finais | Relatório de motivos não separa autoria nem descarta o preenchimento | 16 |
+| Ticket 07 (decisão) | Linha "Lista de Espera" prometida no relatório de origem e não entregue | 17 |
+| Spec 043, notas finais | Conferir outros módulos sem adaptador em memória | 18 |
+| Ticket 04 | Spec afirma que o banco grava o texto padrão | 19 |
+| Ticket 06 | Spec fala em três funções de cancelamento; são quatro | 19 |
+| Ticket 08 | Spec diz que os Bloqueios não seriam tocados | 19 |
+| Spec 043 e ticket 07 original | Marcador na nota e valor novo de origem, substituídos pela coluna própria | 19 |
+| Spec 043, decisão 1, e ticket 06 | Spec diz que a autoria é escrita só pelas funções; o banco não impede | 19 (e 08) |
+| Spec 043, testes, e ticket 06 | Testes de autoria no repositório substituídos por pgTAP | 19 |
+| Spec 043, decisão 7, e ticket 04 | "Nenhum componente novo" lido como nenhum na biblioteca | 19 |
+| Spec 043, decisão 8 | Verbete de Motivo de Cancelamento nunca acrescentado | 20 |
+| Conferência do glossário em 2026-09-22 | Painel de Cancelados e autoria sem verbete no glossário | 20 |
+| Ticket 07 | pgTAP 46 não reexecutado depois do ajuste | 01 |
+| Ticket 06 | pgTAP 32 não reexecutado depois da migration de autoria | 01 |
+| Ticket 06 | pgTAP 17 conferido só nas asserções da função da Comanda | 01 (e 07, 08) |
+| Ticket 02 | Motivo escrito por cliente real nunca observado na Central 360º | 21 |
+| Tickets 02 e 04 | Suíte completa não repetida depois da última mudança | 01 |
+| Tickets 04 e 06 | Cancelamento pelo Canal do Cliente não exercitado pela tela pública | 21 |
+| Ticket 08 | Remoção e criação de Bloqueio não conferidas no navegador | 21 |
+| Ticket 08 | Evento de Agendamento sem leitura de Bloqueios não medido na rede | 21 |
+| Ticket 06 | Lição: Agendamento ativo de teste envia WhatsApp real | 21 (critério) |
 | Ticket 01 | Nota do encaixe não confirmada até o Agendamento salvo | Resolvido pelo ticket 07 da spec 043, que exercitou o fluxo real |
 | Ticket 03 | Leitura de Bloqueios duplicada e falha acoplada | Resolvido pelo ticket 08 da spec 043 |
 | Ticket 03 | Suposta falta de teste de página da Agenda | Improcedente: o teste existe |
 | Ticket 04 | Botão de fechar do `Drawer` com 32 pixels | Resolvido no ticket 04 da spec 043 |
-| Ticket 05 | Crash com cancelado sem cliente | Resolvido no ticket 05 da spec 043; a causa de fundo vai no 10 |
+| Ticket 05 | Crash com cancelado sem cliente | Resolvido no ticket 05 da spec 043; a causa de fundo vai no 03 |
 | Ticket 06 | pgTAP 42 quebrado antes do ticket | Resolvido no ticket 06 da spec 043 |
 | Ticket 08 | Botão "Remover" do Bloqueio para o barbeiro | Funciona por desenho (fora do escopo) |
 | Ticket 07 | Lista de Espera só no gerente | Decisão de produto (fora do escopo) |

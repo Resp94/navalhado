@@ -1,4 +1,4 @@
-# 02: Validação de telefone na criação de Agendamento conta dígitos
+# 06: Validação de telefone na criação de Agendamento conta dígitos
 
 **What to build:** ao criar um Agendamento com Cliente novo, a função do gestor recusa telefone curto. A intenção é exigir DDD e mais oito dígitos, mas a expressão usada para limpar o telefone não remove nada: com as regras padrão de texto do Postgres, ela procura uma barra invertida seguida da letra `D`, e não "qualquer caractere que não é dígito". O resultado é que a validação conta o comprimento bruto do texto, com máscara e tudo.
 
@@ -8,7 +8,7 @@ Depois deste ticket, a função conta dígitos de verdade.
 
 **Onde foi achado:** revisão do corpo da função durante o ticket 07 da spec 043, que a reescreveu por outro motivo e preservou o corpo como estava. O ramo inalcançável foi notado na conferência de 2026-09-21: a coluna do profissional é obrigatória na tabela de Bloqueios de Horário.
 
-**Blocked by:** None (can start immediately)
+**Blocked by:** 01 (Provas de banco da spec 043) — o teste de banco desta função precisa estar verde antes de ela ser alterada
 
 **Status:** ready-for-agent
 

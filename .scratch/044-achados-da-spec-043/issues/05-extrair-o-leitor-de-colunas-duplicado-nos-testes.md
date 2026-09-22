@@ -1,4 +1,4 @@
-# 13: Extrair o leitor de colunas duplicado nos testes
+# 05: Extrair o leitor de colunas duplicado nos testes
 
 **What to build:** vários testes de adaptador usam um banco de mentira que aplica de verdade os filtros e devolve só as colunas pedidas na consulta. Sem isso, um teste passaria mesmo se o adaptador esquecesse de pedir uma coluna, que foi exatamente o defeito original do ticket 02 da spec 043.
 
