@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Agenda } from '../Agenda';
@@ -168,6 +168,21 @@ describe('Agenda em modo travado ao profissional (spec 045, ticket 01)', () => {
 
     expect(onLockedAppointmentAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'app-1' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('o Encaixe do cabeçalho desktop trava o profissional, sem opção "Tanto faz" (regressão do code review)', async () => {
+    render(
+      <MemoryRouter>
+        <Agenda lockedProfessionalId="prof-me" onLockedAppointmentAction={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Pedro Cliente')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^Encaixe$/i }));
+
+    const professionalSelect = await screen.findByLabelText('Profissional');
+    expect(professionalSelect).toHaveValue('prof-me');
+    expect(within(professionalSelect).queryByRole('option', { name: 'Tanto faz' })).not.toBeInTheDocument();
   });
 
   it('sem o modo travado, o filtro de equipe, a alternância Dia/Semana e a Espera continuam disponíveis', async () => {
