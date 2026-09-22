@@ -337,6 +337,10 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
       (mockAppointments[0] as any).is_fitting = true;
       (mockAppointments[0] as any).from_waiting_list = true;
       (mockAppointments[0] as any).payment_status = 'paid';
+      // Encaixe só conta como Pago quando também concluído (getAppointmentCardState):
+      // pago sem concluído é o bug corrigido pelo commit 5a3fcf2 (selo Pago desktop
+      // divergia do mobile, que já seguia cardState).
+      (mockAppointments[0] as any).status = 'completed';
       try {
         await aoVerificar();
       } finally {
@@ -402,6 +406,38 @@ describe('Página de Agenda do Gerente (Grade Temporal)', () => {
         expect(screen.getAllByTitle('Encaixe').length).toBeGreaterThanOrEqual(1);
         expect(screen.getAllByTitle('Veio da Lista de Espera').length).toBeGreaterThanOrEqual(1);
       });
+    });
+  });
+
+  describe('selo Pago segue cardState, não payment_status direto (fix: alinha grade desktop com regra de Encaixe)', () => {
+    it('Encaixe pago mas ainda não concluído não mostra Pago na grade desktop (divergia do mobile antes do fix)', async () => {
+      const original = { ...mockAppointments[0] };
+      (mockAppointments[0] as any).is_fitting = true;
+      (mockAppointments[0] as any).payment_status = 'paid';
+      (mockAppointments[0] as any).status = 'confirmed';
+      try {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        expect(screen.queryByTitle('Pago')).not.toBeInTheDocument();
+      } finally {
+        Object.assign(mockAppointments[0], original);
+      }
+    });
+
+    it('Encaixe pago e concluído mostra Pago na grade desktop', async () => {
+      const original = { ...mockAppointments[0] };
+      (mockAppointments[0] as any).is_fitting = true;
+      (mockAppointments[0] as any).payment_status = 'paid';
+      (mockAppointments[0] as any).status = 'completed';
+      try {
+        render(<Agenda />);
+        await waitFor(() => expect(screen.getAllByText('Pedro Cliente').length).toBeGreaterThanOrEqual(1));
+
+        expect(screen.getAllByTitle('Pago').length).toBeGreaterThanOrEqual(1);
+      } finally {
+        Object.assign(mockAppointments[0], original);
+      }
     });
   });
 
