@@ -63,6 +63,11 @@ describe('ClienteRepository', () => {
     await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '11999998888', email: 'email-invalido' })).rejects.toThrow(ClienteValidationError);
   });
 
+  it('deve recusar e-mail com ponto duplicado ou TLD de 1 letra (regra mais rígida da spec 047)', async () => {
+    await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '11999998888', email: 'joao..silva@x.com' })).rejects.toThrow(ClienteValidationError);
+    await expect(repo.saveCustomer(tenantId, { name: 'João', phone: '11999998888', email: 'joao@x.c' })).rejects.toThrow(ClienteValidationError);
+  });
+
   it('deve promover Cliente Provisório para Cliente Completo ao salvar com dados válidos', async () => {
     const updated = await repo.saveCustomer(tenantId, {
       id: 'c2',

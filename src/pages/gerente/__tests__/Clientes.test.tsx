@@ -385,6 +385,28 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     });
   });
 
+  it('deve recusar salvar cliente com e-mail de formato inválido (spec 047) e não gravar nada', async () => {
+    renderClientes();
+
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@x.c' } });
+
+    const btnSalvar = screen.getByRole('button', { name: /Salvar/i });
+    fireEvent.click(btnSalvar);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('O formato do e-mail informado é inválido.', 'warning');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
   it('deve exibir erro ao tentar excluir cliente que possui agendamentos cadastrados', async () => {
     // Configura o mock do delete para retornar erro especificamente para este teste
     mockDelete.mockImplementationOnce(() => {
