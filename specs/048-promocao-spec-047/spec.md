@@ -1,5 +1,7 @@
 # Especificação Técnica: Promoção da spec 047 (e-mail válido) de `dev` para `main`
 
+**Status: Concluída** (2026-09-23)
+
 ## Problem Statement
 
 A spec 047 (e-mail válido) está pronta e verificada na `dev` e em `dev.navalhado.com.br`, mas o gerente, o barbeiro e o cliente em produção ainda aceitam qualquer e-mail: domínio inventado, TLD de uma letra, erro de digitação como `gmial.com`. Um e-mail assim nunca recebe o link de redefinição de senha, e o barbeiro criado pelo gerente entra sem nunca ter provado que o e-mail é dele.
@@ -146,4 +148,10 @@ Provas em `app.navalhado.com.br`, tenant "Barber Tester" (gerente `resplandesjon
 
 ## Promoção concluída
 
-Spec 047 promovida de `dev` para `main`/produção em 2026-09-23. Commit levado à `main`: `e4225c8` (push confirmado pelo usuário às 17:32 UTC). Banco, Edge Function e front de produção provados funcionando de ponta a ponta. Nenhuma pendência aberta por esta spec.
+Spec 047 promovida de `dev` para `main`/produção em 2026-09-23. Commit levado à `main`: `e4225c8` (push confirmado pelo usuário às 17:32 UTC). Banco, Edge Function e front de produção provados funcionando de ponta a ponta. `main` e `dev` sincronizadas com `origin` ao final.
+
+`spike-047-ticket09` (função throwaway do spike do ticket 09, só existia na `dev`) apagada pelo dashboard do Supabase, projeto Navalhado-dev — confirmado via MCP `list_edge_functions` que sumiu da lista, restando as 3 functions reais (`whatsapp-integration`, `public-customer-session`, `create-barber-access`).
+
+Todos os 6 tickets concluídos, sem pendência aberta por esta spec. Um achado fora de escopo (mensagem de erro genérica da Edge Function em `CadastroAcesso.tsx`) foi registrado como tarefa separada, não bloqueante para o fechamento.
+
+**Spec 048 encerrada.**
