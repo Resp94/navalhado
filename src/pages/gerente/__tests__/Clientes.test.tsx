@@ -407,6 +407,53 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
+  it('recusa salvar cliente com domínio de e-mail que não recebe e-mails (spec 047, ticket 05) e não grava nada', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ Status: 3 }), // NXDOMAIN
+    } as any);
+
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@dominio-inventado-clientes.example' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Este domínio não recebe e-mails.', 'warning');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('salva cliente normalmente quando a consulta de domínio de e-mail está indisponível (spec 047, ticket 05)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('DNS fora do ar'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@dominio-indisponivel-clientes.example' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Cliente atualizado com sucesso!', 'success');
+    });
+  });
+
   it('deve exibir erro ao tentar excluir cliente que possui agendamentos cadastrados', async () => {
     // Configura o mock do delete para retornar erro especificamente para este teste
     mockDelete.mockImplementationOnce(() => {

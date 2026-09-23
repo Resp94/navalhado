@@ -39,6 +39,7 @@ dist/
 dist-ssr/
 .vite/
 *.tsbuildinfo
+.wrangler/
 
 # Dependencies and caches
 node_modules/

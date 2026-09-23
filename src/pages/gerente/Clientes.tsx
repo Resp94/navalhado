@@ -7,6 +7,8 @@ import type { Cliente } from '../../modules/clientes/types';
 import { DEFAULT_LTV_METRICS } from '../../modules/clientes/types';
 import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
+import { isValidEmailFormat } from '../../lib/email';
+import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Button, IconButton, Input, Select, Textarea, SegmentedControl } from '../../components/ui';
@@ -66,6 +68,8 @@ export const Clientes: React.FC = () => {
     deleteCustomer,
     loadHistorico,
   } = useClientes(tenant.tenantId, tenant.timezone);
+
+  const { erro: emailErro, validarAoSair: validarEmailAoSair, validarParaSalvar: validarEmailParaSalvar } = useValidacaoEmail();
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -168,6 +172,18 @@ export const Clientes: React.FC = () => {
 
   const handleSaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Domínio do e-mail (recebe e-mails?): só quando o formato já é válido.
+    // Formato inválido continua bloqueado pelo ClienteRepository, mais abaixo.
+    const emailTrimmed = formData.email.trim();
+    if (emailTrimmed && isValidEmailFormat(emailTrimmed)) {
+      const erroDominio = await validarEmailParaSalvar(emailTrimmed);
+      if (erroDominio) {
+        addToast(erroDominio, 'warning');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const success = await saveCustomer({
@@ -650,6 +666,8 @@ export const Clientes: React.FC = () => {
                     placeholder="Ex: joao@email.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onBlur={(e) => validarEmailAoSair(e.target.value)}
+                    error={emailErro}
                   />
                   <Input
                     id="cpf-input"
