@@ -6,6 +6,7 @@ import { useToast } from '../../components/Toast';
 import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/Icons';
 import { Select } from '../../components/ui';
 import { isValidEmailFormat } from '../../lib/email';
+import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 
@@ -30,6 +31,12 @@ export const CadastroAcesso: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const {
+    sugestao: emailSugestao,
+    validarAoSair: validarEmailAoSair,
+    validarParaSalvar: validarEmailParaSalvar,
+    aplicarSugestao: aplicarSugestaoEmail,
+  } = useValidacaoEmail();
 
   useEffect(() => {
     const fetchUnlinkedProfessionals = async () => {
@@ -65,6 +72,11 @@ export const CadastroAcesso: React.FC = () => {
     }
     if (!email.trim() || !isValidEmailFormat(email.trim())) {
       addToast('Informe um e-mail válido.', 'warning');
+      return;
+    }
+    const erroDominioEmail = await validarEmailParaSalvar(email.trim());
+    if (erroDominioEmail) {
+      addToast(erroDominioEmail, 'warning');
       return;
     }
     if (password.length < 8) {
@@ -167,10 +179,24 @@ export const CadastroAcesso: React.FC = () => {
                 placeholder="Ex: joao@barbearianavalhado.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => validarEmailAoSair(e.target.value)}
                 aria-describedby="email-helper"
                 required
                 className="py-[0.65rem] px-[0.85rem] min-h-10 border-0 rounded-md bg-bg-secondary bg-none text-text-primary text-base sm:text-sm shadow-[0_0_0_0.3px_var(--color-text-primary)] outline-none transition-[box-shadow,background-color] duration-200 ease-in-out w-full box-border focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] focus:bg-bg-secondary"
               />
+              {emailSugestao && (
+                <p className="m-0 text-xs text-text-secondary">
+                  Você quis dizer{' '}
+                  <button
+                    type="button"
+                    className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                    onClick={() => setEmail(aplicarSugestaoEmail())}
+                  >
+                    {emailSugestao}
+                  </button>
+                  ?
+                </p>
+              )}
               <span id="email-helper" className="text-[0.7rem] text-text-secondary mt-[0.1rem] leading-[1.35]">
                 Este e-mail será utilizado pelo barbeiro para fazer login na área do colaborador
               </span>
