@@ -46,7 +46,8 @@ export class SupabaseProfessionalServicesAdapter implements IProfessionalService
         base_price: Number(s.price || 0),
         custom_duration_minutes: existing?.custom_duration_minutes ?? s.duration_minutes ?? 40,
         custom_commission_percentage: existing?.custom_commission_percentage ?? null,
-        is_enabled: existing ? existing.is_enabled : true,
+        // Sem vínculo gravado, get_available_slots não oferece horário: mostrar marcado enganaria o gerente.
+        is_enabled: existing ? existing.is_enabled : false,
       };
     });
   }
