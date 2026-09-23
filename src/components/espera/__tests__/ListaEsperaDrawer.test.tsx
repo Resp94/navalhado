@@ -33,6 +33,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={false}
         tenantId="t-1"
         currentDateIso="2026-08-16"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}
@@ -59,6 +60,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={true}
         tenantId="t-1"
         currentDateIso="2026-08-16"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}
@@ -86,6 +88,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={true}
         tenantId="t-1"
         currentDateIso="2026-08-16"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}
@@ -107,6 +110,7 @@ describe('ListaEsperaDrawer', () => {
           isOpen={true}
           tenantId="t-1"
           currentDateIso="2026-08-16"
+          timezone="America/Sao_Paulo"
           professionals={professionals}
           services={services}
           onClose={mockOnClose}
@@ -196,6 +200,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={true}
         tenantId="t-1"
         currentDateIso="2026-08-16"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}
@@ -211,7 +216,7 @@ describe('ListaEsperaDrawer', () => {
     fireEvent.change(dateInput, { target: { value: '2026-08-18' } });
 
     expect(mockOnDateChange).toHaveBeenCalledWith('2026-08-18');
-    expect(mockAdapter.listarPorData).toHaveBeenCalledWith('t-1', '2026-08-18');
+    expect(mockAdapter.listarPorData).toHaveBeenCalledWith('t-1', '2026-08-18', 'America/Sao_Paulo');
   });
 
   it('renderiza o formulário NOVO CLIENTE NA FILA e o empty state exatamente como no mockup', async () => {
@@ -222,6 +227,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={true}
         tenantId="t-1"
         currentDateIso="2026-09-03"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}
@@ -266,6 +272,7 @@ describe('ListaEsperaDrawer', () => {
         isOpen={true}
         tenantId="t-1"
         currentDateIso="2026-09-03"
+        timezone="America/Sao_Paulo"
         professionals={professionals}
         services={services}
         onClose={mockOnClose}

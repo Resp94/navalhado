@@ -7,8 +7,8 @@ export class EsperaRepository {
     this.adapter = adapter;
   }
 
-  async listByDate(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
-    return this.adapter.listarPorData(tenantId, dataIso);
+  async listByDate(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]> {
+    return this.adapter.listarPorData(tenantId, dataIso, timeZone);
   }
 
   async addEntry(

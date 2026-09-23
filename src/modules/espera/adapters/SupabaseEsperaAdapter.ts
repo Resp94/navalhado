@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultClient } from '../../../lib/supabase';
+import { localDayUtcRange } from '../../../lib/timezone';
 import type { IEsperaAdapter, WaitingListEntry, WaitingListStatus } from '../types';
 
 interface DbWaitingListRow {
@@ -62,16 +63,15 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
     };
   }
 
-  async listarPorData(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
-    const startOfDay = `${dataIso}T00:00:00.000Z`;
-    const endOfDay = `${dataIso}T23:59:59.999Z`;
+  async listarPorData(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]> {
+    const { start, endExclusive } = localDayUtcRange(dataIso, timeZone);
 
     const { data, error } = await this.client
       .from('waiting_list')
       .select('*')
       .eq('tenant_id', tenantId)
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
+      .gte('created_at', start)
+      .lt('created_at', endExclusive)
       .order('created_at', { ascending: true });
 
     if (error) throw error;

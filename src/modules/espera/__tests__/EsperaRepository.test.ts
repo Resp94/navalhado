@@ -20,9 +20,25 @@ describe('EsperaRepository', () => {
       status: 'aguardando',
     });
 
-    const res = await repo.listByDate('t-1', DIA);
+    const res = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
     expect(res).toHaveLength(1);
     expect(res[0].customer_name).toBe('Paulo Vieira');
+  });
+
+  it('agrupa a entrada pelo dia do fuso do tenant, não pelo dia em UTC (spec 044)', async () => {
+    // 21/09 22:30 em America/Sao_Paulo (UTC-3) é 22/09 01:30 em UTC: ainda é dia 21 para o tenant.
+    const tardeAdapter = new InMemoryEsperaAdapter([], () => new Date('2026-09-22T01:30:00.000Z'));
+    const tardeRepo = new EsperaRepository(tardeAdapter);
+
+    await tardeRepo.addEntry({
+      tenant_id: 't-1',
+      customer_name: 'Cliente da Virada',
+      customer_phone: '11999998888',
+      status: 'aguardando',
+    });
+
+    await expect(tardeRepo.listByDate('t-1', '2026-09-21', 'America/Sao_Paulo')).resolves.toHaveLength(1);
+    await expect(tardeRepo.listByDate('t-1', '2026-09-22', 'America/Sao_Paulo')).resolves.toHaveLength(0);
   });
 
   it('adiciona entrada validando nome', async () => {
@@ -46,7 +62,7 @@ describe('EsperaRepository', () => {
         notes: 'Só pode depois das 18h, quer o Marcos',
       });
 
-      const [entrada] = await repo.listByDate('t-1', DIA);
+      const [entrada] = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
       expect(entrada.notes).toBe('Só pode depois das 18h, quer o Marcos');
     });
 
@@ -58,7 +74,7 @@ describe('EsperaRepository', () => {
         status: 'aguardando',
       });
 
-      const [entrada] = await repo.listByDate('t-1', DIA);
+      const [entrada] = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
       expect(entrada.notes).toBeNull();
     });
 

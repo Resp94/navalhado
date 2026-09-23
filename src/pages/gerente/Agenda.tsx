@@ -2336,6 +2336,7 @@ export const Agenda: React.FC<AgendaProps> = ({
           isOpen={isEsperaDrawerOpen}
           tenantId={tenant.tenantId}
           currentDateIso={selectedDate}
+          timezone={tenant.timezone}
           professionals={professionals}
           services={services}
           onClose={() => {

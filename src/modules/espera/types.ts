@@ -14,7 +14,7 @@ export interface WaitingListEntry {
 }
 
 export interface IEsperaAdapter {
-  listarPorData(tenantId: string, dataIso: string): Promise<WaitingListEntry[]>;
+  listarPorData(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]>;
   adicionar(entrada: Omit<WaitingListEntry, 'id' | 'created_at'>): Promise<WaitingListEntry>;
   atualizarStatus(id: string, status: WaitingListStatus): Promise<WaitingListEntry>;
   remover(id: string): Promise<void>;

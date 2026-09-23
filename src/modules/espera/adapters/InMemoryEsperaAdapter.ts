@@ -1,3 +1,4 @@
+import { localDayUtcRange } from '../../../lib/timezone';
 import type { IEsperaAdapter, WaitingListEntry, WaitingListStatus } from '../types';
 
 /**
@@ -69,9 +70,12 @@ export class InMemoryEsperaAdapter implements IEsperaAdapter {
     };
   }
 
-  async listarPorData(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
+  async listarPorData(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]> {
+    const { start, endExclusive } = localDayUtcRange(dataIso, timeZone);
     return this.rows
-      .filter((row) => row.tenant_id === tenantId && row.created_at.slice(0, 10) === dataIso)
+      .filter(
+        (row) => row.tenant_id === tenantId && row.created_at >= start && row.created_at < endExclusive
+      )
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((row) => this.mapRowToEntry(row));
   }

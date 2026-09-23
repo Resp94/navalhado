@@ -29,7 +29,7 @@ describe('SupabaseEsperaAdapter', () => {
         select: () => ({ single: () => Promise.resolve({ data: LINHA_DO_BANCO, error: null }) }),
       }),
       select: () => ({
-        eq: () => ({ gte: () => ({ lte: () => ({ order }) }) }),
+        eq: () => ({ gte: () => ({ lt: () => ({ order }) }) }),
       }),
     });
   });
@@ -89,7 +89,7 @@ describe('SupabaseEsperaAdapter', () => {
         error: null,
       });
 
-      const [entrada] = await criarAdapter().listarPorData('t-1', '2026-09-21');
+      const [entrada] = await criarAdapter().listarPorData('t-1', '2026-09-21', 'America/Sao_Paulo');
 
       expect(entrada.notes).toBe('Quer o Marcos, aceita esperar');
     });
