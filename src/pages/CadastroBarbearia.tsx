@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
-import { isValidEmailFormat } from '../lib/email';
+import { isValidEmailFormat, verifyEmailDomain, suggestEmailDomainCorrection } from '../lib/email';
 
 interface Plan {
   id: string;
@@ -59,6 +59,10 @@ export const CadastroBarbearia: React.FC = () => {
   const [emailGestorError, setEmailGestorError] = useState('');
   const [senhaGestorError, setSenhaGestorError] = useState('');
 
+  // --- Sugestão de correção de domínio (spec 047, ticket 07) ---
+  const [emailBarbeariaSugestao, setEmailBarbeariaSugestao] = useState<string | null>(null);
+  const [emailGestorSugestao, setEmailGestorSugestao] = useState<string | null>(null);
+
   // --- Máscara e Validação de Telefone ---
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
@@ -79,8 +83,20 @@ export const CadastroBarbearia: React.FC = () => {
 
   // --- Validações em tempo real ---
   useEffect(() => {
+    setEmailBarbeariaSugestao(barbeariaEmail ? suggestEmailDomainCorrection(barbeariaEmail) : null);
+
     if (!barbeariaEmail) { setEmailBarbeariaError(''); return; }
-    setEmailBarbeariaError(isValidEmailFormat(barbeariaEmail) ? '' : 'E-mail comercial inválido.');
+    if (!isValidEmailFormat(barbeariaEmail)) { setEmailBarbeariaError('E-mail comercial inválido.'); return; }
+    setEmailBarbeariaError('');
+
+    let cancelado = false;
+    const dominio = barbeariaEmail.split('@')[1] || '';
+    verifyEmailDomain(dominio).then((resultado) => {
+      if (!cancelado && resultado === 'sem_mx') {
+        setEmailBarbeariaError('Este domínio não recebe e-mails.');
+      }
+    });
+    return () => { cancelado = true; };
   }, [barbeariaEmail]);
 
   useEffect(() => {
@@ -90,8 +106,20 @@ export const CadastroBarbearia: React.FC = () => {
   }, [barbeariaPhone]);
 
   useEffect(() => {
+    setEmailGestorSugestao(gestorEmail ? suggestEmailDomainCorrection(gestorEmail) : null);
+
     if (!gestorEmail) { setEmailGestorError(''); return; }
-    setEmailGestorError(isValidEmailFormat(gestorEmail) ? '' : 'E-mail de acesso inválido.');
+    if (!isValidEmailFormat(gestorEmail)) { setEmailGestorError('E-mail de acesso inválido.'); return; }
+    setEmailGestorError('');
+
+    let cancelado = false;
+    const dominio = gestorEmail.split('@')[1] || '';
+    verifyEmailDomain(dominio).then((resultado) => {
+      if (!cancelado && resultado === 'sem_mx') {
+        setEmailGestorError('Este domínio não recebe e-mails.');
+      }
+    });
+    return () => { cancelado = true; };
   }, [gestorEmail]);
 
   useEffect(() => {
@@ -116,7 +144,7 @@ export const CadastroBarbearia: React.FC = () => {
   const pwdStrength = getPasswordStrength();
 
   // --- Navegação entre etapas ---
-  const nextStep = () => {
+  const nextStep = async () => {
     if (!barbeariaNome || !barbeariaEmail || !barbeariaPhone) {
       addToast('Preencha todos os dados da barbearia.', 'warning');
       return;
@@ -124,6 +152,17 @@ export const CadastroBarbearia: React.FC = () => {
     if (emailBarbeariaError || phoneBarbeariaError) {
       addToast('Corrija os erros antes de continuar.', 'warning');
       return;
+    }
+    // Checagem de domínio autoritativa no avanço: o efeito acima roda em
+    // segundo plano e pode não ter terminado ainda quando o gestor clica.
+    if (isValidEmailFormat(barbeariaEmail)) {
+      const dominio = barbeariaEmail.split('@')[1] || '';
+      const resultado = await verifyEmailDomain(dominio);
+      if (resultado === 'sem_mx') {
+        setEmailBarbeariaError('Este domínio não recebe e-mails.');
+        addToast('Corrija os erros antes de continuar.', 'warning');
+        return;
+      }
     }
     setStep(2);
   };
@@ -143,6 +182,15 @@ export const CadastroBarbearia: React.FC = () => {
     if (emailGestorError || senhaGestorError) {
       addToast('Corrija os campos pendentes antes de enviar.', 'warning');
       return;
+    }
+    if (isValidEmailFormat(gestorEmail)) {
+      const dominio = gestorEmail.split('@')[1] || '';
+      const resultado = await verifyEmailDomain(dominio);
+      if (resultado === 'sem_mx') {
+        setEmailGestorError('Este domínio não recebe e-mails.');
+        addToast('Corrija os campos pendentes antes de enviar.', 'warning');
+        return;
+      }
     }
 
     setLoading(true);
@@ -297,6 +345,19 @@ export const CadastroBarbearia: React.FC = () => {
                     disabled={loading}
                     required
                   />
+                  {emailBarbeariaSugestao && (
+                    <p className="-mt-3 text-xs text-text-secondary">
+                      Você quis dizer{' '}
+                      <button
+                        type="button"
+                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                        onClick={() => setBarbeariaEmail(emailBarbeariaSugestao)}
+                      >
+                        {emailBarbeariaSugestao}
+                      </button>
+                      ?
+                    </p>
+                  )}
 
                   <Input
                     label="WhatsApp de Contato"
@@ -347,6 +408,19 @@ export const CadastroBarbearia: React.FC = () => {
                     disabled={loading}
                     required
                   />
+                  {emailGestorSugestao && (
+                    <p className="-mt-3 text-xs text-text-secondary">
+                      Você quis dizer{' '}
+                      <button
+                        type="button"
+                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                        onClick={() => setGestorEmail(emailGestorSugestao)}
+                      >
+                        {emailGestorSugestao}
+                      </button>
+                      ?
+                    </p>
+                  )}
 
                   <div className="flex flex-col gap-1">
                     <Input
