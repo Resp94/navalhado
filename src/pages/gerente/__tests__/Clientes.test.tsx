@@ -454,6 +454,26 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     });
   });
 
+  it('sugere a correção de domínio digitado errado e aplica ao clicar (spec 047, ticket 06)', async () => {
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i) as HTMLInputElement;
+    fireEvent.change(inputEmail, { target: { value: 'joao@gmial.com' } });
+    fireEvent.blur(inputEmail);
+
+    const btnSugestao = await screen.findByRole('button', { name: /joao@gmail\.com/i });
+    fireEvent.click(btnSugestao);
+
+    expect(inputEmail.value).toBe('joao@gmail.com');
+    expect(screen.queryByRole('button', { name: /joao@gmail\.com/i })).toBeNull();
+  });
+
   it('deve exibir erro ao tentar excluir cliente que possui agendamentos cadastrados', async () => {
     // Configura o mock do delete para retornar erro especificamente para este teste
     mockDelete.mockImplementationOnce(() => {

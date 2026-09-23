@@ -71,4 +71,36 @@ describe('useValidacaoEmail', () => {
     act(() => result.current.validarAoSair('joao@dominio-inventado-blur.example'));
     await waitFor(() => expect(result.current.erro).toBe('Este domínio não recebe e-mails.'));
   });
+
+  it('validarAoSair define a sugestão para domínio de provedor comum digitado errado', () => {
+    const { result } = renderHook(() => useValidacaoEmail());
+    act(() => result.current.validarAoSair('joao@gmial.com'));
+    expect(result.current.sugestao).toBe('joao@gmail.com');
+  });
+
+  it('validarAoSair não define sugestão quando o domínio já está correto', () => {
+    const { result } = renderHook(() => useValidacaoEmail());
+    act(() => result.current.validarAoSair('joao@gmail.com'));
+    expect(result.current.sugestao).toBeNull();
+  });
+
+  it('validarAoSair não define sugestão com o campo vazio', () => {
+    const { result } = renderHook(() => useValidacaoEmail());
+    act(() => result.current.validarAoSair(''));
+    expect(result.current.sugestao).toBeNull();
+  });
+
+  it('aplicarSugestao devolve o e-mail corrigido e limpa a sugestão', () => {
+    const { result } = renderHook(() => useValidacaoEmail());
+    act(() => result.current.validarAoSair('joao@gmial.com'));
+    expect(result.current.sugestao).toBe('joao@gmail.com');
+
+    let corrigido = '';
+    act(() => {
+      corrigido = result.current.aplicarSugestao();
+    });
+
+    expect(corrigido).toBe('joao@gmail.com');
+    expect(result.current.sugestao).toBeNull();
+  });
 });

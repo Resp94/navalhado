@@ -69,7 +69,13 @@ export const Clientes: React.FC = () => {
     loadHistorico,
   } = useClientes(tenant.tenantId, tenant.timezone);
 
-  const { erro: emailErro, validarAoSair: validarEmailAoSair, validarParaSalvar: validarEmailParaSalvar } = useValidacaoEmail();
+  const {
+    erro: emailErro,
+    sugestao: emailSugestao,
+    validarAoSair: validarEmailAoSair,
+    validarParaSalvar: validarEmailParaSalvar,
+    aplicarSugestao: aplicarSugestaoEmail,
+  } = useValidacaoEmail();
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -659,16 +665,31 @@ export const Clientes: React.FC = () => {
                   <HugeiconsIcon icon={Invoice01Icon} size={14} /> Documentação e origem
                 </span>
                 <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                  <Input
-                    id="email-input"
-                    label="E-mail (opcional)"
-                    type="email"
-                    placeholder="Ex: joao@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    onBlur={(e) => validarEmailAoSair(e.target.value)}
-                    error={emailErro}
-                  />
+                  <div className="flex flex-col gap-1">
+                    <Input
+                      id="email-input"
+                      label="E-mail (opcional)"
+                      type="email"
+                      placeholder="Ex: joao@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onBlur={(e) => validarEmailAoSair(e.target.value)}
+                      error={emailErro}
+                    />
+                    {emailSugestao && (
+                      <p className="m-0 text-xs text-text-secondary">
+                        Você quis dizer{' '}
+                        <button
+                          type="button"
+                          className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                          onClick={() => setFormData({ ...formData, email: aplicarSugestaoEmail() })}
+                        >
+                          {emailSugestao}
+                        </button>
+                        ?
+                      </p>
+                    )}
+                  </div>
                   <Input
                     id="cpf-input"
                     label="CPF (opcional)"

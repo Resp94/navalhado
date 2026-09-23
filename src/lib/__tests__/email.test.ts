@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isValidEmailFormat, verifyEmailDomain } from '../email';
+import { isValidEmailFormat, verifyEmailDomain, suggestEmailDomainCorrection } from '../email';
 
 describe('isValidEmailFormat', () => {
   const validCases: [string, string][] = [
@@ -113,5 +113,27 @@ describe('verifyEmailDomain', () => {
     expect(r1).toBe('valido');
     expect(r2).toBe('valido');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('suggestEmailDomainCorrection', () => {
+  it.each([
+    ['joao@gmial.com', 'joao@gmail.com'],
+    ['joao@hotmal.com', 'joao@hotmail.com'],
+    ['joao@outlok.com', 'joao@outlook.com'],
+    ['joao@yahoo.com.b', 'joao@yahoo.com.br'],
+  ])('sugere a correção de "%s" para "%s"', (email, esperado) => {
+    expect(suggestEmailDomainCorrection(email)).toBe(esperado);
+  });
+
+  it.each([
+    'joao@gmail.com',
+    'joao@hotmail.com',
+    'joao@outlook.com',
+    'joao@minhabarbeariaexemplo.com.br',
+    'joao@x',
+    '',
+  ])('não sugere nada para "%s"', (email) => {
+    expect(suggestEmailDomainCorrection(email)).toBeNull();
   });
 });

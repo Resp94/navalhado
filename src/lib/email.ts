@@ -90,3 +90,78 @@ export async function verifyEmailDomain(domain: string): Promise<DomainCheckResu
   domainCheckCache.set(cleanDomain, result);
   return result;
 }
+
+/** Provedores comuns, para sugerir correção de domínio digitado errado. */
+const COMMON_EMAIL_DOMAINS = [
+  'gmail.com',
+  'hotmail.com',
+  'hotmail.com.br',
+  'outlook.com',
+  'outlook.com.br',
+  'live.com',
+  'yahoo.com',
+  'yahoo.com.br',
+  'icloud.com',
+  'uol.com.br',
+  'bol.com.br',
+  'terra.com.br',
+];
+
+const SUGGESTION_MAX_DISTANCE = 2;
+
+/** Distância de edição (Levenshtein) entre duas strings. */
+function levenshteinDistance(a: string, b: string): number {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const dist: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+
+  for (let i = 0; i < rows; i++) dist[i][0] = i;
+  for (let j = 0; j < cols; j++) dist[0][j] = j;
+
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dist[i][j] = Math.min(
+        dist[i - 1][j] + 1, // remoção
+        dist[i][j - 1] + 1, // inserção
+        dist[i - 1][j - 1] + cost // substituição
+      );
+    }
+  }
+
+  return dist[rows - 1][cols - 1];
+}
+
+/**
+ * Sugere a correção de um domínio digitado errado, comparando com uma
+ * lista curta de provedores comuns (spec 047, ticket 06). Devolve o
+ * e-mail corrigido, ou null quando o domínio já é exato ou está longe
+ * demais de qualquer provedor da lista (domínio próprio, por exemplo).
+ * Nunca bloqueia -- é só sugestão.
+ */
+export function suggestEmailDomainCorrection(email: string): string | null {
+  const trimmed = email.trim().toLowerCase();
+  const atIndex = trimmed.lastIndexOf('@');
+  if (atIndex === -1) return null;
+
+  const localPart = trimmed.slice(0, atIndex);
+  const domain = trimmed.slice(atIndex + 1);
+  if (!domain) return null;
+  if (COMMON_EMAIL_DOMAINS.includes(domain)) return null;
+
+  let closest: string | null = null;
+  let closestDistance = Infinity;
+  for (const candidate of COMMON_EMAIL_DOMAINS) {
+    const distance = levenshteinDistance(domain, candidate);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closest = candidate;
+    }
+  }
+
+  if (closest === null || closestDistance === 0 || closestDistance > SUGGESTION_MAX_DISTANCE) {
+    return null;
+  }
+
+  return `${localPart}@${closest}`;
+}
