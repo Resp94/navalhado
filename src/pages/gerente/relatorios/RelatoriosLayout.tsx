@@ -178,7 +178,7 @@ export const RelatoriosLayout: React.FC = () => {
           page.enabled ? (
             <NavLink
               key={page.path}
-              to={page.path}
+              to={{ pathname: page.path, search: searchParams.toString() }}
               className={({ isActive }) =>
                 `inline-flex items-center gap-[0.4rem] px-[0.85rem] py-2 rounded-md text-sm font-semibold no-underline whitespace-nowrap ${
                   isActive
