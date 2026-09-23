@@ -132,3 +132,18 @@ Push da `main` feito com confirmação do usuário. `origin/main` de `a13b1b3` p
 - CSP de produção já libera `cloudflare-dns.com` e `dns.google` (herdado da spec 047).
 - Bundle novo detectado em `app.navalhado.com.br` em menos de 2 minutos: `index-NKXcuz5Z.js` → `index-93j3KQJD.js`. Sem violação de CSP nem erro de console.
 - Horário do push: 2026-09-23 17:32 UTC. Commit levado à `main`: `e4225c8`.
+
+## Resultado das provas em produção e fechamento (ticket 06, 2026-09-23)
+
+Provas em `app.navalhado.com.br`, tenant "Barber Tester" (gerente `resplandesjonathas@gmail.com`), logado manualmente pelo usuário.
+
+- **Clientes.** Domínio inventado (`jon@dominioinventado999promo.com.br`) recusado com "Este domínio não recebe e-mails."; a mensagem só aparece quando a consulta DNS realmente completa (senão o resultado seria "indisponivel" e o e-mail seria liberado), o que confirma que o CSP de produção não bloqueou `cloudflare-dns.com`/`dns.google`. `jon@gmial.com` gerou a sugestão "Você quis dizer jon@gmail.com?"; aplicada e confirmada sem erro após um blur real. Cliente "Prova Promocao Cliente" salvo com sucesso.
+- **Acesso do barbeiro.** Criado para "Jonathas Resplandes" (tenant Barber Tester) com `resplandesjonathas7@gmail.com` (dois e-mails anteriores tentados eram do próprio usuário mas já cadastrados em prod — `resplandesjonathas+spike047prod@gmail.com` foi limpo antes de reconhecer o problema, `aptus.fl@gmail.com` falhou por já estar em uso). Mensagem de sucesso: "Acesso criado para Jonathas Resplandes. O barbeiro precisa confirmar o e-mail antes do primeiro login." Conta nasceu com `email_confirmed_at` nulo e `confirmation_sent_at` preenchido; log de Auth mostra `POST /resend` com `status:200`.
+- **Login do barbeiro.** Recusado antes da confirmação, com "Confirme seu e-mail antes de fazer login." e botão "Reenviar link". Depois do clique no link recebido por e-mail, login funcionou e caiu em Minha Agenda com o profissional certo.
+- **Login de gerente já existente.** Continua normal, confirmado na mesma sessão.
+- **Achado fora do escopo desta spec.** Ao tentar criar o acesso com `aptus.fl@gmail.com` (já cadastrado em prod), a tela mostrou só "Edge Function returned a non-2xx status code" em vez da mensagem específica que a Edge Function já devolve ("Este e-mail já está em uso."). O front descarta o corpo da resposta de erro do `functions.invoke`. Registrado como tarefa separada (não corrigido aqui, fora do escopo da promoção).
+- **Limpeza.** Cliente de teste, os dois acessos de barbeiro de teste (e-mails do usuário) e o vínculo `professionals.user_id` removidos. `Jonathas Resplandes` voltou a "Sem login"; 0 clientes de teste; 0 usuários órfãos.
+
+## Promoção concluída
+
+Spec 047 promovida de `dev` para `main`/produção em 2026-09-23. Commit levado à `main`: `e4225c8` (push confirmado pelo usuário às 17:32 UTC). Banco, Edge Function e front de produção provados funcionando de ponta a ponta. Nenhuma pendência aberta por esta spec.

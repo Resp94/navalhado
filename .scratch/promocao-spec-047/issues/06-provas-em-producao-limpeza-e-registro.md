@@ -4,16 +4,16 @@
 
 **Blocked by:** 05 (Push da `main` e deploy).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Clientes: domínio inventado recusado com "Este domínio não recebe e-mails."
-- [ ] Clientes: `gmial.com` gera a sugestão, aplicar a sugestão permite salvar
-- [ ] Console sem violação de CSP para `cloudflare-dns.com` e `dns.google`
-- [ ] Nenhum Agendamento criado nas provas
-- [ ] Acesso do barbeiro criado para um profissional de teste com alias `+` do usuário; mensagem de sucesso fala da confirmação
-- [ ] Login recusa antes da confirmação e mostra "Reenviar link"
-- [ ] Log de Auth de prod mostra o envio com status 200
-- [ ] Depois do clique no link, o Login do barbeiro de teste entra
-- [ ] Login de um gerente já existente continua funcionando
-- [ ] Cliente de teste, acesso de barbeiro de teste e profissional de teste removidos de prod
-- [ ] Spec 048 registra a data da promoção, o commit da `main` e o resultado de cada prova
+- [x] Clientes: domínio inventado recusado com "Este domínio não recebe e-mails."
+- [x] Clientes: `gmial.com` gera a sugestão, aplicar a sugestão permite salvar
+- [x] Console sem violação de CSP para `cloudflare-dns.com` e `dns.google`
+- [x] Nenhum Agendamento criado nas provas
+- [x] Acesso do barbeiro criado para um profissional de teste com alias `+` do usuário; mensagem de sucesso fala da confirmação
+- [x] Login recusa antes da confirmação e mostra "Reenviar link"
+- [x] Log de Auth de prod mostra o envio com status 200
+- [x] Depois do clique no link, o Login do barbeiro de teste entra
+- [x] Login de um gerente já existente continua funcionando
+- [x] Cliente de teste, acesso de barbeiro de teste e profissional de teste removidos de prod
+- [x] Spec 048 registra a data da promoção, o commit da `main` e o resultado de cada prova
