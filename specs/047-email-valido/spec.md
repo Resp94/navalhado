@@ -201,7 +201,9 @@ O módulo não persiste nada, por isso não segue o par repository/adapter. Ele 
 gomail: could not send email 1: 550 "The gmail.com domain is not verified. Please, add and verify your domain on https://resend.com/domains"
 ```
 
-**Causa raiz:** não é limitação do GoTrue nem do fluxo `createUser` + `resend` -- é configuração. O campo "Sender email" do SMTP do Supabase Auth (DEV) está com um endereço em `gmail.com`, e o Resend recusa enviar em nome de um domínio que a conta não verificou (não dá para verificar `gmail.com`, é do Google). O SMTP em si está corretamente apontado para o Resend -- o erro veio do próprio Resend, via GoTrue.
+**Causa raiz:** não é limitação do GoTrue nem do fluxo `createUser` + `resend` -- é configuração. O campo "Sender email" do SMTP do Supabase Auth (DEV) estava com um endereço em `gmail.com`, e o Resend recusa enviar em nome de um domínio que a conta não verificou (não dá para verificar `gmail.com`, é do Google). O SMTP em si já estava corretamente apontado para o Resend -- o erro veio do próprio Resend, via GoTrue.
+
+**Reteste após o usuário trocar o Sender email (mesmo dia):** `resend({ type: 'signup' })` respondeu sem erro (`resendError: null`) e o log do GoTrue confirma `status: 200` em `/resend`, contra o `status: 500` do teste anterior. O caminho `createUser({ email_confirm: false })` + `resend({ type: 'signup' })` está confirmado funcionando no DEV. Usuário de teste removido de novo, função neutralizada de novo.
 
 **Plano B não testado:** `generateLink` mais envio manual pelo Resend falharia pelo mesmo motivo (o remetente inválido é do lado do Resend, não do caminho `resend()` do GoTrue). Não faz sentido gastar outro teste nisso.
 
