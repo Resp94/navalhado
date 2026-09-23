@@ -152,6 +152,26 @@ describe('CadastroAcesso', () => {
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 
+  it('avisa que o barbeiro precisa confirmar o e-mail antes do primeiro login (spec 047, ticket 10)', async () => {
+    mockInvoke.mockResolvedValue({ data: { success: true, userId: 'novo-user-id' }, error: null });
+
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), { target: { value: 'prof-1' } });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), { target: { value: 'carlos@gmail.com' } });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), { target: { value: 'segredo123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Acesso criado para Carlos. O barbeiro precisa confirmar o e-mail antes do primeiro login.',
+        'success'
+      );
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/profissionais');
+  });
+
   it('sugere a correção de domínio digitado errado no e-mail de login e aplica ao clicar', async () => {
     render(<CadastroAcesso />);
 

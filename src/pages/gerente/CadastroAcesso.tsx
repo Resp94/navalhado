@@ -104,7 +104,10 @@ export const CadastroAcesso: React.FC = () => {
         throw error;
       }
 
-      addToast(`Acesso criado com sucesso para o profissional ${selectedProf?.name}!`, 'success');
+      addToast(
+        `Acesso criado para ${selectedProf?.name}. O barbeiro precisa confirmar o e-mail antes do primeiro login.`,
+        'success'
+      );
 
       // Redireciona de volta para a lista de equipe
       navigate('/profissionais');
