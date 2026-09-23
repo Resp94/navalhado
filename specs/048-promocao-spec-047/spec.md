@@ -115,3 +115,12 @@ As 4 migrations aplicadas sem erro, na ordem, com o nome do arquivo como nome da
 ## Resultado da publicação da Edge Function (ticket 03, 2026-09-23)
 
 `create-barber-access` publicada em prod (`boakqstrdfqmsrwnjore`) com os mesmos 3 arquivos da `dev` (`index.ts`, `email.ts`, `account.ts`), sem os arquivos de teste, `verify_jwt: true` mantido. Versão 1 (a do hotfix) para versão 2, agora ACTIVE. Conteúdo publicado conferido contra o esperado, sem diferença. `spike-047-ticket09` não foi publicada em prod (só existe na `dev`).
+
+## Resultado do merge local (ticket 04, 2026-09-23)
+
+Merge de `dev` em `main` com `--no-ff`, sem push. Commit `5f1fae1`. Único conflito, o esperado (add/add em `create-barber-access/index.ts`), resolvido com a versão da `dev`; conferido byte a byte igual.
+
+- **Lint.** `npx oxlint`: 0 erros, só warnings pré-existentes.
+- **Build.** `tsc -b && vite build`: passou.
+- **Testes.** `npm test`: 1313/1314. A 1 falha (`MinhaAgenda.test.tsx`, timing num `waitFor`) não reproduz isolada (27/27) e não tem relação com a spec 047 — `dev` não tocou `src/pages/barbeiro/` nem nada de que esse teste dependa.
+- **Deno.** `email_test.ts` + `account_test.ts`: 31/31. `deno.lock` restaurado depois (sujeira de sempre do `deno test`).

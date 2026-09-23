@@ -4,12 +4,12 @@
 
 **Blocked by:** 01 (Conferências antes de promover).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Merge de `dev` em `main` com `--no-ff`
-- [ ] Conflito add/add resolvido ficando com a versão da `dev` do arquivo
-- [ ] Nenhum outro conflito
-- [ ] `npm run lint`, `npm test` e `npm run build` passam no resultado
-- [ ] Testes Deno da `create-barber-access` passam
-- [ ] `deno.lock` sem mudança alheia no commit de merge
-- [ ] Sem push
+- [x] Merge de `dev` em `main` com `--no-ff`
+- [x] Conflito add/add resolvido ficando com a versão da `dev` do arquivo
+- [x] Nenhum outro conflito
+- [x] `npm run lint`, `npm test` e `npm run build` passam no resultado
+- [x] Testes Deno da `create-barber-access` passam
+- [x] `deno.lock` sem mudança alheia no commit de merge
+- [x] Sem push
