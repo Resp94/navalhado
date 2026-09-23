@@ -1,6 +1,7 @@
 import { normalizarNome } from './nome';
 import { documentoValido, normalizarDocumento } from './documento';
 import type { CategoriaDespesa, DadosFornecedor, Fornecedor, IPlanoContasAdapter } from './types';
+import { isValidEmailFormat } from '../../lib/email';
 
 const NOME_MIN = 2;
 const NOME_MAX = 60;
@@ -8,7 +9,6 @@ const NOME_MAX = 60;
 const NOME_FORNECEDOR_MIN = 2;
 const NOME_FORNECEDOR_MAX = 120;
 const NOTES_MAX = 500;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class PlanoContasValidationError extends Error {
   constructor(message: string) {
@@ -183,7 +183,7 @@ export class PlanoContasRepository {
     const emailBruto = (dados.email || '').trim().toLowerCase();
     let email: string | null = null;
     if (emailBruto) {
-      if (!EMAIL_REGEX.test(emailBruto)) {
+      if (!isValidEmailFormat(emailBruto)) {
         throw new PlanoContasValidationError('E-mail inválido.');
       }
       email = emailBruto;
