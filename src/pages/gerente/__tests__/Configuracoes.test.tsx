@@ -71,9 +71,22 @@ vi.mock('../../../lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
+const dnsResponse = (status: number, answers: { type: number; data: string }[] = []) => ({
+  ok: true,
+  json: async () => ({
+    Status: status,
+    Answer: answers.map((a) => ({ name: 'x', type: a.type, TTL: 300, data: a.data })),
+  }),
+});
+
 describe('Configuracoes Page - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Padrão: qualquer domínio consultado tem MX (spec 047, ticket 07). Testes
+    // específicos de domínio/sugestão sobrescrevem este mock.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      dnsResponse(0, [{ type: 15, data: '10 mail.exemplo.' }]) as any
+    );
   });
 
   it('deve carregar os dados cadastrais da barbearia do banco de dados e preencher o formulário', async () => {
@@ -404,5 +417,51 @@ describe('Configuracoes Page - TDD', () => {
       expect(mockAddToast).toHaveBeenCalledWith('O formato do e-mail de contato é inválido.', 'error');
     });
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('recusa salvar com domínio de e-mail de contato que não recebe e-mails (spec 047, ticket 07) e não chama o Supabase', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(dnsResponse(3) as any); // NXDOMAIN
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+    };
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+
+    render(<Configuracoes />);
+    await screen.findByLabelText(/Nome da Barbearia/i);
+
+    fireEvent.change(screen.getByLabelText(/E-mail de contato/i), {
+      target: { value: 'contato@dominio-inventado-config.example' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Este domínio não recebe e-mails.', 'error');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('sugere a correção de domínio digitado errado no e-mail de contato e aplica ao clicar', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+    };
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+
+    render(<Configuracoes />);
+    await screen.findByLabelText(/Nome da Barbearia/i);
+
+    const inputEmail = screen.getByLabelText(/E-mail de contato/i) as HTMLInputElement;
+    fireEvent.change(inputEmail, { target: { value: 'contato@gmial.com' } });
+    fireEvent.blur(inputEmail);
+
+    const btnSugestao = await screen.findByRole('button', { name: /contato@gmail\.com/i });
+    fireEvent.click(btnSugestao);
+
+    expect(inputEmail.value).toBe('contato@gmail.com');
   });
 });

@@ -11,6 +11,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
 import { isValidEmailFormat } from '../../lib/email';
+import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 import { normalizeBusinessHours } from '../../lib/schedule';
 import { Select } from '../../components/ui';
 
@@ -117,6 +118,12 @@ export const Configuracoes: React.FC = () => {
   const [cepError, setCepError] = useState<string | null>(null);
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
   const lastSearchedCepRef = useRef<string>('');
+  const {
+    sugestao: emailSugestao,
+    validarAoSair: validarEmailAoSair,
+    validarParaSalvar: validarEmailParaSalvar,
+    aplicarSugestao: aplicarSugestaoEmail,
+  } = useValidacaoEmail();
 
   // States do Card 2: Regras de Agendamento
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState<number>(30);
@@ -257,6 +264,11 @@ export const Configuracoes: React.FC = () => {
     }
     if (!isValidEmailFormat(email.trim())) {
       addToast('O formato do e-mail de contato é inválido.', 'error');
+      return;
+    }
+    const erroDominioEmail = await validarEmailParaSalvar(email.trim());
+    if (erroDominioEmail) {
+      addToast(erroDominioEmail, 'error');
       return;
     }
 
@@ -419,9 +431,23 @@ export const Configuracoes: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={(e) => validarEmailAoSair(e.target.value)}
               placeholder="contato@barbearia.com"
               className={configInputClass}
             />
+            {emailSugestao && (
+              <p className="m-0 text-xs text-text-secondary">
+                Você quis dizer{' '}
+                <button
+                  type="button"
+                  className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                  onClick={() => setEmail(aplicarSugestaoEmail())}
+                >
+                  {emailSugestao}
+                </button>
+                ?
+              </p>
+            )}
           </div>
 
           {/* Telefone */}
