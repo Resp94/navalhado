@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
@@ -114,7 +115,18 @@ export const CadastroAcesso: React.FC = () => {
 
     } catch (error: any) {
       console.error('Error creating barber access:', error);
-      addToast(error.message || 'Não foi possível configurar as credenciais.', 'error');
+      let mensagem = error.message || 'Não foi possível configurar as credenciais.';
+      if (error instanceof FunctionsHttpError) {
+        try {
+          const corpo = await error.context.json();
+          if (corpo?.error) {
+            mensagem = corpo.error;
+          }
+        } catch {
+          // corpo da resposta não é JSON válido; mantém mensagem genérica
+        }
+      }
+      addToast(mensagem, 'error');
     } finally {
       setSubmitting(false);
     }
