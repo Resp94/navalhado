@@ -188,3 +188,21 @@ O módulo não persiste nada, por isso não segue o par repository/adapter. Ele 
   7. Fase 2: Acesso do barbeiro e "Reenviar link".
   8. Fase 2: produção.
 - Produção (migration, deploy da Edge Function, SMTP e "Confirm email") só mediante pedido explícito.
+
+## Resultado do spike (ticket 09, 2026-09-23)
+
+**Pergunta:** um usuário criado pelo admin com `email_confirm: false` recebe o link de confirmação quando pedimos o reenvio do tipo `signup`?
+
+**Método:** Edge Function descartável no DEV (`spike-047-ticket09`, nunca commitada), chamando `auth.admin.createUser({ email_confirm: false })` e, em seguida, `auth.resend({ type: 'signup' })`, com um e-mail real (`resplandesjonathas+spike047@gmail.com`, alias que cai na mesma caixa do usuário). Usuário de teste removido e função neutralizada (retorna 410) logo depois — só o dashboard do Supabase apaga a função de vez.
+
+**Resultado:** `createUser` funcionou e criou o usuário não confirmado, como documentado. O `resend` **falhou** com `"Error sending confirmation email"`. O log do GoTrue (`auth_logs`) mostrou a causa exata:
+
+```
+gomail: could not send email 1: 550 "The gmail.com domain is not verified. Please, add and verify your domain on https://resend.com/domains"
+```
+
+**Causa raiz:** não é limitação do GoTrue nem do fluxo `createUser` + `resend` -- é configuração. O campo "Sender email" do SMTP do Supabase Auth (DEV) está com um endereço em `gmail.com`, e o Resend recusa enviar em nome de um domínio que a conta não verificou (não dá para verificar `gmail.com`, é do Google). O SMTP em si está corretamente apontado para o Resend -- o erro veio do próprio Resend, via GoTrue.
+
+**Plano B não testado:** `generateLink` mais envio manual pelo Resend falharia pelo mesmo motivo (o remetente inválido é do lado do Resend, não do caminho `resend()` do GoTrue). Não faz sentido gastar outro teste nisso.
+
+**Recomendação:** trocar o "Sender email" do SMTP (Authentication → Emails → SMTP Settings, nos dois projetos, DEV primeiro) para um endereço de um domínio verificado no Resend (por exemplo `no-reply@navalhado.com.br`, com os registros SPF/DKIM que o Resend pedir no DNS). Depois disso, o caminho já testado (`createUser` com `email_confirm: false` mais `resend`) deve funcionar sem mudança de código -- não é necessário implementar o plano B (`generateLink`). O ticket 10 pode seguir direto com esse caminho, uma vez corrigido o remetente.
