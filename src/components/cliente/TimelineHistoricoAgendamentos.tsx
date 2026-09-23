@@ -64,7 +64,16 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
           <h3 className="m-0 mb-1 text-text-primary text-[0.8125rem] font-extrabold">{month}</h3>
 
           {monthAppointments.map((app) => {
-            const isCompleted = app.status === 'completed' || app.status === 'confirmed';
+            const isCompleted = app.status === 'completed';
+            const statusLabel =
+              app.status === 'completed'
+                ? 'Finalizado'
+                : app.status === 'no_show'
+                  ? 'Não compareceu'
+                  : app.status === 'canceled'
+                    ? 'Cancelado'
+                    // pendente/confirmado cujo horário já passou: a recepção ainda não atualizou o status.
+                    : 'Horário não confirmado';
             const formattedPrice = Number(app.service_price || 0).toLocaleString('pt-BR', {
               style: 'currency',
               currency: 'BRL',
@@ -109,7 +118,7 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
                         isCompleted ? 'bg-success-bg text-success' : 'bg-error-bg text-error'
                       }`}
                     >
-                      {isCompleted ? 'Finalizado' : 'Cancelado'}
+                      {statusLabel}
                     </span>
                     {app.cancellation_reason && (
                       <span className="text-[0.625rem] text-text-secondary italic">

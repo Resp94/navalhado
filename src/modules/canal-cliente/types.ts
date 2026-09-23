@@ -93,7 +93,7 @@ export interface AgendamentoCanal {
   appointment_id: string;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'canceled';
+  status: 'pending' | 'confirmed' | 'completed' | 'canceled' | 'no_show';
   payment_status: 'pending' | 'paid';
   cancellation_reason: string | null;
   professional_name: string;

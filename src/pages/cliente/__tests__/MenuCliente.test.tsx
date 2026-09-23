@@ -106,6 +106,83 @@ describe('MenuCliente - TDD', () => {
     expect(rescheduleButtons.length).toBe(1);
   });
 
+  it('não lista em Próximos horários um agendamento do passado nem um marcado como não compareceu (spec 044)', async () => {
+    const mockDetails = {
+      customer_id: 'cust-123',
+      customer_name: 'Jonathas Teste',
+      tenant_id: 'tenant-123',
+      tenant_name: 'Barbearia Estilo',
+      tenant_phone: '5592999999999',
+      cadastro_completo: true,
+    };
+
+    const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const pastDate = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    const baseAppointment = {
+      end_time: new Date(futureDate.getTime() + 30 * 60 * 1000).toISOString(),
+      payment_status: 'pending' as const,
+      cancellation_reason: null,
+      professional_name: 'Carlos Barbeiro',
+      professional_id: 'prof-123',
+      service_id: 'serv-123',
+      service_price: 45.0,
+      service_duration: 30,
+      tenant_name: 'Barbearia Estilo',
+      tenant_id: 'tenant-123',
+      tenant_phone: '5592999999999',
+      customer_name: 'Jonathas Teste',
+    };
+
+    const mockAppointments = [
+      {
+        ...baseAppointment,
+        appointment_id: 'app-futuro',
+        start_time: futureDate.toISOString(),
+        status: 'confirmed',
+        service_name: 'Corte Degradê',
+      },
+      {
+        ...baseAppointment,
+        appointment_id: 'app-passado-nao-atualizado',
+        start_time: pastDate.toISOString(),
+        status: 'confirmed',
+        service_name: 'Barba Vencida',
+      },
+      {
+        ...baseAppointment,
+        appointment_id: 'app-nao-compareceu',
+        start_time: pastDate.toISOString(),
+        status: 'no_show',
+        service_name: 'Corte Faltou',
+      },
+    ];
+
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') {
+        return { data: [mockDetails], error: null };
+      }
+      if (name === 'get_customer_appointments_by_token') {
+        return { data: mockAppointments, error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    render(
+      <MemoryRouter>
+        <MenuCliente />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Corte Degradê');
+    expect(screen.queryByText('Barba Vencida')).not.toBeInTheDocument();
+    expect(screen.queryByText('Corte Faltou')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Anteriores/i }));
+    expect(await screen.findByText('Barba Vencida')).toBeInTheDocument();
+    expect(screen.getByText('Corte Faltou')).toBeInTheDocument();
+  });
+
   it('exibe modal de redirecionamento para o WhatsApp caso o prazo de cancelamento tenha expirado', async () => {
     const mockDetails = {
       customer_id: 'cust-123',
