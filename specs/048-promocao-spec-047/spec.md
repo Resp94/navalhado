@@ -111,3 +111,7 @@ As 4 migrations aplicadas sem erro, na ordem, com o nome do arquivo como nome da
 - **Esquema.** `public.email_valido(text)` existe, `provolatile = 'i'` (immutable), `proconfig` inclui `search_path=""`. As 4 restrições (`customers_email_format_check`, `suppliers_email_check`, `tenants_email_format_check`, `users_email_format_check`) existem e `convalidated = true`.
 - **pgTAP em prod**, dentro de `begin; ... rollback;` (nada gravado): teste 58 (29/29), teste 59 (6/6), teste 60 (4/4), teste 61 (5/5). Total 44/44, 0 falhas.
 - **Log do Postgres de prod.** Últimas 30 linhas sem `error`, `fatal` ou `panic`, fora das próprias instruções dos testes e um `cron job 8` de rotina.
+
+## Resultado da publicação da Edge Function (ticket 03, 2026-09-23)
+
+`create-barber-access` publicada em prod (`boakqstrdfqmsrwnjore`) com os mesmos 3 arquivos da `dev` (`index.ts`, `email.ts`, `account.ts`), sem os arquivos de teste, `verify_jwt: true` mantido. Versão 1 (a do hotfix) para versão 2, agora ACTIVE. Conteúdo publicado conferido contra o esperado, sem diferença. `spike-047-ticket09` não foi publicada em prod (só existe na `dev`).

@@ -4,10 +4,10 @@
 
 **Blocked by:** 02 (Migrations da spec 047 em prod).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Publicados em prod os mesmos arquivos de código da `dev` (index, validação de e-mail e criação de conta), sem os arquivos de teste
-- [ ] `verify_jwt: true` mantido, como na v1
-- [ ] Nova versão ativa em prod, com o conteúdo conferido contra o da `dev`
-- [ ] `spike-047-ticket09` não é publicada em prod
-- [ ] Resultado registrado na spec 048
+- [x] Publicados em prod os mesmos arquivos de código da `dev` (index, validação de e-mail e criação de conta), sem os arquivos de teste
+- [x] `verify_jwt: true` mantido, como na v1
+- [x] Nova versão ativa em prod, com o conteúdo conferido contra o da `dev`
+- [x] `spike-047-ticket09` não é publicada em prod
+- [x] Resultado registrado na spec 048
