@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/Icons';
 import { Select } from '../../components/ui';
+import { isValidEmailFormat } from '../../lib/email';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 
@@ -62,7 +63,7 @@ export const CadastroAcesso: React.FC = () => {
       addToast('Selecione um profissional para vincular o acesso.', 'warning');
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
+    if (!email.trim() || !isValidEmailFormat(email.trim())) {
       addToast('Informe um e-mail válido.', 'warning');
       return;
     }

@@ -99,4 +99,25 @@ describe('CadastroAcesso', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('/profissionais');
     expect(mockAddToast).not.toHaveBeenCalledWith(expect.any(String), 'success');
   });
+
+  it('recusa e-mail com TLD de 1 letra (regra mais rígida da spec 047) sem chamar a Edge Function', async () => {
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), {
+      target: { value: 'prof-1' },
+    });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), {
+      target: { value: 'carlos@x.c' },
+    });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), {
+      target: { value: 'segredo123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Informe um e-mail válido.', 'warning');
+    });
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
 });

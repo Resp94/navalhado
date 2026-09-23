@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { isValidEmailFormat } from "./email.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
@@ -78,7 +79,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const name = typeof payload.name === "string" ? payload.name.trim() : "";
   const professionalId = typeof payload.professionalId === "string" ? payload.professionalId.trim() : "";
 
-  if (!isNonEmptyString(email, 255) || !email.includes("@")) {
+  if (!isNonEmptyString(email, 255) || !isValidEmailFormat(email)) {
     return jsonResponse(request, { error: "Informe um e-mail válido." }, 400);
   }
   if (password.length < 8) {
