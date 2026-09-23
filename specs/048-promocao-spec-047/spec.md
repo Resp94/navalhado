@@ -94,3 +94,12 @@ Se algo falhar depois das migrations e antes do push, a promoção para ali. O f
 - Se o bundle novo não aparecer em produção em até 30 minutos depois do push, conferir o deploy na Cloudflare antes de seguir com as provas. Na spec 046 o atraso chegou a cerca de 20 minutos.
 - Se uma prova no navegador falhar, a correção é um commit novo na `dev`, promovido do mesmo jeito. Nunca uma edição direta na `main`.
 - Commits de referência na montagem desta spec: `main` em `a13b1b3`, `dev` em `2e0e1a3`, base comum `af67361`.
+
+## Resultado das conferências (ticket 01, 2026-09-23)
+
+Tudo conforme o esperado. A promoção pode seguir.
+
+- **Git.** Depois do `fetch`, `main` = `origin/main` = `a13b1b3` e `dev` = `origin/dev` = `7b9a198` (a spec 048 já está na `dev` remota). Base comum continua `af67361`.
+- **Merge simulado.** `git merge-tree` entre `main` e `dev` mostra só o conflito add/add conhecido na `create-barber-access`. Nenhum outro arquivo em conflito.
+- **Auth de prod.** `/auth/v1/settings` responde `mailer_autoconfirm: false` ("Confirm email" ligado).
+- **Dados de prod.** Nenhum e-mail fora da regra da spec 047: `customers` 0 de 0, `suppliers` 0 de 0, `tenants` 0 de 2, `users` 0 de 3.

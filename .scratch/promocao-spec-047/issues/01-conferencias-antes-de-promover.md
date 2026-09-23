@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `main` e `dev` locais iguais a `origin/main` e `origin/dev` depois do `fetch`
-- [ ] `main` continua em `a13b1b3` e a base comum com a `dev` continua `af67361`
-- [ ] Merge simulado (`git merge-tree`) mostra só o conflito add/add conhecido na `create-barber-access`
-- [ ] `/auth/v1/settings` de prod responde `mailer_autoconfirm: false`
-- [ ] Zero e-mails fora da regra em `customers`, `suppliers`, `tenants` e `users` de prod
-- [ ] Resultado registrado na spec 048
+- [x] `main` e `dev` locais iguais a `origin/main` e `origin/dev` depois do `fetch`
+- [x] `main` continua em `a13b1b3` e a base comum com a `dev` continua `af67361`
+- [x] Merge simulado (`git merge-tree`) mostra só o conflito add/add conhecido na `create-barber-access`
+- [x] `/auth/v1/settings` de prod responde `mailer_autoconfirm: false`
+- [x] Zero e-mails fora da regra em `customers`, `suppliers`, `tenants` e `users` de prod
+- [x] Resultado registrado na spec 048
