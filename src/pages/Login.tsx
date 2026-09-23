@@ -6,6 +6,7 @@ import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
 import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, LockIcon } from '../components/Icons';
+import { isValidEmailFormat } from '../lib/email';
 
 /* ─── Ondas SVG Orgânicas em Camadas ─── */
 const VerticalCloudWave: React.FC = () => (
@@ -126,8 +127,7 @@ export const Login: React.FC = () => {
   // --- Validação inline em tempo real ---
   useEffect(() => {
     if (!email) { setEmailError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailError(emailRegex.test(email) ? '' : 'E-mail inválido.');
+    setEmailError(isValidEmailFormat(email) ? '' : 'E-mail inválido.');
   }, [email]);
 
   useEffect(() => {
@@ -137,8 +137,7 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (!resetEmail) { setResetEmailError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setResetEmailError(emailRegex.test(resetEmail) ? '' : 'E-mail inválido.');
+    setResetEmailError(isValidEmailFormat(resetEmail) ? '' : 'E-mail inválido.');
   }, [resetEmail]);
 
   // --- Helpers ---

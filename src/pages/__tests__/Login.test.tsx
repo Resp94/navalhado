@@ -61,4 +61,14 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'Termos de uso' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Privacidade (LGPD)' })).toBeInTheDocument();
   });
+
+  it('recusa e-mail com TLD de 1 letra (regra mais rígida da spec 047) e mantém "Acessar" desabilitado', async () => {
+    render(<Login />);
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'admin@navalhado.x' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha-segura' } });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Acessar' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
 });
