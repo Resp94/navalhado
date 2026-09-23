@@ -10,6 +10,8 @@ import {
 } from '../../modules/plano-contas/PlanoContasRepository';
 import { documentoValido, formatarDocumento, normalizarDocumento } from '../../modules/plano-contas/documento';
 import type { CategoriaDespesa, Fornecedor } from '../../modules/plano-contas/types';
+import { isValidEmailFormat } from '../../lib/email';
+import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 
 export interface FornecedorFormProps {
   /** Repositório injetado (Supabase em produção, em memória nos testes). */
@@ -62,6 +64,13 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [conflito, setConflito] = useState<ConflitoState | null>(null);
+  const {
+    erro: emailErro,
+    sugestao: emailSugestao,
+    validarAoSair: validarEmailAoSair,
+    validarParaSalvar: validarEmailParaSalvar,
+    aplicarSugestao: aplicarSugestaoEmail,
+  } = useValidacaoEmail();
 
   const isEdicao = Boolean(fornecedor);
   const busy = saving || reactivating;
@@ -95,6 +104,14 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({
     if (documentoCompleto && !documentoValido(documentoNormalizado)) {
       setDocumentError('CPF ou CNPJ inválido.');
       return;
+    }
+
+    // Domínio do e-mail (recebe e-mails?): só quando o formato já é válido.
+    // Formato inválido continua bloqueado pelo PlanoContasRepository, abaixo.
+    const emailTrimmed = email.trim();
+    if (emailTrimmed && isValidEmailFormat(emailTrimmed)) {
+      const erroDominio = await validarEmailParaSalvar(emailTrimmed);
+      if (erroDominio) return;
     }
 
     setSaving(true);
@@ -174,14 +191,31 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({
         disabled={busy}
       />
 
-      <Input
-        label="E-mail (opcional)"
-        type="email"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        placeholder="contato@fornecedor.com"
-        disabled={busy}
-      />
+      <div className="flex flex-col gap-1">
+        <Input
+          label="E-mail (opcional)"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          onBlur={(event) => validarEmailAoSair(event.target.value)}
+          placeholder="contato@fornecedor.com"
+          disabled={busy}
+          error={emailErro || undefined}
+        />
+        {emailSugestao && (
+          <p className="m-0 text-xs text-text-secondary">
+            Você quis dizer{' '}
+            <button
+              type="button"
+              className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+              onClick={() => setEmail(aplicarSugestaoEmail())}
+            >
+              {emailSugestao}
+            </button>
+            ?
+          </p>
+        )}
+      </div>
 
       <Select
         label="Categoria de despesa padrão (opcional)"
