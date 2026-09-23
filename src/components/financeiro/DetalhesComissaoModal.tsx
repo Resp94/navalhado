@@ -46,6 +46,7 @@ interface DetalhesComissaoModalProps {
   startDate: string;
   endDate: string;
   tenantId?: string;
+  timezone?: string;
   onClose: () => void;
 }
 
@@ -55,6 +56,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
   startDate,
   endDate,
   tenantId,
+  timezone,
   onClose,
 }) => {
   const [loading, setLoading] = useState(true);
@@ -135,6 +137,7 @@ export const DetalhesComissaoModal: React.FC<DetalhesComissaoModalProps> = ({
   const formatDate = (iso: string) => {
     if (!iso) return '-';
     return new Date(iso).toLocaleDateString('pt-BR', {
+      timeZone: timezone,
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',

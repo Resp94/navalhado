@@ -278,6 +278,22 @@ export interface RelatorioAgendaMotivoCancelamento {
 }
 
 /**
+ * Motivos de cancelamento do período, separados por quem cancelou (spec 044,
+ * ticket 16): `shop` (a barbearia cancelou), `customer` (o cliente cancelou)
+ * e `desconhecida` (cancelamento anterior à spec 043, sem autoria gravada —
+ * nunca inferida pelo texto do motivo). Cada grupo segue o mesmo formato de
+ * antes (top 10 + "outros"), agora particionado por grupo. O texto de
+ * preenchimento gravado pelo Canal do Cliente quando o cliente não escreve
+ * motivo (`MOTIVO_CANCELAMENTO_PADRAO_CLIENTE`, módulo canal-cliente) não
+ * aparece em nenhum grupo — ele não diz nada sobre a causa real.
+ */
+export interface RelatorioAgendaMotivosCancelamento {
+  shop: RelatorioAgendaMotivoCancelamento[];
+  customer: RelatorioAgendaMotivoCancelamento[];
+  desconhecida: RelatorioAgendaMotivoCancelamento[];
+}
+
+/**
  * Célula do mapa de calor da Agenda (spec 038, ticket 08): `weekday` usa a
  * convenção nativa do Postgres (`extract(dow)`), `0` = domingo até `6` =
  * sábado -- nunca a convenção ISO (segunda = 1). `count` é sempre um
@@ -306,6 +322,21 @@ export interface RelatorioAgendaHeatmap {
 }
 
 /**
+ * Encaixes vindos da Lista de Espera no período (spec 044, ticket 17):
+ * `total` conta todo Agendamento com `from_waiting_list = true` (cancelado
+ * inclusive), `completed` conta desses quantos foram concluídos, pela mesma
+ * classificação de desfecho usada em `status_totals`. Agendamento anterior à
+ * marca (spec 043, ticket 07) nunca entra — sem backfill, o default `false`
+ * da coluna já resolve isso. `p_professional_id` filtra; `by_origin` não
+ * muda (a marca é independente da origem, decisão já tomada no ticket 07 da
+ * spec 043).
+ */
+export interface RelatorioAgendaListaDeEspera {
+  total: number;
+  completed: number;
+}
+
+/**
  * Contrato de leitura da Agenda (`get_schedule_report`, spec 038,
  * relatórios 6-7, tickets 07-08): comparecimento, cancelamento, no-show e
  * mapa de calor do período. Sem `granularity` (ranking/totais de período
@@ -323,7 +354,8 @@ export interface RelatorioAgenda {
   previous_status_totals: RelatorioAgendaStatusTotais;
   by_origin: RelatorioAgendaOrigemTotais[];
   by_professional: RelatorioAgendaProfissionalTotais[];
-  cancellation_reasons: RelatorioAgendaMotivoCancelamento[];
+  cancellation_reasons: RelatorioAgendaMotivosCancelamento;
+  waiting_list: RelatorioAgendaListaDeEspera;
   heatmap: RelatorioAgendaHeatmap;
 }
 

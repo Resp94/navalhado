@@ -64,7 +64,8 @@ describe('SupabaseProfessionalServicesAdapter', () => {
 
     const barba = result.find((r) => r.service_id === 's2');
     expect(barba?.custom_duration_minutes).toBe(30);
-    expect(barba?.is_enabled).toBe(true);
+    // Sem vínculo gravado, o servidor não oferece horário para o serviço: a tela não pode mostrá-lo marcado.
+    expect(barba?.is_enabled).toBe(false);
   });
 
   it('deve salvar associações personalizadas com upsert', async () => {

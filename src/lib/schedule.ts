@@ -435,6 +435,20 @@ export const generateTimeSlotsForSchedule = (
   return slots;
 };
 
+/** Segmento da régua para a escala de um dia; nulo quando o dia não tem expediente. */
+export const toScheduleGridSegment = (
+  schedule: ProfessionalDaySchedule | null | undefined
+): ScheduleGridSegment | null => {
+  if (!schedule || schedule.active === false || !schedule.start || !schedule.end) return null;
+
+  return {
+    start: schedule.start,
+    end: schedule.end,
+    breakStart: schedule.break_start,
+    breakEnd: schedule.break_end,
+  };
+};
+
 /**
  * Gera a régua da agenda a partir dos segmentos do expediente usando um único
  * intervalo do tenant. A união evita que escalas sobrepostas dupliquem slots.

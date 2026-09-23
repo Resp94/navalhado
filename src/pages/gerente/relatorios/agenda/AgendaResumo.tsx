@@ -4,7 +4,7 @@ import { Alert02Icon } from '@hugeicons/core-free-icons';
 import { StatCard, type StatCardTrend } from '../../../../components/ui/data-display/StatCard';
 import { calcularVariacaoPercentual } from '../../../../modules/relatorios/variacao';
 import { formatPercent } from '../../../../modules/relatorios/formatacao';
-import type { RelatorioAgendaStatusTotais } from '../../../../modules/relatorios/types';
+import type { RelatorioAgendaListaDeEspera, RelatorioAgendaStatusTotais } from '../../../../modules/relatorios/types';
 
 function formatVariacaoContagem(atual: number, anterior: number): StatCardTrend | undefined {
   const variacao = calcularVariacaoPercentual(atual, anterior);
@@ -32,6 +32,7 @@ function formatVariacaoTaxa(atual: number | null, anterior: number | null): Stat
 export interface AgendaResumoProps {
   statusTotals: RelatorioAgendaStatusTotais | null;
   previousStatusTotals: RelatorioAgendaStatusTotais | null;
+  waitingList: RelatorioAgendaListaDeEspera | null;
   loading: boolean;
 }
 
@@ -46,7 +47,12 @@ export interface AgendaResumoProps {
  * nas contas de comparecimento/cancelamento (não entra: a spec e o núcleo
  * do banco excluem `unresolved` das duas taxas).
  */
-export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previousStatusTotals, loading }) => {
+export const AgendaResumo: React.FC<AgendaResumoProps> = ({
+  statusTotals,
+  previousStatusTotals,
+  waitingList,
+  loading,
+}) => {
   const hasComparison = Boolean(statusTotals && previousStatusTotals);
 
   return (
@@ -123,6 +129,12 @@ export const AgendaResumo: React.FC<AgendaResumoProps> = ({ statusTotals, previo
               ? formatVariacaoTaxa(statusTotals!.cancellation_rate, previousStatusTotals!.cancellation_rate)
               : undefined
           }
+        />
+        <StatCard
+          title="Vindos da Lista de Espera"
+          value={waitingList?.total ?? 0}
+          subtext={`${waitingList?.completed ?? 0} concluído${(waitingList?.completed ?? 0) === 1 ? '' : 's'}`}
+          loading={loading}
         />
       </div>
     </div>

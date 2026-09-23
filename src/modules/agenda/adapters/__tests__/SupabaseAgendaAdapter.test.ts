@@ -1,0 +1,521 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockRpc, mockFrom } = vi.hoisted(() => ({ mockRpc: vi.fn(), mockFrom: vi.fn() }));
+
+vi.mock('../../../../lib/supabase', () => ({ supabase: { rpc: mockRpc, from: mockFrom } }));
+
+import { AgendaOperationError } from '../../AgendaRepository';
+import { SupabaseAgendaAdapter } from '../SupabaseAgendaAdapter';
+import { colunasDeTopo, projetarColunas } from '../../../../test/fakePostgrestColunas';
+
+describe('SupabaseAgendaAdapter', () => {
+  beforeEach(() => {
+    mockRpc.mockReset();
+    mockFrom.mockReset();
+  });
+
+  it('inicia atendimento pela RPC start_appointment_service', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', tenant_id: 't-1', status: 'in_progress' },
+      error: null,
+    });
+
+    await expect(new SupabaseAgendaAdapter().iniciarAtendimento('t-1', 'ap-1')).resolves.toEqual({
+      appointment_id: 'ap-1',
+      status: 'in_progress',
+    });
+    expect(mockRpc).toHaveBeenCalledWith('start_appointment_service', {
+      p_appointment_id: 'ap-1',
+      p_tenant_id: 't-1',
+    });
+  });
+
+  it('cancela pela RPC cancel_appointment_by_manager com o motivo', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', tenant_id: 't-1', status: 'canceled' },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().cancelar('t-1', 'ap-1', 'Cliente desistiu');
+
+    expect(mockRpc).toHaveBeenCalledWith('cancel_appointment_by_manager', {
+      p_appointment_id: 'ap-1',
+      p_tenant_id: 't-1',
+      p_reason: 'Cliente desistiu',
+    });
+  });
+
+  it('reagenda pela RPC reschedule_appointment_by_manager', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        appointment_id: 'ap-1',
+        tenant_id: 't-1',
+        status: 'confirmed',
+        start_time: '2026-09-21T14:00:00+00:00',
+        end_time: '2026-09-21T14:30:00+00:00',
+        professional_id: 'prof-2',
+      },
+      error: null,
+    });
+
+    await expect(
+      new SupabaseAgendaAdapter().reagendar('t-1', 'ap-1', {
+        startTimeIso: '2026-09-21T14:00:00.000Z',
+        professionalId: 'prof-2',
+      })
+    ).resolves.toMatchObject({ appointment_id: 'ap-1', professional_id: 'prof-2', status: 'confirmed' });
+
+    expect(mockRpc).toHaveBeenCalledWith('reschedule_appointment_by_manager', {
+      p_appointment_id: 'ap-1',
+      p_tenant_id: 't-1',
+      p_new_start_time: '2026-09-21T14:00:00.000Z',
+      p_new_professional_id: 'prof-2',
+    });
+  });
+
+  it('envia profissional nulo quando o reagendamento mantém o mesmo profissional', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', status: 'pending', start_time: 'x', end_time: 'y', professional_id: 'p' },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().reagendar('t-1', 'ap-1', { startTimeIso: '2026-09-21T14:00:00.000Z' });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'reschedule_appointment_by_manager',
+      expect.objectContaining({ p_new_professional_id: null })
+    );
+  });
+
+  it('cria agendamento pela RPC create_appointment_by_manager com cliente novo e Lista de Espera', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        appointment_id: 'ap-9',
+        customer_id: 'cust-9',
+        professional_id: 'prof-2',
+        start_time: '2026-09-21T14:00:00+00:00',
+        end_time: '2026-09-21T14:30:00+00:00',
+        status: 'confirmed',
+        is_fitting: true,
+      },
+      error: null,
+    });
+
+    await expect(
+      new SupabaseAgendaAdapter().criarAgendamento('t-1', {
+        serviceId: 'srv-1',
+        startTimeIso: '2026-09-21T14:00:00.000Z',
+        professionalId: null,
+        cliente: { tipo: 'novo', nome: 'Ana', telefone: '11999990000' },
+        isFitting: true,
+        notes: '[Fila de Espera]',
+        waitingListId: 'wl-1',
+      })
+    ).resolves.toMatchObject({ appointment_id: 'ap-9', customer_id: 'cust-9', professional_id: 'prof-2' });
+
+    expect(mockRpc).toHaveBeenCalledWith('create_appointment_by_manager', {
+      p_tenant_id: 't-1',
+      p_service_id: 'srv-1',
+      p_start_time: '2026-09-21T14:00:00.000Z',
+      p_professional_id: null,
+      p_customer_id: null,
+      p_new_customer_name: 'Ana',
+      p_new_customer_phone: '11999990000',
+      p_is_fitting: true,
+      p_notes: '[Fila de Espera]',
+      p_waiting_list_id: 'wl-1',
+    });
+  });
+
+  it('cria agendamento com cliente existente sem enviar dados de cliente novo', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', customer_id: 'c-1', professional_id: 'p-1', start_time: 'x', end_time: 'y', status: 'confirmed', is_fitting: false },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().criarAgendamento('t-1', {
+      serviceId: 'srv-1',
+      startTimeIso: '2026-09-21T14:00:00.000Z',
+      professionalId: 'p-1',
+      cliente: { tipo: 'existente', id: 'c-1' },
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_appointment_by_manager',
+      expect.objectContaining({
+        p_customer_id: 'c-1',
+        p_new_customer_name: null,
+        p_new_customer_phone: null,
+        p_is_fitting: false,
+        p_waiting_list_id: null,
+      })
+    );
+  });
+
+  it('lista horários livres pela RPC get_available_slots, aceitando objetos ou strings', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [{ slot_time: '09:00' }, { slot: '09:30' }, '10:00'], error: null });
+
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', {
+        professionalId: 'prof-1',
+        serviceId: 'srv-1',
+        date: '2026-09-21',
+        excludeAppointmentId: 'ap-1',
+      })
+    ).resolves.toEqual(['09:00', '09:30', '10:00']);
+
+    expect(mockRpc).toHaveBeenCalledWith('get_available_slots', {
+      p_tenant_id: 't-1',
+      p_professional_id: 'prof-1',
+      p_service_id: 'srv-1',
+      p_date: '2026-09-21',
+      p_exclude_appointment_id: 'ap-1',
+    });
+  });
+
+  it('devolve lista vazia quando não há horário livre e lança erro quando a consulta falha', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', { professionalId: 'p', serviceId: 's', date: '2026-09-21' })
+    ).resolves.toEqual([]);
+
+    mockRpc.mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'boom' } });
+    await expect(
+      new SupabaseAgendaAdapter().listarHorariosLivres('t-1', { professionalId: 'p', serviceId: 's', date: '2026-09-21' })
+    ).rejects.toMatchObject({ name: 'AgendaOperationError', message: 'boom' });
+  });
+
+  it('marca falta pela RPC mark_appointment_no_show', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { appointment_id: 'ap-1', tenant_id: 't-1', status: 'no_show' },
+      error: null,
+    });
+
+    await new SupabaseAgendaAdapter().marcarFalta('t-1', 'ap-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('mark_appointment_no_show', {
+      p_appointment_id: 'ap-1',
+      p_tenant_id: 't-1',
+    });
+  });
+
+  it('traduz a recusa de regra (P0001) mantendo a mensagem do banco', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'O atendimento ainda não começou.' },
+    });
+
+    await expect(new SupabaseAgendaAdapter().marcarFalta('t-1', 'ap-1')).rejects.toMatchObject({
+      name: 'AgendaOperationError',
+      kind: 'regra',
+      message: 'O atendimento ainda não começou.',
+    });
+  });
+
+  it('traduz a recusa de acesso (42501) para o tipo acesso', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'Acesso negado.' } });
+
+    const promise = new SupabaseAgendaAdapter().iniciarAtendimento('t-1', 'ap-1');
+
+    await expect(promise).rejects.toBeInstanceOf(AgendaOperationError);
+    await expect(promise).rejects.toMatchObject({ kind: 'acesso' });
+  });
+
+  it('trata falha inesperada como tipo desconhecido', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { code: '08006', message: 'connection failure' } });
+
+    await expect(new SupabaseAgendaAdapter().iniciarAtendimento('t-1', 'ap-1')).rejects.toMatchObject({
+      kind: 'desconhecido',
+    });
+  });
+});
+
+/**
+ * Banco de mentira que aplica de verdade os filtros da consulta. Um fake que devolvesse tudo,
+ * qualquer que fosse o filtro, esconderia justamente o erro de filtrar (ou deixar de filtrar)
+ * pelo profissional.
+ */
+function bancoQueAplicaFiltros(
+  tabelas: Record<string, Array<Record<string, any>>>,
+  tabelasComErro: string[] = []
+) {
+  return (tabela: string) => {
+    const filtros: Array<(linha: Record<string, any>) => boolean> = [];
+    let colunasPedidas: string[] | null = null;
+    const query: any = {
+      select: (colunas: string) => {
+        colunasPedidas = colunasDeTopo(colunas);
+        return query;
+      },
+      eq: (coluna: string, valor: unknown) => {
+        filtros.push((linha) => linha[coluna] === valor);
+        return query;
+      },
+      neq: (coluna: string, valor: unknown) => {
+        filtros.push((linha) => linha[coluna] !== valor);
+        return query;
+      },
+      gte: (coluna: string, valor: string) => {
+        filtros.push((linha) => linha[coluna] >= valor);
+        return query;
+      },
+      lt: (coluna: string, valor: string) => {
+        filtros.push((linha) => linha[coluna] < valor);
+        return query;
+      },
+      order: (coluna: string, opcoes?: { ascending?: boolean }) =>
+        Promise.resolve(tabelasComErro.includes(tabela) ? { data: null, error: { message: `falha em ${tabela}` } } : {
+          data: (tabelas[tabela] ?? [])
+            .filter((linha) => filtros.every((filtro) => filtro(linha)))
+            .sort((a, b) => String(a[coluna]).localeCompare(String(b[coluna])) * (opcoes?.ascending === false ? -1 : 1))
+            .map((linha) =>
+              colunasPedidas && !colunasPedidas.includes('*') ? projetarColunas(colunasPedidas, linha) : linha
+            ),
+          error: null,
+        }),
+    };
+    return query;
+  };
+}
+
+describe('leitura separada de Agendamentos e Bloqueios (spec 043, ticket 08)', () => {
+  const dia = { startIso: '2026-09-21T03:00:00.000Z', endExclusiveIso: '2026-09-22T03:00:00.000Z' };
+  const agendamento = {
+    id: 'ap-1',
+    tenant_id: 't-1',
+    professional_id: 'prof-1',
+    start_time: '2026-09-21T13:00:00.000Z',
+    end_time: '2026-09-21T13:30:00.000Z',
+    status: 'confirmed',
+    payment_status: 'pending',
+    is_fitting: false,
+    customer: { id: 'c1', name: 'Pedro', phone: '11988887777' },
+    service: { id: 's1', name: 'Corte', price: 50, duration_minutes: 30 },
+  };
+  const bloqueio = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    tenant_id: 't-1',
+    professional_id: 'prof-1',
+    start_time: '2026-09-21T12:00:00.000Z',
+    end_time: '2026-09-21T12:30:00.000Z',
+    reason: 'Almoço',
+    is_all_day: false,
+    ...overrides,
+  });
+  const tabelasConsultadas = () => mockFrom.mock.calls.map(([tabela]) => tabela);
+
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
+  it('a leitura de Agendamentos não consulta a tabela de Bloqueios', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [bloqueio('blk-1')] }));
+
+    await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, incluirCancelados: true });
+
+    expect(tabelasConsultadas()).not.toContain('blocked_slots');
+  });
+
+  it('a leitura de Bloqueios consulta só a tabela de Bloqueios, uma vez', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [bloqueio('blk-1')] }));
+
+    await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(tabelasConsultadas()).toEqual(['blocked_slots']);
+  });
+
+  it('devolve os Bloqueios da barbearia no intervalo, em ordem, sem os de outra barbearia nem de outro dia', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        blocked_slots: [
+          bloqueio('blk-tarde', { start_time: '2026-09-21T18:00:00.000Z' }),
+          bloqueio('blk-cedo'),
+          bloqueio('blk-outra-barbearia', { tenant_id: 't-2' }),
+          bloqueio('blk-limite', { start_time: '2026-09-22T03:00:00.000Z' }),
+        ],
+      })
+    );
+
+    const bloqueios = await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(bloqueios.map((b) => b.id)).toEqual(['blk-cedo', 'blk-tarde']);
+  });
+
+  it('falha só na tabela de Bloqueios: os Agendamentos ainda carregam e a leitura de Bloqueios recusa', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [agendamento], blocked_slots: [] }, ['blocked_slots']));
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia);
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
+    await expect(new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia)).rejects.toBeInstanceOf(
+      AgendaOperationError
+    );
+  });
+
+  it('falha só na tabela de Agendamentos: os Bloqueios ainda carregam e a leitura de Agendamentos recusa', async () => {
+    mockFrom.mockImplementation(bancoQueAplicaFiltros({ appointments: [], blocked_slots: [bloqueio('blk-1')] }, ['appointments']));
+
+    const bloqueios = await new SupabaseAgendaAdapter().carregarBloqueiosDoDia('t-1', dia);
+
+    expect(bloqueios.map((b) => b.id)).toEqual(['blk-1']);
+    await expect(new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia)).rejects.toBeInstanceOf(
+      AgendaOperationError
+    );
+  });
+});
+
+describe('SupabaseAgendaAdapter.carregarAgendamentosDoDia (spec 043, ticket 03)', () => {
+  const linha = (id: string, professionalId: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    tenant_id: 't-1',
+    professional_id: professionalId,
+    start_time: '2026-09-21T13:00:00.000Z',
+    end_time: '2026-09-21T13:30:00.000Z',
+    status: 'confirmed',
+    payment_status: 'pending',
+    is_fitting: false,
+    notes: null,
+    origin: 'manual',
+    customer: { id: 'c1', name: 'Pedro', phone: '11988887777' },
+    service: { id: 's1', name: 'Corte', price: 50, duration_minutes: 30 },
+    ...overrides,
+  });
+  const dia = { startIso: '2026-09-21T03:00:00.000Z', endExclusiveIso: '2026-09-22T03:00:00.000Z' };
+
+  beforeEach(() => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [
+          linha('ap-1', 'prof-1'),
+          linha('ap-2', 'prof-2', { start_time: '2026-09-21T14:00:00.000Z' }),
+          linha('ap-cancelado', 'prof-1', { status: 'canceled' }),
+          linha('ap-outro-dia', 'prof-1', { start_time: '2026-09-22T13:00:00.000Z' }),
+        ],
+        blocked_slots: [],
+      })
+    );
+  });
+
+  it('com profissional informado, devolve só os Agendamentos dele', async () => {
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1']);
+  });
+
+  it('traz nulo, e não um objeto quebrado, quando o Agendamento de balcão não tem Cliente (spec 044, ticket 03)', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [linha('ap-balcao', 'prof-1', { customer: null })],
+        blocked_slots: [],
+      })
+    );
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    expect(agenda.appointments[0].customer).toBeNull();
+  });
+
+  it('traz o indicador de que o Agendamento veio da Lista de Espera, falso quando a coluna não o marca', async () => {
+    mockFrom.mockImplementation(
+      bancoQueAplicaFiltros({
+        appointments: [
+          linha('ap-da-fila', 'prof-1', { from_waiting_list: true }),
+          linha('ap-avulso', 'prof-1', { from_waiting_list: false, start_time: '2026-09-21T14:00:00.000Z' }),
+        ],
+        blocked_slots: [],
+      })
+    );
+
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+    const marca = Object.fromEntries(agenda.appointments.map((a) => [a.id, a.from_waiting_list]));
+    expect(marca['ap-da-fila']).toBe(true);
+    expect(marca['ap-avulso']).toBe(false);
+  });
+
+  it('sem profissional, devolve os Agendamentos de todos, sem cancelados e sem outros dias', async () => {
+    const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', dia);
+
+    expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-1', 'ap-2']);
+  });
+  describe('cancelados do dia (spec 043, ticket 04)', () => {
+    beforeEach(() => {
+      mockFrom.mockReset();
+      mockFrom.mockImplementation(
+        bancoQueAplicaFiltros({
+          appointments: [
+            linha('ap-ativo', 'prof-1'),
+            linha('ap-canc-tarde', 'prof-1', {
+              status: 'canceled',
+              start_time: '2026-09-21T16:00:00.000Z',
+              cancellation_reason: '  Imprevisto no trabalho ',
+              canceled_by: 'customer',
+            }),
+            linha('ap-canc-cedo', 'prof-1', {
+              status: 'canceled',
+              start_time: '2026-09-21T12:00:00.000Z',
+              cancellation_reason: null,
+              canceled_by: null,
+            }),
+            linha('ap-canc-colega', 'prof-2', { status: 'canceled', cancellation_reason: 'Cliente desistiu', canceled_by: 'shop' }),
+            linha('ap-canc-limite', 'prof-1', { status: 'canceled', start_time: '2026-09-22T03:00:00.000Z' }),
+          ],
+          blocked_slots: [],
+        })
+      );
+    });
+
+    it('pedindo cancelados, devolve-os em coleção própria, em ordem, e fora dos ativos', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      expect(agenda.canceledAppointments.map((a) => a.id)).toEqual(['ap-canc-cedo', 'ap-canc-tarde']);
+      expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-ativo']);
+    });
+
+    it('traz o motivo aparado e nulo quando o cancelamento não tem motivo', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      const porId = Object.fromEntries(agenda.canceledAppointments.map((a) => [a.id, a.cancellation_reason]));
+      expect(porId['ap-canc-tarde']).toBe('Imprevisto no trabalho');
+      expect(porId['ap-canc-cedo']).toBeNull();
+    });
+
+    it('traz quem cancelou e devolve nulo, sem erro, quando a autoria é desconhecida', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
+        ...dia,
+        incluirCancelados: true,
+      });
+
+      const autoria = Object.fromEntries(agenda.canceledAppointments.map((a) => [a.id, a.canceled_by]));
+      expect(autoria['ap-canc-tarde']).toBe('customer');
+      expect(autoria['ap-canc-colega']).toBe('shop');
+      expect(autoria['ap-canc-cedo']).toBeNull();
+    });
+
+    it('mantém exclusivo o limite superior do intervalo para cancelado', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', {
+        ...dia,
+        professionalId: 'prof-1',
+        incluirCancelados: true,
+      });
+
+      expect(agenda.canceledAppointments.map((a) => a.id)).not.toContain('ap-canc-limite');
+    });
+
+    it('sem pedir cancelados, devolve a coleção vazia e não faz consulta extra de Agendamentos', async () => {
+      const agenda = await new SupabaseAgendaAdapter().carregarAgendamentosDoDia('t-1', { ...dia, professionalId: 'prof-1' });
+
+      expect(agenda.canceledAppointments).toEqual([]);
+      expect(agenda.appointments.map((a) => a.id)).toEqual(['ap-ativo']);
+      expect(mockFrom.mock.calls.filter(([tabela]) => tabela === 'appointments')).toHaveLength(1);
+    });
+  });
+});

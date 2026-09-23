@@ -27,8 +27,8 @@ with t as (
   from t
   returning id, tenant_id
 ), svc as (
-  insert into public.services (tenant_id, name, price, category, is_active)
-  select t.id, 'Servico Ticket08', 50, 'corte', true
+  insert into public.services (tenant_id, name, price, price_type, category, is_active)
+  select t.id, 'Servico Ticket08', 10, 'starting_at', 'corte', true
   from t
   returning id, tenant_id
 ), cs as (
@@ -55,7 +55,7 @@ select ok((select count(*) from ticket08_context) = 1, 'encontra contexto com ge
 select has_function(
   'public',
   'settle_comanda',
-  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb'],
+  array['uuid', 'uuid', 'uuid', 'uuid', 'numeric', 'numeric', 'uuid', 'jsonb', 'jsonb', 'uuid', 'numeric'],
   'RPC de finalização continua disponível'
 );
 select has_function(

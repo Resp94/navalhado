@@ -39,6 +39,7 @@ interface ListaEsperaDrawerProps {
   isOpen: boolean;
   tenantId: string;
   currentDateIso: string;
+  timezone: string;
   professionals: ProfessionalOption[];
   services: ServiceOption[];
   onClose: () => void;
@@ -54,6 +55,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   isOpen,
   tenantId,
   currentDateIso,
+  timezone,
   professionals,
   services,
   onClose,
@@ -85,14 +87,14 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
   const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await repo.listByDate(tenantId, activeDate);
+      const data = await repo.listByDate(tenantId, activeDate, timezone);
       setEntries(data);
     } catch (err) {
       console.error('Erro ao carregar lista de espera:', err);
     } finally {
       setLoading(false);
     }
-  }, [tenantId, activeDate, repo]);
+  }, [tenantId, activeDate, timezone, repo]);
 
   useEffect(() => {
     if (isOpen) {
@@ -446,6 +448,7 @@ export const ListaEsperaDrawer: React.FC<ListaEsperaDrawerProps> = ({
                   const serv = services.find((s) => s.id === entry.service_id);
                   const createdTime = entry.created_at
                     ? new Date(entry.created_at).toLocaleTimeString('pt-BR', {
+                        timeZone: timezone,
                         hour: '2-digit',
                         minute: '2-digit',
                       })

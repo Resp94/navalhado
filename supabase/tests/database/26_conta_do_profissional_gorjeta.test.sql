@@ -166,12 +166,12 @@ select lives_ok(
     jsonb_build_array(jsonb_build_object('payment_method','pix','amount',60)),
     null
   )$$,
-  'fecha comanda B com gorjeta sem profissional atribuido'
+  'fecha comanda B com gorjeta sem destinatario informado'
 );
 select is(
   (select count(*)::integer from public.professional_account_entries where comanda_id = (select comanda_b_id from ticket26_context)),
-  0,
-  'gorjeta sem atribuicao nao gera credito (estado aceito, sem backfill)'
+  1,
+  'gorjeta sem destinatario informado vai ao unico profissional dos itens (spec 040)'
 );
 
 select lives_ok(
@@ -268,8 +268,8 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', (select professional_user_id::text from ticket26_context), true);
 select is(
   (select count(*)::integer from public.professional_account_entries where tenant_id = (select tenant_id from ticket26_context)),
-  3,
-  'o profissional dono das gorjetas ve todas as suas linhas (comanda A: reabertura + relancamento, mais comanda D)'
+  4,
+  'o profissional dono das gorjetas ve todas as suas linhas (comanda A: reabertura + relancamento, comanda B automatica, mais comanda D)'
 );
 
 select set_config('request.jwt.claim.sub', (select outro_professional_user_id::text from ticket26_context), true);

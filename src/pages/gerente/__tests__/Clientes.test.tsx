@@ -278,6 +278,89 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     expect(btnCopiar).toBeInTheDocument();
   });
 
+  describe('motivo do cancelamento na Linha do Tempo (spec 043, ticket 02)', () => {
+    const agendamento = (overrides: Record<string, unknown>) => ({
+      id: 'appointment-x',
+      start_time: '2026-07-12T14:00:00Z',
+      status: 'canceled',
+      payment_status: 'pending',
+      cancellation_reason: null,
+      services: { name: 'Cabelo & Barba', price: 80.0 },
+      professionals: { name: 'Lucas Barbeiro' },
+      ...overrides,
+    });
+
+    const abrirLinhaDoTempo = async (agendamentos: unknown[]) => {
+      mockSupabaseClient.from = vi.fn().mockImplementation((table) => {
+        if (table === 'appointments') {
+          return { select: vi.fn().mockReturnValue(createDefaultBuilder(agendamentos)) };
+        }
+        return { select: mockSelect, insert: mockInsert, update: mockUpdate, delete: mockDelete };
+      });
+
+      renderClientes();
+      await waitFor(() => expect(screen.getByText('João Silva')).toBeInTheDocument());
+      fireEvent.click(screen.getAllByRole('button', { name: /Ver Detalhes/i })[0]);
+      await screen.findByRole('button', { name: /Copiar Link/i });
+      fireEvent.click(screen.getByRole('button', { name: /Linha do Tempo/i }));
+      await screen.findByText('Cabelo & Barba');
+    };
+
+    it('mostra o motivo no atendimento cancelado', async () => {
+      await abrirLinhaDoTempo([agendamento({ cancellation_reason: 'Cliente desistiu' })]);
+
+      expect(screen.getByText('Motivo:')).toBeInTheDocument();
+      expect(screen.getByText('Cliente desistiu')).toBeInTheDocument();
+    });
+
+    it('não desenha rótulo vazio quando o cancelamento não tem motivo', async () => {
+      await abrirLinhaDoTempo([agendamento({ cancellation_reason: null })]);
+
+      expect(screen.getByText('Cancelado')).toBeInTheDocument();
+      expect(screen.queryByText('Motivo:')).toBeNull();
+    });
+
+    it('não mostra motivo em atendimento que não foi cancelado', async () => {
+      await abrirLinhaDoTempo([
+        agendamento({ status: 'completed', payment_status: 'paid', cancellation_reason: 'Sobrou de um cancelamento antigo' }),
+      ]);
+
+      expect(screen.getByText('Concluído')).toBeInTheDocument();
+      expect(screen.queryByText('Motivo:')).toBeNull();
+      expect(screen.queryByText('Sobrou de um cancelamento antigo')).toBeNull();
+    });
+
+    it('rotula um atendimento não compareceu, em vez de deixar o rótulo em branco (spec 044)', async () => {
+      await abrirLinhaDoTempo([agendamento({ status: 'no_show', payment_status: 'pending' })]);
+
+      expect(screen.getByText('Não compareceu')).toBeInTheDocument();
+    });
+
+    it('não mostra "Valor cobrado" em atendimento cancelado ou não compareceu, que não foram cobrados (spec 044)', async () => {
+      await abrirLinhaDoTempo([
+        agendamento({
+          id: 'appointment-cancelado',
+          status: 'canceled',
+          services: { name: 'Cabelo & Barba', price: 80.0 },
+        }),
+        agendamento({
+          id: 'appointment-faltou',
+          status: 'no_show',
+          services: { name: 'Barba Terapia', price: 40.0 },
+        }),
+      ]);
+      await screen.findByText('Barba Terapia');
+
+      expect(screen.queryByText('Valor cobrado:')).toBeNull();
+    });
+
+    it('mostra "Valor cobrado" em atendimento concluído', async () => {
+      await abrirLinhaDoTempo([agendamento({ status: 'completed', payment_status: 'paid' })]);
+
+      expect(screen.getByText('Valor cobrado:')).toBeInTheDocument();
+    });
+  });
+
   it('deve promover um cliente provisório a completo ao preencher seu nome na edição', async () => {
     renderClientes();
 

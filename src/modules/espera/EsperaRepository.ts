@@ -7,12 +7,12 @@ export class EsperaRepository {
     this.adapter = adapter;
   }
 
-  async listByDate(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
-    return this.adapter.listarPorData(tenantId, dataIso);
+  async listByDate(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]> {
+    return this.adapter.listarPorData(tenantId, dataIso, timeZone);
   }
 
   async addEntry(
-    entrada: Omit<WaitingListEntry, 'id' | 'created_at' | 'updated_at'>
+    entrada: Omit<WaitingListEntry, 'id' | 'created_at'>
   ): Promise<WaitingListEntry> {
     if (!entrada.customer_name.trim()) {
       throw new Error('Nome do cliente é obrigatório para a lista de espera.');
@@ -26,6 +26,31 @@ export class EsperaRepository {
 
   async removeEntry(id: string): Promise<void> {
     return this.adapter.remover(id);
+  }
+
+  /**
+   * Nota do Agendamento criado pelo encaixe: a observação que a recepção anotou na entrada
+   * precisa chegar ao barbeiro que vai atender. Que o Agendamento veio da fila não vai na nota:
+   * é uma coluna própria, que a RPC grava quando baixa a entrada.
+   */
+  notaDeEncaixe(entrada: Pick<WaitingListEntry, 'notes'>): string {
+    return entrada.notes?.trim() ?? '';
+  }
+
+  /**
+   * Rodízio de Balcão a partir dos agendamentos do dia: conta por profissional (ignorando
+   * cancelados e com falta) e sugere quem tem menos. Empate mantém o primeiro da lista.
+   */
+  suggestRotationFromAppointments(
+    professionals: Array<{ id: string; name: string }>,
+    appointments: Array<{ professional_id: string; status?: string }>
+  ): { id: string; name: string } | null {
+    const counts: Record<string, number> = {};
+    for (const appointment of appointments) {
+      if (appointment.status === 'canceled' || appointment.status === 'no_show') continue;
+      counts[appointment.professional_id] = (counts[appointment.professional_id] || 0) + 1;
+    }
+    return this.suggestRotationProfessional(professionals, counts);
   }
 
   /**

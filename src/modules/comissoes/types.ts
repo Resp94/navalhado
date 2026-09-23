@@ -89,9 +89,31 @@ export interface ProfessionalAccountStatement {
   current_balance: SaldoComissaoProfissional;
 }
 
+export interface ConsultarItensComissaoInput {
+  professional_id: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  tenant_id?: string | null;
+}
+
+/** Item de Comanda que gerou comissao, com o valor gravado no fechamento (nunca recalculado). */
+export interface ItemComissaoGerada {
+  item_id: string | null;
+  comanda_id: string | null;
+  /** Quando a comissao nasceu: o fechamento da Comanda. */
+  accrued_at: string;
+  customer_name: string | null;
+  item_type: string | null;
+  item_name: string;
+  net_amount: number;
+  commission_percentage: number | null;
+  commission_amount: number;
+}
+
 export interface IComissaoAdapter {
   registrarQuitacao(input: RegistrarQuitacaoInput): Promise<QuitacaoRegistrada>;
   obterSaldoProfissional(input: ConsultarSaldoInput): Promise<SaldoComissaoProfissional>;
   estornarQuitacao(input: EstornarQuitacaoInput): Promise<QuitacaoEstornada>;
   obterExtratoProfissional(input: ObterExtratoInput): Promise<ProfessionalAccountStatement>;
+  obterItensComissao(input: ConsultarItensComissaoInput): Promise<ItemComissaoGerada[]>;
 }

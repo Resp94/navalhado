@@ -1,36 +1,44 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { EsperaRepository } from '../EsperaRepository';
-import type { IEsperaAdapter, WaitingListEntry } from '../types';
+import { InMemoryEsperaAdapter } from '../adapters/InMemoryEsperaAdapter';
 
 describe('EsperaRepository', () => {
-  const mockAdapter: IEsperaAdapter = {
-    listarPorData: vi.fn(),
-    adicionar: vi.fn(),
-    atualizarStatus: vi.fn(),
-    remover: vi.fn(),
-  };
-
-  const repo = new EsperaRepository(mockAdapter);
+  const DIA = '2026-09-21';
+  let adapter: InMemoryEsperaAdapter;
+  let repo: EsperaRepository;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    adapter = new InMemoryEsperaAdapter([], () => new Date(`${DIA}T10:00:00.000Z`));
+    repo = new EsperaRepository(adapter);
   });
 
   it('lista entradas por data', async () => {
-    const fakeList: WaitingListEntry[] = [
-      {
-        id: 'w-1',
-        tenant_id: 't-1',
-        customer_name: 'Paulo Vieira',
-        customer_phone: '11999998888',
-        status: 'aguardando',
-      },
-    ];
-    vi.mocked(mockAdapter.listarPorData).mockResolvedValueOnce(fakeList);
+    await repo.addEntry({
+      tenant_id: 't-1',
+      customer_name: 'Paulo Vieira',
+      customer_phone: '11999998888',
+      status: 'aguardando',
+    });
 
-    const res = await repo.listByDate('t-1', '2026-08-16');
-    expect(res).toEqual(fakeList);
-    expect(mockAdapter.listarPorData).toHaveBeenCalledWith('t-1', '2026-08-16');
+    const res = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
+    expect(res).toHaveLength(1);
+    expect(res[0].customer_name).toBe('Paulo Vieira');
+  });
+
+  it('agrupa a entrada pelo dia do fuso do tenant, não pelo dia em UTC (spec 044)', async () => {
+    // 21/09 22:30 em America/Sao_Paulo (UTC-3) é 22/09 01:30 em UTC: ainda é dia 21 para o tenant.
+    const tardeAdapter = new InMemoryEsperaAdapter([], () => new Date('2026-09-22T01:30:00.000Z'));
+    const tardeRepo = new EsperaRepository(tardeAdapter);
+
+    await tardeRepo.addEntry({
+      tenant_id: 't-1',
+      customer_name: 'Cliente da Virada',
+      customer_phone: '11999998888',
+      status: 'aguardando',
+    });
+
+    await expect(tardeRepo.listByDate('t-1', '2026-09-21', 'America/Sao_Paulo')).resolves.toHaveLength(1);
+    await expect(tardeRepo.listByDate('t-1', '2026-09-22', 'America/Sao_Paulo')).resolves.toHaveLength(0);
   });
 
   it('adiciona entrada validando nome', async () => {
@@ -42,6 +50,59 @@ describe('EsperaRepository', () => {
         status: 'aguardando',
       })
     ).rejects.toThrow('Nome do cliente é obrigatório');
+  });
+
+  describe('observação da entrada (spec 043, ticket 01)', () => {
+    it('devolve a observação gravada ao listar a entrada', async () => {
+      await repo.addEntry({
+        tenant_id: 't-1',
+        customer_name: 'Paulo Vieira',
+        customer_phone: '11999998888',
+        status: 'aguardando',
+        notes: 'Só pode depois das 18h, quer o Marcos',
+      });
+
+      const [entrada] = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
+      expect(entrada.notes).toBe('Só pode depois das 18h, quer o Marcos');
+    });
+
+    it('devolve ausência de observação sem inventar texto quando nada foi anotado', async () => {
+      await repo.addEntry({
+        tenant_id: 't-1',
+        customer_name: 'Paulo Vieira',
+        customer_phone: '11999998888',
+        status: 'aguardando',
+      });
+
+      const [entrada] = await repo.listByDate('t-1', DIA, 'America/Sao_Paulo');
+      expect(entrada.notes).toBeNull();
+    });
+
+    it('preserva a observação quando a entrada muda de status', async () => {
+      const criada = await repo.addEntry({
+        tenant_id: 't-1',
+        customer_name: 'Paulo Vieira',
+        customer_phone: '11999998888',
+        status: 'aguardando',
+        notes: 'Vai trazer o filho junto',
+      });
+
+      const atualizada = await repo.setStatus(criada.id, 'atendido');
+
+      expect(atualizada.status).toBe('atendido');
+      expect(atualizada.notes).toBe('Vai trazer o filho junto');
+    });
+
+    it('leva só a observação da recepção para a nota do Agendamento no encaixe', () => {
+      expect(repo.notaDeEncaixe({ notes: '  Só pode depois das 18h, quer o Marcos ' })).toBe(
+        'Só pode depois das 18h, quer o Marcos'
+      );
+    });
+
+    it('deixa a nota vazia quando a entrada não tem observação: a origem vive no banco, não no texto', () => {
+      expect(repo.notaDeEncaixe({ notes: null })).toBe('');
+      expect(repo.notaDeEncaixe({ notes: '   ' })).toBe('');
+    });
   });
 
   it('sugere profissional correto no rodízio de balcão (menor número de atendimentos)', () => {
@@ -59,5 +120,37 @@ describe('EsperaRepository', () => {
 
     const suggested = repo.suggestRotationProfessional(profs, counts);
     expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
+  });
+
+  describe('suggestRotationFromAppointments (spec 040)', () => {
+    const profs = [
+      { id: 'p1', name: 'Carlos' },
+      { id: 'p2', name: 'Diego' },
+    ];
+
+    it('conta os agendamentos do dia por profissional e sugere quem tem menos', () => {
+      const suggested = repo.suggestRotationFromAppointments(profs, [
+        { professional_id: 'p1' },
+        { professional_id: 'p1' },
+        { professional_id: 'p2' },
+      ]);
+
+      expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
+    });
+
+    it('ignora agendamentos cancelados e com falta na contagem', () => {
+      const suggested = repo.suggestRotationFromAppointments(profs, [
+        { professional_id: 'p2', status: 'canceled' },
+        { professional_id: 'p2', status: 'no_show' },
+        { professional_id: 'p1', status: 'confirmed' },
+      ]);
+
+      expect(suggested).toEqual({ id: 'p2', name: 'Diego' });
+    });
+
+    it('mantém o primeiro da lista em caso de empate e devolve nulo sem profissionais', () => {
+      expect(repo.suggestRotationFromAppointments(profs, [])).toEqual({ id: 'p1', name: 'Carlos' });
+      expect(repo.suggestRotationFromAppointments([], [{ professional_id: 'p1' }])).toBeNull();
+    });
   });
 });

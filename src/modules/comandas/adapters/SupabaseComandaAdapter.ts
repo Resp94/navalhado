@@ -228,6 +228,7 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
       p_itens: input.itens ?? [],
       p_pagamentos: input.pagamentos,
       p_tip_professional_id: input.tip_professional_id ?? null,
+      p_discount_percent: input.discount_percent ?? null,
     });
 
     if (error || !data) {
@@ -235,6 +236,18 @@ export class SupabaseComandaAdapter implements IComandaAdapter {
     }
 
     return data as Comanda;
+  }
+
+  async cancelarComanda(comandaId: string, tenantId: string): Promise<void> {
+    const { error } = await supabase.rpc('cancel_comanda_appointment', {
+      p_comanda_id: comandaId,
+      p_appointment_id: null,
+      p_tenant_id: tenantId,
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao cancelar comanda.');
+    }
   }
 
   async reabrirComanda(comandaId: string, tenantId: string): Promise<Comanda> {

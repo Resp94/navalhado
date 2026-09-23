@@ -32,7 +32,8 @@ function buildResult(businessToday: string): RelatorioAgenda {
     },
     by_origin: [],
     by_professional: [],
-    cancellation_reasons: [],
+    cancellation_reasons: { shop: [], customer: [], desconhecida: [] },
+    waiting_list: { total: 0, completed: 0 },
     heatmap: { hours: [], cells: [] },
   };
 }

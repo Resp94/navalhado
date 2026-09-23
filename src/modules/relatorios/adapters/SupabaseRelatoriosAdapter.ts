@@ -12,7 +12,9 @@ import type {
   RegistrationOrigemItem,
   RelatorioAgenda,
   RelatorioAgendaHeatmap,
+  RelatorioAgendaListaDeEspera,
   RelatorioAgendaMotivoCancelamento,
+  RelatorioAgendaMotivosCancelamento,
   RelatorioAgendaOrigem,
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
@@ -254,7 +256,7 @@ function toAgendaByProfessional(value: unknown): RelatorioAgendaProfissionalTota
   });
 }
 
-function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCancelamento[] {
+function toAgendaCancellationReasonList(value: unknown): RelatorioAgendaMotivoCancelamento[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => {
     const raw = (item || {}) as Record<string, unknown>;
@@ -263,6 +265,16 @@ function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivoCance
       count: toNumber(raw.count),
     };
   });
+}
+
+/** Objeto {shop, customer, desconhecida} (spec 044, ticket 16); grupo ausente ou de formato inesperado vira lista vazia. */
+function toAgendaCancellationReasons(value: unknown): RelatorioAgendaMotivosCancelamento {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    shop: toAgendaCancellationReasonList(raw.shop),
+    customer: toAgendaCancellationReasonList(raw.customer),
+    desconhecida: toAgendaCancellationReasonList(raw.desconhecida),
+  };
 }
 
 /**
@@ -287,6 +299,15 @@ function toAgendaHeatmap(value: unknown): RelatorioAgendaHeatmap {
       })
     : [];
   return { hours, cells };
+}
+
+/** Encaixes vindos da Lista de Espera (spec 044, ticket 17): campo ausente vira zero, nunca `undefined`. */
+function toAgendaWaitingList(value: unknown): RelatorioAgendaListaDeEspera {
+  const raw = (value || {}) as Record<string, unknown>;
+  return {
+    total: toNumber(raw.total),
+    completed: toNumber(raw.completed),
+  };
 }
 
 /**
@@ -450,6 +471,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin?: unknown;
       by_professional?: unknown;
       cancellation_reasons?: unknown;
+      waiting_list?: unknown;
       heatmap?: unknown;
     };
 
@@ -469,6 +491,7 @@ export class SupabaseRelatoriosAdapter implements RelatoriosAdapter {
       by_origin: toAgendaByOrigin(raw.by_origin),
       by_professional: toAgendaByProfessional(raw.by_professional),
       cancellation_reasons: toAgendaCancellationReasons(raw.cancellation_reasons),
+      waiting_list: toAgendaWaitingList(raw.waiting_list),
       heatmap: toAgendaHeatmap(raw.heatmap),
     };
   }

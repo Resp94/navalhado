@@ -4,7 +4,7 @@ select plan(26);
 select has_function(
   'public',
   'settle_comanda_idempotent',
-  array['uuid','uuid','uuid','uuid','uuid','numeric','numeric','uuid','jsonb','jsonb','uuid'],
+  array['uuid','uuid','uuid','uuid','uuid','numeric','numeric','uuid','jsonb','jsonb','uuid','numeric'],
   'checkout possui comando idempotente versionado'
 );
 
@@ -33,7 +33,7 @@ select is(
 
 select ok(
   position('SET search_path TO ' in pg_get_functiondef(
-    'public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb,uuid)'::regprocedure
+    'public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb,uuid,numeric)'::regprocedure
   )) > 0,
   'funcoes financeiras usam search_path vazio'
 );
@@ -88,7 +88,7 @@ select ok(
 );
 
 select ok(
-  position('p_operation_id' in pg_get_functiondef('public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb,uuid)'::regprocedure)) > 0,
+  position('p_operation_id' in pg_get_functiondef('public.settle_comanda_idempotent(uuid,uuid,uuid,uuid,uuid,numeric,numeric,uuid,jsonb,jsonb,uuid,numeric)'::regprocedure)) > 0,
   'checkout separa id da operacao do id da comanda'
 );
 
@@ -167,16 +167,17 @@ select throws_ok(
 
 reset role;
 
+-- Spec 044, ticket 07 acrescentou p_reason (quarto parametro) para gravar o Motivo de Cancelamento.
 select has_function(
   'public',
   'cancel_comanda_appointment',
-  array['uuid', 'uuid', 'uuid'],
+  array['uuid', 'uuid', 'uuid', 'text'],
   'cancelamento administrativo possui comando transacional'
 );
 
 select ok(
-  position('status = ''cancelada''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid)'::regprocedure)) > 0
-  and position('status = ''canceled''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid)'::regprocedure)) > 0,
+  position('status = ''cancelada''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid,text)'::regprocedure)) > 0
+  and position('status = ''canceled''' in pg_get_functiondef('public.cancel_comanda_appointment(uuid,uuid,uuid,text)'::regprocedure)) > 0,
   'cancelamento atomico atualiza comanda e agendamento no mesmo comando'
 );
 

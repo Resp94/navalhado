@@ -9,6 +9,7 @@ import {
   isValidFittingStartTime,
   isTimeAlignedToSlotInterval,
   normalizeBusinessHours,
+  toScheduleGridSegment,
 } from '../schedule';
 
 describe('schedule fitting slots', () => {
@@ -117,5 +118,20 @@ describe('schedule fitting slots', () => {
       mode: 'grid',
       slotIntervalMinutes: 40,
     })).toThrow('FITTING_TIME_NOT_ALIGNED');
+  });
+});
+
+describe('toScheduleGridSegment', () => {
+  it('converte a escala do dia em segmento da régua, com o intervalo', () => {
+    expect(
+      toScheduleGridSegment({ active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' })
+    ).toEqual({ start: '09:00', end: '18:00', breakStart: '12:00', breakEnd: '13:00' });
+  });
+
+  it('devolve nulo quando o dia está inativo, sem horários ou sem escala', () => {
+    expect(toScheduleGridSegment({ active: false, start: '09:00', end: '18:00' })).toBeNull();
+    expect(toScheduleGridSegment({ active: true, start: '09:00' })).toBeNull();
+    expect(toScheduleGridSegment(null)).toBeNull();
+    expect(toScheduleGridSegment(undefined)).toBeNull();
   });
 });

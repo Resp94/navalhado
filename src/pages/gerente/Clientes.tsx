@@ -1079,6 +1079,7 @@ export const Clientes: React.FC = () => {
                               <div className="flex justify-between items-center mt-2 pt-2 border-t border-dashed border-border">
                                 <span className="text-text-secondary text-xs">
                                   {new Date(cmd.closed_at || cmd.created_at).toLocaleString('pt-BR', {
+                                    timeZone: tenant.timezone,
                                     dateStyle: 'short',
                                     timeStyle: 'short',
                                   })}
@@ -1100,6 +1101,7 @@ export const Clientes: React.FC = () => {
                                 {app.status === 'confirmed' && 'Confirmado'}
                                 {app.status === 'pending' && 'Pendente'}
                                 {app.status === 'canceled' && 'Cancelado'}
+                                {app.status === 'no_show' && 'Não compareceu'}
                               </span>
                             </div>
                             <div>
@@ -1111,17 +1113,26 @@ export const Clientes: React.FC = () => {
                                 <span className="text-text-secondary">Data e horário:</span>
                                 <span>
                                   {new Date(app.start_time).toLocaleString('pt-BR', {
+                                    timeZone: tenant.timezone,
                                     dateStyle: 'short',
                                     timeStyle: 'short',
                                   })}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-text-secondary">Valor cobrado:</span>
-                                <strong>
-                                  {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
-                                </strong>
-                              </div>
+                              {app.status !== 'canceled' && app.status !== 'no_show' && (
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="text-text-secondary">Valor cobrado:</span>
+                                  <strong>
+                                    {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
+                                  </strong>
+                                </div>
+                              )}
+                              {app.status === 'canceled' && app.cancellation_reason && (
+                                <div className="flex justify-between gap-3 text-xs mb-1">
+                                  <span className="text-text-secondary">Motivo:</span>
+                                  <span className="min-w-0 text-right break-words">{app.cancellation_reason}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}

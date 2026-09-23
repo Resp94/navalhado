@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { GlassSidebar } from '../GlassSidebar';
+import { GlassSidebar, type NavItemConfig } from '../GlassSidebar';
+import { GERENTE_NAV_ITEMS } from '../gerenteNavItems';
 
 const mockNavigate = vi.fn();
 const mockLocation = { pathname: '/agenda' };
@@ -15,17 +16,13 @@ vi.mock('react-router-dom', async () => {
 });
 
 describe('GlassSidebar Component', () => {
-  const mockTenantInfo = {
-    tenantId: 'tenant-1',
+  const defaultProps = {
+    items: GERENTE_NAV_ITEMS,
+    homePath: '/agenda',
     tenantName: 'Barbearia Navalha de Ouro',
     logoUrl: null,
-    timezone: 'America/Sao_Paulo',
-    onboardingCompleted: true,
-  };
-
-  const defaultProps = {
-    tenantInfo: mockTenantInfo,
-    managerName: 'Carlos Silva',
+    userName: 'Carlos Silva',
+    userRole: 'Gerente' as const,
     notifications: [],
     unreadCount: 2,
     onMarkAllAsRead: vi.fn(),
@@ -36,6 +33,7 @@ describe('GlassSidebar Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockLocation.pathname = '/agenda';
   });
 
   it('renderiza o nome da barbearia e as rotas de navegação', () => {
@@ -43,6 +41,8 @@ describe('GlassSidebar Component', () => {
 
     expect(screen.getByText('Barbearia Navalha de Ouro')).toBeInTheDocument();
     expect(screen.getByText('Agenda')).toBeInTheDocument();
+    expect(screen.getByText('Comandas')).toBeInTheDocument();
+    expect(screen.getByText('Relatórios')).toBeInTheDocument();
     expect(screen.getByText('Clientes')).toBeInTheDocument();
     expect(screen.getByText('Equipe')).toBeInTheDocument();
     expect(screen.getByText('Serviços')).toBeInTheDocument();
@@ -50,6 +50,13 @@ describe('GlassSidebar Component', () => {
     expect(screen.getByText('Financeiro')).toBeInTheDocument();
     expect(screen.getByText('WhatsApp')).toBeInTheDocument();
     expect(screen.getByText('Ajustes')).toBeInTheDocument();
+  });
+
+  it('lista exatamente as dez telas do gestor', () => {
+    render(<GlassSidebar {...defaultProps} />);
+
+    const nav = screen.getByRole('navigation');
+    expect(within(nav).getAllByRole('button')).toHaveLength(10);
   });
 
   it('navega para a rota correta ao clicar em um item de navegação', () => {
@@ -88,5 +95,51 @@ describe('GlassSidebar Component', () => {
     expect(financeiroBtn).toHaveAttribute('aria-current', 'page');
 
     mockLocation.pathname = '/agenda';
+  });
+
+  it('clicar na logo leva ao caminho da tela inicial recebido', () => {
+    render(<GlassSidebar {...defaultProps} homePath="/minha-agenda" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Página inicial de Barbearia Navalha de Ouro/i }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/minha-agenda');
+  });
+
+  it('usa o papel recebido no rótulo da navegação e o nome do usuário no rodapé', () => {
+    render(<GlassSidebar {...defaultProps} userRole="Barbeiro" userName="João" />);
+
+    expect(screen.getByLabelText('Navegação Principal do Barbeiro')).toBeInTheDocument();
+    expect(screen.getByText('João')).toBeInTheDocument();
+  });
+
+  it('renderiza só os itens recebidos, sem vazar rotas de gerente', () => {
+    const items: NavItemConfig[] = [
+      { path: '/minha-agenda', label: 'Agenda', renderIcon: () => null },
+      { path: '/minhas-comissoes', label: 'Comissões', renderIcon: () => null },
+    ];
+    render(<GlassSidebar {...defaultProps} items={items} />);
+
+    expect(screen.getByText('Agenda')).toBeInTheDocument();
+    expect(screen.getByText('Comissões')).toBeInTheDocument();
+    for (const vazado of ['Clientes', 'Equipe', 'Serviços', 'Produtos', 'Financeiro', 'Relatórios', 'WhatsApp', 'Ajustes']) {
+      expect(screen.queryByText(vazado)).not.toBeInTheDocument();
+    }
+  });
+
+  it('mantém o item ativo nas subrotas só quando marcado com matchPrefix', () => {
+    mockLocation.pathname = '/financeiro/caixa';
+    const { rerender } = render(<GlassSidebar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /Financeiro/i })).toHaveAttribute('aria-current', 'page');
+
+    const semPrefixo = GERENTE_NAV_ITEMS.map((i) => ({ ...i, matchPrefix: false }));
+    rerender(<GlassSidebar {...defaultProps} items={semPrefixo} />);
+    expect(screen.getByRole('button', { name: /Financeiro/i })).not.toHaveAttribute('aria-current');
+  });
+
+  it('restaura a preferência recolhida gravada ao montar', () => {
+    localStorage.setItem('navalhado_sidebar_open', 'false');
+    render(<GlassSidebar {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: /Expandir menu lateral/i })).toBeInTheDocument();
   });
 });

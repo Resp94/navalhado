@@ -3,22 +3,32 @@ import { useOutletContext, useLocation, useNavigate } from 'react-router-dom';
 import type { TenantContextType } from '../../components/GerenteLayout';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
-import { Modal } from '../../components/Modal';
-import { Button, Tooltip, Select, Input } from '../../components/ui';
+import { Badge, Button, Tooltip } from '../../components/ui';
+import { PainelCanceladosDoDia, CLIENTE_DE_BALCAO } from '../../components/agenda/PainelCanceladosDoDia';
+import { useCanceladosDoDia } from '../../components/agenda/useCanceladosDoDia';
 import {
   dateInZone,
   formatTimeInZone,
-  localDateTimeToIso,
   localDayUtcRange,
   shiftCalendarDate,
 } from '../../lib/timezone';
-import { ClienteRepository } from '../../modules/clientes/ClienteRepository';
-import { SupabaseClienteAdapter } from '../../modules/clientes/adapters/SupabaseClienteAdapter';
 import { ComandaCheckoutModal } from '../../components/comandas/ComandaCheckoutModal';
 import { BloqueioModal } from '../../components/bloqueios/BloqueioModal';
 import { ConfirmSoftDeleteModal } from '../../components/cadastros/ConfirmSoftDeleteModal';
 import { ListaEsperaDrawer } from '../../components/espera/ListaEsperaDrawer';
+import { NovoAgendamentoModal } from '../../components/agenda/NovoAgendamentoModal';
+import type { NovoAgendamentoInicial } from '../../components/agenda/NovoAgendamentoModal';
+import { CancelarAgendamentoModal } from '../../components/agenda/CancelarAgendamentoModal';
+import { NaoCompareceuModal } from '../../components/agenda/NaoCompareceuModal';
+import { ReagendarAgendamentoModal } from '../../components/agenda/ReagendarAgendamentoModal';
+import {
+  motivoRecusaNaoCompareceu,
+  useMarcarNaoCompareceu,
+} from '../../components/agenda/useMarcarNaoCompareceu';
+import type { ResultadoNaoCompareceu } from '../../components/agenda/useMarcarNaoCompareceu';
 import { CustomDatePicker } from '../../components/CustomDatePicker';
+import { AgendaOperationError } from '../../modules/agenda/AgendaRepository';
+import { useAgenda } from '../../modules/agenda/useAgenda';
 import { EsperaRepository } from '../../modules/espera/EsperaRepository';
 import { SupabaseEsperaAdapter } from '../../modules/espera/adapters/SupabaseEsperaAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
@@ -57,6 +67,7 @@ import {
   getEffectiveServiceDuration,
   normalizeSlotIntervalMinutes,
   timeToMinutes,
+  toScheduleGridSegment,
 } from '../../lib/schedule';
 import type {
   FittingTimeMode,
@@ -129,11 +140,13 @@ export interface Appointment {
   is_fitting: boolean;
   notes?: string | null;
   origin?: string;
+  from_waiting_list?: boolean;
+  /** Nulo no Agendamento de balcão sem Cliente cadastrado. */
   customer: {
     id: string;
     name: string;
     phone: string;
-  };
+  } | null;
   service: {
     id: string;
     name: string;
@@ -154,21 +167,10 @@ interface CardLayout {
 // Configurações Padrão da Grade Temporal
 const DEFAULT_SLOT_DURATION_MINUTES = 30;
 const DEFAULT_SLOT_HEIGHT_PX = 76;
-const ANY_PROFESSIONAL = 'any';
 
-const toScheduleGridSegment = (
-  schedule: ProfessionalDaySchedule | null | undefined
-): ScheduleGridSegment | null => {
-  if (!schedule || schedule.active === false || !schedule.start || !schedule.end) return null;
-
-  return {
-    start: schedule.start,
-    end: schedule.end,
-    breakStart: schedule.break_start,
-    breakEnd: schedule.break_end,
-  };
-};
-
+/** Botão secundário do cabeçalho (Espera, Cancelados): mesma aparência, um lugar só. */
+const HEADER_SECONDARY_BUTTON_CLASS =
+  'w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary';
 interface AgendaGridSkeletonProps {
   viewMode: 'day' | 'week';
   professionals: Professional[];
@@ -325,15 +327,43 @@ const getAppointmentCardClasses = (cardState: string, isFitting: boolean) => {
   return `absolute rounded-md py-[0.4rem] px-[0.55rem] z-10 flex flex-col justify-start gap-1 min-h-[69px] overflow-hidden box-border bg-bg-secondary shadow-sm border cursor-pointer transition-[box-shadow,border-color] duration-75 hover:shadow-md hover:border-brand-primary/45 hover:z-[15] ${statusClass} ${borderLeftClass}`;
 };
 
-export const Agenda: React.FC = () => {
+/**
+ * Selos do cartão (Encaixe, Espera, Não compareceu, Atendendo, Pago): todos usam o componente Badge
+ * da biblioteca, em `badgeType="solid"` (o par de tokens previsto para fundo sólido com texto
+ * branco) exceto Espera, que já usava `subtle` desde a spec 043 e continua assim — é o selo de
+ * origem, não de status, e precisa continuar visualmente mais leve que os demais (ticket 12/044).
+ * A grade da semana é bem mais estreita que a do dia: o texto e o preenchimento do Badge encolhem
+ * ali para não estourar o cartão, sem trocar de componente nem de cor.
+ */
+const CARD_BADGE_WEEK_CLASS = '!text-[0.52rem] !px-[3px] !py-px !leading-none !tracking-[0.2px] !gap-px';
+
+interface AgendaProps {
+  /**
+   * Trava a grade a um único profissional (a Minha Agenda do barbeiro): oculta filtro de equipe,
+   * alternância Dia/Semana e Lista de Espera, e desvia o clique no Agendamento para
+   * `onLockedAppointmentAction` em vez do Checkout de Comanda (exclusivo do gestor).
+   */
+  lockedProfessionalId?: string;
+  onLockedAppointmentAction?: (app: Appointment) => void;
+  /**
+   * Data exibida, sob controle de quem usa o componente (a Minha Agenda do barbeiro acompanha o dia
+   * navegado para os próprios botões de Novo Agendamento/Encaixe/Bloqueio). Sem os dois, `Agenda`
+   * guarda a data internamente, como sempre guardou.
+   */
+  selectedDate?: string;
+  onSelectedDateChange?: (date: string) => void;
+}
+
+export const Agenda: React.FC<AgendaProps> = ({
+  lockedProfessionalId,
+  onLockedAppointmentAction,
+  selectedDate: controlledSelectedDate,
+  onSelectedDateChange,
+}) => {
   // Contexto do Tenant / Barbearia
   const tenant = useOutletContext<TenantContextType>();
+  const agendaRepo = useAgenda();
   const { addToast } = useToast();
-
-  const clienteRepository = useMemo(
-    () => new ClienteRepository(new SupabaseClienteAdapter(supabase)),
-    []
-  );
 
   const esperaRepository = useMemo(
     () => new EsperaRepository(new SupabaseEsperaAdapter(supabase)),
@@ -345,17 +375,30 @@ export const Agenda: React.FC = () => {
   const [isViewTransitioning, setIsViewTransitioning] = useState(false);
   const isViewTransitioningRef = useRef(false);
   const [selectedWeekProfId, setSelectedWeekProfId] = useState<string>('');
+  // Só a resposta da consulta mais recente vale: ao trocar de dia (ou semana, ou dia/semana) rápido,
+  // a leitura antiga pode responder depois da nova e mostraria o período errado sob o cabeçalho
+  // certo. Agendamentos e Bloqueios são leituras independentes (spec 043, ticket 05): cada uma tem
+  // seu próprio número de sequência.
+  const latestAppointmentsRequest = useRef(0);
+  const latestBlockedSlotsRequest = useRef(0);
 
   // Estados de Controle de Data e Filtro
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string>(() =>
+  const [internalSelectedDate, setInternalSelectedDate] = useState<string>(() =>
     dateInZone(new Date(), tenant.timezone)
   );
+  // Controlada por quem usa o componente quando informada (Minha Agenda do barbeiro); senão, interna.
+  const selectedDate = controlledSelectedDate ?? internalSelectedDate;
+  const setSelectedDate = onSelectedDateChange ?? setInternalSelectedDate;
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalIds, setSelectedProfessionalIds] = useState<string[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  // A falha some sozinha na próxima leitura bem-sucedida; até lá, os Agendamentos continuam na
+  // grade (leitura própria, a de Bloqueios não esconde a outra) e o aviso avisa que Bloqueios
+  // pode estar faltando ali, em vez de deixar a grade parecer completa (spec 044, ticket 11).
+  const [blockedSlotsComErro, setBlockedSlotsComErro] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
@@ -382,6 +425,14 @@ export const Agenda: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
   const [isEsperaDrawerOpen, setIsEsperaDrawerOpen] = useState(false);
+  const {
+    cancelados,
+    canceladosComErro,
+    isCanceladosOpen,
+    registrarCancelados,
+    abrirCancelados,
+    fecharCancelados,
+  } = useCanceladosDoDia();
   const [checkoutAppointment, setCheckoutAppointment] = useState<Appointment | null>(null);
   const [noShowAppointment, setNoShowAppointment] = useState<Appointment | null>(null);
   const [blockPendingRemoval, setBlockPendingRemoval] = useState<BlockedSlot | null>(null);
@@ -408,32 +459,15 @@ export const Agenda: React.FC = () => {
     };
   }, [isDatePickerOpen]);
 
-  // Estados do Formulário de Agendamento / Encaixe
-  const [formDate, setFormDate] = useState(selectedDate);
-  const [formProfessionalId, setFormProfessionalId] = useState('');
-  const [formServiceId, setFormServiceId] = useState('');
-  const [formTime, setFormTime] = useState('09:00');
-  const [formIsFitting, setFormIsFitting] = useState(false);
-  const [fittingTimeMode, setFittingTimeMode] = useState<FittingTimeMode>('grid');
-  const [formNotes, setFormNotes] = useState('');
-  const [customerMode, setCustomerMode] = useState<'existing' | 'new' | 'none'>('existing');
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('');
-  const [savingAppointment, setSavingAppointment] = useState(false);
+  // Valores de partida do modal de novo agendamento/encaixe (um objeto novo a cada abertura).
+  const [novoInicial, setNovoInicial] = useState<NovoAgendamentoInicial | null>(null);
 
-  // Estados do Cancelamento
+  // Agendamentos alvo dos modais de cancelamento e de reagendamento.
   const [targetAppointment, setTargetAppointment] = useState<Appointment | null>(null);
-  const [cancellationReason, setCancellationReason] = useState('');
-  const [cancelingAppointment, setCancelingAppointment] = useState(false);
-
-  // Estados de Reagendamento Direto na Agenda
   const [isAgendaRescheduleModalOpen, setIsAgendaRescheduleModalOpen] = useState(false);
   const [agendaRescheduleAppointment, setAgendaRescheduleAppointment] = useState<Appointment | null>(null);
-  const [agendaRescheduleDate, setAgendaRescheduleDate] = useState('');
-  const [agendaRescheduleTime, setAgendaRescheduleTime] = useState('');
-  const [agendaRescheduleProfId, setAgendaRescheduleProfId] = useState('');
-  const [isAgendaRescheduling, setIsAgendaRescheduling] = useState(false);
+
+  const { marcar: marcarNaoCompareceu } = useMarcarNaoCompareceu(tenant.tenantId);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -456,25 +490,29 @@ export const Agenda: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const action = searchParams.get('action') || locState?.action;
 
+    const abrirNovo = (parcial: Partial<NovoAgendamentoInicial>) => {
+      setNovoInicial({
+        date: selectedDate,
+        time: '09:00',
+        professionalId: professionals[0]?.id || '',
+        isFitting: false,
+        customerMode: 'existing',
+        ...parcial,
+      });
+      setIsModalOpen(true);
+    };
+
     if (action === 'encaixe') {
-      setFormIsFitting(true);
-      setFittingTimeMode('grid');
-      if (locState?.customerId) {
-        setCustomerMode('existing');
-        setSelectedCustomerId(locState.customerId);
-      }
-      setIsModalOpen(true);
+      abrirNovo({ isFitting: true, customerId: locState?.customerId });
     } else if (locState?.openNewAppointment || locState?.customerId) {
-      if (locState?.customerId) {
-        setCustomerMode('existing');
-        setSelectedCustomerId(locState.customerId);
-      }
-      setIsModalOpen(true);
+      abrirNovo({ customerId: locState?.customerId });
     } else if (action === 'bloqueio') {
       setIsBloqueioModalOpen(true);
     } else if (action === 'espera') {
       setIsEsperaDrawerOpen(true);
     }
+    // Abre os modais só quando a navegação pede (URL ou estado); data e profissionais são a partida.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, location.search]);
 
   // Linha Vermelha de Tempo Real (Red Line)
@@ -636,234 +674,6 @@ export const Agenda: React.FC = () => {
     return generateScheduleGridSlots(schedules, slotIntervalMinutes);
   }, [selectedDate, tenant.businessHours, viewMode, appointments, blockedSlots, selectedProfessionalIds, professionals, slotIntervalMinutes, weekDays, tenant.timezone]);
 
-  // Slots de Horário válidos para seleção no Modal de Novo Agendamento
-  const modalAvailableTimeSlots = useMemo(() => {
-    const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-    if (!dayBh.active) return [];
-
-    const filterNormalServiceSlots = (slots: string[]): string[] => {
-      if (formIsFitting || !formServiceId) return slots;
-
-      const service = services.find((item) => item.id === formServiceId);
-      if (!service) return slots;
-
-      const candidateProfessionals = formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL
-        ? professionals.filter((professional) => professional.id === formProfessionalId)
-        : professionals.filter((professional) => professional.is_active);
-
-      if (candidateProfessionals.length === 0) return [];
-
-      return slots.filter((slot) => candidateProfessionals.some((professional) => {
-        const duration = getEffectiveServiceDuration(
-          service.duration_minutes,
-          service.id,
-          professional.professional_services
-        );
-
-        return isProfessionalWorkingAt(
-          professional,
-          formDate,
-          slot,
-          duration,
-          tenant.businessHours
-        );
-      }));
-    };
-
-    if (formIsFitting && fittingTimeMode === 'grid') {
-      if (formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
-        const selectedProf = professionals.find((p) => p.id === formProfessionalId);
-        const selectedProfSchedule = selectedProf
-          ? getEffectiveProfessionalDaySchedule(selectedProf, formDate, tenant.businessHours)
-          : null;
-
-        if (selectedProfSchedule?.active === false) return [];
-
-        const selectedSegment = selectedProfSchedule
-          ? toScheduleGridSegment(selectedProfSchedule)
-          : null;
-        if (selectedSegment) {
-          return generateScheduleGridSlots([selectedSegment], slotIntervalMinutes);
-        }
-      }
-
-      const fittingSchedules: ScheduleGridSegment[] = [];
-      professionals.forEach((professional) => {
-        if (!professional.is_active) return;
-        const schedule = getEffectiveProfessionalDaySchedule(
-          professional,
-          formDate,
-          tenant.businessHours
-        );
-        const segment = toScheduleGridSegment(schedule);
-        if (segment) fittingSchedules.push(segment);
-      });
-
-      if (fittingSchedules.length > 0) {
-        return generateScheduleGridSlots(fittingSchedules, slotIntervalMinutes);
-      }
-
-      return generateScheduleGridSlots(
-        [{ start: dayBh.open, end: dayBh.close }],
-        slotIntervalMinutes
-      );
-    }
-
-    if (formProfessionalId) {
-      const prof = professionals.find((p) => p.id === formProfessionalId);
-      const profSched = prof
-        ? getEffectiveProfessionalDaySchedule(prof, formDate, tenant.businessHours)
-        : null;
-      if (profSched?.active === false) return [];
-      const segment = profSched ? toScheduleGridSegment(profSched) : null;
-      if (segment) {
-        return filterNormalServiceSlots(generateScheduleGridSlots([segment], slotIntervalMinutes));
-      }
-    }
-
-    const schedules: ScheduleGridSegment[] = [];
-    professionals.forEach((p) => {
-      if (!p.is_active) return;
-      const sched = getEffectiveProfessionalDaySchedule(p, formDate, tenant.businessHours);
-      const segment = toScheduleGridSegment(sched);
-      if (segment) schedules.push(segment);
-    });
-
-    if (schedules.length === 0) {
-      schedules.push({ start: dayBh.open, end: dayBh.close });
-    }
-
-    return filterNormalServiceSlots(generateScheduleGridSlots(schedules, slotIntervalMinutes));
-  }, [formDate, tenant.businessHours, formProfessionalId, formServiceId, professionals, services, slotIntervalMinutes, formIsFitting, fittingTimeMode]);
-
-  // Slots de Horário válidos e livres para o Modal de Reagendamento Direto na Agenda
-  const agendaRescheduleAvailableSlots = useMemo(() => {
-    if (!agendaRescheduleDate || !agendaRescheduleProfId) return [];
-
-    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
-    if (!dayBh.active) return [];
-
-    const prof = professionals.find((p) => p.id === agendaRescheduleProfId);
-    if (!prof) return [];
-    const profSched = prof
-      ? getEffectiveProfessionalDaySchedule(prof, agendaRescheduleDate, tenant.businessHours)
-      : null;
-    if (profSched?.active === false) return [];
-
-    const segment = profSched ? toScheduleGridSegment(profSched) : null;
-    const baseSlots = generateScheduleGridSlots(
-      [segment || { start: dayBh.open || '08:00', end: dayBh.close || '20:00' }],
-      slotIntervalMinutes
-    );
-
-    const durationMin = getEffectiveServiceDuration(
-      agendaRescheduleAppointment?.service?.duration_minutes || 30,
-      agendaRescheduleAppointment?.service?.id || '',
-      prof?.professional_services
-    );
-
-    return baseSlots.filter((slotTime) => {
-      if (!isProfessionalWorkingAt(
-        prof,
-        agendaRescheduleDate,
-        slotTime,
-        durationMin,
-        tenant.businessHours
-      )) return false;
-
-      const slotStartIso = localDateTimeToIso(agendaRescheduleDate, slotTime, tenant.timezone);
-      const slotEndIso = new Date(new Date(slotStartIso).getTime() + durationMin * 60 * 1000).toISOString();
-
-      // Permitir o próprio horário já ocupado pelo agendamento
-      const hasAppConflict = appointments.some((a) => {
-        if (a.id === agendaRescheduleAppointment?.id) return false;
-        if (a.status === 'canceled') return false;
-        if (a.professional_id !== agendaRescheduleProfId) return false;
-        return a.start_time < slotEndIso && a.end_time > slotStartIso;
-      });
-      if (hasAppConflict) return false;
-
-      const hasBlockConflict = blockedSlots.some((b) => {
-        if (b.professional_id && b.professional_id !== agendaRescheduleProfId) return false;
-        return b.start_time < slotEndIso && b.end_time > slotStartIso;
-      });
-      if (hasBlockConflict) return false;
-
-      return true;
-    });
-  }, [
-    agendaRescheduleDate,
-    agendaRescheduleProfId,
-    agendaRescheduleAppointment,
-    tenant.businessHours,
-    tenant.timezone,
-    professionals,
-    slotIntervalMinutes,
-    appointments,
-    blockedSlots,
-  ]);
-
-  const currentService = useMemo(
-    () => services.find((s) => s.id === formServiceId),
-    [services, formServiceId]
-  );
-
-  // Profissionais disponíveis no horário selecionado (não estão em intervalo nem de folga considerando duração)
-  // Em modo de Encaixe (formIsFitting), o gerente tem flexibilidade total para alocar qualquer profissional ativo
-  const availableProfessionalsForFormTime = useMemo(() => {
-    return professionals.filter((p) => {
-      if (!p.is_active) return false;
-      if (formIsFitting) return true;
-      const serviceDuration = currentService
-        ? getEffectiveServiceDuration(
-            currentService.duration_minutes,
-            currentService.id,
-            p.professional_services
-          )
-        : slotIntervalMinutes;
-      return isProfessionalWorkingAt(
-        p,
-        formDate,
-        formTime,
-        serviceDuration,
-        tenant.businessHours
-      );
-    });
-  }, [professionals, formIsFitting, formDate, formTime, currentService, slotIntervalMinutes, tenant.businessHours]);
-
-  const isPastFormTime = useMemo(() => {
-    const nowInstant = new Date();
-    const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
-    const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-    return (
-      formDate < currentLocalDate ||
-      (formDate === currentLocalDate && formTime < currentLocalTime)
-    );
-  }, [formDate, formTime, tenant.timezone]);
-
-  // Sincronizar barbeiro selecionado caso o atual não esteja disponível no horário
-  useEffect(() => {
-    if (isModalOpen) {
-      if (availableProfessionalsForFormTime.length > 0) {
-        if (
-          formProfessionalId !== ANY_PROFESSIONAL &&
-          !availableProfessionalsForFormTime.some((p) => p.id === formProfessionalId)
-        ) {
-          setFormProfessionalId(availableProfessionalsForFormTime[0].id);
-        }
-      } else if (formProfessionalId !== ANY_PROFESSIONAL) {
-        setFormProfessionalId('');
-      }
-    }
-  }, [isModalOpen, availableProfessionalsForFormTime, formProfessionalId]);
-
-  // Forçar encaixe de balcão para horários decorridos
-  useEffect(() => {
-    if (isModalOpen && isPastFormTime) {
-      setFormIsFitting(true);
-    }
-  }, [isModalOpen, isPastFormTime]);
-
   // Data formatada por extenso em PT-BR
   const formattedDateTitle = useMemo(() => {
     try {
@@ -954,28 +764,24 @@ export const Agenda: React.FC = () => {
         professional_services: servicesByProfessional.get(professional.id) || [],
       }));
       setProfessionals(activeProfs);
-      setSelectedProfessionalIds(activeProfs.map((p) => p.id));
+      setSelectedProfessionalIds(
+        lockedProfessionalId ? [lockedProfessionalId] : activeProfs.map((p) => p.id)
+      );
       if (activeProfs.length > 0 && !selectedWeekProfId) {
         setSelectedWeekProfId(activeProfs[0].id);
       }
       setServices(servsRes.data || []);
       setCustomers(custsRes.data || []);
-
-      if (activeProfs.length > 0) {
-        setFormProfessionalId(activeProfs[0].id);
-      }
-      if (servsRes.data && servsRes.data.length > 0) {
-        setFormServiceId(servsRes.data[0].id);
-      }
     } catch (err: any) {
       console.error('Erro ao carregar dados base da agenda:', err);
       addToast('Não foi possível carregar profissionais e serviços.', 'error');
     }
-  }, [tenant.tenantId, addToast, selectedWeekProfId]);
+  }, [tenant.tenantId, addToast, selectedWeekProfId, lockedProfessionalId]);
 
-  // Carregar Bloqueios de Horário
+  // Carregar Bloqueios de Horário. Leitura própria: a falha dela não esconde os Agendamentos.
   const fetchBlockedSlots = useCallback(async () => {
     if (!tenant.tenantId) return;
+    const requestId = ++latestBlockedSlotsRequest.current;
     try {
       let startIso: string;
       let endIso: string;
@@ -991,27 +797,45 @@ export const Agenda: React.FC = () => {
         endIso = endExclusive;
       }
 
-      const { data, error } = await supabase
-        .from('blocked_slots')
-        .select('*')
-        .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .order('start_time', { ascending: true });
-
-      if (error) throw error;
-      setBlockedSlots((data || []) as BlockedSlot[]);
+      const bloqueios = await agendaRepo.carregarBloqueiosDoDia(tenant.tenantId, { startIso, endExclusiveIso: endIso });
+      // Resposta de uma leitura já superada por uma troca de dia/semana mais recente: descartada.
+      if (requestId !== latestBlockedSlotsRequest.current) return;
+      setBlockedSlots(bloqueios);
+      setBlockedSlotsComErro(false);
     } catch (err) {
+      if (requestId !== latestBlockedSlotsRequest.current) return;
       console.error('Erro ao buscar bloqueios:', err);
+      setBlockedSlotsComErro(true);
     }
-  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
+  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays]);
 
   // Carregar Agendamentos do Período
-  const fetchAppointments = useCallback(async () => {
-    try {
-      if (!tenant.tenantId) return;
-      setLoading(true);
+  // Recorte de leitura sobre o que o banco já entregou: o filtro de equipe da tela não é fronteira de
+  // acesso, então limpar o filtro revela os cancelados sem nova consulta. Na visão semanal a leitura
+  // traz os sete dias; o painel é do dia selecionado.
+  const canceladosDoDia = useMemo(() => {
+    const { start, endExclusive } = localDayUtcRange(selectedDate, tenant.timezone);
+    const inicio = Date.parse(start);
+    const fim = Date.parse(endExclusive);
+    // Com todos os profissionais ativos selecionados, o filtro de equipe é recorte nenhum: mostra
+    // também o cancelamento de quem já foi desativado, que nunca entra na lista do filtro (ela só
+    // lista quem está ativo hoje). Basta restringir a alguns para esses casos somerem de novo —
+    // decisão de 2026-09-22 (spec 044, ticket 13).
+    const filtroCompleto = selectedProfessionalIds.length === professionals.length;
+    return cancelados.filter((cancelado) => {
+      const instante = Date.parse(cancelado.start_time);
+      const dentroDoDia = instante >= inicio && instante < fim;
+      const passaNoFiltro = filtroCompleto || selectedProfessionalIds.includes(cancelado.professional_id);
+      return dentroDoDia && passaNoFiltro;
+    });
+  }, [cancelados, selectedDate, selectedProfessionalIds, professionals, tenant.timezone]);
 
+  const fetchAppointments = useCallback(async () => {
+    if (!tenant.tenantId) return;
+    const requestId = ++latestAppointmentsRequest.current;
+    setLoading(true);
+
+    try {
       let startIso: string;
       let endIso: string;
 
@@ -1026,65 +850,35 @@ export const Agenda: React.FC = () => {
         endIso = endExclusive;
       }
 
-      const { data, error } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          status,
-          payment_status,
-          is_fitting,
-          notes,
-          origin,
-          professional_id,
-          customer:customers (
-            id,
-            name,
-            phone
-          ),
-          service:services (
-            id,
-            name,
-            price
-          )
-        `)
-        .eq('tenant_id', tenant.tenantId)
-        .gte('start_time', startIso)
-        .lt('start_time', endIso)
-        .neq('status', 'canceled')
-        .order('start_time', { ascending: true });
+      const agenda = await agendaRepo.carregarAgendamentosDoDia(tenant.tenantId, {
+        startIso,
+        endExclusiveIso: endIso,
+        incluirCancelados: true,
+      });
 
-      if (error) throw error;
+      // Resposta de uma leitura já superada por uma troca de dia/semana mais recente: descartada,
+      // sem tocar o indicador de carregamento nem mostrar erro — quem pediu já pediu outra coisa.
+      if (requestId !== latestAppointmentsRequest.current) return;
 
-      const mapped: Appointment[] = (data || []).map((item: any) => ({
-        id: item.id,
-        start_time: item.start_time,
-        end_time: item.end_time,
-        status: item.status,
-        payment_status: item.payment_status,
-        is_fitting: Boolean(item.is_fitting),
-        notes: item.notes,
-        origin: item.origin,
-        professional_id: item.professional_id,
-        customer: Array.isArray(item.customer) ? item.customer[0] : item.customer,
-        service: Array.isArray(item.service) ? item.service[0] : item.service,
-      }));
-
-      setAppointments(mapped);
+      setAppointments(agenda.appointments);
+      registrarCancelados(agenda.canceledAppointments);
     } catch (err: any) {
+      if (requestId !== latestAppointmentsRequest.current) return;
       console.error('Erro ao buscar agendamentos:', err);
+      registrarCancelados('falhou');
       addToast('Erro ao carregar os agendamentos do dia.', 'error');
     } finally {
-      setLoading(false);
-      if (isViewTransitioningRef.current) {
-        setTimeout(() => {
-          isViewTransitioningRef.current = false;
-          setIsViewTransitioning(false);
-        }, 320);
+      if (requestId === latestAppointmentsRequest.current) {
+        setLoading(false);
+        if (isViewTransitioningRef.current) {
+          setTimeout(() => {
+            isViewTransitioningRef.current = false;
+            setIsViewTransitioning(false);
+          }, 320);
+        }
       }
     }
-  }, [tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast]);
+  }, [agendaRepo, tenant.tenantId, tenant.timezone, selectedDate, viewMode, weekDays, addToast, registrarCancelados]);
 
   useEffect(() => {
     loadInitialData();
@@ -1133,14 +927,14 @@ export const Agenda: React.FC = () => {
     isViewTransitioningRef.current = true;
     setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? -7 : -1;
-    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
+    setSelectedDate(shiftCalendarDate(selectedDate, shift));
   };
 
   const handleNextDay = () => {
     isViewTransitioningRef.current = true;
     setIsViewTransitioning(true);
     const shift = viewMode === 'week' ? 7 : 1;
-    setSelectedDate((prev) => shiftCalendarDate(prev, shift));
+    setSelectedDate(shiftCalendarDate(selectedDate, shift));
   };
 
   const handleToday = () => {
@@ -1225,11 +1019,8 @@ export const Agenda: React.FC = () => {
         ? timeSlots.find((s) => s >= currentLocalTime && s >= dayBh.open && s < dayBh.close) || dayBh.open
         : dayBh.open);
 
-    setFormTime(targetTime);
-
-    if (profId) {
-      setFormProfessionalId(profId);
-    } else {
+    let professionalId = profId || '';
+    if (!profId) {
       const available = professionals.filter((p) => {
         if (!p.is_active) return false;
         if (finalIsFitting) return true;
@@ -1239,28 +1030,24 @@ export const Agenda: React.FC = () => {
       if (available.length > 0) {
         if (finalIsFitting) {
           // Algoritmo de balanceamento de rodízio de balcão apenas entre profissionais disponíveis
-          const counts: Record<string, number> = {};
-          for (const app of appointments) {
-            counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
-          }
-          const suggested = esperaRepository.suggestRotationProfessional(available, counts);
-          setFormProfessionalId(suggested?.id || available[0].id);
+          const suggested = esperaRepository.suggestRotationFromAppointments(available, appointments);
+          professionalId = suggested?.id || available[0].id;
         } else {
-          setFormProfessionalId(available[0].id);
+          professionalId = available[0].id;
         }
       } else if (professionals.length > 0) {
-        setFormProfessionalId(professionals[0].id);
+        professionalId = professionals[0].id;
       }
     }
 
-    setFormDate(dateToCheck);
-    setFormIsFitting(finalIsFitting);
-    setFittingTimeMode('grid');
-    setFormNotes('');
-    setCustomerMode('existing');
-    setSelectedCustomerId(customers.length > 0 ? customers[0].id : '');
-    setNewCustomerName('');
-    setNewCustomerPhone('');
+    setNovoInicial({
+      date: dateToCheck,
+      time: targetTime,
+      professionalId,
+      isFitting: finalIsFitting,
+      customerMode: 'existing',
+      customerId: customers.length > 0 ? customers[0].id : '',
+    });
     setIsModalOpen(true);
   };
 
@@ -1270,374 +1057,45 @@ export const Agenda: React.FC = () => {
 
     let targetProfId = entry.professional_id;
     if (!targetProfId && professionals.length > 0) {
-      const counts: Record<string, number> = {};
-      for (const app of appointments) {
-        counts[app.professional_id] = (counts[app.professional_id] || 0) + 1;
-      }
-      const suggested = esperaRepository.suggestRotationProfessional(professionals, counts);
+      const suggested = esperaRepository.suggestRotationFromAppointments(professionals, appointments);
       targetProfId = suggested?.id || professionals[0].id;
     }
 
-    setFormProfessionalId(targetProfId || professionals[0]?.id || '');
-    setFormServiceId(entry.service_id || (services[0]?.id ?? ''));
-    setFormDate(selectedDate);
     const nowInstant = new Date();
     const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-    setFormTime(
-      timeSlots.find((s) => s >= currentLocalTime) ||
-        timeSlots[0] ||
-        '09:00'
-    );
-    setCustomerMode('new');
-    setNewCustomerName(entry.customer_name);
-    setNewCustomerPhone(entry.customer_phone || '');
-    setFormNotes(
-      entry.notes ? `[Fila de Espera] ${entry.notes}` : '[Fila de Espera]'
-    );
-    setFormIsFitting(true);
-    setFittingTimeMode('grid');
+    setNovoInicial({
+      date: selectedDate,
+      time: timeSlots.find((s) => s >= currentLocalTime) || timeSlots[0] || '09:00',
+      professionalId: targetProfId || professionals[0]?.id || '',
+      serviceId: entry.service_id || (services[0]?.id ?? ''),
+      isFitting: true,
+      customerMode: 'new',
+      newCustomerName: entry.customer_name,
+      newCustomerPhone: entry.customer_phone || '',
+      notes: esperaRepository.notaDeEncaixe(entry),
+      // A entrada só sai da fila quando o Agendamento for salvo (na mesma transação do banco).
+      waitingEntryId: entry.id,
+    });
     setIsModalOpen(true);
-
-    esperaRepository.setStatus(entry.id, 'atendido').catch(console.error);
-  };
-
-  // Salvar Novo Agendamento / Encaixe
-  const handleSaveAppointment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formProfessionalId && formProfessionalId !== ANY_PROFESSIONAL) {
-      addToast('Selecione um profissional.', 'warning');
-      return;
-    }
-    if (!formServiceId) {
-      addToast('Selecione um serviço.', 'warning');
-      return;
-    }
-
-    const selectedService = services.find((s) => s.id === formServiceId);
-    if (!selectedService) {
-      addToast('Serviço inválido.', 'error');
-      return;
-    }
-
-    setSavingAppointment(true);
-
-    try {
-      let finalCustomerId: string | null = selectedCustomerId;
-
-      // Cadastro rápido de cliente se modo 'new'
-      if (customerMode === 'new') {
-        if (!newCustomerName.trim()) {
-          addToast('Informe o nome do cliente.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        const phoneDigits = newCustomerPhone.replace(/\D/g, '');
-        if (phoneDigits.length < 10) {
-          addToast('Telefone inválido (mínimo DDD + 8 dígitos).', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        const newCust = await clienteRepository.saveCustomer(tenant.tenantId, {
-          name: newCustomerName,
-          phone: newCustomerPhone,
-          registration_origin: 'agenda',
-          cadastro_completo: true,
-        });
-
-        finalCustomerId = newCust.id;
-        setCustomers((prev) => [...prev, { id: newCust.id, name: newCust.name, phone: newCust.phone }]);
-      } else if (customerMode === 'none') {
-        finalCustomerId = null;
-      }
-
-      if (!finalCustomerId && customerMode !== 'none') {
-        addToast('Selecione ou cadastre um cliente.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      // Bloqueio de agendamento em horário decorrido (permitido apenas para Encaixe de balcão)
-      const nowInstant = new Date();
-      const currentLocalDate = dateInZone(nowInstant, tenant.timezone);
-      const currentLocalTime = formatTimeInZone(nowInstant.toISOString(), tenant.timezone);
-
-      const isPastTime =
-        formDate < currentLocalDate ||
-        (formDate === currentLocalDate && formTime < currentLocalTime);
-
-      if (isPastTime && !formIsFitting) {
-        addToast('Horários já decorridos são permitidos exclusivamente como Encaixe de balcão.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      // Validação de intervalo e disponibilidade do barbeiro
-      const selectedProfessionalId = formProfessionalId === ANY_PROFESSIONAL
-        ? availableProfessionalsForFormTime[0]?.id
-        : formProfessionalId;
-      const selectedProf = professionals.find((p) => p.id === selectedProfessionalId);
-      if (!selectedProf) {
-        addToast('Selecione um profissional disponível.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      const effectiveServiceDuration = getEffectiveServiceDuration(
-        selectedService.duration_minutes,
-        selectedService.id,
-        selectedProf.professional_services
-      );
-
-      const dayBh = getDayBusinessHours(formDate, tenant.businessHours);
-      if (!formIsFitting && !dayBh.active) {
-        addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-      if (formIsFitting && !isValidFittingStartTime(
-        formTime,
-        fittingTimeMode,
-        slotIntervalMinutes,
-        fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined
-      )) {
-        addToast(
-          fittingTimeMode === 'grid'
-            ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
-            : 'Informe um horário de início válido.',
-          'warning'
-        );
-        setSavingAppointment(false);
-        return;
-      }
-      if (!formIsFitting && (formTime < dayBh.open || formTime >= dayBh.close)) {
-        addToast(`Horário selecionado está fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-        setSavingAppointment(false);
-        return;
-      }
-
-      if (!formIsFitting) {
-        if (isProfessionalOnBreak(selectedProf, formDate, formTime, effectiveServiceDuration)) {
-          addToast(getProfessionalBreakMessage(selectedProf, formDate), 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-        if (!isProfessionalWorkingAt(
-          selectedProf,
-          formDate,
-          formTime,
-          effectiveServiceDuration,
-          tenant.businessHours
-        )) {
-          addToast(`O profissional ${selectedProf.name} não está atendendo neste horário.`, 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-
-      }
-
-      // Validação de limite de 1 encaixe por horário/profissional
-      if (formIsFitting) {
-        const existingFittings = appointments.filter((a) => {
-          return (
-            a.professional_id === formProfessionalId &&
-            a.is_fitting &&
-            ['pending', 'confirmed', 'in_progress'].includes(a.status) &&
-            formatTimeInZone(a.start_time, tenant.timezone) === formTime
-          );
-        });
-
-        if (existingFittings.length >= 1) {
-          addToast('Limite atingido: já existe 1 encaixe agendado para este profissional neste horário.', 'warning');
-          setSavingAppointment(false);
-          return;
-        }
-      }
-
-      // Calcular timestamps com Timezone. Encaixes usam o seam compartilhado;
-      // agendamentos normais preservam o cálculo existente nesta etapa.
-      let startIso: string;
-      let endIso: string;
-      if (formIsFitting) {
-        try {
-          const fittingInterval = buildFittingAppointmentInterval({
-            date: formDate,
-            time: formTime,
-            timeZone: tenant.timezone,
-            durationMinutes: effectiveServiceDuration,
-            mode: fittingTimeMode,
-            slotIntervalMinutes,
-            gridSlots: fittingTimeMode === 'grid' ? modalAvailableTimeSlots : undefined,
-          });
-          startIso = fittingInterval.startIso;
-          endIso = fittingInterval.endIso;
-        } catch (error) {
-          const errorCode = error instanceof Error ? error.message : '';
-          addToast(
-            errorCode === 'FITTING_TIME_NOT_ALIGNED'
-              ? `Horário de encaixe deve seguir a grade de ${slotIntervalMinutes} minutos.`
-              : 'Informe uma data e horário válidos para o encaixe.',
-            'warning'
-          );
-          setSavingAppointment(false);
-          return;
-        }
-      } else {
-        startIso = localDateTimeToIso(formDate, formTime, tenant.timezone);
-        const [sh, sm] = formTime.split(':').map(Number);
-        const endTotalMinutes = sh * 60 + sm + effectiveServiceDuration;
-        const eh = Math.floor(endTotalMinutes / 60);
-        const em = endTotalMinutes % 60;
-        const endTimeStr = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-        endIso = localDateTimeToIso(formDate, endTimeStr, tenant.timezone);
-      }
-
-      const payload = {
-        tenant_id: tenant.tenantId,
-        customer_id: finalCustomerId,
-        professional_id: selectedProfessionalId,
-        service_id: formServiceId,
-        start_time: startIso,
-        end_time: endIso,
-        status: 'confirmed' as AppointmentStatus,
-        payment_status: 'pending' as PaymentStatus,
-        is_fitting: formIsFitting,
-        notes: formNotes.trim() || null,
-        origin: 'manual',
-      };
-
-      const { data: insertedApp, error: insertErr } = await supabase
-        .from('appointments')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (insertErr) {
-        if (insertErr.code === '23P01') {
-          addToast('Horário indisponível: este profissional já possui atendimento agendado neste período.', 'error');
-          return;
-        }
-        throw insertErr;
-      }
-
-      // Garantir abertura automática de comanda vinculada ao agendamento / encaixe
-      if (insertedApp && tenant.tenantId) {
-        try {
-          const { data: existingCmd } = await supabase
-            .from('comandas')
-            .select('id')
-            .eq('appointment_id', insertedApp.id)
-            .maybeSingle();
-
-          if (!existingCmd) {
-            const srvPrice = Number(selectedService.price || 0);
-            const { data: newCmd, error: cmdErr } = await supabase
-              .from('comandas')
-              .insert({
-                tenant_id: tenant.tenantId,
-                appointment_id: insertedApp.id,
-                customer_id: finalCustomerId || null,
-                status: 'aberta',
-                total_amount: srvPrice,
-                discount_amount: 0,
-                tip_amount: 0,
-              })
-              .select()
-              .single();
-
-            if (!cmdErr && newCmd && formServiceId) {
-              await supabase.from('comanda_itens').insert({
-                comanda_id: newCmd.id,
-                tenant_id: tenant.tenantId,
-                item_type: 'servico',
-                service_id: formServiceId,
-                professional_id: selectedProfessionalId || null,
-                quantity: 1,
-                unit_price: srvPrice,
-                total_price: srvPrice,
-              });
-            }
-          }
-        } catch (comandaErr) {
-          console.error('Erro ao garantir comanda imediata ao salvar agendamento:', comandaErr);
-        }
-      }
-
-      addToast(
-        formIsFitting ? 'Encaixe agendado com sucesso!' : 'Agendamento criado com sucesso!',
-        'success'
-      );
-      setIsModalOpen(false);
-      clearActionUrl();
-      fetchAppointments();
-    } catch (err: unknown) {
-      console.error('Erro ao salvar agendamento:', err);
-      const message = err instanceof Error ? err.message : 'Erro ao agendar horário.';
-      addToast(message, 'error');
-    } finally {
-      setSavingAppointment(false);
-    }
   };
 
   // Transição de Status: Iniciar Atendimento
   const handleStartService = async (app: Appointment) => {
+    if (!tenant.tenantId) return;
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-        .eq('id', app.id);
+      await agendaRepo.iniciarAtendimento(tenant.tenantId, app.id);
 
-      if (error) throw error;
-
-      // Garantir abertura automática de comanda vinculada ao agendamento
-      try {
-        const { data: existingComanda } = await supabase
-          .from('comandas')
-          .select('id')
-          .eq('appointment_id', app.id)
-          .maybeSingle();
-
-        if (!existingComanda && tenant.tenantId) {
-          const servicePrice = Number(app.service?.price || 0);
-          const { data: newComanda, error: cmdError } = await supabase
-            .from('comandas')
-            .insert({
-              tenant_id: tenant.tenantId,
-              appointment_id: app.id,
-              customer_id: app.customer?.id || null,
-              status: 'aberta',
-              total_amount: servicePrice,
-              discount_amount: 0,
-              tip_amount: 0,
-            })
-            .select()
-            .single();
-
-          if (!cmdError && newComanda && app.service?.id) {
-            await supabase.from('comanda_itens').insert({
-              comanda_id: newComanda.id,
-              tenant_id: tenant.tenantId,
-              item_type: 'servico',
-              service_id: app.service.id,
-              professional_id: app.professional_id || null,
-              quantity: 1,
-              unit_price: servicePrice,
-              total_price: servicePrice,
-            });
-          }
-        }
-      } catch (comandaErr) {
-        console.error('Erro ao abrir comanda automática para agendamento:', comandaErr);
-      }
+      // A Comanda do agendamento já existe: nasce no banco, junto com o agendamento.
 
       addToast(`Atendimento de ${app.customer?.name || 'Cliente Balcão'} iniciado.`, 'success');
       fetchAppointments();
     } catch (err: any) {
       console.error('Erro ao iniciar atendimento:', err);
-      addToast('Erro ao atualizar status do atendimento.', 'error');
+      addToast(
+        err instanceof AgendaOperationError ? err.message : 'Erro ao atualizar status do atendimento.',
+        err instanceof AgendaOperationError && err.kind === 'regra' ? 'warning' : 'error'
+      );
+      if (err instanceof AgendaOperationError && err.kind === 'regra') fetchAppointments();
     }
   };
 
@@ -1647,18 +1105,18 @@ export const Agenda: React.FC = () => {
       addToast('Este atendimento foi marcado como não compareceu e não pode gerar movimento financeiro.', 'warning');
       return;
     }
+    if (lockedProfessionalId) {
+      onLockedAppointmentAction?.(app);
+      return;
+    }
     setCheckoutAppointment(app);
     setIsCheckoutModalOpen(true);
   };
 
-  const handleMarkNoShow = async (app: Appointment) => {
-    if (!['pending', 'confirmed'].includes(app.status)) {
-      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
-      return;
-    }
-
-    if (new Date(app.start_time).getTime() > Date.now()) {
-      addToast('O atendimento ainda não começou.', 'warning');
+  const handleMarkNoShow = (app: Appointment) => {
+    const recusa = motivoRecusaNaoCompareceu(app);
+    if (recusa) {
+      addToast(recusa, 'warning');
       return;
     }
 
@@ -1666,54 +1124,24 @@ export const Agenda: React.FC = () => {
     setIsNoShowModalOpen(true);
   };
 
-  const handleConfirmNoShow = async (appToMark?: Appointment) => {
-    const target = appToMark || noShowAppointment;
-    if (!target) return;
-
-    if (!['pending', 'confirmed'].includes(target.status)) {
-      addToast('Somente atendimentos pendentes ou confirmados podem ser marcados como não compareceu.', 'warning');
-      return;
-    }
-
-    if (new Date(target.start_time).getTime() > Date.now()) {
-      addToast('O atendimento ainda não começou.', 'warning');
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .update({ status: 'no_show', updated_at: new Date().toISOString() })
-        .eq('id', target.id)
-        .eq('tenant_id', tenant.tenantId)
-        .in('status', ['pending', 'confirmed'])
-        .select('id')
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        setIsNoShowModalOpen(false);
-        setNoShowAppointment(null);
-        addToast('O status deste atendimento mudou antes da atualização. Recarregue a agenda.', 'warning');
-        fetchAppointments();
-        return;
-      }
-
+  const handleNaoCompareceuResultado = (appointmentId: string, resultado: ResultadoNaoCompareceu) => {
+    if (resultado === 'marcado') {
       setAppointments((previous) =>
         previous.map((appointment) =>
-          appointment.id === target.id ? { ...appointment, status: 'no_show' } : appointment
+          appointment.id === appointmentId ? { ...appointment, status: 'no_show' } : appointment
         )
       );
-      setIsNoShowModalOpen(false);
-      setNoShowAppointment(null);
       setIsCheckoutModalOpen(false);
       setCheckoutAppointment(null);
-      addToast('Atendimento marcado como não compareceu.', 'success');
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao marcar atendimento como não compareceu:', err);
-      addToast(err?.message || 'Erro ao marcar atendimento como não compareceu.', 'error');
     }
+    fetchAppointments();
+  };
+
+  // Falta marcada direto pela Comanda (checkout), sem a confirmação da agenda.
+  const handleNoShowFromCheckout = async (app: Appointment) => {
+    const resultado = await marcarNaoCompareceu(app);
+    if (resultado === 'erro') return;
+    handleNaoCompareceuResultado(app.id, resultado);
   };
 
   // Remover Bloqueio de Horário
@@ -1746,122 +1174,13 @@ export const Agenda: React.FC = () => {
   // Abrir Modal de Cancelamento
   const handleOpenCancelModal = (app: Appointment) => {
     setTargetAppointment(app);
-    setCancellationReason('');
     setIsCancelModalOpen(true);
-  };
-
-  // Confirmar Cancelamento
-  const handleConfirmCancellation = async () => {
-    if (!targetAppointment) return;
-    setCancelingAppointment(true);
-
-    try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          status: 'canceled',
-          cancellation_reason: cancellationReason.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetAppointment.id);
-
-      if (error) throw error;
-
-      // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
-      setAppointments((prev) => prev.filter((a) => a.id !== targetAppointment.id));
-
-      addToast('Agendamento cancelado com sucesso.', 'success');
-      setIsCancelModalOpen(false);
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao cancelar agendamento:', err);
-      addToast('Erro ao cancelar agendamento.', 'error');
-    } finally {
-      setCancelingAppointment(false);
-    }
   };
 
   // Abrir Modal de Reagendamento Direto na Agenda
   const handleOpenRescheduleModal = (app: Appointment) => {
     setAgendaRescheduleAppointment(app);
-    if (app.start_time) {
-      const d = new Date(app.start_time);
-      setAgendaRescheduleDate(dateInZone(d, tenant.timezone));
-      setAgendaRescheduleTime(formatTimeInZone(app.start_time, tenant.timezone));
-    } else {
-      setAgendaRescheduleDate(selectedDate);
-      setAgendaRescheduleTime('09:00');
-    }
-    setAgendaRescheduleProfId(app.professional_id || professionals[0]?.id || '');
     setIsAgendaRescheduleModalOpen(true);
-  };
-
-  // Confirmar Reagendamento Direto na Agenda
-  const handleConfirmAgendaReschedule = async () => {
-    if (!agendaRescheduleAppointment || !agendaRescheduleDate || !agendaRescheduleTime) {
-      addToast('Selecione data e horário válidos para reagendar.', 'warning');
-      return;
-    }
-
-    const dayBh = getDayBusinessHours(agendaRescheduleDate, tenant.businessHours);
-    if (!dayBh.active) {
-      addToast('A barbearia não abre nesta data conforme as configurações.', 'warning');
-      return;
-    }
-    if (agendaRescheduleTime < dayBh.open || agendaRescheduleTime >= dayBh.close) {
-      addToast(`Horário fora do expediente da barbearia (${dayBh.open} às ${dayBh.close}).`, 'warning');
-      return;
-    }
-
-    const rescheduleProfessional = professionals.find((p) => p.id === agendaRescheduleProfId);
-    const rescheduleDuration = getEffectiveServiceDuration(
-      agendaRescheduleAppointment.service?.duration_minutes || 30,
-      agendaRescheduleAppointment.service?.id || '',
-      rescheduleProfessional?.professional_services
-    );
-    if (
-      rescheduleProfessional &&
-      !isProfessionalWorkingAt(
-        rescheduleProfessional,
-        agendaRescheduleDate,
-        agendaRescheduleTime,
-        rescheduleDuration,
-        tenant.businessHours
-      )
-    ) {
-      addToast(`O profissional ${rescheduleProfessional.name} não atende neste horário.`, 'warning');
-      return;
-    }
-
-    setIsAgendaRescheduling(true);
-    try {
-      const startTimeIso = localDateTimeToIso(agendaRescheduleDate, agendaRescheduleTime, tenant.timezone);
-      const durationMin = rescheduleDuration;
-      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMin * 60 * 1000).toISOString();
-
-      const { error: updErr } = await supabase
-        .from('appointments')
-        .update({
-          start_time: startTimeIso,
-          end_time: endTimeIso,
-          professional_id: agendaRescheduleProfId || agendaRescheduleAppointment.professional_id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', agendaRescheduleAppointment.id)
-        .eq('tenant_id', tenant.tenantId);
-
-      if (updErr) throw updErr;
-
-      addToast('Agendamento reagendado com sucesso!', 'success');
-      setIsAgendaRescheduleModalOpen(false);
-      setAgendaRescheduleAppointment(null);
-      fetchAppointments();
-    } catch (err: any) {
-      console.error('Erro ao reagendar agendamento na agenda:', err);
-      addToast(err?.message || 'Erro ao reagendar agendamento.', 'error');
-    } finally {
-      setIsAgendaRescheduling(false);
-    }
   };
 
   // Disparar WhatsApp Direto
@@ -2048,10 +1367,12 @@ export const Agenda: React.FC = () => {
           businessHours={tenant.businessHours}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
-          professionals={professionals}
+          professionals={lockedProfessionalId ? visibleProfessionals : professionals}
           appointments={appointments}
           blockedSlots={blockedSlots}
+          blockedSlotsComErro={blockedSlotsComErro}
           timeSlots={timeSlots}
+          cardActionHint={lockedProfessionalId ? 'ver as ações do agendamento' : undefined}
           onOpenNewAppointment={(profId, slot, isFitting) =>
             handleOpenNewAppointment(profId, slot, isFitting ?? false, selectedDate)
           }
@@ -2064,6 +1385,11 @@ export const Agenda: React.FC = () => {
           onRemoveBlock={handleRemoveBlock}
           onOpenBloqueio={() => setIsBloqueioModalOpen(true)}
           onOpenEspera={() => setIsEsperaDrawerOpen(true)}
+          cancelamentosDoDia={{
+            quantidade: canceladosDoDia.length,
+            comErro: canceladosComErro,
+            onAbrir: abrirCancelados,
+          }}
         />
       </div>
 
@@ -2085,23 +1411,25 @@ export const Agenda: React.FC = () => {
           </div>
 
         <div className="flex items-center flex-wrap gap-3">
-          {/* Seletor de Escopo Temporal: Dia vs Semana */}
-          <div className="flex items-center p-[3px] bg-white border border-border rounded-md gap-0.5">
-            <button
-              type="button"
-              onClick={() => handleViewModeChange('day')}
-              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-primary text-black hover:text-black' : 'bg-transparent text-text-secondary'}`}
-            >
-              Dia
-            </button>
-            <button
-              type="button"
-              onClick={() => handleViewModeChange('week')}
-              className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'week' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
-            >
-              Semana
-            </button>
-          </div>
+          {/* Seletor de Escopo Temporal: Dia vs Semana (oculto no modo travado ao profissional) */}
+          {!lockedProfessionalId && (
+            <div className="flex items-center p-[3px] bg-white border border-border rounded-md gap-0.5">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('day')}
+                className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'day' ? 'bg-brand-primary text-black hover:text-black' : 'bg-transparent text-text-secondary'}`}
+              >
+                Dia
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('week')}
+                className={`px-[0.85rem] py-[0.4rem] text-xs font-bold border-none rounded-sm bg-transparent text-text-secondary cursor-pointer transition-all duration-200 hover:text-text-primary ${viewMode === 'week' ? 'bg-brand-soft text-black shadow-sm hover:text-black' : ''}`}
+              >
+                Semana
+              </button>
+            </div>
+          )}
 
           {/* Navegação de Datas */}
           <div className="flex items-center bg-white/80 border border-border rounded-md relative">
@@ -2172,25 +1500,45 @@ export const Agenda: React.FC = () => {
             </div>
           </div>
 
-          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) */}
-          <AgendaEquipeFilter
-            professionals={professionals}
-            selectedProfessionalIds={selectedProfessionalIds}
-            onToggleProfessional={toggleProfessionalFilter}
-            onSelectAllProfessionals={() =>
-              setSelectedProfessionalIds(professionals.map((p) => p.id))
-            }
-          />
+          {/* Filtro de Barbeiros Unificado (Visão Dia e Visão Semana) — oculto no modo travado ao profissional */}
+          {!lockedProfessionalId && (
+            <AgendaEquipeFilter
+              professionals={professionals}
+              selectedProfessionalIds={selectedProfessionalIds}
+              onToggleProfessional={toggleProfessionalFilter}
+              onSelectAllProfessionals={() =>
+                setSelectedProfessionalIds(professionals.map((p) => p.id))
+              }
+            />
+          )}
 
-          {/* Botão Fila de Espera */}
-          <Tooltip content="Ver fila de clientes aguardando no balcão">
+          {/* Botão Fila de Espera — oculto no modo travado ao profissional */}
+          {!lockedProfessionalId && (
+            <Tooltip content="Ver fila de clientes aguardando no balcão">
+              <button
+                type="button"
+                className={HEADER_SECONDARY_BUTTON_CLASS}
+                onClick={() => setIsEsperaDrawerOpen(true)}
+              >
+                <HugeiconsIcon icon={UserGroupIcon} size={16} />
+                <span>Espera</span>
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Botão Cancelados do dia */}
+          <Tooltip content="Ver os atendimentos cancelados do dia e o motivo">
             <button
               type="button"
-              className="w-32 min-w-32 h-9 inline-flex items-center justify-center gap-1.5 px-2 bg-bg-secondary border border-border rounded-md text-xs font-bold text-text-primary cursor-pointer transition-all duration-200 box-border whitespace-nowrap hover:border-brand-primary"
-              onClick={() => setIsEsperaDrawerOpen(true)}
+              className={HEADER_SECONDARY_BUTTON_CLASS}
+              onClick={abrirCancelados}
             >
-              <HugeiconsIcon icon={UserGroupIcon} size={16} />
-              <span>Espera</span>
+              <span>Cancelados</span>
+              {!canceladosComErro && (
+                <Badge variant="neutral" badgeType="subtle" size="xs">
+                  {canceladosDoDia.length}
+                </Badge>
+              )}
             </button>
           </Tooltip>
 
@@ -2220,6 +1568,16 @@ export const Agenda: React.FC = () => {
           </Tooltip>
         </div>
       </header>
+
+      {blockedSlotsComErro && (
+        <div
+          className="flex items-center gap-2 bg-warning-bg border border-warning text-warning rounded-lg px-4 py-2 text-xs font-bold shrink-0"
+          role="status"
+        >
+          <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+          <span>Não foi possível carregar os Bloqueios de Horário. A grade pode não refletir horários bloqueados.</span>
+        </div>
+      )}
 
       {/* 2. GRADE TEMPORAL CONTÍNUA */}
       <div className="w-full flex-1 min-h-0 max-h-none overflow-auto overscroll-contain bg-bg-secondary border border-border/70 rounded-lg p-0 shadow-sm relative top-0 left-0 [scrollbar-width:thin] [scrollbar-color:rgba(45,35,30,0.25)_transparent] hover:[scrollbar-color:rgba(45,35,30,0.45)_transparent] [&::-webkit-scrollbar]:h-[5px] [&::-webkit-scrollbar]:w-[5px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.15)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(45,35,30,0.35)]">
@@ -2501,7 +1859,11 @@ export const Agenda: React.FC = () => {
                                 className={getAppointmentCardClasses(cardState, app.is_fitting)}
                                 data-testid="appointment-card"
                                 onClick={() => handleOpenCheckout(app)}
-                                title={`Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`}
+                                title={
+                                  lockedProfessionalId
+                                    ? `Clique para ver as ações de ${app.customer?.name || 'Cliente'}`
+                                    : `Clique para abrir comanda/detalhes de ${app.customer?.name || 'Cliente'}`
+                                }
                                 style={{
                                   top: `${layout.topPx}px`,
                                   height: `${layout.heightPx}px`,
@@ -2515,24 +1877,19 @@ export const Agenda: React.FC = () => {
                                   </span>
                                   <div className="flex items-center gap-1">
                                     {app.is_fitting && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-brand-deep text-white" title="Encaixe">
-                                        Encaixe
-                                      </span>
+                                      <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe">Encaixe</Badge>
+                                    )}
+                                    {app.from_waiting_list && (
+                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-[#b91c1c] text-white" title="Não compareceu">
-                                        Não compareceu
-                                      </span>
+                                      <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu">Não compareceu</Badge>
                                     )}
                                     {app.status === 'in_progress' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-info text-white" title="Em Atendimento">
-                                        Atendendo
-                                      </span>
+                                      <Badge variant="info" badgeType="solid" size="xs" title="Em Atendimento">Atendendo</Badge>
                                     )}
-                                    {app.payment_status === 'paid' && (
-                                      <span className="text-[0.6rem] font-bold py-0.5 px-1.5 rounded-sm uppercase whitespace-nowrap leading-tight bg-success text-white" title="Pago">
-                                        Pago
-                                      </span>
+                                    {cardState === 'completed' && (
+                                      <Badge variant="success" badgeType="solid" size="xs" title="Pago">Pago</Badge>
                                     )}
                                   </div>
                                 </div>
@@ -2549,7 +1906,7 @@ export const Agenda: React.FC = () => {
 
                                 </div>
 
-                                {app.payment_status === 'paid' && (
+                                {cardState === 'completed' && (
                                   <div className="flex items-center gap-1 mt-auto pt-[0.2rem] border-t border-black/5">
                                     <span className="text-success flex items-center">
                                       <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} /> Pago
@@ -2792,19 +2149,16 @@ export const Agenda: React.FC = () => {
                                   </span>
                                   <div className="flex items-center gap-0.5 shrink-0">
                                     {app.is_fitting && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-brand-deep text-white" title="Encaixe">
-                                        Encaixe
-                                      </span>
+                                      <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe" className={CARD_BADGE_WEEK_CLASS}>Encaixe</Badge>
+                                    )}
+                                    {app.from_waiting_list && (
+                                      <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera" className={CARD_BADGE_WEEK_CLASS}>Espera</Badge>
                                     )}
                                     {app.status === 'no_show' && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-[#b91c1c] text-white" title="Não compareceu">
-                                        Não compareceu
-                                      </span>
+                                      <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu" className={CARD_BADGE_WEEK_CLASS}>Não compareceu</Badge>
                                     )}
-                                    {app.payment_status === 'paid' && (
-                                      <span className="text-[0.52rem] py-px px-[3px] whitespace-nowrap leading-none tracking-[0.2px] rounded-sm uppercase bg-success text-white" title="Pago">
-                                        Pago
-                                      </span>
+                                    {cardState === 'completed' && (
+                                      <Badge variant="success" badgeType="solid" size="xs" title="Pago" className={CARD_BADGE_WEEK_CLASS}>Pago</Badge>
                                     )}
                                   </div>
                                 </div>
@@ -2830,306 +2184,27 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* 3. MODAL DE NOVO AGENDAMENTO / ENCAIXE */}
-      <Modal
+      <NovoAgendamentoModal
         isOpen={isModalOpen}
+        initial={novoInicial}
+        tenantId={tenant.tenantId}
+        timezone={tenant.timezone}
+        businessHours={tenant.businessHours}
+        slotIntervalMinutes={slotIntervalMinutes}
+        professionals={lockedProfessionalId ? visibleProfessionals : professionals}
+        lockedProfessionalId={lockedProfessionalId}
+        services={services}
+        customers={customers}
+        appointments={appointments}
         onClose={() => {
           setIsModalOpen(false);
           clearActionUrl();
         }}
-        title={formIsFitting ? 'Novo encaixe rápido' : 'Novo agendamento'}
-      >
-        <form onSubmit={handleSaveAppointment} className="flex flex-col gap-4 w-full max-w-full min-w-0">
-          {/* Seletor de Modo do Cliente */}
-          <div className="flex bg-black/5 p-1 rounded-md gap-1">
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'existing' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('existing')}
-            >
-              Cliente cadastrado
-            </button>
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'new' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('new')}
-            >
-              Novo cadastro
-            </button>
-            <button
-              type="button"
-              className={`flex-1 border-none py-2 px-[0.6rem] text-xs font-bold rounded-sm bg-none text-text-primary shadow-none cursor-pointer transition-all duration-150 flex items-center justify-center text-center min-h-10 ${customerMode === 'none' ? 'bg-bg-secondary shadow-[0_0_0_1px_#000000,0_1px_2px_rgba(45,35,30,0.06)]' : ''}`}
-              onClick={() => setCustomerMode('none')}
-            >
-              Sem cadastro (Balcão)
-            </button>
-          </div>
-
-          {customerMode === 'existing' ? (
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Cliente"
-                id="select-customer"
-                value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                required
-              >
-                <option value="">Selecione um cliente...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-              {customers.find((c) => c.id === selectedCustomerId)?.phone && (
-                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
-                  <span>WhatsApp: <strong>{customers.find((c) => c.id === selectedCustomerId)?.phone}</strong></span>
-                </div>
-              )}
-            </div>
-          ) : customerMode === 'new' ? (
-            <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-                <label htmlFor="new-customer-name">Nome do cliente</label>
-                <input
-                  id="new-customer-name"
-                  type="text"
-                  placeholder="Ex: João da Silva"
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-                <label htmlFor="new-customer-phone">WhatsApp ou celular</label>
-                <input
-                  id="new-customer-phone"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={newCustomerPhone}
-                  onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="py-3 px-[0.85rem] bg-black/[0.02] border-none rounded-md text-[0.82rem] leading-relaxed text-text-primary mb-2 [&_span]:text-text-primary">
-              <span>ℹ️ Atendimento avulso de balcão sem identificação de cliente. A comanda será aberta normalmente sem criar clientes fictícios no banco.</span>
-            </div>
-          )}
-
-          {/* Seleção de Profissional e Serviço */}
-          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Profissional"
-                id="select-professional"
-                value={formProfessionalId}
-                onChange={(e) => setFormProfessionalId(e.target.value)}
-                required
-              >
-                {availableProfessionalsForFormTime.length > 0 ? (
-                  <>
-                    <option value={ANY_PROFESSIONAL}>Tanto faz</option>
-                    {availableProfessionalsForFormTime.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </>
-                ) : (
-                  <option value="" disabled>
-                    Nenhum barbeiro disponível (intervalo/folga)
-                  </option>
-                )}
-              </Select>
-              {availableProfessionalsForFormTime.length === 0 && (
-                <span className="text-xs mt-1 block">
-                  Nenhum barbeiro disponível às {formTime} (intervalo ou folga).
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0">
-              <Select
-                label="Serviço"
-                id="select-service"
-                value={formServiceId}
-                onChange={(e) => setFormServiceId(e.target.value)}
-                required
-              >
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-              {services.find((s) => s.id === formServiceId) && (
-                <div className="inline-flex items-center gap-[0.4rem] mt-1 text-xs text-text-primary [&_span]:text-text-primary [&_strong]:text-text-primary [&_strong]:font-bold">
-                  <span>Duração: <strong>{services.find((s) => s.id === formServiceId)?.duration_minutes} min</strong></span>
-                  <span>•</span>
-                  <span>Valor: <strong>R$ {Number(services.find((s) => s.id === formServiceId)?.price).toFixed(2)}</strong></span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Data e Horário */}
-          <div className="grid grid-cols-2 gap-3 w-full min-w-0 max-[480px]:grid-cols-1">
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="form-date">Data do atendimento</label>
-              <input
-                id="form-date"
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="form-time">Horário de início</label>
-              {formIsFitting && fittingTimeMode === 'custom' ? (
-                <input
-                  id="form-time"
-                  type="time"
-                  step="60"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              ) : modalAvailableTimeSlots.length > 0 ? (
-                <Select
-                  id="form-time"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  required
-                >
-                  {formIsFitting && !modalAvailableTimeSlots.includes(formTime) && (
-                    <option value={formTime}>{formTime} (fora da grade)</option>
-                  )}
-                  {modalAvailableTimeSlots.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <input
-                  id="form-time"
-                  type="time"
-                  step="60"
-                  value={formTime}
-                  onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
-                  required
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Card de Encaixe de Balcão */}
-          <div className="p-3 px-[0.9rem] rounded-md bg-bg-primary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 min-w-0 box-border transition-all duration-200 max-[480px]:grid-cols-[minmax(0,1fr)]">
-            <div className="flex flex-col gap-[0.15rem] min-w-0">
-              <div className="flex items-center gap-[0.4rem] flex-wrap">
-                {isPastFormTime && (
-                  <span className="text-[0.62rem] font-bold py-[0.1rem] px-[0.35rem] rounded-sm uppercase bg-bg-secondary text-text-secondary">
-                    Obrigatório (passado)
-                  </span>
-                )}
-              </div>
-              <span className="text-[0.72rem] text-text-primary">
-                {formIsFitting && fittingTimeMode === 'custom'
-                  ? 'Horário personalizado: permite registrar uma exceção fora da grade e do expediente configurado.'
-                  : isPastFormTime
-                  ? 'Horário já decorrido: o registro neste horário é restrito a Encaixe de balcão.'
-                  : 'Permite atender dois clientes no mesmo horário dividindo a coluna da grade.'}
-              </span>
-            </div>
-            {formIsFitting && (
-              <div
-                className="flex items-center justify-end gap-[0.45rem] min-w-0 max-[480px]:justify-start max-[480px]:w-full"
-                role="group"
-                aria-label="Modalidade do horário do encaixe"
-              >
-                <span className="text-[0.68rem] font-bold text-text-primary transition-colors duration-200">
-                  Grade
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={fittingTimeMode === 'custom'}
-                  aria-label="Alternar entre horário da grade e personalizado"
-                  className={`relative w-[2.55rem] h-[1.35rem] p-[0.15rem] border-0 rounded-full cursor-pointer transition-[background-color,box-shadow] duration-200 box-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary focus-visible:outline-offset-2 ${fittingTimeMode === 'custom' ? 'bg-brand-primary shadow-[0_0_0_0.8px_var(--color-brand-primary)]' : 'bg-[#D1D5DB] shadow-[0_0_0_0.8px_var(--color-text-primary)]'}`}
-                  onClick={() => setFittingTimeMode((current) => current === 'grid' ? 'custom' : 'grid')}
-                >
-                  <span className={`block w-[0.95rem] h-[0.95rem] rounded-full bg-bg-secondary shadow-sm transition-transform duration-200 ${fittingTimeMode === 'custom' ? 'translate-x-[1.05rem]' : 'translate-x-0'}`} />
-                </button>
-                <button
-                  type="button"
-                  className="border-0 p-0 bg-transparent font-[inherit] cursor-pointer text-[0.68rem] font-bold text-text-primary transition-colors duration-200"
-                  aria-label="Horário personalizado"
-                  onClick={() => setFittingTimeMode('custom')}
-                >
-                  Personalizado
-                </button>
-              </div>
-            )}
-            <label className={`flex items-center gap-2 text-sm m-0 whitespace-nowrap ${isPastFormTime ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-              <input
-                type="checkbox"
-                aria-label="Marcar como Encaixe de Balcão"
-                checked={formIsFitting}
-                disabled={isPastFormTime}
-                onChange={(e) => {
-                  setFormIsFitting(e.target.checked);
-                  if (!e.target.checked) setFittingTimeMode('grid');
-                }}
-              />
-              <span className="text-xs font-bold text-text-primary">Encaixe</span>
-            </label>
-          </div>
-
-          {/* Observações */}
-          <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-            <label htmlFor="form-notes">Observações do atendimento (opcional)</label>
-            <textarea
-              id="form-notes"
-              rows={2}
-              placeholder="Ex: Cliente prefere tesoura no topo, café sem açúcar..."
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
-            />
-          </div>
-
-          <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-            <button
-              type="button"
-              className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-              onClick={() => {
-                setIsModalOpen(false);
-                clearActionUrl();
-              }}
-              disabled={savingAppointment}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover" disabled={savingAppointment}>
-              {savingAppointment ? (
-                <span>Salvando...</span>
-              ) : formIsFitting ? (
-                <span>Confirmar encaixe na agenda</span>
-              ) : (
-                <span>Salvar agendamento</span>
-              )}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        onSaved={({ newCustomer }) => {
+          if (newCustomer) setCustomers((prev) => [...prev, newCustomer]);
+          fetchAppointments();
+        }}
+      />
 
       {/* 4. MODAL DE CHECKOUT DE COMANDA */}
       {checkoutAppointment && (
@@ -3158,9 +2233,6 @@ export const Agenda: React.FC = () => {
           availableServices={services}
           availableProfessionals={professionals}
           timezone={tenant.timezone}
-          appointmentDurationMinutes={
-            services.find((s) => s.id === checkoutAppointment.service?.id)?.duration_minutes || 30
-          }
           onClose={() => {
             setIsCheckoutModalOpen(false);
             setCheckoutAppointment(null);
@@ -3169,7 +2241,7 @@ export const Agenda: React.FC = () => {
             addToast('Atendimento reagendado com sucesso!', 'success');
             fetchAppointments();
           }}
-          onMarkNoShow={() => handleConfirmNoShow(checkoutAppointment)}
+          onMarkNoShow={() => handleNoShowFromCheckout(checkoutAppointment)}
           onFinalizado={(_comanda: Comanda) => {
             addToast('Comanda liquidada e recebimento registrado com sucesso!', 'success');
             fetchAppointments();
@@ -3181,7 +2253,7 @@ export const Agenda: React.FC = () => {
       <BloqueioModal
         isOpen={isBloqueioModalOpen}
         tenantId={tenant.tenantId}
-        professionals={professionals}
+        professionals={lockedProfessionalId ? visibleProfessionals : professionals}
         appointments={appointments}
         blockedSlots={blockedSlots}
         defaultDateIso={selectedDate}
@@ -3215,185 +2287,84 @@ export const Agenda: React.FC = () => {
       />
 
       {/* 5b. CONFIRMAÇÃO DE NÃO COMPARECIMENTO */}
-      <Modal
+      <NaoCompareceuModal
         isOpen={isNoShowModalOpen}
+        appointment={noShowAppointment}
+        tenantId={tenant.tenantId}
         onClose={() => {
           setIsNoShowModalOpen(false);
           setNoShowAppointment(null);
         }}
-        title="Confirmar não comparecimento"
-      >
-        {noShowAppointment && (
-          <div className="cancel-modal-body">
-            <p className="text-sm text-text-primary leading-relaxed mb-4">
-              Deseja marcar o atendimento de{' '}
-              <strong>{noShowAppointment.customer?.name || 'Cliente'}</strong> como não compareceu?
-              A comanda aberta vinculada será cancelada e nenhum novo pagamento será permitido.
-            </p>
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => {
-                  setIsNoShowModalOpen(false);
-                  setNoShowAppointment(null);
-                }}
-              >
-                Não marcar
-              </button>
-              <button
-                type="button"
-                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
-                onClick={() => void handleConfirmNoShow()}
-              >
-                Sim, não compareceu
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onResultado={handleNaoCompareceuResultado}
+      />
 
       {/* 6. MODAL DE CANCELAMENTO */}
-      <Modal
+      <CancelarAgendamentoModal
         isOpen={isCancelModalOpen}
+        appointment={targetAppointment}
+        tenantId={tenant.tenantId}
         onClose={() => setIsCancelModalOpen(false)}
-        title="Cancelar Agendamento"
-      >
-        {targetAppointment && (
-          <div className="cancel-modal-body">
-            <p className="text-sm text-text-primary leading-relaxed mb-4">
-              Deseja realmente cancelar o agendamento de{' '}
-              <strong>{targetAppointment.customer?.name}</strong> para o serviço{' '}
-              <strong>{targetAppointment.service?.name}</strong>?
-            </p>
-
-            <div className="flex flex-col gap-[0.35rem] min-w-0 [&_label]:text-xs [&_label]:font-bold [&_label]:text-text-primary [&_label]:uppercase [&_label]:tracking-[0.04em]">
-              <label htmlFor="cancel-reason">Motivo do Cancelamento (Opcional)</label>
-              <textarea
-                id="cancel-reason"
-                rows={2}
-                placeholder="Ex: Cliente solicitou reagendamento por telefone..."
-                value={cancellationReason}
-                onChange={(e) => setCancellationReason(e.target.value)}
-                className="w-full min-w-0 max-w-full py-[0.65rem] px-[0.85rem] border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md bg-bg-secondary text-text-primary text-sm font-[inherit] box-border transition-shadow duration-150 focus:outline-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)] resize-y min-h-[60px] max-h-40 leading-[1.4]"
-              />
-            </div>
-
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full">
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => setIsCancelModalOpen(false)}
-                disabled={cancelingAppointment}
-              >
-                Não Cancelar
-              </button>
-              <button
-                type="button"
-                className="bg-error text-white border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border"
-                onClick={handleConfirmCancellation}
-                disabled={cancelingAppointment}
-              >
-                {cancelingAppointment ? 'Cancelando...' : 'Sim, Cancelar Horário'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onCancelado={(appointmentId) => {
+          // Atualização otimista imediata para liberar o horário na tela sem refresh (a trigger no banco cancela a comanda atrelada)
+          setAppointments((prev) => prev.filter((a) => a.id !== appointmentId));
+          fetchAppointments();
+        }}
+      />
 
       {/* 7. MODAL DE REAGENDAMENTO DIRETO NA AGENDA */}
-      <Modal
+      <ReagendarAgendamentoModal
         isOpen={isAgendaRescheduleModalOpen}
+        appointment={agendaRescheduleAppointment}
+        tenantId={tenant.tenantId}
+        timezone={tenant.timezone}
+        businessHours={tenant.businessHours}
+        slotIntervalMinutes={slotIntervalMinutes}
+        professionals={professionals}
+        appointments={appointments}
+        blockedSlots={blockedSlots}
+        fallbackDate={selectedDate}
         onClose={() => {
           setIsAgendaRescheduleModalOpen(false);
           setAgendaRescheduleAppointment(null);
         }}
-        title="Reagendar Atendimento"
-      >
-        {agendaRescheduleAppointment && (
-          <div className="reschedule-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
-              Reagendar horário de <strong>{agendaRescheduleAppointment.customer?.name}</strong> para o serviço{' '}
-              <strong>{agendaRescheduleAppointment.service?.name}</strong>.
-            </p>
+        onAtualizar={fetchAppointments}
+      />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Nova data"
-                id="agenda_reschedule_date"
-                type="date"
-                value={agendaRescheduleDate}
-                onChange={(e) => setAgendaRescheduleDate(e.target.value)}
-              />
-              <Select
-                label="Novo horário"
-                id="agenda_reschedule_time"
-                value={agendaRescheduleTime}
-                onChange={(e) => setAgendaRescheduleTime(e.target.value)}
-              >
-                <option value="">Selecione um horário livre...</option>
-                {agendaRescheduleAvailableSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
-                  </option>
-                ))}
-                {agendaRescheduleAvailableSlots.length === 0 && (
-                  <option value="" disabled>
-                    Nenhum horário livre nesta data
-                  </option>
-                )}
-              </Select>
-            </div>
+      {/* 7. GAVETA DE LISTA DE ESPERA — oculta no modo travado ao profissional */}
+      {!lockedProfessionalId && (
+        <ListaEsperaDrawer
+          isOpen={isEsperaDrawerOpen}
+          tenantId={tenant.tenantId}
+          currentDateIso={selectedDate}
+          timezone={tenant.timezone}
+          professionals={professionals}
+          services={services}
+          onClose={() => {
+            setIsEsperaDrawerOpen(false);
+            clearActionUrl();
+          }}
+          onEncaixar={handleEncaixarFromWaitingList}
+          esperaRepo={esperaRepository}
+        />
+      )}
 
-            <Select
-              label="Profissional"
-              id="agenda_reschedule_prof"
-              value={agendaRescheduleProfId}
-              onChange={(e) => setAgendaRescheduleProfId(e.target.value)}
-            >
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
-
-            <div className="flex justify-end items-center gap-3 mt-2 flex-wrap max-[480px]:flex-col-reverse max-[480px]:flex-nowrap max-[480px]:w-full [&>button]:max-[480px]:w-full" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
-              <button
-                type="button"
-                className="bg-bg-secondary border-0 shadow-[0_0_0_0.8px_var(--color-text-primary)] py-[0.6rem] px-5 rounded-md text-sm font-bold text-text-primary cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-black/[0.04]"
-                onClick={() => {
-                  setIsAgendaRescheduleModalOpen(false);
-                  setAgendaRescheduleAppointment(null);
-                }}
-                disabled={isAgendaRescheduling}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="bg-brand-primary text-bg-secondary border-none py-[0.6rem] px-6 rounded-md text-sm font-bold cursor-pointer min-h-11 box-border transition-colors duration-150 hover:bg-brand-hover"
-                onClick={handleConfirmAgendaReschedule}
-                disabled={isAgendaRescheduling}
-              >
-                {isAgendaRescheduling ? 'Salvando...' : 'Confirmar Reagendamento'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* 7. GAVETA DE LISTA DE ESPERA */}
-      <ListaEsperaDrawer
-        isOpen={isEsperaDrawerOpen}
-        tenantId={tenant.tenantId}
-        currentDateIso={selectedDate}
-        professionals={professionals}
-        services={services}
-        onClose={() => {
-          setIsEsperaDrawerOpen(false);
-          clearActionUrl();
+      {/* 8. PAINEL DE CANCELADOS DO DIA */}
+      <PainelCanceladosDoDia
+        isOpen={isCanceladosOpen}
+        onClose={fecharCancelados}
+        cancelados={canceladosDoDia}
+        timezone={tenant.timezone}
+        falhouAoCarregar={canceladosComErro}
+        onContatarCliente={(cancelado) => {
+          const phone = cancelado.customer?.phone;
+          if (!phone) return;
+          const nome = cancelado.customer?.name || CLIENTE_DE_BALCAO;
+          const horario = formatTimeInZone(cancelado.start_time, tenant.timezone);
+          openWhatsApp(
+            phone,
+            `Olá ${nome}! O horário das ${horario} ficou livre na ${tenant.tenantName}. Quer remarcar?`
+          );
         }}
-        onEncaixar={handleEncaixarFromWaitingList}
-        esperaRepo={esperaRepository}
       />
     </div>
   );

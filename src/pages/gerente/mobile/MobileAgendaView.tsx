@@ -7,6 +7,8 @@ import {
   PlusSignIcon,
   UnavailableIcon,
   Clock01Icon,
+  AlertCircleIcon,
+  CancelCircleIcon,
 } from '@hugeicons/core-free-icons';
 import {
   dateInZone,
@@ -16,6 +18,7 @@ import {
 import { getDayBusinessHours } from '../Agenda';
 import type { Appointment, Professional } from '../Agenda';
 import { CustomDatePicker } from '../../../components/CustomDatePicker';
+import { Badge } from '../../../components/ui/data-display/Badge';
 import {
   isProfessionalOnBreak,
   isProfessionalWorkingAt,
@@ -31,6 +34,8 @@ interface MobileAgendaViewProps {
   professionals: Professional[];
   appointments: Appointment[];
   blockedSlots: BlockedSlot[];
+  /** A leitura de Bloqueios falhou: os Agendamentos continuam na lista, mas ela pode não estar completa. */
+  blockedSlotsComErro?: boolean;
   timeSlots: string[];
   onOpenNewAppointment: (professionalId?: string, timeSlot?: string, isFitting?: boolean) => void;
   onOpenCheckout: (app: Appointment) => void;
@@ -42,6 +47,10 @@ interface MobileAgendaViewProps {
   onRemoveBlock: (blk: BlockedSlot) => void | Promise<void>;
   onOpenBloqueio?: () => void;
   onOpenEspera?: () => void;
+  /** O que o toque no card faz, no fim de "Toque para ...". O gestor abre a comanda; o barbeiro, as ações do Agendamento. */
+  cardActionHint?: string;
+  /** Cancelamentos do dia selecionado, já recortados pelo filtro de equipe; abre o Painel de Cancelados do Dia (spec 044, ticket 15). Omitido, a faixa não aparece — hoje só o gerente tem o painel no celular. */
+  cancelamentosDoDia?: { quantidade: number; comErro: boolean; onAbrir: () => void };
 }
 
 interface TimelineItem {
@@ -94,6 +103,7 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   professionals,
   appointments,
   blockedSlots,
+  blockedSlotsComErro = false,
   timeSlots,
   onOpenNewAppointment,
   onOpenCheckout,
@@ -105,6 +115,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
   onRemoveBlock,
   onOpenBloqueio: _onOpenBloqueio,
   onOpenEspera: _onOpenEspera,
+  cardActionHint = 'abrir a comanda',
+  cancelamentosDoDia,
 }) => {
   // Filtrar profissionais ativos
   const activeProfessionals = useMemo(
@@ -347,6 +359,40 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
         })}
       </div>
 
+      {blockedSlotsComErro && (
+        <div
+          className="flex items-center gap-2 bg-warning-bg border border-warning text-warning rounded-xl px-3 py-2 text-[0.75rem] font-bold w-full box-border"
+          role="status"
+        >
+          <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+          <span>Não foi possível carregar os Bloqueios de Horário. A lista pode não refletir horários bloqueados.</span>
+        </div>
+      )}
+
+      {/* ─── FAIXA DE CANCELADOS DO DIA (spec 044, ticket 15) ─── */}
+      {cancelamentosDoDia && (cancelamentosDoDia.comErro || cancelamentosDoDia.quantidade > 0) && (
+        <button
+          type="button"
+          onClick={cancelamentosDoDia.onAbrir}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 min-h-11 text-[0.75rem] font-bold w-full box-border border cursor-pointer ${
+            cancelamentosDoDia.comErro
+              ? 'bg-warning-bg border-warning text-warning'
+              : 'bg-info-bg border-info text-info'
+          }`}
+        >
+          <HugeiconsIcon
+            icon={cancelamentosDoDia.comErro ? AlertCircleIcon : CancelCircleIcon}
+            size={16}
+            className="shrink-0"
+          />
+          <span>
+            {cancelamentosDoDia.comErro
+              ? 'Não foi possível carregar os cancelamentos do dia.'
+              : `${cancelamentosDoDia.quantidade} ${cancelamentosDoDia.quantidade === 1 ? 'cancelamento' : 'cancelamentos'} no dia. Toque para ver.`}
+          </span>
+        </button>
+      )}
+
       {/* ─── LINHA DO TEMPO CRONOLÓGICA ─── */}
       <div className="flex flex-col gap-3 w-full box-border">
         {timelineItems.length === 0 ? (
@@ -530,8 +576,8 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                         onOpenCheckout(app);
                       }
                     }}
-                    title="Toque para abrir a comanda"
-                    aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Toque para abrir comanda.`}
+                    title={`Toque para ${cardActionHint}`}
+                    aria-label={`Agendamento de ${app.customer?.name || 'Cliente'} para ${app.service?.name || 'Serviço'} às ${timeStart}. Toque para ${cardActionHint}.`}
                   >
                     <div className="flex items-center justify-between gap-2 w-full min-w-0">
                       <div className="flex items-center min-w-11 shrink-0">
@@ -554,13 +600,16 @@ export const MobileAgendaView: React.FC<MobileAgendaViewProps> = ({
                           {(app.service?.name || 'Serviço').toUpperCase()} - R$ {Number(app.service?.price || 0).toFixed(2)}
                         </span>
                         {isFitting && (
-                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b45309] text-white text-[0.65rem] font-bold">Encaixe</span>
+                          <Badge variant="brand" badgeType="solid" size="xs" title="Encaixe">Encaixe</Badge>
+                        )}
+                        {app.from_waiting_list && (
+                          <Badge variant="brand" badgeType="subtle" size="xs" title="Veio da Lista de Espera">Espera</Badge>
                         )}
                         {isCompletedAndPaid && (
-                          <span className="text-[0.5625rem] font-bold text-[#065f46] bg-[rgba(16,185,129,0.25)] py-px px-[5px] rounded-[3px] uppercase">Pago</span>
+                          <Badge variant="success" badgeType="solid" size="xs" title="Pago">Pago</Badge>
                         )}
                         {isNoShow && (
-                          <span className="inline-flex items-center rounded-full py-[2px] px-1.5 bg-[#b91c1c] text-white text-[0.65rem] font-bold">Não compareceu</span>
+                          <Badge variant="error" badgeType="solid" size="xs" title="Não compareceu">Não compareceu</Badge>
                         )}
                       </div>
                     </div>

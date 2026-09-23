@@ -1,7 +1,9 @@
 import type {
+  ConsultarItensComissaoInput,
   ConsultarSaldoInput,
   EstornarQuitacaoInput,
   IComissaoAdapter,
+  ItemComissaoGerada,
   ObterExtratoInput,
   ProfessionalAccountStatement,
   QuitacaoEstornada,
@@ -75,6 +77,25 @@ export class ComissaoRepository {
     }
 
     return await this.adapter.obterExtratoProfissional(input);
+  }
+
+  /**
+   * Itens que geraram comissao no periodo, pelo valor gravado no fechamento da Comanda. A soma bate com
+   * a comissao gerada do saldo (mesma fonte e mesmo recorte); o barbeiro so consulta o proprio profissional.
+   */
+  async obterItensComissaoProfissional(input: ConsultarItensComissaoInput): Promise<ItemComissaoGerada[]> {
+    if (!input.professional_id || !input.professional_id.trim()) {
+      throw new ComissaoValidationError('ID do profissional é obrigatório.');
+    }
+    if (
+      input.start_date &&
+      input.end_date &&
+      Date.parse(input.start_date) > Date.parse(input.end_date)
+    ) {
+      throw new ComissaoValidationError('O período informado é inválido.');
+    }
+
+    return await this.adapter.obterItensComissao(input);
   }
 
   // Aliases para compatibilidade (pt-BR e en)

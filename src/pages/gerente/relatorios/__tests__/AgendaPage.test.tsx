@@ -101,7 +101,12 @@ function respostaBase(overrides: Partial<RelatorioAgenda> = {}): RelatorioAgenda
         attendance_rate: 1,
       },
     ],
-    cancellation_reasons: [{ reason: 'cliente desistiu', count: 2 }],
+    cancellation_reasons: {
+      shop: [{ reason: 'cliente desistiu', count: 2 }],
+      customer: [],
+      desconhecida: [],
+    },
+    waiting_list: { total: 0, completed: 0 },
     heatmap: {
       hours: [9, 10],
       cells: [
@@ -138,6 +143,37 @@ describe('AgendaPage', () => {
       expect(screen.getByText('Agendamentos por origem')).toBeInTheDocument();
     });
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('mostra quantos Agendamentos vieram da Lista de Espera, e quantos desses foram concluídos (spec 044, ticket 17)', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () =>
+      respostaBase({ waiting_list: { total: 5, completed: 3 } })
+    );
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<AgendaPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Vindos da Lista de Espera')).toBeInTheDocument();
+    });
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('3 concluídos')).toBeInTheDocument();
+  });
+
+  it('mostra zero, não vazio, quando não há Agendamento vindo da Lista de Espera no período', async () => {
+    const adapter = new FakeRelatoriosAdapter(async () =>
+      respostaBase({ waiting_list: { total: 0, completed: 0 } })
+    );
+    const repository = new RelatoriosRepository(adapter);
+
+    render(<AgendaPage repository={repository} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Vindos da Lista de Espera')).toBeInTheDocument();
+    });
+    const cartao = screen.getByText('Vindos da Lista de Espera').closest('.bg-bg-secondary') as HTMLElement;
+    expect(within(cartao).getByText('0')).toBeInTheDocument();
+    expect(within(cartao).getByText('0 concluídos')).toBeInTheDocument();
   });
 
   it('mostra "--" para taxa nula mesmo com Agendamento no período (denominador zero de uma das taxas)', async () => {

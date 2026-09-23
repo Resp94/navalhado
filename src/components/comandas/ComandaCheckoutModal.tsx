@@ -21,13 +21,14 @@ import {
 } from '@hugeicons/core-free-icons';
 import { ComandaRepository } from '../../modules/comandas/ComandaRepository';
 import { SupabaseComandaAdapter } from '../../modules/comandas/adapters/SupabaseComandaAdapter';
+import { AgendaRepository } from '../../modules/agenda/AgendaRepository';
+import { SupabaseAgendaAdapter } from '../../modules/agenda/adapters/SupabaseAgendaAdapter';
 import { CaixaRepository } from '../../modules/caixa/CaixaRepository';
 import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixaAdapter';
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
-import { supabase } from '../../lib/supabase';
-import { localDateTimeToIso } from '../../lib/timezone';
+import { dateInZone, formatTimeInZone, localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import { GorjetaValorInput } from './GorjetaValorInput';
 import { Button, Input, Select, IconButton, SegmentedControl } from '../ui';
@@ -69,7 +70,6 @@ interface ComandaCheckoutModalProps {
   availableServices?: ServiceOption[];
   availableProfessionals?: ProfessionalOption[];
   timezone?: string;
-  appointmentDurationMinutes?: number;
   onClose: () => void;
   onFinalizado: (comanda: Comanda) => void;
   onRescheduled?: (newStartTime: string, newProfessionalId?: string | null) => void;
@@ -77,6 +77,7 @@ interface ComandaCheckoutModalProps {
   comandaRepo?: ComandaRepository;
   caixaRepo?: CaixaRepository;
   produtoRepo?: ProdutoRepository;
+  agendaRepo?: AgendaRepository;
 }
 
 interface ItemLocal {
@@ -137,7 +138,6 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   availableServices = [],
   availableProfessionals = [],
   timezone = 'America/Sao_Paulo',
-  appointmentDurationMinutes = 30,
   onClose,
   onFinalizado,
   onRescheduled,
@@ -145,10 +145,12 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   comandaRepo,
   caixaRepo,
   produtoRepo,
+  agendaRepo,
 }) => {
   const comRepo = useMemo(() => comandaRepo || new ComandaRepository(new SupabaseComandaAdapter()), [comandaRepo]);
   const cxaRepo = useMemo(() => caixaRepo || new CaixaRepository(new SupabaseCaixaAdapter()), [caixaRepo]);
   const prodRepo = useMemo(() => produtoRepo || new ProdutoRepository(new SupabaseProdutoAdapter()), [produtoRepo]);
+  const agenRepo = useMemo(() => agendaRepo || new AgendaRepository(new SupabaseAgendaAdapter()), [agendaRepo]);
 
   const [comandaId, setComandaId] = useState<string | null>(initialComandaId);
   const checkoutOperationIdRef = useRef<string | null>(null);
@@ -182,6 +184,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [noShowConfirmOpen, setNoShowConfirmOpen] = useState(false);
   const [isMarkingNoShow, setIsMarkingNoShow] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -209,36 +212,22 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     const fetchSlots = async () => {
       setLoadingRescheduleSlots(true);
       try {
-        if (firstServiceId && typeof (supabase as any)?.rpc === 'function') {
-          const { data, error } = await supabase.rpc('get_available_slots', {
-            p_tenant_id: tenantId,
-            p_professional_id: rescheduleProfessionalId,
-            p_service_id: firstServiceId,
-            p_date: rescheduleDate,
-            p_exclude_appointment_id: appointmentId || null,
-          });
-          if (!error && Array.isArray(data) && data.length > 0) {
-            const slots = data.map((d) => (typeof d === 'object' && d !== null ? d.slot_time || d.slot : String(d)));
-            if (isMounted) setComandaRescheduleSlots(slots);
-            return;
-          }
+        if (!firstServiceId) {
+          if (isMounted) setComandaRescheduleSlots([]);
+          return;
         }
-        if (isMounted) {
-          setComandaRescheduleSlots([
-            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
-            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-            '18:00', '18:30', '19:00', '19:30'
-          ]);
-        }
+        // Só o que o banco devolve: falha na busca é erro visível, nunca uma grade inventada.
+        const slots = await agenRepo.listarHorariosLivres(tenantId, {
+          professionalId: rescheduleProfessionalId,
+          serviceId: firstServiceId,
+          date: rescheduleDate,
+          excludeAppointmentId: appointmentId || null,
+        });
+        if (isMounted) setComandaRescheduleSlots(slots);
       } catch (err) {
         if (isMounted) {
-          setComandaRescheduleSlots([
-            '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-            '11:00', '11:30', '13:00', '13:30', '14:00', '14:30',
-            '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-            '18:00', '18:30', '19:00', '19:30'
-          ]);
+          setComandaRescheduleSlots([]);
+          setErrorMsg(err instanceof Error ? err.message : 'Não foi possível carregar os horários livres.');
         }
       } finally {
         if (isMounted) {
@@ -252,7 +241,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isRescheduleModalOpen, rescheduleDate, rescheduleProfessionalId, tenantId, appointmentId, firstServiceId]);
+  }, [isRescheduleModalOpen, rescheduleDate, rescheduleProfessionalId, tenantId, appointmentId, firstServiceId, agenRepo]);
 
   const inFlightAdditionsRef = useRef<Map<string, Promise<string | undefined>>>(new Map());
 
@@ -266,25 +255,13 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setErrorMsg(null);
     try {
       const startTimeIso = localDateTimeToIso(rescheduleDate, rescheduleTime, timezone);
-      const durationMs = Math.max(15, appointmentDurationMinutes) * 60 * 1000;
-      const endTimeIso = new Date(new Date(startTimeIso).getTime() + durationMs).toISOString();
 
-      const updatePayload: Record<string, unknown> = {
-        start_time: startTimeIso,
-        end_time: endTimeIso,
-        updated_at: new Date().toISOString(),
-      };
-      if (rescheduleProfessionalId) {
-        updatePayload.professional_id = rescheduleProfessionalId;
-      }
-
-      const { error: updErr } = await supabase
-        .from('appointments')
-        .update(updatePayload)
-        .eq('id', appointmentId)
-        .eq('tenant_id', tenantId);
-
-      if (updErr) throw updErr;
+      // O fim vem da duração do profissional, calculada no banco, que também confere
+      // conflito, Bloqueio de Horário, expediente e escala.
+      await agenRepo.reagendar(tenantId, appointmentId, {
+        startTimeIso,
+        professionalId: rescheduleProfessionalId || null,
+      });
 
       setCurrentStartTime(startTimeIso);
       setIsRescheduleModalOpen(false);
@@ -364,6 +341,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     setIsSplitting(false);
     setReopenConfirmOpen(false);
     setCancelConfirmOpen(false);
+    setCancelReason('');
     setErrorMsg(null);
     setIsAddingService(false);
     setIsAddingProduct(false);
@@ -407,7 +385,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
             );
           }
 
-          if (existing.discount_amount) {
+          if (existing.discount_type === 'percent' && existing.discount_percent != null) {
+            setDiscountValue(existing.discount_percent);
+            setDiscountType('percent');
+          } else if (existing.discount_amount) {
             setDiscountValue(existing.discount_amount);
             setDiscountType('fixed');
           }
@@ -443,23 +424,26 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
   const isClosed = loadedComanda?.status === 'fechada';
 
   // Cálculos de Totais
-  const subtotal = useMemo(() => {
-    return itens.reduce((acc, it) => acc + (it.quantity || 1) * (it.unit_price || 0), 0);
-  }, [itens]);
-
-  const discountAmount = useMemo(() => {
-    if (discountType === 'percent') {
-      return (subtotal * (discountValue || 0)) / 100;
-    }
-    return Math.min(discountValue || 0, subtotal);
-  }, [subtotal, discountType, discountValue]);
+  // Um único cálculo, o mesmo do repositório e da RPC de liquidação, para o total
+  // mostrado ser exatamente o total gravado.
+  const totals = useMemo(
+    () =>
+      comRepo.calculateTotals(
+        itens.map((it) => ({ quantity: it.quantity || 1, unit_price: it.unit_price || 0 })),
+        { type: discountType === 'percent' ? 'percent' : 'amount', value: discountValue || 0 },
+        tipValue || 0
+      ),
+    [comRepo, itens, discountType, discountValue, tipValue]
+  );
+  const subtotal = totals.subtotal;
+  const discountAmount = totals.discount;
 
   const totalFinal = useMemo(() => {
     if (isClosed && loadedComanda) {
       return loadedComanda.total_amount;
     }
-    return Math.max(0, subtotal - discountAmount + (tipValue || 0));
-  }, [subtotal, discountAmount, tipValue, isClosed, loadedComanda]);
+    return totals.total;
+  }, [totals, isClosed, loadedComanda]);
 
   // Profissionais distintos presentes nos itens da comanda (ticket 04 da spec 034).
   // A gorjeta pergunta de quem é apenas quando há mais de um; com um só, resolve sozinha.
@@ -769,6 +753,11 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       return;
     }
 
+    if (tipValue > 0 && tipProfessionalOptions.length > 1 && !resolvedTipProfessionalId) {
+      setErrorMsg('Escolha o profissional que recebe a gorjeta.');
+      return;
+    }
+
     const effectivePagamentos =
       totalFinal === 0
         ? []
@@ -802,7 +791,9 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
         appointment_id: appointmentId ?? null,
         customer_id: customerId ?? null,
         discount_amount: discountAmount,
-        tip_amount: tipValue,
+        // Com percentual, o banco converte e grava o percentual original.
+        discount_percent: discountType === 'percent' && discountValue > 0 ? Math.min(100, discountValue) : null,
+        tip_amount: totals.tip,
         // Ticket 04 da spec 034: a atribuição de gorjeta é gravada no MESMO
         // fechamento, não por escrita separada antes -- o fluxo mais comum
         // (checkout de agendamento novo) só cria a linha da Comanda dentro do
@@ -833,6 +824,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
     }
   };
 
+  const hasAppointmentToCancel = !!(appointmentId || loadedComanda?.appointment_id);
+
   const handleCancelComandaEAgendamento = async () => {
     setIsCanceling(true);
     setErrorMsg(null);
@@ -840,12 +833,14 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
       const targetAppointmentId = appointmentId || loadedComanda?.appointment_id;
       const targetComandaId = comandaId || loadedComanda?.id;
 
-      const { error: cancelError } = await supabase.rpc('cancel_comanda_appointment', {
-        p_comanda_id: targetComandaId || null,
-        p_appointment_id: targetAppointmentId || null,
-        p_tenant_id: tenantId,
-      });
-      if (cancelError) throw cancelError;
+      if (targetAppointmentId) {
+        // A Comanda aberta do agendamento é cancelada pelo gatilho do banco, na mesma transação.
+        await agenRepo.cancelar(tenantId, targetAppointmentId, cancelReason);
+      } else {
+        // Comanda de balcão, sem agendamento: cancelamento de Comanda pelo ComandaRepository.
+        if (!targetComandaId) throw new Error('Comanda não encontrada para cancelar.');
+        await comRepo.cancelComanda(targetComandaId, tenantId);
+      }
 
       if (onFinalizado && loadedComanda) {
         onFinalizado({ ...loadedComanda, status: 'cancelada' });
@@ -925,7 +920,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span>
                           {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
                           {currentStartTime
-                            ? `: ${new Date(currentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(currentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            ? (() => {
+                                const [, month, day] = dateInZone(new Date(currentStartTime), timezone).split('-');
+                                return `: ${day}/${month} às ${formatTimeInZone(currentStartTime, timezone)}`;
+                              })()
                             : ''}
                           {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
                         </span>
@@ -939,11 +937,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               setReopenConfirmOpen(false);
                               setCancelConfirmOpen(false);
                               if (currentStartTime) {
-                                const d = new Date(currentStartTime);
-                                setRescheduleDate(d.toISOString().slice(0, 10));
-                                const hh = String(d.getHours()).padStart(2, '0');
-                                const mm = String(d.getMinutes()).padStart(2, '0');
-                                setRescheduleTime(`${hh}:${mm}`);
+                                setRescheduleDate(dateInZone(new Date(currentStartTime), timezone));
+                                setRescheduleTime(formatTimeInZone(currentStartTime, timezone));
                               }
                               setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
                               setIsRescheduleModalOpen((prev) => !prev);
@@ -1165,6 +1160,17 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                     </p>
                   </div>
                 </div>
+                {hasAppointmentToCancel && (
+                  <input
+                    type="text"
+                    aria-label="Motivo do cancelamento"
+                    placeholder="Motivo do cancelamento (obrigatório)"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    disabled={isCanceling}
+                    className="w-full px-[0.85rem] py-[0.55rem] text-sm text-text-primary bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] rounded-md outline-none border-none focus:shadow-[0_0_0_1.5px_var(--color-brand-primary)]"
+                  />
+                )}
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1175,7 +1181,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    disabled={isCanceling}
+                    disabled={isCanceling || (hasAppointmentToCancel && !cancelReason.trim())}
                     onClick={handleCancelComandaEAgendamento}
                     className="px-[0.9rem] py-[0.4rem] text-xs font-bold bg-error-solid text-white border-none rounded-md cursor-pointer transition-all duration-150 enabled:hover:brightness-[0.92] enabled:hover:-translate-y-px"
                   >
@@ -1471,10 +1477,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span>- R$ {discountAmount.toFixed(2)}</span>
                       </div>
                     )}
-                    {tipValue > 0 && (
+                    {totals.tip > 0 && (
                       <div className="flex justify-between items-center text-xs [&_span]:text-success [&_span]:font-bold">
                         <span>Gorjeta</span>
-                        <span>+ R$ {tipValue.toFixed(2)}</span>
+                        <span>+ R$ {totals.tip.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="h-px bg-text-primary/15 my-[0.2rem]" />
@@ -1609,7 +1615,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                                   <span>Troco a devolver:</span>
                                 </div>
                                 <strong className="text-base font-extrabold text-text-primary">
-                                  R$ {(pagamentos[0].receivedCash - totalFinal).toFixed(2)}
+                                  R$ {comRepo.calculateChange(totalFinal, pagamentos[0].receivedCash).toFixed(2)}
                                 </strong>
                               </div>
                             )}
@@ -1622,9 +1628,7 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <div className="flex flex-col gap-3">
                           {pagamentos.map((pag, idx) => {
                             const change =
-                              pag.method === 'cash' && pag.receivedCash > pag.amount
-                                ? pag.receivedCash - pag.amount
-                                : 0;
+                              pag.method === 'cash' ? comRepo.calculateChange(pag.amount, pag.receivedCash) : 0;
 
                             return (
                               <div key={idx} className="p-[0.85rem_1rem] rounded-lg bg-bg-secondary border-none shadow-[0_0_0_0.8px_var(--color-text-primary)] flex flex-col gap-3">

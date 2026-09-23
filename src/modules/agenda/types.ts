@@ -1,0 +1,170 @@
+import type { WeeklySchedule } from '../../lib/schedule';
+import type { BlockedSlot } from '../bloqueios/types';
+
+export type AgendamentoStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'in_progress'
+  | 'completed'
+  | 'canceled'
+  | 'no_show';
+
+export interface AgendaTransitionResult {
+  appointment_id: string;
+  status: AgendamentoStatus;
+}
+
+export interface ReagendarInput {
+  /** Novo início, em ISO 8601. O fim é calculado no banco pela duração do profissional. */
+  startTimeIso: string;
+  /** Novo profissional; omitido, mantém o atual. */
+  professionalId?: string | null;
+}
+
+export type ClienteDoAgendamento =
+  | { tipo: 'existente'; id: string }
+  | { tipo: 'novo'; nome: string; telefone: string }
+  | { tipo: 'nenhum' };
+
+export interface CriarAgendamentoInput {
+  serviceId: string;
+  /** Início em ISO 8601. O fim é calculado no banco pela duração do profissional. */
+  startTimeIso: string;
+  /** Omitido ou nulo é "Tanto faz": o banco resolve o profissional. */
+  professionalId?: string | null;
+  cliente: ClienteDoAgendamento;
+  isFitting?: boolean;
+  notes?: string | null;
+  /** Entrada da Lista de Espera a consumir na mesma operação. */
+  waitingListId?: string | null;
+}
+
+export interface AgendaCreateResult extends AgendaTransitionResult {
+  customer_id: string | null;
+  professional_id: string;
+  start_time: string;
+  end_time: string;
+  is_fitting: boolean;
+}
+
+export interface HorariosLivresInput {
+  professionalId: string;
+  serviceId: string;
+  /** Data local no formato AAAA-MM-DD. */
+  date: string;
+  /** Agendamento a ignorar na busca (o que está sendo reagendado). */
+  excludeAppointmentId?: string | null;
+}
+
+export interface AgendaRescheduleResult extends AgendaTransitionResult {
+  start_time: string;
+  end_time: string;
+  professional_id: string;
+}
+
+/** regra: recusa de negócio do banco; acesso: papel/unidade; desconhecido: falha inesperada. */
+export type AgendaOperationErrorKind = 'regra' | 'acesso' | 'desconhecido';
+
+/** Agendamento como a agenda o mostra: com o cliente e o serviço já resolvidos. */
+export interface AgendamentoDoDia {
+  id: string;
+  start_time: string;
+  end_time: string;
+  status: AgendamentoStatus;
+  payment_status: 'pending' | 'paid';
+  is_fitting: boolean;
+  notes?: string | null;
+  origin?: string;
+  /** Só preenchido nos Agendamentos cancelados. */
+  cancellation_reason?: string | null;
+  /** Quem cancelou; nulo quando desconhecido (cancelamento anterior à autoria) ou não cancelado. */
+  canceled_by?: 'shop' | 'customer' | null;
+  /** Criado consumindo uma entrada da Lista de Espera. */
+  from_waiting_list?: boolean;
+  professional_id: string;
+  /** Nulo no Agendamento de balcão sem Cliente cadastrado (`customer_id` aceita nulo no banco). */
+  customer: { id: string; name: string; phone: string } | null;
+  service: { id: string; name: string; price: number; duration_minutes?: number };
+  /**
+   * Nome e situação do profissional, direto da leitura — não depende de uma lista de profissionais
+   * ativos à parte. Sem isso, o cancelamento de um profissional já desativado não teria nome para
+   * mostrar, porque essa lista só traz quem está ativo hoje (spec 044, ticket 13).
+   */
+  professional?: { id: string; name: string; is_active: boolean } | null;
+}
+
+/** Janela de leitura da agenda: início inclusivo, fim exclusivo. */
+export interface IntervaloDaAgenda {
+  /** Início do dia local, em ISO 8601. */
+  startIso: string;
+  /** Início do dia seguinte, em ISO 8601 (exclusivo). */
+  endExclusiveIso: string;
+}
+
+export interface AgendaDoDiaInput extends IntervaloDaAgenda {
+  /** Omitido: tudo o que o usuário pode ver (o gerente, a barbearia; o barbeiro, só os próprios). */
+  professionalId?: string;
+  /** Desligado por padrão: pede também os Agendamentos cancelados, em coleção própria. */
+  incluirCancelados?: boolean;
+}
+
+/** Só Agendamentos: os Bloqueios de Horário têm leitura própria, para que a falha de um não esconda o outro. */
+export interface AgendamentosDoDia {
+  appointments: AgendamentoDoDia[];
+  /** Vazia quando não pedidos; nunca se mistura com `appointments`, que alimenta a grade. */
+  canceledAppointments: AgendamentoDoDia[];
+}
+
+export interface ServicoDaAgenda {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+}
+
+export interface ClienteDaAgenda {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+export interface ProfissionalDaAgenda {
+  id: string;
+  name: string;
+  is_active: boolean;
+  phone?: string;
+  weekly_schedule?: WeeklySchedule | null;
+  professional_services: Array<{
+    service_id: string;
+    custom_duration_minutes?: number | null;
+    is_enabled?: boolean | null;
+  }>;
+}
+
+/** Cadastros que a agenda de um profissional precisa para criar e reagendar. */
+export interface CadastrosDoProfissional {
+  /** Nulo quando o cadastro não existe na barbearia. */
+  professional: ProfissionalDaAgenda | null;
+  services: ServicoDaAgenda[];
+  customers: ClienteDaAgenda[];
+}
+
+/**
+ * Transições de estado do Agendamento feitas pelo gestor e pelo barbeiro. A regra
+ * (estado de origem, horário, papel, unidade) mora no banco; o adaptador só chama
+ * a RPC e devolve o resultado ou lança AgendaOperationError.
+ */
+export interface IAgendaAdapter {
+  iniciarAtendimento(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
+  cancelar(tenantId: string, appointmentId: string, motivo: string): Promise<AgendaTransitionResult>;
+  reagendar(tenantId: string, appointmentId: string, input: ReagendarInput): Promise<AgendaRescheduleResult>;
+  listarHorariosLivres(tenantId: string, input: HorariosLivresInput): Promise<string[]>;
+  criarAgendamento(tenantId: string, input: CriarAgendamentoInput): Promise<AgendaCreateResult>;
+  marcarFalta(tenantId: string, appointmentId: string): Promise<AgendaTransitionResult>;
+  /** Agendamentos do intervalo: ativos e, se pedidos, cancelados em coleção própria. */
+  carregarAgendamentosDoDia(tenantId: string, input: AgendaDoDiaInput): Promise<AgendamentosDoDia>;
+  /** Bloqueios de Horário da barbearia no intervalo, em ordem de início. */
+  carregarBloqueiosDoDia(tenantId: string, input: IntervaloDaAgenda): Promise<BlockedSlot[]>;
+  /** Profissional, serviços ativos e clientes da barbearia. */
+  carregarCadastrosDoProfissional(tenantId: string, professionalId: string): Promise<CadastrosDoProfissional>;
+}

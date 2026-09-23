@@ -330,7 +330,7 @@ export const CaixaTab: React.FC = () => {
           onOpenFechamento={() => setIsFechamentoModalOpen(true)}
           onSangria={handleSangria}
           onSuprimento={handleSuprimento}
-          formatDate={formatDate}
+          formatDate={(iso) => formatDate(iso, tenant.timezone)}
         />
       </div>
 
@@ -356,7 +356,7 @@ export const CaixaTab: React.FC = () => {
                   </div>
                   <p className="text-xs text-text-primary mt-[0.35rem] leading-[1.4]">
                     {activeSession
-                      ? `Aberto em ${formatDate(activeSession.opened_at)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${expectedDrawerAmount === undefined ? 'indisponível no momento' : formatCurrency(expectedDrawerAmount)}`
+                      ? `Aberto em ${formatDate(activeSession.opened_at, tenant.timezone)} • Fundo de troco: ${formatCurrency(activeSession.initial_amount)} • Entradas: ${formatCurrency(activeSessionCashReceipts)}${suprimentosTotal > 0 ? ` • Suprimentos: +${formatCurrency(suprimentosTotal)}` : ''}${sangriasTotal > 0 ? ` • Sangrias: -${formatCurrency(sangriasTotal)}` : ''}${repassesComissaoTotal > 0 ? ` • Repasses de comissão: -${formatCurrency(repassesComissaoTotal)}` : ''}${valesTotal > 0 ? ` • Vales: -${formatCurrency(valesTotal)}` : ''} • Total na Gaveta: ${expectedDrawerAmount === undefined ? 'indisponível no momento' : formatCurrency(expectedDrawerAmount)}`
                       : 'Inicie o turno registrando o fundo de troco da gaveta para liberar a movimentação das comandas.'}
                   </p>
                 </div>
@@ -427,7 +427,7 @@ export const CaixaTab: React.FC = () => {
                     <option value="">Todas as sessões</option>
                     {historySessions.map((session) => (
                       <option key={session.id} value={session.id}>
-                        {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at)}
+                        {session.status === 'open' ? 'Atual' : 'Encerrada'} — {formatDate(session.opened_at, tenant.timezone)}
                       </option>
                     ))}
                   </Select>
@@ -555,8 +555,8 @@ export const CaixaTab: React.FC = () => {
 
                           return (
                             <tr key={sess.id} className={TR_HOVER_CLASSES}>
-                              <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{formatDate(sess.opened_at)}</td>
-                              <td className={TD_CLASSES} style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at)}</td>
+                              <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{formatDate(sess.opened_at, tenant.timezone)}</td>
+                              <td className={TD_CLASSES} style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{formatDate(sess.closed_at, tenant.timezone)}</td>
                               <td className={TD_CLASSES} style={{ fontWeight: 600 }}>
                                 {sess.opened_by_name || sess.closed_by_name || 'Operador'}
                               </td>

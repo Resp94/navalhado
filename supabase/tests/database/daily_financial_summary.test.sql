@@ -33,7 +33,7 @@ select ok(
 );
 
 select ok(
-  position('set search_path to ''public'', ''extensions''' in lower(pg_get_functiondef('public.get_daily_financial_summary(date,date,text,uuid,uuid)'::regprocedure))) > 0,
+  position('set search_path to ''''' in lower(pg_get_functiondef('public.get_daily_financial_summary(date,date,text,uuid,uuid)'::regprocedure))) > 0,
   'a RPC mantém search_path fixo'
 );
 

@@ -32,6 +32,10 @@ _Avoid_: Cliente ativo, conta finalizada
 Módulo profundo responsável por isolar toda a lógica de acesso a dados, filtros por tenant, geração de token de acesso e promoção de cadastro de clientes.
 _Avoid_: Serviço de cliente, helper de cliente, cliente API
 
+**AgendaRepository**:
+Módulo profundo, porta única da Agenda Geral e da Minha Agenda para as transições de estado do Agendamento feitas pelo gestor e pelo barbeiro (iniciar atendimento, cancelar, marcar falta). Valida a entrada e delega a RPCs que decidem estado de origem, horário, papel e unidade no banco (ADR 023); não replica essas regras no cliente.
+_Avoid_: Serviço de agenda, helper de agendamento, escrita direta em `appointments` pela tela
+
 **CanalClienteRepository**:
 Módulo profundo responsável por isolar a validação do Acesso Tokenizado do Cliente, catálogo de serviços e profissionais, consulta de horários disponíveis, criação, reagendamento e cancelamento de Eventos de Agendamento.
 _Avoid_: Serviço de agendamento, helper de agendamento, agendamento API
@@ -94,8 +98,20 @@ Item físico comercializado pela barbearia (`public.products`), com controle de 
 _Avoid_: Mercadoria avulsa, serviço de balcão, item físico genérico
 
 **Lista de Espera**:
-Fila diária de clientes cadastrados que aguardam abertura de vagas ou cancelamentos no mesmo dia (`public.waiting_list`), com disparo de alertas e atalho de encaixe com 1 clique para a recepção.
-_Avoid_: Fila solta, lista de encaixe manual, anotação de espera
+Fila diária de clientes cadastrados que aguardam abertura de vagas ou cancelamentos no mesmo dia (`public.waiting_list`), com disparo de alertas e atalho de encaixe com 1 clique para a recepção. O Agendamento criado pelo encaixe fica marcado no banco (`appointments.from_waiting_list`), gravado na mesma transação que baixa a entrada, e a Agenda o exibe com o selo "Espera". A marca não é texto na nota do Agendamento e não altera a origem (`origin`), que descreve o canal de entrada.
+_Avoid_: Fila solta, lista de encaixe manual, anotação de espera, prefixo `[Fila de Espera]` na nota, valor de origem para a fila
+
+**Motivo de Cancelamento**:
+Texto (`appointments.cancellation_reason`) que explica por que um Agendamento foi cancelado, exibido no Painel de Cancelados do Dia e na aba de histórico da Central 360º do Cliente. Obrigatório quando a barbearia cancela (pela Agenda do gerente, pela Minha Agenda do barbeiro, ou pela Comanda); opcional quando o cliente cancela pelo Canal do Cliente — quando ele não escreve nada, o adaptador do Canal do Cliente grava o texto padrão de preenchimento antes de chamar o banco (constante `MOTIVO_CANCELAMENTO_PADRAO_CLIENTE`), exibido como "Cancelado pelo cliente" no Painel e excluído do ranking de motivos do relatório de Agenda, que não é a mesma coisa que motivo ausente. Registro anterior à existência do campo, ou cancelamento que não passou por nenhuma via que o grave, fica sem motivo, exibido como "Sem motivo informado" — nunca inventado.
+_Avoid_: justificativa, observação de cancelamento, nota de cancelamento
+
+**Painel de Cancelados do Dia**:
+Gaveta lateral, acionada por um controle no cabeçalho da Agenda (e por uma faixa acima da grade na visão de celular do gerente), que lista os Agendamentos cancelados do dia selecionado: horário original, cliente, telefone, serviço, profissional, autoria do cancelamento e o Motivo de Cancelamento por extenso. Mesmo componente (`PainelCanceladosDoDia`) para o gerente e para o barbeiro na Minha Agenda — a diferença é só o conjunto de dados recebido. O gerente vê os cancelamentos de toda a barbearia, recortados pelo filtro de profissionais da tela; o barbeiro vê apenas os do próprio profissional. O recorte não é decisão de tela nem verificação de papel dentro do componente: vem aplicado pela política de leitura de Agendamento no banco, o mesmo piso que já vale para Agendamento ativo. Agendamento cancelado nunca aparece na grade de horários — o slot fica livre.
+_Avoid_: modal de cancelados, lista de cancelamentos, relatório de cancelados (isso é o cartão "Motivos de cancelamento" do Módulo de Relatórios, visão agregada do período, não individual do dia)
+
+**Autoria do Cancelamento**:
+Coluna (`appointments.canceled_by`: `shop` ou `customer`, nula fora do contexto de cancelamento) que distingue cancelamento feito pela barbearia de cancelamento feito pelo cliente. Escrita exclusivamente pelas quatro funções de cancelamento do banco, nunca pela tela: a RPC de cancelamento pelo gestor (usada pela Agenda do gerente e pela Minha Agenda do barbeiro), as duas RPCs do Canal do Cliente (por token e por sessão pública) e a RPC que cancela Comanda e Agendamento juntos pela tela de Comandas. Não identifica a pessoa — gerente e barbeiro gravam o mesmo valor de barbearia, porque as duas telas chamam a mesma RPC e o banco não propaga identidade individual nesse caminho. Agendamento cancelado antes da existência da coluna, ou por uma via que não a grave, fica com autoria nula (exibida como "Desconhecido" no Painel), nunca inferida pelo texto do motivo — inferir por heurística produziria histórico falso.
+_Avoid_: quem cancelou (fora de comentário/prosa explicativa), origem do cancelamento (confunde com a Origem do Agendamento, canal de entrada)
 
 **Rodízio de Barbeiros**:
 Lógica de ordenação e sugestão de atendimento de balcão (*walk-in*) para balancear a quantidade de clientes atendidos entre os profissionais ativos sem preferência específica indicada.

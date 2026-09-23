@@ -3,6 +3,7 @@ import {
   AgendamentoConflitoError,
   AgendamentoRegraCancelamentoError,
 } from '../errors';
+import { MOTIVO_CANCELAMENTO_PADRAO_CLIENTE } from '../types';
 import type {
   AgendamentoCanal,
   ContextoPublicoCanal,
@@ -369,7 +370,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     }
 
     agendamento.status = 'canceled';
-    agendamento.cancellation_reason = motivo || 'Cancelado pelo cliente';
+    agendamento.cancellation_reason = motivo || MOTIVO_CANCELAMENTO_PADRAO_CLIENTE;
   }
 
   async listarAgendamentosPorToken(token: string): Promise<AgendamentoCanal[]> {

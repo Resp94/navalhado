@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultClient } from '../../../lib/supabase';
+import { localDayUtcRange } from '../../../lib/timezone';
 import type { IEsperaAdapter, WaitingListEntry, WaitingListStatus } from '../types';
 
 interface DbWaitingListRow {
@@ -11,6 +12,7 @@ interface DbWaitingListRow {
   service_id?: string | null;
   professional_id?: string | null;
   status: 'waiting' | 'scheduled' | 'expired' | 'canceled';
+  notes: string | null;
   created_at: string;
 }
 
@@ -56,20 +58,20 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
       service_id: row.service_id,
       professional_id: row.professional_id,
       status: this.mapStatusFromDb(row.status),
+      notes: row.notes,
       created_at: row.created_at,
     };
   }
 
-  async listarPorData(tenantId: string, dataIso: string): Promise<WaitingListEntry[]> {
-    const startOfDay = `${dataIso}T00:00:00.000Z`;
-    const endOfDay = `${dataIso}T23:59:59.999Z`;
+  async listarPorData(tenantId: string, dataIso: string, timeZone: string): Promise<WaitingListEntry[]> {
+    const { start, endExclusive } = localDayUtcRange(dataIso, timeZone);
 
     const { data, error } = await this.client
       .from('waiting_list')
       .select('*')
       .eq('tenant_id', tenantId)
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
+      .gte('created_at', start)
+      .lt('created_at', endExclusive)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
@@ -77,7 +79,7 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
   }
 
   async adicionar(
-    entrada: Omit<WaitingListEntry, 'id' | 'created_at' | 'updated_at'>
+    entrada: Omit<WaitingListEntry, 'id' | 'created_at'>
   ): Promise<WaitingListEntry> {
     const payload = {
       tenant_id: entrada.tenant_id,
@@ -87,6 +89,7 @@ export class SupabaseEsperaAdapter implements IEsperaAdapter {
       service_id: entrada.service_id || null,
       professional_id: entrada.professional_id || null,
       status: this.mapStatusToDb(entrada.status),
+      notes: entrada.notes || null,
     };
 
     const { data, error } = await this.client

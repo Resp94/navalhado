@@ -1,4 +1,22 @@
-import type { Comanda, ComandaItem, CriarComandaInput, IComandaAdapter, LiquidarComandaInput } from './types';
+import type {
+  Comanda,
+  ComandaItem,
+  CriarComandaInput,
+  DescontoComanda,
+  IComandaAdapter,
+  LiquidarComandaInput,
+} from './types';
+
+// Arredonda a centavo como o round(numeric, 2) do Postgres (meio longe de zero).
+// O ruído de ponto flutuante (14.5 * 15 / 100 = 2.1749999...) é limpo com 12
+// dígitos significativos antes de arredondar; "e2" desloca a vírgula sem nova
+// multiplicação em float.
+const roundCents = (value: number) => {
+  const abs = Math.abs(value);
+  const clean = abs.toPrecision(12);
+  const cents = clean.includes('e') ? Math.round(abs * 100) : Math.round(Number(`${clean}e2`));
+  return (value < 0 ? -cents : cents) / 100;
+};
 
 export class ComandaValidationError extends Error {
   constructor(message: string) {
@@ -90,21 +108,28 @@ export class ComandaRepository {
     return await this.adapter.removerItem(itemId, comandaId);
   }
 
+  // Mesma regra de arredondamento de settle_comanda: cada item a centavo antes
+  // de somar; desconto percentual convertido em reais a centavo; desconto em
+  // reais limitado ao subtotal. Número puro segue significando desconto em reais.
   calculateTotals(
     itens: Array<{ quantity: number; unit_price: number }>,
-    discountAmount: number = 0,
+    discount: number | DescontoComanda = 0,
     tipAmount: number = 0
   ) {
-    const subtotal = itens.reduce((acc, item) => acc + item.quantity * item.unit_price, 0);
-    const validDiscount = Math.max(0, Math.min(subtotal, discountAmount));
-    const validTip = Math.max(0, tipAmount);
-    const total = Math.max(0, subtotal - validDiscount + validTip);
+    const subtotal = itens.reduce((acc, item) => acc + roundCents(item.quantity * item.unit_price), 0);
+    const { type, value } = typeof discount === 'number' ? { type: 'amount' as const, value: discount } : discount;
+    const validDiscount =
+      type === 'percent'
+        ? roundCents((subtotal * Math.max(0, Math.min(100, value))) / 100)
+        : Math.max(0, Math.min(subtotal, roundCents(value)));
+    const validTip = Math.max(0, roundCents(tipAmount));
+    const total = Math.max(0, roundCents(subtotal - validDiscount + validTip));
 
     return {
-      subtotal: Number(subtotal.toFixed(2)),
-      discount: Number(validDiscount.toFixed(2)),
-      tip: Number(validTip.toFixed(2)),
-      total: Number(total.toFixed(2)),
+      subtotal: roundCents(subtotal),
+      discount: validDiscount,
+      tip: validTip,
+      total,
     };
   }
 
@@ -130,7 +155,13 @@ export class ComandaRepository {
     // Comanda de cortesia (desconto integral) fecha com total zero e sem
     // forma de pagamento; qualquer outro total exige pagamento(s) que somem
     // exatamente o valor devido.
-    const { total } = this.calculateTotals(input.itens, input.discount_amount ?? 0, input.tip_amount ?? 0);
+    const { total } = this.calculateTotals(
+      input.itens,
+      input.discount_percent != null
+        ? { type: 'percent', value: input.discount_percent }
+        : (input.discount_amount ?? 0),
+      input.tip_amount ?? 0
+    );
 
     if (total === 0) {
       if (input.pagamentos && input.pagamentos.length > 0) {
@@ -149,6 +180,17 @@ export class ComandaRepository {
     }
 
     return await this.adapter.liquidarComanda(input);
+  }
+
+  /** Cancela uma Comanda de balcão (sem agendamento); com agendamento, o cancelamento é do AgendaRepository. */
+  async cancelComanda(comandaId: string, tenantId: string): Promise<void> {
+    if (!comandaId || !comandaId.trim()) {
+      throw new ComandaValidationError('ID da comanda é obrigatório.');
+    }
+    if (!tenantId || !tenantId.trim()) {
+      throw new ComandaValidationError('ID da barbearia é obrigatório.');
+    }
+    await this.adapter.cancelarComanda(comandaId, tenantId);
   }
 
   async reopenComanda(comandaId: string, tenantId: string): Promise<Comanda> {

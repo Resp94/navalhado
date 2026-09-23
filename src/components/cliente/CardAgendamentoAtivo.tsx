@@ -11,27 +11,33 @@ import type { AgendamentoCanal } from '../../modules/canal-cliente/types';
 
 export interface CardAgendamentoAtivoProps {
   appointment: AgendamentoCanal;
+  /** Fuso da barbearia (tenant_timezone). O cliente vê o horário que a barbearia vê, não o do seu navegador. */
+  timezone: string;
   onReschedule: (appointment: AgendamentoCanal) => void;
   onCancel: (appointmentId: string) => void;
 }
 
 export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
   appointment,
+  timezone,
   onReschedule,
   onCancel,
 }) => {
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    const weekdays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const weekday = new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, weekday: 'long' }).format(date);
+    const dateFormatted = new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, day: '2-digit', month: '2-digit' }).format(date);
+    const timeFormatted = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(date);
 
     return {
-      weekday: weekdays[date.getDay()],
-      dateFormatted: `${d}/${m}`,
-      timeFormatted: `${hours}:${minutes}`,
+      weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
+      dateFormatted,
+      timeFormatted,
     };
   };
 

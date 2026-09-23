@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { RelatoriosLayout } from '../RelatoriosLayout';
+
+/** Mostra a query atual da URL: o teste de preservação do período confere por aqui, já que o MemoryRouter não sincroniza com o location real do jsdom. */
+const MostraQuery = () => <div>Query: {useLocation().search}</div>;
 
 const mockObterFaturamentoPorPeriodo = vi.fn();
 const mockObterEquipeEServicos = vi.fn();
@@ -127,5 +130,24 @@ describe('RelatoriosLayout — gate de desktop', () => {
 
     expect(screen.getByText('Conteúdo de Clientes')).toBeInTheDocument();
     expect(screen.getByLabelText('Filtro de período')).toBeInTheDocument();
+  });
+
+  it('preserva o período da URL ao trocar de página (spec 038: "preservado ao navegar entre as páginas do módulo")', () => {
+    setViewportWidth(1280);
+
+    render(
+      <MemoryRouter initialEntries={['/relatorios/faturamento?periodo=ultimos_90&granularidade=week']}>
+        <Routes>
+          <Route path="/relatorios" element={<RelatoriosLayout />}>
+            <Route path="faturamento" element={<div>Conteúdo do Faturamento</div>} />
+            <Route path="agenda" element={<MostraQuery />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'Agenda' }));
+
+    expect(screen.getByText('Query: ?periodo=ultimos_90&granularidade=week')).toBeInTheDocument();
   });
 });

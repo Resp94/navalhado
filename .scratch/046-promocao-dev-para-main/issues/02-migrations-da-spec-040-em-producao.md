@@ -1,0 +1,17 @@
+# 02: Migrations da spec 040 em produção
+
+**What to build:** o banco de produção passa a aplicar as regras de agendamento e de Comanda da spec 040 no servidor, sem que o front atual da `main` perceba nada. Depois deste ticket, produção tem o preço do catálogo na liquidação, o destinatário da Gorjeta validado, o desconto percentual registrado, as RPCs de iniciar, cancelar, marcar falta, reagendar e criar Agendamento, a Comanda aberta única por Agendamento e o limite de Encaixe no banco. O front antigo continua finalizando Comanda, porque `settle_comanda_idempotent` aceita a chamada antiga.
+
+**Blocked by:** 01 — Conferências prévias da promoção
+
+**Status:** ready-for-agent
+
+- [x] As 11 migrations aplicadas pelo MCP do Supabase, com `project_id` de produção explícito, em ordem de nome de arquivo: `040_ticket01`, `ticket02`, `ticket03`, `ticket03b`, `ticket04`, `ticket05`, `ticket06`, `ticket07`, `ticket11`, `ticket08_10`, `ticket09`. — todas aplicadas sem erro, 2026-09-23.
+- [x] Cada migration registrada em produção com o nome do arquivo sem o timestamp. — confirmado via `list_migrations` (versões `20260923102733` a `20260923103211`, nomes sem timestamp).
+- [x] Ao primeiro erro, parar: não aplicar as seguintes e anotar o erro neste ticket. — nenhum erro ocorreu; as 11 aplicadas em sequência completa.
+- [x] Em produção existem `comandas.discount_type` e `comandas.discount_percent`, os índices `uq_comandas_open_per_appointment` e `uq_appointments_one_fitting_per_slot`, e as RPCs `start_appointment_service`, `cancel_appointment_by_manager`, `mark_appointment_no_show`, `reschedule_appointment_by_manager` e `create_appointment_by_manager`. — confirmado por consulta a `information_schema`/`pg_indexes`/`pg_proc` (2 colunas, 2 índices, 5 RPCs).
+- [x] Os pgTAP da spec 040 passam em produção, rodados dentro de `begin; ... rollback;`. — arquivos `38` a `47` (`supabase/tests/database/`) rodados um a um em produção. `38, 39, 40, 44, 45, 47`: 100% ok. `41, 42, 46`: 1 falha cada, e as três são causadas por asserções/fixtures que só fazem sentido depois da spec 041 (barbeiro operando a própria agenda — ainda não aplicada, é o ticket 03): mensagem de erro esperada `"Acesso negado a este agendamento."` / `"Barbeiro só cria agendamento na própria agenda."` contra a mensagem genérica atual `"Acesso negado."`, e (teste 41) um fixture que insere vários Agendamentos ativos de encaixe do mesmo profissional no mesmo `now()`, violando o índice que a própria spec 040 acabou de criar. Reproduzi os mesmos três erros rodando os mesmos testes no dev (`selvxobcjbkligxighlp`, mesma função/mesmo fixture) — não é regressão da promoção, é um gap conhecido entre o teste (já escrito para o estado pós-spec-041) e o estado intermediário spec-040-only. Deve fechar sozinho quando o ticket 03 aplicar a spec 041.
+- [x] O log do Postgres de produção, olhado depois do lote, não mostra erro novo vindo do front atual (por exemplo, falha em `settle_comanda_idempotent`). — `query_logs` (source `postgres_logs`, desde o início do lote) sem linhas de erro.
+- [x] A migration `094_fix_daily_financial_summary_guards` NÃO é aplicada. — confirmado, não está na lista de `list_migrations`.
+
+**Resultado 2026-09-23:** ticket concluído. Os três "not ok" em pgTAP (testes 41, 42, 46) são esperados nesta janela intermediária (spec 040 aplicada, spec 041 ainda não) e reproduzidos de forma idêntica no dev; não bloqueiam a promoção.
