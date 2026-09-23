@@ -10,6 +10,7 @@ import {
   CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
 import { fetchAddressByCep, formatCep, cleanCepDigits } from '../../lib/cep';
+import { isValidEmailFormat } from '../../lib/email';
 import { normalizeBusinessHours } from '../../lib/schedule';
 import { Select } from '../../components/ui';
 
@@ -248,6 +249,14 @@ export const Configuracoes: React.FC = () => {
     e.preventDefault();
     if (!name.trim()) {
       addToast('O nome da barbearia é obrigatório.', 'error');
+      return;
+    }
+    if (!email.trim()) {
+      addToast('O e-mail de contato é obrigatório.', 'error');
+      return;
+    }
+    if (!isValidEmailFormat(email.trim())) {
+      addToast('O formato do e-mail de contato é inválido.', 'error');
       return;
     }
 

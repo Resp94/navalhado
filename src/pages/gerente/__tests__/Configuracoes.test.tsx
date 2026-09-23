@@ -363,4 +363,46 @@ describe('Configuracoes Page - TDD', () => {
       expect(mockAddToast).toHaveBeenCalledWith('Configurações atualizadas com sucesso.', 'success');
     });
   });
+
+  it('recusa salvar com o e-mail de contato vazio (spec 047: agora obrigatório) e não chama o Supabase', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+    };
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+
+    render(<Configuracoes />);
+    await screen.findByLabelText(/Nome da Barbearia/i);
+
+    fireEvent.change(screen.getByLabelText(/E-mail de contato/i), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('O e-mail de contato é obrigatório.', 'error');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('recusa salvar com o e-mail de contato mal formado (regra mais rígida da spec 047) e não chama o Supabase', async () => {
+    const mockTenantData = {
+      id: 'tenant-test-id',
+      name: 'Barbearia Estilo',
+      email: 'contato@barbeariaestilo.com',
+      phone: '(92) 98888-8888',
+    };
+    mockSingle.mockResolvedValue({ data: mockTenantData, error: null });
+
+    render(<Configuracoes />);
+    await screen.findByLabelText(/Nome da Barbearia/i);
+
+    fireEvent.change(screen.getByLabelText(/E-mail de contato/i), { target: { value: 'contato@x.c' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar Alterações/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('O formato do e-mail de contato é inválido.', 'error');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
 });
