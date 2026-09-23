@@ -28,7 +28,7 @@ import { SupabaseCaixaAdapter } from '../../modules/caixa/adapters/SupabaseCaixa
 import { ProdutoRepository } from '../../modules/produtos/ProdutoRepository';
 import { SupabaseProdutoAdapter } from '../../modules/produtos/adapters/SupabaseProdutoAdapter';
 import { openWhatsApp } from '../../lib/whatsapp';
-import { localDateTimeToIso } from '../../lib/timezone';
+import { dateInZone, formatTimeInZone, localDateTimeToIso } from '../../lib/timezone';
 import { AberturaAssistidaCaixaModal } from '../caixa/AberturaAssistidaCaixaModal';
 import { GorjetaValorInput } from './GorjetaValorInput';
 import { Button, Input, Select, IconButton, SegmentedControl } from '../ui';
@@ -920,7 +920,10 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                         <span>
                           {appointmentIsFitting ? 'Encaixe' : 'Agendamento'}
                           {currentStartTime
-                            ? `: ${new Date(currentStartTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(currentStartTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                            ? (() => {
+                                const [, month, day] = dateInZone(new Date(currentStartTime), timezone).split('-');
+                                return `: ${day}/${month} às ${formatTimeInZone(currentStartTime, timezone)}`;
+                              })()
                             : ''}
                           {appointmentServiceName ? ` • ${appointmentServiceName}` : ''}
                         </span>
@@ -934,11 +937,8 @@ export const ComandaCheckoutModal: React.FC<ComandaCheckoutModalProps> = ({
                               setReopenConfirmOpen(false);
                               setCancelConfirmOpen(false);
                               if (currentStartTime) {
-                                const d = new Date(currentStartTime);
-                                setRescheduleDate(d.toISOString().slice(0, 10));
-                                const hh = String(d.getHours()).padStart(2, '0');
-                                const mm = String(d.getMinutes()).padStart(2, '0');
-                                setRescheduleTime(`${hh}:${mm}`);
+                                setRescheduleDate(dateInZone(new Date(currentStartTime), timezone));
+                                setRescheduleTime(formatTimeInZone(currentStartTime, timezone));
                               }
                               setRescheduleProfessionalId(itens[0]?.professional_id || availableProfessionals[0]?.id || '');
                               setIsRescheduleModalOpen((prev) => !prev);
