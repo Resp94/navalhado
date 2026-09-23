@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import { isValidEmailFormat } from "./email.ts";
+import { isValidEmailFormat, verifyEmailDomain } from "./email.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
@@ -81,6 +81,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   if (!isNonEmptyString(email, 255) || !isValidEmailFormat(email)) {
     return jsonResponse(request, { error: "Informe um e-mail válido." }, 400);
+  }
+  const resultadoDominio = await verifyEmailDomain(email.split("@")[1] || "");
+  if (resultadoDominio === "sem_mx") {
+    return jsonResponse(request, { error: "Este domínio não recebe e-mails." }, 400);
   }
   if (password.length < 8) {
     return jsonResponse(request, { error: "A senha deve ter pelo menos 8 caracteres." }, 400);
