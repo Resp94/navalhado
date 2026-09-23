@@ -280,7 +280,7 @@ export const ComissoesTab: React.FC = () => {
                           className={TR_HOVER_CLASSES}
                           style={pay.reversed_at ? { opacity: 0.55 } : undefined}
                         >
-                          <td className={TD_CLASSES} style={{ fontWeight: 600 }}>{formatDate(pay.paid_at)}</td>
+                          <td className={TD_CLASSES} style={{ fontWeight: 600 }}>{formatDate(pay.paid_at, tenant.timezone)}</td>
                           <td className={TD_CLASSES} style={{ fontWeight: 700 }}>{pay.professional_name}</td>
                           <td className={TD_CLASSES} style={{ color: 'var(--color-text-secondary)' }}>
                             {PAYMENT_METHOD_LABELS[pay.payment_method] || pay.payment_method}
@@ -396,6 +396,7 @@ export const ComissoesTab: React.FC = () => {
         startDate={periodStart}
         endDate={periodEnd}
         tenantId={tenant?.tenantId}
+        timezone={tenant.timezone}
         onClose={() => setSelectedProfForDetails(null)}
       />
 
