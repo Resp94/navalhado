@@ -1079,6 +1079,7 @@ export const Clientes: React.FC = () => {
                               <div className="flex justify-between items-center mt-2 pt-2 border-t border-dashed border-border">
                                 <span className="text-text-secondary text-xs">
                                   {new Date(cmd.closed_at || cmd.created_at).toLocaleString('pt-BR', {
+                                    timeZone: tenant.timezone,
                                     dateStyle: 'short',
                                     timeStyle: 'short',
                                   })}
@@ -1111,6 +1112,7 @@ export const Clientes: React.FC = () => {
                                 <span className="text-text-secondary">Data e horário:</span>
                                 <span>
                                   {new Date(app.start_time).toLocaleString('pt-BR', {
+                                    timeZone: tenant.timezone,
                                     dateStyle: 'short',
                                     timeStyle: 'short',
                                   })}
