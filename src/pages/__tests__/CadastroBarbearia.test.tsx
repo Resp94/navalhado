@@ -70,4 +70,16 @@ describe('CadastroBarbearia', () => {
 
     expect(mockFrom).not.toHaveBeenCalled();
   });
+
+  it('recusa e-mail comercial com TLD de 1 letra (regra mais rígida da spec 047) e mantém "Continuar" desabilitado', async () => {
+    render(<CadastroBarbearia />);
+
+    fireEvent.change(screen.getByPlaceholderText('Ex: Barbearia Estilo'), { target: { value: 'Barbearia Segura' } });
+    fireEvent.change(screen.getByPlaceholderText('comercial@suabarbearia.com'), { target: { value: 'contato@segura.x' } });
+    fireEvent.change(screen.getByPlaceholderText('(99) 99999-9999'), { target: { value: '92999999999' } });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
 });

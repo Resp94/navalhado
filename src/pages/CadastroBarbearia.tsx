@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
+import { isValidEmailFormat } from '../lib/email';
 
 interface Plan {
   id: string;
@@ -79,8 +80,7 @@ export const CadastroBarbearia: React.FC = () => {
   // --- Validações em tempo real ---
   useEffect(() => {
     if (!barbeariaEmail) { setEmailBarbeariaError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailBarbeariaError(emailRegex.test(barbeariaEmail) ? '' : 'E-mail comercial inválido.');
+    setEmailBarbeariaError(isValidEmailFormat(barbeariaEmail) ? '' : 'E-mail comercial inválido.');
   }, [barbeariaEmail]);
 
   useEffect(() => {
@@ -91,8 +91,7 @@ export const CadastroBarbearia: React.FC = () => {
 
   useEffect(() => {
     if (!gestorEmail) { setEmailGestorError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailGestorError(emailRegex.test(gestorEmail) ? '' : 'E-mail de acesso inválido.');
+    setEmailGestorError(isValidEmailFormat(gestorEmail) ? '' : 'E-mail de acesso inválido.');
   }, [gestorEmail]);
 
   useEffect(() => {
