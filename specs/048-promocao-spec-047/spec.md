@@ -124,3 +124,11 @@ Merge de `dev` em `main` com `--no-ff`, sem push. Commit `5f1fae1`. Único confl
 - **Build.** `tsc -b && vite build`: passou.
 - **Testes.** `npm test`: 1313/1314. A 1 falha (`MinhaAgenda.test.tsx`, timing num `waitFor`) não reproduz isolada (27/27) e não tem relação com a spec 047 — `dev` não tocou `src/pages/barbeiro/` nem nada de que esse teste dependa.
 - **Deno.** `email_test.ts` + `account_test.ts`: 31/31. `deno.lock` restaurado depois (sujeira de sempre do `deno test`).
+
+## Resultado do push e deploy (ticket 05, 2026-09-23)
+
+Push da `main` feito com confirmação do usuário. `origin/main` de `a13b1b3` para `e4225c8` (`a13b1b3..e4225c8 main -> main`).
+
+- CSP de produção já libera `cloudflare-dns.com` e `dns.google` (herdado da spec 047).
+- Bundle novo detectado em `app.navalhado.com.br` em menos de 2 minutos: `index-NKXcuz5Z.js` → `index-93j3KQJD.js`. Sem violação de CSP nem erro de console.
+- Horário do push: 2026-09-23 17:32 UTC. Commit levado à `main`: `e4225c8`.
