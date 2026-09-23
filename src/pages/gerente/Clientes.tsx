@@ -7,6 +7,8 @@ import type { Cliente } from '../../modules/clientes/types';
 import { DEFAULT_LTV_METRICS } from '../../modules/clientes/types';
 import { formatWhatsAppUrl } from '../../modules/clientes/utils';
 import { interpolateTemplate, WHATSAPP_TEMPLATES, sendManualWhatsAppMessage } from '../../lib/whatsapp';
+import { isValidEmailFormat } from '../../lib/email';
+import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Button, IconButton, Input, Select, Textarea, SegmentedControl } from '../../components/ui';
@@ -66,6 +68,14 @@ export const Clientes: React.FC = () => {
     deleteCustomer,
     loadHistorico,
   } = useClientes(tenant.tenantId, tenant.timezone);
+
+  const {
+    erro: emailErro,
+    sugestao: emailSugestao,
+    validarAoSair: validarEmailAoSair,
+    validarParaSalvar: validarEmailParaSalvar,
+    aplicarSugestao: aplicarSugestaoEmail,
+  } = useValidacaoEmail();
 
   // Estados dos Modais e Gaveta de UI
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -168,6 +178,18 @@ export const Clientes: React.FC = () => {
 
   const handleSaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Domínio do e-mail (recebe e-mails?): só quando o formato já é válido.
+    // Formato inválido continua bloqueado pelo ClienteRepository, mais abaixo.
+    const emailTrimmed = formData.email.trim();
+    if (emailTrimmed && isValidEmailFormat(emailTrimmed)) {
+      const erroDominio = await validarEmailParaSalvar(emailTrimmed);
+      if (erroDominio) {
+        addToast(erroDominio, 'warning');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const success = await saveCustomer({
@@ -643,14 +665,31 @@ export const Clientes: React.FC = () => {
                   <HugeiconsIcon icon={Invoice01Icon} size={14} /> Documentação e origem
                 </span>
                 <div className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-                  <Input
-                    id="email-input"
-                    label="E-mail (opcional)"
-                    type="email"
-                    placeholder="Ex: joao@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                  <div className="flex flex-col gap-1">
+                    <Input
+                      id="email-input"
+                      label="E-mail (opcional)"
+                      type="email"
+                      placeholder="Ex: joao@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onBlur={(e) => validarEmailAoSair(e.target.value)}
+                      error={emailErro}
+                    />
+                    {emailSugestao && (
+                      <p className="m-0 text-xs text-text-secondary">
+                        Você quis dizer{' '}
+                        <button
+                          type="button"
+                          className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                          onClick={() => setFormData({ ...formData, email: aplicarSugestaoEmail() })}
+                        >
+                          {emailSugestao}
+                        </button>
+                        ?
+                      </p>
+                    )}
+                  </div>
                   <Input
                     id="cpf-input"
                     label="CPF (opcional)"

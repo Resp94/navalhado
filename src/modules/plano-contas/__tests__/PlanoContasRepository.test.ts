@@ -395,6 +395,16 @@ describe('PlanoContasRepository — Fornecedor (ticket 06)', () => {
     );
   });
 
+  it.each(['fornecedor@x.c', 'forn..ecedor@x.com'])(
+    'recusa e-mail com TLD de 1 letra ou ponto duplicado (%j) (regra mais rígida da spec 047)',
+    async (email) => {
+      const { repo } = novoAdapter();
+      await expect(repo.criarFornecedor(tenantId, { name: 'Fornecedor X', email })).rejects.toThrow(
+        PlanoContasValidationError
+      );
+    }
+  );
+
   it('recusa observação com mais de 500 caracteres', async () => {
     const { repo } = novoAdapter();
     await expect(

@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { isValidEmailFormat, verifyEmailDomain } from "./email.ts";
+import { createUnconfirmedAccount } from "./account.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
@@ -78,8 +80,12 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const name = typeof payload.name === "string" ? payload.name.trim() : "";
   const professionalId = typeof payload.professionalId === "string" ? payload.professionalId.trim() : "";
 
-  if (!isNonEmptyString(email, 255) || !email.includes("@")) {
+  if (!isNonEmptyString(email, 255) || !isValidEmailFormat(email)) {
     return jsonResponse(request, { error: "Informe um e-mail válido." }, 400);
+  }
+  const resultadoDominio = await verifyEmailDomain(email.split("@")[1] || "");
+  if (resultadoDominio === "sem_mx") {
+    return jsonResponse(request, { error: "Este domínio não recebe e-mails." }, 400);
   }
   if (password.length < 8) {
     return jsonResponse(request, { error: "A senha deve ter pelo menos 8 caracteres." }, 400);
@@ -107,22 +113,26 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   const finalName = isNonEmptyString(name, 160) ? name : professional.name;
 
-  const { data: createdUser, error: createUserError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { name: finalName },
-  });
+  // Spec 047, ticket 10: a conta nasce nao confirmada (email_confirm:false)
+  // e a propria funcao dispara o link de confirmacao (auth.resend), caminho
+  // provado no spike do ticket 09. O barbeiro so consegue entrar depois de
+  // confirmar; ate la, "Reenviar link" no Login cobre uma eventual falha
+  // no envio deste primeiro link.
+  const { userId: newUserId, createError, resendError } = await createUnconfirmedAccount(
+    { createUser: supabase.auth.admin.createUser.bind(supabase.auth.admin), resend: supabase.auth.resend.bind(supabase.auth) },
+    { email, password, name: finalName }
+  );
 
-  if (createUserError || !createdUser.user) {
-    console.error("[create-barber-access] falha ao criar usuário", createUserError?.message);
-    const message = createUserError?.message?.includes("already been registered")
+  if (!newUserId) {
+    console.error("[create-barber-access] falha ao criar usuário", createError);
+    const message = createError?.includes("already been registered")
       ? "Este e-mail já está em uso."
       : "Não foi possível criar o acesso.";
     return jsonResponse(request, { error: message }, 400);
   }
-
-  const newUserId = createdUser.user.id;
+  if (resendError) {
+    console.warn("[create-barber-access] link de confirmação não pôde ser enviado agora", resendError);
+  }
 
   // O trigger handle_new_user cria a linha em public.users com tenant_id nulo
   // (caminho padrão, sem tenant_signup). Precisa vincular ao tenant do gerente aqui.

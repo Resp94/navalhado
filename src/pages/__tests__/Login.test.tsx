@@ -2,12 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Login } from '../Login';
 
-const { mockAddToast, mockNavigate, mockSignIn, mockSignOut, mockSingle } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockSignIn, mockSignOut, mockSingle, mockResend } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
   mockSignIn: vi.fn(),
   mockSignOut: vi.fn(),
   mockSingle: vi.fn(),
+  mockResend: vi.fn(),
 }));
 
 vi.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
@@ -18,6 +19,7 @@ vi.mock('../../lib/supabase', () => ({
       signInWithPassword: mockSignIn,
       signOut: mockSignOut,
       resetPasswordForEmail: vi.fn(),
+      resend: mockResend,
     },
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -60,5 +62,51 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'Criar conta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Termos de uso' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Privacidade (LGPD)' })).toBeInTheDocument();
+  });
+
+  it('recusa e-mail com TLD de 1 letra (regra mais rígida da spec 047) e mantém "Acessar" desabilitado', async () => {
+    render(<Login />);
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'admin@navalhado.x' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha-segura' } });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Acessar' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+
+  it('mostra "Reenviar link" quando o e-mail não está confirmado e reenvia ao clicar (spec 047, ticket 10)', async () => {
+    mockSignIn.mockResolvedValue({ data: { user: null }, error: { message: 'Email not confirmed' } });
+    mockResend.mockResolvedValue({ data: {}, error: null });
+
+    render(<Login />);
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'barbeiro@navalhado.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha-segura' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Confirme seu e-mail antes de fazer login.', 'error');
+    });
+
+    const btnReenviar = screen.getByRole('button', { name: 'Reenviar link' });
+    fireEvent.click(btnReenviar);
+
+    await waitFor(() => {
+      expect(mockResend).toHaveBeenCalledWith({ type: 'signup', email: 'barbeiro@navalhado.com' });
+      expect(mockAddToast).toHaveBeenCalledWith('Link de confirmação reenviado. Confira seu e-mail.', 'success');
+    });
+  });
+
+  it('não mostra "Reenviar link" quando o login falha por outro motivo', async () => {
+    mockSignIn.mockResolvedValue({ data: { user: null }, error: { message: 'Invalid login credentials' } });
+
+    render(<Login />);
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'barbeiro@navalhado.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha-errada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Acessar' }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('E-mail ou senha incorretos. Tente novamente.', 'error');
+    });
+    expect(screen.queryByRole('button', { name: 'Reenviar link' })).toBeNull();
   });
 });

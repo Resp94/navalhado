@@ -6,6 +6,7 @@ import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
 import { LegalModal } from '../components/legal/LegalModal';
 import { ArrowRightIcon, LockIcon } from '../components/Icons';
+import { isValidEmailFormat } from '../lib/email';
 
 /* ─── Ondas SVG Orgânicas em Camadas ─── */
 const VerticalCloudWave: React.FC = () => (
@@ -117,6 +118,9 @@ export const Login: React.FC = () => {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  const [emailNaoConfirmado, setEmailNaoConfirmado] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -126,8 +130,8 @@ export const Login: React.FC = () => {
   // --- Validação inline em tempo real ---
   useEffect(() => {
     if (!email) { setEmailError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailError(emailRegex.test(email) ? '' : 'E-mail inválido.');
+    setEmailError(isValidEmailFormat(email) ? '' : 'E-mail inválido.');
+    setEmailNaoConfirmado(false);
   }, [email]);
 
   useEffect(() => {
@@ -137,8 +141,7 @@ export const Login: React.FC = () => {
 
   useEffect(() => {
     if (!resetEmail) { setResetEmailError(''); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setResetEmailError(emailRegex.test(resetEmail) ? '' : 'E-mail inválido.');
+    setResetEmailError(isValidEmailFormat(resetEmail) ? '' : 'E-mail inválido.');
   }, [resetEmail]);
 
   // --- Helpers ---
@@ -214,9 +217,24 @@ export const Login: React.FC = () => {
         }
       }
     } catch (error: any) {
+      const msg = (error.message || '').toLowerCase();
+      setEmailNaoConfirmado(msg.includes('email not confirmed'));
       addToast(translateAuthError(error.message || ''), 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setResendingConfirmation(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) throw error;
+      addToast('Link de confirmação reenviado. Confira seu e-mail.', 'success');
+    } catch {
+      addToast('Não foi possível reenviar o link agora. Tente novamente em instantes.', 'error');
+    } finally {
+      setResendingConfirmation(false);
     }
   };
 
@@ -357,6 +375,20 @@ export const Login: React.FC = () => {
                   Esqueci a senha
                 </button>
               </div>
+
+              {/* E-mail não confirmado: reenviar link (spec 047, ticket 10) */}
+              {emailNaoConfirmado && (
+                <div className="flex justify-end -mt-1.5">
+                  <button
+                    type="button"
+                    className="btn btn--ghost min-h-9 inline-flex items-center !text-text-primary font-semibold"
+                    onClick={handleResendConfirmation}
+                    disabled={resendingConfirmation}
+                  >
+                    Reenviar link
+                  </button>
+                </div>
+              )}
 
               {/* Botão CTA Pílula */}
               <button

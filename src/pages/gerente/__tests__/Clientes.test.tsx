@@ -385,6 +385,95 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
     });
   });
 
+  it('deve recusar salvar cliente com e-mail de formato inválido (spec 047) e não gravar nada', async () => {
+    renderClientes();
+
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@x.c' } });
+
+    const btnSalvar = screen.getByRole('button', { name: /Salvar/i });
+    fireEvent.click(btnSalvar);
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('O formato do e-mail informado é inválido.', 'warning');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('recusa salvar cliente com domínio de e-mail que não recebe e-mails (spec 047, ticket 05) e não grava nada', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ Status: 3 }), // NXDOMAIN
+    } as any);
+
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@dominio-inventado-clientes.example' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Este domínio não recebe e-mails.', 'warning');
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('salva cliente normalmente quando a consulta de domínio de e-mail está indisponível (spec 047, ticket 05)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('DNS fora do ar'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i);
+    fireEvent.change(inputEmail, { target: { value: 'joao@dominio-indisponivel-clientes.example' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Cliente atualizado com sucesso!', 'success');
+    });
+  });
+
+  it('sugere a correção de domínio digitado errado e aplica ao clicar (spec 047, ticket 06)', async () => {
+    renderClientes();
+    await waitFor(() => {
+      expect(screen.getByText('João Silva')).toBeInTheDocument();
+    });
+
+    const btnEditar = screen.getAllByRole('button', { name: /Editar/i })[0];
+    fireEvent.click(btnEditar);
+
+    const inputEmail = screen.getByLabelText(/E-mail/i) as HTMLInputElement;
+    fireEvent.change(inputEmail, { target: { value: 'joao@gmial.com' } });
+    fireEvent.blur(inputEmail);
+
+    const btnSugestao = await screen.findByRole('button', { name: /joao@gmail\.com/i });
+    fireEvent.click(btnSugestao);
+
+    expect(inputEmail.value).toBe('joao@gmail.com');
+    expect(screen.queryByRole('button', { name: /joao@gmail\.com/i })).toBeNull();
+  });
+
   it('deve exibir erro ao tentar excluir cliente que possui agendamentos cadastrados', async () => {
     // Configura o mock do delete para retornar erro especificamente para este teste
     mockDelete.mockImplementationOnce(() => {

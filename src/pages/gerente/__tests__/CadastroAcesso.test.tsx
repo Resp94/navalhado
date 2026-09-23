@@ -52,9 +52,22 @@ const createUpdateBuilder = () => {
   return builder;
 };
 
+const dnsResponse = (status: number, answers: { type: number; data: string }[] = []) => ({
+  ok: true,
+  json: async () => ({
+    Status: status,
+    Answer: answers.map((a) => ({ name: 'x', type: a.type, TTL: 300, data: a.data })),
+  }),
+});
+
 describe('CadastroAcesso', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Padrão: qualquer domínio consultado tem MX (spec 047, ticket 07). Testes
+    // específicos de domínio/sugestão sobrescrevem este mock.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      dnsResponse(0, [{ type: 15, data: '10 mail.exemplo.' }]) as any
+    );
 
     const selectBuilder: any = {
       eq: vi.fn(() => selectBuilder),
@@ -98,5 +111,78 @@ describe('CadastroAcesso', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('/profissionais');
     expect(mockAddToast).not.toHaveBeenCalledWith(expect.any(String), 'success');
+  });
+
+  it('recusa e-mail com TLD de 1 letra (regra mais rígida da spec 047) sem chamar a Edge Function', async () => {
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), {
+      target: { value: 'prof-1' },
+    });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), {
+      target: { value: 'carlos@x.c' },
+    });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), {
+      target: { value: 'segredo123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Informe um e-mail válido.', 'warning');
+    });
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('recusa domínio de e-mail que não recebe e-mails (spec 047, ticket 07) sem chamar a Edge Function', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(dnsResponse(3) as any); // NXDOMAIN
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), { target: { value: 'prof-1' } });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), {
+      target: { value: 'carlos@dominio-inventado-acesso.example' },
+    });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), { target: { value: 'segredo123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Este domínio não recebe e-mails.', 'warning');
+    });
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('avisa que o barbeiro precisa confirmar o e-mail antes do primeiro login (spec 047, ticket 10)', async () => {
+    mockInvoke.mockResolvedValue({ data: { success: true, userId: 'novo-user-id' }, error: null });
+
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), { target: { value: 'prof-1' } });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), { target: { value: 'carlos@gmail.com' } });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), { target: { value: 'segredo123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Acesso criado para Carlos. O barbeiro precisa confirmar o e-mail antes do primeiro login.',
+        'success'
+      );
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/profissionais');
+  });
+
+  it('sugere a correção de domínio digitado errado no e-mail de login e aplica ao clicar', async () => {
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    const inputEmail = screen.getByLabelText(/E-mail de Login/i) as HTMLInputElement;
+    fireEvent.change(inputEmail, { target: { value: 'carlos@gmial.com' } });
+    fireEvent.blur(inputEmail);
+
+    const btnSugestao = await screen.findByRole('button', { name: /carlos@gmail\.com/i });
+    fireEvent.click(btnSugestao);
+
+    expect(inputEmail.value).toBe('carlos@gmail.com');
   });
 });

@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { DEFAULT_LTV_METRICS } from './types';
 import { calculateLTVMetrics } from './utils';
+import { isValidEmailFormat } from '../../lib/email';
 
 export class ClienteValidationError extends Error {
   constructor(message: string) {
@@ -59,8 +60,7 @@ export class ClienteRepository {
     const sanitizedPhone = this.validatePhone(input.phone);
 
     if (input.email && input.email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(input.email.trim())) {
+      if (!isValidEmailFormat(input.email.trim())) {
         throw new ClienteValidationError('O formato do e-mail informado é inválido.');
       }
     }
