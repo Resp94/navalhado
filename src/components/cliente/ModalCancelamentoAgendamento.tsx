@@ -7,6 +7,8 @@ export interface ModalCancelamentoAgendamentoProps {
   isOpen: boolean;
   onClose: () => void;
   appointment: AgendamentoCanal | null;
+  /** Fuso da barbearia (tenant_timezone). O cliente vê o horário que a barbearia vê, não o do seu navegador. */
+  timezone: string;
   cancelReason: string;
   onChangeReason: (reason: string) => void;
   onConfirmCancel: () => Promise<void>;
@@ -17,6 +19,7 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
   isOpen,
   onClose,
   appointment,
+  timezone,
   cancelReason,
   onChangeReason,
   onConfirmCancel,
@@ -26,13 +29,18 @@ export const ModalCancelamentoAgendamento: React.FC<ModalCancelamentoAgendamento
 
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${weekdays[date.getDay()]}, ${d}/${m} às ${hours}:${minutes}`;
+    const weekday = new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, weekday: 'long' }).format(date);
+    const weekdayCurta = weekday.replace(/-feira$/, '');
+    const parts = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: timezone,
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${weekdayCurta.charAt(0).toUpperCase() + weekdayCurta.slice(1)}, ${get('day')}/${get('month')} às ${get('hour')}:${get('minute')}`;
   };
 
   return (

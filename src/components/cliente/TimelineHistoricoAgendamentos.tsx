@@ -5,10 +5,13 @@ import type { AgendamentoCanal } from '../../modules/canal-cliente/types';
 
 export interface TimelineHistoricoAgendamentosProps {
   appointments: AgendamentoCanal[];
+  /** Fuso da barbearia (tenant_timezone). O cliente vê o horário que a barbearia vê, não o do seu navegador. */
+  timezone: string;
 }
 
 export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendamentosProps> = ({
   appointments,
+  timezone,
 }) => {
   if (appointments.length === 0) {
     return (
@@ -22,20 +25,23 @@ export const TimelineHistoricoAgendamentos: React.FC<TimelineHistoricoAgendament
 
   const formatMonth = (dateStr: string) => {
     const date = new Date(dateStr);
-    const month = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const month = new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, month: 'long', year: 'numeric' }).format(date);
     return month.charAt(0).toUpperCase() + month.slice(1);
   };
 
   const formatDayMonth = (dateStr: string) => {
     const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, day: '2-digit', month: '2-digit' }).format(date);
   };
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(date);
   };
 
   const monthGroups = appointments.reduce<Array<[string, AgendamentoCanal[]]>>((groups, appointment) => {

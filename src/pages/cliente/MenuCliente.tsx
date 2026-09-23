@@ -52,6 +52,8 @@ export const MenuCliente: React.FC = () => {
   // Abas: Próximos horários vs Anteriores
   const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
 
+  const timezone = customerDetails?.tenant_timezone || 'America/Sao_Paulo';
+
   const activeAppointments = useMemo(() => {
     return appointments
       .filter((app) => app.status !== 'canceled' && app.status !== 'completed')
@@ -304,6 +306,7 @@ export const MenuCliente: React.FC = () => {
                 <CardAgendamentoAtivo
                   key={app.appointment_id}
                   appointment={app}
+                  timezone={timezone}
                   onReschedule={handleReschedule}
                   onCancel={handleCancelClick}
                 />
@@ -314,7 +317,7 @@ export const MenuCliente: React.FC = () => {
 
         {/* Conteúdo da Aba Histórico (Linha do Tempo) */}
         {activeTab === 'historico' && (
-          <TimelineHistoricoAgendamentos appointments={historicAppointments} />
+          <TimelineHistoricoAgendamentos appointments={historicAppointments} timezone={timezone} />
         )}
       </main>
 
@@ -323,6 +326,7 @@ export const MenuCliente: React.FC = () => {
         isOpen={isCancelModalOpen}
         onClose={() => setIsCancelModalOpen(false)}
         appointment={activeAppToCancel}
+        timezone={timezone}
         cancelReason={cancelReason}
         onChangeReason={setCancelReason}
         onConfirmCancel={handleCancelConfirm}
