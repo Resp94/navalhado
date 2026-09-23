@@ -103,3 +103,11 @@ Tudo conforme o esperado. A promoção pode seguir.
 - **Merge simulado.** `git merge-tree` entre `main` e `dev` mostra só o conflito add/add conhecido na `create-barber-access`. Nenhum outro arquivo em conflito.
 - **Auth de prod.** `/auth/v1/settings` responde `mailer_autoconfirm: false` ("Confirm email" ligado).
 - **Dados de prod.** Nenhum e-mail fora da regra da spec 047: `customers` 0 de 0, `suppliers` 0 de 0, `tenants` 0 de 2, `users` 0 de 3.
+
+## Resultado das migrations e pgTAP em prod (ticket 02, 2026-09-23)
+
+As 4 migrations aplicadas sem erro, na ordem, com o nome do arquivo como nome da migration: `047_ticket01_formato_email_cliente`, `047_ticket02_formato_email_fornecedor`, `047_ticket03_formato_email_barbearia`, `047_ticket04_formato_email_login`.
+
+- **Esquema.** `public.email_valido(text)` existe, `provolatile = 'i'` (immutable), `proconfig` inclui `search_path=""`. As 4 restrições (`customers_email_format_check`, `suppliers_email_check`, `tenants_email_format_check`, `users_email_format_check`) existem e `convalidated = true`.
+- **pgTAP em prod**, dentro de `begin; ... rollback;` (nada gravado): teste 58 (29/29), teste 59 (6/6), teste 60 (4/4), teste 61 (5/5). Total 44/44, 0 falhas.
+- **Log do Postgres de prod.** Últimas 30 linhas sem `error`, `fatal` ou `panic`, fora das próprias instruções dos testes e um `cron job 8` de rotina.
