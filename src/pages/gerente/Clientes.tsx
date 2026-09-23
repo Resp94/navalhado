@@ -1101,6 +1101,7 @@ export const Clientes: React.FC = () => {
                                 {app.status === 'confirmed' && 'Confirmado'}
                                 {app.status === 'pending' && 'Pendente'}
                                 {app.status === 'canceled' && 'Cancelado'}
+                                {app.status === 'no_show' && 'Não compareceu'}
                               </span>
                             </div>
                             <div>
@@ -1118,12 +1119,14 @@ export const Clientes: React.FC = () => {
                                   })}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-text-secondary">Valor cobrado:</span>
-                                <strong>
-                                  {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
-                                </strong>
-                              </div>
+                              {app.status !== 'canceled' && app.status !== 'no_show' && (
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="text-text-secondary">Valor cobrado:</span>
+                                  <strong>
+                                    {`R$ ${app.service_price.toFixed(2).replace('.', ',')}`}
+                                  </strong>
+                                </div>
+                              )}
                               {app.status === 'canceled' && app.cancellation_reason && (
                                 <div className="flex justify-between gap-3 text-xs mb-1">
                                   <span className="text-text-secondary">Motivo:</span>

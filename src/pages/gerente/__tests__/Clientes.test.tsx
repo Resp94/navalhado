@@ -329,6 +329,36 @@ describe('Aba de Clientes (Clientes.tsx)', () => {
       expect(screen.queryByText('Motivo:')).toBeNull();
       expect(screen.queryByText('Sobrou de um cancelamento antigo')).toBeNull();
     });
+
+    it('rotula um atendimento não compareceu, em vez de deixar o rótulo em branco (spec 044)', async () => {
+      await abrirLinhaDoTempo([agendamento({ status: 'no_show', payment_status: 'pending' })]);
+
+      expect(screen.getByText('Não compareceu')).toBeInTheDocument();
+    });
+
+    it('não mostra "Valor cobrado" em atendimento cancelado ou não compareceu, que não foram cobrados (spec 044)', async () => {
+      await abrirLinhaDoTempo([
+        agendamento({
+          id: 'appointment-cancelado',
+          status: 'canceled',
+          services: { name: 'Cabelo & Barba', price: 80.0 },
+        }),
+        agendamento({
+          id: 'appointment-faltou',
+          status: 'no_show',
+          services: { name: 'Barba Terapia', price: 40.0 },
+        }),
+      ]);
+      await screen.findByText('Barba Terapia');
+
+      expect(screen.queryByText('Valor cobrado:')).toBeNull();
+    });
+
+    it('mostra "Valor cobrado" em atendimento concluído', async () => {
+      await abrirLinhaDoTempo([agendamento({ status: 'completed', payment_status: 'paid' })]);
+
+      expect(screen.getByText('Valor cobrado:')).toBeInTheDocument();
+    });
   });
 
   it('deve promover um cliente provisório a completo ao preencher seu nome na edição', async () => {

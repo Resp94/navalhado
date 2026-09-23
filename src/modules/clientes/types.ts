@@ -34,7 +34,7 @@ export interface ClienteInputData {
 export interface HistoricoVisitasCliente {
   id: string;
   start_time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'canceled';
+  status: 'pending' | 'confirmed' | 'completed' | 'canceled' | 'no_show';
   payment_status: 'pending' | 'paid';
   service_name: string;
   service_price: number;
