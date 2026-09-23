@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CadastroAcesso } from '../CadastroAcesso';
 
@@ -170,6 +171,53 @@ describe('CadastroAcesso', () => {
       );
     });
     expect(mockNavigate).toHaveBeenCalledWith('/profissionais');
+  });
+
+  it('mostra a mensagem real da Edge Function quando o e-mail já está em uso (FunctionsHttpError)', async () => {
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: new FunctionsHttpError({
+        json: async () => ({ error: 'Este e-mail já está em uso.' }),
+      } as any),
+    });
+
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), { target: { value: 'prof-1' } });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), { target: { value: 'carlos@gmail.com' } });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), { target: { value: 'segredo123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith('Este e-mail já está em uso.', 'error');
+    });
+  });
+
+  it('mantém a mensagem genérica quando o corpo da resposta de erro não pode ser lido', async () => {
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: new FunctionsHttpError({
+        json: async () => {
+          throw new Error('corpo inválido');
+        },
+      } as any),
+    });
+
+    render(<CadastroAcesso />);
+
+    await screen.findByRole('option', { name: /Carlos/ });
+    fireEvent.change(screen.getByLabelText(/Selecione o Barbeiro/i), { target: { value: 'prof-1' } });
+    fireEvent.change(screen.getByLabelText(/E-mail de Login/i), { target: { value: 'carlos@gmail.com' } });
+    fireEvent.change(screen.getByLabelText(/Senha de acesso/i), { target: { value: 'segredo123' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar e criar acesso/i }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        'Edge Function returned a non-2xx status code',
+        'error'
+      );
+    });
   });
 
   it('sugere a correção de domínio digitado errado no e-mail de login e aplica ao clicar', async () => {
