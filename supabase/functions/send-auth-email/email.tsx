@@ -8,6 +8,7 @@
 // no dev que site_url e a URL da API GoTrue (ex. .../auth/v1), nao o site
 // do app -- usa-lo gerava um link de logo quebrado.
 import { render } from "react-email";
+import { ConfirmacaoEmail } from "./emails/confirmacao.tsx";
 import { RedefinicaoSenhaEmail } from "./emails/redefinicao-senha.tsx";
 
 export interface SendEmailHookPayload {
@@ -44,6 +45,18 @@ export async function montarEmail(payload: SendEmailHookPayload, supabaseUrl: st
       ok: true,
       email: {
         assunto: "Redefina sua senha do Navalhado",
+        html: await render(email),
+        texto: await render(email, { plainText: true }),
+      },
+    };
+  }
+
+  if (tipo === "signup") {
+    const email = <ConfirmacaoEmail logoUrl={logoUrl} url={url} />;
+    return {
+      ok: true,
+      email: {
+        assunto: "Confirme seu e-mail no Navalhado",
         html: await render(email),
         texto: await render(email, { plainText: true }),
       },

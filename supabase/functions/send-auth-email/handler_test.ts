@@ -26,6 +26,18 @@ function payloadRecovery() {
   };
 }
 
+function payloadSignup() {
+  return {
+    user: { email: "usuario@example.com" },
+    email_data: {
+      token_hash: "hash-abc",
+      redirect_to: "https://dev.navalhado.com.br/",
+      email_action_type: "signup",
+      site_url: "https://dev.navalhado.com.br",
+    },
+  };
+}
+
 function assinar(body: string, webhookId = "msg_1"): Record<string, string> {
   const wh = new Webhook(TEST_SECRET);
   const timestamp = new Date();
@@ -85,10 +97,30 @@ Deno.test("recovery assinado: envia pelo Resend e responde 200", async () => {
   assertEquals(texto.includes("type=recovery"), true);
 });
 
+Deno.test("signup assinado: envia pelo Resend e responde 200", async () => {
+  const { deps, chamadas } = depsQueSempreEnviam();
+
+  const response = await handleSendEmailHook(requisicao(payloadSignup()), deps, BASE_ENV);
+  const corpo = await response.json();
+
+  assertEquals(response.status, 200);
+  assertEquals(corpo, {});
+  assertEquals(chamadas.length, 1);
+
+  const chamada = chamadas[0] as Record<string, unknown>;
+  assertEquals(chamada.subject, "Confirme seu e-mail no Navalhado");
+
+  const html = chamada.html as string;
+  const texto = chamada.text as string;
+  assertEquals(html.includes("type=signup"), true);
+  assertEquals(html.includes("https://dev.navalhado.com.br/email/logo.png"), true);
+  assertEquals(texto.includes("type=signup"), true);
+});
+
 Deno.test("tipo nao suportado: erro sem chamar o Resend", async () => {
   const { deps, chamadas } = depsQueSempreEnviam();
   const payload = payloadRecovery();
-  payload.email_data.email_action_type = "signup";
+  payload.email_data.email_action_type = "magiclink";
 
   const response = await handleSendEmailHook(requisicao(payload), deps, BASE_ENV);
 
