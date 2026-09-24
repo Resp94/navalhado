@@ -1,0 +1,55 @@
+// Spec 049: monta o e-mail (assunto, HTML e texto puro) a partir do payload
+// do Send Email Hook. Um template por email_action_type suportado; tipo
+// fora desta lista (magiclink, invite, email_change, reauthentication) nao
+// e usado por nenhum fluxo do app -- erro explicito em vez de template
+// generico.
+import { render } from "react-email";
+import { RedefinicaoSenhaEmail } from "./emails/redefinicao-senha.tsx";
+
+export interface SendEmailHookPayload {
+  user: { email: string };
+  email_data: {
+    token_hash: string;
+    redirect_to: string;
+    email_action_type: string;
+    site_url: string;
+  };
+}
+
+export interface EmailMontado {
+  assunto: string;
+  html: string;
+  texto: string;
+}
+
+export type MontarEmailResultado = { ok: true; email: EmailMontado } | { ok: false; erro: string };
+
+function montarLinkVerificacao(supabaseUrl: string, tokenHash: string, tipo: string, redirectTo: string): string {
+  const params = new URLSearchParams({ token: tokenHash, type: tipo, redirect_to: redirectTo });
+  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`;
+}
+
+export async function montarEmail(payload: SendEmailHookPayload, supabaseUrl: string): Promise<MontarEmailResultado> {
+  const {
+    email_action_type: tipo,
+    token_hash: tokenHash,
+    redirect_to: redirectTo,
+    site_url: siteUrl,
+  } = payload.email_data;
+  const logoUrl = `${siteUrl}/email/logo.png`;
+  const url = montarLinkVerificacao(supabaseUrl, tokenHash, tipo, redirectTo);
+
+  if (tipo === "recovery") {
+    const email = <RedefinicaoSenhaEmail logoUrl={logoUrl} url={url} />;
+    return {
+      ok: true,
+      email: {
+        assunto: "Redefina sua senha do Navalhado",
+        html: await render(email),
+        texto: await render(email, { plainText: true }),
+      },
+    };
+  }
+
+  return { ok: false, erro: `tipo de e-mail nao suportado: ${tipo}` };
+}

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "preview:pages": "npx wrangler pages dev dist",
     "test": "vitest run",
-    "test:db": "supabase test db"
+    "test:db": "supabase test db",
+    "email": "email dev --dir supabase/functions/send-auth-email/emails --port 3010"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -42,6 +43,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "jsdom": "^29.1.1",
     "oxlint": "^1.71.0",
+    "react-email": "^6.11.0",
     "react-grab": "^0.2.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",

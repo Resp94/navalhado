@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "imports": {
+    "react": "npm:react@19.2.8",
+    "react-email": "npm:react-email@6.11.0",
+    "standardwebhooks": "https://esm.sh/standardwebhooks@1.0.0"
+  }
+}
