@@ -3,6 +3,10 @@
 // fora desta lista (magiclink, invite, email_change, reauthentication) nao
 // e usado por nenhum fluxo do app -- erro explicito em vez de template
 // generico.
+//
+// A logo usa a origem de redirect_to, nao site_url: provado com envio real
+// no dev que site_url e a URL da API GoTrue (ex. .../auth/v1), nao o site
+// do app -- usa-lo gerava um link de logo quebrado.
 import { render } from "react-email";
 import { RedefinicaoSenhaEmail } from "./emails/redefinicao-senha.tsx";
 
@@ -30,13 +34,8 @@ function montarLinkVerificacao(supabaseUrl: string, tokenHash: string, tipo: str
 }
 
 export async function montarEmail(payload: SendEmailHookPayload, supabaseUrl: string): Promise<MontarEmailResultado> {
-  const {
-    email_action_type: tipo,
-    token_hash: tokenHash,
-    redirect_to: redirectTo,
-    site_url: siteUrl,
-  } = payload.email_data;
-  const logoUrl = `${siteUrl}/email/logo.png`;
+  const { email_action_type: tipo, token_hash: tokenHash, redirect_to: redirectTo } = payload.email_data;
+  const logoUrl = `${new URL(redirectTo).origin}/email/logo.png`;
   const url = montarLinkVerificacao(supabaseUrl, tokenHash, tipo, redirectTo);
 
   if (tipo === "recovery") {

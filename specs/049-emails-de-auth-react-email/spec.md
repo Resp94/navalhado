@@ -82,7 +82,7 @@ A volta atrás é desligar o hook no dashboard: o Auth volta na hora ao SMTP do 
 - **Assinatura.** Biblioteca `standardwebhooks`, com o secret do hook sem o prefixo `v1,whsec_`. A rotação com vários secrets fica fora.
 - **Sem verificação de JWT na função.** O hook não manda JWT; a assinatura cumpre esse papel. O deploy passa isso explicitamente.
 - **Mesmo código nos dois runtimes.** Os templates rodam no Node (preview) e no Deno (função). Por isso importam `react-email` sem prefixo de runtime. O Node resolve pelo `node_modules`; a função, por um mapa de imports próprio que fixa as versões de `react-email`, `react` e `standardwebhooks` e configura o JSX. As versões ficam fixas nos dois lados.
-- **Logo.** PNG de 192 px, o mesmo do ícone do app; SVG não aparece no Gmail nem no Outlook. O endereço vem do `site_url` do payload (`<site_url>/email/logo.png`): o dev busca em `dev.navalhado.com.br`, prod em `app.navalhado.com.br`, sem variável nova.
+- **Logo.** PNG de 192 px, o mesmo do ícone do app; SVG não aparece no Gmail nem no Outlook. O endereço vem da origem de `redirect_to` (`new URL(redirect_to).origin + '/email/logo.png'`): o dev busca em `dev.navalhado.com.br`, prod em `app.navalhado.com.br`, sem variável nova. **Não usa `site_url`** — provado no ticket 02 que esse campo é a URL da própria API do GoTrue (`.../auth/v1`), não o site do app; usá-lo gerava um link de logo quebrado.
 - **Texto puro.** Sai do mesmo template que o HTML.
 - **Logs.** Só `email_action_type`, `user.id` e o status do Resend. Nunca `token`, `token_hash`, o link nem o corpo do e-mail.
 - **Secrets**, cadastrados pelo usuário no dashboard de cada projeto: `RESEND_API_KEY`, `SEND_EMAIL_HOOK_SECRET` e `AUTH_EMAIL_FROM`.
@@ -123,7 +123,7 @@ A volta atrás é desligar o hook no dashboard: o Auth volta na hora ao SMTP do 
 
 - **Bom teste:** exercita só o comportamento externo da função. Uma requisição assinada entra, como o Supabase manda; saem a chamada ao Resend e a resposta HTTP. O teste não verifica o HTML exato, a estrutura dos templates nem funções internas. Ele verifica o que o Supabase e o Resend enxergam.
 - **Um seam automatizado: o handler da Edge Function.** Testes Deno sobem o handler com um `fetch` falso no lugar do Resend e assinam as requisições com a própria `standardwebhooks`. Não há teste separado do módulo de montagem; ele é detalhe interno, coberto pelo handler. Casos:
-  - `recovery`: resposta 200 com `Content-Type: application/json`. O Resend recebe o remetente de `AUTH_EMAIL_FROM`, o assunto de redefinição e um HTML e um texto que contêm o link com `type=recovery`. O `redirect_to` sai codificado e a logo sai com o `site_url` do payload.
+  - `recovery`: resposta 200 com `Content-Type: application/json`. O Resend recebe o remetente de `AUTH_EMAIL_FROM`, o assunto de redefinição e um HTML e um texto que contêm o link com `type=recovery`. O `redirect_to` sai codificado e a logo sai com a origem de `redirect_to`.
   - `signup`: mesma coisa, com o assunto de confirmação e `type=signup`.
   - Tipo não suportado: erro sem retry, e o Resend não é chamado.
   - Assinatura inválida: erro sem retry, e o Resend não é chamado.
