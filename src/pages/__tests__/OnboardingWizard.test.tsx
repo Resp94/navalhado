@@ -187,6 +187,61 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
     });
   });
 
+  it('vincula o gestor incluído como barbeiro ao próprio login, e os demais barbeiros ficam sem login', async () => {
+    const mockProfessionalsInsert = vi.fn().mockResolvedValue({ error: null });
+    const baseFrom = mockFrom.getMockImplementation()!;
+    mockFrom.mockImplementation((table: string) =>
+      table === 'professionals' ? { insert: mockProfessionalsInsert } : baseFrom(table)
+    );
+
+    render(<OnboardingWizard />);
+
+    // Passo 1
+    fireEvent.change(screen.getByLabelText(/CEP/i), { target: { value: '69000-000' } });
+    fireEvent.change(screen.getByLabelText(/Rua ou Avenida/i), { target: { value: 'Av. Brasil' } });
+    fireEvent.change(screen.getByLabelText(/Número/i), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText(/Bairro/i), { target: { value: 'Compensa' } });
+    fireEvent.change(screen.getByLabelText(/Cidade/i), { target: { value: 'Manaus' } });
+    fireEvent.change(screen.getByLabelText(/Estado \(UF\)/i), { target: { value: 'AM' } });
+    const nextLocBtn = screen.getByRole('button', { name: /Continuar para o Preço Base/i });
+    await waitFor(() => expect(nextLocBtn).toBeEnabled());
+    fireEvent.click(nextLocBtn);
+
+    // Passo 2
+    await waitFor(() => expect(screen.getByTestId('step-segmentation')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText(/Preço do Corte Tradicional/i), { target: { value: '4500' } });
+    fireEvent.change(screen.getByLabelText(/Como você conheceu o Navalhado/i), { target: { value: 'instagram' } });
+    const nextSegBtn = screen.getByRole('button', { name: /Continuar para Serviços/i });
+    await waitFor(() => expect(nextSegBtn).toBeEnabled());
+    fireEvent.click(nextSegBtn);
+
+    // Passo 3
+    await waitFor(() => expect(screen.getByTestId('step-services')).toBeInTheDocument());
+    const nextServBtn = screen.getByRole('button', { name: /Continuar para Equipe/i });
+    await waitFor(() => expect(nextServBtn).toBeEnabled());
+    fireEvent.click(nextServBtn);
+
+    // Passo 4: o gestor se inclui e cadastra mais um barbeiro
+    await waitFor(() => expect(screen.getByTestId('step-professionals')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Jonathas Gestor/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Me incluir como Barbeiro/i }));
+
+    fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Carlos Navalha' } });
+    fireEvent.change(screen.getByLabelText(/Celular ou WhatsApp/i), { target: { value: '92988887777' } });
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar/i }));
+
+    const finishBtn = screen.getByRole('button', { name: /Concluir e Abrir meu Painel/i });
+    await waitFor(() => expect(finishBtn).toBeEnabled());
+    fireEvent.click(finishBtn);
+
+    await waitFor(() => expect(mockProfessionalsInsert).toHaveBeenCalledTimes(1));
+    const payload = mockProfessionalsInsert.mock.calls[0][0];
+    expect(payload).toEqual([
+      expect.objectContaining({ name: 'Jonathas Gestor', user_id: 'user-gestor-1' }),
+      expect.objectContaining({ name: 'Carlos Navalha', user_id: null }),
+    ]);
+  });
+
   it('não marca o tenant como concluído se a inserção de serviços falhar (atomicidade)', async () => {
     const mockTenantUpdate = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ error: null }),

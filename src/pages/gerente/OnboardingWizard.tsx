@@ -191,8 +191,14 @@ export const OnboardingWizard: React.FC = () => {
         sunday: { active: false, start: '09:00', end: '13:00', break_start: '12:00', break_end: '13:00' },
       };
 
+      // O gestor que se incluiu como barbeiro fica vinculado ao próprio login,
+      // para não aparecer como profissional sem acesso em "Criar acesso".
+      const { data: authData } = await supabase.auth.getUser();
+      const managerUserId = authData?.user?.id ?? null;
+
       const profPayload = professionals.map((p) => ({
         tenant_id: tenant.tenantId,
+        user_id: p.isManager ? managerUserId : null,
         name: p.name,
         phone: p.phone,
         commission_percentage: p.commissionPercentage,
