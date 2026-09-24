@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent (depois do 02)
+**Status:** done
 
 - [x] Template de confirmação com o texto único da spec 049, conferido no preview local
 - [x] Testes Deno no handler cobrem `signup` com 200 e a chamada certa ao Resend (assunto de confirmação, link com `type=signup`) — 11 testes, todos passando

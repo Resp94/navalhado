@@ -4,7 +4,7 @@
 
 **Blocked by:** 01; configuração manual do usuário (chave `hook.dev` no Resend, secrets e hook no dashboard do Supabase)
 
-**Status:** needs-human (chave, secrets e hook), depois ready-for-agent
+**Status:** done
 
 - [x] Template de redefinição e layout com o visual e o texto da spec 049, conferidos no preview local em largura de celular e de desktop
 - [x] Testes Deno no handler cobrem: `recovery` com 200 e a chamada certa ao Resend (remetente, assunto, link com `type=recovery`, `redirect_to` codificado, logo pela origem de `redirect_to`), tipo não suportado, assinatura inválida, secret ausente, Resend 5xx/429 com 503 e `retry-after`, Resend 4xx sem retry, `Idempotency-Key` igual ao `webhook-id`, logs sem token

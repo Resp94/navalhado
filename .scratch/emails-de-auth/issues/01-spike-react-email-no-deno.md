@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Função descartável no DEV importa `react-email`, `react` e `standardwebhooks` com versões fixas pelo mapa de imports, e o deploy aceita
 - [x] O render gera HTML e texto puro de um template com Tailwind e `pixelBasedPreset`

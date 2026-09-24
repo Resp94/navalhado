@@ -4,7 +4,7 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent (depois do 05)
+**Status:** done
 
 - [ ] Spec 050 registra a data da promoção, o commit levado à `main` e o resultado de cada prova, e é encerrada (commit na `main` local)
 - [ ] Push da `main` com os registros dos tickets 04 a 06, com confirmação do usuário

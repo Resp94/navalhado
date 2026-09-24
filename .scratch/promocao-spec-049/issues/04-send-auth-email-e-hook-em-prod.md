@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** needs-human (chave no Resend, secrets e hook no dashboard)
+**Status:** done
 
 - [x] `send-auth-email` publicada em `boakqstrdfqmsrwnjore` com os arquivos da `main` (sem testes, sem `deno.lock`, sem `emails/static/`), entrada `index.tsx`, mapa `deno.json`, `verify_jwt: false`
 - [x] Usuário cria a chave `hook.prod` no Resend ("Sending access", domínio `app.navalhado.com.br`); existência conferida pelo conector, sem ver o valor

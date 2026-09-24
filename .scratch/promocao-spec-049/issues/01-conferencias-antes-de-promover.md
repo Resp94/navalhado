@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Depois do `fetch`, `main` = `origin/main` e `dev` = `origin/dev`; se algum mudou desde `12fbb6a`/`9e63cfe`, a diferença é lida antes de seguir
 - [x] `git merge-tree` entre `main` e `dev` continua sem conflito

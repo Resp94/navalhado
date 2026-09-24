@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** needs-human (desligar e religar o hook)
+**Status:** done
 
 - [x] "Esqueci minha senha" na conta de gerente do usuário: "Redefina sua senha do Navalhado", remetente `noreply@app.navalhado.com.br`, `delivered`, logo em `app.navalhado.com.br`, link com `type=recovery`; senha não trocada
 - [x] Acesso de barbeiro criado pela tela real, no tenant "Barber Tester", com `resplandesjonathas7@gmail.com`: chega "Confirme seu e-mail no Navalhado"

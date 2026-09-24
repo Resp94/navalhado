@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent (depois do 01)
+**Status:** done
 
 - [x] `git merge --no-ff dev` na `main` local, sem push
 - [x] `npm run lint` sem erro novo, `npm test` e `npm run build` passam

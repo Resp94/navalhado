@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** needs-human (confirmação do push no momento)
+**Status:** done
 
 - [x] Push da `main` feito só com confirmação do usuário no momento
 - [x] `https://app.navalhado.com.br/email/logo.png` responde `200 image/png`
