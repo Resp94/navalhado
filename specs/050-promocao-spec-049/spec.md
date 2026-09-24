@@ -103,3 +103,17 @@ Estado conferido em 24/09, antes da promoção:
 - Se uma prova com o hook ligado falhar, o usuário desliga o hook (volta ao SMTP na hora) e a correção é um commit novo na `dev`, promovido do mesmo jeito. Nunca uma edição direta na `main`.
 - Commits de referência na montagem desta spec: `main` em `12fbb6a`, `dev` em `9e63cfe`, base comum `6668ded`.
 - Tickets em `.scratch/promocao-spec-049/issues/`.
+
+## Resultado da promoção (2026-09-24)
+
+Todos os 6 tickets concluídos.
+
+- **Git.** `main` tinha avançado para `78af32e` desde a montagem (merge trazendo `6668ded`, achado fora de escopo da spec 048, já ancestral da `dev`) — sem risco novo. Merge `dev` → `main` sem conflito. Push da `main` confirmado pelo usuário: `78af32e..60bd761`.
+- **Logo.** No ar em `app.navalhado.com.br/email/logo.png` em menos de 45 s depois do push.
+- **`send-auth-email` em prod.** Publicada com o mesmo hash (`4ad20617...`) do dev — conteúdo idêntico. Usuário criou a chave `hook.prod`, os 3 secrets e o hook.
+- **Provas com e-mail real.** Redefinição de senha e confirmação de e-mail (acesso de barbeiro) funcionando em prod, com o template novo, a logo e o remetente certos. Login do barbeiro funcionou depois do clique no link real.
+- **Volta atrás.** Provada nos dois sentidos: hook desligado → SMTP com o template antigo; hook religado → template novo de novo.
+- **Fora do combinado, registrado com transparência:** o "Reenviar link" da tela de Login não foi testado isoladamente em prod (o `/resend` da própria criação do acesso já exercita o mesmo caminho; evitou-se criar um segundo profissional falso num tenant real só para essa prova — já coberto no DEV). Um efeito colateral apareceu durante o teste: usar uma segunda aba da mesma origem para logar como o barbeiro sobrescreveu o token da sessão do gerente no `localStorage` compartilhado, derrubando a sessão do navegador do usuário quando a conta de teste foi apagada (a conta em si nunca foi afetada; só precisou logar de novo).
+- **Limpeza.** Acesso de barbeiro de teste removido; `professionals.user_id` do profissional pré-existente de volta a `null`. Nenhum tenant nem Agendamento criado.
+
+**Spec 050 encerrada.** E-mails de Auth com React Email (spec 049) promovidos de `dev` para produção.
