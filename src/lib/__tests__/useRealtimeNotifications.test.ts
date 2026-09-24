@@ -133,11 +133,29 @@ describe('useRealtimeNotifications', () => {
   };
 
   it('deve inicializar com a lista de notificações vazia e unreadCount 0', async () => {
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     expect(result.current.notifications).toEqual([]);
     expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('não consulta o banco nem assina o tempo real quando não há profissional vinculado nem é o Gerente', async () => {
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    await waitForEffects();
+
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(mockSupabase.channel).not.toHaveBeenCalled();
+    expect(result.current.notifications).toEqual([]);
+    expect(result.current.unreadCount).toBe(0);
+
+    // Mesmo chamando a busca manualmente, continua sem consultar o banco
+    await act(async () => {
+      await result.current.fetchNotifications();
+    });
+
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(result.current.notifications).toEqual([]);
   });
 
   it('deve buscar as últimas notificações não lidas para o tenant', async () => {
@@ -147,7 +165,7 @@ describe('useRealtimeNotifications', () => {
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     await act(async () => {
@@ -183,7 +201,7 @@ describe('useRealtimeNotifications', () => {
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     // Primeiro busca as notificações
@@ -216,7 +234,7 @@ describe('useRealtimeNotifications', () => {
     ];
     setQueryResolveValue({ data: mockNotifications, error: null });
 
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     await act(async () => {
@@ -255,7 +273,7 @@ describe('useRealtimeNotifications', () => {
   });
 
   it('deve assinar o canal do Realtime e reagir a novos inserts', async () => {
-    renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     expect(mockSupabase.channel).toHaveBeenCalledWith('public:notifications');
@@ -268,7 +286,7 @@ describe('useRealtimeNotifications', () => {
   });
 
   it('deve adicionar toast e tocar som ao receber uma notificação pertinente pelo canal do Realtime', async () => {
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     const realtimeCallback = getRealtimeCallback();
@@ -304,7 +322,7 @@ describe('useRealtimeNotifications', () => {
   });
 
   it('deve ignorar notificações de outros tenants no Realtime', async () => {
-    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1' }));
+    const { result } = renderHook(() => useRealtimeNotifications({ tenantId: 'tenant-1', isGerente: true }));
     await waitForEffects();
 
     const realtimeCallback = getRealtimeCallback();

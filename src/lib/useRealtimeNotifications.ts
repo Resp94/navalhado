@@ -64,6 +64,13 @@ export function useRealtimeNotifications({ tenantId, profissionalId, isGerente }
   }, []);
 
   const fetchNotifications = useCallback(async () => {
+    // Sem profissional vinculado e sem ser Gerente, não há destinatário para
+    // filtrar por; devolve vazio em vez de buscar sem filtro de destinatário.
+    if (!profissionalId && !isGerente) {
+      setNotifications([]);
+      return;
+    }
+
     try {
       let query = supabase
         .from('notifications')
@@ -137,6 +144,10 @@ export function useRealtimeNotifications({ tenantId, profissionalId, isGerente }
 
   useEffect(() => {
     if (!tenantId) return;
+    if (!profissionalId && !isGerente) {
+      setNotifications([]);
+      return;
+    }
 
     // Busca inicial
     fetchNotifications();
