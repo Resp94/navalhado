@@ -4,8 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste do hook de notificações: sem profissional e sem ser Gerente, não há consulta ao banco nem assinatura do tempo real, e a lista fica vazia com contagem 0. Falha antes da mudança, passa depois
-- [ ] Os testes atuais do hook continuam passando (filtro por profissional, filtro do Gerente, descarte de notificação de outro profissional e de outro tenant no tempo real)
-- [ ] `npm run lint`, `npm test` e `npm run build` passam
+- [x] Teste do hook de notificações: sem profissional e sem ser Gerente, não há consulta ao banco nem assinatura do tempo real, e a lista fica vazia com contagem 0. Falha antes da mudança, passa depois
+- [x] Os testes atuais do hook continuam passando (filtro por profissional, filtro do Gerente, descarte de notificação de outro profissional e de outro tenant no tempo real)
+- [x] `npm run lint`, `npm test` e `npm run build` passam
+
+## Resultado (2026-09-24)
+
+`useRealtimeNotifications` passa a devolver lista vazia sem consultar o banco nem assinar o tempo real quando não recebe `profissionalId` nem `isGerente`. Seis testes que usavam esse formato como atalho para "busca funciona" passaram a exercitar `isGerente: true`, caso real do `GerenteLayout`. 13/13 testes do hook passam. `npm run lint`, `npm test` (1318 testes) e `npm run build` passam.

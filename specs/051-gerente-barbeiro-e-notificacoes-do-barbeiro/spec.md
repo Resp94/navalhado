@@ -96,3 +96,14 @@ A notificação do Gerente não muda.
 
   Os tickets reaproveitam esse código. Falta nele o teste de um barbeiro não receber notificação de outro, a leitura com RLS e a mudança no hook.
 - **Termos.** "Notificação" aqui é a do sininho (`public.notifications`). Não confundir com Evento de Agendamento nem com mensagem de WhatsApp.
+
+## Resultado (2026-09-24)
+
+Todos os 3 tickets concluídos, na `dev` local (`422e051`), sem push.
+
+- **Ticket 01.** Migration `vincula_gerente_incluido_como_barbeiro` aplicada no dev. Jonathas Teste e Carlos Alpha Gestor vinculados ao próprio login; nenhum outro gerente afetado, nenhum caso ambíguo. Os dois tenants ficaram com 0 profissionais ativos sem login.
+- **Ticket 02.** Migration `notificacao_so_para_barbeiro_com_login` aplicada no dev. pgTAP 62 com 12 asserções, 12/12, cobrindo os casos da spec e os dois que faltavam no código pré-spec (isolamento entre barbeiros e leitura por RLS). Nenhum dado de teste ficou no dev. Erica com 0 não lidas, Diego com as 7 dele intactas, 156 notificações no total, nenhuma apagada.
+- **Ticket 03.** `useRealtimeNotifications` devolve lista vazia sem consultar o banco nem assinar o tempo real quando não há profissional vinculado nem é o Gerente. 13/13 testes do hook.
+- **`npm run lint`, `npm test` (1318 testes) e `npm run build`** passam depois de cada ticket.
+- **Fora do combinado:** nenhum. Tudo saiu como a spec previu.
+- **Pendente:** merge em `main` e push da `dev`, a pedido do usuário; nada foi enviado ao remoto nesta sessão.
