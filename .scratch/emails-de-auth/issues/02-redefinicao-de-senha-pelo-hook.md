@@ -8,11 +8,11 @@
 
 - [x] Template de redefinição e layout com o visual e o texto da spec 049, conferidos no preview local em largura de celular e de desktop
 - [x] Testes Deno no handler cobrem: `recovery` com 200 e a chamada certa ao Resend (remetente, assunto, link com `type=recovery`, `redirect_to` codificado, logo pela origem de `redirect_to`), tipo não suportado, assinatura inválida, secret ausente, Resend 5xx/429 com 503 e `retry-after`, Resend 4xx sem retry, `Idempotency-Key` igual ao `webhook-id`, logs sem token
-- [ ] Logo publicada: merge na `dev` e push, com pedido do usuário; o endereço da logo no domínio do dev responde 200 com `image/png` — **pendente**, ver Resultado
+- [x] Logo publicada: merge na `dev` e push feitos, deploy da Cloudflare confirmado (~90s); `dev.navalhado.com.br/email/logo.png` responde 200 com `image/png`
 - [x] Usuário criou a chave `hook.dev` e cadastrou `RESEND_API_KEY`, `AUTH_EMAIL_FROM` e `SEND_EMAIL_HOOK_SECRET`; existência da chave conferida pelo conector do Resend, sem ver o valor
 - [x] Função publicada no DEV sem verificação de JWT e sem os arquivos de teste; hook Send Email criado pelo usuário apontando para ela
-- [x] Prova com e-mail real: o e-mail chega com o visual aprovado (menos a logo, pendente do push), o botão leva ao link de verificação com `type=recovery`, o Resend registra o remetente `noreply@dev.navalhado.com.br` e `delivered`, e o log da função não traz token
-- [ ] Hook desligado depois da prova (a confirmação ainda não é suportada) — **pendente**, ver Resultado
+- [x] Prova com e-mail real: o e-mail chega com o visual aprovado, logo incluída, o botão leva ao link de verificação com `type=recovery`, o Resend registra o remetente `noreply@dev.navalhado.com.br` e `delivered`, e o log da função não traz token
+- [x] Volta atrás provada: hook desligado → "Esqueci minha senha" saiu pelo SMTP com o template antigo em inglês ("Reset your password"); hook religado → voltou a usar o template novo ("Redefina sua senha do Navalhado")
 - [x] `npm run lint`, `npm test` e `npm run build` passam
 
 ## Resultado (2026-09-24)
@@ -26,7 +26,9 @@ Publicada no DEV (`selvxobcjbkligxighlp`), hook Send Email criado pelo usuário 
 
 Com a correção, o e-mail chegou (`Status: delivered`, Resend), com assunto, título, texto, botão e link de verificação corretos. A imagem da logo ainda não carrega porque `public/email/logo.png` só existe na branch local — falta o merge e push para a `dev` publicarem o arquivo no Cloudflare (confirmado: `dev.navalhado.com.br/email/logo.png` hoje devolve o `index.html` da SPA, não a imagem).
 
-**Pendente, com o usuário:**
-- Merge e push para a `dev` (publica a logo).
-- Desligar e religar o hook para provar a volta atrás (não feito ainda).
-- Remover o usuário de teste (`3a0b1b8b-fe4f-4a94-9adc-296bcdc1a0fa`, `public.users` incluído, criado pelo trigger `handle_new_user`).
+**Concluído depois, com o usuário:**
+- Merge (`feat/emails-auth-react-email` → `dev`, fast-forward) e push. Deploy da Cloudflare confirmado; logo no ar.
+- Volta atrás provada nos dois sentidos: hook desligado → SMTP com template antigo (achado à parte: a credencial do SMTP do dev deu `535 Authentication credentials invalid` na primeira tentativa, passageiro — funcionou no reteste); hook religado → template novo de novo.
+- Usuário de teste (`3a0b1b8b-fe4f-4a94-9adc-296bcdc1a0fa`) removido de `public.users`, `auth.identities` e `auth.users`.
+
+**Ticket 02 concluído.**
