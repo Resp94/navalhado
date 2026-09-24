@@ -168,3 +168,4 @@ A volta atrás é desligar o hook no dashboard: o Auth volta na hora ao SMTP do 
 - **Chaves.** O usuário cria as chaves no dashboard do Resend e as cadastra como secret no Supabase. A chave nunca passa pela conversa nem pelo repositório; pelo conector do Resend só se confere que ela existe.
 - **Tickets** em `.scratch/emails-de-auth/issues/`.
 - **Commit de referência** na montagem desta spec: `dev` em `6668ded`.
+- **Encerrada em 24/09.** Tickets 01, 02 e 03 concluídos e verificados de ponta a ponta no dev, com e-mails reais, nos quatro fluxos (cadastro de barbearia, "Reenviar link", acesso de barbeiro criado pelo gerente, "Esqueci minha senha") e com a volta atrás provada. Promoção para prod fica para uma spec à parte, só com pedido explícito.
