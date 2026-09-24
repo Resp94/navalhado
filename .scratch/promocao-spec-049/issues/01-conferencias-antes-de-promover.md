@@ -20,6 +20,8 @@
 
 **Sem risco novo:** `6668ded` já é ancestral da `dev` (é o commit-base usado para montar a spec 049 e a 050). `git diff 6668ded 78af32e^2 -- src/pages/gerente/CadastroAcesso.tsx` vazio — conteúdo idêntico. `git merge-tree` entre `origin/main` (`78af32e`) e `origin/dev` (`b08c388`) continua limpo, sem conflito.
 
-Prod: 3 Edge Functions (`whatsapp-integration`, `public-customer-session`, `create-barber-access`), sem `send-auth-email`. Alias escolhido para o ticket 05: `resplandesjonathas+spike050barbeiro@gmail.com`, sem conta em prod.
+Prod: 3 Edge Functions (`whatsapp-integration`, `public-customer-session`, `create-barber-access`), sem `send-auth-email`. E-mail escolhido para o ticket 05: `resplandesjonathas+spike050barbeiro@gmail.com`, sem conta em prod.
+
+**Correção (ainda no ticket 01):** o usuário apontou que esse alias `+` não serve. `resplandesjonathas@gmail.com` já é a conta de gerente do tenant "Barber Tester" em prod (desde julho/2026), então não pode ser reaproveitado para o barbeiro. Trocado para `resplandesjonathas7@gmail.com` — real, sem alias, o mesmo já usado nos testes de prod da spec 048, sem conta em prod hoje. Ticket 05 atualizado.
 
 Segue para o ticket 02.

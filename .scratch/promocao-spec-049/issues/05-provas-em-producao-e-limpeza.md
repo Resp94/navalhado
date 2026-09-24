@@ -7,7 +7,7 @@
 **Status:** needs-human (desligar e religar o hook)
 
 - [ ] "Esqueci minha senha" na conta de gerente do usuário: "Redefina sua senha do Navalhado", remetente `noreply@app.navalhado.com.br`, `delivered`, logo em `app.navalhado.com.br`, link com `type=recovery`; senha não trocada
-- [ ] Acesso de barbeiro criado pela tela real, no tenant "Barber Tester", com o alias do ticket 01: chega "Confirme seu e-mail no Navalhado"
+- [ ] Acesso de barbeiro criado pela tela real, no tenant "Barber Tester", com `resplandesjonathas7@gmail.com`: chega "Confirme seu e-mail no Navalhado"
 - [ ] Login do barbeiro recusa antes da confirmação; "Reenviar link" manda um segundo e-mail igual (respeitando os 25 s do GoTrue)
 - [ ] Depois do clique no link, o Login do barbeiro entra
 - [ ] Log de Auth de prod com `Hook ran successfully` nos envios; log da função sem token, hash ou link
