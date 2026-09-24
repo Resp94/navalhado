@@ -132,12 +132,12 @@ A volta atrás é desligar o hook no dashboard: o Auth volta na hora ao SMTP do 
   - O `Idempotency-Key` enviado é o `webhook-id`.
   - Nenhuma saída de log contém o token, o hash ou o link.
 - **Prior art.** Os testes Deno da Edge Function de acesso do barbeiro, que isolam o Supabase atrás de dependências injetadas e rodam com `deno test`.
-- **Spike.** Função descartável no dev, nunca commitada. Prova três coisas:
-  - o import de `react-email` pelo mapa de imports funciona no deploy;
-  - o render gera HTML e texto no Deno;
-  - o tempo de uma chamada fria (verificação, render e envio ao Resend) fica bem abaixo dos 5 s do hook.
+- **Spike, concluído em 24/09.** Função descartável no dev, nunca commitada. Confirmou:
+  - o import de `react-email`, `react` e `standardwebhooks` pelo mapa de imports funciona no deploy;
+  - o render gera HTML e texto no Deno, com `Tailwind` e `pixelBasedPreset`;
+  - o tempo de render fica em torno de 85 ms (HTML mais texto puro), estável entre a primeira chamada e as seguintes — bem abaixo dos 5 s do hook. O envio real ao Resend não foi medido de dentro da função (sem secret ainda; fica para o ticket 02), mas a soma continua folgada.
 
-  Se o React Email 6 falhar no Deno, o plano B é o pacote `@react-email/components`, o da doc da Supabase. A função é neutralizada depois (só o dashboard apaga de vez), e o resultado fica registrado nesta spec.
+  Sem necessidade do plano B (`@react-email/components`). **Achado que muda a implementação:** o entrypoint precisa ser `.tsx`, não `.ts` — um `.ts` com JSX falha o bundling mesmo com `compilerOptions.jsx` no mapa de imports, porque a extensão do arquivo decide se o parser aceita JSX, não só a configuração. A função é neutralizada depois (responde 410; só o dashboard apaga de vez), e o resultado está registrado no ticket 01.
 - **Prova de ponta a ponta no dev**, com e-mails reais do usuário (alias `+` no Gmail), em cada fluxo: "Esqueci minha senha", cadastro de barbearia, "Reenviar link" e acesso de barbeiro criado pelo gerente. Em cada fluxo, conferir:
   - o e-mail chega com o visual aprovado e com a logo;
   - o botão leva ao destino certo;
@@ -162,7 +162,8 @@ A volta atrás é desligar o hook no dashboard: o Auth volta na hora ao SMTP do 
 
 ## Further Notes
 
-- **Limite de 5 s.** O Supabase dá 5 s para a chamada inteira do hook, retries incluídos. Se o spike mostrar cold start perto disso, o desenho volta para discussão antes do ticket 02.
+- **Limite de 5 s.** O Supabase dá 5 s para a chamada inteira do hook, retries incluídos. O spike mediu ~85 ms de render, bem abaixo disso; o ticket 02 mede o caminho completo com o Resend real.
+- **Entrypoint `.tsx`.** Achado do spike: o arquivo de entrada da função precisa ter extensão `.tsx` para o bundler aceitar JSX, mesmo com o `jsx` configurado no mapa de imports.
 - **Duplicidade.** Sem o `Idempotency-Key`, um 503 depois de o Resend já ter aceitado o envio faria o retry mandar um segundo e-mail.
 - **Chaves.** O usuário cria as chaves no dashboard do Resend e as cadastra como secret no Supabase. A chave nunca passa pela conversa nem pelo repositório; pelo conector do Resend só se confere que ela existe.
 - **Tickets** em `.scratch/emails-de-auth/issues/`.
