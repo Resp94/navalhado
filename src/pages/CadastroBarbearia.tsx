@@ -4,22 +4,14 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { LegalModal } from '../components/legal/LegalModal';
+import { usePlanos } from '../modules/planos/usePlanos';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
 import { isValidEmailFormat, verifyEmailDomain, suggestEmailDomainCorrection } from '../lib/email';
 
-interface Plan {
-  id: string;
-  name: string;
-  price: string;
-  limit: string;
-  description: string;
-}
+const formatarPreco = (valor: number) =>
+  valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const PLANOS: Plan[] = [
-  { id: 'bronze', name: 'Bronze', price: '49,90', limit: 'Até 3 profissionais', description: 'Para quem está começando e quer organizar a agenda.' },
-  { id: 'prata', name: 'Prata', price: '89,90', limit: 'Até 8 profissionais', description: 'Para barbearias com equipe e movimento crescentes.' },
-  { id: 'ouro', name: 'Ouro', price: '149,90', limit: 'Profissionais ilimitados', description: 'Para redes que precisam de gestão completa e escala.' }
-];
+const formatarLimite = (max: number) => (max === 1 ? '1 profissional' : `Até ${max} profissionais`);
 
 const PAGE_CLASS = 'min-h-screen min-h-dvh flex items-center justify-center px-6 py-8 relative overflow-y-auto';
 
@@ -51,7 +43,10 @@ export const CadastroBarbearia: React.FC = () => {
   const [gestorNome, setGestorNome] = useState('');
   const [gestorEmail, setGestorEmail] = useState('');
   const [gestorSenha, setGestorSenha] = useState('');
-  const [planoSelecionado, setPlanoSelecionado] = useState('prata');
+  // Catálogo lido do banco (spec 052, ticket 01). Sem escolha do gestor, vale o plano padrão.
+  const { planos, status: planosStatus, planoPadraoId } = usePlanos();
+  const [planoEscolhido, setPlanoEscolhido] = useState<string | null>(null);
+  const planoSelecionado = planoEscolhido ?? planoPadraoId ?? '';
 
   // --- Erros de Validação ---
   const [emailBarbeariaError, setEmailBarbeariaError] = useState('');
@@ -175,6 +170,10 @@ export const CadastroBarbearia: React.FC = () => {
   const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (planosStatus !== 'ready' || !planoSelecionado) {
+      addToast('Não foi possível carregar os planos. Recarregue a página para tentar de novo.', 'warning');
+      return;
+    }
     if (!gestorNome || !gestorEmail || !gestorSenha) {
       addToast('Preencha todos os dados do gestor.', 'warning');
       return;
@@ -207,7 +206,7 @@ export const CadastroBarbearia: React.FC = () => {
               name: barbeariaNome,
               email: barbeariaEmail,
               phone: barbeariaPhone.replace(/\D/g, ''),
-              plan: planoSelecionado,
+              plan_id: planoSelecionado,
             },
           }
         }
@@ -235,7 +234,8 @@ export const CadastroBarbearia: React.FC = () => {
   };
 
   const isStep1Disabled = !barbeariaNome || !barbeariaEmail || !barbeariaPhone || !!emailBarbeariaError || !!phoneBarbeariaError;
-  const isSubmitDisabled = loading || !gestorNome || !gestorEmail || !gestorSenha || !!emailGestorError || !!senhaGestorError;
+  const isSubmitDisabled =
+    loading || planosStatus !== 'ready' || !planoSelecionado || !gestorNome || !gestorEmail || !gestorSenha || !!emailGestorError || !!senhaGestorError;
 
   if (success) {
     return (
@@ -455,8 +455,16 @@ export const CadastroBarbearia: React.FC = () => {
                   {/* Seleção de Planos */}
                   <div className="flex flex-col gap-2 text-left">
                     <label className="text-sm text-text-primary font-medium">Selecione um plano:</label>
+                    {planosStatus === 'loading' && (
+                      <p className="text-xs text-text-secondary m-0">Carregando planos…</p>
+                    )}
+                    {planosStatus === 'error' && (
+                      <p className="text-xs text-error m-0" role="alert">
+                        Não foi possível carregar os planos. Recarregue a página para tentar de novo.
+                      </p>
+                    )}
                     <div className="grid grid-cols-3 gap-3 max-[540px]:grid-cols-1 max-[540px]:gap-2">
-                      {PLANOS.map((plano) => (
+                      {planos.map((plano) => (
                         <div
                           key={plano.id}
                           className={`border rounded-lg p-4 px-3 cursor-pointer flex flex-col gap-1.5 bg-bg-secondary transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-brand-soft hover:-translate-y-0.5 hover:shadow-sm max-[540px]:flex-row max-[540px]:flex-wrap max-[540px]:items-center max-[540px]:justify-between max-[540px]:p-4 ${
@@ -464,22 +472,19 @@ export const CadastroBarbearia: React.FC = () => {
                               ? 'border-brand-primary bg-brand-lightest shadow-[0_0_0_1px_var(--color-brand-primary),var(--shadow-md)]'
                               : 'border-border'
                           }`}
-                          onClick={() => setPlanoSelecionado(plano.id)}
+                          onClick={() => setPlanoEscolhido(plano.id)}
                         >
                           <div className="flex flex-col gap-0.5 max-[540px]:flex-row max-[540px]:items-center max-[540px]:gap-2">
                             <span className="text-sm font-bold text-text-primary">{plano.name}</span>
                             <div className="flex items-baseline text-brand-primary">
                               <span className="text-[0.65rem] font-semibold">R$</span>
-                              <span className="text-lg font-extrabold tracking-[-0.02em]">{plano.price}</span>
+                              <span className="text-lg font-extrabold tracking-[-0.02em]">{formatarPreco(plano.price)}</span>
                               <span className="text-[0.65rem] text-text-secondary ml-0.5">/mês</span>
                             </div>
                           </div>
                           <span className="text-[0.65rem] font-semibold text-success bg-success-bg px-1.5 py-0.5 rounded-full inline-block self-start max-[540px]:self-center">
-                            {plano.limit}
+                            {formatarLimite(plano.max_professionals)}
                           </span>
-                          <p className="text-[0.65rem] text-text-secondary leading-[1.4] m-0 max-[540px]:w-full max-[540px]:mt-1">
-                            {plano.description}
-                          </p>
                         </div>
                       ))}
                     </div>
