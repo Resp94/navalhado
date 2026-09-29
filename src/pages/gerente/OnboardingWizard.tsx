@@ -28,8 +28,9 @@ export const OnboardingWizard: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitting, setSubmitting] = useState(false);
-  const [planName, setPlanName] = useState<string>('Bronze');
-  const [maxProfessionals, setMaxProfessionals] = useState<number>(3);
+  // Nulos até a assinatura chegar: o wizard não mostra plano nem cota chutados.
+  const [planName, setPlanName] = useState<string | null>(null);
+  const [maxProfessionals, setMaxProfessionals] = useState<number | null>(null);
   const [managerName, setManagerName] = useState<string>('');
   const [managerPhone, setManagerPhone] = useState<string>('');
 
@@ -97,8 +98,8 @@ export const OnboardingWizard: React.FC = () => {
 
           if (subData && subData.plans && isMounted) {
             const plan = subData.plans as any;
-            setPlanName(plan.name || 'Bronze');
-            setMaxProfessionals(plan.max_professionals || 3);
+            setPlanName(plan.name || null);
+            setMaxProfessionals(plan.max_professionals || null);
           }
         }
       } catch {

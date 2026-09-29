@@ -13,8 +13,9 @@ import type { ProfessionalItem } from './types';
 
 interface StepProfessionalsProps {
   professionals: ProfessionalItem[];
-  maxProfessionals: number;
-  planName: string;
+  // Nulos enquanto a assinatura não chega (ou se a leitura falha): sem cota, sem trava.
+  maxProfessionals: number | null;
+  planName: string | null;
   managerName: string;
   managerPhone: string;
   submitting: boolean;
@@ -52,7 +53,7 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
     return numbers;
   };
 
-  const isQuotaFull = professionals.length >= maxProfessionals;
+  const isQuotaFull = maxProfessionals !== null && professionals.length >= maxProfessionals;
 
   const handleAddBarber = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,24 +118,26 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
       </div>
 
       {/* Medidor de Cota do Plano */}
-      <div className="flex justify-between items-center bg-[#FFF9F5] border-[1.5px] border-brand-soft rounded-md py-4 px-5 mb-5">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">
-            <HugeiconsIcon icon={UserGroupIcon} size={22} />
-          </span>
-          <div>
-            <strong className="text-[0.95rem] text-text-primary">
-              {professionals.length} de {maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals} barbeiros cadastrados
-            </strong>
-            <p className="m-0 text-[0.78rem] text-text-secondary">Plano {planName || 'Bronze'}</p>
+      {maxProfessionals !== null && planName !== null && (
+        <div className="flex justify-between items-center bg-[#FFF9F5] border-[1.5px] border-brand-soft rounded-md py-4 px-5 mb-5">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">
+              <HugeiconsIcon icon={UserGroupIcon} size={22} />
+            </span>
+            <div>
+              <strong className="text-[0.95rem] text-text-primary">
+                {professionals.length} de {maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals} barbeiros cadastrados
+              </strong>
+              <p className="m-0 text-[0.78rem] text-text-secondary">Plano {planName}</p>
+            </div>
           </div>
+          {isQuotaFull ? (
+            <span className="bg-warning-bg text-warning text-xs font-bold py-1 px-[0.65rem] rounded-full">Limite Atingido</span>
+          ) : (
+            <span className="bg-success-bg text-success text-xs font-bold py-1 px-[0.65rem] rounded-full">Vagas Abertas</span>
+          )}
         </div>
-        {isQuotaFull ? (
-          <span className="bg-warning-bg text-warning text-xs font-bold py-1 px-[0.65rem] rounded-full">Limite Atingido</span>
-        ) : (
-          <span className="bg-success-bg text-success text-xs font-bold py-1 px-[0.65rem] rounded-full">Vagas Abertas</span>
-        )}
-      </div>
+      )}
 
       {/* Sugestão de Adicionar o Gestor */}
       {!hasManager && !isQuotaFull && (

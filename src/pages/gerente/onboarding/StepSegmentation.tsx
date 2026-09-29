@@ -9,8 +9,9 @@ import { Select } from '../../../components/ui';
 
 interface StepSegmentationProps {
   data: OnboardingSegmentation;
-  planName: string;
-  maxProfessionals: number;
+  // Nulos enquanto a assinatura não chega (ou se a leitura falha): o cartão do plano some.
+  planName: string | null;
+  maxProfessionals: number | null;
   onChange: (data: Partial<OnboardingSegmentation>) => void;
   onNext: () => void;
   onBack: () => void;
@@ -57,22 +58,24 @@ export const StepSegmentation: React.FC<StepSegmentationProps> = ({
       </div>
 
       {/* Card do Plano Ativo */}
-      <div className="bg-[linear-gradient(135deg,#FFF9F5_0%,#FFF2E8_100%)] border-[1.5px] border-brand-soft rounded-lg py-5 px-6 relative">
-        <div className="absolute -top-2.5 right-[18px] bg-brand-primary text-white text-[0.72rem] font-bold uppercase py-[0.2rem] px-2.5 rounded-full">Seu Plano Ativo</div>
-        <div>
+      {planName !== null && maxProfessionals !== null && (
+        <div className="bg-[linear-gradient(135deg,#FFF9F5_0%,#FFF2E8_100%)] border-[1.5px] border-brand-soft rounded-lg py-5 px-6 relative">
+          <div className="absolute -top-2.5 right-[18px] bg-brand-primary text-white text-[0.72rem] font-bold uppercase py-[0.2rem] px-2.5 rounded-full">Seu Plano Ativo</div>
           <div>
-            <h3 className="text-xl font-bold text-text-primary m-0 mb-1">Plano {planName || 'Bronze'}</h3>
-            <p className="text-[0.85rem] text-text-secondary m-0">
-              Organização completa da agenda, clientes e equipe da sua barbearia.
-            </p>
-          </div>
-          <div>
-            <span className="inline-block mt-3 bg-white border border-border py-[0.4rem] px-[0.85rem] rounded-md text-[0.82rem] text-text-primary">
-              Limite de até <strong>{maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals} profissionais</strong>
-            </span>
+            <div>
+              <h3 className="text-xl font-bold text-text-primary m-0 mb-1">Plano {planName}</h3>
+              <p className="text-[0.85rem] text-text-secondary m-0">
+                Organização completa da agenda, clientes e equipe da sua barbearia.
+              </p>
+            </div>
+            <div>
+              <span className="inline-block mt-3 bg-white border border-border py-[0.4rem] px-[0.85rem] rounded-md text-[0.82rem] text-text-primary">
+                Limite de até <strong>{maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals} profissionais</strong>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-[1.15rem] mt-6">
         {/* Preço do Corte Tradicional */}
