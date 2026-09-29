@@ -65,6 +65,10 @@ _Avoid_: Mensagem fixa no código, texto solto sem tags, template global estáti
 Assistente obrigatório de configuração pós-cadastro inicial (`/onboarding`), composto por etapas sequenciais (Localização, Segmentação, Catálogo Inicial de Serviços e Equipe de Profissionais), responsável por parametrizar o tenant antes da operação regular.
 _Avoid_: Passo a passo legado, formulário de boas-vindas, setup opcional
 
+**Limite de Profissionais do Plano**:
+Número máximo de profissionais ativos (`professionals` sem `deleted_at`) que a barbearia pode ter, dado por `plans.max_professionals` do plano da assinatura mais recente do tenant e aplicado no banco pelo gatilho `trg_enforce_professional_plan_limit`, que recusa incluir, reativar ou mover um profissional acima dele (SQLSTATE 53400, mensagem `PROFESSIONAL_LIMIT_REACHED`). O profissional inativo (`is_active = false`) mas não excluído continua ocupando vaga; só excluir libera. O Gerente só conta quando existe um profissional vinculado a ele. Tenant sem assinatura não tem limite. O onboarding e a tela de Profissionais mostram a cota, mas quem decide é o banco.
+_Avoid_: Cota só de tela, limite do wizard, limite por `is_active`, verificação só no front
+
 **Gatekeeper de Onboarding**:
 Mecanismo de proteção de rotas no frontend e validação de estado no backend que intercepta o acesso do Gestor às rotas operacionais do tenant (`/agenda`, `/clientes`, `/financeiro`, etc.) enquanto a flag `onboarding_completed` do tenant for falsa, forçando o redirecionamento para o Wizard de Onboarding.
 _Avoid_: Bloqueio temporário, redirect solto, verificação manual
