@@ -18,8 +18,8 @@ insert into public.tenants (name, email, phone) values
   ('__t64_gerente_vinc__', '__t64_gerente_vinc__@teste.com', '11999999645'),
   ('__t64_sem_assinatura__', '__t64_sem_assinatura__@teste.com', '11999999646');
 
-insert into public.tenant_subscriptions (tenant_id, plan_id, status, start_date, end_date, billing_cycle)
-select t.id, v.plano::uuid, 'active', now(), now() + interval '1 month', 'monthly'
+insert into public.tenant_subscriptions (tenant_id, plan_id, status)
+select t.id, v.plano::uuid, 'active'
 from public.tenants t
 join (values
   ('__t64_tesoura__', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11'),
