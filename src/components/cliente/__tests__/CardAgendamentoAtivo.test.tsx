@@ -38,4 +38,27 @@ describe('CardAgendamentoAtivo', () => {
     expect(screen.getByText(/20:30/)).toBeInTheDocument();
     expect(screen.queryByText(/19:30/)).not.toBeInTheDocument();
   });
+
+  // Spec 052, ticket 04: barbearia bloqueada por assinatura. Sem onReschedule, o cartão só
+  // oferece cancelar, para o cliente liberar o horário.
+  it('sem onReschedule, não oferece remarcar e continua oferecendo cancelar', () => {
+    render(<CardAgendamentoAtivo appointment={APPOINTMENT} timezone="America/Sao_Paulo" onCancel={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /Remarcar/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cancelar/i })).toBeInTheDocument();
+  });
+
+  it('com onReschedule, oferece remarcar e cancelar', () => {
+    render(
+      <CardAgendamentoAtivo
+        appointment={APPOINTMENT}
+        timezone="America/Sao_Paulo"
+        onReschedule={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Remarcar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cancelar/i })).toBeInTheDocument();
+  });
 });

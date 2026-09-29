@@ -320,3 +320,136 @@ describe('FluxoAgendamento - cadastro inicial', () => {
     });
   });
 });
+
+// Spec 052, ticket 04: barbearia bloqueada por assinatura. O cliente vê "agendamento online
+// indisponível" em vez do fluxo, e o servidor recusa criar mesmo que ele chegue até o fim.
+describe('FluxoAgendamento - barbearia bloqueada por assinatura', () => {
+  const contextoPublico = {
+    tenant_id: 'tenant-public',
+    tenant_name: 'Barbearia Pública',
+    tenant_phone: '5592999999999',
+    tenant_slug: 'brooklyn',
+    timezone: 'America/Manaus',
+    slot_interval_minutes: 30,
+    min_booking_lead_time_minutes: 0,
+    min_cancellation_lead_time_minutes: 120,
+  };
+  const servico = {
+    id: 'service-public-1',
+    name: 'Corte Público',
+    description: null,
+    price: 50,
+    duration_minutes: 40,
+    category: 'Cabelo',
+    is_active: true,
+  };
+
+  const rpcPublicaComDisponibilidade = (disponivel: boolean, extras: Record<string, unknown> = {}) =>
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name in extras) return extras[name];
+      if (name === 'get_public_tenant_by_slug') return { data: [contextoPublico], error: null };
+      if (name === 'get_public_booking_availability') return { data: disponivel, error: null };
+      if (name === 'get_services_by_public_slug') return { data: [servico], error: null };
+      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
+      if (name === 'get_public_schedule_by_slug') return { data: [{ slot_time: '10:00', available: true }], error: null };
+      if (name === 'resolve_public_customer_identity') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPublicGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockPublicSignIn.mockResolvedValue({ data: { session: { user: { is_anonymous: true } } }, error: null });
+    mockPublicRpc.mockResolvedValue({ data: [], error: null });
+    localStorage.clear();
+    vi.setSystemTime(new Date('2026-08-25T10:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('pelo slug: mostra "agendamento online indisponível", com contato da barbearia, e não o catálogo', async () => {
+    rpcPublicaComDisponibilidade(false);
+
+    renderBookingRoute('/brooklyn');
+
+    expect(await screen.findByRole('heading', { name: 'Agendamento online indisponível' })).toBeInTheDocument();
+    expect(screen.getByText(/Barbearia Pública não está recebendo agendamentos online/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /falar com a barbearia pelo whatsapp/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('wa.me/5592999999999'),
+    );
+    expect(screen.queryByText('Corte Público')).not.toBeInTheDocument();
+    expect(mockRpc).toHaveBeenCalledWith('get_public_booking_availability', { p_slug: 'brooklyn' });
+  });
+
+  it('pelo token: cliente sem cadastro também vê "agendamento online indisponível"', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') {
+        return { data: [{ ...incompleteDetails, tenant_slug: 'brooklyn' }], error: null };
+      }
+      if (name === 'get_public_booking_availability') return { data: false, error: null };
+      if (name === 'get_services_by_customer_token') return { data: [servico], error: null };
+      if (name === 'get_professionals_by_customer_token') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+
+    renderBookingRoute();
+
+    expect(await screen.findByRole('heading', { name: 'Agendamento online indisponível' })).toBeInTheDocument();
+    expect(mockRpc).toHaveBeenCalledWith('get_public_booking_availability', { p_slug: 'brooklyn' });
+  });
+
+  it('barbearia liberada: o fluxo segue como antes', async () => {
+    rpcPublicaComDisponibilidade(true);
+
+    renderBookingRoute('/brooklyn');
+
+    expect(await screen.findByText('Corte Público')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agendamento online indisponível' })).not.toBeInTheDocument();
+  });
+
+  it('se a consulta de disponibilidade falha, o fluxo abre: o servidor recusa na hora de criar', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_public_booking_availability') throw new Error('sem rede');
+      if (name === 'get_public_tenant_by_slug') return { data: [contextoPublico], error: null };
+      if (name === 'get_services_by_public_slug') return { data: [servico], error: null };
+      if (name === 'get_professionals_by_public_slug') return { data: [], error: null };
+      throw new Error(`RPC inesperada: ${name}`);
+    });
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    renderBookingRoute('/brooklyn');
+
+    expect(await screen.findByText('Corte Público')).toBeInTheDocument();
+    aviso.mockRestore();
+  });
+
+  it('se a barbearia é bloqueada no meio do fluxo, a recusa do servidor vira "agendamento online indisponível"', async () => {
+    rpcPublicaComDisponibilidade(true, {
+      confirm_public_booking: {
+        data: null,
+        error: {
+          code: '55000',
+          message: 'ONLINE_BOOKING_UNAVAILABLE: Agendamento online indisponível no momento. Entre em contato diretamente com o estabelecimento.',
+        },
+      },
+    });
+
+    renderBookingRoute('/brooklyn');
+
+    fireEvent.click(await screen.findByText('Corte Público'));
+    fireEvent.click(await screen.findByText('25/08'));
+    expect(await screen.findByText(/Horários disponíveis/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: '10:00' }));
+    fireEvent.click(screen.getByRole('button', { name: /Avançar para identificação/i }));
+    expect(await screen.findByText(/Resumo do agendamento/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(/Ex: Jonathas Lopes/i), { target: { value: 'Maria Silva' } });
+    fireEvent.change(screen.getByPlaceholderText('(92) 99420-4756'), { target: { value: '92999998888' } });
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar agendamento/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Agendamento online indisponível' })).toBeInTheDocument();
+    expect(screen.queryByText(/Resumo do agendamento/i)).not.toBeInTheDocument();
+  });
+});

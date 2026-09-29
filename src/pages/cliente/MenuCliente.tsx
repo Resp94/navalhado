@@ -17,6 +17,7 @@ import { formatLeadTime } from '../../lib/timezone';
 
 // Componentes modulares
 import { BannerNovoAgendamento } from '../../components/cliente/BannerNovoAgendamento';
+import { AgendamentoOnlineIndisponivel } from '../../components/cliente/AgendamentoOnlineIndisponivel';
 import { CardAgendamentoAtivo } from '../../components/cliente/CardAgendamentoAtivo';
 import { TimelineHistoricoAgendamentos } from '../../components/cliente/TimelineHistoricoAgendamentos';
 import { ModalCancelamentoAgendamento } from '../../components/cliente/ModalCancelamentoAgendamento';
@@ -37,6 +38,9 @@ export const MenuCliente: React.FC = () => {
   const [customerDetails, setCustomerDetails] = useState<PerfilClienteCanal | null>(null);
   const [loading, setLoading] = useState(true);
   const [usingPublicSession, setUsingPublicSession] = useState(false);
+  // Barbearia bloqueada por assinatura (spec 052, ticket 04): o cliente não agenda nem remarca,
+  // mas continua vendo e cancelando os horários que já marcou.
+  const [agendamentoOnlineIndisponivel, setAgendamentoOnlineIndisponivel] = useState(false);
 
   // Estados de Cancelamento
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -72,6 +76,11 @@ export const MenuCliente: React.FC = () => {
   }, [appointments, activeAppointments]);
 
   useEffect(() => {
+    // Repõe o estado a cada resposta: vale a disponibilidade atual, não a de uma carga anterior.
+    const verificarAgendamentoOnline = async (slug?: string) => {
+      setAgendamentoOnlineIndisponivel(!(await canalClienteRepository.agendamentoOnlineDisponivel(slug ?? '')));
+    };
+
     const init = async () => {
       try {
         const explicitToken = searchParams.get('token') || routeToken;
@@ -85,7 +94,7 @@ export const MenuCliente: React.FC = () => {
         if (publicSessionCustomer) {
           setUsingPublicSession(true);
           setCustomerDetails(publicSessionCustomer);
-          await fetchAppointments(true);
+          await Promise.all([verificarAgendamentoOnline(publicSessionCustomer.tenant_slug), fetchAppointments(true)]);
           return;
         }
 
@@ -107,7 +116,7 @@ export const MenuCliente: React.FC = () => {
         }
 
         setCustomerDetails(customer);
-        await fetchAppointments(false);
+        await Promise.all([verificarAgendamentoOnline(customer.tenant_slug), fetchAppointments(false)]);
       } catch (err) {
         console.error('Erro geral no menu do cliente:', err);
         navigate('/cliente/acesso-expirado');
@@ -201,6 +210,10 @@ export const MenuCliente: React.FC = () => {
   };
 
   const handleNewBooking = () => {
+    if (agendamentoOnlineIndisponivel) {
+      addToast('Agendamento online indisponível no momento. Você ainda pode cancelar seus horários.', 'warning');
+      return;
+    }
     const tenantRoute = customerDetails?.tenant_slug ? `/${customerDetails.tenant_slug}` : '/cliente/agendar';
     navigate(tenantRoute, {
       state: { fromMenu: true },
@@ -265,7 +278,15 @@ export const MenuCliente: React.FC = () => {
 
       <main className="w-full max-w-[420px] mx-auto px-4 box-border">
         {/* Banner Destaque Oficial: Novo Agendamento */}
-        <BannerNovoAgendamento onNewBooking={handleNewBooking} />
+        {agendamentoOnlineIndisponivel ? (
+          <AgendamentoOnlineIndisponivel
+            variante="aviso"
+            tenantName={customerDetails?.tenant_name}
+            tenantPhone={customerDetails?.tenant_phone}
+          />
+        ) : (
+          <BannerNovoAgendamento onNewBooking={handleNewBooking} />
+        )}
 
         {/* Abas: Próximos horários vs Anteriores */}
         <div
@@ -298,13 +319,15 @@ export const MenuCliente: React.FC = () => {
                 <p className="text-xs font-semibold text-[#70625B] m-0">
                   Você não tem nenhum horário agendado no momento.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleNewBooking}
-                  className="mt-1 py-2 px-4 rounded-full bg-[#D96C00] text-white text-xs font-bold shadow-xs hover:bg-[#9C3F00] transition-colors cursor-pointer"
-                >
-                  Agendar agora
-                </button>
+                {!agendamentoOnlineIndisponivel && (
+                  <button
+                    type="button"
+                    onClick={handleNewBooking}
+                    className="mt-1 py-2 px-4 rounded-full bg-[#D96C00] text-white text-xs font-bold shadow-xs hover:bg-[#9C3F00] transition-colors cursor-pointer"
+                  >
+                    Agendar agora
+                  </button>
+                )}
               </div>
             ) : (
               activeAppointments.map((app) => (
@@ -312,7 +335,7 @@ export const MenuCliente: React.FC = () => {
                   key={app.appointment_id}
                   appointment={app}
                   timezone={timezone}
-                  onReschedule={handleReschedule}
+                  onReschedule={agendamentoOnlineIndisponivel ? undefined : handleReschedule}
                   onCancel={handleCancelClick}
                 />
               ))

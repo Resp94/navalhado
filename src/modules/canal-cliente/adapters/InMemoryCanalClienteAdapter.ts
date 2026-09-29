@@ -1,6 +1,7 @@
 import {
   CanalClienteTokenError,
   AgendamentoConflitoError,
+  AgendamentoOnlineIndisponivelError,
   AgendamentoRegraCancelamentoError,
 } from '../errors';
 import { MOTIVO_CANCELAMENTO_PADRAO_CLIENTE } from '../types';
@@ -32,6 +33,22 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   public agendamentos: AgendamentoCanal[] = [];
   public slotsDisponiveis: Map<string, string[]> = new Map();
   public gradesPublicas: Map<string, HorarioGradeCanal[]> = new Map();
+  /** Barbearias bloqueadas por assinatura: criar e reagendar são recusados, cancelar continua. */
+  public slugsIndisponiveis: Set<string> = new Set();
+  /** Slugs que o banco não conhece: a disponibilidade volta nula. */
+  public slugsDesconhecidos: Set<string> = new Set();
+  /** Faz a consulta de disponibilidade falhar, para testar quem decide o que fazer com a falha. */
+  public falhaNaDisponibilidade: Error | null = null;
+
+  private exigirAgendamentoOnline(slug: string | undefined): void {
+    if (slug && this.slugsIndisponiveis.has(slug)) throw new AgendamentoOnlineIndisponivelError();
+  }
+
+  async consultarDisponibilidadeAgendamento(slug: string): Promise<boolean | null> {
+    if (this.falhaNaDisponibilidade) throw this.falhaNaDisponibilidade;
+    if (this.slugsDesconhecidos.has(slug)) return null;
+    return !this.slugsIndisponiveis.has(slug);
+  }
 
   obterTokenAtual(): string | null {
     return this.activeToken;
@@ -178,6 +195,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
   ): Promise<ConfirmacaoAgendamentoPublico> {
     const contexto = this.contextosPublicos.get(input.slug);
     if (!contexto) throw new CanalClienteTokenError('Estabelecimento não encontrado.');
+    this.exigirAgendamentoOnline(input.slug);
 
     if (input.token) {
       const tokenProfile = this.perfis.get(input.token);
@@ -302,6 +320,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     if (!token || token === 'invalid') throw new CanalClienteTokenError();
     const perfil = this.perfis.get(token);
     if (!perfil) throw new CanalClienteTokenError();
+    this.exigirAgendamentoOnline(perfil.tenant_slug);
 
     const targetProfId = input.professionalId || 'p1';
     const conflito = this.agendamentos.some(
@@ -345,6 +364,7 @@ export class InMemoryCanalClienteAdapter implements ICanalClienteAdapter {
     input: InputReagendarAgendamento
   ): Promise<void> {
     if (!token || token === 'invalid') throw new CanalClienteTokenError();
+    this.exigirAgendamentoOnline(this.perfis.get(token)?.tenant_slug);
     const agendamento = this.agendamentos.find((a) => a.appointment_id === input.appointmentId);
     if (!agendamento) throw new Error('Agendamento não encontrado');
 

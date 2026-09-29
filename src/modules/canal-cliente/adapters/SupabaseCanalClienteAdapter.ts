@@ -4,6 +4,8 @@ import {
   AgendamentoConflitoError,
   AgendamentoRegraCancelamentoError,
   CanalClienteValidationError,
+  AgendamentoOnlineIndisponivelError,
+  ehRecusaPorBloqueioDaBarbearia,
 } from '../errors';
 import { MOTIVO_CANCELAMENTO_PADRAO_CLIENTE } from '../types';
 import type {
@@ -332,6 +334,16 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     return (data || []) as AgendamentoCanal[];
   }
 
+  async consultarDisponibilidadeAgendamento(slug: string): Promise<boolean | null> {
+    const { data, error } = await supabase.rpc('get_public_booking_availability', { p_slug: slug });
+
+    if (error) {
+      throw error;
+    }
+
+    return typeof data === 'boolean' ? data : null;
+  }
+
   async cancelarAgendamentoPublicoSessao(appointmentId: string, motivo?: string): Promise<void> {
     const { error } = await publicSupabase.rpc('cancel_appointment_by_public_session', {
       p_appointment_id: appointmentId,
@@ -356,6 +368,9 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     });
 
     if (error) {
+      if (ehRecusaPorBloqueioDaBarbearia(error)) {
+        throw new AgendamentoOnlineIndisponivelError();
+      }
       if (error.code === '23505' || error.message.includes('conflito') || error.message.includes('indisponível')) {
         throw new AgendamentoConflitoError();
       }
@@ -414,6 +429,9 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     });
 
     if (error) {
+      if (ehRecusaPorBloqueioDaBarbearia(error)) {
+        throw new AgendamentoOnlineIndisponivelError();
+      }
       if (error.code === '23505' || error.message.includes('conflito') || error.message.includes('indisponível')) {
         throw new AgendamentoConflitoError();
       }
@@ -570,6 +588,9 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     }
 
     if (res.error) {
+      if (ehRecusaPorBloqueioDaBarbearia(res.error)) {
+        throw new AgendamentoOnlineIndisponivelError();
+      }
       if (res.error.code === '23505' || res.error.message.includes('conflito') || res.error.message.includes('indisponível')) {
         throw new AgendamentoConflitoError();
       }
@@ -605,6 +626,9 @@ export class SupabaseCanalClienteAdapter implements ICanalClienteAdapter {
     }
 
     if (res.error) {
+      if (ehRecusaPorBloqueioDaBarbearia(res.error)) {
+        throw new AgendamentoOnlineIndisponivelError();
+      }
       if (res.error.code === '23505' || res.error.message.includes('conflito') || res.error.message.includes('indisponível')) {
         throw new AgendamentoConflitoError();
       }

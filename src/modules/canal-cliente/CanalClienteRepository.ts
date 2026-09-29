@@ -72,6 +72,22 @@ export class CanalClienteRepository {
     return await this.adapter.buscarContextoPublicoPorSlug(slug.trim());
   }
 
+  /**
+   * O agendamento online da barbearia está disponível? Só a resposta "não" do banco vira falso.
+   * Sem slug, slug desconhecido ou consulta que falha, a tela segue como sempre: a recusa de
+   * verdade é do servidor, na hora de criar ou reagendar, e o fluxo trata o erro dela.
+   */
+  async agendamentoOnlineDisponivel(slug: string): Promise<boolean> {
+    const limpo = slug?.trim();
+    if (!limpo) return true;
+    try {
+      return (await this.adapter.consultarDisponibilidadeAgendamento(limpo)) !== false;
+    } catch (error) {
+      console.warn('Não foi possível consultar a disponibilidade do agendamento online:', error);
+      return true;
+    }
+  }
+
   async resolverIdentidadePublica(
     slug: string,
     name: string,

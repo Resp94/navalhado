@@ -13,7 +13,8 @@ export interface CardAgendamentoAtivoProps {
   appointment: AgendamentoCanal;
   /** Fuso da barbearia (tenant_timezone). O cliente vê o horário que a barbearia vê, não o do seu navegador. */
   timezone: string;
-  onReschedule: (appointment: AgendamentoCanal) => void;
+  /** Ausente quando a barbearia está bloqueada por assinatura: o cliente só pode cancelar. */
+  onReschedule?: (appointment: AgendamentoCanal) => void;
   onCancel: (appointmentId: string) => void;
 }
 
@@ -81,6 +82,7 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
 
       {/* Ações */}
       <div className="flex items-center gap-2 pt-2 border-t border-border">
+        {onReschedule && (
         <button
           type="button"
           onClick={() => onReschedule(appointment)}
@@ -89,6 +91,7 @@ export const CardAgendamentoAtivo: React.FC<CardAgendamentoAtivoProps> = ({
           <HugeiconsIcon icon={RefreshIcon} size={14} />
           <span>Remarcar</span>
         </button>
+        )}
 
         <button
           type="button"

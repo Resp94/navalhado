@@ -9,7 +9,7 @@ import type {
   ServicoCanal,
   ProfissionalCanal,
 } from '../../modules/canal-cliente/types';
-import { AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
+import { AgendamentoOnlineIndisponivelError, AgendamentoRegraCancelamentoError } from '../../modules/canal-cliente/errors';
 import { dateInZone, formatTimeInZone, isSlotViableForToday, shiftCalendarDate } from '../../lib/timezone';
 import { maskPhone } from '../../lib/whatsapp';
 import { getDayBusinessHours } from '../gerente/Agenda';
@@ -22,6 +22,7 @@ import { ModalSelecaoDias } from '../../components/cliente/ModalSelecaoDias';
 import { ModalSelecaoHorarios } from '../../components/cliente/ModalSelecaoHorarios';
 import { ModalResumoAgendamento } from '../../components/cliente/ModalResumoAgendamento';
 import { ModalIdentificacaoCliente } from '../../components/cliente/ModalIdentificacaoCliente';
+import { AgendamentoOnlineIndisponivel } from '../../components/cliente/AgendamentoOnlineIndisponivel';
 
 const PUBLIC_TOKEN_STORAGE_PREFIX = 'navalhado_canal_cliente_v1_token_';
 const publicTokenStorageKey = (slug: string): string =>
@@ -64,6 +65,8 @@ export const FluxoAgendamento: React.FC = () => {
   const [isTimesModalOpen, setIsTimesModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isManagementModalOpen, setIsManagementModalOpen] = useState(false);
+  // Barbearia bloqueada por assinatura (spec 052, ticket 04): sem agendar, só gerenciar o que já existe.
+  const [agendamentoIndisponivel, setAgendamentoIndisponivel] = useState(false);
   const [startingManagementSession, setStartingManagementSession] = useState(false);
 
   // Reagendamento
@@ -172,8 +175,12 @@ export const FluxoAgendamento: React.FC = () => {
         let token = canonicalToken;
         let activeDetails: PerfilClienteCanal | null = null;
         let activePublicContext: ContextoPublicoCanal | null = null;
+        // A consulta de disponibilidade sai assim que o slug é conhecido e corre junto com o
+        // carregamento do catálogo. Quem carrega só espera a resposta no fim.
+        let disponibilidade: Promise<boolean> = Promise.resolve(true);
 
         if (publicSlug) {
+          disponibilidade = canalClienteRepository.agendamentoOnlineDisponivel(publicSlug);
           activePublicContext = await canalClienteRepository.obterContextoPublico(publicSlug);
           if (!activePublicContext) {
             addToast('Estabelecimento não encontrado.', 'error');
@@ -223,6 +230,7 @@ export const FluxoAgendamento: React.FC = () => {
           await loadCatalog(null, publicSlug);
         } else if (token) {
           activeDetails = await canalClienteRepository.obterPerfil(token);
+          disponibilidade = canalClienteRepository.agendamentoOnlineDisponivel(activeDetails?.tenant_slug ?? '');
           await loadCatalog(token);
         } else {
           addToast('Acesso não autorizado. Redirecionando...', 'error');
@@ -240,6 +248,9 @@ export const FluxoAgendamento: React.FC = () => {
           navigate('/cliente/menu', { replace: true });
           return;
         }
+
+        // Repõe o estado a cada carga: o que vale é a resposta atual, não a de uma carga anterior.
+        setAgendamentoIndisponivel(!(await disponibilidade));
 
         setCustomerDetails(activeDetails);
 
@@ -496,6 +507,13 @@ export const FluxoAgendamento: React.FC = () => {
       navigate('/cliente/menu');
     } catch (err: unknown) {
       console.error('Erro ao agendar horário:', err);
+      if (err instanceof AgendamentoOnlineIndisponivelError) {
+        setIsDaysModalOpen(false);
+        setIsTimesModalOpen(false);
+        setIsSummaryModalOpen(false);
+        setAgendamentoIndisponivel(true);
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : String(err);
       if (err instanceof AgendamentoRegraCancelamentoError || errorMessage.includes('APPOINTMENT_CANCELLATION_DEADLINE_EXPIRED')) {
         addToast('O prazo para alteração online deste agendamento expirou. Fale com o estabelecimento pelo WhatsApp.', 'warning');
@@ -570,6 +588,42 @@ export const FluxoAgendamento: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-dvh bg-[#FFF1E6] text-[#D96C00]">
         <div className="w-11 h-11 border-3 border-[#EADED6] border-t-[#D96C00] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (agendamentoIndisponivel) {
+    return (
+      <div className="min-h-dvh bg-brand-lightest text-text-primary font-base pb-28 box-border">
+        <CatalogoServicosHeader
+          tenantName={customerDetails?.tenant_name || publicContext?.tenant_name}
+          tenantLogoUrl={publicContext?.logo_url || null}
+        />
+
+        <main className="w-full max-w-[420px] mx-auto px-4 box-border">
+          <AgendamentoOnlineIndisponivel
+            tenantName={customerDetails?.tenant_name || publicContext?.tenant_name}
+            tenantPhone={customerDetails?.tenant_phone || publicContext?.tenant_phone}
+          />
+        </main>
+
+        <ModalIdentificacaoCliente
+          isOpen={isManagementModalOpen}
+          onClose={() => setIsManagementModalOpen(false)}
+          onConfirm={handleStartManagementSession}
+          turnstileSiteKey={turnstileSiteKey}
+          loading={startingManagementSession}
+        />
+
+        {/* Quem já tem horários marcados ainda chega neles para cancelar. */}
+        <ClienteBottomNav
+          activeTab="agendar"
+          onTabChange={(tab) => {
+            if (tab === 'meus-agendamentos') {
+              void handleOpenManagement();
+            }
+          }}
+        />
       </div>
     );
   }

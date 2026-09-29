@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SupabaseCanalClienteAdapter } from '../SupabaseCanalClienteAdapter';
+import { AgendamentoConflitoError, AgendamentoOnlineIndisponivelError } from '../../errors';
 
 const { mockRpc, mockGetSession, mockSignInAnonymously, mockInvoke, mockSetSession, mockSignOut } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
@@ -197,5 +198,118 @@ describe('SupabaseCanalClienteAdapter - reagendamento', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// Spec 052, ticket 04: barbearia bloqueada por assinatura. O servidor recusa criar e
+// reagendar com ONLINE_BOOKING_UNAVAILABLE. A mensagem contem "indisponível", que os
+// mapeamentos antigos liam como conflito de horário: a recusa por bloqueio vem primeiro.
+describe('SupabaseCanalClienteAdapter - agendamento online indisponível', () => {
+  const recusaPorBloqueio = {
+    code: '55000',
+    message: 'ONLINE_BOOKING_UNAVAILABLE: Agendamento online indisponível no momento. Entre em contato diretamente com o estabelecimento.',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('consultarDisponibilidadeAgendamento', () => {
+    it('pergunta ao banco pelo slug, sem precisar de login', async () => {
+      mockRpc.mockResolvedValue({ data: true, error: null });
+
+      await new SupabaseCanalClienteAdapter().consultarDisponibilidadeAgendamento('brooklyn');
+
+      expect(mockRpc).toHaveBeenCalledWith('get_public_booking_availability', { p_slug: 'brooklyn' });
+    });
+
+    it.each([true, false])('devolve %s como o banco respondeu', async (resposta) => {
+      mockRpc.mockResolvedValue({ data: resposta, error: null });
+
+      await expect(new SupabaseCanalClienteAdapter().consultarDisponibilidadeAgendamento('brooklyn')).resolves.toBe(resposta);
+    });
+
+    it('slug que o banco não conhece volta como nulo', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: null });
+
+      await expect(new SupabaseCanalClienteAdapter().consultarDisponibilidadeAgendamento('nao-existe')).resolves.toBeNull();
+    });
+
+    it('erro do banco vira exceção', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'sem rede' } });
+
+      await expect(new SupabaseCanalClienteAdapter().consultarDisponibilidadeAgendamento('brooklyn')).rejects.toThrow('sem rede');
+    });
+  });
+
+  describe('a recusa por bloqueio vira AgendamentoOnlineIndisponivelError, e não conflito de horário', () => {
+    it('ao confirmar pelo slug', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: recusaPorBloqueio });
+
+      await expect(
+        new SupabaseCanalClienteAdapter().confirmarAgendamentoPublico({
+          slug: 'brooklyn',
+          serviceId: 'servico-1',
+          professionalId: null,
+          date: '2040-01-02',
+          slot: '09:00',
+          name: 'Maria Silva',
+          phone: '92999990000',
+        }),
+      ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+    });
+
+    it('ao criar com o token', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: recusaPorBloqueio });
+
+      await expect(
+        new SupabaseCanalClienteAdapter().criarAgendamentoPorToken('token-1', {
+          serviceId: 'servico-1',
+          professionalId: null,
+          startTime: '2040-01-02T09:00:00',
+        }),
+      ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+    });
+
+    it('ao reagendar com o token', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: recusaPorBloqueio });
+
+      await expect(
+        new SupabaseCanalClienteAdapter().reagendarAgendamentoPorToken('token-1', {
+          appointmentId: 'agendamento-1',
+          newServiceId: 'servico-1',
+          newDate: '2040-01-02',
+          newSlot: '09:00',
+        }),
+      ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+    });
+
+    it('ao reagendar pela sessão pública', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: recusaPorBloqueio });
+
+      await expect(
+        new SupabaseCanalClienteAdapter().reagendarAgendamentoPublicoSessao({
+          appointmentId: 'agendamento-1',
+          newServiceId: 'servico-1',
+          newDate: '2040-01-02',
+          newSlot: '09:00',
+        }),
+      ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+    });
+
+    it('um conflito de horário de verdade continua sendo conflito', async () => {
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      });
+
+      await expect(
+        new SupabaseCanalClienteAdapter().criarAgendamentoPorToken('token-1', {
+          serviceId: 'servico-1',
+          professionalId: null,
+          startTime: '2040-01-02T09:00:00',
+        }),
+      ).rejects.toBeInstanceOf(AgendamentoConflitoError);
+    });
   });
 });

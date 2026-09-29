@@ -6,6 +6,7 @@ import {
   CanalClienteValidationError,
   AgendamentoConflitoError,
   AgendamentoRegraCancelamentoError,
+  AgendamentoOnlineIndisponivelError,
 } from '../errors';
 
 describe('CanalClienteRepository', () => {
@@ -360,5 +361,136 @@ describe('CanalClienteRepository', () => {
 
     const { ativos } = await repository.obterAgendamentosSeparados();
     expect(ativos[0].professional_phone).toBe('92999999999');
+  });
+});
+
+// Spec 052, ticket 04: barbearia bloqueada por assinatura. O cliente não cria nem reagenda
+// pelo Canal do Cliente, e continua vendo e cancelando os próprios agendamentos.
+describe('CanalClienteRepository - agendamento online indisponível', () => {
+  let adapter: InMemoryCanalClienteAdapter;
+  let repository: CanalClienteRepository;
+  const token = 'token_bloqueada';
+
+  beforeEach(() => {
+    adapter = new InMemoryCanalClienteAdapter();
+    repository = new CanalClienteRepository(adapter);
+    adapter.perfis.set(token, {
+      customer_id: 'cust_b',
+      customer_name: 'Cliente da Barbearia Bloqueada',
+      tenant_id: 'tenant_bloqueada',
+      tenant_name: 'Barbearia Bloqueada',
+      tenant_phone: '11999999999',
+      tenant_slug: 'bloqueada',
+      cadastro_completo: true,
+    });
+    adapter.servicos = [
+      { id: 's1', name: 'Corte', description: null, price: 45, duration_minutes: 30, category: 'Cabelo', is_active: true },
+    ];
+    adapter.profissionais = [{ id: 'p1', name: 'Mestre', is_active: true }];
+    adapter.contextosPublicos.set('bloqueada', {
+      tenant_id: 'tenant_bloqueada',
+      tenant_name: 'Barbearia Bloqueada',
+      tenant_phone: '11999999999',
+      tenant_slug: 'bloqueada',
+      timezone: 'America/Sao_Paulo',
+      slot_interval_minutes: 30,
+      min_booking_lead_time_minutes: 15,
+      min_cancellation_lead_time_minutes: 120,
+    });
+    repository.definirTokenAcesso(token);
+  });
+
+  describe('agendamentoOnlineDisponivel', () => {
+    it('barbearia liberada está disponível', async () => {
+      await expect(repository.agendamentoOnlineDisponivel('liberada')).resolves.toBe(true);
+    });
+
+    it('barbearia bloqueada não está disponível', async () => {
+      adapter.slugsIndisponiveis.add('bloqueada');
+
+      await expect(repository.agendamentoOnlineDisponivel('bloqueada')).resolves.toBe(false);
+    });
+
+    it('o slug é comparado sem espaços nas pontas', async () => {
+      adapter.slugsIndisponiveis.add('bloqueada');
+
+      await expect(repository.agendamentoOnlineDisponivel('  bloqueada ')).resolves.toBe(false);
+    });
+
+    it('slug desconhecido não é dado como indisponível: o fluxo normal responde com o erro de sempre', async () => {
+      adapter.slugsDesconhecidos.add('fantasma');
+
+      await expect(repository.agendamentoOnlineDisponivel('fantasma')).resolves.toBe(true);
+    });
+
+    it('sem slug não há o que perguntar', async () => {
+      await expect(repository.agendamentoOnlineDisponivel('   ')).resolves.toBe(true);
+    });
+
+    it('se a consulta falha, a tela não vira "indisponível": o servidor recusa de qualquer forma', async () => {
+      adapter.falhaNaDisponibilidade = new Error('sem rede');
+
+      await expect(repository.agendamentoOnlineDisponivel('bloqueada')).resolves.toBe(true);
+    });
+  });
+
+  it('barbearia bloqueada: criar com o token é recusado', async () => {
+    adapter.slugsIndisponiveis.add('bloqueada');
+
+    await expect(
+      repository.criarAgendamento({ serviceId: 's1', professionalId: 'p1', startTime: '2040-01-02T10:00:00-03:00' }),
+    ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+  });
+
+  it('barbearia bloqueada: confirmar pelo slug é recusado', async () => {
+    adapter.slugsIndisponiveis.add('bloqueada');
+
+    await expect(
+      repository.confirmarAgendamentoPublico({
+        slug: 'bloqueada',
+        serviceId: 's1',
+        professionalId: 'p1',
+        date: '2040-01-02',
+        slot: '10:00',
+        name: 'Maria Silva',
+        phone: '92999990000',
+      }),
+    ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+  });
+
+  it('barbearia bloqueada: reagendar é recusado e cancelar continua permitido', async () => {
+    const { appointmentId } = await repository.criarAgendamento({
+      serviceId: 's1',
+      professionalId: 'p1',
+      startTime: '2040-01-02T10:00:00-03:00',
+    });
+    adapter.slugsIndisponiveis.add('bloqueada');
+
+    await expect(
+      repository.reagendarAgendamento({
+        appointmentId,
+        newStartTime: '2040-01-02T11:00:00-03:00',
+        newDate: '2040-01-02',
+        newSlot: '11:00',
+        newServiceId: 's1',
+      }),
+    ).rejects.toBeInstanceOf(AgendamentoOnlineIndisponivelError);
+
+    await expect(repository.cancelarAgendamento(appointmentId)).resolves.toBeUndefined();
+  });
+
+  it('barbearia bloqueada: o cliente continua vendo os próprios agendamentos', async () => {
+    await repository.criarAgendamento({ serviceId: 's1', professionalId: 'p1', startTime: '2040-01-02T10:00:00-03:00' });
+    adapter.slugsIndisponiveis.add('bloqueada');
+
+    const { ativos } = await repository.obterAgendamentosSeparados();
+
+    expect(ativos).toHaveLength(1);
+  });
+
+  it('barbearia liberada: criar segue como antes', async () => {
+    await expect(
+      repository.criarAgendamento({ serviceId: 's1', professionalId: 'p1', startTime: '2040-01-02T10:00:00-03:00' }),
+    ).resolves.toHaveProperty('appointmentId');
   });
 });

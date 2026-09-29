@@ -159,6 +159,11 @@ export interface ICanalClienteAdapter {
   limparToken(): void;
   buscarPerfilPorToken(token: string): Promise<PerfilClienteCanal | null>;
   buscarContextoPublicoPorSlug(slug: string): Promise<ContextoPublicoCanal | null>;
+  /**
+   * O agendamento online da barbearia está disponível? Falso quando ela está bloqueada por
+   * assinatura. Nulo quando o slug não existe.
+   */
+  consultarDisponibilidadeAgendamento(slug: string): Promise<boolean | null>;
   buscarIdentidadePublica(
     slug: string,
     name: string,

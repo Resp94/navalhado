@@ -25,3 +25,18 @@ export class AgendamentoRegraCancelamentoError extends Error {
     this.name = 'AgendamentoRegraCancelamentoError';
   }
 }
+
+/**
+ * A barbearia está bloqueada por assinatura (spec 052, ticket 04): o servidor recusa criar e
+ * reagendar pelo Canal do Cliente. Cancelar e ver os próprios agendamentos continuam valendo.
+ */
+export class AgendamentoOnlineIndisponivelError extends Error {
+  constructor(message: string = 'Agendamento online indisponível no momento. Entre em contato diretamente com o estabelecimento.') {
+    super(message);
+    this.name = 'AgendamentoOnlineIndisponivelError';
+  }
+}
+
+/** A recusa do servidor por bloqueio da barbearia. Vem antes de qualquer leitura de "indisponível". */
+export const ehRecusaPorBloqueioDaBarbearia = (error: { message?: string } | null | undefined): boolean =>
+  Boolean(error?.message?.includes('ONLINE_BOOKING_UNAVAILABLE'));

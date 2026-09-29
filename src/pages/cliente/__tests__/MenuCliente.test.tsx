@@ -458,3 +458,131 @@ describe('MenuCliente - TDD', () => {
     expect(await screen.findByText('Catálogo público')).toBeInTheDocument();
   });
 });
+
+// Spec 052, ticket 04: barbearia bloqueada por assinatura. O cliente vê "agendamento online
+// indisponível", não agenda nem remarca, e continua vendo e cancelando os horários que já marcou.
+describe('MenuCliente - barbearia bloqueada por assinatura', () => {
+  const detalhes = {
+    customer_id: 'cust-123',
+    customer_name: 'Jonathas Teste',
+    tenant_id: 'tenant-123',
+    tenant_name: 'Barbearia Estilo',
+    tenant_phone: '5592999999999',
+    tenant_slug: 'estilo',
+    cadastro_completo: true,
+  };
+  const daquiA2Horas = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const agendamentos = [{
+    appointment_id: 'app-futuro',
+    start_time: daquiA2Horas.toISOString(),
+    end_time: new Date(daquiA2Horas.getTime() + 30 * 60 * 1000).toISOString(),
+    status: 'confirmed',
+    payment_status: 'pending',
+    cancellation_reason: null,
+    professional_name: 'Carlos Barbeiro',
+    professional_id: 'prof-123',
+    service_name: 'Corte Degradê',
+    service_id: 'serv-123',
+    service_price: 45.0,
+    service_duration: 30,
+    tenant_name: 'Barbearia Estilo',
+    tenant_id: 'tenant-123',
+    tenant_phone: '5592999999999',
+    customer_name: 'Jonathas Teste',
+  }];
+
+  const rpcDoMenu = (disponivel: boolean | null, lista: unknown[] = agendamentos) =>
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [detalhes], error: null };
+      if (name === 'get_customer_appointments_by_token') return { data: lista, error: null };
+      if (name === 'get_public_booking_availability') return { data: disponivel, error: null };
+      return { data: null, error: null };
+    });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPublicGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockPublicSignOut.mockResolvedValue({ error: null });
+    mockPublicRpc.mockResolvedValue({ data: [], error: null });
+    localStorage.clear();
+    localStorage.setItem('navalhado_customer_token', 'mock-customer-token');
+  });
+
+  it('avisa que o agendamento online está indisponível e mantém os horários já marcados', async () => {
+    rpcDoMenu(false);
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Agendamento online indisponível' })).toBeInTheDocument();
+    expect(screen.getByText(/ainda pode cancelar os horários que já marcou/i)).toBeInTheDocument();
+    expect(await screen.findByText('Corte Degradê')).toBeInTheDocument();
+    expect(mockRpc).toHaveBeenCalledWith('get_public_booking_availability', { p_slug: 'estilo' });
+  });
+
+  it('não oferece remarcar nem novo agendamento, mas continua oferecendo cancelar', async () => {
+    rpcDoMenu(false);
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    await screen.findByText('Corte Degradê');
+    expect(screen.getAllByRole('button', { name: /Cancelar/i })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Remarcar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Agendar agora/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Novo agendamento/i)).not.toBeInTheDocument();
+  });
+
+  it('sem horários marcados, não convida a agendar', async () => {
+    rpcDoMenu(false, []);
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    await screen.findByRole('heading', { name: 'Agendamento online indisponível' });
+    expect(screen.queryByRole('button', { name: /Agendar agora/i })).not.toBeInTheDocument();
+  });
+
+  it('a aba Agendar da barra inferior avisa em vez de abrir o fluxo', async () => {
+    rpcDoMenu(false);
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    await screen.findByText('Corte Degradê');
+    fireEvent.click(screen.getByRole('button', { name: 'Ir para agendamento' }));
+
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.stringMatching(/agendamento online indisponível/i),
+      'warning',
+    );
+  });
+
+  it('barbearia liberada: remarcar e cancelar seguem como antes, sem aviso', async () => {
+    rpcDoMenu(true);
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    await screen.findByText('Corte Degradê');
+    expect(screen.getAllByRole('button', { name: /Remarcar/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Cancelar/i })).toHaveLength(1);
+    expect(screen.queryByRole('heading', { name: 'Agendamento online indisponível' })).not.toBeInTheDocument();
+  });
+
+  it('busca os agendamentos sem esperar a consulta de disponibilidade terminar', async () => {
+    let responderDisponibilidade: (valor: { data: boolean; error: null }) => void = () => {};
+    const disponibilidadePendente = new Promise<{ data: boolean; error: null }>((resolve) => {
+      responderDisponibilidade = resolve;
+    });
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'get_customer_details_by_token') return { data: [detalhes], error: null };
+      if (name === 'get_customer_appointments_by_token') return { data: agendamentos, error: null };
+      if (name === 'get_public_booking_availability') return disponibilidadePendente;
+      return { data: null, error: null };
+    });
+
+    render(<MemoryRouter><MenuCliente /></MemoryRouter>);
+
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('get_customer_appointments_by_token', expect.anything()));
+    expect(mockRpc).toHaveBeenCalledWith('get_public_booking_availability', { p_slug: 'estilo' });
+
+    responderDisponibilidade({ data: false, error: null });
+    expect(await screen.findByRole('heading', { name: 'Agendamento online indisponível' })).toBeInTheDocument();
+  });
+});
