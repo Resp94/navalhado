@@ -166,3 +166,123 @@ Deno.test("dispatcher emits sanitized operational observations", async () => {
     durationMs: observations[0]?.durationMs,
   });
 });
+
+// Spec 052, ticket 04: o Estado de Acesso da barbearia manda em todo envio. Bloqueada, a
+// mensagem nao chega ao provedor, fica registrada como descartada, com o motivo, e nao
+// entra em fila nenhuma. Sem saber o estado, nao envia.
+type DiscardInput = Parameters<NonNullable<MessageLedger["discard"]>>[0];
+
+const createDiscardingLedger = () => {
+  const { ledger, rows } = createMemoryLedger();
+  const discards: DiscardInput[] = [];
+  const reserves: string[] = [];
+  const recordingLedger: MessageLedger = {
+    reserve: async (input) => {
+      reserves.push(input.idempotencyKey);
+      return ledger.reserve(input);
+    },
+    finalize: ledger.finalize,
+    discard: async (input) => {
+      discards.push(input);
+    },
+  };
+  return { ledger: recordingLedger, rows, discards, reserves };
+};
+
+Deno.test("dispatcher discards the message of a blocked tenant without calling the provider", async () => {
+  const { ledger, discards, reserves } = createDiscardingLedger();
+  let providerCalls = 0;
+  const observations: MessageDispatchObservation[] = [];
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    accessGate: { check: async () => ({ allowed: false, reason: "trial_expired" }) },
+    provider: { sendText: async () => { providerCalls += 1; } },
+    onEvent: (record) => observations.push(record),
+  });
+
+  const result = await dispatcher({ ...event, appointmentId: "appointment-1" });
+
+  assertEquals(result, { status: "discarded", attempts: 0, reason: "trial_expired" });
+  assertEquals(providerCalls, 0);
+  assertEquals(reserves, []);
+  assertEquals(discards.length, 1);
+  assertEquals(discards[0]?.tenantId, "tenant-1");
+  assertEquals(discards[0]?.idempotencyKey, event.idempotencyKey);
+  assertEquals(discards[0]?.eventType, "appointment_created");
+  assertEquals(discards[0]?.appointmentId, "appointment-1");
+  assertEquals(discards[0]?.reason, "trial_expired");
+  assertEquals(observations.map((o) => o.status), ["discarded"]);
+});
+
+Deno.test("dispatcher passes the reminder window to the discard record", async () => {
+  const { ledger, discards } = createDiscardingLedger();
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    accessGate: { check: async () => ({ allowed: false, reason: "payment_failed" }) },
+    provider: { sendText: async () => {} },
+  });
+
+  await dispatcher({ ...event, eventType: "appointment_reminder", reminderWindow: "2h", idempotencyKey: "reminder-key" });
+
+  assertEquals(discards[0]?.reminderWindow, "2h");
+  assertEquals(discards[0]?.eventType, "appointment_reminder");
+});
+
+Deno.test("dispatcher asks the gate about the tenant of the event and sends when it is allowed", async () => {
+  const { ledger, rows } = createDiscardingLedger();
+  const asked: string[] = [];
+  const sent: string[] = [];
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    accessGate: { check: async (tenantId) => { asked.push(tenantId); return { allowed: true }; } },
+    provider: { sendText: async (input) => { sent.push(input.number); } },
+  });
+
+  const result = await dispatcher({ ...event, idempotencyKey: "allowed-key" });
+
+  assertEquals(result, { status: "sent", attempts: 1 });
+  assertEquals(asked, ["tenant-1"]);
+  assertEquals(sent, ["5511999999999"]);
+  assertEquals(rows.get("allowed-key"), { status: "succeeded", attempts: 1 });
+});
+
+Deno.test("dispatcher does not send when it cannot read the access state", async () => {
+  const { ledger, discards, reserves } = createDiscardingLedger();
+  let providerCalls = 0;
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    accessGate: { check: async () => { throw new Error("access state unavailable"); } },
+    provider: { sendText: async () => { providerCalls += 1; } },
+  });
+
+  await assertRejects(() => dispatcher({ ...event, idempotencyKey: "unknown-state" }), Error, "access state unavailable");
+
+  assertEquals(providerCalls, 0);
+  assertEquals(reserves, []);
+  assertEquals(discards, []);
+});
+
+Deno.test("dispatcher still discards a blocked tenant when the ledger has no discard record", async () => {
+  const { ledger } = createMemoryLedger();
+  let providerCalls = 0;
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    accessGate: { check: async () => ({ allowed: false, reason: "canceled" }) },
+    provider: { sendText: async () => { providerCalls += 1; } },
+  });
+
+  assertEquals(await dispatcher(event), { status: "discarded", attempts: 0, reason: "canceled" });
+  assertEquals(providerCalls, 0);
+});
+
+Deno.test("dispatcher without a gate keeps sending as before", async () => {
+  const { ledger } = createMemoryLedger();
+  let providerCalls = 0;
+  const dispatcher = createMessageDispatcher({
+    ledger,
+    provider: { sendText: async () => { providerCalls += 1; } },
+  });
+
+  assertEquals(await dispatcher({ ...event, idempotencyKey: "no-gate" }), { status: "sent", attempts: 1 });
+  assertEquals(providerCalls, 1);
+});

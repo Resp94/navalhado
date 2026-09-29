@@ -5,11 +5,13 @@ import {
   type ProviderStatus,
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
-import { createMessageDispatcher } from "./message_dispatcher.ts";
+import { createMessageDispatcher, type MessageAccessDecision, type MessageAccessGate } from "./message_dispatcher.ts";
 import { TEMPLATE_TAG_ALIASES } from "./whatsapp_template_contract.ts";
 import { buildPublicClientLink } from "./public_client_link.ts";
 export { createMessageDispatcher, sendWithRetry } from "./message_dispatcher.ts";
 export type {
+  MessageAccessDecision,
+  MessageAccessGate,
   MessageDispatchResult,
   MessageDispatcherDependencies,
   MessageLedger,
@@ -478,8 +480,34 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     return false;
   };
 
+  // Estado de Acesso da barbearia (spec 052, ticket 04): barbearia bloqueada nao envia
+  // mensagem nenhuma. Uma leitura por barbearia por requisicao. Se a leitura falha, a
+  // promessa rejeita e o dispatcher nao envia: sem saber o estado, nao se envia. A falha
+  // nao fica em cache, para a proxima mensagem da mesma requisicao tentar de novo.
+  const accessDecisions = new Map<string, Promise<MessageAccessDecision>>();
+  const readAccessDecision = async (tenantId: string): Promise<MessageAccessDecision> => {
+    const { data, error } = await supabase.rpc("get_tenant_access_state", { p_tenant_id: tenantId });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row?.access) throw new Error("Failed to read tenant access state");
+    return row.access === "blocked"
+      ? { allowed: false, reason: String(row.reason || "blocked") }
+      : { allowed: true };
+  };
+  const accessGate: MessageAccessGate = {
+    check: (tenantId) => {
+      let decision = accessDecisions.get(tenantId);
+      if (!decision) {
+        decision = readAccessDecision(tenantId);
+        accessDecisions.set(tenantId, decision);
+        decision.catch(() => accessDecisions.delete(tenantId));
+      }
+      return decision;
+    },
+  };
+
   const dispatchMessageInternal = createMessageDispatcher({
     provider,
+    accessGate,
     sleep,
     maxAttempts: 3,
     renderTemplate: (event) => event.clientAccessLink
@@ -524,6 +552,23 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           attempts: event.attempts,
           errorMessage: event.errorMessage,
         });
+      },
+      // Envio descartado por bloqueio: fica registrado com o motivo e nunca volta para a fila.
+      // A funcao do banco cria a linha, transforma em discarded a que ficou failed (retentavel)
+      // e nao reescreve a que foi enviada, descartada ou recusada de vez pelo provedor. Chave
+      // repetida nao vira erro: a barbearia bloqueada e reexaminada a cada rodada de lembretes.
+      discard: async (event) => {
+        const { error } = await supabase.rpc("register_whatsapp_message_discard", {
+          p_tenant_id: event.tenantId,
+          p_instance_id: event.instanceId ?? null,
+          p_direction: event.direction ?? "outbound",
+          p_event_type: event.eventType,
+          p_idempotency_key: event.idempotencyKey,
+          p_appointment_id: event.appointmentId ?? null,
+          p_reminder_window: event.reminderWindow ?? null,
+          p_reason: `tenant_blocked:${event.reason}`,
+        });
+        if (error) throw new Error("Failed to record discarded message");
       },
     },
     onEvent: (observation) => {
@@ -1398,7 +1443,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           link,
         };
         try {
-          await dispatchMessage({
+          const firstContactResult = await dispatchMessage({
             tenantId: authenticatedInstance.tenant_id,
             eventType: "first_contact",
             instanceName: authenticatedInstance.instance_name || instanceName || "",
@@ -1411,6 +1456,25 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             aggregateId: customer.customer_id,
             instanceId: authenticatedInstance.id,
           });
+          if (firstContactResult.status === "discarded") {
+            const { error: closeInboundError } = await supabase
+              .from("whatsapp_message_idempotency")
+              .update({
+                status: "discarded",
+                last_error: `tenant_blocked:${firstContactResult.reason}`,
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("tenant_id", authenticatedInstance.tenant_id)
+              .eq("direction", "inbound")
+              .eq("idempotency_key", firstContactIdempotencyKey);
+            if (closeInboundError) {
+              console.error("[WhatsApp-Integration] Falha ao fechar a mensagem recebida descartada por bloqueio");
+            }
+            return new Response(JSON.stringify({ ignored: true, reason: "tenant_blocked" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         } catch (sendError: any) {
           console.error("[WhatsApp-Integration] Falha do provedor ao responder mensagem recebida:", sendError);
           await supabase
@@ -1630,6 +1694,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           idempotencyKey: welcomeIdempotencyKey,
         });
 
+        if (result.status === "discarded") {
+          return new Response(JSON.stringify({ status: "discarded", reason: "tenant_blocked", detail: result.reason }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         if (result.status === "sent") {
           await supabase
             .from("customers")
@@ -1681,6 +1751,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       let processed = 0;
       let retried = 0;
+      let discarded = 0;
       for (const event of events || []) {
         const payload = event?.payload || {};
         const eventType = String(payload.event_type || payload.event || event.event_type || "");
@@ -1709,6 +1780,20 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         const responseBody = await response.clone().json().catch(() => ({}));
+        if (response.ok && responseBody?.status === "discarded") {
+          // Barbearia bloqueada: o item sai da fila para sempre, com o motivo, e nao e reenviado.
+          const { error: discardError } = await supabase.rpc("discard_whatsapp_message_outbox", {
+            p_outbox_id: event.id,
+            p_reason: `tenant_blocked:${responseBody?.detail ?? "blocked"}`,
+          });
+          if (discardError) {
+            console.error("[WhatsApp-Integration] Falha ao descartar item do outbox de bloqueio");
+            retried++;
+          } else {
+            discarded++;
+          }
+          continue;
+        }
         const delivered = response.ok && responseBody?.success === true;
         const alreadyHandled = response.ok && responseBody?.reason === "Welcome already sent";
         const { error: completeError } = await supabase.rpc("complete_whatsapp_message_outbox", {
@@ -1727,7 +1812,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         }
       }
 
-      return new Response(JSON.stringify({ success: true, processed, retried }), {
+      return new Response(JSON.stringify({ success: true, processed, retried, discarded }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -1956,6 +2041,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       let clientFinalized = false;
       let clientSuccess = false;
       let deliveryFailed = false;
+      let blockedReason: string | undefined;
 
       // 1. Notificação para o Cliente
       const clientSendDisabled =
@@ -1986,6 +2072,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             clientAttempts = result.attempts;
             clientFinalized = result.status === "sent";
             clientSuccess = result.status === "sent";
+            if (result.status === "discarded") blockedReason = result.reason;
             if (clientSuccess) console.log(`[WhatsApp-Integration] Mensagem disparada com sucesso para o cliente ${maskPhoneNumber(clientPhone)}`);
           } catch (sendError) {
             deliveryFailed = true;
@@ -2053,6 +2140,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             });
             profAttempts = result.attempts;
             profSuccess = result.status === "sent";
+            if (result.status === "discarded") blockedReason = result.reason;
             if (profSuccess) console.log(`[WhatsApp-Integration] Notificação de evento '${profConfig.eventType}' enviada ao barbeiro ${maskPhoneNumber(profPhone)}`);
           } catch (profSendErr) {
             deliveryFailed = true;
@@ -2062,6 +2150,17 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       }
 
       const deliveryCompleted = clientSuccess || profSuccess || clientSendDisabled;
+      if (blockedReason && !deliveryCompleted && !deliveryFailed) {
+        return new Response(JSON.stringify({
+          success: false,
+          status: "discarded",
+          reason: "tenant_blocked",
+          detail: blockedReason,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({
         success: deliveryCompleted,
         client: { sent: clientSuccess, attempts: clientAttempts, diagnostic_persisted: clientFinalized },
@@ -2190,6 +2289,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
                 reminderWindow,
                 idempotencyKey: `appointment:${app.id}:appointment_reminder:${reminderWindow}`,
               });
+              if (result.status === "discarded") continue;
               if (result.status === "duplicate") {
                 if (result.existingStatus === "succeeded") {
                   const { error: markDuplicateError } = await supabase
@@ -2440,6 +2540,12 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           text,
           idempotencyKey: `manual_test:${cleanTenantId}:${crypto.randomUUID()}`,
         });
+        if (result.status === "discarded") {
+          return new Response(JSON.stringify({ success: false, error: "Tenant blocked", reason: result.reason }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify({ success: result.status === "sent", attempts: result.attempts }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

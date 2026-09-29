@@ -31,6 +31,67 @@ Deno.env.set("SUPABASE_URL", "https://mock-supabase.co");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "mock-service-role-key");
 Deno.env.set("APP_URL", "https://mock-app.com");
 
+// Spec 052, ticket 04: todo envio consulta o Estado de Acesso da barbearia pela RPC
+// get_tenant_access_state. Os testes trocam globalThis.fetch por conta propria, entao a
+// resposta dessa RPC vem de um envoltorio unico, instalado uma vez: por padrao a barbearia
+// esta liberada, e cada teste pode marcar uma barbearia como bloqueada ou fazer a leitura
+// falhar. Quem restaura globalThis.fetch continua restaurando o fetch que estava por baixo.
+type AccessStateForTest =
+  | { access: "allowed" | "warning" | "blocked"; reason: string }
+  | "unreadable";
+const accessStatesForTest = new Map<string, AccessStateForTest>();
+let accessStateReads: string[] = [];
+
+const setTenantAccessForTest = (tenantId: string, state: AccessStateForTest) => {
+  accessStatesForTest.set(tenantId, state);
+};
+const resetTenantAccessForTest = () => {
+  accessStatesForTest.clear();
+  accessStateReads = [];
+};
+
+{
+  // Pilha de camadas: cada globalThis.fetch = mock empilha, e restaurar (atribuir de volta o
+  // envoltorio que o teste capturou como "original") desempilha. Um mock que embrulha o
+  // "original" chama a camada de baixo, e nao a si mesmo.
+  const layers: Array<typeof fetch> = [globalThis.fetch];
+  let activeIndex: number | null = null;
+  const accessAwareFetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/rpc/get_tenant_access_state")) {
+      const tenantId = String(JSON.parse(String(init?.body ?? "{}")).p_tenant_id ?? "");
+      accessStateReads.push(tenantId);
+      const state = accessStatesForTest.get(tenantId) ?? { access: "allowed", reason: "active" };
+      if (state === "unreadable") {
+        return Promise.resolve(new Response(JSON.stringify({ message: "boom" }), { status: 500 }));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify([{ access: state.access, reason: state.reason, relevant_date: null }]),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ));
+    }
+    const index = activeIndex === null ? layers.length - 1 : activeIndex - 1;
+    const outer = activeIndex;
+    activeIndex = index;
+    try {
+      return layers[index](input, init);
+    } finally {
+      activeIndex = outer;
+    }
+  };
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    get: () => accessAwareFetch,
+    set: (value: typeof fetch) => {
+      if (value === accessAwareFetch) {
+        if (layers.length > 1) layers.pop();
+      } else {
+        layers.push(value);
+      }
+    },
+  });
+}
+
 Deno.test("message dispatcher exposes a normalized delivery seam", async () => {
   const integration = await import("./index.ts");
   assertEquals(typeof integration.createMessageDispatcher, "function");
@@ -1214,9 +1275,15 @@ const setupMessageWebhookFetch = ({
   const originalFetch = globalThis.fetch;
   const rpcRequests: Record<string, unknown>[] = [];
   const sentMessages: Record<string, unknown>[] = [];
+  const discardRequests: Record<string, unknown>[] = [];
 
   globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (urlStr.includes("rest/v1/rpc/register_whatsapp_message_discard")) {
+      discardRequests.push(JSON.parse(String(init?.body)));
+      return new Response("null", { status: 200, headers: { "Content-Type": "application/json" } });
+    }
 
     if (urlStr.includes("rest/v1/whatsapp_instances")) {
       return new Response(JSON.stringify({
@@ -1271,6 +1338,7 @@ const setupMessageWebhookFetch = ({
   return {
     rpcRequests,
     sentMessages,
+    discardRequests,
     restore: () => {
       globalThis.fetch = originalFetch;
     },
@@ -2422,7 +2490,7 @@ Deno.test("POST /process-welcome-outbox processes eligible balcão events", asyn
     ));
 
     assertEquals(response.status, 200);
-    assertEquals(await response.json(), { success: true, processed: 1, retried: 0 });
+    assertEquals(await response.json(), { success: true, processed: 1, retried: 0, discarded: 0 });
   } finally {
     restoreFetch();
   }
@@ -2481,7 +2549,7 @@ Deno.test("POST /process-welcome-outbox processes appointment events from the du
     ));
 
     assertEquals(response.status, 200);
-    assertEquals(await response.json(), { success: true, processed: 1, retried: 0 });
+    assertEquals(await response.json(), { success: true, processed: 1, retried: 0, discarded: 0 });
     assertEquals(providerCalls.length, 1);
     assertEquals(providerCalls[0]?.number, "5511999991111");
   } finally {
@@ -3425,3 +3493,472 @@ Deno.test("createHandler normalizes trailing slashes in route paths", async () =
 
 
 
+
+// ---------------------------------------------------------------------------
+// Spec 052, ticket 04: barbearia bloqueada nao envia WhatsApp.
+//
+// Em todos os testes abaixo o provedor falso conta as chamadas: com a barbearia bloqueada
+// ele nao pode receber nenhuma. O envio que nao saiu fica registrado como discarded, com o
+// motivo, e nao volta para a fila. Sem conseguir ler o estado, nada e enviado.
+// ---------------------------------------------------------------------------
+type RecordedCall = { url: string; method: string; body: string };
+
+const recordFetchCalls = (mocks: Record<string, { status: number; body: unknown }>) => {
+  const calls: RecordedCall[] = [];
+  // O descarte por bloqueio vai para o livro pela RPC register_whatsapp_message_discard.
+  const restoreMocks = setupMockFetch({
+    "rest/v1/rpc/register_whatsapp_message_discard": { status: 200, body: null },
+    ...mocks,
+  });
+  const beneath = globalThis.fetch;
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    calls.push({ url, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : "" });
+    return beneath(input, init);
+  };
+  return {
+    calls,
+    sentToProvider: () => calls.filter((c) => c.url.includes("mock-vps.com/send/text")),
+    discardedInLedger: () => calls
+      .filter((c) => c.url.includes("rest/v1/rpc/register_whatsapp_message_discard"))
+      .map((c) => JSON.parse(c.body))
+      .map((p) => ({
+        tenant_id: p.p_tenant_id,
+        direction: p.p_direction,
+        event_type: p.p_event_type,
+        idempotency_key: p.p_idempotency_key,
+        reminder_window: p.p_reminder_window,
+        last_error: p.p_reason,
+      })),
+    rpcCalls: (name: string) => calls
+      .filter((c) => c.url.includes(`rest/v1/rpc/${name}`))
+      .map((c) => JSON.parse(c.body || "{}")),
+    writesTo: (table: string) => calls.filter((c) => c.url.includes(`rest/v1/${table}`) && c.method !== "GET"),
+    restore: () => {
+      globalThis.fetch = beneath;
+      restoreMocks();
+      resetTenantAccessForTest();
+    },
+  };
+};
+
+const triggerRequest = (path: string, body: Record<string, unknown> = {}) =>
+  new Request(`https://mock-supabase.co/functions/v1/whatsapp-integration/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+    body: JSON.stringify(body),
+  });
+
+const notificationMocks = {
+  "rest/v1/whatsapp_instances": {
+    status: 200,
+    body: {
+      id: "inst-blocked-1",
+      instance_name: "nav_blocked",
+      instance_token: "mock-instance-key",
+      status: "connected",
+      send_confirmation: true,
+      send_cancellation: true,
+    },
+  },
+  "rest/v1/appointments": {
+    status: 200,
+    body: {
+      id: "app-blocked-1",
+      start_time: "2026-07-15T10:00:00Z",
+      customers: { name: "Jonathas", phone: "11999998888", token_acesso: "token-abc" },
+      professionals: { name: "Guto", phone: "11977776666" },
+      services: { name: "Corte e Barba", price: 80 },
+      tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" },
+    },
+  },
+  "mock-vps.com/send/text": { status: 200, body: { success: true } },
+};
+
+Deno.test("blocked tenant: an appointment event sends nothing to the client or the barber and is recorded as discarded", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "trial_expired" });
+  const fetchLog = recordFetchCalls(notificationMocks);
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { success: false, status: "discarded", reason: "tenant_blocked", detail: "trial_expired" });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    const discarded = fetchLog.discardedInLedger();
+    assertEquals(discarded.map((row) => row.event_type).sort(), ["appointment_created", "professional_appointment_created"]);
+    assertEquals(discarded.every((row) => row.last_error === "tenant_blocked:trial_expired"), true);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: the state is read once per tenant in the same request", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "payment_failed" });
+  const fetchLog = recordFetchCalls(notificationMocks);
+  try {
+    await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals(accessStateReads, ["tenant-456"]);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("allowed tenant: the appointment event is sent as before", async () => {
+  const fetchLog = recordFetchCalls(notificationMocks);
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).success, true);
+    assertEquals(fetchLog.sentToProvider().length, 2);
+    assertEquals(fetchLog.discardedInLedger().length, 0);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("tenant in warning still sends: only a blocked tenant stops", async () => {
+  setTenantAccessForTest("tenant-456", { access: "warning", reason: "trial" });
+  const fetchLog = recordFetchCalls(notificationMocks);
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals((await res.json()).success, true);
+    assertEquals(fetchLog.sentToProvider().length, 2);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: when the discard cannot be recorded nothing is sent and the caller sees a delivery failure", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "trial_expired" });
+  const fetchLog = recordFetchCalls({
+    ...notificationMocks,
+    "rest/v1/rpc/register_whatsapp_message_discard": { status: 500, body: { message: "boom" } },
+  });
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals(res.status, 502);
+    assertEquals(fetchLog.sentToProvider().length, 0);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("unreadable access state: nothing is sent and the caller sees a delivery failure", async () => {
+  setTenantAccessForTest("tenant-456", "unreadable");
+  const fetchLog = recordFetchCalls(notificationMocks);
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "appointment_created",
+      appointment_id: "app-blocked-1",
+      tenant_id: "tenant-456",
+    }));
+
+    assertEquals(res.status, 502);
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    assertEquals(fetchLog.discardedInLedger().length, 0);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: reminders are discarded, reminder_sent is untouched and the state is read once", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "trial_expired" });
+  const soon = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  const relation = {
+    customers: { name: "Cliente Teste", phone: "11999992222", token_acesso: "token-def" },
+    professionals: { name: "Guto" },
+    services: { name: "Barba" },
+    tenants: { name: "Navalhado Ouro", timezone: "America/Sao_Paulo" },
+  };
+  const fetchLog = recordFetchCalls({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: [{
+        id: "inst-rem-1",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "connected",
+        send_reminders: true,
+        reminder_hours: 2,
+      }],
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: [
+        { id: "app-rem-1", start_time: soon(60), ...relation },
+        { id: "app-rem-2", start_time: soon(90), ...relation },
+      ],
+    },
+    "mock-vps.com/send/text": { status: 200, body: { success: true } },
+  });
+  try {
+    const res = await handler(triggerRequest("process-reminders"));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { status: "success", processed: 0, failed: 0 });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    assertEquals(fetchLog.writesTo("appointments").length, 0);
+    const discarded = fetchLog.discardedInLedger();
+    assertEquals(discarded.map((row) => row.event_type), ["appointment_reminder", "appointment_reminder"]);
+    assertEquals(discarded.map((row) => row.reminder_window), ["2h", "2h"]);
+    assertEquals(accessStateReads, ["tenant-456"]);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: return reminders are discarded and not counted as sent", async () => {
+  setTenantAccessForTest("tenant-return-1", { access: "blocked", reason: "canceled" });
+  const fetchLog = recordFetchCalls({
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: [{ id: "inst-1", tenant_id: "tenant-return-1", instance_name: "nav_return", instance_token: "mock-instance-key", status: "connected" }],
+    },
+    "rest/v1/rpc/get_pending_return_reminders": {
+      status: 200,
+      body: [{
+        appointment_id: "app-ret-1",
+        customer_id: "cust-ret-1",
+        customer_name: "Carlos Cliente",
+        customer_phone: "11988887777",
+        customer_token: "token-ret-123",
+        service_name: "Corte",
+        return_period_days: 20,
+        diff_days: 25,
+        tenant_name: "Navalhado Matriz",
+        whatsapp_reminder_template: "Ola, {cliente}! Volte na {barbearia}: {link}",
+      }],
+    },
+    "mock-vps.com/send/text": { status: 200, body: { success: true } },
+  });
+  try {
+    const res = await handler(triggerRequest("process-return-reminders"));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { status: "success", processed: 0, failed: 0 });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    const discarded = fetchLog.discardedInLedger();
+    assertEquals(discarded.length, 1);
+    assertEquals(discarded[0].event_type, "return_reminder");
+    assertEquals(discarded[0].reminder_window, "20d");
+    assertEquals(discarded[0].last_error, "tenant_blocked:canceled");
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+const welcomeOutboxMocks = {
+  "rest/v1/rpc/claim_whatsapp_message_outbox": {
+    status: 200,
+    body: [{
+      id: "outbox-welcome-1",
+      tenant_id: "tenant-welcome-1",
+      customer_id: "customer-welcome-1",
+      event_type: "customer_welcome_balcao",
+      idempotency_key: "customer:customer-welcome-1:customer_welcome_balcao",
+      payload: { event: "customer_welcome_balcao", customer_id: "customer-welcome-1", tenant_id: "tenant-welcome-1" },
+      attempt_count: 1,
+    }],
+  },
+  "rest/v1/whatsapp_instances": {
+    status: 200,
+    body: {
+      id: "instance-welcome-1",
+      tenant_id: "tenant-welcome-1",
+      instance_name: "nav_welcome",
+      instance_token: "welcome-token",
+      status: "connected",
+      send_welcome_balcao: true,
+    },
+  },
+  "rest/v1/customers": {
+    status: 200,
+    body: {
+      id: "customer-welcome-1",
+      tenant_id: "tenant-welcome-1",
+      name: "Cliente Balcao",
+      phone: "11988887777",
+      token_acesso: "welcome-access-token",
+      registration_origin: "balcao",
+      welcome_sent_at: null,
+    },
+  },
+  "rest/v1/tenants": { status: 200, body: { name: "Navalhado Centro", slug: "navalhado-centro" } },
+  "rest/v1/rpc/complete_whatsapp_message_outbox": { status: 200, body: true },
+  "rest/v1/rpc/discard_whatsapp_message_outbox": { status: 200, body: true },
+  "mock-vps.com/send/text": { status: 200, body: { success: true } },
+};
+
+Deno.test("blocked tenant: the welcome message leaves the outbox as discarded, sends nothing and does not mark the customer", async () => {
+  setTenantAccessForTest("tenant-welcome-1", { access: "blocked", reason: "trial_expired" });
+  const fetchLog = recordFetchCalls(welcomeOutboxMocks);
+  try {
+    const res = await handler(triggerRequest("process-welcome-outbox"));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { success: true, processed: 0, retried: 0, discarded: 1 });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    assertEquals(fetchLog.rpcCalls("discard_whatsapp_message_outbox"), [
+      { p_outbox_id: "outbox-welcome-1", p_reason: "tenant_blocked:trial_expired" },
+    ]);
+    assertEquals(fetchLog.rpcCalls("complete_whatsapp_message_outbox"), []);
+    assertEquals(fetchLog.writesTo("customers").length, 0);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: an appointment event from the outbox leaves it as discarded and sends nothing", async () => {
+  setTenantAccessForTest("tenant-appointment-1", { access: "blocked", reason: "payment_failed" });
+  const fetchLog = recordFetchCalls({
+    ...welcomeOutboxMocks,
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: {
+        id: "instance-appointment-1",
+        tenant_id: "tenant-appointment-1",
+        instance_name: "nav_appointment",
+        instance_token: "token-appointment",
+        status: "connected",
+        send_confirmation: true,
+      },
+    },
+    "rest/v1/rpc/claim_whatsapp_message_outbox": {
+      status: 200,
+      body: [{
+        id: "outbox-appointment-1",
+        tenant_id: "tenant-appointment-1",
+        customer_id: "customer-appointment-1",
+        event_type: "appointment_created",
+        idempotency_key: "appointment:appointment-1:appointment_created",
+        attempt_count: 1,
+        payload: { event: "appointment_created", event_type: "appointment_created", appointment_id: "appointment-1", tenant_id: "tenant-appointment-1" },
+      }],
+    },
+    "rest/v1/appointments": {
+      status: 200,
+      body: {
+        id: "appointment-1",
+        start_time: "2026-08-30T19:00:00.000Z",
+        customers: { id: "customer-appointment-1", name: "Cliente Outbox", phone: "11999991111", token_acesso: "token-appointment-customer" },
+        professionals: { name: "Profissional Outbox", phone: null },
+        services: { name: "Corte" },
+        tenants: { name: "Barbearia Outbox", slug: "outbox", timezone: "America/Manaus" },
+      },
+    },
+  });
+  try {
+    const res = await handler(triggerRequest("process-welcome-outbox"));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { success: true, processed: 0, retried: 0, discarded: 1 });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    assertEquals(fetchLog.rpcCalls("discard_whatsapp_message_outbox"), [
+      { p_outbox_id: "outbox-appointment-1", p_reason: "tenant_blocked:payment_failed" },
+    ]);
+    assertEquals(fetchLog.rpcCalls("complete_whatsapp_message_outbox"), []);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: a direct welcome event answers discarded and does not mark the customer as welcomed", async () => {
+  setTenantAccessForTest("tenant-welcome-1", { access: "blocked", reason: "trial_expired" });
+  const fetchLog = recordFetchCalls(welcomeOutboxMocks);
+  try {
+    const res = await handler(triggerRequest("send-notification", {
+      event: "customer_welcome_balcao",
+      customer_id: "customer-welcome-1",
+      tenant_id: "tenant-welcome-1",
+    }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { status: "discarded", reason: "tenant_blocked", detail: "trial_expired" });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+    assertEquals(fetchLog.writesTo("customers").length, 0);
+    assertEquals(fetchLog.discardedInLedger().map((row) => row.event_type), ["customer_welcome_balcao"]);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("blocked tenant: the manual test message is refused and nothing is sent", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "trial_expired" });
+  const fetchLog = recordFetchCalls({
+    "auth/v1/user": { status: 200, body: { id: "user-123", email: "gerente@email.com" } },
+    "rest/v1/users": { status: 200, body: { tenant_id: "tenant-456", role: "gerente" } },
+    "rest/v1/whatsapp_instances": {
+      status: 200,
+      body: { id: "inst-1", instance_name: "nav_test", instance_token: "mock-instance-key", status: "connected" },
+    },
+    "mock-vps.com/send/text": { status: 200, body: { success: true } },
+  });
+  try {
+    const res = await handler(new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/send-manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer mock-user-token" },
+      body: JSON.stringify({ tenant_id: "tenant-456", number: "11999991111", text: "Mensagem de teste" }),
+    }));
+
+    assertEquals(res.status, 403);
+    assertEquals(await res.json(), { success: false, error: "Tenant blocked", reason: "trial_expired" });
+    assertEquals(fetchLog.sentToProvider().length, 0);
+  } finally {
+    fetchLog.restore();
+  }
+});
+
+Deno.test("POST /webhook Message - a blocked tenant does not answer the first contact and the inbound message is closed as discarded", async () => {
+  setTenantAccessForTest("tenant-456", { access: "blocked", reason: "trial_expired" });
+  const mock = setupMessageWebhookFetch({ rpcBody: [customerRow({ token_acesso: "token-new", created: true })] });
+  try {
+    const res = await handler(createMessageRequest());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { ignored: true, reason: "tenant_blocked" });
+    assertEquals(mock.sentMessages.length, 0);
+    assertEquals(mock.discardRequests.map((r) => [r.p_event_type, r.p_reason]), [["first_contact", "tenant_blocked:trial_expired"]]);
+  } finally {
+    mock.restore();
+    resetTenantAccessForTest();
+  }
+});
+
+Deno.test("POST /webhook Message - without a readable access state the first contact is not answered", async () => {
+  setTenantAccessForTest("tenant-456", "unreadable");
+  const mock = setupMessageWebhookFetch({ rpcBody: [customerRow({ token_acesso: "token-new", created: true })] });
+  try {
+    const res = await handler(createMessageRequest());
+
+    assertEquals(res.status, 502);
+    assertEquals(mock.sentMessages.length, 0);
+  } finally {
+    mock.restore();
+    resetTenantAccessForTest();
+  }
+});

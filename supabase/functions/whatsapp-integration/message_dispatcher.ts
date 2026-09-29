@@ -48,11 +48,34 @@ export interface MessageLedger {
     reminderWindow?: string;
     direction?: "inbound" | "outbound";
   }): Promise<void>;
+  /** Registra o envio que nao saiu por bloqueio: status discarded, com o motivo, sem fila. */
+  discard?(input: {
+    tenantId: string;
+    eventType: string;
+    idempotencyKey: string;
+    reason: string;
+    instanceId?: string;
+    appointmentId?: string | null;
+    reminderWindow?: string;
+    direction?: "inbound" | "outbound";
+  }): Promise<void>;
+}
+
+/**
+ * Estado de Acesso da barbearia (spec 052, ticket 04). Barbearia bloqueada nao envia
+ * mensagem nenhuma. Se a leitura do estado falha, `check` rejeita e o dispatcher nao envia:
+ * sem saber o estado, nao se envia, e quem chamou trata o erro como uma falha de entrega.
+ */
+export type MessageAccessDecision = { allowed: true } | { allowed: false; reason: string };
+
+export interface MessageAccessGate {
+  check(tenantId: string): Promise<MessageAccessDecision>;
 }
 
 export interface MessageDispatcherDependencies {
   provider: Pick<WhatsAppProvider, "sendText">;
   ledger: MessageLedger;
+  accessGate?: MessageAccessGate;
   sleep?: (milliseconds: number) => Promise<void>;
   maxAttempts?: number;
   renderTemplate?: (event: NormalizedMessageEvent) => string;
@@ -65,15 +88,17 @@ export interface MessageDispatchObservation {
   eventType: string;
   aggregateId?: string;
   attempt: number;
-  status: "sent" | "duplicate" | "failed";
+  status: "sent" | "duplicate" | "failed" | "discarded";
   providerStatus?: number;
   durationMs: number;
 }
 
 export interface MessageDispatchResult {
-  status: "sent" | "duplicate";
+  status: "sent" | "duplicate" | "discarded";
   attempts: number;
   existingStatus?: MessageReservation["status"];
+  /** Motivo do descarte (status discarded): o motivo do bloqueio da barbearia. */
+  reason?: string;
 }
 
 export class MessageDispatchError extends Error {
@@ -137,6 +162,7 @@ export const sendWithRetry = async (
 export const createMessageDispatcher = ({
   provider,
   ledger,
+  accessGate,
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   maxAttempts = 3,
   renderTemplate,
@@ -144,16 +170,6 @@ export const createMessageDispatcher = ({
 }: MessageDispatcherDependencies) => async (
   event: NormalizedMessageEvent,
 ): Promise<MessageDispatchResult> => {
-  const reservation = await ledger.reserve({
-    tenantId: event.tenantId,
-    eventType: event.eventType,
-    idempotencyKey: event.idempotencyKey,
-    instanceId: event.instanceId,
-    appointmentId: event.appointmentId,
-    reminderWindow: event.reminderWindow,
-    direction: event.direction,
-  });
-
   const startedAt = Date.now();
   const correlationId = event.correlationId || crypto.randomUUID();
   const observe = (record: Omit<MessageDispatchObservation, "correlationId" | "tenantId" | "eventType" | "durationMs">) => {
@@ -165,6 +181,36 @@ export const createMessageDispatcher = ({
       ...record,
     });
   };
+
+  // Barbearia bloqueada: nada chega ao provedor e nada fica para depois. O descarte fica
+  // registrado com o motivo. Se o estado nao puder ser lido, `check` rejeita e nao se envia.
+  if (accessGate) {
+    const decision = await accessGate.check(event.tenantId);
+    if (!decision.allowed) {
+      await ledger.discard?.({
+        tenantId: event.tenantId,
+        eventType: event.eventType,
+        idempotencyKey: event.idempotencyKey,
+        reason: decision.reason,
+        instanceId: event.instanceId,
+        appointmentId: event.appointmentId,
+        reminderWindow: event.reminderWindow,
+        direction: event.direction,
+      });
+      observe({ aggregateId: event.aggregateId, attempt: 0, status: "discarded" });
+      return { status: "discarded", attempts: 0, reason: decision.reason };
+    }
+  }
+
+  const reservation = await ledger.reserve({
+    tenantId: event.tenantId,
+    eventType: event.eventType,
+    idempotencyKey: event.idempotencyKey,
+    instanceId: event.instanceId,
+    appointmentId: event.appointmentId,
+    reminderWindow: event.reminderWindow,
+    direction: event.direction,
+  });
 
   if (!reservation.reserved) {
     observe({ aggregateId: event.aggregateId, attempt: reservation.attempts, status: "duplicate" });
