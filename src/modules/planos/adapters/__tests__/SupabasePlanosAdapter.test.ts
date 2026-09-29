@@ -7,23 +7,23 @@ vi.mock('../../../../lib/supabase', () => ({
   supabase: { from: mockFrom },
 }));
 
-// Monta a cadeia select().eq().order().limit().maybeSingle() da leitura do plano da barbearia.
+// Monta a cadeia select().eq().maybeSingle() da leitura do plano da barbearia.
 const cadeiaDoPlanoDaBarbearia = (resultado: { data: unknown; error: unknown }) => {
   const maybeSingle = vi.fn().mockResolvedValue(resultado);
-  const limit = vi.fn().mockReturnValue({ maybeSingle });
-  const order = vi.fn().mockReturnValue({ limit });
-  const eq = vi.fn().mockReturnValue({ order });
+  const eq = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq });
   mockFrom.mockReturnValue({ select });
-  return { select, eq, order, limit };
+  return { select, eq, maybeSingle };
 };
 
-describe('SupabasePlanosAdapter.obterDoTenant (spec 052, ticket 02)', () => {
+describe('SupabasePlanosAdapter.obterDoTenant (spec 052, tickets 02 e 03)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('lê a assinatura mais recente da barbearia, a mesma que o gatilho do banco usa', async () => {
+  // Desde o ticket 03 a barbearia tem uma única assinatura (unique por tenant_id): não há
+  // "mais recente" para escolher, e o plano agendado mora na mesma linha.
+  it('lê o plano da única assinatura da barbearia', async () => {
     const cadeia = cadeiaDoPlanoDaBarbearia({
       data: { plans: { id: 'p1', name: 'Máquina', price: '89.90', max_professionals: 5 } },
       error: null,
@@ -33,8 +33,7 @@ describe('SupabasePlanosAdapter.obterDoTenant (spec 052, ticket 02)', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('tenant_subscriptions');
     expect(cadeia.eq).toHaveBeenCalledWith('tenant_id', 'tenant-a');
-    expect(cadeia.order).toHaveBeenCalledWith('created_at', { ascending: false });
-    expect(cadeia.limit).toHaveBeenCalledWith(1);
+    expect(cadeia.maybeSingle).toHaveBeenCalledTimes(1);
     expect(plano).toEqual({ id: 'p1', name: 'Máquina', price: 89.9, max_professionals: 5 });
   });
 

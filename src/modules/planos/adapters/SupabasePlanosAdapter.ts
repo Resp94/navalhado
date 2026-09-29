@@ -23,14 +23,12 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
     return (data || []).map(paraPlano);
   }
 
-  // Mesma escolha do gatilho de limite no banco: a assinatura mais recente da barbearia.
+  // A barbearia tem uma única assinatura (unique por tenant_id desde o ticket 03).
   async obterDoTenant(tenantId: string): Promise<Plano | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
       .select('plans(id, name, price, max_professionals)')
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     if (error) {
