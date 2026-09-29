@@ -72,6 +72,19 @@ describe('useEstadoDeAcesso', () => {
     intercepcao?.restaurar();
   });
 
+  // Spec 052, ticket 05: quem volta do Mercado Pago pode pedir a releitura, sem esperar a aba trocar.
+  it('recarregar lê o estado de novo e mostra o que o banco tem agora', async () => {
+    mockObter.mockResolvedValueOnce(bloqueado).mockResolvedValueOnce(liberado);
+
+    const { result } = renderHook(() => useEstadoDeAcesso());
+    await waitFor(() => expect(result.current.estado).toEqual(bloqueado));
+
+    act(() => result.current.recarregar());
+
+    await waitFor(() => expect(result.current.estado).toEqual(liberado));
+    expect(mockObter).toHaveBeenCalledTimes(2);
+  });
+
   // O banco resolve a barbearia pelo login, então a leitura não precisa esperar os dados
   // da barbearia chegarem: ela sai junto com eles, sem uma ida ao banco a mais em série.
   it('lê o estado assim que monta, sem esperar dado nenhum da barbearia', () => {

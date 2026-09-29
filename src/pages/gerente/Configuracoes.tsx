@@ -14,6 +14,7 @@ import { isValidEmailFormat } from '../../lib/email';
 import { useValidacaoEmail } from '../../lib/useValidacaoEmail';
 import { normalizeBusinessHours } from '../../lib/schedule';
 import { Select } from '../../components/ui';
+import { SecaoAssinatura } from '../../components/acesso/SecaoAssinatura';
 
 interface DaySchedule {
   active: boolean;
@@ -796,6 +797,9 @@ export const Configuracoes: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* CARD: Assinatura (spec 052, ticket 05) */}
+      <SecaoAssinatura />
     </form>
   );
 };

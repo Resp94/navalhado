@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { assinaturaRepository } from './repositorio';
 import type { EstadoDeAcesso, EstadoDeAcessoStatus } from './types';
 
@@ -60,7 +60,10 @@ export function useEstadoDeAcesso() {
     return () => document.removeEventListener('visibilitychange', aoVoltarParaAAba);
   }, []);
 
+  /** Relê o estado agora, por exemplo para quem acabou de voltar de um pagamento. */
+  const recarregar = useCallback(() => setVersao((v) => v + 1), []);
+
   const diasRestantes = estado ? assinaturaRepository.diasRestantes(estado) : null;
 
-  return { estado, status, diasRestantes };
+  return { estado, status, diasRestantes, recarregar };
 }

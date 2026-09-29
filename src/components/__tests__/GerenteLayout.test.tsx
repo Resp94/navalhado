@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
 
@@ -199,8 +200,8 @@ describe('GerenteLayout Gatekeeper', () => {
   // para o onboarding. O bloqueio do painel é no front; o banco continua entregando os
   // dados do Gerente para ele poder exportá-los.
   describe('porteiro do Estado de Acesso', () => {
-    const painelDaBarbearia = (pathname: string, onboardingCompleted = true) => {
-      mockUseLocation.mockReturnValue({ pathname });
+    const painelDaBarbearia = (pathname: string, onboardingCompleted = true, search = '') => {
+      mockUseLocation.mockReturnValue({ pathname, search });
       mockFrom.mockImplementation((table: string) => {
         if (table === 'users') {
           return {
@@ -239,16 +240,42 @@ describe('GerenteLayout Gatekeeper', () => {
     const estadoDoBanco = (access: string, reason: string, relevantDate: string | null = null) =>
       mockRpc.mockResolvedValue({ data: [{ access, reason, relevant_date: relevantDate }], error: null });
 
-    it('bloqueado: mostra só a tela de bloqueio, com o motivo e o lugar do Pagar', async () => {
+    it('bloqueado: mostra só a tela de bloqueio, com o motivo e o Pagar', async () => {
       painelDaBarbearia('/agenda');
       estadoDoBanco('blocked', 'trial_expired', '2026-09-29T12:00:00Z');
 
       render(<GerenteLayout />);
 
       expect(await screen.findByRole('heading', { name: 'Seu período de teste terminou' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Pagar' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Pagar' })).toBeEnabled();
       expect(screen.getByText('Barbearia Navalhado')).toBeInTheDocument();
       expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    // Spec 052, ticket 05: o Mercado Pago devolve o Gerente em /configuracoes?assinatura=retorno.
+    // Se o webhook ainda não chegou, a barbearia segue bloqueada e a tela avisa que confirma.
+    it('bloqueado, voltando do Mercado Pago: avisa que o pagamento está sendo confirmado', async () => {
+      painelDaBarbearia('/configuracoes', true, '?assinatura=retorno');
+      estadoDoBanco('blocked', 'trial_expired', '2026-09-29T12:00:00Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent(/confirmando seu pagamento/i);
+    });
+
+    it('bloqueado, voltando do Mercado Pago: "Atualizar situação" relê o estado e libera o painel quando o webhook chegou', async () => {
+      painelDaBarbearia('/configuracoes', true, '?assinatura=retorno');
+      mockRpc
+        .mockResolvedValueOnce({ data: [{ access: 'blocked', reason: 'trial_expired', relevant_date: null }], error: null })
+        .mockResolvedValue({ data: [{ access: 'allowed', reason: 'active', relevant_date: null }], error: null });
+
+      render(<GerenteLayout />);
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Atualizar situação' }));
+
+      expect(await screen.findByTestId('outlet')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Seu período de teste terminou' })).not.toBeInTheDocument();
     });
 
     it('bloqueado: o onboarding também fica atrás da tela de bloqueio', async () => {

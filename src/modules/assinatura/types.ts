@@ -25,7 +25,17 @@ export type PerfilNoBloqueio = 'gerente' | 'barbeiro';
 
 export type EstadoDeAcessoStatus = 'loading' | 'ready' | 'error';
 
+/** Assinatura criada no Mercado Pago (spec 052, ticket 05): o Gerente conclui no link. */
+export interface AssinaturaCriada {
+  linkDePagamento: string;
+  assinaturaId: string;
+  /** Data da primeira cobrança, ou nulo quando a cobrança é imediata. */
+  primeiraCobrancaEm: Date | null;
+}
+
 export interface IAssinaturaAdapter {
   /** Estado da barbearia de quem está logado, ou nulo se o usuário não tem barbearia. */
   obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null>;
+  /** Cria a assinatura da barbearia de quem está logado (só o Gerente consegue) e devolve o link de pagamento. */
+  assinar(): Promise<AssinaturaCriada>;
 }

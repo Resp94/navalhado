@@ -60,4 +60,37 @@ describe('AssinaturaRepository', () => {
       expect(repo.diasRestantes(estado(null), agora)).toBeNull();
     });
   });
+
+  // Spec 052, ticket 05: o repositório só deixa o front abrir link https.
+  describe('assinar', () => {
+    it('devolve a assinatura criada pelo adaptador', async () => {
+      const adapter = new InMemoryAssinaturaAdapter();
+      const repo = new AssinaturaRepository(adapter);
+
+      const criada = await repo.assinar();
+
+      expect(criada.linkDePagamento).toBe('https://provider.test/checkout/assinatura-1');
+      expect(adapter.assinaturasSolicitadas).toBe(1);
+    });
+
+    it('recusa um link que não seja https, para o front nunca navegar para um endereço estranho', async () => {
+      const adapter = new InMemoryAssinaturaAdapter();
+      adapter.respostaDeAssinar = {
+        linkDePagamento: 'javascript:alert(1)',
+        assinaturaId: 'a',
+        primeiraCobrancaEm: null,
+      };
+      const repo = new AssinaturaRepository(adapter);
+
+      await expect(repo.assinar()).rejects.toThrow('Não foi possível iniciar a assinatura. Tente de novo.');
+    });
+
+    it('repassa a falha do adaptador', async () => {
+      const adapter = new InMemoryAssinaturaAdapter();
+      adapter.respostaDeAssinar = new Error('A barbearia já tem uma assinatura ativa.');
+      const repo = new AssinaturaRepository(adapter);
+
+      await expect(repo.assinar()).rejects.toThrow('A barbearia já tem uma assinatura ativa.');
+    });
+  });
 });

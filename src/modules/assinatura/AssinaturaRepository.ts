@@ -1,4 +1,5 @@
-import type { EstadoDeAcesso, IAssinaturaAdapter } from './types';
+import { MENSAGEM_ASSINAR_FALHOU } from './errors';
+import type { AssinaturaCriada, EstadoDeAcesso, IAssinaturaAdapter } from './types';
 
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 
@@ -12,6 +13,18 @@ export class AssinaturaRepository {
   /** Estado da barbearia de quem está logado. A falha sobe: quem chama decide se abre ou fecha. */
   async obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null> {
     return this.adapter.obterEstadoDeAcesso();
+  }
+
+  /**
+   * Cria a assinatura da barbearia e devolve o link de pagamento do Mercado Pago. O link só
+   * vale se for https: o front vai navegar para ele, então nunca para outro tipo de endereço.
+   */
+  async assinar(): Promise<AssinaturaCriada> {
+    const criada = await this.adapter.assinar();
+    if (!criada.linkDePagamento.startsWith('https://')) {
+      throw new Error(MENSAGEM_ASSINAR_FALHOU);
+    }
+    return criada;
   }
 
   /**

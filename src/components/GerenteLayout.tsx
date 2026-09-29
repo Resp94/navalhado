@@ -9,6 +9,7 @@ import { GERENTE_NAV_ITEMS } from './gerenteNavItems';
 import { TelaDeBloqueio } from './acesso/TelaDeBloqueio';
 import { FaixaDeAviso } from './acesso/FaixaDeAviso';
 import { useEstadoDeAcesso } from '../modules/assinatura/useEstadoDeAcesso';
+import { useRetornoDoPagamento } from '../modules/assinatura/useRetornoDoPagamento';
 
 // Interface do Contexto do Tenant a ser compartilhado com as sub-telas
 export interface TenantContextType {
@@ -52,7 +53,14 @@ export const GerenteLayout: React.FC = () => {
   });
 
   // Porteiro: o Estado de Acesso vem do banco, junto do redirecionamento para o onboarding.
-  const { estado: estadoDeAcesso, status: statusDoAcesso } = useEstadoDeAcesso();
+  const { estado: estadoDeAcesso, status: statusDoAcesso, recarregar: recarregarEstadoDeAcesso } = useEstadoDeAcesso();
+  // Voltando do pagamento no Mercado Pago (/configuracoes?assinatura=retorno), o webhook pode
+  // chegar depois do redirecionamento: relê o estado até a barbearia sair do bloqueio.
+  const aguardandoConfirmacao = useRetornoDoPagamento(
+    location.search,
+    estadoDeAcesso?.acesso === 'bloqueado',
+    recarregarEstadoDeAcesso,
+  );
 
   const fetchTenantData = React.useCallback(async () => {
     try {
@@ -200,6 +208,8 @@ export const GerenteLayout: React.FC = () => {
         perfil="gerente"
         tenantName={tenantInfo.tenantName}
         onLogout={handleLogout}
+        aguardandoConfirmacao={aguardandoConfirmacao}
+        onAtualizar={recarregarEstadoDeAcesso}
       />
     );
   }

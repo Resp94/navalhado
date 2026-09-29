@@ -57,6 +57,11 @@ vi.mock('../../../components/Toast', () => ({
   }),
 }));
 
+// A seção Assinatura tem os próprios testes; aqui só se confere que ela está na página.
+vi.mock('../../../components/acesso/SecaoAssinatura', () => ({
+  SecaoAssinatura: () => <section>Seção Assinatura</section>,
+}));
+
 // Mock do react-router-dom para obter o contexto do tenant
 vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
@@ -80,6 +85,17 @@ const dnsResponse = (status: number, answers: { type: number; data: string }[] =
 });
 
 describe('Configuracoes Page - TDD', () => {
+  it('mostra a seção Assinatura, com o botão de assinar (spec 052, ticket 05)', async () => {
+    mockSingle.mockResolvedValue({
+      data: { id: 'tenant-test-id', name: 'Barbearia Estilo', email: 'a@b.com', phone: '(92) 98888-8888', address: 'Rua 1', timezone: 'America/Manaus' },
+      error: null,
+    });
+
+    render(<Configuracoes />);
+
+    expect(await screen.findByText('Seção Assinatura')).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Padrão: qualquer domínio consultado tem MX (spec 047, ticket 07). Testes
