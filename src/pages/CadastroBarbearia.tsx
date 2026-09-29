@@ -5,13 +5,14 @@ import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { LegalModal } from '../components/legal/LegalModal';
 import { usePlanos } from '../modules/planos/usePlanos';
+import { pluralizar } from '../lib/plural';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
 import { isValidEmailFormat, verifyEmailDomain, suggestEmailDomainCorrection } from '../lib/email';
 
 const formatarPreco = (valor: number) =>
   valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const formatarLimite = (max: number) => (max === 1 ? '1 profissional' : `Até ${max} profissionais`);
+const formatarLimite = (max: number) => pluralizar(max, '1 profissional', `Até ${max} profissionais`);
 
 const PAGE_CLASS = 'min-h-screen min-h-dvh flex items-center justify-center px-6 py-8 relative overflow-y-auto';
 
