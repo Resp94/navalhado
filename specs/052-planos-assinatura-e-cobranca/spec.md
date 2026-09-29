@@ -125,7 +125,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 
 - Os três planos atuais são renomeados mantendo os UUIDs: Bronze vira Tesoura (1 profissional, R$ 59,90), Prata vira Máquina (5, R$ 89,90) e Ouro vira Bancada (10, R$ 159,90). As assinaturas existentes continuam apontando para o mesmo plano.
 - A coluna de recursos do plano (`features`) sai, depois de conferir que nenhuma função, view ou tela a lê.
-- A tela de cadastro deixa de ter os planos fixos no código e lê o catálogo do banco. O plano pré-selecionado é o Máquina, que ocupa o lugar do antigo padrão Prata.
+- A tela de cadastro deixa de ter os planos fixos no código e lê o catálogo do banco. O plano pré-selecionado é o do meio da lista ordenada por preço (hoje o Máquina), que ocupa o lugar do antigo padrão Prata. A escolha é pela posição, e não pelo nome, para que renomear um plano não mude o padrão.
 - O cadastro passa a ligar o plano escolhido pelo identificador do plano, e não mais pelo nome em minúsculas. Renomear planos deixa de quebrar o cadastro.
 - Em prod, os dois tenants atuais são Ouro, viram Bancada e têm 1 profissional ativo cada. Nenhum passa do limite novo.
 
