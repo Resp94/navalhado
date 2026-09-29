@@ -8,7 +8,7 @@ Este documento registra as credenciais dos usuários e barbearias de teste utili
 
 * **Estabelecimento (Tenant):** `Barbearia Teste Navalhado`
 * **Tenant ID:** `235ea034-3d30-4eaf-9af7-befd68040ad7`
-* **Plano:** `Prata` (até 6 profissionais)
+* **Plano:** `Máquina` (até 5 profissionais)
 * **Fuso Horário:** `America/Sao_Paulo` (UTC-3)
 * **Status do Onboarding:** Concluído (`onboarding_completed: true`)
 * **Endereço:** Av. Paulista, 1000 - Bela Vista, São Paulo - SP (CEP: 01310-100)
@@ -44,7 +44,7 @@ Este documento registra as credenciais dos usuários e barbearias de teste utili
 
 * **Estabelecimento (Tenant):** `Barbearia Alpha Dev`
 * **Tenant ID:** `4ccdee97-2918-4815-8a2a-b52811dcd9c7`
-* **Plano:** `Prata` (até 6 profissionais)
+* **Plano:** `Máquina` (até 5 profissionais)
 * **Fuso Horário:** `America/Sao_Paulo` (UTC-3)
 * **Status do Onboarding:** Concluído (`onboarding_completed: true`)
 * **Endereço:** Av. Paulista, 1500, Andar 12, Sala 1204 - Bela Vista, São Paulo - SP (CEP: 01310-100)

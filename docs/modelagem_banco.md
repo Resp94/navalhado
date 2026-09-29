@@ -34,7 +34,6 @@ erDiagram
         text name
         numeric price
         integer max_professionals
-        jsonb features
         timestamp created_at
         timestamp updated_at
     }
@@ -185,7 +184,6 @@ create table public.plans (
     name text not null,
     price numeric(10, 2) not null check (price >= 0),
     max_professionals integer not null check (max_professionals > 0),
-    features jsonb default '{}'::jsonb,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

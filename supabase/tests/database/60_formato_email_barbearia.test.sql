@@ -30,7 +30,7 @@ select throws_ok(
           'name', 'Barbearia T60 Invalida',
           'email', 'jon@x.c',
           'phone', '11988887777',
-          'plan', 'prata'
+          'plan_id', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22'
         )
       )
     )$$,
@@ -59,7 +59,7 @@ values (
       'name', 'Barbearia T60 Valida',
       'email', 'contato@barbeariat60.com',
       'phone', '11988887777',
-      'plan', 'prata'
+      'plan_id', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22'
     )
   )
 );
