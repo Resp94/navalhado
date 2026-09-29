@@ -86,6 +86,6 @@ Contas de teste criadas pelo MCP na conta do app "Navalhado SaaS": vendedor `372
 
 - Deploy das funções `billing` (com JWT) e `mercadopago-webhook` (**sem verificação de JWT**, ou o Mercado Pago recebe 401), incluindo a pasta `_shared` (o deploy pelo MCP aceita `nome/index.ts` + `_shared/*.ts`). Não há `supabase/config.toml` no repositório: a opção de JWT vai no comando de deploy.
 - Secrets no projeto de prod: `MP_ACCESS_TOKEN` (app "Navalhado", credenciais de produção ativadas), `MP_WEBHOOK_SECRET` (chave do webhook do app) e `APP_URL`. `MP_PUBLIC_KEY` só entra nos tickets de trocar cartão. Webhook do app no painel do Mercado Pago apontando para a função de prod.
-- Ordem: migrations, depois as funções, e só então o front. Junto, publicar também a função `whatsapp-integration` do ticket 04 (migration primeiro): no DEV ela ainda não foi publicada.
+- Ordem: migrations, depois as funções, e só então o front. Junto, publicar também a função `whatsapp-integration` do ticket 04 (migration primeiro); no DEV ela foi publicada em 2026-09-29 (v57).
 - Comando dos testes Deno: `cd supabase/functions && deno test --allow-env --allow-net --allow-read billing mercadopago-webhook _shared`.
 - No DEV ficou uma função `mp-debug` desativada (só responde 410): pode ser excluída no painel do Supabase.
