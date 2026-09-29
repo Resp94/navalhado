@@ -14,6 +14,8 @@ import { MobileHeader } from './mobile/MobileHeader';
 import { GlassSidebar, type NavItemConfig } from './GlassSidebar';
 import type { TenantContextType } from './GerenteLayout';
 import { normalizeBusinessHours } from '../lib/schedule';
+import { TelaDeBloqueio } from './acesso/TelaDeBloqueio';
+import { useEstadoDeAcesso } from '../modules/assinatura/useEstadoDeAcesso';
 
 /** O que as páginas do barbeiro recebem pelo Outlet: a barbearia e o cadastro de profissional dele. */
 export interface BarbeiroContextType extends TenantContextType {
@@ -52,6 +54,9 @@ export const BarbeiroLayout: React.FC = () => {
     tenantId,
     profissionalId,
   });
+
+  // Porteiro: o Estado de Acesso da barbearia vem do banco. O Barbeiro só vê a explicação.
+  const { estado: estadoDeAcesso, status: statusDoAcesso } = useEstadoDeAcesso();
 
   useEffect(() => {
     let isMounted = true;
@@ -154,7 +159,7 @@ export const BarbeiroLayout: React.FC = () => {
     }
   };
 
-  if (loading || !tenantInfo) {
+  if (loading || !tenantInfo || statusDoAcesso === 'loading') {
     return (
       <>
         <div className="noise-overlay" />
@@ -166,6 +171,17 @@ export const BarbeiroLayout: React.FC = () => {
           </div>
         </div>
       </>
+    );
+  }
+
+  if (estadoDeAcesso?.acesso === 'bloqueado') {
+    return (
+      <TelaDeBloqueio
+        motivo={estadoDeAcesso.motivo}
+        perfil="barbeiro"
+        tenantName={tenantName}
+        onLogout={handleLogout}
+      />
     );
   }
 

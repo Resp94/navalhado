@@ -56,28 +56,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRole }) =
           if (!profile.tenant_id) {
             throw new Error('Tenant do usuário não encontrado.');
           }
-
-          const { data: suspendedSubscriptions, error: subscriptionError } = await supabase
-            .from('tenant_subscriptions')
-            .select('status')
-            .eq('tenant_id', profile.tenant_id)
-            .eq('status', 'suspended')
-            .limit(1);
-
-          if (subscriptionError) {
-            throw subscriptionError;
-          }
-
-          if (suspendedSubscriptions && suspendedSubscriptions.length > 0) {
-            addToast('A assinatura desta barbearia está suspensa.', 'error');
-            await supabase.auth.signOut();
-            if (isMounted) {
-              setAuthenticated(false);
-              setLoading(false);
-              navigate('/');
-            }
-            return;
-          }
+          // A assinatura da barbearia não é conferida aqui: o porteiro dos layouts lê o
+          // Estado de Acesso e mostra a tela de bloqueio, sem derrubar a sessão.
         }
 
         // Validar role

@@ -6,6 +6,9 @@ import { useRealtimeNotifications } from '../lib/useRealtimeNotifications';
 import { useToast } from './Toast';
 import { GlassSidebar } from './GlassSidebar';
 import { GERENTE_NAV_ITEMS } from './gerenteNavItems';
+import { TelaDeBloqueio } from './acesso/TelaDeBloqueio';
+import { FaixaDeAviso } from './acesso/FaixaDeAviso';
+import { useEstadoDeAcesso } from '../modules/assinatura/useEstadoDeAcesso';
 
 // Interface do Contexto do Tenant a ser compartilhado com as sub-telas
 export interface TenantContextType {
@@ -47,6 +50,9 @@ export const GerenteLayout: React.FC = () => {
     tenantId: tenantInfo?.tenantId || '',
     isGerente: true,
   });
+
+  // Porteiro: o Estado de Acesso vem do banco, junto do redirecionamento para o onboarding.
+  const { estado: estadoDeAcesso, status: statusDoAcesso } = useEstadoDeAcesso();
 
   const fetchTenantData = React.useCallback(async () => {
     try {
@@ -168,7 +174,7 @@ export const GerenteLayout: React.FC = () => {
     }
   };
 
-  if (loading || !tenantInfo) {
+  if (loading || !tenantInfo || statusDoAcesso === 'loading') {
     return (
       <>
         <div className="noise-overlay" />
@@ -182,6 +188,19 @@ export const GerenteLayout: React.FC = () => {
           <div className="h-[350px] mt-8 rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
         </div>
       </>
+    );
+  }
+
+  // Bloqueado por assinatura: só a tela de bloqueio, inclusive no onboarding. O bloqueio
+  // é do front; o Gerente continua lendo os próprios dados no banco, para poder exportá-los.
+  if (estadoDeAcesso?.acesso === 'bloqueado') {
+    return (
+      <TelaDeBloqueio
+        motivo={estadoDeAcesso.motivo}
+        perfil="gerente"
+        tenantName={tenantInfo.tenantName}
+        onLogout={handleLogout}
+      />
     );
   }
 
@@ -246,6 +265,7 @@ export const GerenteLayout: React.FC = () => {
               : 'flex-1 w-full mx-auto flex flex-col min-w-0 box-border max-w-[1440px] px-8 py-6 gap-6 max-lg:relative max-lg:top-[-8px] max-md:static max-md:top-0 max-md:px-[0.875rem] max-md:pt-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] max-md:gap-4'
           }
         >
+          {estadoDeAcesso?.acesso === 'aviso' && <FaixaDeAviso estado={estadoDeAcesso} />}
           <Outlet context={tenantInfo} />
         </main>
 

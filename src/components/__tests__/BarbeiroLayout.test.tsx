@@ -4,11 +4,12 @@ import { MemoryRouter, Route, Routes, useOutletContext } from 'react-router-dom'
 import { BarbeiroLayout } from '../BarbeiroLayout';
 import type { BarbeiroContextType } from '../BarbeiroLayout';
 
-const { mockAddToast, mockNavigate, mockGetUser, mockFrom, filters, tables } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockGetUser, mockFrom, mockRpc, filters, tables } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
   mockGetUser: vi.fn(),
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
   filters: [] as Array<{ table: string; column: string; value: unknown }>,
   tables: {} as Record<string, unknown>,
 }));
@@ -33,6 +34,7 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {
     auth: { getUser: (...args: unknown[]) => mockGetUser(...args), signOut: vi.fn() },
     from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
@@ -76,6 +78,7 @@ describe('BarbeiroLayout', () => {
     };
     tables.professionals = { id: 'prof-diego' };
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-diego' } } });
+    mockRpc.mockResolvedValue({ data: [{ access: 'allowed', reason: 'active', relevant_date: null }], error: null });
     mockFrom.mockImplementation((table: string) => {
       const builder: Record<string, unknown> = {};
       builder.select = () => builder;
@@ -158,5 +161,59 @@ describe('BarbeiroLayout', () => {
 
     await screen.findByLabelText('Navegação Principal do Barbeiro');
     expect(screen.queryByTitle('Sair da conta')).not.toBeInTheDocument();
+  });
+
+  // Spec 052, ticket 03: barbearia bloqueada por assinatura. O Barbeiro só recebe a
+  // explicação: quem paga é o Gerente.
+  describe('porteiro do Estado de Acesso', () => {
+    it('bloqueado: mostra só a explicação, sem o painel e sem botão de pagar', async () => {
+      mockRpc.mockResolvedValue({ data: [{ access: 'blocked', reason: 'trial_expired', relevant_date: '2026-09-29T12:00:00Z' }], error: null });
+
+      renderLayout();
+
+      expect(await screen.findByRole('heading', { name: 'Seu período de teste terminou' })).toBeInTheDocument();
+      expect(screen.getByText(/fale com o gerente/i)).toBeInTheDocument();
+      expect(screen.getByText('Barbearia Alpha')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Pagar' })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('tenant-id')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Navegação Principal do Barbeiro')).not.toBeInTheDocument();
+    });
+
+    it('bloqueado: o Barbeiro consegue sair da conta', async () => {
+      mockRpc.mockResolvedValue({ data: [{ access: 'blocked', reason: 'blocked', relevant_date: null }], error: null });
+
+      renderLayout();
+
+      expect(await screen.findByRole('button', { name: 'Sair da conta' })).toBeInTheDocument();
+    });
+
+    it('lê o estado em paralelo com os dados da barbearia, sem esperar por eles', async () => {
+      // O usuário logado nunca chega: se a leitura do estado esperasse pela barbearia,
+      // ela não aconteceria.
+      mockGetUser.mockReturnValue(new Promise(() => {}));
+
+      renderLayout();
+
+      await waitFor(() => expect(mockRpc).toHaveBeenCalledTimes(1));
+    });
+
+    it('com aviso: o painel abre normalmente, a faixa é do Gerente', async () => {
+      mockRpc.mockResolvedValue({ data: [{ access: 'warning', reason: 'trial', relevant_date: '2026-10-04T12:00:00Z' }], error: null });
+
+      renderLayout();
+
+      await waitFor(() => expect(screen.getByTestId('tenant-id')).toHaveTextContent('tenant-alpha'));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('se a leitura do estado falha, o painel abre: o banco protege o resto', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'sem rede' } });
+      const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      renderLayout();
+
+      await waitFor(() => expect(screen.getByTestId('tenant-id')).toHaveTextContent('tenant-alpha'));
+      erro.mockRestore();
+    });
   });
 });

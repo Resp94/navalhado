@@ -8,7 +8,6 @@ const {
   mockNavigate,
   mockProfileSingle,
   mockSignOut,
-  mockSubscriptionResult,
   mockSupabaseClient,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
@@ -16,7 +15,6 @@ const {
   const mockNavigate = vi.fn();
   const mockProfileSingle = vi.fn();
   const mockSignOut = vi.fn();
-  const mockSubscriptionResult = vi.fn();
 
   return {
     mockAddToast,
@@ -24,7 +22,6 @@ const {
     mockNavigate,
     mockProfileSingle,
     mockSignOut,
-    mockSubscriptionResult,
     mockSupabaseClient: {
       auth: {
         getSession: mockGetSession,
@@ -50,17 +47,6 @@ vi.mock('../../lib/supabase', () => ({
   supabase: mockSupabaseClient,
 }));
 
-const createSubscriptionBuilder = () => {
-  const builder: any = {
-    select: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    limit: vi.fn(() => builder),
-    then: vi.fn((onFulfilled) =>
-      Promise.resolve(onFulfilled(mockSubscriptionResult()))),
-  };
-  return builder;
-};
-
 describe('AuthGuard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -68,7 +54,7 @@ describe('AuthGuard', () => {
       data: { session: { user: { id: 'user-1' } } },
     });
     mockSignOut.mockResolvedValue({ error: null });
-    mockSubscriptionResult.mockReturnValue({ data: [], error: null });
+    // Só a tabela users existe aqui: qualquer outra consulta derruba o teste.
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'users') {
         return {
@@ -77,20 +63,33 @@ describe('AuthGuard', () => {
           }),
         };
       }
-      if (table === 'tenant_subscriptions') {
-        return createSubscriptionBuilder();
-      }
       throw new Error(`Tabela inesperada: ${table}`);
     });
   });
 
-  it('nega e encerra a sessao de usuario de tenant suspenso', async () => {
+  // Spec 052, ticket 03: o bloqueio por assinatura saiu daqui. Quem decide é o porteiro dos
+  // layouts, que lê o Estado de Acesso e mostra a tela de bloqueio. O usuário de uma barbearia
+  // bloqueada precisa continuar logado para ver a tela e, no caso do Gerente, exportar os dados.
+  it('nao encerra a sessao nem consulta a assinatura de usuario de tenant', async () => {
     mockProfileSingle.mockResolvedValue({
       data: { role: 'gerente', is_active: true, tenant_id: 'tenant-1' },
       error: null,
     });
-    mockSubscriptionResult.mockReturnValue({
-      data: [{ status: 'suspended' }],
+
+    render(
+      <AuthGuard allowedRole="gerente">
+        <div>Area protegida</div>
+      </AuthGuard>,
+    );
+
+    expect(await screen.findByText('Area protegida')).toBeInTheDocument();
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('tenant_subscriptions');
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('continua encerrando a sessao de conta desativada pelo administrador', async () => {
+    mockProfileSingle.mockResolvedValue({
+      data: { role: 'gerente', is_active: false, tenant_id: 'tenant-1' },
       error: null,
     });
 
@@ -104,9 +103,8 @@ describe('AuthGuard', () => {
       expect(mockSignOut).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith('/');
     });
-
     expect(screen.queryByText('Area protegida')).not.toBeInTheDocument();
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringMatching(/suspens/i), 'error');
+    expect(mockAddToast).toHaveBeenCalledWith('Esta conta foi desativada pelo administrador.', 'error');
   });
 
   it('nao exige assinatura de proprietario do SaaS', async () => {
