@@ -7,6 +7,12 @@ import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { SupabaseProfessionalServicesAdapter } from '../../modules/profissionais/servicesAdapter';
 import type { ProfessionalServiceItem } from '../../modules/profissionais/types';
+import {
+  ehErroDeLimiteDeProfissionais,
+  mensagemDeLimiteDeProfissionais,
+} from '../../modules/planos/limiteDeProfissionais';
+import { usePlanoDoTenant } from '../../modules/planos/usePlanoDoTenant';
+import { pluralizar } from '../../lib/plural';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Cancel01Icon,
@@ -150,10 +156,15 @@ export const Profissionais: React.FC = () => {
     []
   );
 
+  const { plano, ehMaiorPlano } = usePlanoDoTenant(tenant.tenantId);
+
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profToDelete, setProfToDelete] = useState<Professional | null>(null);
+
+  // A lista só traz quem não foi excluído, a mesma conta do limite no banco.
+  const cotaCheia = !loading && plano !== null && professionals.length >= plano.max_professionals;
 
   // Estados do Formulário de Profissional
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -196,6 +207,12 @@ export const Profissionais: React.FC = () => {
   };
 
   const handleOpenCreateDrawer = () => {
+    // A cota cheia já é conhecida: avisa antes de o gerente preencher tudo. O banco segue
+    // recusando o excedente de qualquer jeito.
+    if (cotaCheia) {
+      addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano), 'warning');
+      return;
+    }
     resetForm();
     setIsDrawerOpen(true);
   };
@@ -502,7 +519,11 @@ export const Profissionais: React.FC = () => {
       fetchProfessionals();
     } catch (error: any) {
       console.error('Error saving professional:', error);
-      addToast('Erro ao salvar dados do profissional.', 'error');
+      if (ehErroDeLimiteDeProfissionais(error)) {
+        addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano), 'warning');
+      } else {
+        addToast('Erro ao salvar dados do profissional.', 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -626,6 +647,14 @@ export const Profissionais: React.FC = () => {
             <h3 id="prof-list-heading" className="text-lg font-extrabold text-text-primary m-0 tracking-[-0.015em]">Membros da equipe</h3>
             {loading ? (
               <Skeleton width={80} height={20} style={{ borderRadius: 'var(--radius-full)' }} />
+            ) : plano ? (
+              <>
+                <Badge variant={cotaCheia ? 'warning' : 'neutral'} size="xs">
+                  {professionals.length} de {plano.max_professionals}{' '}
+                  {pluralizar(plano.max_professionals, 'profissional', 'profissionais')}
+                </Badge>
+                <span className="text-xs text-text-secondary">Plano {plano.name}</span>
+              </>
             ) : (
               <Badge variant="neutral" size="xs">
                 {professionals.length} {professionals.length === 1 ? 'barbeiro' : 'barbeiros'}
@@ -633,6 +662,15 @@ export const Profissionais: React.FC = () => {
             )}
           </div>
         </div>
+
+        {cotaCheia && (
+          <p
+            role="status"
+            className="bg-warning-bg text-warning border border-warning/25 rounded-md py-2 px-3 text-sm m-0 mb-5"
+          >
+            {mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano)}
+          </p>
+        )}
 
         {loading ? (
           <div className="flex flex-col gap-4" role="status" aria-busy="true">

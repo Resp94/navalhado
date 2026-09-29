@@ -7,6 +7,10 @@ export interface Plano {
   max_professionals: number;
 }
 
+export type PlanosStatus = 'loading' | 'ready' | 'error';
+
 export interface IPlanosAdapter {
   listar(): Promise<Plano[]>;
+  /** Plano da assinatura mais recente da barbearia, ou nulo se ela não tem assinatura. */
+  obterDoTenant(tenantId: string): Promise<Plano | null>;
 }

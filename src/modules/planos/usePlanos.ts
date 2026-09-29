@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
-import { PlanosRepository } from './PlanosRepository';
-import { SupabasePlanosAdapter } from './adapters/SupabasePlanosAdapter';
-import type { Plano } from './types';
-
-export type PlanosStatus = 'loading' | 'ready' | 'error';
-
-const repository = new PlanosRepository(new SupabasePlanosAdapter());
+import { planosRepository } from './repositorio';
+import type { Plano, PlanosStatus } from './types';
 
 /** Lê o catálogo uma vez por montagem. Sem realtime: o catálogo muda por migration. */
 export function usePlanos() {
@@ -15,7 +10,7 @@ export function usePlanos() {
   useEffect(() => {
     let cancelado = false;
 
-    repository
+    planosRepository
       .listar()
       .then((lista) => {
         if (cancelado) return;
@@ -30,7 +25,9 @@ export function usePlanos() {
     return () => { cancelado = true; };
   }, []);
 
-  const planoPadraoId = repository.planoPadrao(planos)?.id ?? null;
+  const planoPadraoId = planosRepository.planoPadrao(planos)?.id ?? null;
+  const ehOMaiorPlano = (maxProfessionals: number) =>
+    planosRepository.ehOMaiorPlano(planos, { max_professionals: maxProfessionals });
 
-  return { planos, status, planoPadraoId };
+  return { planos, status, planoPadraoId, ehOMaiorPlano };
 }

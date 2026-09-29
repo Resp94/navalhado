@@ -22,11 +22,13 @@ const {
   mockSelect,
   mockInsert,
   mockUpdate,
+  mockUsePlanoDoTenant,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockSelect = vi.fn();
   const mockInsert = vi.fn();
   const mockUpdate = vi.fn();
+  const mockUsePlanoDoTenant = vi.fn();
 
   const mockSupabaseClient = {
     from: vi.fn().mockImplementation((_table) => {
@@ -44,8 +46,14 @@ const {
     mockSelect,
     mockInsert,
     mockUpdate,
+    mockUsePlanoDoTenant,
   };
 });
+
+// O plano da barbearia vem de um hook próprio; os testes definem o que ele devolve.
+vi.mock('../../../modules/planos/usePlanoDoTenant', () => ({
+  usePlanoDoTenant: () => mockUsePlanoDoTenant(),
+}));
 
 // Mock do Toast
 vi.mock('../../../components/Toast', () => ({
@@ -110,6 +118,7 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUsePlanoDoTenant.mockReturnValue({ plano: null, status: 'loading' });
     mockSelect.mockImplementation(() => createDefaultBuilder(mockProfessionals));
     mockInsert.mockImplementation(() => createDefaultBuilder(mockProfessionals[0]));
     mockUpdate.mockImplementation(() => createDefaultBuilder(mockProfessionals[0]));
@@ -263,6 +272,127 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
           break_end: '13:00',
         }),
       }),
+    });
+  });
+
+  describe('limite de profissionais do plano (spec 052, ticket 02)', () => {
+    // O insert da tela encadeia .select().single(); o builder padrão dos testes não tem .single().
+    const insertQueFalhaCom = (error: { code: string; message: string }) => {
+      const builder = createDefaultBuilder(null, error);
+      builder.single = vi.fn().mockImplementation(() => builder);
+      return builder;
+    };
+
+    const preencherECadastrar = async () => {
+      await waitFor(() => {
+        expect(screen.getByText('Carlos Silva')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
+      fireEvent.change(screen.getByLabelText(/Nome do Barbeiro/i), { target: { value: 'Lucas Barbeiro' } });
+      fireEvent.change(screen.getByLabelText(/WhatsApp \/ Celular/i), { target: { value: '(11) 98888-8888' } });
+      fireEvent.change(screen.getByLabelText(/Comissão/i), { target: { value: '50' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Profissional' }));
+    };
+
+    it('mostra a cota e o nome do plano na equipe', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Máquina', price: 89.9, max_professionals: 5 },
+        status: 'ready',
+      });
+
+      render(<Profissionais />);
+
+      expect(await screen.findByText('1 de 5 profissionais')).toBeInTheDocument();
+      expect(screen.getByText('Plano Máquina')).toBeInTheDocument();
+      expect(screen.queryByText(/atingiu o limite/i)).not.toBeInTheDocument();
+    });
+
+    it('avisa e convida a mudar de plano quando a equipe já ocupa todas as vagas', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Tesoura', price: 59.9, max_professionals: 1 },
+        status: 'ready',
+      });
+
+      render(<Profissionais />);
+
+      const aviso = await screen.findByText(/Você atingiu o limite de 1 profissional do plano Tesoura/i);
+      expect(aviso).toHaveTextContent(/plano maior/i);
+      expect(screen.getByText('1 de 1 profissional')).toBeInTheDocument();
+    });
+
+    it('no maior plano do catálogo, o aviso manda falar com o suporte em vez de subir de plano', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Tesoura', price: 59.9, max_professionals: 1 },
+        status: 'ready',
+        ehMaiorPlano: true,
+      });
+
+      render(<Profissionais />);
+
+      const aviso = await screen.findByText(/Você atingiu o limite de 1 profissional do plano Tesoura/i);
+      expect(aviso).toHaveTextContent(/suporte/i);
+      expect(aviso).not.toHaveTextContent(/plano maior/i);
+    });
+
+    it('com a cota cheia, Novo Barbeiro avisa o limite e não abre o formulário', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Tesoura', price: 59.9, max_professionals: 1 },
+        status: 'ready',
+        ehMaiorPlano: false,
+      });
+
+      render(<Profissionais />);
+      await screen.findByText('Carlos Silva');
+
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar Barbeiro|Novo Barbeiro/i }));
+
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.stringMatching(/limite de 1 profissional do plano Tesoura.*plano maior/i),
+        'warning'
+      );
+      expect(screen.queryByRole('heading', { name: 'Novo Profissional' })).not.toBeInTheDocument();
+    });
+
+    it('sem o plano carregado, mostra só a contagem de barbeiros, sem cota nem aviso', async () => {
+      render(<Profissionais />);
+
+      expect(await screen.findByText('1 barbeiro')).toBeInTheDocument();
+      expect(screen.queryByText(/ de \d+ profissionais/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/atingiu o limite/i)).not.toBeInTheDocument();
+    });
+
+    it('traduz a recusa do banco por limite em mensagem amigável', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Máquina', price: 89.9, max_professionals: 5 },
+        status: 'ready',
+      });
+      mockInsert.mockImplementation(() =>
+        insertQueFalhaCom({ code: '53400', message: 'PROFESSIONAL_LIMIT_REACHED' })
+      );
+
+      render(<Profissionais />);
+      await preencherECadastrar();
+
+      await waitFor(() => {
+        expect(mockAddToast).toHaveBeenCalledWith(
+          expect.stringMatching(/limite de 5 profissionais do plano Máquina.*plano maior/i),
+          'warning'
+        );
+      });
+      expect(mockAddToast).not.toHaveBeenCalledWith('Erro ao salvar dados do profissional.', 'error');
+    });
+
+    it('outros erros ao salvar continuam com a mensagem genérica', async () => {
+      mockInsert.mockImplementation(() =>
+        insertQueFalhaCom({ code: '23505', message: 'duplicate key value' })
+      );
+
+      render(<Profissionais />);
+      await preencherECadastrar();
+
+      await waitFor(() => {
+        expect(mockAddToast).toHaveBeenCalledWith('Erro ao salvar dados do profissional.', 'error');
+      });
     });
   });
 
