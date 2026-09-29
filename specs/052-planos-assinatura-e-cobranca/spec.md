@@ -151,7 +151,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
   - identificador da assinatura no Mercado Pago
   - bandeira e final do cartão, só para exibição
 - Os campos antigos de início, fim e ciclo são absorvidos por esses. O ciclo é sempre mensal.
-- Gerente e Barbeiro só leem a assinatura do próprio tenant. Nenhum dos dois escreve nela. Toda mudança vem da Edge Function de cobrança, do webhook, da rotina diária ou das funções do Proprietário.
+- Só o Gerente lê a assinatura do próprio tenant, porque a linha guarda bandeira e final do cartão e o id da assinatura no Mercado Pago. O Barbeiro não lê a tabela e recebe só o Estado de Acesso pela RPC do porteiro. Nenhum dos dois escreve nela. Toda mudança vem da Edge Function de cobrança, do webhook, da rotina diária ou das funções do Proprietário.
 
 ### Estado de Acesso
 
@@ -262,7 +262,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 
 ### Tenants existentes no lançamento
 
-- A migração coloca toda assinatura atual na situação "em teste", com fim do teste em 15 dias a partir da data em que a migração roda em cada ambiente.
+- A migração coloca as assinaturas ativas e com pagamento recusado na situação "em teste", com fim do teste em 15 dias a partir da data em que a migração roda em cada ambiente. As suspensas continuam bloqueadas e as canceladas continuam canceladas, para não reabrir quem o Proprietário tirou do ar.
 - O plano de cada um é mantido pelo UUID.
 
 ### Termos e privacidade
@@ -312,7 +312,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
     - funcionam para o Proprietário
     - recusam Gerente, Barbeiro, anônimo e Gerente com `tenant_id` nulo
   - **Canal do Cliente:** com a barbearia bloqueada, criar e reagendar são recusados e cancelar continua permitido.
-  - **Leitura da assinatura:** o Gerente e o Barbeiro leem só a do próprio tenant e não conseguem alterá-la.
+  - **Leitura da assinatura:** o Gerente lê só a do próprio tenant, o Barbeiro não lê a tabela (recebe só o Estado de Acesso pela RPC) e nenhum dos dois consegue alterá-la.
 
   Precedentes: pgTAP 62 (notificação só para barbeiro com login) e os testes de guarda de acesso com Gerente sem tenant.
 - **Edge Function de cobrança e webhook (testes Deno, com o provedor do Mercado Pago falso).** Os testes conferem:

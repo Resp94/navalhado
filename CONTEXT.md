@@ -66,8 +66,20 @@ Assistente obrigatório de configuração pós-cadastro inicial (`/onboarding`),
 _Avoid_: Passo a passo legado, formulário de boas-vindas, setup opcional
 
 **Limite de Profissionais do Plano**:
-Número máximo de profissionais ativos (`professionals` sem `deleted_at`) que a barbearia pode ter, dado por `plans.max_professionals` do plano da assinatura mais recente do tenant e aplicado no banco pelo gatilho `trg_enforce_professional_plan_limit`, que recusa incluir, reativar ou mover um profissional acima dele (SQLSTATE 53400, mensagem `PROFESSIONAL_LIMIT_REACHED`). O profissional inativo (`is_active = false`) mas não excluído continua ocupando vaga; só excluir libera. O Gerente só conta quando existe um profissional vinculado a ele. Tenant sem assinatura não tem limite. O onboarding e a tela de Profissionais mostram a cota, mas quem decide é o banco.
+Número máximo de profissionais ativos (`professionals` sem `deleted_at`) que a barbearia pode ter, dado por `plans.max_professionals` do plano da Assinatura do Tenant e aplicado no banco pelo gatilho `trg_enforce_professional_plan_limit`, que recusa incluir, reativar ou mover um profissional acima dele (SQLSTATE 53400, mensagem `PROFESSIONAL_LIMIT_REACHED`). O profissional inativo (`is_active = false`) mas não excluído continua ocupando vaga; só excluir libera. O Gerente só conta quando existe um profissional vinculado a ele. Tenant sem assinatura não tem limite. O onboarding e a tela de Profissionais mostram a cota, mas quem decide é o banco.
 _Avoid_: Cota só de tela, limite do wizard, limite por `is_active`, verificação só no front
+
+**Assinatura do Tenant**:
+Linha única por barbearia em `public.tenant_subscriptions` (unicidade por `tenant_id`) que liga o tenant ao plano e guarda a situação (`status`: `trialing` em teste, `active` ativa, `past_due` pagamento recusado, `blocked` bloqueada, `canceled` cancelada, `courtesy` cortesia), o fim do teste, o início e o fim do período pago, as datas da primeira recusa, do bloqueio e do cancelamento, o motivo do bloqueio, o fim da cortesia, o plano agendado, o identificador da assinatura no Mercado Pago e a bandeira e o final do cartão (só para exibição). O ciclo é sempre mensal. Só o Gerente lê a do próprio tenant (o Barbeiro recebe apenas o Estado de Acesso pela RPC); quem escreve é a cobrança, o webhook, a rotina diária e as funções do Proprietário.
+_Avoid_: Plano como campo do tenant, uma linha por ciclo, status solto, valor antigo `suspended`, `start_date`/`end_date`/`billing_cycle`
+
+**Período de Teste**:
+Os 15 dias, sem cartão e com WhatsApp liberado, que toda barbearia tem a partir do cadastro (`trial_ends_at`). As barbearias que já existiam com assinatura ativa ganharam os 15 dias a partir do dia em que a migration do ticket 03 rodou em cada ambiente; as suspensas continuaram bloqueadas e as canceladas, canceladas. O painel avisa nos últimos 3 dias e, ao vencer sem assinatura, a barbearia é bloqueada.
+_Avoid_: Plano grátis, demo, freemium, teste por uso
+
+**Estado de Acesso**:
+Resultado calculado no banco (`private.tenant_access_state`) a partir da Assinatura do Tenant e da hora atual: `allowed` (liberado), `warning` (liberado com aviso: teste nos últimos 3 dias ou pagamento recusado antes do quinto dia) ou `blocked` (bloqueado), junto do motivo e da data relevante (fim do teste, data do bloqueio ou fim do período pago). Vale entre duas execuções da rotina diária (`private.block_expired_subscriptions`, pg_cron), que só grava o bloqueio e a data dele. O porteiro dos layouts do Gerente e do Barbeiro lê o estado pela RPC `get_my_access_state` e mostra a tela de bloqueio ou a faixa de aviso. O bloqueio do painel é do front: o banco não ganha regra de acesso por causa da assinatura e o Gerente bloqueado continua lendo os próprios dados, para poder exportá-los.
+_Avoid_: Flag de bloqueio no tenant, bloqueio que espera a rotina rodar, checar `status` direto na tabela, derrubar a sessão do usuário bloqueado
 
 **Gatekeeper de Onboarding**:
 Mecanismo de proteção de rotas no frontend e validação de estado no backend que intercepta o acesso do Gestor às rotas operacionais do tenant (`/agenda`, `/clientes`, `/financeiro`, etc.) enquanto a flag `onboarding_completed` do tenant for falsa, forçando o redirecionamento para o Wizard de Onboarding.
