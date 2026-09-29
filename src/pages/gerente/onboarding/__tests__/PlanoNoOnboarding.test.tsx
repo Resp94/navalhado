@@ -14,7 +14,12 @@ const profissional = (id: string): ProfessionalItem => ({
   commissionPercentage: 50,
 });
 
-const renderProfessionals = (props: { planName: string | null; maxProfessionals: number | null; professionals: ProfessionalItem[] }) =>
+const renderProfessionals = (props: {
+  planName: string | null;
+  maxProfessionals: number | null;
+  professionals: ProfessionalItem[];
+  ehMaiorPlano?: boolean;
+}) =>
   render(
     <StepProfessionals
       {...props}
@@ -53,9 +58,30 @@ describe('Plano no onboarding (spec 052, ticket 01)', () => {
     it('com o plano carregado mostra a cota e o limite atingido', () => {
       renderProfessionals({ planName: 'Tesoura', maxProfessionals: 1, professionals: [profissional('1')] });
 
-      expect(screen.getByText(/1 de 1 barbeiros cadastrados/i)).toBeInTheDocument();
+      expect(screen.getByText(/1 de 1 barbeiro cadastrado/i)).toBeInTheDocument();
       expect(screen.getByText('Plano Tesoura')).toBeInTheDocument();
       expect(screen.getByText('Limite Atingido')).toBeInTheDocument();
+    });
+
+    it('no limite, troca o formulário por uma mensagem amigável que convida a mudar de plano', () => {
+      renderProfessionals({ planName: 'Máquina', maxProfessionals: 5, professionals: ['1', '2', '3', '4', '5'].map(profissional) });
+
+      const mensagem = screen.getByText(/Você atingiu o limite de 5 profissionais do plano Máquina/i);
+      expect(mensagem).toHaveTextContent(/plano maior/i);
+      expect(screen.queryByLabelText('Nome do Barbeiro')).not.toBeInTheDocument();
+    });
+
+    it('no maior plano do catálogo, a mensagem manda falar com o suporte', () => {
+      renderProfessionals({
+        planName: 'Bancada',
+        maxProfessionals: 10,
+        professionals: Array.from({ length: 10 }, (_, i) => profissional(String(i))),
+        ehMaiorPlano: true,
+      });
+
+      const mensagem = screen.getByText(/Você atingiu o limite de 10 profissionais do plano Bancada/i);
+      expect(mensagem).toHaveTextContent(/suporte/i);
+      expect(mensagem).not.toHaveTextContent(/plano maior/i);
     });
   });
 

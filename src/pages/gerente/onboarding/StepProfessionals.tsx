@@ -9,6 +9,8 @@ import {
   CheckmarkCircle02Icon,
   ScissorIcon
 } from '@hugeicons/core-free-icons';
+import { pluralizar } from '../../../lib/plural';
+import { mensagemDeLimiteDeProfissionais } from '../../../modules/planos/limiteDeProfissionais';
 import type { ProfessionalItem } from './types';
 
 interface StepProfessionalsProps {
@@ -16,6 +18,8 @@ interface StepProfessionalsProps {
   // Nulos enquanto a assinatura não chega (ou se a leitura falha): sem cota, sem trava.
   maxProfessionals: number | null;
   planName: string | null;
+  // O plano já é o maior do catálogo: a mensagem de limite manda falar com o suporte.
+  ehMaiorPlano?: boolean;
   managerName: string;
   managerPhone: string;
   submitting: boolean;
@@ -29,6 +33,7 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
   professionals,
   maxProfessionals,
   planName,
+  ehMaiorPlano = false,
   managerName,
   managerPhone,
   submitting,
@@ -54,11 +59,15 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
   };
 
   const isQuotaFull = maxProfessionals !== null && professionals.length >= maxProfessionals;
+  const quotaFullMessage = mensagemDeLimiteDeProfissionais(
+    planName !== null && maxProfessionals !== null ? { name: planName, max_professionals: maxProfessionals } : null,
+    ehMaiorPlano
+  );
 
   const handleAddBarber = (e: React.FormEvent) => {
     e.preventDefault();
     if (isQuotaFull) {
-      setFormError(`Limite atingido. O plano ${planName} permite no máximo ${maxProfessionals} profissionais.`);
+      setFormError(quotaFullMessage);
       return;
     }
 
@@ -126,7 +135,8 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
             </span>
             <div>
               <strong className="text-[0.95rem] text-text-primary">
-                {professionals.length} de {maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals} barbeiros cadastrados
+                {professionals.length} de {maxProfessionals > 100 ? 'Ilimitados' : maxProfessionals}{' '}
+                {pluralizar(maxProfessionals, 'barbeiro cadastrado', 'barbeiros cadastrados')}
               </strong>
               <p className="m-0 text-[0.78rem] text-text-secondary">Plano {planName}</p>
             </div>
@@ -223,10 +233,7 @@ export const StepProfessionals: React.FC<StepProfessionalsProps> = ({
         </div>
       ) : (
         <div>
-          <p>
-            Você atingiu o limite de {maxProfessionals} profissionais do seu plano <strong>{planName}</strong>.
-            Para adicionar novos barbeiros, solicite o upgrade nas configurações após a finalização.
-          </p>
+          <p>{quotaFullMessage}</p>
         </div>
       )}
 

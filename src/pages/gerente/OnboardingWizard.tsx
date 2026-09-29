@@ -2,6 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { supabase } from '../../lib/supabase';
+import {
+  ehErroDeLimiteDeProfissionais,
+  mensagemDeLimiteDeProfissionais,
+} from '../../modules/planos/limiteDeProfissionais';
+import { usePlanos } from '../../modules/planos/usePlanos';
 import { StepLocation } from './onboarding/StepLocation';
 import { StepProfessionals } from './onboarding/StepProfessionals';
 import { StepSegmentation } from './onboarding/StepSegmentation';
@@ -31,6 +36,8 @@ export const OnboardingWizard: React.FC = () => {
   // Nulos até a assinatura chegar: o wizard não mostra plano nem cota chutados.
   const [planName, setPlanName] = useState<string | null>(null);
   const [maxProfessionals, setMaxProfessionals] = useState<number | null>(null);
+  const { ehOMaiorPlano } = usePlanos();
+  const ehMaiorPlano = maxProfessionals !== null && ehOMaiorPlano(maxProfessionals);
   const [managerName, setManagerName] = useState<string>('');
   const [managerPhone, setManagerPhone] = useState<string>('');
 
@@ -165,8 +172,14 @@ export const OnboardingWizard: React.FC = () => {
     try {
       setSubmitting(true);
 
-      // 1. Inserir catálogo inicial de serviços primeiro
+      // Serviços e profissionais são gravados por upsert no id que o próprio wizard já gerou
+      // para cada item. Se esta tentativa falhar no meio (por exemplo, o banco recusar os
+      // profissionais por limite) e o gestor tentar de novo, os mesmos ids são atualizados
+      // em vez de duplicados.
+
+      // 1. Gravar o catálogo inicial de serviços primeiro
       const servicesPayload = services.map((s) => ({
+        id: s.id,
         tenant_id: tenant.tenantId,
         name: s.name,
         price: s.price,
@@ -177,11 +190,11 @@ export const OnboardingWizard: React.FC = () => {
 
       const { error: servicesErr } = await supabase
         .from('services')
-        .insert(servicesPayload);
+        .upsert(servicesPayload, { onConflict: 'id' });
 
       if (servicesErr) throw servicesErr;
 
-      // 2. Inserir profissionais da equipe
+      // 2. Gravar profissionais da equipe
       const defaultSchedule = {
         monday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
         tuesday: { active: true, start: '09:00', end: '18:00', break_start: '12:00', break_end: '13:00' },
@@ -198,6 +211,7 @@ export const OnboardingWizard: React.FC = () => {
       const managerUserId = authData?.user?.id ?? null;
 
       const profPayload = professionals.map((p) => ({
+        id: p.id,
         tenant_id: tenant.tenantId,
         user_id: p.isManager ? managerUserId : null,
         name: p.name,
@@ -209,7 +223,7 @@ export const OnboardingWizard: React.FC = () => {
 
       const { error: profErr } = await supabase
         .from('professionals')
-        .insert(profPayload);
+        .upsert(profPayload, { onConflict: 'id' });
 
       if (profErr) throw profErr;
 
@@ -238,7 +252,17 @@ export const OnboardingWizard: React.FC = () => {
       addToast('Configuração concluída com sucesso! Bem-vindo ao Navalhado.', 'success');
       navigate('/agenda');
     } catch (err: any) {
-      addToast(err.message || 'Erro ao finalizar configuração. Tente novamente.', 'error');
+      if (ehErroDeLimiteDeProfissionais(err)) {
+        addToast(
+          mensagemDeLimiteDeProfissionais(
+            planName !== null && maxProfessionals !== null ? { name: planName, max_professionals: maxProfessionals } : null,
+            ehMaiorPlano
+          ),
+          'warning'
+        );
+      } else {
+        addToast(err.message || 'Erro ao finalizar configuração. Tente novamente.', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -356,6 +380,7 @@ export const OnboardingWizard: React.FC = () => {
             professionals={professionals}
             maxProfessionals={maxProfessionals}
             planName={planName}
+            ehMaiorPlano={ehMaiorPlano}
             managerName={managerName}
             managerPhone={managerPhone}
             submitting={submitting}
