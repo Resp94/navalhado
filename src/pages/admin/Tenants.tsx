@@ -3,6 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
+import {
+  camposDaMudancaManual,
+  rotuloDaSituacao,
+  type MudancaManual,
+  type SituacaoDaAssinatura,
+} from '../../modules/assinatura/situacaoDaAssinatura';
 import { 
   WarningIcon, 
   InfoIcon,
@@ -20,7 +26,7 @@ interface TenantManagementItem {
   tenant_created_at: string;
   plan_name: string | null;
   plan_price: number | null;
-  subscription_status: 'active' | 'suspended' | 'past_due' | 'canceled' | null;
+  subscription_status: SituacaoDaAssinatura | null;
   subscription_end_date: string | null;
   whatsapp_status: 'connected' | 'disconnected' | 'pairing' | null;
 }
@@ -29,7 +35,9 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   connected: 'bg-success-bg text-success',
   active: 'bg-success-bg text-success',
   pairing: 'bg-warning-bg text-warning',
-  suspended: 'bg-warning-bg text-warning',
+  blocked: 'bg-warning-bg text-warning',
+  trialing: 'bg-info-bg text-info',
+  courtesy: 'bg-info-bg text-info',
   disconnected: 'bg-error-bg text-error',
   past_due: 'bg-error-bg text-error',
   canceled: 'bg-error-bg text-error',
@@ -45,7 +53,7 @@ export const Tenants: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<TenantManagementItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<'active' | 'suspended' | 'canceled'>('active');
+  const [newStatus, setNewStatus] = useState<MudancaManual>('courtesy');
   const [actionLoading, setActionLoading] = useState(false);
   const [adminName, setAdminName] = useState('Administrador');
 
@@ -112,7 +120,7 @@ export const Tenants: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [search]);
 
-  const handleOpenStatusModal = (tenant: TenantManagementItem, status: 'active' | 'suspended' | 'canceled') => {
+  const handleOpenStatusModal = (tenant: TenantManagementItem, status: MudancaManual) => {
     setSelectedTenant(tenant);
     setNewStatus(status);
     setIsModalOpen(true);
@@ -126,12 +134,12 @@ export const Tenants: React.FC = () => {
       // Atualizar o status da assinatura correspondente na tabela tenant_subscriptions
       const { error } = await supabase
         .from('tenant_subscriptions')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update(camposDaMudancaManual(newStatus))
         .eq('tenant_id', selectedTenant.tenant_id);
 
       if (error) throw error;
 
-      addToast(`Status da barbearia "${selectedTenant.tenant_name}" atualizado para ${newStatus === 'active' ? 'Ativo' : newStatus === 'suspended' ? 'Suspenso' : 'Cancelado'}.`, 'success');
+      addToast(`Status da barbearia "${selectedTenant.tenant_name}" atualizado para ${rotuloDaSituacao(newStatus)}.`, 'success');
       setIsModalOpen(false);
       setSelectedTenant(null);
       fetchTenants(); // Recarregar lista
@@ -303,24 +311,24 @@ export const Tenants: React.FC = () => {
                         {/* Subscription Status */}
                         <td className="px-6 py-5">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_BADGE_CLASSES[t.subscription_status || 'canceled']}`}>
-                            {t.subscription_status === 'active' ? 'Ativa' : t.subscription_status === 'suspended' ? 'Suspensa' : t.subscription_status === 'past_due' ? 'Vencida' : 'Cancelada'}
+                            {rotuloDaSituacao(t.subscription_status)}
                           </span>
                         </td>
 
                         {/* Ações */}
                         <td className="px-6 py-5">
                           <div className="flex gap-1.5">
-                            {t.subscription_status !== 'active' && (
+                            {t.subscription_status !== 'active' && t.subscription_status !== 'courtesy' && (
                               <button
-                                onClick={() => handleOpenStatusModal(t, 'active')}
+                                onClick={() => handleOpenStatusModal(t, 'courtesy')}
                                 className="px-2.5 py-1.5 text-[0.7rem] font-semibold rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] text-white bg-success hover:bg-[#0c8c5f] active:scale-95"
                               >
-                                Ativar
+                                Dar cortesia
                               </button>
                             )}
-                            {t.subscription_status === 'active' && (
+                            {t.subscription_status !== 'blocked' && t.subscription_status !== 'canceled' && (
                               <button
-                                onClick={() => handleOpenStatusModal(t, 'suspended')}
+                                onClick={() => handleOpenStatusModal(t, 'blocked')}
                                 className="px-2.5 py-1.5 text-[0.7rem] font-semibold rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] text-white bg-warning hover:bg-[#b86405] active:scale-95"
                               >
                                 Suspender
@@ -364,19 +372,19 @@ export const Tenants: React.FC = () => {
             <p className="text-sm text-text-primary leading-normal m-0">
               Deseja alterar o status de <strong>{selectedTenant.tenant_name}</strong> para{' '}
               <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize mx-1.5 ${STATUS_BADGE_CLASSES[newStatus]}`}>
-                {newStatus === 'active' ? 'Ativo' : newStatus === 'suspended' ? 'Suspenso' : 'Cancelado'}
+                {rotuloDaSituacao(newStatus)}
               </span>?
             </p>
 
             <div className="bg-bg-primary border border-dashed border-border rounded-md p-4 text-xs text-text-secondary text-left leading-relaxed w-full">
-              {newStatus === 'suspended' && (
-                <p><WarningIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Atenção:</strong> Os barbeiros perderão o acesso às agendas e os clientes não conseguirão agendar novos horários.</p>
+              {newStatus === 'blocked' && (
+                <p><WarningIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Atenção:</strong> O gerente e os barbeiros passam a ver só a tela de bloqueio do painel.</p>
               )}
               {newStatus === 'canceled' && (
-                <p><ErrorIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Importante:</strong> O acesso do gerente e dos funcionários será bloqueado permanentemente, e os agendamentos públicos serão desativados.</p>
+                <p><ErrorIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Importante:</strong> Sem período pago em andamento, o gerente e os barbeiros passam a ver só a tela de bloqueio do painel.</p>
               )}
-              {newStatus === 'active' && (
-                <p><SuccessIcon size={16} className="inline-block align-middle mr-1.5" />A barbearia voltará a funcionar normalmente, com login e agendamentos liberados.</p>
+              {newStatus === 'courtesy' && (
+                <p><SuccessIcon size={16} className="inline-block align-middle mr-1.5" />A barbearia passa a ter acesso liberado, sem cobrança e sem data de fim (cortesia). Para encerrar, use Suspender ou Bloquear.</p>
               )}
             </div>
 
@@ -394,7 +402,7 @@ export const Tenants: React.FC = () => {
 
               <button
                 onClick={handleUpdateStatus}
-                className={`btn btn--primary ${newStatus === 'active' ? 'bg-success' : 'bg-error'}`}
+                className={`btn btn--primary ${newStatus === 'courtesy' ? 'bg-success' : 'bg-error'}`}
                 disabled={actionLoading}
               >
                 {actionLoading ? 'Processando…' : 'Confirmar alteração'}
