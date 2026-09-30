@@ -309,14 +309,104 @@ Deno.test("mercadopago: changeAmount sends the new monthly amount in a PUT on th
   assertEquals(calls[0].body, { auto_recurring: { transaction_amount: 89.9, currency_id: "BRL" } });
 });
 
+// As pausas entre as tentativas nao esperam de verdade nos testes: elas ficam anotadas.
+const recordingSleep = () => {
+  const pauses: number[] = [];
+  return { pauses, sleep: (ms: number) => { pauses.push(ms); return Promise.resolve(); } };
+};
+
+const rateLimited = { status: 429, body: { message: "local_rate_limited", error: "too_many_requests" } };
+const amountChanged = { status: 200, body: { id: "pre-9", status: "authorized" } };
+
 Deno.test("mercadopago: a refused amount change becomes a PaymentProviderError with the status", async () => {
-  const { fetchFn } = recordingFetch([{ status: 429, body: { message: "local_rate_limited", error: "too_many_requests" } }]);
-  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+  const { fetchFn } = recordingFetch([{ status: 400, body: { message: "invalid amount", error: "bad_request" } }]);
+  const { sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
 
   const error = await assertRejects(() => provider.changeAmount("pre-9", 89.9), PaymentProviderError);
 
+  assertEquals(error.status, 400);
+  assertEquals(error.message.includes(TOKEN), false);
+});
+
+Deno.test("mercadopago: changeAmount tries again when the provider limits the rate, and the second try goes through", async () => {
+  const { calls, fetchFn } = recordingFetch([rateLimited, amountChanged]);
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  await provider.changeAmount("pre-9", 159.9);
+
+  assertEquals(calls.length, 2);
+  assertEquals(pauses, [1000]);
+  // A nova tentativa repete o mesmo pedido: o valor e o da assinatura, nao outro.
+  assertEquals(calls[1].body, calls[0].body);
+  assertEquals(calls[1].url, calls[0].url);
+});
+
+Deno.test("mercadopago: changeAmount gives up after three tries in a row and the last error is the one that comes out", async () => {
+  const { calls, fetchFn } = recordingFetch([rateLimited]);
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  const error = await assertRejects(() => provider.changeAmount("pre-9", 159.9), PaymentProviderError);
+
+  assertEquals(calls.length, 3);
+  assertEquals(pauses, [1000, 3000]);
   assertEquals(error.status, 429);
   assertEquals(error.message.includes(TOKEN), false);
+});
+
+Deno.test("mercadopago: changeAmount also tries again after a server error", async () => {
+  const { calls, fetchFn } = recordingFetch([{ status: 503, body: { message: "unavailable" } }, amountChanged]);
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  await provider.changeAmount("pre-9", 159.9);
+
+  assertEquals(calls.length, 2);
+  assertEquals(pauses, [1000]);
+});
+
+Deno.test("mercadopago: changeAmount also tries again when the network fails", async () => {
+  let attempts = 0;
+  const fetchFn = (): Promise<Response> => {
+    attempts++;
+    return attempts === 1
+      ? Promise.reject(new TypeError("connection reset"))
+      : Promise.resolve(new Response(JSON.stringify(amountChanged.body), { status: 200 }));
+  };
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  await provider.changeAmount("pre-9", 159.9);
+
+  assertEquals(attempts, 2);
+  assertEquals(pauses, [1000]);
+});
+
+Deno.test("mercadopago: changeAmount does not try again when the provider refuses the request itself", async () => {
+  for (const status of [400, 401, 403, 404, 422]) {
+    const { calls, fetchFn } = recordingFetch([{ status, body: { message: "refused" } }]);
+    const { pauses, sleep } = recordingSleep();
+    const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+    const error = await assertRejects(() => provider.changeAmount("pre-9", 159.9), PaymentProviderError);
+
+    assertEquals(error.status, status);
+    assertEquals(calls.length, 1, `status ${status}`);
+    assertEquals(pauses, [], `status ${status}`);
+  }
+});
+
+Deno.test("mercadopago: the other operations do not try again on a rate limit", async () => {
+  const { calls, fetchFn } = recordingFetch([rateLimited]);
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  await assertRejects(() => provider.changeCard("pre-9", "tok-abc123def456"), PaymentProviderError);
+
+  assertEquals(calls.length, 1);
+  assertEquals(pauses, []);
 });
 
 const chargeInput = {

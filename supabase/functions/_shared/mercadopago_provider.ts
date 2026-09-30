@@ -15,9 +15,20 @@ export interface MercadoPagoProviderOptions {
   accessToken: string;
   fetchFn?: typeof fetch;
   baseUrl?: string;
+  /** Espera entre as tentativas de mudar o valor da assinatura. Os testes a trocam por uma que nao espera. */
+  sleep?: (milliseconds: number) => Promise<void>;
 }
 
 type MercadoPagoBody = Record<string, unknown>;
+
+// Mudar o valor da assinatura vai de novo quando o Mercado Pago limita o ritmo (429), cai (5xx) ou nao
+// responde: o pedido so repete o mesmo valor, entao repeti-lo e seguro. A primeira tentativa mais duas,
+// com pausas curtas para o Gerente nao esperar muito. Recusa do pedido (400, 401, 403, 404, 422) nao melhora
+// com o tempo e sobe na hora.
+const AMOUNT_CHANGE_RETRY_PAUSES_MS = [1000, 3000];
+
+const isTransientFailure = (error: unknown): boolean =>
+  error instanceof PaymentProviderError && (error.status === undefined || error.status === 429 || error.status >= 500);
 
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value.trim() : typeof value === "number" ? String(value) : undefined;
@@ -59,6 +70,7 @@ export const createMercadoPagoProvider = ({
   accessToken,
   fetchFn = fetch,
   baseUrl = "https://api.mercadopago.com",
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 }: MercadoPagoProviderOptions): PaymentProvider => {
   const request = async (
     method: "GET" | "POST" | "PUT",
@@ -155,9 +167,18 @@ export const createMercadoPagoProvider = ({
 
     // O valor novo vale a partir da proxima cobranca: nada e cobrado na hora.
     async changeAmount(subscriptionId: string, amount: number): Promise<void> {
-      await request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, {
-        auto_recurring: { transaction_amount: amount, currency_id: "BRL" },
-      });
+      for (let attempt = 0;; attempt++) {
+        try {
+          await request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, {
+            auto_recurring: { transaction_amount: amount, currency_id: "BRL" },
+          });
+          return;
+        } catch (error) {
+          const pause = AMOUNT_CHANGE_RETRY_PAUSES_MS[attempt];
+          if (pause === undefined || !isTransientFailure(error)) throw error;
+          await sleep(pause);
+        }
+      }
     },
 
     // Cobranca avulsa no cartao do token (o numero do cartao nunca passa por aqui). O Mercado Pago
