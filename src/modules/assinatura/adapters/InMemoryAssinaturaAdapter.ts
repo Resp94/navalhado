@@ -1,4 +1,15 @@
-import type { AssinaturaCriada, CartaoTrocado, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from '../types';
+import type {
+  AssinaturaCriada,
+  CartaoTrocado,
+  Cobranca,
+  CotacaoDaTroca,
+  DetalhesDaAssinatura,
+  EstadoDeAcesso,
+  IAssinaturaAdapter,
+  PagamentoDaTroca,
+  PlanoTrocado,
+  UsoDaChavePublica,
+} from '../types';
 
 export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
   private resultado: EstadoDeAcesso | null | Error;
@@ -20,6 +31,31 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
   /** O que `trocarCartao` devolve. Passar um Error faz a chamada falhar. */
   public respostaDeTrocarCartao: CartaoTrocado | Error = { bandeira: 'master', final: '5555' };
   public chavePublica = 'APP_USR-chave-publica-falsa';
+  public chavePublicaDaCobranca = 'APP_USR-chave-publica-da-cobranca-falsa';
+  /** Qual Public Key cada pedido quis, na ordem. */
+  public chavesPedidas: UsoDaChavePublica[] = [];
+
+  /** Planos que o Gerente pediu para cotar, na ordem. */
+  public cotacoesPedidas: string[] = [];
+  /** O que `cotarTrocaDePlano` devolve. Passar um Error faz a chamada falhar. */
+  public respostaDeCotar: CotacaoDaTroca | Error = {
+    modo: 'cobranca',
+    diferenca: 20,
+    valorMensalNovo: 89.9,
+    diasRestantes: 20,
+    diasDoPeriodo: 30,
+    nomeDoPlano: 'Máquina',
+  };
+  /** As trocas de plano que o Gerente confirmou (o plano e o cartão, se houve cobrança), na ordem. */
+  public trocasDePlano: Array<{ planoId: string; pagamento?: PagamentoDaTroca }> = [];
+  /** O que `trocarDePlano` devolve. Passar um Error faz a chamada falhar. */
+  public respostaDeTrocarDePlano: PlanoTrocado | Error = {
+    planoId: 'plano-maquina',
+    nomeDoPlano: 'Máquina',
+    cobrado: 20,
+    valorMensalNovo: 89.9,
+    proximaCobrancaAtualizada: true,
+  };
 
   /** Passar um Error faz a leitura falhar, para testar quem decide o que fazer com a falha. */
   constructor(resultado: EstadoDeAcesso | null | Error = null) {
@@ -43,8 +79,21 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     return { ...this.respostaDeTrocarCartao };
   }
 
-  async obterChavePublica(): Promise<string> {
-    return this.chavePublica;
+  async obterChavePublica(uso: UsoDaChavePublica = 'assinatura'): Promise<string> {
+    this.chavesPedidas.push(uso);
+    return uso === 'cobranca' ? this.chavePublicaDaCobranca : this.chavePublica;
+  }
+
+  async cotarTrocaDePlano(planoId: string): Promise<CotacaoDaTroca> {
+    this.cotacoesPedidas.push(planoId);
+    if (this.respostaDeCotar instanceof Error) throw this.respostaDeCotar;
+    return { ...this.respostaDeCotar };
+  }
+
+  async trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado> {
+    this.trocasDePlano.push({ planoId, pagamento });
+    if (this.respostaDeTrocarDePlano instanceof Error) throw this.respostaDeTrocarDePlano;
+    return { ...this.respostaDeTrocarDePlano };
   }
 
   definirAssinatura(tenantId: string, assinatura: DetalhesDaAssinatura): void {

@@ -46,7 +46,7 @@ export interface CartaoDaAssinatura {
 /** A assinatura da barbearia como a tela Assinatura mostra (spec 052, ticket 06). */
 export interface DetalhesDaAssinatura {
   situacao: SituacaoDaAssinatura;
-  plano: { nome: string; preco: number };
+  plano: { id: string; nome: string; preco: number };
   testeAte: Date | null;
   /** Fim do período pago: quando a próxima mensalidade vence, ou até quando uma cancelada tem acesso. */
   periodoAte: Date | null;
@@ -72,6 +72,43 @@ export interface CartaoTrocado {
   final: string | null;
 }
 
+/** Como a troca de plano sai: em teste é livre; na assinatura ativa cobra a diferença na hora; se a diferença é pequena demais para o provedor cobrar, troca sem cobrança. */
+export type ModoDaTroca = 'livre' | 'cobranca' | 'sem_cobranca';
+
+/** O que a função de cobrança calculou para a troca: o navegador só mostra, nunca calcula. */
+export interface CotacaoDaTroca {
+  modo: ModoDaTroca;
+  /** Valor cobrado agora, em reais (zero quando não há cobrança). */
+  diferenca: number;
+  /** Valor mensal do plano novo, que vale a partir da próxima cobrança. */
+  valorMensalNovo: number;
+  /** Dias que faltam e dias do período pago, em que a diferença é proporcional. Nulos em teste. */
+  diasRestantes: number | null;
+  diasDoPeriodo: number | null;
+  nomeDoPlano: string;
+}
+
+/** O cartão digitado nos campos seguros para pagar a diferença, com o valor que o Gerente viu e confirmou. */
+export interface PagamentoDaTroca {
+  token: string;
+  /** Os 4 últimos dígitos que o SDK devolveu junto do token (só para mostrar o cartão no histórico). */
+  final: string | null;
+  valorConfirmado: number;
+}
+
+export interface PlanoTrocado {
+  planoId: string;
+  nomeDoPlano: string;
+  /** O que foi cobrado na hora, em reais (zero se não houve cobrança). */
+  cobrado: number;
+  valorMensalNovo: number;
+  /** Falso se o Mercado Pago não aceitou o valor novo da próxima cobrança: o plano trocou, mas a mensalidade segue no valor antigo até alguém conferir. */
+  proximaCobrancaAtualizada: boolean;
+}
+
+/** Qual Public Key: a da assinatura (troca de cartão) ou a da cobrança avulsa (diferença do plano). No DEV são de apps diferentes. */
+export type UsoDaChavePublica = 'assinatura' | 'cobranca';
+
 export interface IAssinaturaAdapter {
   /** Estado da barbearia de quem está logado, ou nulo se o usuário não tem barbearia. */
   obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null>;
@@ -83,7 +120,14 @@ export interface IAssinaturaAdapter {
    */
   trocarCartao(token: string, final?: string | null): Promise<CartaoTrocado>;
   /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros. */
-  obterChavePublica(): Promise<string>;
+  obterChavePublica(uso?: UsoDaChavePublica): Promise<string>;
+  /** Pede à função de cobrança a diferença proporcional e o valor mensal novo de uma troca de plano. Não cobra nem troca nada. */
+  cotarTrocaDePlano(planoId: string): Promise<CotacaoDaTroca>;
+  /**
+   * Troca o plano da barbearia. Com `pagamento`, cobra a diferença no cartão do token e só troca se o pagamento
+   * for aprovado; sem ele (em teste, ou diferença pequena demais) troca sem cobrança.
+   */
+  trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado>;
   /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */
   obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null>;
   /** Histórico gravado pelo webhook; não consulta o Mercado Pago. */

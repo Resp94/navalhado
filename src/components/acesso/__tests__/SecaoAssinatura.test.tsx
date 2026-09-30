@@ -34,6 +34,20 @@ vi.mock('../TrocarCartao', () => ({
   ),
 }));
 
+// O fluxo de mudar de plano (lista, cotação, pagamento) tem teste próprio (MudarDePlano.test); aqui só
+// interessa quando a seção o oferece e com que informação.
+vi.mock('../MudarDePlano', () => ({
+  MudarDePlano: ({ assinatura, onTrocado }: {
+    assinatura: { situacao: string; plano: { id: string; nome: string } };
+    onTrocado?: () => void;
+  }) => (
+    <div data-testid="mudar-de-plano">
+      <span>{`plano ${assinatura.plano.nome} (${assinatura.plano.id}) ${assinatura.situacao}`}</span>
+      <button onClick={onTrocado}>simular plano trocado</button>
+    </div>
+  ),
+}));
+
 import { SecaoAssinatura } from '../SecaoAssinatura';
 
 // Spec 052, tickets 05 e 06: a tela Assinatura de Configurações mostra o plano, a situação, a
@@ -43,7 +57,7 @@ const recarregar = vi.fn();
 
 const assinaturaBase: DetalhesDaAssinatura = {
   situacao: 'active',
-  plano: { nome: 'Tesoura', preco: 59.9 },
+  plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
   testeAte: new Date('2026-10-14T23:00:00Z'),
   periodoAte: new Date('2026-10-29T23:26:22Z'),
   cortesiaAte: null,
@@ -270,6 +284,47 @@ describe('SecaoAssinatura', () => {
       renderizar();
 
       await userEvent.click(screen.getByRole('button', { name: 'simular cartão trocado' }));
+
+      expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Spec 052, ticket 10: mudar de plano pela tela Assinatura.
+  describe('mudar de plano', () => {
+    it.each([
+      ['ativa', { situacao: 'active' as const }],
+      ['em teste (com ou sem o cartão autorizado)', { situacao: 'trialing' as const, cartao: null }],
+    ])('oferece a troca de plano na assinatura %s', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.getByTestId('mudar-de-plano')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['com pagamento recusado', { situacao: 'past_due' as const }],
+      ['cancelada', { situacao: 'canceled' as const }],
+      ['em cortesia', { situacao: 'courtesy' as const, cartao: null }],
+      ['bloqueada', { situacao: 'blocked' as const }],
+    ])('não oferece a troca de plano na assinatura %s', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.queryByTestId('mudar-de-plano')).not.toBeInTheDocument();
+    });
+
+    it('passa o plano e a situação da assinatura: o que se oferece depende deles', () => {
+      comDados();
+      renderizar();
+
+      expect(screen.getByTestId('mudar-de-plano')).toHaveTextContent('plano Tesoura (plano-tesoura) active');
+    });
+
+    it('depois de trocar de plano, relê a assinatura para mostrar o plano, o valor e o período novos', async () => {
+      comDados();
+      renderizar();
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular plano trocado' }));
 
       expect(recarregar).toHaveBeenCalledTimes(1);
     });

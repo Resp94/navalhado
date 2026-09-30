@@ -15,7 +15,7 @@ import type { DetalhesDaAssinatura } from '../types';
 
 const base: DetalhesDaAssinatura = {
   situacao: 'active',
-  plano: { nome: 'Tesoura', preco: 59.9 },
+  plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
   testeAte: null,
   periodoAte: null,
   cortesiaAte: null,

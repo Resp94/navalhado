@@ -151,7 +151,7 @@ describe('SupabaseAssinaturaAdapter', () => {
       courtesy_ends_at: null,
       card_brand: 'visa',
       card_last4: '5682',
-      plans: { name: 'Tesoura', price: '59.90' },
+      plans: { id: 'plano-tesoura', name: 'Tesoura', price: '59.90' },
     };
 
     it('lê a única assinatura da barbearia, com o plano', async () => {
@@ -163,10 +163,10 @@ describe('SupabaseAssinaturaAdapter', () => {
       expect(c.eq).toHaveBeenCalledWith('tenant_id', 'tenant-a');
       // A tabela tem duas chaves para plans (plan_id e scheduled_plan_id): sem a dica da chave do
       // plano atual o PostgREST recusa o embed por ambiguidade (visto no DEV).
-      expect(c.select).toHaveBeenCalledWith(expect.stringContaining('plans!tenant_subscriptions_plan_id_fkey('));
+      expect(c.select).toHaveBeenCalledWith(expect.stringContaining('plans!tenant_subscriptions_plan_id_fkey(id, name, price)'));
       expect(assinatura).toEqual({
         situacao: 'active',
-        plano: { nome: 'Tesoura', preco: 59.9 },
+        plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
         testeAte: new Date('2026-10-14T23:01:41.950533Z'),
         periodoAte: new Date('2026-10-29T23:26:22Z'),
         cortesiaAte: null,
@@ -175,9 +175,9 @@ describe('SupabaseAssinaturaAdapter', () => {
     });
 
     it('aceita o plano vindo como lista de um elemento', async () => {
-      cadeia({ data: { ...linha, plans: [{ name: 'Bancada', price: 159.9 }] }, error: null });
+      cadeia({ data: { ...linha, plans: [{ id: 'plano-bancada', name: 'Bancada', price: 159.9 }] }, error: null });
 
-      expect((await adapter.obterAssinatura('tenant-a'))?.plano).toEqual({ nome: 'Bancada', preco: 159.9 });
+      expect((await adapter.obterAssinatura('tenant-a'))?.plano).toEqual({ id: 'plano-bancada', nome: 'Bancada', preco: 159.9 });
     });
 
     it('sem cartão gravado, o cartão é nulo', async () => {
@@ -360,6 +360,170 @@ describe('SupabaseAssinaturaAdapter', () => {
 
       mockInvoke.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
       await expect(adapter.obterChavePublica()).rejects.toThrow('Não foi possível carregar o formulário do cartão. Tente de novo.');
+    });
+  });
+
+  describe('obterChavePublica da cobrança avulsa', () => {
+    it('pede à função a Public Key da cobrança: no DEV ela é de outro app que a da assinatura', async () => {
+      mockInvoke.mockResolvedValue({ data: { publicKey: 'TEST-public-key-da-cobranca' }, error: null });
+
+      await expect(adapter.obterChavePublica('cobranca')).resolves.toBe('TEST-public-key-da-cobranca');
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'chave_publica', uso: 'cobranca' } });
+    });
+  });
+
+  // Spec 052, ticket 10: subir de plano. A função calcula a diferença no servidor; o navegador só mostra.
+  describe('cotarTrocaDePlano', () => {
+    const cotacaoDaFuncao = {
+      mode: 'charge',
+      difference: 20,
+      newMonthlyAmount: 89.9,
+      remainingDays: 20,
+      periodDays: 30,
+      planName: 'Máquina',
+    };
+
+    it('chama a função de cobrança com a ação cotar_troca_de_plano e traduz a resposta', async () => {
+      mockInvoke.mockResolvedValue({ data: cotacaoDaFuncao, error: null });
+
+      const cotacao = await adapter.cotarTrocaDePlano('b3fa7384-d113-4a1b-a5ed-1efeb7e51c22');
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', {
+        body: { action: 'cotar_troca_de_plano', planId: 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22' },
+      });
+      expect(cotacao).toEqual({
+        modo: 'cobranca',
+        diferenca: 20,
+        valorMensalNovo: 89.9,
+        diasRestantes: 20,
+        diasDoPeriodo: 30,
+        nomeDoPlano: 'Máquina',
+      });
+    });
+
+    it.each([
+      ['free', 'livre'],
+      ['charge', 'cobranca'],
+      ['no_charge', 'sem_cobranca'],
+    ])('traduz o modo %s para %s', async (modoDaFuncao, modo) => {
+      mockInvoke.mockResolvedValue({ data: { ...cotacaoDaFuncao, mode: modoDaFuncao, remainingDays: null, periodDays: null }, error: null });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).resolves.toMatchObject({ modo, diasRestantes: null, diasDoPeriodo: null });
+    });
+
+    it('modo desconhecido é recusado em vez de virar cobrança por chute', async () => {
+      mockInvoke.mockResolvedValue({ data: { ...cotacaoDaFuncao, mode: 'talvez' }, error: null });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).rejects.toThrow('Não foi possível calcular a troca de plano. Tente de novo.');
+    });
+
+    it('resposta sem valores é falha', async () => {
+      mockInvoke.mockResolvedValue({ data: { mode: 'charge', planName: 'Máquina' }, error: null });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).rejects.toThrow('Não foi possível calcular a troca de plano. Tente de novo.');
+    });
+
+    it('mostra a mensagem que a função devolveu quando ela recusa a troca', async () => {
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'Edge Function returned a non-2xx status code',
+          context: { json: async () => ({ error: 'Seus 3 profissionais ativos não cabem no plano Tesoura, que aceita até 1.' }) },
+        },
+      });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).rejects.toThrow('não cabem no plano Tesoura');
+    });
+
+    it('sem mensagem da função, usa um texto claro da cotação', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: { message: 'Failed to send a request to the Edge Function' } });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).rejects.toThrow('Não foi possível calcular a troca de plano. Tente de novo.');
+    });
+  });
+
+  describe('trocarDePlano', () => {
+    const respostaDaFuncao = {
+      changed: true,
+      planId: 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22',
+      planName: 'Máquina',
+      charged: 20,
+      newMonthlyAmount: 89.9,
+      nextChargeUpdated: true,
+    };
+
+    it('com a diferença a pagar, manda o token, o valor confirmado e o final do cartão, e traduz a resposta', async () => {
+      mockInvoke.mockResolvedValue({ data: respostaDaFuncao, error: null });
+
+      const trocado = await adapter.trocarDePlano('b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', {
+        token: 'e3ed6f098462036dd2cbabe314b9de2a',
+        final: '0604',
+        valorConfirmado: 20,
+      });
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', {
+        body: {
+          action: 'trocar_plano',
+          planId: 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22',
+          cardToken: 'e3ed6f098462036dd2cbabe314b9de2a',
+          expectedAmount: 20,
+          cardLast4: '0604',
+        },
+      });
+      expect(trocado).toEqual({
+        planoId: 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22',
+        nomeDoPlano: 'Máquina',
+        cobrado: 20,
+        valorMensalNovo: 89.9,
+        proximaCobrancaAtualizada: true,
+      });
+    });
+
+    it('sem o final do cartão, não manda o campo', async () => {
+      mockInvoke.mockResolvedValue({ data: respostaDaFuncao, error: null });
+
+      await adapter.trocarDePlano('plano', { token: 'e3ed6f098462036dd2cbabe314b9de2a', final: null, valorConfirmado: 20 });
+
+      expect(mockInvoke.mock.calls[0][1].body).not.toHaveProperty('cardLast4');
+    });
+
+    it('sem cobrança (em teste, ou diferença pequena demais), manda só o plano', async () => {
+      mockInvoke.mockResolvedValue({ data: { ...respostaDaFuncao, charged: 0 }, error: null });
+
+      const trocado = await adapter.trocarDePlano('plano');
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'trocar_plano', planId: 'plano' } });
+      expect(trocado.cobrado).toBe(0);
+    });
+
+    it('o valor novo da próxima cobrança que o Mercado Pago não aceitou vem como não atualizado', async () => {
+      mockInvoke.mockResolvedValue({ data: { ...respostaDaFuncao, nextChargeUpdated: false }, error: null });
+
+      await expect(adapter.trocarDePlano('plano')).resolves.toMatchObject({ proximaCobrancaAtualizada: false });
+    });
+
+    it.each([
+      ['cartão recusado', 'O cartão não tem saldo suficiente. O plano continua o mesmo.'],
+      ['valor que mudou', 'O valor da diferença mudou. Feche esta janela e abra de novo para ver o valor atual.'],
+    ])('mostra a mensagem que a função devolveu na recusa (%s)', async (_nome, mensagem) => {
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: { message: 'Edge Function returned a non-2xx status code', context: { json: async () => ({ error: mensagem }) } },
+      });
+
+      await expect(adapter.trocarDePlano('plano')).rejects.toThrow(mensagem);
+    });
+
+    it('sem mensagem da função, usa um texto claro da troca de plano', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: { message: 'Failed to send a request to the Edge Function' } });
+
+      await expect(adapter.trocarDePlano('plano')).rejects.toThrow('Não foi possível trocar de plano. Tente de novo.');
+    });
+
+    it('resposta sem changed é tratada como falha', async () => {
+      mockInvoke.mockResolvedValue({ data: {}, error: null });
+
+      await expect(adapter.trocarDePlano('plano')).rejects.toThrow('Não foi possível trocar de plano. Tente de novo.');
     });
   });
 });

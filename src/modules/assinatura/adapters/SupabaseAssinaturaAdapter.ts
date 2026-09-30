@@ -1,16 +1,27 @@
 import { supabase } from '../../../lib/supabase';
-import { MENSAGEM_ASSINAR_FALHOU, MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU, MENSAGEM_TROCAR_CARTAO_FALHOU } from '../errors';
+import {
+  MENSAGEM_ASSINAR_FALHOU,
+  MENSAGEM_COTAR_TROCA_FALHOU,
+  MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU,
+  MENSAGEM_TROCAR_CARTAO_FALHOU,
+  MENSAGEM_TROCAR_PLANO_FALHOU,
+} from '../errors';
 import { ehSituacaoDaAssinatura } from '../situacaoDaAssinatura';
 import type {
   AssinaturaCriada,
   CartaoDaAssinatura,
   CartaoTrocado,
   Cobranca,
+  CotacaoDaTroca,
   DetalhesDaAssinatura,
   EstadoDeAcesso,
   IAssinaturaAdapter,
+  ModoDaTroca,
   MotivoDeAcesso,
   NivelDeAcesso,
+  PagamentoDaTroca,
+  PlanoTrocado,
+  UsoDaChavePublica,
 } from '../types';
 
 /** Quantas cobranças o histórico traz: mais de três anos de mensalidades, sem paginação. */
@@ -20,6 +31,13 @@ const NIVEIS: Record<string, NivelDeAcesso> = {
   allowed: 'liberado',
   warning: 'aviso',
   blocked: 'bloqueado',
+};
+
+// O modo que a função de cobrança devolve na cotação da troca de plano.
+const MODOS_DA_TROCA: Record<string, ModoDaTroca> = {
+  free: 'livre',
+  charge: 'cobranca',
+  no_charge: 'sem_cobranca',
 };
 
 interface LinhaDoEstado {
@@ -35,7 +53,7 @@ interface LinhaDaAssinatura {
   courtesy_ends_at: string | null;
   card_brand: string | null;
   card_last4: string | null;
-  plans: { name: string; price: unknown } | { name: string; price: unknown }[] | null;
+  plans: { id: string; name: string; price: unknown } | { id: string; name: string; price: unknown }[] | null;
 }
 
 interface LinhaDaCobranca {
@@ -61,6 +79,15 @@ interface RespostaDaCobranca {
   cardBrand?: string | null;
   cardLast4?: string | null;
   publicKey?: string;
+  mode?: string;
+  difference?: number;
+  newMonthlyAmount?: number;
+  remainingDays?: number | null;
+  periodDays?: number | null;
+  planName?: string;
+  planId?: string;
+  charged?: number;
+  nextChargeUpdated?: boolean;
   error?: string;
 }
 
@@ -144,13 +171,80 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
   }
 
   // A Public Key não é segredo, mas cada ambiente tem a sua: fica em secret do Supabase e a função
-  // de cobrança entrega ao Gerente.
-  async obterChavePublica(): Promise<string> {
-    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'chave_publica' } });
+  // de cobrança entrega ao Gerente. A da cobrança avulsa pode ser de outro app (no DEV é).
+  async obterChavePublica(uso: UsoDaChavePublica = 'assinatura'): Promise<string> {
+    const { data, error } = await supabase.functions.invoke('billing', {
+      body: uso === 'cobranca' ? { action: 'chave_publica', uso } : { action: 'chave_publica' },
+    });
 
     const resposta = data as RespostaDaCobranca | null;
     if (error || !resposta?.publicKey) throw new Error(MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU);
     return resposta.publicKey;
+  }
+
+  // A função de cobrança calcula a diferença no servidor (e a recusa quando a troca não é possível); o front não manda
+  // barbearia nem valor, só o plano, então não há como cotar ou trocar a assinatura de outra barbearia.
+  async cotarTrocaDePlano(planoId: string): Promise<CotacaoDaTroca> {
+    const { data, error } = await supabase.functions.invoke('billing', {
+      body: { action: 'cotar_troca_de_plano', planId: planoId },
+    });
+
+    if (error) {
+      throw new Error(await mensagemDaFalha(error, MENSAGEM_COTAR_TROCA_FALHOU));
+    }
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (resposta?.error) throw new Error(resposta.error);
+    const modo = resposta?.mode ? MODOS_DA_TROCA[resposta.mode] : undefined;
+    if (
+      !resposta || !modo || typeof resposta.difference !== 'number' || typeof resposta.newMonthlyAmount !== 'number' ||
+      !resposta.planName
+    ) {
+      throw new Error(MENSAGEM_COTAR_TROCA_FALHOU);
+    }
+
+    return {
+      modo,
+      diferenca: resposta.difference,
+      valorMensalNovo: resposta.newMonthlyAmount,
+      diasRestantes: resposta.remainingDays ?? null,
+      diasDoPeriodo: resposta.periodDays ?? null,
+      nomeDoPlano: resposta.planName,
+    };
+  }
+
+  // Só o token do cartão (digitado nos campos seguros), o valor que o Gerente confirmou e os 4 últimos dígitos saem daqui: o
+  // número do cartão nunca passa pelo Navalhado, e a função cobra o valor que ela mesma calcula (recusa se o confirmado mudou).
+  async trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado> {
+    const { data, error } = await supabase.functions.invoke('billing', {
+      body: {
+        action: 'trocar_plano',
+        planId: planoId,
+        ...(pagamento
+          ? {
+            cardToken: pagamento.token,
+            expectedAmount: pagamento.valorConfirmado,
+            ...(pagamento.final ? { cardLast4: pagamento.final } : {}),
+          }
+          : {}),
+      },
+    });
+
+    if (error) {
+      throw new Error(await mensagemDaFalha(error, MENSAGEM_TROCAR_PLANO_FALHOU));
+    }
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (resposta?.error) throw new Error(resposta.error);
+    if (resposta?.changed !== true || !resposta.planId || !resposta.planName) throw new Error(MENSAGEM_TROCAR_PLANO_FALHOU);
+
+    return {
+      planoId: resposta.planId,
+      nomeDoPlano: resposta.planName,
+      cobrado: Number(resposta.charged ?? 0),
+      valorMensalNovo: Number(resposta.newMonthlyAmount),
+      proximaCobrancaAtualizada: resposta.nextChargeUpdated !== false,
+    };
   }
 
   // A barbearia tem uma única assinatura (unique por tenant_id). A RLS só entrega a linha ao
@@ -158,7 +252,7 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
   async obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
-      .select('status, trial_ends_at, current_period_end, courtesy_ends_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(name, price)')
+      .select('status, trial_ends_at, current_period_end, courtesy_ends_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(id, name, price)')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
@@ -178,7 +272,7 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
 
     return {
       situacao: linha.status,
-      plano: { nome: plano.name, preco: Number(plano.price) },
+      plano: { id: plano.id, nome: plano.name, preco: Number(plano.price) },
       testeAte: paraData(linha.trial_ends_at),
       periodoAte: paraData(linha.current_period_end),
       cortesiaAte: paraData(linha.courtesy_ends_at),

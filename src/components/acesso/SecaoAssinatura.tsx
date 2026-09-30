@@ -2,6 +2,7 @@ import React from 'react';
 import { formatCurrency } from '../../lib/currency';
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { MudarDePlano } from './MudarDePlano';
 import { TrocarCartao } from './TrocarCartao';
 import {
   autorizadaEmTeste,
@@ -167,7 +168,7 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
 
       {texto && <p className="text-sm text-text-secondary m-0">{texto}</p>}
 
-      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: mudar de plano (10 e 11), cancelar (12) e exportar os dados (14). */}
+      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: descer de plano (11), cancelar (12) e exportar os dados (14). */}
       {botao && (
         <div>
           <BotaoAssinar rotulo={botao} abrirLink={abrirLink} />
@@ -176,6 +177,11 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
 
       {podeTrocarOCartao && (
         <TrocarCartao cobrancaPendente={assinatura.situacao === 'past_due'} onTrocado={recarregar} />
+      )}
+
+      {/* Em teste a troca de plano é livre; na assinatura ativa, só se sobe. Nas outras situações não há plano a mudar. */}
+      {(assinatura.situacao === 'active' || assinatura.situacao === 'trialing') && (
+        <MudarDePlano assinatura={assinatura} onTrocado={recarregar} />
       )}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">

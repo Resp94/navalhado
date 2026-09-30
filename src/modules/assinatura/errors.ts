@@ -4,6 +4,12 @@ export const MENSAGEM_ASSINAR_FALHOU = 'Não foi possível iniciar a assinatura.
 /** Texto de quando a função de cobrança não devolve uma mensagem própria ao trocar o cartão. */
 export const MENSAGEM_TROCAR_CARTAO_FALHOU = 'Não foi possível trocar o cartão. Tente de novo.';
 
+/** Texto de quando a função de cobrança não devolve uma mensagem própria ao cotar a troca de plano. */
+export const MENSAGEM_COTAR_TROCA_FALHOU = 'Não foi possível calcular a troca de plano. Tente de novo.';
+
+/** Texto de quando a função de cobrança não devolve uma mensagem própria ao trocar de plano. */
+export const MENSAGEM_TROCAR_PLANO_FALHOU = 'Não foi possível trocar de plano. Tente de novo.';
+
 /** A Public Key do Mercado Pago não veio: o formulário do cartão não tem como carregar. */
 export const MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU = 'Não foi possível carregar o formulário do cartão. Tente de novo.';
 

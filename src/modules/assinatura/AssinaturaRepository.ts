@@ -1,7 +1,21 @@
 import { MENSAGEM_ASSINAR_FALHOU, MENSAGEM_CARTAO_ILEGIVEL, MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU } from './errors';
-import type { AssinaturaCriada, CartaoTrocado, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from './types';
+import type {
+  AssinaturaCriada,
+  CartaoTrocado,
+  Cobranca,
+  CotacaoDaTroca,
+  DetalhesDaAssinatura,
+  EstadoDeAcesso,
+  IAssinaturaAdapter,
+  PagamentoDaTroca,
+  PlanoTrocado,
+  UsoDaChavePublica,
+} from './types';
 
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
+
+// Os 4 últimos dígitos só valem no formato certo; o resto é ignorado, sem recusar a operação.
+const quatroDigitos = (final?: string | null): string | null => (final && /^[0-9]{4}$/.test(final) ? final : null);
 
 export class AssinaturaRepository {
   private adapter: IAssinaturaAdapter;
@@ -33,16 +47,42 @@ export class AssinaturaRepository {
    */
   async trocarCartao(token: string, final?: string | null): Promise<CartaoTrocado> {
     if (!token || !token.trim()) throw new Error(MENSAGEM_CARTAO_ILEGIVEL);
-    // Os 4 últimos dígitos só valem no formato certo; o resto é ignorado, sem recusar a troca.
-    const quatroDigitos = final && /^[0-9]{4}$/.test(final) ? final : null;
-    return this.adapter.trocarCartao(token.trim(), quatroDigitos);
+    return this.adapter.trocarCartao(token.trim(), quatroDigitos(final));
   }
 
-  /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros do cartão. */
-  async obterChavePublica(): Promise<string> {
-    const chave = await this.adapter.obterChavePublica();
+  /**
+   * Public Key do Mercado Pago do ambiente, para carregar os campos seguros do cartão. O token só vale para o app
+   * que o gerou: a troca de cartão usa a chave da assinatura e a cobrança avulsa da diferença do plano, a da cobrança.
+   */
+  async obterChavePublica(uso: UsoDaChavePublica = 'assinatura'): Promise<string> {
+    const chave = await this.adapter.obterChavePublica(uso);
     if (!chave) throw new Error(MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU);
     return chave;
+  }
+
+  /**
+   * A diferença proporcional e o valor mensal novo de uma troca de plano, calculados pela função de cobrança:
+   * a tela só os mostra antes de o Gerente confirmar. Não cobra nem troca nada.
+   */
+  async cotarTrocaDePlano(planoId: string): Promise<CotacaoDaTroca> {
+    this.exigirPlano(planoId);
+    return this.adapter.cotarTrocaDePlano(planoId);
+  }
+
+  /**
+   * Troca o plano da barbearia. Com `pagamento`, a diferença é cobrada no cartão do token (o número do cartão nunca passa
+   * por aqui) e o plano só troca se o pagamento for aprovado; sem ele, em teste ou com a diferença pequena demais
+   * para o provedor cobrar, troca sem cobrança. O valor confirmado precisa ser o que a função vai cobrar: se mudou, ela recusa.
+   */
+  async trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado> {
+    this.exigirPlano(planoId);
+    if (!pagamento) return this.adapter.trocarDePlano(planoId);
+    if (!pagamento.token || !pagamento.token.trim()) throw new Error(MENSAGEM_CARTAO_ILEGIVEL);
+    return this.adapter.trocarDePlano(planoId, {
+      token: pagamento.token.trim(),
+      final: quatroDigitos(pagamento.final),
+      valorConfirmado: pagamento.valorConfirmado,
+    });
   }
 
   /** Assinatura da barbearia (plano, situação, datas, cartão), ou nulo se ela não tem. */
@@ -56,6 +96,12 @@ export class AssinaturaRepository {
     this.exigirTenant(tenantId);
     const cobrancas = await this.adapter.listarCobrancas(tenantId);
     return [...cobrancas].sort((a, b) => b.cobradaEm.getTime() - a.cobradaEm.getTime());
+  }
+
+  private exigirPlano(planoId: string): void {
+    if (!planoId || !planoId.trim()) {
+      throw new Error('ID do plano é obrigatório.');
+    }
   }
 
   private exigirTenant(tenantId: string): void {

@@ -25,7 +25,7 @@ import { useMinhaAssinatura } from '../useMinhaAssinatura';
 
 const emTeste = (testeAte: Date | null): DetalhesDaAssinatura => ({
   situacao: 'trialing',
-  plano: { nome: 'Tesoura', preco: 59.9 },
+  plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
   testeAte,
   periodoAte: null,
   cortesiaAte: null,

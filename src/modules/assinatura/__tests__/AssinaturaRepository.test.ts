@@ -100,7 +100,7 @@ describe('AssinaturaRepository', () => {
 describe('AssinaturaRepository: detalhes e histórico', () => {
   const assinaturaA: DetalhesDaAssinatura = {
     situacao: 'active',
-    plano: { nome: 'Máquina', preco: 89.9 },
+    plano: { id: 'plano-maquina', nome: 'Máquina', preco: 89.9 },
     testeAte: new Date('2026-10-14T23:00:00Z'),
     periodoAte: new Date('2026-10-29T23:00:00Z'),
     cortesiaAte: null,
@@ -214,5 +214,113 @@ describe('AssinaturaRepository: trocar cartão', () => {
     adapter.chavePublica = 'APP_USR-public-key';
 
     await expect(repo.obterChavePublica()).resolves.toBe('APP_USR-public-key');
+    expect(adapter.chavesPedidas).toEqual(['assinatura']);
+  });
+
+  it('a cobrança avulsa pede a Public Key dela: o token só vale para o app que o gerou', async () => {
+    const { adapter, repo } = montar();
+    adapter.chavePublicaDaCobranca = 'TEST-chave-da-cobranca';
+
+    await expect(repo.obterChavePublica('cobranca')).resolves.toBe('TEST-chave-da-cobranca');
+    expect(adapter.chavesPedidas).toEqual(['cobranca']);
+  });
+
+  it('Public Key vazia é falha', async () => {
+    const { adapter, repo } = montar();
+    adapter.chavePublica = '';
+
+    await expect(repo.obterChavePublica()).rejects.toThrow('Não foi possível carregar o formulário do cartão. Tente de novo.');
+  });
+});
+
+// Spec 052, ticket 10: subir de plano. A função de cobrança calcula a diferença proporcional (o que o
+// navegador mostra é só o que ela respondeu) e cobra no cartão digitado nos campos seguros.
+describe('AssinaturaRepository: mudar de plano', () => {
+  const montar = () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    return { adapter, repo: new AssinaturaRepository(adapter) };
+  };
+
+  it('cota a troca: a diferença e o valor mensal novo vêm da função de cobrança', async () => {
+    const { adapter, repo } = montar();
+
+    const cotacao = await repo.cotarTrocaDePlano('plano-maquina');
+
+    expect(cotacao).toEqual({
+      modo: 'cobranca',
+      diferenca: 20,
+      valorMensalNovo: 89.9,
+      diasRestantes: 20,
+      diasDoPeriodo: 30,
+      nomeDoPlano: 'Máquina',
+    });
+    expect(adapter.cotacoesPedidas).toEqual(['plano-maquina']);
+  });
+
+  it('não cota nem troca sem o plano', async () => {
+    const { adapter, repo } = montar();
+
+    await expect(repo.cotarTrocaDePlano(' ')).rejects.toThrow(/plano/i);
+    await expect(repo.trocarDePlano('')).rejects.toThrow(/plano/i);
+    expect(adapter.cotacoesPedidas).toHaveLength(0);
+    expect(adapter.trocasDePlano).toHaveLength(0);
+  });
+
+  it('troca com a diferença paga: manda o token, o final do cartão e o valor que o Gerente confirmou', async () => {
+    const { adapter, repo } = montar();
+
+    const trocado = await repo.trocarDePlano('plano-maquina', { token: ' e3ed6f098462036dd2cbabe314b9de2a ', final: '0604', valorConfirmado: 20 });
+
+    expect(trocado).toEqual({
+      planoId: 'plano-maquina',
+      nomeDoPlano: 'Máquina',
+      cobrado: 20,
+      valorMensalNovo: 89.9,
+      proximaCobrancaAtualizada: true,
+    });
+    expect(adapter.trocasDePlano).toEqual([
+      { planoId: 'plano-maquina', pagamento: { token: 'e3ed6f098462036dd2cbabe314b9de2a', final: '0604', valorConfirmado: 20 } },
+    ]);
+  });
+
+  it('troca sem cobrança (em teste, ou diferença pequena demais): não manda cartão', async () => {
+    const { adapter, repo } = montar();
+
+    await repo.trocarDePlano('plano-maquina');
+
+    expect(adapter.trocasDePlano).toEqual([{ planoId: 'plano-maquina', pagamento: undefined }]);
+  });
+
+  it.each([undefined, null, '', '060', '06045', 'abcd'])('final do cartão fora do formato (%j) não vai ao adaptador', async (final) => {
+    const { adapter, repo } = montar();
+
+    await repo.trocarDePlano('plano-maquina', { token: 'e3ed6f098462036dd2cbabe314b9de2a', final: final as string | null, valorConfirmado: 20 });
+
+    expect(adapter.trocasDePlano[0].pagamento?.final).toBeNull();
+  });
+
+  it('não cobra sem o token do cartão', async () => {
+    const { adapter, repo } = montar();
+
+    await expect(repo.trocarDePlano('plano-maquina', { token: '  ', final: null, valorConfirmado: 20 })).rejects.toThrow(
+      'Não foi possível ler o cartão. Digite os dados de novo.',
+    );
+    expect(adapter.trocasDePlano).toHaveLength(0);
+  });
+
+  it('propaga a recusa da função (cartão recusado, valor que mudou, plano que não cabe)', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeTrocarDePlano = new Error('O cartão não tem saldo suficiente. O plano continua o mesmo.');
+
+    await expect(repo.trocarDePlano('plano-maquina', { token: 'e3ed6f098462036dd2cbabe314b9de2a', final: null, valorConfirmado: 20 })).rejects.toThrow(
+      'O cartão não tem saldo suficiente.',
+    );
+  });
+
+  it('propaga a falha da cotação', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeCotar = new Error('Seus 3 profissionais ativos não cabem no plano Tesoura.');
+
+    await expect(repo.cotarTrocaDePlano('plano-tesoura')).rejects.toThrow('não cabem no plano Tesoura');
   });
 });
