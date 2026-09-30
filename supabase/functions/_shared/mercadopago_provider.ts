@@ -1,4 +1,5 @@
 import {
+  type ChangedCard,
   type CreatedSubscription,
   type CreateSubscriptionInput,
   notImplementedOperations,
@@ -38,7 +39,7 @@ export const createMercadoPagoProvider = ({
   baseUrl = "https://api.mercadopago.com",
 }: MercadoPagoProviderOptions): PaymentProvider => {
   const request = async (
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     path: string,
     body?: MercadoPagoBody,
     idempotencyKey?: string,
@@ -97,6 +98,17 @@ export const createMercadoPagoProvider = ({
         throw new PaymentProviderError("O Mercado Pago não devolveu a assinatura nem o link de pagamento.");
       }
       return { id, status: asString(body.status) ?? "pending", paymentLink };
+    },
+
+    // So o token vai para o Mercado Pago: o numero do cartao nunca passa por aqui. A troca nao cobra
+    // nada; a proxima cobranca (ou a nova tentativa de uma cobranca recusada) sai no cartao novo.
+    async changeCard(subscriptionId: string, cardToken: string): Promise<ChangedCard> {
+      const body = await request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, { card_token_id: cardToken });
+      const card = asRecord(body.card);
+      return {
+        cardBrand: asString(body.payment_method_id),
+        cardLast4: asString(body.last_four_digits) ?? asString(card.last_four_digits),
+      };
     },
 
     async getSubscription(subscriptionId: string): Promise<ProviderSubscription> {

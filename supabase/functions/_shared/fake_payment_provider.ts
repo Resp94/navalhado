@@ -1,4 +1,5 @@
 import {
+  type ChangedCard,
   type CreatedSubscription,
   type CreateSubscriptionInput,
   notImplementedOperations,
@@ -16,11 +17,13 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly createdSubscriptions: CreateSubscriptionInput[] = [];
   readonly requestedPayments: string[] = [];
   readonly requestedSubscriptions: string[] = [];
+  readonly changedCards: Array<{ subscriptionId: string; cardToken: string }> = [];
 
   payments = new Map<string, ProviderPayment>();
   subscriptions = new Map<string, ProviderSubscription>();
   /** Faz a proxima chamada de cada operacao falhar. */
   failWith: Error | null = null;
+  nextChangedCard: ChangedCard = { cardBrand: "master", cardLast4: "5555" };
   nextSubscriptionId = "fake-sub-1";
   paymentLink = "https://provider.test/checkout/fake-sub-1";
 
@@ -44,7 +47,12 @@ export class FakePaymentProvider implements PaymentProvider {
     return found ? Promise.resolve(found) : Promise.reject(new PaymentProviderError("Pagamento não encontrado.", 404));
   }
 
-  changeCard = notImplementedOperations.changeCard;
+  changeCard(subscriptionId: string, cardToken: string): Promise<ChangedCard> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.changedCards.push({ subscriptionId, cardToken });
+    return Promise.resolve({ ...this.nextChangedCard });
+  }
+
   changeAmount = notImplementedOperations.changeAmount;
   cancelSubscription = notImplementedOperations.cancelSubscription;
   chargeOnce = notImplementedOperations.chargeOnce;

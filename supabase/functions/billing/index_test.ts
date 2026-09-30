@@ -417,3 +417,331 @@ Deno.test("billing rejects unknown actions, invalid bodies and other methods", a
     supabase.restore();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Spec 052, ticket 09: trocar o cartao. O front gera o token nos campos seguros do Mercado Pago e
+// manda so o token; a funcao troca o cartao da assinatura no provedor, sem cobrar nada, e grava a
+// bandeira e o final do cartao novo.
+// ---------------------------------------------------------------------------
+
+const TOKEN_DO_CARTAO = "e3ed6f098462036dd2cbabe314b9de2a";
+const ativa = { ...trialContext, status: "active", mp_subscription_id: "mp-sub-1", first_charge_at: null };
+const trocar = (extra: Record<string, unknown> = {}) => request({ action: "trocar_cartao", cardToken: TOKEN_DO_CARTAO, ...extra });
+
+Deno.test("trocar_cartao: manda so o token ao provedor e grava a bandeira e o final do cartao novo", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/record_card_change": { status: 200, body: true },
+  });
+  try {
+    const res = await createHandler({ provider })(trocar());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { changed: true, cardBrand: "master", cardLast4: "5555" });
+    assertEquals(provider.changedCards, [{ subscriptionId: "mp-sub-1", cardToken: TOKEN_DO_CARTAO }]);
+    assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", p_card_brand: "master", p_card_last4: "5555" }]);
+    // Trocar o cartao nao cria assinatura nem cobra nada.
+    assertEquals(provider.createdSubscriptions.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const status of ["trialing", "active", "past_due", "blocked"]) {
+  Deno.test(`trocar_cartao: aceita a barbearia ${status} que tem assinatura no Mercado Pago`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = setupSupabase({
+      "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status }] },
+      "rest/v1/rpc/record_card_change": { status: 200, body: true },
+    });
+    try {
+      const res = await createHandler({ provider })(trocar());
+
+      assertEquals(res.status, 200);
+      assertEquals(provider.changedCards.length, 1);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+for (const status of ["canceled", "courtesy"]) {
+  Deno.test(`trocar_cartao: recusa a barbearia ${status}, sem chamar o provedor`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status }] } });
+    try {
+      const res = await createHandler({ provider })(trocar());
+
+      assertEquals(res.status, 409);
+      assertEquals(provider.changedCards.length, 0);
+      assertEquals(supabase.rpcCalls("record_card_change").length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("trocar_cartao: sem assinatura no Mercado Pago ainda, manda assinar primeiro", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, mp_subscription_id: null }] } });
+  try {
+    const res = await createHandler({ provider })(trocar());
+
+    assertEquals(res.status, 409);
+    assertEquals(provider.changedCards.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_cartao: so o Gerente do tenant troca (Barbeiro, Gerente sem tenant e inativo recebem 403)", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [] } });
+  try {
+    const res = await createHandler({ provider })(trocar());
+
+    assertEquals(res.status, 403);
+    assertEquals(provider.changedCards.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_cartao: sem login responde 401", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = setupSupabase();
+  try {
+    const res = await createHandler({ provider })(request({ action: "trocar_cartao", cardToken: TOKEN_DO_CARTAO }, {}));
+
+    assertEquals(res.status, 401);
+    assertEquals(provider.changedCards.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const cardToken of [undefined, "", "curto", "com espaço no meio 1234567890", "x".repeat(65), 1234567890123456, "../../users/me"]) {
+  Deno.test(`trocar_cartao: token invalido (${JSON.stringify(cardToken)}) responde 400 sem chamar o provedor`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+    try {
+      const res = await createHandler({ provider })(request({ action: "trocar_cartao", cardToken }));
+
+      assertEquals(res.status, 400);
+      assertEquals(provider.changedCards.length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+// So 400 e 422 dizem que o cartao (o token) foi recusado: o Gerente confere os dados e tenta de novo.
+for (const status of [400, 422]) {
+  Deno.test(`trocar_cartao: o Mercado Pago recusa o cartao (${status}): 422 com texto claro, sem o token`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.failWith = new PaymentProviderError(`Mercado Pago respondeu ${status}: Invalid card_token_id`, status);
+    const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+    try {
+      const res = await createHandler({ provider })(trocar());
+      const body = await res.json();
+
+      assertEquals(res.status, 422);
+      assertEquals(body.error, "O Mercado Pago não aceitou o cartão. Confira os dados ou use outro cartão.");
+      assertEquals(JSON.stringify(body).includes(TOKEN_DO_CARTAO), false);
+      assertEquals(supabase.rpcCalls("record_card_change").length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+// Qualquer outra falha do provedor (credencial errada, assinatura ou token nao encontrados, limite de
+// requisicoes, fora do ar, sem rede) nao e culpa do cartao: mandar o Gerente digita-lo de novo nao
+// resolve. Ele recebe um texto neutro, e so o log guarda o status para quem cuida da configuracao.
+for (const status of [401, 403, 404, 429, 503, undefined]) {
+  Deno.test(`trocar_cartao: falha do provedor que nao e do cartao (${status ?? "sem resposta"}): 502 neutro, sem gravar nada`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.failWith = new PaymentProviderError(`Mercado Pago respondeu ${status}: falha`, status);
+    const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+    try {
+      const res = await createHandler({ provider })(trocar());
+      const body = await res.json();
+
+      assertEquals(res.status, 502);
+      assertEquals(body.error, "Não foi possível trocar o cartão agora. Tente de novo em instantes.");
+      assertEquals(supabase.rpcCalls("record_card_change").length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+// O que o provedor devolve vai para uma funcao do banco que recusa formato inesperado. Se o cartao ja
+// foi trocado no Mercado Pago, um final mascarado ou uma bandeira estranha nao pode virar erro 500:
+// o valor fora do formato e descartado (a tela mostra so o que veio certo).
+Deno.test("trocar_cartao: final ou bandeira fora do formato viram nulos, e a troca ja feita continua valendo", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextChangedCard = { cardBrand: "visa.debito", cardLast4: "****5682" };
+  const supabase = setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/record_card_change": { status: 200, body: true },
+  });
+  try {
+    const res = await createHandler({ provider })(trocar());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { changed: true, cardBrand: null, cardLast4: null });
+    assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", p_card_brand: null, p_card_last4: null }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_cartao: so o que veio no formato certo e mantido (bandeira sem final, final sem bandeira)", async () => {
+  for (const [changed, esperado] of [
+    [{ cardBrand: "debelo", cardLast4: undefined }, { p_card_brand: "debelo", p_card_last4: null }],
+    [{ cardBrand: undefined, cardLast4: "0042" }, { p_card_brand: null, p_card_last4: "0042" }],
+    [{ cardBrand: "master", cardLast4: "12345" }, { p_card_brand: "master", p_card_last4: null }],
+  ] as const) {
+    const provider = new FakePaymentProvider();
+    provider.nextChangedCard = changed;
+    const supabase = setupSupabase({
+      "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+      "rest/v1/rpc/record_card_change": { status: 200, body: true },
+    });
+    try {
+      const res = await createHandler({ provider })(trocar());
+
+      assertEquals(res.status, 200);
+      assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", ...esperado }]);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+Deno.test("trocar_cartao: se o banco nao grava o cartao novo, diz que a troca aconteceu mas a tela nao atualizou", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/record_card_change": { status: 500, body: { message: "boom" } },
+  });
+  try {
+    const res = await createHandler({ provider })(trocar());
+    const body = await res.json();
+
+    assertEquals(res.status, 500);
+    assertEquals(body.error, "O cartão foi trocado no Mercado Pago, mas não conseguimos atualizar a tela. Recarregue a página.");
+    assertEquals(provider.changedCards.length, 1);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_cartao: nenhum log leva o token do cartao", async () => {
+  const linhas: string[] = [];
+  const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
+  console.log = console.info = console.error = console.warn = (...args: unknown[]) => linhas.push(args.map(String).join(" "));
+  const provider = new FakePaymentProvider();
+  provider.failWith = new PaymentProviderError("Mercado Pago respondeu 400: Invalid card_token_id", 400);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    await createHandler({ provider })(trocar());
+  } finally {
+    Object.assign(console, originais);
+    supabase.restore();
+  }
+
+  assertEquals(linhas.some((linha) => linha.includes(TOKEN_DO_CARTAO)), false, linhas.join("\n"));
+});
+
+// A Public Key nao e segredo (vai para o navegador), mas fica em secret do Supabase como o resto da
+// configuracao do Mercado Pago: cada ambiente tem a sua, e o front pergunta a chave a esta funcao.
+const CHAVE_PUBLICA = "APP_USR-4fe1b3c6-8ed5-4c1e-a5e3-3b0d8d7e1e01";
+
+Deno.test("chave_publica: devolve a Public Key do ambiente ao Gerente", async () => {
+  Deno.env.set("MP_PUBLIC_KEY", CHAVE_PUBLICA);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica" }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { publicKey: CHAVE_PUBLICA });
+  } finally {
+    supabase.restore();
+    Deno.env.delete("MP_PUBLIC_KEY");
+  }
+});
+
+Deno.test("chave_publica: aceita a chave de teste (TEST-) e tira os espacos das pontas do secret", async () => {
+  Deno.env.set("MP_PUBLIC_KEY", "  TEST-4FE1B3C6-8ED5-4C1E-A5E3-3B0D8D7E1E01\n");
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica" }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { publicKey: "TEST-4FE1B3C6-8ED5-4C1E-A5E3-3B0D8D7E1E01" });
+  } finally {
+    supabase.restore();
+    Deno.env.delete("MP_PUBLIC_KEY");
+  }
+});
+
+// A funcao entrega o valor do secret a qualquer Gerente logado. Se alguem colar no lugar da Public Key
+// o Access Token (que comeca igual: APP_USR-...) ou o Client Secret, o segredo iria para o navegador.
+// So sai valor com o formato de Public Key; o resto vira erro 500, e o log diz o que corrigir sem
+// repetir o valor.
+for (const [nome, valor] of [
+  ["o Access Token", "APP_USR-8804558755729035-092911-0123456789abcdef0123456789abcdef-3726971584"],
+  ["um Client Secret", "0123456789abcdef0123456789abcdef"],
+  ["um texto solto", "APP_USR-public-key-de-teste"],
+  ["a chave com aspas coladas", `"${CHAVE_PUBLICA}"`],
+  ["a chave seguida de outro valor", `${CHAVE_PUBLICA} ${CHAVE_PUBLICA}`],
+] as const) {
+  Deno.test(`chave_publica: recusa ${nome} no lugar da Public Key, sem devolver nem logar o valor`, async () => {
+    const linhas: string[] = [];
+    const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
+    console.log = console.info = console.error = console.warn = (...args: unknown[]) => linhas.push(args.map(String).join(" "));
+    Deno.env.set("MP_PUBLIC_KEY", valor);
+    const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+    try {
+      const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica" }));
+      const corpo = await res.text();
+
+      assertEquals(res.status, 500);
+      assertEquals(corpo.includes(valor), false);
+      assertEquals(linhas.length > 0, true, "o erro de configuracao precisa aparecer no log");
+      assertEquals(linhas.some((linha) => linha.includes(valor.trim())), false, linhas.join("\n"));
+    } finally {
+      Object.assign(console, originais);
+      supabase.restore();
+      Deno.env.delete("MP_PUBLIC_KEY");
+    }
+  });
+}
+
+Deno.test("chave_publica: sem a chave configurada, responde 500 sem inventar nada", async () => {
+  Deno.env.delete("MP_PUBLIC_KEY");
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica" }));
+
+    assertEquals(res.status, 500);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("chave_publica: so o Gerente do tenant recebe a chave", async () => {
+  Deno.env.set("MP_PUBLIC_KEY", CHAVE_PUBLICA);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [] } });
+  try {
+    const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica" }));
+
+    assertEquals(res.status, 403);
+  } finally {
+    supabase.restore();
+    Deno.env.delete("MP_PUBLIC_KEY");
+  }
+});

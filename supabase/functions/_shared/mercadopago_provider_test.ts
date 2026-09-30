@@ -255,10 +255,45 @@ Deno.test("mercadopago: the resource id is encoded in the URL path", async () =>
   assertEquals(calls[0].url, "https://api.mercadopago.com/preapproval/..%2F..%2Fusers%2Fme");
 });
 
-Deno.test("mercadopago: operations of tickets 09 to 12 are declared but not built yet", async () => {
+// Spec 052, ticket 09: trocar o cartao e um PUT na assinatura com o token gerado no navegador.
+Deno.test("mercadopago: changeCard sends only the card token in a PUT and reads the new card back", async () => {
+  const { calls, fetchFn } = recordingFetch([{
+    status: 200,
+    body: { id: "pre-9", status: "authorized", card_id: 9861532859, payment_method_id: "master", last_four_digits: "5555" },
+  }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const changed = await provider.changeCard("pre-9", "tok-abc123def456");
+
+  assertEquals(changed, { cardBrand: "master", cardLast4: "5555" });
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].url, "https://api.mercadopago.com/preapproval/pre-9");
+  assertEquals(calls[0].method, "PUT");
+  assertEquals(calls[0].headers["authorization"], `Bearer ${TOKEN}`);
+  assertEquals(calls[0].body, { card_token_id: "tok-abc123def456" });
+});
+
+Deno.test("mercadopago: changeCard without the card digits in the answer keeps only the brand", async () => {
+  const { fetchFn } = recordingFetch([{ status: 200, body: { id: "pre-9", status: "authorized", payment_method_id: "visa" } }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  assertEquals(await provider.changeCard("pre-9", "tok-abc123def456"), { cardBrand: "visa", cardLast4: undefined });
+});
+
+Deno.test("mercadopago: a refused card change becomes a PaymentProviderError without the token", async () => {
+  const { fetchFn } = recordingFetch([{ status: 400, body: { message: "Invalid card_token_id", error: "bad_request" } }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const error = await assertRejects(() => provider.changeCard("pre-9", "tok-abc123def456"), PaymentProviderError);
+
+  assertEquals(error.status, 400);
+  assertEquals(error.message.includes("tok-abc123def456"), false);
+  assertEquals(error.message.includes(TOKEN), false);
+});
+
+Deno.test("mercadopago: operations of tickets 10 to 12 are declared but not built yet", async () => {
   const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn: () => Promise.reject(new Error("no network")) });
 
-  await assertRejects(() => provider.changeCard("s", "tok"), PaymentProviderNotImplementedError);
   await assertRejects(() => provider.changeAmount("s", 10), PaymentProviderNotImplementedError);
   await assertRejects(() => provider.cancelSubscription("s"), PaymentProviderNotImplementedError);
   await assertRejects(

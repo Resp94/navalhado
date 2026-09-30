@@ -56,6 +56,12 @@ export interface ProviderPayment {
   operationType?: string;
 }
 
+/** O cartao que a assinatura passou a usar depois da troca. O que o provedor nao devolve fica vazio. */
+export interface ChangedCard {
+  cardBrand?: string;
+  cardLast4?: string;
+}
+
 export interface ChargeOnceInput {
   amount: number;
   cardToken: string;
@@ -69,8 +75,9 @@ export interface PaymentProvider {
   createSubscription(input: CreateSubscriptionInput): Promise<CreatedSubscription>;
   getSubscription(subscriptionId: string): Promise<ProviderSubscription>;
   getPayment(paymentId: string): Promise<ProviderPayment>;
-  // Os quatro abaixo so existem de verdade nos tickets 09 a 12 da spec 052.
-  changeCard(subscriptionId: string, cardToken: string): Promise<void>;
+  /** Troca o cartao da assinatura pelo token gerado no navegador (campos seguros). Nao cobra nada. */
+  changeCard(subscriptionId: string, cardToken: string): Promise<ChangedCard>;
+  // Os tres abaixo so existem de verdade nos tickets 10 a 12 da spec 052.
   changeAmount(subscriptionId: string, amount: number): Promise<void>;
   cancelSubscription(subscriptionId: string): Promise<void>;
   chargeOnce(input: ChargeOnceInput): Promise<ProviderPayment>;
@@ -93,14 +100,13 @@ export class PaymentProviderNotImplementedError extends Error {
 }
 
 /**
- * As quatro operacoes que so existem de verdade nos tickets 09 a 12 da spec 052. A versao real e a
+ * As tres operacoes que so existem de verdade nos tickets 10 a 12 da spec 052. A versao real e a
  * falsa usam esta definicao unica: ao construir cada uma, sai daqui e ganha corpo nas duas.
  */
 export const notImplementedOperations: Pick<
   PaymentProvider,
-  "changeCard" | "changeAmount" | "cancelSubscription" | "chargeOnce"
+  "changeAmount" | "cancelSubscription" | "chargeOnce"
 > = {
-  changeCard: () => Promise.reject(new PaymentProviderNotImplementedError("changeCard")),
   changeAmount: () => Promise.reject(new PaymentProviderNotImplementedError("changeAmount")),
   cancelSubscription: () => Promise.reject(new PaymentProviderNotImplementedError("cancelSubscription")),
   chargeOnce: () => Promise.reject(new PaymentProviderNotImplementedError("chargeOnce")),
