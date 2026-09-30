@@ -33,6 +33,8 @@ describe('SupabasePlanosAdapter.obterDoTenant (spec 052, tickets 02 e 03)', () =
 
     expect(mockFrom).toHaveBeenCalledWith('tenant_subscriptions');
     expect(cadeia.eq).toHaveBeenCalledWith('tenant_id', 'tenant-a');
+    // Duas chaves para plans (plan_id e scheduled_plan_id): sem a dica o PostgREST recusa o embed.
+    expect(cadeia.select).toHaveBeenCalledWith(expect.stringContaining('plans!tenant_subscriptions_plan_id_fkey('));
     expect(cadeia.maybeSingle).toHaveBeenCalledTimes(1);
     expect(plano).toEqual({ id: 'p1', name: 'Máquina', price: 89.9, max_professionals: 5 });
   });

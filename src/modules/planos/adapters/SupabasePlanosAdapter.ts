@@ -27,7 +27,7 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
   async obterDoTenant(tenantId: string): Promise<Plano | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
-      .select('plans(id, name, price, max_professionals)')
+      .select('plans!tenant_subscriptions_plan_id_fkey(id, name, price, max_professionals)')
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
