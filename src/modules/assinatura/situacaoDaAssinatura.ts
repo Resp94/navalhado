@@ -10,6 +10,9 @@ const ROTULOS: Record<SituacaoDaAssinatura, string> = {
   courtesy: 'Cortesia',
 };
 
+export const ehSituacaoDaAssinatura = (valor: string): valor is SituacaoDaAssinatura =>
+  Object.prototype.hasOwnProperty.call(ROTULOS, valor);
+
 /** Nulo é a barbearia sem assinatura, que não é o mesmo que cancelada. */
 export function rotuloDaSituacao(situacao: SituacaoDaAssinatura | null): string {
   return situacao ? ROTULOS[situacao] : 'Sem assinatura';

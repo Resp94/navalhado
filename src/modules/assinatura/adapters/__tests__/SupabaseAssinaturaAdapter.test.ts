@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRpc, mockInvoke } = vi.hoisted(() => ({ mockRpc: vi.fn(), mockInvoke: vi.fn() }));
+const { mockRpc, mockInvoke, mockFrom } = vi.hoisted(() => ({ mockRpc: vi.fn(), mockInvoke: vi.fn(), mockFrom: vi.fn() }));
 
 vi.mock('../../../../lib/supabase', () => ({
   supabase: {
     rpc: (...args: unknown[]) => mockRpc(...args),
+    from: (...args: unknown[]) => mockFrom(...args),
     functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
   },
 }));
@@ -20,6 +21,7 @@ describe('SupabaseAssinaturaAdapter', () => {
   beforeEach(() => {
     mockRpc.mockReset();
     mockInvoke.mockReset();
+    mockFrom.mockReset();
   });
 
   it('chama a RPC do porteiro sem argumentos', async () => {
@@ -127,6 +129,160 @@ describe('SupabaseAssinaturaAdapter', () => {
       mockInvoke.mockResolvedValue({ data: { subscriptionId: 'pre-3' }, error: null });
 
       await expect(adapter.assinar()).rejects.toThrow('Não foi possível iniciar a assinatura. Tente de novo.');
+    });
+  });
+
+  // Spec 052, ticket 06: a tela Assinatura lê a linha da assinatura e o histórico gravado pelo
+  // webhook. Quem garante que o Gerente só vê a própria barbearia é a RLS; o filtro por tenant é
+  // o cinto extra que também vale para o Proprietário, que enxerga todas.
+  describe('obterAssinatura', () => {
+    const cadeia = (resultado: { data: unknown; error: unknown }) => {
+      const maybeSingle = vi.fn().mockResolvedValue(resultado);
+      const eq = vi.fn().mockReturnValue({ maybeSingle });
+      const select = vi.fn().mockReturnValue({ eq });
+      mockFrom.mockReturnValue({ select });
+      return { select, eq, maybeSingle };
+    };
+
+    const linha = {
+      status: 'active',
+      trial_ends_at: '2026-10-14T23:01:41.950533+00:00',
+      current_period_end: '2026-10-29T23:26:22+00:00',
+      courtesy_ends_at: null,
+      card_brand: 'visa',
+      card_last4: '5682',
+      plans: { name: 'Tesoura', price: '59.90' },
+    };
+
+    it('lê a única assinatura da barbearia, com o plano', async () => {
+      const c = cadeia({ data: linha, error: null });
+
+      const assinatura = await adapter.obterAssinatura('tenant-a');
+
+      expect(mockFrom).toHaveBeenCalledWith('tenant_subscriptions');
+      expect(c.eq).toHaveBeenCalledWith('tenant_id', 'tenant-a');
+      // A tabela tem duas chaves para plans (plan_id e scheduled_plan_id): sem a dica da chave do
+      // plano atual o PostgREST recusa o embed por ambiguidade (visto no DEV).
+      expect(c.select).toHaveBeenCalledWith(expect.stringContaining('plans!tenant_subscriptions_plan_id_fkey('));
+      expect(assinatura).toEqual({
+        situacao: 'active',
+        plano: { nome: 'Tesoura', preco: 59.9 },
+        testeAte: new Date('2026-10-14T23:01:41.950533Z'),
+        periodoAte: new Date('2026-10-29T23:26:22Z'),
+        cortesiaAte: null,
+        cartao: { bandeira: 'visa', final: '5682' },
+      });
+    });
+
+    it('aceita o plano vindo como lista de um elemento', async () => {
+      cadeia({ data: { ...linha, plans: [{ name: 'Bancada', price: 159.9 }] }, error: null });
+
+      expect((await adapter.obterAssinatura('tenant-a'))?.plano).toEqual({ nome: 'Bancada', preco: 159.9 });
+    });
+
+    it('sem cartão gravado, o cartão é nulo', async () => {
+      cadeia({ data: { ...linha, card_brand: null, card_last4: null }, error: null });
+
+      expect((await adapter.obterAssinatura('tenant-a'))?.cartao).toBeNull();
+    });
+
+    it('só a bandeira, quando o final ainda não chegou', async () => {
+      cadeia({ data: { ...linha, card_last4: null }, error: null });
+
+      expect((await adapter.obterAssinatura('tenant-a'))?.cartao).toEqual({ bandeira: 'visa', final: null });
+    });
+
+    it('barbearia sem assinatura devolve nulo', async () => {
+      cadeia({ data: null, error: null });
+
+      await expect(adapter.obterAssinatura('tenant-a')).resolves.toBeNull();
+    });
+
+    it('situação desconhecida é recusada em vez de virar outra por chute', async () => {
+      cadeia({ data: { ...linha, status: 'suspended' }, error: null });
+
+      await expect(adapter.obterAssinatura('tenant-a')).rejects.toThrow('Situação da assinatura desconhecida: suspended');
+    });
+
+    it('erro do banco vira exceção', async () => {
+      cadeia({ data: null, error: { message: 'permission denied' } });
+
+      await expect(adapter.obterAssinatura('tenant-a')).rejects.toThrow('Erro ao ler a assinatura da barbearia: permission denied');
+    });
+  });
+
+  describe('listarCobrancas', () => {
+    const cadeia = (resultado: { data: unknown; error: unknown }) => {
+      const limit = vi.fn().mockResolvedValue(resultado);
+      const order = vi.fn().mockReturnValue({ limit });
+      const eq = vi.fn().mockReturnValue({ order });
+      const select = vi.fn().mockReturnValue({ eq });
+      mockFrom.mockReturnValue({ select });
+      return { select, eq, order, limit };
+    };
+
+    it('lê o histórico da barbearia, da mais recente para a mais antiga, sem consultar o Mercado Pago', async () => {
+      const c = cadeia({
+        data: [
+          {
+            mp_payment_id: '1352660205',
+            amount: '59.90',
+            charged_at: '2026-09-29T23:26:22+00:00',
+            status: 'approved',
+            kind: 'recurring',
+            card_brand: 'visa',
+            card_last4: '5682',
+          },
+          {
+            mp_payment_id: '1352660999',
+            amount: 10,
+            charged_at: '2026-09-30T12:00:00+00:00',
+            status: 'rejected',
+            kind: 'upgrade',
+            card_brand: null,
+            card_last4: null,
+          },
+        ],
+        error: null,
+      });
+
+      const cobrancas = await adapter.listarCobrancas('tenant-a');
+
+      expect(mockFrom).toHaveBeenCalledWith('billing_charges');
+      expect(c.eq).toHaveBeenCalledWith('tenant_id', 'tenant-a');
+      expect(c.order).toHaveBeenCalledWith('charged_at', { ascending: false });
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(mockInvoke).not.toHaveBeenCalled();
+      expect(cobrancas).toEqual([
+        {
+          id: '1352660205',
+          valor: 59.9,
+          cobradaEm: new Date('2026-09-29T23:26:22Z'),
+          situacao: 'approved',
+          tipo: 'recurring',
+          cartao: { bandeira: 'visa', final: '5682' },
+        },
+        {
+          id: '1352660999',
+          valor: 10,
+          cobradaEm: new Date('2026-09-30T12:00:00Z'),
+          situacao: 'rejected',
+          tipo: 'upgrade',
+          cartao: null,
+        },
+      ]);
+    });
+
+    it('sem cobranças, o histórico é vazio', async () => {
+      cadeia({ data: [], error: null });
+
+      await expect(adapter.listarCobrancas('tenant-a')).resolves.toEqual([]);
+    });
+
+    it('erro do banco vira exceção', async () => {
+      cadeia({ data: null, error: { message: 'permission denied' } });
+
+      await expect(adapter.listarCobrancas('tenant-a')).rejects.toThrow('Erro ao ler o histórico de cobranças: permission denied');
     });
   });
 });

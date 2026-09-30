@@ -8,14 +8,15 @@ export const LIMITE_DE_TENTATIVAS = 24;
 /**
  * O Gerente volta da página do Mercado Pago em `/configuracoes?assinatura=retorno`, mas o
  * webhook pode chegar depois do redirecionamento. Enquanto a URL traz esse retorno e a barbearia
- * continua bloqueada, relê o estado a cada poucos segundos, por um tempo limitado. Devolve se o
+ * ainda não mostra o pagamento confirmado (bloqueada, no porteiro; sem assinatura ativa nem cartão
+ * autorizado, na tela Assinatura), relê a cada poucos segundos, por um tempo limitado. Devolve se o
  * Gerente está voltando de um pagamento, para a tela avisar que a confirmação está em andamento.
  */
-export function useRetornoDoPagamento(search: string, bloqueado: boolean, recarregar: () => void): boolean {
+export function useRetornoDoPagamento(search: string, naoConfirmado: boolean, recarregar: () => void): boolean {
   const aguardando = new URLSearchParams(search).get('assinatura') === 'retorno';
 
   useEffect(() => {
-    if (!aguardando || !bloqueado) return;
+    if (!aguardando || !naoConfirmado) return;
 
     let tentativas = 0;
     const intervalo = setInterval(() => {
@@ -25,7 +26,7 @@ export function useRetornoDoPagamento(search: string, bloqueado: boolean, recarr
     }, INTERVALO_DA_CONFIRMACAO_MS);
 
     return () => clearInterval(intervalo);
-  }, [aguardando, bloqueado, recarregar]);
+  }, [aguardando, naoConfirmado, recarregar]);
 
   return aguardando;
 }

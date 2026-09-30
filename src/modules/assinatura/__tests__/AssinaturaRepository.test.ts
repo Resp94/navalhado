@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AssinaturaRepository } from '../AssinaturaRepository';
 import { InMemoryAssinaturaAdapter } from '../adapters/InMemoryAssinaturaAdapter';
-import type { EstadoDeAcesso } from '../types';
+import type { Cobranca, DetalhesDaAssinatura, EstadoDeAcesso } from '../types';
 
 // Spec 052, ticket 03: o front lê o Estado de Acesso que o banco calculou. Aqui
 // só se testa o que o repositório faz com ele: repassar e contar dias.
@@ -92,5 +92,80 @@ describe('AssinaturaRepository', () => {
 
       await expect(repo.assinar()).rejects.toThrow('A barbearia já tem uma assinatura ativa.');
     });
+  });
+});
+
+// Spec 052, ticket 06: a tela Assinatura lê a assinatura e o histórico de cobranças da própria
+// barbearia. O histórico vem do que o webhook gravou; o repositório não consulta o Mercado Pago.
+describe('AssinaturaRepository: detalhes e histórico', () => {
+  const assinaturaA: DetalhesDaAssinatura = {
+    situacao: 'active',
+    plano: { nome: 'Máquina', preco: 89.9 },
+    testeAte: new Date('2026-10-14T23:00:00Z'),
+    periodoAte: new Date('2026-10-29T23:00:00Z'),
+    cortesiaAte: null,
+    cartao: { bandeira: 'visa', final: '5682' },
+  };
+
+  const cobranca = (id: string, cobradaEm: string): Cobranca => ({
+    id,
+    valor: 89.9,
+    cobradaEm: new Date(cobradaEm),
+    situacao: 'approved',
+    tipo: 'recurring',
+    cartao: { bandeira: 'visa', final: '5682' },
+  });
+
+  const montar = () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    adapter.definirAssinatura('tenant-a', assinaturaA);
+    adapter.definirCobrancas('tenant-a', [cobranca('c1', '2026-09-29T23:00:00Z')]);
+    adapter.definirCobrancas('tenant-b', [cobranca('cb', '2026-09-01T12:00:00Z')]);
+    return new AssinaturaRepository(adapter);
+  };
+
+  it('lê a assinatura da própria barbearia', async () => {
+    await expect(montar().obterAssinatura('tenant-a')).resolves.toEqual(assinaturaA);
+  });
+
+  it('barbearia sem assinatura devolve nulo', async () => {
+    await expect(montar().obterAssinatura('tenant-b')).resolves.toBeNull();
+  });
+
+  it('lê só o histórico da própria barbearia', async () => {
+    const historico = await montar().listarCobrancas('tenant-a');
+
+    expect(historico.map((c) => c.id)).toEqual(['c1']);
+  });
+
+  it('devolve o histórico da mais recente para a mais antiga', async () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    adapter.definirCobrancas('tenant-a', [
+      cobranca('velha', '2026-08-29T12:00:00Z'),
+      cobranca('nova', '2026-10-29T12:00:00Z'),
+      cobranca('meio', '2026-09-29T12:00:00Z'),
+    ]);
+
+    const historico = await new AssinaturaRepository(adapter).listarCobrancas('tenant-a');
+
+    expect(historico.map((c) => c.id)).toEqual(['nova', 'meio', 'velha']);
+  });
+
+  it('barbearia sem cobrança tem histórico vazio', async () => {
+    await expect(montar().listarCobrancas('tenant-sem-cobranca')).resolves.toEqual([]);
+  });
+
+  it('exige o id da barbearia', async () => {
+    const repo = montar();
+
+    await expect(repo.obterAssinatura(' ')).rejects.toThrow(/barbearia/i);
+    await expect(repo.listarCobrancas('')).rejects.toThrow(/barbearia/i);
+  });
+
+  it('propaga a falha do adaptador', async () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    adapter.falharLeituraDaAssinatura(new Error('sem rede'));
+
+    await expect(new AssinaturaRepository(adapter).obterAssinatura('tenant-a')).rejects.toThrow('sem rede');
   });
 });

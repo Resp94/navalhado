@@ -59,7 +59,9 @@ vi.mock('../../../components/Toast', () => ({
 
 // A seção Assinatura tem os próprios testes; aqui só se confere que ela está na página.
 vi.mock('../../../components/acesso/SecaoAssinatura', () => ({
-  SecaoAssinatura: () => <section>Seção Assinatura</section>,
+  SecaoAssinatura: ({ tenantId, timezone }: { tenantId: string; timezone: string }) => (
+    <section>Seção Assinatura de {tenantId} em {timezone}</section>
+  ),
 }));
 
 // Mock do react-router-dom para obter o contexto do tenant
@@ -67,6 +69,7 @@ vi.mock('react-router-dom', () => ({
   useOutletContext: () => ({
     tenantId: 'tenant-test-id',
     tenantName: 'Barbearia Estilo',
+    timezone: 'America/Manaus',
     refreshTenant: mockRefreshTenant,
   }),
 }));
@@ -93,7 +96,7 @@ describe('Configuracoes Page - TDD', () => {
 
     render(<Configuracoes />);
 
-    expect(await screen.findByText('Seção Assinatura')).toBeInTheDocument();
+    expect(await screen.findByText('Seção Assinatura de tenant-test-id em America/Manaus')).toBeInTheDocument();
   });
 
   beforeEach(() => {

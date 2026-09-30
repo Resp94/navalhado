@@ -1,3 +1,5 @@
+import type { SituacaoDaAssinatura } from './situacaoDaAssinatura';
+
 // Estado de Acesso da barbearia (spec 052, ticket 03). O banco calcula; o front só lê.
 export type NivelDeAcesso = 'liberado' | 'aviso' | 'bloqueado';
 
@@ -33,9 +35,42 @@ export interface AssinaturaCriada {
   primeiraCobrancaEm: Date | null;
 }
 
+/** Cartão da assinatura, só para exibição: a bandeira vem na autorização, o final no primeiro pagamento. */
+export interface CartaoDaAssinatura {
+  bandeira: string | null;
+  final: string | null;
+}
+
+/** A assinatura da barbearia como a tela Assinatura mostra (spec 052, ticket 06). */
+export interface DetalhesDaAssinatura {
+  situacao: SituacaoDaAssinatura;
+  plano: { nome: string; preco: number };
+  testeAte: Date | null;
+  /** Fim do período pago: quando a próxima mensalidade vence, ou até quando uma cancelada tem acesso. */
+  periodoAte: Date | null;
+  cortesiaAte: Date | null;
+  cartao: CartaoDaAssinatura | null;
+}
+
+/** Uma linha do histórico de cobranças, gravada pelo webhook do Mercado Pago. */
+export interface Cobranca {
+  id: string;
+  valor: number;
+  cobradaEm: Date;
+  /** Situação do pagamento no Mercado Pago (approved, rejected, refunded...). */
+  situacao: string;
+  /** recurring: mensalidade. upgrade: diferença de plano cobrada na hora. */
+  tipo: 'recurring' | 'upgrade';
+  cartao: CartaoDaAssinatura | null;
+}
+
 export interface IAssinaturaAdapter {
   /** Estado da barbearia de quem está logado, ou nulo se o usuário não tem barbearia. */
   obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null>;
   /** Cria a assinatura da barbearia de quem está logado (só o Gerente consegue) e devolve o link de pagamento. */
   assinar(): Promise<AssinaturaCriada>;
+  /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */
+  obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null>;
+  /** Histórico gravado pelo webhook; não consulta o Mercado Pago. */
+  listarCobrancas(tenantId: string): Promise<Cobranca[]>;
 }
