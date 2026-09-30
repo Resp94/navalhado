@@ -140,6 +140,12 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(cardToken)) {
       return jsonResponse(request, { error: "Não foi possível ler o cartão. Digite os dados de novo." }, 400);
     }
+    // O Mercado Pago não devolve o final do cartão na troca (só a bandeira). O SDK devolve o final junto do
+    // token, e o navegador o manda como dica de exibição para o Gerente reconhecer o cartão na tela. Só vale
+    // com 4 dígitos (o resto é ignorado, sem recusar a troca), o do provedor vale mais, e a próxima cobrança
+    // aprovada traz o final de verdade e o sobrescreve.
+    const rawLast4 = (body as Record<string, unknown>).cardLast4;
+    const hintedLast4 = validCardLast4(typeof rawLast4 === "string" ? rawLast4 : undefined);
     if (!["trialing", "active", "past_due", "blocked"].includes(context.status)) {
       return jsonResponse(request, { error: "Esta assinatura não tem cobrança para trocar o cartão." }, 409);
     }
@@ -158,9 +164,11 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
     try {
       changed = await provider.changeCard(context.mp_subscription_id, cardToken);
     } catch (error) {
-      // A mensagem do provedor nunca leva o token nem dado do pagador; o log so diz o status.
+      // A mensagem do provedor e o status e o texto de erro do Mercado Pago (nunca o corpo do pedido): o
+      // log guarda os dois para quem cuida da configuracao ver o motivo. Se o texto citar o token, ele sai.
       const status = error instanceof PaymentProviderError ? error.status : undefined;
-      console.error(`[billing] Falha do provedor ao trocar o cartão (status ${status ?? "sem resposta"})`);
+      const detail = error instanceof Error ? error.message.split(cardToken).join("[token]") : "erro";
+      console.error(`[billing] Falha do provedor ao trocar o cartão (status ${status ?? "sem resposta"}): ${detail}`);
       // So 400 e 422 dizem que o token do cartão foi recusado. Credencial errada (401, 403), assinatura ou
       // token não encontrados (404), limite de requisições (429) e queda do provedor não são culpa do
       // cartão: mandar o Gerente digitá-lo de novo não resolve.
@@ -170,7 +178,7 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
     }
 
     const cardBrand = validCardBrand(changed.cardBrand);
-    const cardLast4 = validCardLast4(changed.cardLast4);
+    const cardLast4 = validCardLast4(changed.cardLast4) ?? hintedLast4;
     const { error: recordError } = await supabase.rpc("record_card_change", {
       p_tenant_id: context.tenant_id,
       p_card_brand: cardBrand,

@@ -639,6 +639,103 @@ Deno.test("trocar_cartao: se o banco nao grava o cartao novo, diz que a troca ac
   }
 });
 
+// O Mercado Pago nao devolve o final do cartao na troca (so a bandeira). O navegador tem o final: o SDK o
+// devolve junto do token. Ele o manda como dica de exibicao, para o Gerente reconhecer o cartao na tela; a
+// funcao so grava valor com 4 digitos, o que o provedor devolver vale mais, e a proxima cobranca aprovada
+// traz o final de verdade e o sobrescreve.
+Deno.test("trocar_cartao: sem o final do provedor, grava o final que o navegador mandou", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextChangedCard = { cardBrand: "master", cardLast4: undefined };
+  const supabase = setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/record_card_change": { status: 200, body: true },
+  });
+  try {
+    const res = await createHandler({ provider })(trocar({ cardLast4: "0604" }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { changed: true, cardBrand: "master", cardLast4: "0604" });
+    assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", p_card_brand: "master", p_card_last4: "0604" }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_cartao: o final que o provedor devolve vale mais que o que o navegador mandou", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextChangedCard = { cardBrand: "master", cardLast4: "9999" };
+  const supabase = setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/record_card_change": { status: 200, body: true },
+  });
+  try {
+    const res = await createHandler({ provider })(trocar({ cardLast4: "0604" }));
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).cardLast4, "9999");
+    assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", p_card_brand: "master", p_card_last4: "9999" }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const dica of [undefined, null, "", "12", "12345", "abcd", "06 04", "0604\n", 604, ["0604"], { final: "0604" }]) {
+  Deno.test(`trocar_cartao: final do navegador fora do formato (${JSON.stringify(dica) ?? "ausente"}) e ignorado, sem recusar a troca`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.nextChangedCard = { cardBrand: "master", cardLast4: undefined };
+    const supabase = setupSupabase({
+      "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+      "rest/v1/rpc/record_card_change": { status: 200, body: true },
+    });
+    try {
+      const res = await createHandler({ provider })(trocar({ cardLast4: dica }));
+
+      assertEquals(res.status, 200);
+      assertEquals((await res.json()).cardLast4, null);
+      assertEquals(supabase.rpcCalls("record_card_change"), [{ p_tenant_id: "tenant-1", p_card_brand: "master", p_card_last4: null }]);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("trocar_cartao: o Mercado Pago recusa o cartao: o final do navegador nao e gravado", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failWith = new PaymentProviderError("Mercado Pago respondeu 400: Unsupported_credit_card_for_recurring_payment", 400);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    const res = await createHandler({ provider })(trocar({ cardLast4: "0604" }));
+
+    assertEquals(res.status, 422);
+    assertEquals(supabase.rpcCalls("record_card_change").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+// O log da falha guarda o texto de erro do Mercado Pago (e o status) para quem cuida da configuracao ver
+// o motivo; se esse texto citar o token do cartao, o token sai antes de o log ser escrito.
+Deno.test("trocar_cartao: o log traz o motivo que o Mercado Pago deu, sem o token", async () => {
+  const linhas: string[] = [];
+  const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
+  console.log = console.info = console.error = console.warn = (...args: unknown[]) => linhas.push(args.map(String).join(" "));
+  const provider = new FakePaymentProvider();
+  provider.failWith = new PaymentProviderError(`Mercado Pago respondeu 400: card_token_id ${TOKEN_DO_CARTAO} is invalid`, 400);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    await createHandler({ provider })(trocar());
+  } finally {
+    Object.assign(console, originais);
+    supabase.restore();
+  }
+
+  const log = linhas.join("\n");
+  assertEquals(log.includes("status 400"), true, log);
+  assertEquals(log.includes("is invalid"), true, log);
+  assertEquals(log.includes(TOKEN_DO_CARTAO), false, log);
+  assertEquals(log.includes("[token]"), true, log);
+});
+
 Deno.test("trocar_cartao: nenhum log leva o token do cartao", async () => {
   const linhas: string[] = [];
   const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
