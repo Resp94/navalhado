@@ -291,20 +291,137 @@ Deno.test("mercadopago: a refused card change becomes a PaymentProviderError wit
   assertEquals(error.message.includes(TOKEN), false);
 });
 
-Deno.test("mercadopago: operations of tickets 10 to 12 are declared but not built yet", async () => {
+// Spec 052, ticket 10: mudar o valor da assinatura e cobrar a diferenca do upgrade.
+Deno.test("mercadopago: changeAmount sends the new monthly amount in a PUT on the subscription", async () => {
+  const { calls, fetchFn } = recordingFetch([{
+    status: 200,
+    body: { id: "pre-9", status: "authorized", auto_recurring: { transaction_amount: 89.9, currency_id: "BRL" } },
+  }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  await provider.changeAmount("pre-9", 89.9);
+
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].url, "https://api.mercadopago.com/preapproval/pre-9");
+  assertEquals(calls[0].method, "PUT");
+  assertEquals(calls[0].headers["authorization"], `Bearer ${TOKEN}`);
+  assertEquals(calls[0].body, { auto_recurring: { transaction_amount: 89.9, currency_id: "BRL" } });
+});
+
+Deno.test("mercadopago: a refused amount change becomes a PaymentProviderError with the status", async () => {
+  const { fetchFn } = recordingFetch([{ status: 429, body: { message: "local_rate_limited", error: "too_many_requests" } }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const error = await assertRejects(() => provider.changeAmount("pre-9", 89.9), PaymentProviderError);
+
+  assertEquals(error.status, 429);
+  assertEquals(error.message.includes(TOKEN), false);
+});
+
+const chargeInput = {
+  amount: 20,
+  cardToken: "tok-abc123def456",
+  payerEmail: "gerente@barbearia.test",
+  description: "Navalhado - subida para o plano Máquina",
+  externalReference: "tenant-1",
+  idempotencyKey: "upgrade:tenant-1:plan-maquina:tok-abc123def456",
+  kind: "upgrade" as const,
+  planId: "plan-maquina",
+};
+
+Deno.test("mercadopago: chargeOnce posts a single payment with the card token, the idempotency key and the upgrade mark", async () => {
+  const { calls, fetchFn } = recordingFetch([{
+    status: 201,
+    body: {
+      id: 1352660205,
+      status: "approved",
+      status_detail: "accredited",
+      transaction_amount: 20,
+      date_created: "2026-10-11T09:00:01.000-04:00",
+      date_approved: "2026-10-11T09:00:02.000-04:00",
+      external_reference: "tenant-1",
+      metadata: { kind: "upgrade", plan_id: "plan-maquina" },
+      payment_method_id: "visa",
+      card: { last_four_digits: "5682" },
+    },
+  }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const payment = await provider.chargeOnce(chargeInput);
+
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].url, "https://api.mercadopago.com/v1/payments");
+  assertEquals(calls[0].method, "POST");
+  assertEquals(calls[0].headers["authorization"], `Bearer ${TOKEN}`);
+  assertEquals(calls[0].headers["x-idempotency-key"], "upgrade:tenant-1:plan-maquina:tok-abc123def456");
+  assertEquals(calls[0].body, {
+    transaction_amount: 20,
+    token: "tok-abc123def456",
+    description: "Navalhado - subida para o plano Máquina",
+    installments: 1,
+    payer: { email: "gerente@barbearia.test" },
+    external_reference: "tenant-1",
+    metadata: { kind: "upgrade", plan_id: "plan-maquina" },
+  });
+  assertEquals(payment.id, "1352660205");
+  assertEquals(payment.status, "approved");
+  assertEquals(payment.statusDetail, "accredited");
+  assertEquals(payment.amount, 20);
+  assertEquals(payment.approvedAt?.toISOString(), "2026-10-11T13:00:02.000Z");
+  assertEquals(payment.externalReference, "tenant-1");
+  assertEquals(payment.subscriptionId, undefined);
+  assertEquals(payment.cardBrand, "visa");
+  assertEquals(payment.cardLast4, "5682");
+  assertEquals(payment.kind, "upgrade");
+});
+
+Deno.test("mercadopago: chargeOnce without a plan sends no plan_id", async () => {
+  const { calls, fetchFn } = recordingFetch([{ status: 201, body: { id: 7, status: "approved", transaction_amount: 20 } }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  await provider.chargeOnce({ ...chargeInput, planId: undefined });
+
+  assertEquals((calls[0].body as { metadata: unknown }).metadata, { kind: "upgrade" });
+});
+
+// O Mercado Pago responde 201 mesmo quando o cartao e recusado: a recusa esta no status do pagamento.
+Deno.test("mercadopago: a declined card comes back as a rejected payment, not as an error", async () => {
+  const { fetchFn } = recordingFetch([{
+    status: 201,
+    body: {
+      id: 1352660999,
+      status: "rejected",
+      status_detail: "cc_rejected_insufficient_amount",
+      transaction_amount: 20,
+      date_created: "2026-10-11T09:00:01.000-04:00",
+      external_reference: "tenant-1",
+      metadata: { kind: "upgrade", plan_id: "plan-maquina" },
+      payment_method_id: "master",
+      card: { last_four_digits: "0604" },
+    },
+  }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const payment = await provider.chargeOnce(chargeInput);
+
+  assertEquals(payment.status, "rejected");
+  assertEquals(payment.statusDetail, "cc_rejected_insufficient_amount");
+  assertEquals(payment.approvedAt, undefined);
+});
+
+Deno.test("mercadopago: a refused charge request becomes a PaymentProviderError without the tokens", async () => {
+  const { fetchFn } = recordingFetch([{ status: 400, body: { message: "Invalid token", error: "bad_request" } }]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  const error = await assertRejects(() => provider.chargeOnce(chargeInput), PaymentProviderError);
+
+  assertEquals(error.status, 400);
+  assertEquals(error.message.includes("tok-abc123def456"), false);
+  assertEquals(error.message.includes(TOKEN), false);
+});
+
+Deno.test("mercadopago: the operation of ticket 12 is declared but not built yet", async () => {
   const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn: () => Promise.reject(new Error("no network")) });
 
-  await assertRejects(() => provider.changeAmount("s", 10), PaymentProviderNotImplementedError);
   await assertRejects(() => provider.cancelSubscription("s"), PaymentProviderNotImplementedError);
-  await assertRejects(
-    () => provider.chargeOnce({
-      amount: 1,
-      cardToken: "t",
-      payerEmail: "a@b.test",
-      description: "d",
-      externalReference: "r",
-      idempotencyKey: "k",
-    }),
-    PaymentProviderNotImplementedError,
-  );
 });

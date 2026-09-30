@@ -1,5 +1,6 @@
 import {
   type ChangedCard,
+  type ChargeOnceInput,
   type CreatedSubscription,
   type CreateSubscriptionInput,
   notImplementedOperations,
@@ -32,6 +33,26 @@ const asDate = (value: unknown): Date | undefined => {
 
 const asRecord = (value: unknown): MercadoPagoBody =>
   value && typeof value === "object" && !Array.isArray(value) ? value as MercadoPagoBody : {};
+
+// O pagamento como o Mercado Pago o devolve, na consulta e na criacao.
+const toPayment = (body: MercadoPagoBody, fallbackId: string): ProviderPayment => {
+  const metadata = asRecord(body.metadata);
+  const card = asRecord(body.card);
+  return {
+    id: asString(body.id) ?? fallbackId,
+    status: asString(body.status) ?? "unknown",
+    statusDetail: asString(body.status_detail),
+    amount: asNumber(body.transaction_amount) ?? 0,
+    createdAt: asDate(body.date_created) ?? new Date(),
+    approvedAt: asDate(body.date_approved),
+    externalReference: asString(body.external_reference),
+    subscriptionId: asString(metadata.preapproval_id) ?? asString(body.preapproval_id),
+    cardBrand: asString(body.payment_method_id),
+    cardLast4: asString(card.last_four_digits),
+    kind: metadata.kind === "upgrade" ? "upgrade" : "recurring",
+    operationType: asString(body.operation_type),
+  };
+};
 
 export const createMercadoPagoProvider = ({
   accessToken,
@@ -128,21 +149,29 @@ export const createMercadoPagoProvider = ({
 
     async getPayment(paymentId: string): Promise<ProviderPayment> {
       const body = await request("GET", `/v1/payments/${encodeURIComponent(paymentId)}`);
-      const metadata = asRecord(body.metadata);
-      const card = asRecord(body.card);
-      return {
-        id: asString(body.id) ?? paymentId,
-        status: asString(body.status) ?? "unknown",
-        amount: asNumber(body.transaction_amount) ?? 0,
-        createdAt: asDate(body.date_created) ?? new Date(),
-        approvedAt: asDate(body.date_approved),
-        externalReference: asString(body.external_reference),
-        subscriptionId: asString(metadata.preapproval_id) ?? asString(body.preapproval_id),
-        cardBrand: asString(body.payment_method_id),
-        cardLast4: asString(card.last_four_digits),
-        kind: metadata.kind === "upgrade" ? "upgrade" : "recurring",
-        operationType: asString(body.operation_type),
-      };
+      return toPayment(body, paymentId);
+    },
+
+    // O valor novo vale a partir da proxima cobranca: nada e cobrado na hora.
+    async changeAmount(subscriptionId: string, amount: number): Promise<void> {
+      await request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, {
+        auto_recurring: { transaction_amount: amount, currency_id: "BRL" },
+      });
+    },
+
+    // Cobranca avulsa no cartao do token (o numero do cartao nunca passa por aqui). O Mercado Pago
+    // responde 201 tambem quando o cartao e recusado: a recusa vem no status do pagamento.
+    async chargeOnce(input: ChargeOnceInput): Promise<ProviderPayment> {
+      const body = await request("POST", "/v1/payments", {
+        transaction_amount: input.amount,
+        token: input.cardToken,
+        description: input.description,
+        installments: 1,
+        payer: { email: input.payerEmail },
+        external_reference: input.externalReference,
+        metadata: { kind: input.kind, ...(input.planId ? { plan_id: input.planId } : {}) },
+      }, input.idempotencyKey);
+      return toPayment(body, "");
     },
   };
 };

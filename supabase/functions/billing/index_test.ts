@@ -10,7 +10,7 @@ Deno.env.set("APP_URL", "https://mock-app.com");
 // Spec 052, ticket 05: acao "assinar" da Edge Function de cobranca. O provedor e o falso; o
 // Supabase e simulado no nivel do fetch, como nos testes da whatsapp-integration.
 
-type Call = { url: string; method: string; body: unknown };
+type Call = { url: string; method: string; body: unknown; authorization?: string };
 type Mock = { status: number; body: unknown };
 
 const trialContext = {
@@ -38,7 +38,12 @@ const setupSupabase = (overrides: Record<string, Mock> = {}) => {
 
   globalThis.fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    calls.push({ url, method: init?.method ?? "GET", body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined });
+    calls.push({
+      url,
+      method: init?.method ?? "GET",
+      body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      authorization: new Headers(init?.headers).get("authorization") ?? undefined,
+    });
     for (const [key, mock] of Object.entries(mocks)) {
       if (url.includes(key)) {
         return Promise.resolve(new Response(JSON.stringify(mock.body), {
@@ -840,5 +845,837 @@ Deno.test("chave_publica: so o Gerente do tenant recebe a chave", async () => {
   } finally {
     supabase.restore();
     Deno.env.delete("MP_PUBLIC_KEY");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Spec 052, ticket 10: subir de plano com diferenca proporcional. A acao "cotar_troca_de_plano" mostra
+// ao Gerente a diferenca e o valor mensal novo antes de confirmar; "trocar_plano" cobra a diferenca no
+// cartao digitado nos campos seguros e so com o pagamento aprovado troca o plano (o limite de
+// profissionais sobe na hora) e o valor da assinatura para a proxima cobranca. Em teste a troca e livre.
+// ---------------------------------------------------------------------------
+
+const PLANO_TESOURA_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c11";
+const PLANO_MAQUINA_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c22";
+// Dia 10 de um periodo pago de 30 dias (1/10 a 31/10): faltam 20 dias, e a diferenca Tesoura -> Maquina
+// (R$ 30,00) proporcional a 20/30 e R$ 20,00.
+const AGORA = new Date("2026-10-11T12:00:00.000Z");
+const contextoDaTroca = {
+  status: "active",
+  mp_subscription_id: "mp-sub-1",
+  current_plan_id: PLANO_TESOURA_ID,
+  current_plan_price: "59.90",
+  target_plan_id: PLANO_MAQUINA_ID,
+  target_plan_name: "Máquina",
+  target_plan_price: "89.90",
+  target_max_professionals: 5,
+  current_period_start: "2026-10-01T12:00:00+00:00",
+  current_period_end: "2026-10-31T12:00:00+00:00",
+  active_professionals: 1,
+};
+
+const supabaseDaTroca = (overrides: Record<string, Mock> = {}) =>
+  setupSupabase({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] },
+    "rest/v1/rpc/get_plan_change_context": { status: 200, body: [contextoDaTroca] },
+    "rest/v1/rpc/apply_plan_change": { status: 200, body: "changed" },
+    "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "recorded" },
+    ...overrides,
+  });
+const comContexto = (contexto: Record<string, unknown>): Record<string, Mock> => ({
+  "rest/v1/rpc/get_plan_change_context": { status: 200, body: [{ ...contextoDaTroca, ...contexto }] },
+});
+const handlerDaTroca = (provider: FakePaymentProvider) => createHandler({ provider, now: () => AGORA });
+const cotar = (extra: Record<string, unknown> = {}) => request({ action: "cotar_troca_de_plano", planId: PLANO_MAQUINA_ID, ...extra });
+const trocarPlano = (extra: Record<string, unknown> = {}) =>
+  request({ action: "trocar_plano", planId: PLANO_MAQUINA_ID, cardToken: TOKEN_DO_CARTAO, expectedAmount: 20, ...extra });
+
+const capturarLogs = () => {
+  const linhas: string[] = [];
+  const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
+  console.log = console.info = console.error = console.warn = (...args: unknown[]) => linhas.push(args.map(String).join(" "));
+  return { linhas, restaurar: () => Object.assign(console, originais) };
+};
+
+const nadaFoiCobradoNemTrocado = (provider: FakePaymentProvider, supabase: ReturnType<typeof setupSupabase>) => {
+  assertEquals(provider.charges.length, 0);
+  assertEquals(provider.changedAmounts.length, 0);
+  assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+};
+
+// --- cotar_troca_de_plano ----------------------------------------------------------------------------------------
+
+Deno.test("cotar_troca_de_plano: mostra a diferenca proporcional aos dias que faltam e o valor mensal novo, sem cobrar nem trocar nada", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    const res = await handlerDaTroca(provider)(cotar());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      mode: "charge",
+      difference: 20,
+      newMonthlyAmount: 89.9,
+      remainingDays: 20,
+      periodDays: 30,
+      planName: "Máquina",
+    });
+    assertEquals(supabase.rpcCalls("get_plan_change_context"), [{ p_tenant_id: "tenant-1", p_plan_id: PLANO_MAQUINA_ID }]);
+    nadaFoiCobradoNemTrocado(provider, supabase);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: no primeiro dia do periodo a diferenca e inteira e no ultimo e de um dia", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    const primeiroDia = await createHandler({ provider, now: () => new Date("2026-10-01T12:00:01.000Z") })(cotar());
+    const ultimoDia = await createHandler({ provider, now: () => new Date("2026-10-31T11:00:00.000Z") })(cotar());
+
+    assertEquals((await primeiroDia.json()).difference, 30);
+    assertEquals((await ultimoDia.json()).difference, 1);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: em teste a troca e livre, sem cobranca", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status: "trialing" }] },
+    ...comContexto({ status: "trialing", current_period_start: null, current_period_end: null, mp_subscription_id: null }),
+  });
+  try {
+    const res = await handlerDaTroca(provider)(cotar());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      mode: "free",
+      difference: 0,
+      newMonthlyAmount: 89.9,
+      remainingDays: null,
+      periodDays: null,
+      planName: "Máquina",
+    });
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: diferenca abaixo do minimo aceito pelo Mercado Pago: a troca sai sem cobranca", async () => {
+  const provider = new FakePaymentProvider();
+  // Periodo de 31 dias e meia hora para acabar: 30,00 x 1/31 = R$ 0,97.
+  const supabase = supabaseDaTroca(comContexto({
+    current_period_start: "2026-09-10T12:30:00+00:00",
+    current_period_end: "2026-10-11T12:30:00+00:00",
+  }));
+  try {
+    const res = await handlerDaTroca(provider)(cotar());
+
+    assertEquals(res.status, 200);
+    const corpo = await res.json();
+    assertEquals(corpo.mode, "no_charge");
+    assertEquals(corpo.difference, 0);
+    assertEquals(corpo.newMonthlyAmount, 89.9);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const status of ["past_due", "blocked", "canceled", "courtesy"]) {
+  Deno.test(`cotar_troca_de_plano: assinatura ${status} responde 409`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca(comContexto({ status }));
+    try {
+      const res = await handlerDaTroca(provider)(cotar());
+
+      assertEquals(res.status, 409);
+      assertEquals(typeof (await res.json()).error, "string");
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("cotar_troca_de_plano: o plano em que a barbearia ja esta, um plano mais barato (ativa) e um plano que nao cabe (em teste) sao recusados", async () => {
+  const provider = new FakePaymentProvider();
+  const casos: Array<[string, Record<string, unknown>]> = [
+    ["o mesmo plano", { target_plan_id: PLANO_TESOURA_ID }],
+    ["um plano mais barato", { current_plan_id: PLANO_MAQUINA_ID, current_plan_price: "89.90", target_plan_id: PLANO_TESOURA_ID, target_plan_price: "59.90", target_max_professionals: 1 }],
+    ["um plano que nao comporta os profissionais ativos", { status: "trialing", target_plan_price: "59.90", target_max_professionals: 1, active_professionals: 3 }],
+  ];
+  for (const [nome, contexto] of casos) {
+    const supabase = supabaseDaTroca(comContexto(contexto));
+    try {
+      const res = await handlerDaTroca(provider)(cotar());
+
+      assertEquals(res.status, 409, nome);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+Deno.test("cotar_troca_de_plano: assinatura ativa sem periodo pago nao tem como calcular a diferenca (500)", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ current_period_start: null, current_period_end: null }));
+  try {
+    const res = await handlerDaTroca(provider)(cotar());
+
+    assertEquals(res.status, 500);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const planId of [undefined, "", "maquina", 42, "b3fa7384-d113-4a1b-a5ed-1efeb7e51c2", "../../plans"]) {
+  Deno.test(`cotar_troca_de_plano e trocar_plano: plano invalido (${JSON.stringify(planId)}) responde 400 sem ler nada`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca();
+    try {
+      const cotacao = await handlerDaTroca(provider)(cotar({ planId }));
+      const troca = await handlerDaTroca(provider)(trocarPlano({ planId }));
+
+      assertEquals(cotacao.status, 400);
+      assertEquals(troca.status, 400);
+      assertEquals(supabase.rpcCalls("get_plan_change_context").length, 0);
+      nadaFoiCobradoNemTrocado(provider, supabase);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("cotar_troca_de_plano e trocar_plano: plano que nao existe responde 404", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/get_plan_change_context": { status: 200, body: [] } });
+  try {
+    assertEquals((await handlerDaTroca(provider)(cotar())).status, 404);
+    assertEquals((await handlerDaTroca(provider)(trocarPlano())).status, 404);
+    nadaFoiCobradoNemTrocado(provider, supabase);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano e trocar_plano: so o Gerente do tenant (Barbeiro, Gerente sem tenant e inativo recebem 403)", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/get_billing_context": { status: 200, body: [] } });
+  try {
+    assertEquals((await handlerDaTroca(provider)(cotar())).status, 403);
+    assertEquals((await handlerDaTroca(provider)(trocarPlano())).status, 403);
+    assertEquals(supabase.rpcCalls("get_plan_change_context").length, 0);
+    nadaFoiCobradoNemTrocado(provider, supabase);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano e trocar_plano: sem login respondem 401", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    assertEquals((await handlerDaTroca(provider)(request({ action: "cotar_troca_de_plano", planId: PLANO_MAQUINA_ID }, {}))).status, 401);
+    assertEquals((await handlerDaTroca(provider)(request({ action: "trocar_plano", planId: PLANO_MAQUINA_ID }, {}))).status, 401);
+    nadaFoiCobradoNemTrocado(provider, supabase);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: falha ao ler o contexto da troca responde 500", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/get_plan_change_context": { status: 500, body: { message: "boom" } } });
+  const logs = capturarLogs();
+  try {
+    assertEquals((await handlerDaTroca(provider)(cotar())).status, 500);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+// --- trocar_plano: assinatura ativa, com cobranca da diferenca -------------------------------------------------------------
+
+Deno.test("trocar_plano: cobra a diferenca proporcional no cartao do token e, aprovada, troca o plano, grava a cobranca e muda o valor da assinatura", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      changed: true,
+      planId: PLANO_MAQUINA_ID,
+      planName: "Máquina",
+      charged: 20,
+      newMonthlyAmount: 89.9,
+      nextChargeUpdated: true,
+    });
+    assertEquals(provider.charges, [{
+      amount: 20,
+      cardToken: TOKEN_DO_CARTAO,
+      payerEmail: "gerente@barbearia.test",
+      description: "Navalhado - subida para o plano Máquina",
+      externalReference: "tenant-1",
+      idempotencyKey: `upgrade:tenant-1:${PLANO_MAQUINA_ID}:${TOKEN_DO_CARTAO}`,
+      kind: "upgrade",
+      planId: PLANO_MAQUINA_ID,
+    }]);
+    assertEquals(supabase.rpcCalls("apply_plan_change"), [{
+      p_tenant_id: "tenant-1",
+      p_plan_id: PLANO_MAQUINA_ID,
+      p_mp_payment_id: "fake-pay-1",
+      p_amount: 20,
+      p_charged_at: "2026-10-11T12:00:02.000Z",
+      p_card_brand: "visa",
+      p_card_last4: "5682",
+    }]);
+    // O valor novo vale na proxima cobranca: o preco cheio do plano novo.
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+    // A troca de plano nao troca o cartao da assinatura.
+    assertEquals(provider.changedCards.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: o final do cartao que o navegador manda so vale se o provedor nao devolveu o dele", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    await handlerDaTroca(provider)(trocarPlano({ cardLast4: "9999" }));
+    provider.nextCharge = { cardLast4: undefined };
+    await handlerDaTroca(provider)(trocarPlano({ cardLast4: "1234" }));
+    await handlerDaTroca(provider)(trocarPlano({ cardLast4: "12; drop table x" }));
+
+    const gravados = supabase.rpcCalls("apply_plan_change") as Array<{ p_card_last4: string | null }>;
+    assertEquals(gravados.map((chamada) => chamada.p_card_last4), ["5682", "1234", null]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: o mesmo cartao (mesmo token) usa a mesma chave de idempotencia; outro cartao e outra tentativa", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    await handlerDaTroca(provider)(trocarPlano());
+    await handlerDaTroca(provider)(trocarPlano());
+    await handlerDaTroca(provider)(trocarPlano({ cardToken: "0f9e8d7c6b5a49382716f5e4d3c2b1a0" }));
+
+    const chaves = provider.charges.map((cobranca) => cobranca.idempotencyKey);
+    assertEquals(chaves[0], chaves[1]);
+    assertEquals(chaves[0] === chaves[2], false);
+  } finally {
+    supabase.restore();
+  }
+});
+
+// O cartao recusado nao e erro: o provedor devolve o pagamento recusado. Nada muda, e a tentativa fica no historico.
+Deno.test("trocar_plano: cartao recusado: 402 com o motivo, o plano continua o mesmo e a tentativa vai para o historico", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextCharge = { status: "rejected", statusDetail: "cc_rejected_insufficient_amount", approvedAt: undefined };
+  const supabase = supabaseDaTroca();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 402);
+    assertEquals(corpo.error.includes("saldo"), true, corpo.error);
+    assertEquals(corpo.error.includes("continua o mesmo"), true, corpo.error);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(supabase.rpcCalls("apply_subscription_payment"), [{
+      p_tenant_id: "tenant-1",
+      p_mp_payment_id: "fake-pay-1",
+      p_mp_subscription_id: null,
+      p_status: "rejected",
+      p_amount: 20,
+      p_charged_at: "2026-10-11T12:00:01.000Z",
+      p_kind: "upgrade",
+      p_card_brand: "visa",
+      p_card_last4: "5682",
+    }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const [statusDetail, trecho] of [
+  ["cc_rejected_bad_filled_security_code", "código de segurança"],
+  ["cc_rejected_bad_filled_date", "validade"],
+  ["cc_rejected_call_for_authorize", "autorizar"],
+  ["cc_rejected_other_reason", "recusado"],
+  [undefined, "recusado"],
+] as const) {
+  Deno.test(`trocar_plano: cartao recusado (${statusDetail ?? "sem motivo"}) explica o motivo em linguagem de gente`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.nextCharge = { status: "rejected", statusDetail, approvedAt: undefined };
+    const supabase = supabaseDaTroca();
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 402);
+      assertEquals(corpo.error.includes(trecho), true, corpo.error);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("trocar_plano: a recusa responde mesmo que o historico nao grave a tentativa", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextCharge = { status: "rejected", approvedAt: undefined };
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/apply_subscription_payment": { status: 500, body: { message: "boom" } } });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+
+    assertEquals(res.status, 402);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: pagamento em analise no Mercado Pago nao troca o plano e avisa", async () => {
+  const provider = new FakePaymentProvider();
+  provider.nextCharge = { status: "in_process", statusDetail: "pending_contingency", approvedAt: undefined };
+  const supabase = supabaseDaTroca();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 402);
+    assertEquals(corpo.error.includes("analisando"), true, corpo.error);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals((supabase.rpcCalls("apply_subscription_payment")[0] as { p_status: string }).p_status, "in_process");
+  } finally {
+    supabase.restore();
+  }
+});
+
+// So 400 e 422 dizem que o token do cartao foi recusado. O resto (credencial, limite, queda, sem rede) nao e culpa
+// do cartao: o Gerente recebe um texto neutro, e so o log guarda o status.
+for (const status of [400, 422]) {
+  Deno.test(`trocar_plano: o Mercado Pago nao aceita o cartao (${status}): 422, nada muda, sem o token`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.failWith = new PaymentProviderError(`Mercado Pago respondeu ${status}: Invalid token`, status);
+    const supabase = supabaseDaTroca();
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 422);
+      assertEquals(corpo.error, "O Mercado Pago não aceitou o cartão. Confira os dados ou use outro cartão.");
+      assertEquals(JSON.stringify(corpo).includes(TOKEN_DO_CARTAO), false);
+      assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+for (const status of [401, 403, 404, 429, 503, undefined]) {
+  Deno.test(`trocar_plano: falha do provedor que nao e do cartao (${status ?? "sem resposta"}): 502 neutro, nada muda, o motivo so no log`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.failWith = new PaymentProviderError(`Mercado Pago respondeu ${status}: falha com ${TOKEN_DO_CARTAO}`, status);
+    const supabase = supabaseDaTroca();
+    const logs = capturarLogs();
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 502);
+      assertEquals(corpo.error, "Não foi possível cobrar agora. Tente de novo em instantes.");
+      assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+      assertEquals(logs.linhas.some((linha) => linha.includes(String(status ?? "sem resposta"))), true, logs.linhas.join("\n"));
+      assertEquals(logs.linhas.some((linha) => linha.includes(TOKEN_DO_CARTAO)), false, logs.linhas.join("\n"));
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  });
+}
+
+for (const cardToken of [undefined, "", "curto", "com espaço no meio 1234567890", "x".repeat(65), 1234567890123456, "../../users/me"]) {
+  Deno.test(`trocar_plano: token invalido (${JSON.stringify(cardToken)}) responde 400 sem cobrar`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca();
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano({ cardToken }));
+
+      assertEquals(res.status, 400);
+      nadaFoiCobradoNemTrocado(provider, supabase);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+// O valor que o Gerente confirmou na tela e o que sera cobrado: se a diferenca mudou (virou o dia, o periodo
+// foi renovado), a funcao recusa em vez de cobrar um valor que ele nao viu.
+Deno.test("trocar_plano: o valor confirmado na tela tem de ser o que sera cobrado", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    const mudou = await handlerDaTroca(provider)(trocarPlano({ expectedAmount: 21 }));
+    const naoMandou = await handlerDaTroca(provider)(trocarPlano({ expectedAmount: undefined }));
+    const textoNoLugar = await handlerDaTroca(provider)(trocarPlano({ expectedAmount: "20" }));
+
+    assertEquals(mudou.status, 409);
+    assertEquals(naoMandou.status, 400);
+    assertEquals(textoNoLugar.status, 400);
+    nadaFoiCobradoNemTrocado(provider, supabase);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: centavos de diferenca de ponto flutuante no valor confirmado nao bloqueiam a troca", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ current_period_end: "2026-10-22T12:00:00+00:00" }));
+  try {
+    // Periodo de 21 dias, faltam 11: 30,00 x 11/21 = 15,714... = R$ 15,71.
+    const res = await handlerDaTroca(provider)(trocarPlano({ expectedAmount: 15.71 }));
+
+    assertEquals(res.status, 200);
+    assertEquals(provider.charges[0].amount, 15.71);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: se o banco nao consegue trocar o plano depois da cobranca aprovada, avisa que a cobranca foi feita e nao mexe no valor da assinatura", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/apply_plan_change": { status: 500, body: { message: "boom", code: "XX000" } } });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 500);
+    assertEquals(corpo.error.includes("Cobramos a diferença"), true, corpo.error);
+    assertEquals(provider.changedAmounts.length, 0);
+    // O log diz qual pagamento ficou sem troca, para o suporte regularizar; nunca o token.
+    assertEquals(logs.linhas.some((linha) => linha.includes("fake-pay-1")), true, logs.linhas.join("\n"));
+    assertEquals(logs.linhas.some((linha) => linha.includes(TOKEN_DO_CARTAO)), false, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: se o Mercado Pago nao aceita o valor novo da assinatura, o plano ja trocou: responde que deu certo e registra o problema", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 429: local_rate_limited", 429);
+  const supabase = supabaseDaTroca();
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 200);
+    assertEquals(corpo.changed, true);
+    assertEquals(corpo.nextChargeUpdated, false);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(logs.linhas.some((linha) => linha.includes("valor da assinatura") && linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+// --- trocar_plano: sem cobranca --------------------------------------------------------------------------------------------
+
+Deno.test("trocar_plano em teste: a troca e livre, sem cobranca, e muda o valor da assinatura no Mercado Pago se ela ja existe", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status: "trialing" }] },
+    ...comContexto({ status: "trialing", current_period_start: null, current_period_end: null }),
+  });
+  try {
+    const res = await handlerDaTroca(provider)(request({ action: "trocar_plano", planId: PLANO_MAQUINA_ID }));
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      changed: true,
+      planId: PLANO_MAQUINA_ID,
+      planName: "Máquina",
+      charged: 0,
+      newMonthlyAmount: 89.9,
+      nextChargeUpdated: true,
+    });
+    assertEquals(provider.charges.length, 0);
+    assertEquals(supabase.rpcCalls("apply_plan_change"), [{
+      p_tenant_id: "tenant-1",
+      p_plan_id: PLANO_MAQUINA_ID,
+      p_mp_payment_id: null,
+      p_amount: null,
+      p_charged_at: null,
+      p_card_brand: null,
+      p_card_last4: null,
+    }]);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano em teste sem assinatura no Mercado Pago: so troca o plano, sem falar com o provedor", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status: "trialing", mp_subscription_id: null }] },
+    ...comContexto({ status: "trialing", mp_subscription_id: null, current_period_start: null, current_period_end: null }),
+  });
+  try {
+    const res = await handlerDaTroca(provider)(request({ action: "trocar_plano", planId: PLANO_MAQUINA_ID }));
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).nextChargeUpdated, true);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(provider.charges.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano em teste: nao exige cartao nem valor confirmado, e ignora o que vier", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ status: "trialing", current_period_start: null, current_period_end: null }));
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano({ cardToken: undefined, expectedAmount: 999 }));
+
+    assertEquals(res.status, 200);
+    assertEquals(provider.charges.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano com diferenca abaixo do minimo do Mercado Pago: troca o plano sem cobranca avulsa", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({
+    current_period_start: "2026-09-10T12:30:00+00:00",
+    current_period_end: "2026-10-11T12:30:00+00:00",
+  }));
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano({ expectedAmount: 0 }));
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).charged, 0);
+    assertEquals(provider.charges.length, 0);
+    assertEquals((supabase.rpcCalls("apply_plan_change")[0] as { p_mp_payment_id: string | null }).p_mp_payment_id, null);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const status of ["past_due", "blocked", "canceled", "courtesy"]) {
+  Deno.test(`trocar_plano: assinatura ${status} nao troca de plano (409) e nada e cobrado`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca(comContexto({ status }));
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano());
+
+      assertEquals(res.status, 409);
+      nadaFoiCobradoNemTrocado(provider, supabase);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("trocar_plano: o plano em que a barbearia ja esta, um plano mais barato (ativa) e um plano que nao cabe (em teste) nao sao cobrados", async () => {
+  const provider = new FakePaymentProvider();
+  const casos: Array<[string, Record<string, unknown>]> = [
+    ["o mesmo plano", { target_plan_id: PLANO_TESOURA_ID }],
+    ["um plano mais barato", { current_plan_id: PLANO_MAQUINA_ID, current_plan_price: "89.90", target_plan_id: PLANO_TESOURA_ID, target_plan_price: "59.90", target_max_professionals: 1 }],
+    ["um plano que nao comporta os profissionais ativos", { status: "trialing", target_plan_price: "59.90", target_max_professionals: 1, active_professionals: 3 }],
+  ];
+  for (const [nome, contexto] of casos) {
+    const supabase = supabaseDaTroca(comContexto(contexto));
+    try {
+      const res = await handlerDaTroca(provider)(trocarPlano());
+
+      assertEquals(res.status, 409, nome);
+      nadaFoiCobradoNemTrocado(provider, supabase);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+// A funcao do banco e a ultima guarda: se a situacao mudou entre a cotacao e a troca, ela recusa.
+for (const [code, trecho] of [
+  ["55000", "não aceita"],
+  ["53400", "profissionais"],
+  ["22023", "trocar para este plano"],
+  ["XX000", "Tente de novo"],
+] as const) {
+  Deno.test(`trocar_plano sem cobranca: o banco recusa a troca (${code}) e o Gerente recebe o motivo`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca({
+      ...comContexto({ status: "trialing", current_period_start: null, current_period_end: null }),
+      "rest/v1/rpc/apply_plan_change": { status: 400, body: { code, message: "recusado" } },
+    });
+    const logs = capturarLogs();
+    try {
+      const res = await handlerDaTroca(provider)(request({ action: "trocar_plano", planId: PLANO_MAQUINA_ID }));
+      const corpo = await res.json();
+
+      assertEquals(res.status, code === "XX000" ? 500 : 409);
+      assertEquals(corpo.error.includes(trecho), true, corpo.error);
+      assertEquals(provider.changedAmounts.length, 0);
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  });
+}
+
+// --- Credenciais do provedor: o token e a Public Key da cobranca avulsa -------------------------------------------------
+
+// No DEV a assinatura usa o Access Token do vendedor de teste, mas a API de pagamentos so aceita o token de teste do
+// app (e um e-mail de pagador que nao seja de conta de teste). Em prod um token so serve para os dois.
+const respostasDoMercadoPago = {
+  "api.mercadopago.com/v1/payments": {
+    status: 201,
+    body: {
+      id: 1352660205,
+      status: "approved",
+      transaction_amount: 20,
+      date_created: "2026-10-11T09:00:01.000-04:00",
+      date_approved: "2026-10-11T09:00:02.000-04:00",
+      external_reference: "tenant-1",
+      metadata: { kind: "upgrade" },
+      payment_method_id: "visa",
+      card: { last_four_digits: "5682" },
+    },
+  },
+  "api.mercadopago.com/preapproval/mp-sub-1": { status: 200, body: { id: "mp-sub-1", status: "authorized" } },
+};
+
+const usandoCredenciais = async (variaveis: Record<string, string>, teste: () => Promise<void>) => {
+  const nomes = ["MP_ACCESS_TOKEN", "MP_CHARGE_ACCESS_TOKEN", "MP_CHARGE_PAYER_EMAIL"];
+  for (const nome of nomes) Deno.env.delete(nome);
+  for (const [nome, valor] of Object.entries(variaveis)) Deno.env.set(nome, valor);
+  try {
+    await teste();
+  } finally {
+    for (const nome of nomes) Deno.env.delete(nome);
+  }
+};
+
+Deno.test("trocar_plano: com um token separado para a cobranca avulsa, ele cobra e o da assinatura muda o valor; o e-mail do pagador vem da configuracao", async () => {
+  await usandoCredenciais(
+    { MP_ACCESS_TOKEN: "sub-token", MP_CHARGE_ACCESS_TOKEN: "charge-token", MP_CHARGE_PAYER_EMAIL: "pagador-dev@navalhado.test" },
+    async () => {
+      const supabase = supabaseDaTroca(respostasDoMercadoPago);
+      try {
+        const res = await createHandler({ now: () => AGORA })(trocarPlano());
+
+        assertEquals(res.status, 200);
+        const pagamento = supabase.calls.find((chamada) => chamada.url.includes("/v1/payments"));
+        const mudancaDeValor = supabase.calls.find((chamada) => chamada.url.includes("/preapproval/mp-sub-1"));
+        assertEquals(pagamento?.authorization, "Bearer charge-token");
+        assertEquals((pagamento?.body as { payer: { email: string } }).payer.email, "pagador-dev@navalhado.test");
+        assertEquals(mudancaDeValor?.authorization, "Bearer sub-token");
+        assertEquals(mudancaDeValor?.method, "PUT");
+      } finally {
+        supabase.restore();
+      }
+    },
+  );
+});
+
+Deno.test("trocar_plano: sem token separado (prod), o mesmo token cobra e muda o valor, e o pagador e o Gerente", async () => {
+  // O e-mail de pagador configurado sozinho nao vale: sem o token separado ele tiraria o e-mail real do Gerente.
+  await usandoCredenciais({ MP_ACCESS_TOKEN: "sub-token", MP_CHARGE_PAYER_EMAIL: "pagador-dev@navalhado.test" }, async () => {
+    const supabase = supabaseDaTroca(respostasDoMercadoPago);
+    try {
+      const res = await createHandler({ now: () => AGORA })(trocarPlano());
+
+      assertEquals(res.status, 200);
+      const pagamento = supabase.calls.find((chamada) => chamada.url.includes("/v1/payments"));
+      const mudancaDeValor = supabase.calls.find((chamada) => chamada.url.includes("/preapproval/mp-sub-1"));
+      assertEquals(pagamento?.authorization, "Bearer sub-token");
+      assertEquals((pagamento?.body as { payer: { email: string } }).payer.email, "gerente@barbearia.test");
+      assertEquals(mudancaDeValor?.authorization, "Bearer sub-token");
+    } finally {
+      supabase.restore();
+    }
+  });
+});
+
+Deno.test("trocar_plano: sem nenhum token do Mercado Pago configurado, a cobranca responde 500 sem chamar ninguem", async () => {
+  await usandoCredenciais({}, async () => {
+    const supabase = supabaseDaTroca(respostasDoMercadoPago);
+    const logs = capturarLogs();
+    try {
+      const res = await createHandler({ now: () => AGORA })(trocarPlano());
+
+      assertEquals(res.status, 500);
+      assertEquals(supabase.calls.some((chamada) => chamada.url.includes("api.mercadopago.com")), false);
+      assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  });
+});
+
+const CHAVE_DA_COBRANCA = "TEST-0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+Deno.test("chave_publica para a cobranca avulsa: devolve a Public Key separada quando ela esta configurada; senao a da assinatura", async () => {
+  Deno.env.set("MP_PUBLIC_KEY", CHAVE_PUBLICA);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  try {
+    const handler = createHandler({ provider: new FakePaymentProvider() });
+    const semSeparada = await handler(request({ action: "chave_publica", uso: "cobranca" }));
+    Deno.env.set("MP_CHARGE_PUBLIC_KEY", `  ${CHAVE_DA_COBRANCA}\n`);
+    const comSeparada = await handler(request({ action: "chave_publica", uso: "cobranca" }));
+    // A troca de cartao continua com a chave da assinatura: o token so vale para o app que o gerou.
+    const daAssinatura = await handler(request({ action: "chave_publica" }));
+    const uso = await handler(request({ action: "chave_publica", uso: "assinatura" }));
+
+    assertEquals((await semSeparada.json()).publicKey, CHAVE_PUBLICA);
+    assertEquals((await comSeparada.json()).publicKey, CHAVE_DA_COBRANCA);
+    assertEquals((await daAssinatura.json()).publicKey, CHAVE_PUBLICA);
+    assertEquals((await uso.json()).publicKey, CHAVE_PUBLICA);
+  } finally {
+    supabase.restore();
+    Deno.env.delete("MP_PUBLIC_KEY");
+    Deno.env.delete("MP_CHARGE_PUBLIC_KEY");
+  }
+});
+
+Deno.test("chave_publica para a cobranca avulsa: a chave separada com formato errado vira erro 500, sem devolver nem logar o valor", async () => {
+  const valor = "APP_USR-8804558755729035-092911-0123456789abcdef0123456789abcdef-3726971584";
+  Deno.env.set("MP_PUBLIC_KEY", CHAVE_PUBLICA);
+  Deno.env.set("MP_CHARGE_PUBLIC_KEY", valor);
+  const supabase = setupSupabase({ "rest/v1/rpc/get_billing_context": { status: 200, body: [ativa] } });
+  const logs = capturarLogs();
+  try {
+    const res = await createHandler({ provider: new FakePaymentProvider() })(request({ action: "chave_publica", uso: "cobranca" }));
+    const corpo = await res.text();
+
+    assertEquals(res.status, 500);
+    assertEquals(corpo.includes(valor), false);
+    assertEquals(logs.linhas.length > 0, true);
+    assertEquals(logs.linhas.some((linha) => linha.includes(valor)), false, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+    Deno.env.delete("MP_PUBLIC_KEY");
+    Deno.env.delete("MP_CHARGE_PUBLIC_KEY");
   }
 });

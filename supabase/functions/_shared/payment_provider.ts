@@ -42,6 +42,8 @@ export interface ProviderSubscription {
 export interface ProviderPayment {
   id: string;
   status: string;
+  /** Motivo detalhado do status no provedor (por exemplo, cc_rejected_insufficient_amount). */
+  statusDetail?: string;
   amount: number;
   createdAt: Date;
   approvedAt?: Date;
@@ -63,12 +65,20 @@ export interface ChangedCard {
 }
 
 export interface ChargeOnceInput {
+  /** Valor da cobranca em reais. */
   amount: number;
+  /** Token do cartao gerado no navegador (campos seguros): o numero do cartao nunca passa por aqui. */
   cardToken: string;
   payerEmail: string;
   description: string;
+  /** Id do tenant: e como o aviso do provedor volta para a barbearia certa. */
   externalReference: string;
+  /** Mesma chave, mesma cobranca: um clique repetido nao cobra duas vezes. */
   idempotencyKey: string;
+  /** Marca o pagamento no provedor; o aviso volta com a marca e o webhook o reconhece. */
+  kind: ProviderPayment["kind"];
+  /** Plano para o qual a barbearia sobe (upgrade): volta junto do aviso do provedor. */
+  planId?: string;
 }
 
 export interface PaymentProvider {
@@ -77,10 +87,15 @@ export interface PaymentProvider {
   getPayment(paymentId: string): Promise<ProviderPayment>;
   /** Troca o cartao da assinatura pelo token gerado no navegador (campos seguros). Nao cobra nada. */
   changeCard(subscriptionId: string, cardToken: string): Promise<ChangedCard>;
-  // Os tres abaixo so existem de verdade nos tickets 10 a 12 da spec 052.
+  /** Muda o valor mensal da assinatura: vale a partir da proxima cobranca. Nao cobra nada. */
   changeAmount(subscriptionId: string, amount: number): Promise<void>;
-  cancelSubscription(subscriptionId: string): Promise<void>;
+  /**
+   * Cobra uma vez, no cartao do token. Cartao recusado nao e erro: volta como pagamento com status
+   * "rejected". Erro e o pedido que o provedor nao aceitou ou nao respondeu.
+   */
   chargeOnce(input: ChargeOnceInput): Promise<ProviderPayment>;
+  // So existe de verdade no ticket 12 da spec 052.
+  cancelSubscription(subscriptionId: string): Promise<void>;
 }
 
 /** Falha do provedor. A mensagem nunca carrega token nem dado do pagador. */
@@ -100,14 +115,9 @@ export class PaymentProviderNotImplementedError extends Error {
 }
 
 /**
- * As tres operacoes que so existem de verdade nos tickets 10 a 12 da spec 052. A versao real e a
- * falsa usam esta definicao unica: ao construir cada uma, sai daqui e ganha corpo nas duas.
+ * A operacao que so existe de verdade no ticket 12 da spec 052. A versao real e a falsa usam esta
+ * definicao unica: ao construi-la, sai daqui e ganha corpo nas duas.
  */
-export const notImplementedOperations: Pick<
-  PaymentProvider,
-  "changeAmount" | "cancelSubscription" | "chargeOnce"
-> = {
-  changeAmount: () => Promise.reject(new PaymentProviderNotImplementedError("changeAmount")),
+export const notImplementedOperations: Pick<PaymentProvider, "cancelSubscription"> = {
   cancelSubscription: () => Promise.reject(new PaymentProviderNotImplementedError("cancelSubscription")),
-  chargeOnce: () => Promise.reject(new PaymentProviderNotImplementedError("chargeOnce")),
 };
