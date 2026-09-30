@@ -77,6 +77,7 @@ const ativaTesouraParaMaquina: PlanChangeInput = {
   activeProfessionals: 1,
   periodStart: start,
   periodEnd: end30,
+  scheduledPlanId: null,
   now: new Date(start.getTime() + 10 * DAY),
 };
 
@@ -147,14 +148,76 @@ Deno.test("quotePlanChange: o plano em que a barbearia ja esta e recusado", () =
   assertEquals(!quote.ok && quote.code, "same_plan");
 });
 
-Deno.test("quotePlanChange: na assinatura ativa so se sobe (plano mais barato ou de mesmo preco e recusado)", () => {
-  const maisBarato = { ...ativaTesouraParaMaquina, currentPlanId: PLANO_MAQUINA, currentPlanPrice: 89.9, targetPlanId: PLANO_TESOURA, targetPlanPrice: 59.9, targetMaxProfessionals: 1 };
-  const igualDePreco = { ...ativaTesouraParaMaquina, targetPlanPrice: 59.9 };
+const ativaMaquinaParaTesoura: PlanChangeInput = {
+  ...ativaTesouraParaMaquina,
+  currentPlanId: PLANO_MAQUINA,
+  currentPlanPrice: 89.9,
+  targetPlanId: PLANO_TESOURA,
+  targetPlanName: "Tesoura",
+  targetPlanPrice: 59.9,
+  targetMaxProfessionals: 1,
+};
 
-  const maisBaratoQuote = quotePlanChange(maisBarato);
-  assertEquals(!maisBaratoQuote.ok && maisBaratoQuote.code, "not_higher");
-  const igualQuote = quotePlanChange(igualDePreco);
-  assertEquals(!igualQuote.ok && igualQuote.code, "not_higher");
+Deno.test("quotePlanChange: na assinatura ativa, um plano mais barato e descida agendada: sem cobranca, vale na proxima cobranca", () => {
+  assertEquals(quotePlanChange(ativaMaquinaParaTesoura), {
+    ok: true,
+    mode: "scheduled",
+    difference: 0,
+    newMonthlyAmount: 59.9,
+    remainingDays: null,
+    periodDays: null,
+    effectiveAt: end30,
+  });
+});
+
+Deno.test("quotePlanChange: a descida agendada nao depende do dia do periodo: sem reembolso, o valor e sempre zero", () => {
+  for (const dias of [0, 15, 29]) {
+    const quote = quotePlanChange({ ...ativaMaquinaParaTesoura, now: new Date(start.getTime() + dias * DAY) });
+    assertEquals(quote.ok && quote.difference, 0, `dia ${dias}`);
+    assertEquals(quote.ok && quote.mode, "scheduled", `dia ${dias}`);
+  }
+});
+
+Deno.test("quotePlanChange: um plano de mesmo preco nao e subida nem descida", () => {
+  const quote = quotePlanChange({ ...ativaTesouraParaMaquina, targetPlanPrice: 59.9 });
+
+  assertEquals(!quote.ok && quote.code, "same_price");
+});
+
+Deno.test("quotePlanChange: a descida que ja esta agendada para o mesmo plano e recusada", () => {
+  const quote = quotePlanChange({ ...ativaMaquinaParaTesoura, scheduledPlanId: PLANO_TESOURA });
+
+  assertEquals(!quote.ok && quote.code, "already_scheduled");
+});
+
+Deno.test("quotePlanChange: com uma descida agendada para outro plano, agendar um terceiro troca o agendamento", () => {
+  const quote = quotePlanChange({
+    ...ativaMaquinaParaTesoura,
+    currentPlanId: PLANO_BANCADA,
+    currentPlanPrice: 159.9,
+    targetPlanId: PLANO_MAQUINA,
+    targetPlanName: "Máquina",
+    targetPlanPrice: 89.9,
+    targetMaxProfessionals: 5,
+    scheduledPlanId: PLANO_TESOURA,
+  });
+
+  assertEquals(quote.ok && quote.mode, "scheduled");
+});
+
+Deno.test("quotePlanChange: descer com mais profissionais ativos do que o plano menor aceita diz quantos precisam ser desativados", () => {
+  const tres = quotePlanChange({ ...ativaMaquinaParaTesoura, activeProfessionals: 3 });
+  const dois = quotePlanChange({ ...ativaMaquinaParaTesoura, currentPlanId: PLANO_BANCADA, targetMaxProfessionals: 1, activeProfessionals: 2 });
+
+  assertEquals(!tres.ok && tres.code, "over_limit");
+  assertEquals(!tres.ok && tres.message.includes("Desative 2 profissionais"), true);
+  assertEquals(!dois.ok && dois.message.includes("Desative 1 profissional antes"), true);
+});
+
+Deno.test("quotePlanChange: a descida agendada precisa do fim do periodo pago para dizer quando vale", () => {
+  const quote = quotePlanChange({ ...ativaMaquinaParaTesoura, periodStart: null, periodEnd: null });
+
+  assertEquals(!quote.ok && quote.code, "no_period");
 });
 
 for (const status of ["past_due", "blocked", "canceled", "courtesy", "desconhecida"]) {

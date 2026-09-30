@@ -857,6 +857,7 @@ Deno.test("chave_publica: so o Gerente do tenant recebe a chave", async () => {
 
 const PLANO_TESOURA_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c11";
 const PLANO_MAQUINA_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c22";
+const PLANO_BANCADA_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c33";
 // Dia 10 de um periodo pago de 30 dias (1/10 a 31/10): faltam 20 dias, e a diferenca Tesoura -> Maquina
 // (R$ 30,00) proporcional a 20/30 e R$ 20,00.
 const AGORA = new Date("2026-10-11T12:00:00.000Z");
@@ -873,6 +874,7 @@ const contextoDaTroca = {
   current_period_end: "2026-10-31T12:00:00+00:00",
   active_professionals: 1,
   failed_upgrade_attempts: 0,
+  scheduled_plan_id: null,
 };
 
 const supabaseDaTroca = (overrides: Record<string, Mock> = {}) =>
@@ -881,6 +883,8 @@ const supabaseDaTroca = (overrides: Record<string, Mock> = {}) =>
     "rest/v1/rpc/get_plan_change_context": { status: 200, body: [contextoDaTroca] },
     "rest/v1/rpc/apply_plan_change": { status: 200, body: "changed" },
     "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "recorded" },
+    "rest/v1/rpc/schedule_plan_downgrade": { status: 200, body: "scheduled" },
+    "rest/v1/rpc/cancel_plan_downgrade": { status: 200, body: "canceled" },
     ...overrides,
   });
 const comContexto = (contexto: Record<string, unknown>): Record<string, Mock> => ({
@@ -1000,11 +1004,10 @@ for (const status of ["past_due", "blocked", "canceled", "courtesy"]) {
   });
 }
 
-Deno.test("cotar_troca_de_plano: o plano em que a barbearia ja esta, um plano mais barato (ativa) e um plano que nao cabe (em teste) sao recusados", async () => {
+Deno.test("cotar_troca_de_plano: o plano em que a barbearia ja esta e um plano que nao cabe (em teste) sao recusados", async () => {
   const provider = new FakePaymentProvider();
   const casos: Array<[string, Record<string, unknown>]> = [
     ["o mesmo plano", { target_plan_id: PLANO_TESOURA_ID }],
-    ["um plano mais barato", { current_plan_id: PLANO_MAQUINA_ID, current_plan_price: "89.90", target_plan_id: PLANO_TESOURA_ID, target_plan_price: "59.90", target_max_professionals: 1 }],
     ["um plano que nao comporta os profissionais ativos", { status: "trialing", target_plan_price: "59.90", target_max_professionals: 1, active_professionals: 3 }],
   ];
   for (const [nome, contexto] of casos) {
@@ -1541,11 +1544,10 @@ for (const status of ["past_due", "blocked", "canceled", "courtesy"]) {
   });
 }
 
-Deno.test("trocar_plano: o plano em que a barbearia ja esta, um plano mais barato (ativa) e um plano que nao cabe (em teste) nao sao cobrados", async () => {
+Deno.test("trocar_plano: o plano em que a barbearia ja esta e um plano que nao cabe (em teste) nao sao cobrados", async () => {
   const provider = new FakePaymentProvider();
   const casos: Array<[string, Record<string, unknown>]> = [
     ["o mesmo plano", { target_plan_id: PLANO_TESOURA_ID }],
-    ["um plano mais barato", { current_plan_id: PLANO_MAQUINA_ID, current_plan_price: "89.90", target_plan_id: PLANO_TESOURA_ID, target_plan_price: "59.90", target_max_professionals: 1 }],
     ["um plano que nao comporta os profissionais ativos", { status: "trialing", target_plan_price: "59.90", target_max_professionals: 1, active_professionals: 3 }],
   ];
   for (const [nome, contexto] of casos) {
@@ -1724,5 +1726,368 @@ Deno.test("chave_publica para a cobranca avulsa: a chave separada com formato er
     supabase.restore();
     Deno.env.delete("MP_PUBLIC_KEY");
     Deno.env.delete("MP_CHARGE_PUBLIC_KEY");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Spec 052, ticket 11: descer de plano agendado. Na assinatura ativa, "trocar_plano" para um plano mais
+// barato nao cobra nem troca nada agora: agenda o plano menor para a proxima cobranca (sem reembolso),
+// muda o valor da assinatura no Mercado Pago e, se o Mercado Pago nao aceitar, desfaz o agendamento para
+// o banco e o Mercado Pago nao ficarem em desacordo. "desfazer_descida" volta o valor da assinatura e
+// tira o agendamento. Em teste descer troca na hora (o caminho do ticket 10).
+// ---------------------------------------------------------------------------
+
+const contextoDaDescida = {
+  current_plan_id: PLANO_MAQUINA_ID,
+  current_plan_price: "89.90",
+  target_plan_id: PLANO_TESOURA_ID,
+  target_plan_name: "Tesoura",
+  target_plan_price: "59.90",
+  target_max_professionals: 1,
+};
+const descer = (extra: Record<string, unknown> = {}) => request({ action: "trocar_plano", planId: PLANO_TESOURA_ID, ...extra });
+const cotarDescida = () => request({ action: "cotar_troca_de_plano", planId: PLANO_TESOURA_ID });
+const desfazerDescida = () => request({ action: "desfazer_descida" });
+const comDescidaAgendada = (extra: Record<string, unknown> = {}) =>
+  comContexto({ ...contextoDaDescida, target_plan_id: PLANO_MAQUINA_ID, scheduled_plan_id: PLANO_TESOURA_ID, ...extra });
+
+Deno.test("cotar_troca_de_plano: descer na assinatura ativa e descida agendada: sem cobranca, vale no fim do periodo pago", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  try {
+    const res = await handlerDaTroca(provider)(cotarDescida());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      mode: "scheduled",
+      difference: 0,
+      newMonthlyAmount: 59.9,
+      remainingDays: null,
+      periodDays: null,
+      effectiveAt: "2026-10-31T12:00:00.000Z",
+      planName: "Tesoura",
+    });
+    nadaFoiCobradoNemTrocado(provider, supabase);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: descer com mais profissionais ativos do que o plano menor aceita responde 409 com quantos desativar", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, active_professionals: 3 }));
+  try {
+    const res = await handlerDaTroca(provider)(cotarDescida());
+
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error.includes("Desative 2 profissionais"), true);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("cotar_troca_de_plano: a descida que ja esta agendada para o mesmo plano responde 409", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, scheduled_plan_id: PLANO_TESOURA_ID }));
+  try {
+    const res = await handlerDaTroca(provider)(cotarDescida());
+
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error.includes("já está agendada"), true);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: descer na assinatura ativa agenda o plano menor e muda o valor da assinatura, sem cobrar e sem pedir cartao", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), {
+      scheduled: true,
+      planId: PLANO_TESOURA_ID,
+      planName: "Tesoura",
+      effectiveAt: "2026-10-31T12:00:00.000Z",
+      newMonthlyAmount: 59.9,
+    });
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade"), [{ p_tenant_id: "tenant-1", p_plan_id: PLANO_TESOURA_ID }]);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 59.9 }]);
+    assertEquals(provider.charges.length, 0);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: descer sem assinatura no Mercado Pago so agenda no banco", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, mp_subscription_id: null }));
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 200);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 1);
+    assertEquals(provider.changedAmounts.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: o Mercado Pago nao aceita o valor novo: o agendamento e desfeito e o Gerente e avisado", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 429: local_rate_limited", 429);
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 502);
+    assertEquals(corpo.error.includes("agendar"), true);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 1);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade"), [{ p_tenant_id: "tenant-1" }]);
+    assertEquals(logs.linhas.some((linha) => linha.includes("429")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: se nem o desfazer do agendamento passa, o log diz que o banco e o Mercado Pago ficaram em desacordo", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 503: unavailable", 503);
+  const supabase = supabaseDaTroca({
+    ...comContexto(contextoDaDescida),
+    "rest/v1/rpc/cancel_plan_downgrade": { status: 500, body: { code: "XX000", message: "falha" } },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("agendamento")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+for (const [code, trecho] of [
+  ["55000", "não aceita"],
+  ["53400", "Desative"],
+  ["22023", "não foi possível"],
+  ["XX000", "Tente de novo"],
+] as const) {
+  Deno.test(`trocar_plano: o banco recusa agendar a descida (${code}) e o Gerente recebe o motivo, sem mexer no Mercado Pago`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca({
+      ...comContexto(contextoDaDescida),
+      "rest/v1/rpc/schedule_plan_downgrade": { status: 400, body: { code, message: "recusado" } },
+    });
+    const logs = capturarLogs();
+    try {
+      const res = await handlerDaTroca(provider)(descer());
+      const corpo = await res.json();
+
+      assertEquals(res.status, code === "XX000" ? 500 : 409);
+      assertEquals(String(corpo.error).toLowerCase().includes(trecho.toLowerCase()), true, corpo.error);
+      assertEquals(provider.changedAmounts.length, 0);
+      assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("trocar_plano: descer com mais profissionais ativos do que o plano menor aceita nao agenda nada", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, active_professionals: 3 }));
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 409);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 0);
+    assertEquals(provider.changedAmounts.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: em teste descer troca na hora, sem agendar", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    "rest/v1/rpc/get_billing_context": { status: 200, body: [{ ...ativa, status: "trialing", mp_subscription_id: null }] },
+    ...comContexto({ ...contextoDaDescida, status: "trialing", mp_subscription_id: null, current_period_start: null, current_period_end: null }),
+  });
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).changed, true);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: subir de plano com uma descida agendada continua cobrando a diferenca (o banco desfaz o agendamento ao trocar)", async () => {
+  const provider = new FakePaymentProvider();
+  // Maquina com descida para a Tesoura agendada subindo para a Bancada: 70,00 x 20/30 = 46,67.
+  const supabase = supabaseDaTroca(comContexto({
+    current_plan_id: PLANO_MAQUINA_ID,
+    current_plan_price: "89.90",
+    target_plan_id: PLANO_BANCADA_ID,
+    target_plan_name: "Bancada",
+    target_plan_price: "159.90",
+    target_max_professionals: 10,
+    scheduled_plan_id: PLANO_TESOURA_ID,
+  }));
+  try {
+    const res = await handlerDaTroca(provider)(
+      request({ action: "trocar_plano", planId: PLANO_BANCADA_ID, cardToken: TOKEN_DO_CARTAO, expectedAmount: 46.67 }),
+    );
+
+    assertEquals(res.status, 200);
+    assertEquals(provider.charges.length, 1);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 159.9 }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+// --- desfazer_descida --------------------------------------------------------------------------------------------
+
+Deno.test("desfazer_descida: volta o valor da assinatura para o do plano atual e tira o agendamento", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comDescidaAgendada());
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { canceled: true });
+    assertEquals(supabase.rpcCalls("get_plan_change_context"), [{ p_tenant_id: "tenant-1", p_plan_id: "plan-maquina" }]);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade"), [{ p_tenant_id: "tenant-1" }]);
+    assertEquals(provider.charges.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: sem descida agendada responde 409 e nao mexe em nada", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comDescidaAgendada({ scheduled_plan_id: null }));
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 409);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const status of ["trialing", "past_due", "blocked", "canceled", "courtesy"]) {
+  Deno.test(`desfazer_descida: assinatura ${status} responde 409`, async () => {
+    const provider = new FakePaymentProvider();
+    const supabase = supabaseDaTroca(comDescidaAgendada({ status }));
+    try {
+      const res = await handlerDaTroca(provider)(desfazerDescida());
+
+      assertEquals(res.status, 409);
+      assertEquals(provider.changedAmounts.length, 0);
+      assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("desfazer_descida: o Mercado Pago nao aceita o valor: o agendamento fica como esta e o Gerente e avisado", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 429: local_rate_limited", 429);
+  const supabase = supabaseDaTroca(comDescidaAgendada());
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 502);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    assertEquals(logs.linhas.some((linha) => linha.includes("429")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: o valor voltou no Mercado Pago mas o banco nao desfez: erro 500 e o log diz qual barbearia conferir", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    ...comDescidaAgendada(),
+    "rest/v1/rpc/cancel_plan_downgrade": { status: 500, body: { code: "XX000", message: "falha" } },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 500);
+    assertEquals(provider.changedAmounts.length, 1);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: sem assinatura no Mercado Pago so desfaz no banco", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comDescidaAgendada({ mp_subscription_id: null }));
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 200);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 1);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: quem nao e Gerente do tenant recebe 403 e nada e lido nem mudado", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/get_billing_context": { status: 200, body: [] } });
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 403);
+    assertEquals(supabase.rpcCalls("get_plan_change_context").length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    assertEquals(provider.changedAmounts.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: sem o token do Mercado Pago configurado nao tenta e o Gerente recebe o erro de cobranca indisponivel", async () => {
+  Deno.env.delete("MP_ACCESS_TOKEN");
+  const supabase = supabaseDaTroca(comDescidaAgendada());
+  const logs = capturarLogs();
+  try {
+    const res = await createHandler({ now: () => AGORA })(desfazerDescida());
+
+    assertEquals(res.status, 500);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
   }
 });

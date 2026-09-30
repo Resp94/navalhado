@@ -2,9 +2,10 @@
 // (get_plan_change_context) e a hora de agora e diz se a troca e possivel e quanto custa na hora.
 //
 // - Em teste a troca e livre (para cima e para baixo) e sem cobranca.
-// - Na assinatura ativa so se sobe, e a diferenca e proporcional aos dias que faltam no periodo pago:
+// - Na assinatura ativa, subir cobra a diferenca proporcional aos dias que faltam no periodo pago:
 //   (preco novo - preco atual) x dias que faltam / dias do periodo, arredondada em centavos. A partir
-//   da proxima cobranca vale o preco cheio do plano novo.
+//   da proxima cobranca vale o preco cheio do plano novo. Descer (ticket 11) nao cobra nem reembolsa nada:
+//   o plano menor fica agendado e vale na proxima cobranca, isto e, no fim do periodo pago.
 // - Diferenca abaixo do minimo que o provedor aceita: o plano troca sem cobranca avulsa.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,22 +31,29 @@ export interface PlanChangeInput {
   /** Periodo pago atual. Em teste nao existe, e a cotacao nao o usa. */
   periodStart: Date | null;
   periodEnd: Date | null;
+  /** Plano da descida ja agendada, se houver (assinatura ativa). */
+  scheduledPlanId: string | null;
   now: Date;
 }
 
-export type PlanChangeRefusalCode = "status" | "same_plan" | "not_higher" | "over_limit" | "no_period";
+export type PlanChangeRefusalCode = "status" | "same_plan" | "same_price" | "already_scheduled" | "over_limit" | "no_period";
 
 export type PlanChangeQuote =
   | {
     ok: true;
-    /** free: em teste, sem cobranca. charge: cobra a diferenca agora. no_charge: diferenca abaixo do minimo, troca sem cobrar. */
-    mode: "free" | "charge" | "no_charge";
+    /**
+     * free: em teste, sem cobranca. charge: cobra a diferenca agora. no_charge: diferenca abaixo do minimo, troca sem
+     * cobrar. scheduled: descida na assinatura ativa, sem cobranca, que vale na proxima cobranca (effectiveAt).
+     */
+    mode: "free" | "charge" | "no_charge" | "scheduled";
     /** Valor cobrado agora, em reais (zero quando nao ha cobranca). */
     difference: number;
     /** Valor mensal do plano novo, que vale a partir da proxima cobranca. */
     newMonthlyAmount: number;
     remainingDays: number | null;
     periodDays: number | null;
+    /** Quando o plano menor passa a valer (so na descida agendada): o fim do periodo pago. */
+    effectiveAt?: Date;
   }
   | { ok: false; code: PlanChangeRefusalCode; message: string };
 
@@ -85,13 +93,19 @@ export const quotePlanChange = (input: PlanChangeInput): PlanChangeQuote => {
   if (input.targetPlanId === input.currentPlanId) {
     return refuse("same_plan", "A barbearia já está neste plano.");
   }
-  if (input.status === "active" && toCents(input.targetPlanPrice) <= toCents(input.currentPlanPrice)) {
-    return refuse("not_higher", "Na assinatura ativa só é possível subir de plano. Descer vale na próxima cobrança.");
+  if (input.status === "active" && toCents(input.targetPlanPrice) === toCents(input.currentPlanPrice)) {
+    return refuse("same_price", "Este plano custa o mesmo que o plano atual.");
+  }
+  if (input.status === "active" && input.scheduledPlanId === input.targetPlanId) {
+    return refuse("already_scheduled", `A mudança para o plano ${input.targetPlanName} já está agendada.`);
   }
   if (input.activeProfessionals > input.targetMaxProfessionals) {
+    const toDeactivate = input.activeProfessionals - input.targetMaxProfessionals;
     return refuse(
       "over_limit",
-      `Seus ${input.activeProfessionals} profissionais ativos não cabem no plano ${input.targetPlanName}, que aceita até ${input.targetMaxProfessionals}. Desative profissionais antes de trocar.`,
+      `Seus ${input.activeProfessionals} profissionais ativos não cabem no plano ${input.targetPlanName}, que aceita até ${input.targetMaxProfessionals}. Desative ${toDeactivate} ${
+        toDeactivate === 1 ? "profissional" : "profissionais"
+      } antes de trocar de plano.`,
     );
   }
 
@@ -108,6 +122,18 @@ export const quotePlanChange = (input: PlanChangeInput): PlanChangeQuote => {
 
   if (!input.periodStart || !input.periodEnd) {
     return refuse("no_period", "Não foi possível calcular a diferença do plano.");
+  }
+  // Descer: sem cobranca e sem reembolso, o plano menor vale quando o periodo pago acaba.
+  if (toCents(input.targetPlanPrice) < toCents(input.currentPlanPrice)) {
+    return {
+      ok: true,
+      mode: "scheduled",
+      difference: 0,
+      newMonthlyAmount: input.targetPlanPrice,
+      remainingDays: null,
+      periodDays: null,
+      effectiveAt: input.periodEnd,
+    };
   }
   const { difference, remainingDays, periodDays } = proratedDifference(
     input.currentPlanPrice,

@@ -6,7 +6,8 @@ import { quotePlanChange } from "./plan_change_quote.ts";
 
 // Edge Function de cobranca da assinatura do Navalhado (spec 052). Acoes: "assinar" (ticket 05),
 // "chave_publica" e "trocar_cartao" (ticket 09), "cotar_troca_de_plano" e "trocar_plano" (ticket 10);
-// descer de plano e cancelar entram nos tickets 11 e 12.
+// descer de plano agendado ("trocar_plano" para um plano mais barato e "desfazer_descida", ticket 11);
+// cancelar entra no ticket 12.
 // Toda acao exige o Gerente do proprio tenant. O token do Mercado Pago fica so em secret do Supabase.
 
 const ALLOWED_ORIGINS = new Set([
@@ -118,6 +119,8 @@ interface PlanChangeContext {
   active_professionals: number;
   /** Tentativas de upgrade do periodo que nao foram aprovadas (recusadas, em analise): entram na chave de idempotencia. */
   failed_upgrade_attempts?: number;
+  /** Plano da descida ja agendada para a proxima cobranca, se houver. */
+  scheduled_plan_id?: string | null;
 }
 
 export interface BillingHandlerDependencies {
@@ -157,7 +160,7 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
   const action = (body as Record<string, unknown>).action;
   if (
     action !== "assinar" && action !== "chave_publica" && action !== "trocar_cartao" &&
-    action !== "cotar_troca_de_plano" && action !== "trocar_plano"
+    action !== "cotar_troca_de_plano" && action !== "trocar_plano" && action !== "desfazer_descida"
   ) {
     return jsonResponse(request, { error: "Ação desconhecida." }, 400);
   }
@@ -315,6 +318,7 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
       activeProfessionals: plan.active_professionals,
       periodStart,
       periodEnd,
+      scheduledPlanId: plan.scheduled_plan_id ?? null,
       now: (dependencies.now ?? (() => new Date()))(),
     });
     if (!quote.ok) {
@@ -329,6 +333,8 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
         newMonthlyAmount: quote.newMonthlyAmount,
         remainingDays: quote.remainingDays,
         periodDays: quote.periodDays,
+        // So a descida agendada tem data: o fim do periodo pago, quando o plano menor passa a valer.
+        effectiveAt: quote.effectiveAt?.toISOString(),
         planName: plan.target_plan_name,
       });
     }
@@ -370,6 +376,62 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
     if (plan.mp_subscription_id && !subscriptionProvider) {
       console.error("[billing] MP_ACCESS_TOKEN não configurado");
       return jsonResponse(request, { error: "Cobrança indisponível." }, 500);
+    }
+
+    // Descer na assinatura ativa (ticket 11): nada e cobrado nem trocado agora. O banco agenda o plano menor
+    // (e quem confere de novo a situacao e se os profissionais ativos cabem) e o valor da assinatura no Mercado
+    // Pago passa a ser o do plano menor, que e o que a proxima cobranca cobra. O banco vai primeiro; se o
+    // Mercado Pago nao aceitar o valor, o agendamento e desfeito, para o plano e a cobranca nao ficarem em
+    // desacordo (plano maior, cobranca menor).
+    if (quote.mode === "scheduled" && quote.effectiveAt) {
+      const { data: scheduledResult, error: scheduleError } = await supabase.rpc("schedule_plan_downgrade", {
+        p_tenant_id: context.tenant_id,
+        p_plan_id: planId,
+      });
+      if (scheduleError) {
+        console.error(`[billing] Falha ao agendar a descida de plano (código ${scheduleError.code ?? "sem código"})`);
+        if (scheduleError.code === "55000") {
+          return jsonResponse(request, { error: "A assinatura não aceita agendar a descida de plano agora." }, 409);
+        }
+        if (scheduleError.code === "53400") {
+          return jsonResponse(request, {
+            error: "Seus profissionais ativos não cabem no plano escolhido. Desative profissionais antes de descer.",
+          }, 409);
+        }
+        if (scheduleError.code === "22023") {
+          return jsonResponse(request, { error: "Não foi possível descer para este plano." }, 409);
+        }
+        return jsonResponse(request, { error: "Não foi possível agendar a descida de plano. Tente de novo." }, 500);
+      }
+
+      if (plan.mp_subscription_id && subscriptionProvider) {
+        try {
+          await subscriptionProvider.changeAmount(plan.mp_subscription_id, targetPrice);
+        } catch (error) {
+          const status = error instanceof PaymentProviderError ? error.status : undefined;
+          console.error(
+            `[billing] Descida de plano não agendada (tenant ${context.tenant_id}, plano ${planId}): o Mercado Pago não aceitou o valor novo da assinatura (status ${status ?? "sem resposta"}): ${error instanceof Error ? error.message : "erro"}`,
+          );
+          // Só desfaz o que este pedido agendou: um agendamento que já existia (clique repetido) fica.
+          if (scheduledResult === "scheduled") {
+            const { error: undoError } = await supabase.rpc("cancel_plan_downgrade", { p_tenant_id: context.tenant_id });
+            if (undoError) {
+              console.error(
+                `[billing] Não foi possível desfazer o agendamento da descida (tenant ${context.tenant_id}, plano ${planId}): o banco guarda a descida e o Mercado Pago segue com o valor antigo`,
+              );
+            }
+          }
+          return jsonResponse(request, { error: "Não foi possível agendar a descida de plano agora. Tente de novo em instantes." }, 502);
+        }
+      }
+
+      return jsonResponse(request, {
+        scheduled: true,
+        planId,
+        planName: plan.target_plan_name,
+        effectiveAt: quote.effectiveAt.toISOString(),
+        newMonthlyAmount: targetPrice,
+      });
     }
 
     let payment: ProviderPayment | null = null;
@@ -497,6 +559,66 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
       newMonthlyAmount: targetPrice,
       nextChargeUpdated,
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ação: desfazer_descida (ticket 11). O Gerente desiste da descida agendada antes da data: o valor da
+  // assinatura no Mercado Pago volta para o do plano atual e o agendamento sai. O Mercado Pago vai primeiro:
+  // se ele não aceitar, o agendamento e o valor menor continuam juntos (coerentes); o contrário, o banco sem
+  // agendamento e o Mercado Pago cobrando menos, deixaria o plano maior com mensalidade menor.
+  // ---------------------------------------------------------------------------
+  if (action === "desfazer_descida") {
+    // O contexto da troca com o proprio plano atual como destino: traz a situação, o preço e o plano agendado.
+    const { data: planRows, error: planError } = await supabase.rpc("get_plan_change_context", {
+      p_tenant_id: context.tenant_id,
+      p_plan_id: context.plan_id,
+    });
+    if (planError) {
+      console.error("[billing] Falha ao ler o contexto da descida de plano");
+      return jsonResponse(request, { error: "Não foi possível ler a assinatura. Tente de novo." }, 500);
+    }
+    const plan = (Array.isArray(planRows) ? planRows[0] : planRows) as PlanChangeContext | undefined;
+    if (!plan || plan.status !== "active") {
+      return jsonResponse(request, { error: "Só a assinatura ativa tem descida de plano para desfazer." }, 409);
+    }
+    if (!plan.scheduled_plan_id) {
+      return jsonResponse(request, { error: "Não há descida de plano agendada." }, 409);
+    }
+    const currentPrice = Number(plan.current_plan_price);
+    if (!Number.isFinite(currentPrice)) {
+      console.error("[billing] Preço do plano inválido no contexto da descida de plano");
+      return jsonResponse(request, { error: "Não foi possível desfazer a descida de plano." }, 500);
+    }
+
+    const subscriptionToken = (Deno.env.get("MP_ACCESS_TOKEN") || "").trim();
+    const provider = dependencies.provider ?? (subscriptionToken ? createMercadoPagoProvider({ accessToken: subscriptionToken }) : null);
+    if (plan.mp_subscription_id && !provider) {
+      console.error("[billing] MP_ACCESS_TOKEN não configurado");
+      return jsonResponse(request, { error: "Cobrança indisponível." }, 500);
+    }
+    if (plan.mp_subscription_id && provider) {
+      try {
+        await provider.changeAmount(plan.mp_subscription_id, currentPrice);
+      } catch (error) {
+        const status = error instanceof PaymentProviderError ? error.status : undefined;
+        console.error(
+          `[billing] Descida de plano não desfeita (tenant ${context.tenant_id}): o Mercado Pago não aceitou o valor da assinatura (status ${status ?? "sem resposta"}): ${error instanceof Error ? error.message : "erro"}`,
+        );
+        return jsonResponse(request, { error: "Não foi possível desfazer a descida de plano agora. Tente de novo em instantes." }, 502);
+      }
+    }
+
+    const { error: cancelError } = await supabase.rpc("cancel_plan_downgrade", { p_tenant_id: context.tenant_id });
+    if (cancelError) {
+      console.error(
+        `[billing] O valor da assinatura voltou no Mercado Pago, mas a descida agendada não foi desfeita (tenant ${context.tenant_id}, código ${cancelError.code ?? "sem código"}): confira a assinatura`,
+      );
+      return cancelError.code === "55000"
+        ? jsonResponse(request, { error: "A assinatura não aceita desfazer a descida de plano agora." }, 409)
+        : jsonResponse(request, { error: "Não foi possível desfazer a descida de plano. Tente de novo." }, 500);
+    }
+
+    return jsonResponse(request, { canceled: true });
   }
 
   // ---------------------------------------------------------------------------
