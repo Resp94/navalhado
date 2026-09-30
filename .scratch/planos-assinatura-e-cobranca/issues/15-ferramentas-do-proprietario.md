@@ -9,6 +9,7 @@ Parte da spec 052 (Planos, assinatura e cobrança recorrente).
   - **cortesia:** marcar e desmarcar, com data de fim opcional; sem cobrança e sem bloqueio enquanto vale
   - **desbloquear** até uma data, com o motivo registrado
   - **ler os detalhes:** plano, situação, datas, profissionais ativos, ids no Mercado Pago e histórico de cobranças
+  - **avisos por e-mail que falharam:** os de `billing_notices` com `status = 'failed'` (esgotaram as tentativas, ou o Resend recusou), com o motivo em `detail`, para o Proprietário perceber uma chave do Resend vencida ou um domínio sem verificação antes de o cliente reclamar (ticket 08)
 - Desbloquear e dar cortesia não criam nem alteram nada no Mercado Pago.
 - A tela Admin > Tenants ganha a coluna de situação e uma visão de detalhe com essas ações, cada uma com confirmação.
 - O `CONTEXT.md` ganha o termo Cortesia.
