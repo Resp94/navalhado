@@ -4,7 +4,8 @@ import type { CartaoDaAssinatura, Cobranca, DetalhesDaAssinatura } from './types
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
 
-const dataCurta = (data: Date, timezone: string): string =>
+/** DD/MM no fuso da barbearia (Brasília, se não houver outro). */
+export const dataCurta = (data: Date, timezone: string = FUSO_PADRAO): string =>
   data.toLocaleDateString('pt-BR', { timeZone: timezone, day: '2-digit', month: '2-digit' });
 
 /** DD/MM/AAAA no fuso da barbearia (Brasília, se não houver outro). */

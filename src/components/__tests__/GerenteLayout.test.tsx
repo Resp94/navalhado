@@ -200,7 +200,7 @@ describe('GerenteLayout Gatekeeper', () => {
   // para o onboarding. O bloqueio do painel é no front; o banco continua entregando os
   // dados do Gerente para ele poder exportá-los.
   describe('porteiro do Estado de Acesso', () => {
-    const painelDaBarbearia = (pathname: string, onboardingCompleted = true, search = '') => {
+    const painelDaBarbearia = (pathname: string, onboardingCompleted = true, search = '', timezone = 'America/Sao_Paulo') => {
       mockUseLocation.mockReturnValue({ pathname, search });
       mockFrom.mockImplementation((table: string) => {
         if (table === 'users') {
@@ -224,7 +224,7 @@ describe('GerenteLayout Gatekeeper', () => {
                     id: 'tenant-123',
                     name: 'Barbearia Navalhado',
                     logo_url: null,
-                    timezone: 'America/Sao_Paulo',
+                    timezone,
                     onboarding_completed: onboardingCompleted,
                   },
                   error: null,
@@ -306,6 +306,29 @@ describe('GerenteLayout Gatekeeper', () => {
 
       expect(await screen.findByRole('status')).toHaveTextContent('Seu período de teste termina em 2 dias.');
       expect(screen.getByTestId('outlet')).toBeInTheDocument();
+    });
+
+    // Spec 052, ticket 07: a data da faixa é a do bloqueio (5 dias depois da primeira recusa), no fuso da barbearia.
+    it('pagamento recusado: mostra a faixa com a data do bloqueio e mantém o painel', async () => {
+      painelDaBarbearia('/agenda');
+      estadoDoBanco('warning', 'payment_failed', '2026-10-03T15:00:00Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'Pagamento recusado. Atualize o cartão até 03/10 para não ter o acesso bloqueado.'
+      );
+      expect(screen.getByTestId('outlet')).toBeInTheDocument();
+    });
+
+    it('pagamento recusado: a data do bloqueio na faixa segue o fuso da barbearia', async () => {
+      painelDaBarbearia('/agenda', true, '', 'America/Manaus');
+      // 03:30 UTC de 04/10: 00:30 do dia 4 em Brasília, 23:30 do dia 3 em Manaus.
+      estadoDoBanco('warning', 'payment_failed', '2026-10-04T03:30:00Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent('até 03/10');
     });
 
     it('liberado: mostra o painel, sem faixa e sem tela de bloqueio', async () => {

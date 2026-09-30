@@ -11,6 +11,8 @@ describe('mensagens de acesso', () => {
       ['payment_failed', 'O pagamento da assinatura não foi aprovado'],
       ['canceled', 'Sua assinatura foi cancelada'],
       ['courtesy_expired', 'A cortesia da sua barbearia terminou'],
+      ['refunded', 'Um pagamento da assinatura foi estornado'],
+      ['charged_back', 'Um pagamento da assinatura foi contestado'],
       ['blocked', 'O acesso da sua barbearia está suspenso'],
     ])('o motivo %s tem o título "%s"', (motivo, titulo) => {
       expect(tituloDoBloqueio(motivo)).toBe(titulo);
@@ -38,6 +40,17 @@ describe('mensagens de acesso', () => {
       expect(texto).toMatch(/dados da sua barbearia continuam guardados/i);
     });
 
+    it.each<[MotivoDeAcesso, RegExp]>([
+      ['refunded', /foi estornado/i],
+      ['charged_back', /foi contestado/i],
+    ])('o motivo %s explica o que aconteceu, convida a assinar de novo e diz que os dados ficam guardados', (motivo, aconteceu) => {
+      const texto = explicacaoDoBloqueio(motivo, 'gerente');
+
+      expect(texto).toMatch(aconteceu);
+      expect(texto).toMatch(/assine um plano de novo/i);
+      expect(texto).toMatch(/dados da sua barbearia continuam guardados/i);
+    });
+
     it('assinatura cancelada explica o cancelamento e convida a assinar de novo', () => {
       const texto = explicacaoDoBloqueio('canceled', 'gerente');
 
@@ -45,7 +58,7 @@ describe('mensagens de acesso', () => {
       expect(texto).toMatch(/assine um plano de novo/i);
     });
 
-    it.each<MotivoDeAcesso>(['trial_expired', 'payment_failed', 'canceled', 'courtesy_expired', 'blocked'])(
+    it.each<MotivoDeAcesso>(['trial_expired', 'payment_failed', 'canceled', 'courtesy_expired', 'refunded', 'charged_back', 'blocked'])(
       'o Barbeiro com o motivo %s só recebe a explicação e a orientação de falar com o gerente',
       (motivo) => {
         const texto = explicacaoDoBloqueio(motivo, 'barbeiro');
@@ -65,9 +78,34 @@ describe('mensagens de acesso', () => {
       expect(mensagemDoAviso(aviso('trial'), 1)).toBe('Seu período de teste termina em 1 dia.');
     });
 
-    it('pagamento recusado diz em quantos dias o acesso bloqueia', () => {
-      expect(mensagemDoAviso(aviso('payment_failed'), 2)).toBe(
-        'O pagamento da sua assinatura foi recusado. O acesso será bloqueado em 2 dias.'
+    // A data é a do bloqueio (5 dias depois da primeira recusa), no fuso da barbearia.
+    it('pagamento recusado diz até que dia atualizar o cartão para não perder o acesso', () => {
+      const recusado: EstadoDeAcesso = {
+        acesso: 'aviso',
+        motivo: 'payment_failed',
+        dataRelevante: new Date('2026-10-03T15:00:00Z'),
+      };
+
+      expect(mensagemDoAviso(recusado, 2)).toBe(
+        'Pagamento recusado. Atualize o cartão até 03/10 para não ter o acesso bloqueado.'
+      );
+    });
+
+    it('a data do bloqueio segue o fuso da barbearia', () => {
+      // 03:30 UTC de 04/10: 00:30 do dia 4 em Brasília, 23:30 do dia 3 em Manaus.
+      const recusado: EstadoDeAcesso = {
+        acesso: 'aviso',
+        motivo: 'payment_failed',
+        dataRelevante: new Date('2026-10-04T03:30:00Z'),
+      };
+
+      expect(mensagemDoAviso(recusado, 1)).toContain('até 04/10');
+      expect(mensagemDoAviso(recusado, 1, 'America/Manaus')).toContain('até 03/10');
+    });
+
+    it('pagamento recusado sem data do bloqueio não inventa uma', () => {
+      expect(mensagemDoAviso(aviso('payment_failed'), null)).toBe(
+        'Pagamento recusado. Atualize o cartão para não ter o acesso bloqueado.'
       );
     });
 

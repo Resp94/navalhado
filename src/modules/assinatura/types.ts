@@ -12,6 +12,8 @@ export type MotivoDeAcesso =
   | 'canceled'
   | 'courtesy'
   | 'courtesy_expired'
+  | 'refunded'
+  | 'charged_back'
   | 'blocked'
   | 'no_subscription';
 

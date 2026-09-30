@@ -1,4 +1,5 @@
 import { pluralizar } from '../../lib/plural';
+import { dataCurta } from './apresentacaoDaAssinatura';
 import type { EstadoDeAcesso, MotivoDeAcesso, PerfilNoBloqueio } from './types';
 
 const TITULO_GENERICO = 'O acesso da sua barbearia está suspenso';
@@ -8,6 +9,8 @@ const TITULOS: Partial<Record<MotivoDeAcesso, string>> = {
   payment_failed: 'O pagamento da assinatura não foi aprovado',
   canceled: 'Sua assinatura foi cancelada',
   courtesy_expired: 'A cortesia da sua barbearia terminou',
+  refunded: 'Um pagamento da assinatura foi estornado',
+  charged_back: 'Um pagamento da assinatura foi contestado',
 };
 
 export function tituloDoBloqueio(motivo: MotivoDeAcesso): string {
@@ -31,16 +34,24 @@ export function explicacaoDoBloqueio(motivo: MotivoDeAcesso, perfil: PerfilNoBlo
   if (motivo === 'canceled') {
     return `Sua assinatura foi cancelada e o período pago acabou. Assine um plano de novo para voltar a usar o Navalhado. ${DADOS_GUARDADOS}`;
   }
+  if (motivo === 'refunded' || motivo === 'charged_back') {
+    const aconteceu = motivo === 'refunded' ? 'estornado' : 'contestado';
+    return `Um pagamento da sua assinatura foi ${aconteceu} e o acesso foi suspenso. Assine um plano de novo para voltar a usar o Navalhado. ${DADOS_GUARDADOS}`;
+  }
   return `Assine um plano para voltar a usar o Navalhado. ${DADOS_GUARDADOS}`;
 }
 
-/** Texto da faixa de aviso. `dias` é a contagem até a data relevante; nulo se não houver. */
-export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null): string {
+/**
+ * Texto da faixa de aviso. `dias` é a contagem até a data relevante; nulo se não houver. No
+ * pagamento recusado a data relevante é a do bloqueio (5 dias depois da primeira recusa), mostrada
+ * no fuso da barbearia.
+ */
+export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, timezone?: string): string {
   const contagem = dias === null ? null : `${dias} ${pluralizar(dias, 'dia', 'dias')}`;
 
   if (estado.motivo === 'payment_failed') {
-    const prazo = contagem ? `O acesso será bloqueado em ${contagem}.` : 'O acesso será bloqueado em breve.';
-    return `O pagamento da sua assinatura foi recusado. ${prazo}`;
+    const ate = estado.dataRelevante ? ` até ${dataCurta(estado.dataRelevante, timezone)}` : '';
+    return `Pagamento recusado. Atualize o cartão${ate} para não ter o acesso bloqueado.`;
   }
 
   return contagem
