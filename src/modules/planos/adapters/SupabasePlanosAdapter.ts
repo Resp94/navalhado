@@ -8,6 +8,14 @@ const paraPlano = (row: { id: string; name: string; price: unknown; max_professi
   max_professionals: row.max_professionals,
 });
 
+type PlanoDaLinha = Parameters<typeof paraPlano>[0];
+
+// O embed do PostgREST chega como objeto, ou como lista de um elemento.
+const primeiro = (relacao: unknown): PlanoDaLinha | null => {
+  const plano = Array.isArray(relacao) ? relacao[0] : relacao;
+  return plano ? (plano as PlanoDaLinha) : null;
+};
+
 export class SupabasePlanosAdapter implements IPlanosAdapter {
   // O catálogo é de leitura pública: o cadastro o lê antes de existir login.
   async listar(): Promise<Plano[]> {
@@ -27,7 +35,10 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
   async obterDoTenant(tenantId: string): Promise<Plano | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
-      .select('plans!tenant_subscriptions_plan_id_fkey(id, name, price, max_professionals)')
+      .select(
+        'plans!tenant_subscriptions_plan_id_fkey(id, name, price, max_professionals), ' +
+          'scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey(id, name, price, max_professionals)',
+      )
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
@@ -35,8 +46,18 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
       throw new Error(`Erro ao ler o plano da barbearia: ${error.message}`);
     }
 
-    const relacao = (data as { plans?: unknown } | null)?.plans;
-    const plano = Array.isArray(relacao) ? relacao[0] : relacao;
-    return plano ? paraPlano(plano as Parameters<typeof paraPlano>[0]) : null;
+    const linha = data as { plans?: unknown; scheduled_plan?: unknown } | null;
+    const atual = primeiro(linha?.plans);
+    if (!atual) return null;
+
+    // Com uma descida agendada o banco já aplica o limite do plano menor (o menor entre o atual e o agendado): é o plano
+    // que a cota mostra.
+    const plano = paraPlano(atual);
+    const agendado = primeiro(linha?.scheduled_plan);
+    if (agendado) {
+      const menor = paraPlano(agendado);
+      if (menor.max_professionals < plano.max_professionals) return menor;
+    }
+    return plano;
   }
 }

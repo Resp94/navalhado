@@ -39,6 +39,37 @@ describe('SupabasePlanosAdapter.obterDoTenant (spec 052, tickets 02 e 03)', () =
     expect(plano).toEqual({ id: 'p1', name: 'Máquina', price: 89.9, max_professionals: 5 });
   });
 
+  // Spec 052, ticket 11: com a descida agendada o banco já recusa cadastros acima do limite do plano menor, então a cota
+  // que a tela mostra tem de ser a dele. O banco usa o menor limite entre o plano atual e o agendado.
+  it('com uma descida agendada, o plano da cota é o plano menor (o limite que o banco já aplica)', async () => {
+    const cadeia = cadeiaDoPlanoDaBarbearia({
+      data: {
+        plans: { id: 'p2', name: 'Máquina', price: '89.90', max_professionals: 5 },
+        scheduled_plan: { id: 'p1', name: 'Tesoura', price: '59.90', max_professionals: 1 },
+      },
+      error: null,
+    });
+
+    const plano = await new SupabasePlanosAdapter().obterDoTenant('tenant-a');
+
+    expect(cadeia.select).toHaveBeenCalledWith(
+      expect.stringContaining('scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey('),
+    );
+    expect(plano).toEqual({ id: 'p1', name: 'Tesoura', price: 59.9, max_professionals: 1 });
+  });
+
+  it('o plano agendado com limite maior que o do atual não muda a cota (só desce)', async () => {
+    cadeiaDoPlanoDaBarbearia({
+      data: {
+        plans: { id: 'p1', name: 'Tesoura', price: '59.90', max_professionals: 1 },
+        scheduled_plan: { id: 'p2', name: 'Máquina', price: '89.90', max_professionals: 5 },
+      },
+      error: null,
+    });
+
+    expect((await new SupabasePlanosAdapter().obterDoTenant('tenant-a'))?.name).toBe('Tesoura');
+  });
+
   it('aceita o plano vindo como lista de um elemento', async () => {
     cadeiaDoPlanoDaBarbearia({
       data: { plans: [{ id: 'p1', name: 'Tesoura', price: 59.9, max_professionals: 1 }] },
