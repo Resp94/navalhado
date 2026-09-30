@@ -99,7 +99,7 @@ export const OnboardingWizard: React.FC = () => {
 
           const { data: subData } = await supabase
             .from('tenant_subscriptions')
-            .select('plans(name, max_professionals)')
+            .select('plans!tenant_subscriptions_plan_id_fkey(name, max_professionals)')
             .eq('tenant_id', tenant.tenantId)
             .single();
 

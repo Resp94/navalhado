@@ -123,17 +123,15 @@ describe('OnboardingWizard Flow (Passos 1 ao 4)', () => {
       }
       if (table === 'tenant_subscriptions') {
         return {
-          select: () => ({
+          // A tabela tem duas chaves para plans (plan_id e scheduled_plan_id): sem a dica da chave
+          // do plano atual o PostgREST recusa o embed por ambiguidade (visto no DEV).
+          select: (colunas: string) => ({
             eq: () => ({
-              single: vi.fn().mockResolvedValue({
-                data: {
-                  plans: {
-                    name: 'Bronze',
-                    max_professionals: 3,
-                  },
-                },
-                error: null,
-              }),
+              single: vi.fn().mockResolvedValue(
+                colunas.includes('plans!tenant_subscriptions_plan_id_fkey(')
+                  ? { data: { plans: { name: 'Bronze', max_professionals: 3 } }, error: null }
+                  : { data: null, error: { message: 'more than one relationship was found for tenant_subscriptions and plans' } },
+              ),
             }),
           }),
         };
