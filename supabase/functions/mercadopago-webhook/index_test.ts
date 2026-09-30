@@ -287,6 +287,67 @@ Deno.test("the decision comes from the provider, not from what the notification 
   }
 });
 
+// Spec 052, ticket 07: a decisao de recusa, estorno e contestacao e do banco (apply_subscription_payment);
+// o webhook so repassa o que o Mercado Pago respondeu e conclui o aviso com o resultado do banco.
+Deno.test("a rejected monthly payment is passed on as rejected, dated by its creation, and the event ends as processed", async () => {
+  const provider = new FakePaymentProvider();
+  // Formato real da mensalidade: sem preapproval_id nos metadados, so com a referencia externa do tenant.
+  provider.payments.set("111", { ...approvedPayment, status: "rejected", approvedAt: undefined, subscriptionId: undefined });
+  const supabase = setupSupabase({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "payment_failed" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    const [applied] = supabase.rpcCalls("apply_subscription_payment") as Array<Record<string, unknown>>;
+    assertEquals(applied.p_tenant_id, TENANT_ID);
+    assertEquals(applied.p_status, "rejected");
+    assertEquals(applied.p_kind, "recurring");
+    assertEquals(applied.p_charged_at, "2026-10-14T15:00:01.000Z");
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_status, "processed");
+    assertEquals(finished.p_detail, "payment_failed");
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (const status of ["refunded", "charged_back"]) {
+  Deno.test(`a ${status} payment is passed on with the original approval date and the event ends as processed`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.payments.set("111", { ...approvedPayment, status });
+    const supabase = setupSupabase({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "blocked" } });
+    try {
+      const res = await handlerWith(provider)(await notification());
+
+      assertEquals(res.status, 200);
+      const [applied] = supabase.rpcCalls("apply_subscription_payment") as Array<Record<string, unknown>>;
+      assertEquals(applied.p_status, status);
+      assertEquals(applied.p_charged_at, "2026-10-14T15:00:03.000Z");
+      const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+      assertEquals(finished.p_status, "processed");
+      assertEquals(finished.p_detail, "blocked");
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("a rejected upgrade charge is passed on as an upgrade, so the database keeps the plan", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", { ...approvedPayment, status: "rejected", approvedAt: undefined, kind: "upgrade" });
+  const supabase = setupSupabase({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "recorded" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    const [applied] = supabase.rpcCalls("apply_subscription_payment") as Array<Record<string, unknown>>;
+    assertEquals(applied.p_status, "rejected");
+    assertEquals(applied.p_kind, "upgrade");
+  } finally {
+    supabase.restore();
+  }
+});
+
 Deno.test("a payment with no subscription id falls back to the tenant in the external reference", async () => {
   const provider = new FakePaymentProvider();
   provider.payments.set("111", { ...approvedPayment, subscriptionId: undefined });

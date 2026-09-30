@@ -202,8 +202,8 @@ select is(
 select is(
   public.apply_subscription_payment('67000000-0000-0000-0000-000000000001', 'pay-3', 'mp-a-1', 'rejected', 89.90,
     '2040-05-01 12:00:00+00', 'recurring', 'visa', '4444'),
-  'recorded',
-  'pagamento recusado so entra no historico'
+  'payment_failed',
+  'mensalidade recusada: a assinatura vira pagamento recusado (ticket 07, no pgTAP 68)'
 );
 
 select is(
@@ -277,8 +277,8 @@ select is(
 select is(
   public.apply_subscription_payment('67000000-0000-0000-0000-000000000001', 'pay-1', 'mp-a-1', 'refunded', 89.90,
     '2040-03-01 12:00:00+00', 'recurring', null, null),
-  'recorded',
-  'o estorno de um pagamento aprovado entra no historico'
+  'blocked',
+  'o estorno de um pagamento aprovado entra no historico e bloqueia (ticket 07, no pgTAP 68)'
 );
 
 select is(
