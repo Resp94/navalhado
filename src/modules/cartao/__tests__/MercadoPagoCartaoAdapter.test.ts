@@ -21,7 +21,7 @@ const criarSdkFalso = () => {
     opcoes: [] as unknown[],
     campos: [] as CampoMontado[],
     dadosDoToken: [] as Array<{ instancia: number; dados: unknown }>,
-    resposta: { id: 'token-do-sdk' } as unknown,
+    resposta: { id: 'token-do-sdk', last_four_digits: '0604' } as unknown,
     rejeicao: null as unknown,
     /** Tipo de campo cuja montagem falha (o elemento não existe mais, por exemplo). */
     falharAoMontar: null as string | null,
@@ -90,9 +90,9 @@ describe('MercadoPagoCartaoAdapter', () => {
     const { adapter, estado } = montarAdaptador();
     const campos = await adapter.montarCampos(ids);
 
-    const token = await campos.gerarToken({ nome: 'MARIA DA SILVA', documento: '52998224725' });
+    const cartao = await campos.gerarToken({ nome: 'MARIA DA SILVA', documento: '52998224725' });
 
-    expect(token).toBe('token-do-sdk');
+    expect(cartao).toEqual({ token: 'token-do-sdk', final: '0604' });
     expect(estado.dadosDoToken.map(({ dados }) => dados)).toEqual([
       { cardholderName: 'MARIA DA SILVA', identificationType: 'CPF', identificationNumber: '52998224725' },
     ]);
@@ -106,6 +106,19 @@ describe('MercadoPagoCartaoAdapter', () => {
 
     expect(estado.dadosDoToken[0].dados).toMatchObject({ identificationType: 'CNPJ', identificationNumber: '11222333000181' });
   });
+
+  // O SDK devolve os 4 últimos dígitos junto do token (o Mercado Pago não os devolve na troca do cartão).
+  // Só o formato certo passa; o resto vem nulo, e o token continua valendo.
+  it.each([undefined, '', '060', '06045', 'abcd', '06 04', 604])(
+    'final do cartão que o SDK não devolveu ou devolveu fora do formato (%j) vem nulo, e o token vale',
+    async (final) => {
+      const { adapter, estado } = montarAdaptador();
+      const campos = await adapter.montarCampos(ids);
+      estado.resposta = { id: 'token-do-sdk', last_four_digits: final };
+
+      await expect(campos.gerarToken(titular)).resolves.toEqual({ token: 'token-do-sdk', final: null });
+    },
+  );
 
   it('cartão que o Mercado Pago não validou (lista de erros do SDK) vira mensagem para o Gerente', async () => {
     const { adapter, estado } = montarAdaptador();

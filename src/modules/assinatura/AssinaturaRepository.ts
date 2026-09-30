@@ -28,12 +28,14 @@ export class AssinaturaRepository {
   }
 
   /**
-   * Troca o cartão da assinatura. Só o token gerado nos campos seguros do Mercado Pago passa por
-   * aqui: o número do cartão nunca chega ao Navalhado. A troca não cobra nada.
+   * Troca o cartão da assinatura. Só o token gerado nos campos seguros do Mercado Pago e os 4 últimos
+   * dígitos passam por aqui: o número do cartão nunca chega ao Navalhado. A troca não cobra nada.
    */
-  async trocarCartao(token: string): Promise<CartaoTrocado> {
+  async trocarCartao(token: string, final?: string | null): Promise<CartaoTrocado> {
     if (!token || !token.trim()) throw new Error(MENSAGEM_CARTAO_ILEGIVEL);
-    return this.adapter.trocarCartao(token.trim());
+    // Os 4 últimos dígitos só valem no formato certo; o resto é ignorado, sem recusar a troca.
+    const quatroDigitos = final && /^[0-9]{4}$/.test(final) ? final : null;
+    return this.adapter.trocarCartao(token.trim(), quatroDigitos);
   }
 
   /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros do cartão. */

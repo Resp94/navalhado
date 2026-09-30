@@ -3,6 +3,7 @@ import { Button } from '../ui';
 import { FormularioDeCartao } from '../cartao/FormularioDeCartao';
 import { useTrocarCartao } from '../../modules/assinatura/useTrocarCartao';
 import type { CartaoRepository } from '../../modules/cartao/CartaoRepository';
+import type { CartaoTokenizado } from '../../modules/cartao/types';
 
 interface TrocarCartaoProps {
   /** Há uma cobrança recusada esperando: o Mercado Pago vai tentá-la de novo no cartão novo. */
@@ -40,9 +41,9 @@ export const TrocarCartao: React.FC<TrocarCartaoProps> = ({
   const [aberto, setAberto] = useState(false);
   const [trocado, setTrocado] = useState(false);
 
-  const enviar = async (token: string) => {
-    const cartao = await trocar(token);
-    if (!cartao) return;
+  const enviar = async ({ token, final }: CartaoTokenizado) => {
+    const cartaoNovo = await trocar(token, final);
+    if (!cartaoNovo) return;
     setTrocado(true);
     onTrocado?.();
   };

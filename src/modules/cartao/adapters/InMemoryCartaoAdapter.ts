@@ -7,6 +7,8 @@ export class InMemoryCartaoAdapter implements ICartaoAdapter {
   readonly titularesRecebidos: DadosDoTitular[] = [];
   /** Faz a montagem e a geração do token falharem com este erro. */
   falharCom: Error | null = null;
+  /** Os 4 últimos dígitos que o Mercado Pago (falso) devolve junto do token. */
+  finalDoCartao: string | null = '0604';
 
   private contadorDeTokens = 0;
 
@@ -21,7 +23,7 @@ export class InMemoryCartaoAdapter implements ICartaoAdapter {
         if (this.falharCom) throw this.falharCom;
         this.titularesRecebidos.push(titular);
         this.contadorDeTokens += 1;
-        return `token-falso-${this.contadorDeTokens}`;
+        return { token: `token-falso-${this.contadorDeTokens}`, final: this.finalDoCartao };
       },
       desmontar: () => {
         ativo = false;

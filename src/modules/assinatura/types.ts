@@ -77,8 +77,11 @@ export interface IAssinaturaAdapter {
   obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null>;
   /** Cria a assinatura da barbearia de quem está logado (só o Gerente consegue) e devolve o link de pagamento. */
   assinar(): Promise<AssinaturaCriada>;
-  /** Troca o cartão da assinatura pelo token gerado nos campos seguros do Mercado Pago (sem cobrança). */
-  trocarCartao(token: string): Promise<CartaoTrocado>;
+  /**
+   * Troca o cartão da assinatura pelo token gerado nos campos seguros do Mercado Pago (sem cobrança).
+   * `final` são os 4 últimos dígitos que o SDK devolveu junto do token: o Mercado Pago não os devolve na troca.
+   */
+  trocarCartao(token: string, final?: string | null): Promise<CartaoTrocado>;
   /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros. */
   obterChavePublica(): Promise<string>;
   /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */

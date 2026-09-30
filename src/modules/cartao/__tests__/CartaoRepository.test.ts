@@ -37,16 +37,19 @@ describe('CartaoRepository', () => {
     primeiro.desmontar();
 
     expect(adapter.montados).toEqual([outrosIds]);
-    await expect(segundo.gerarToken({ nome: 'Maria da Silva', documento: CPF_VALIDO })).resolves.toBe('token-falso-1');
+    await expect(segundo.gerarToken({ nome: 'Maria da Silva', documento: CPF_VALIDO })).resolves.toEqual({
+      token: 'token-falso-1',
+      final: '0604',
+    });
   });
 
   it('gera o token com o titular normalizado: nome sem espaço sobrando, CPF só com dígitos', async () => {
     const { adapter, repo } = montar();
     const campos = await repo.montarCampos(IDS);
 
-    const token = await campos.gerarToken({ nome: '  MARIA   DA SILVA ', documento: CPF_VALIDO });
+    const cartao = await campos.gerarToken({ nome: '  MARIA   DA SILVA ', documento: CPF_VALIDO });
 
-    expect(token).toBe('token-falso-1');
+    expect(cartao).toEqual({ token: 'token-falso-1', final: '0604' });
     expect(adapter.titularesRecebidos).toEqual([{ nome: 'MARIA DA SILVA', documento: '52998224725' }]);
   });
 

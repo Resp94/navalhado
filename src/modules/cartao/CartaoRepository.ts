@@ -1,6 +1,6 @@
 import { documentoValido, normalizarDocumento } from '../plano-contas/documento';
 import { ErroDoCartao } from './types';
-import type { CamposDoCartao, DadosDoTitular, ICartaoAdapter, IdsDosCampos } from './types';
+import type { CamposDoCartao, CartaoTokenizado, DadosDoTitular, ICartaoAdapter, IdsDosCampos } from './types';
 
 const TAMANHO_MINIMO_DO_NOME = 3;
 
@@ -27,7 +27,7 @@ export class CartaoRepository {
     };
   }
 
-  private async gerarToken(campos: CamposDoCartao, titular: DadosDoTitular): Promise<string> {
+  private async gerarToken(campos: CamposDoCartao, titular: DadosDoTitular): Promise<CartaoTokenizado> {
     const nome = titular.nome.trim().replace(/\s+/g, ' ');
     if (nome.length < TAMANHO_MINIMO_DO_NOME) {
       throw new ErroDoCartao('Digite o nome como está no cartão.', 'nome');

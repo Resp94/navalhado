@@ -123,10 +123,14 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
     };
   }
 
-  // Só o token do cartão sai daqui: o número foi digitado nos campos seguros do Mercado Pago. A função
-  // confere no servidor que quem chama é o Gerente da barbearia; o front não manda barbearia nem assinatura.
-  async trocarCartao(token: string): Promise<CartaoTrocado> {
-    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'trocar_cartao', cardToken: token } });
+  // Só o token do cartão e os 4 últimos dígitos saem daqui: o número foi digitado nos campos seguros do
+  // Mercado Pago. Os 4 dígitos são só para exibição (o Mercado Pago não os devolve na troca) e a função os
+  // confere. A função confere no servidor que quem chama é o Gerente da barbearia; o front não manda
+  // barbearia nem assinatura.
+  async trocarCartao(token: string, final: string | null = null): Promise<CartaoTrocado> {
+    const { data, error } = await supabase.functions.invoke('billing', {
+      body: { action: 'trocar_cartao', cardToken: token, ...(final ? { cardLast4: final } : {}) },
+    });
 
     if (error) {
       throw new Error(await mensagemDaFalha(error, MENSAGEM_TROCAR_CARTAO_FALHOU));

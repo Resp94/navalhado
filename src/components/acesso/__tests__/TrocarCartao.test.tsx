@@ -78,7 +78,7 @@ describe('TrocarCartao', () => {
 
     await preencherEEnviar();
 
-    await waitFor(() => expect(mockTrocarCartao).toHaveBeenCalledWith('token-falso-1'));
+    await waitFor(() => expect(mockTrocarCartao).toHaveBeenCalledWith('token-falso-1', '0604'));
     expect(mockTrocarCartao).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('status')).toHaveTextContent('Cartão trocado. A próxima cobrança sai no cartão novo.');
     expect(onTrocado).toHaveBeenCalledTimes(1);
@@ -128,7 +128,7 @@ describe('TrocarCartao', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Trocar cartão' }));
 
-    await waitFor(() => expect(mockTrocarCartao).toHaveBeenLastCalledWith('token-falso-2'));
+    await waitFor(() => expect(mockTrocarCartao).toHaveBeenLastCalledWith('token-falso-2', '0604'));
     expect(await screen.findByRole('status')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -163,7 +163,7 @@ describe('TrocarCartao', () => {
     expect(screen.getByLabelText('Nome no cartão')).toHaveValue('');
     await preencherEEnviar();
 
-    await waitFor(() => expect(mockTrocarCartao).toHaveBeenLastCalledWith('token-falso-2'));
+    await waitFor(() => expect(mockTrocarCartao).toHaveBeenLastCalledWith('token-falso-2', '0604'));
     expect(mockTrocarCartao).toHaveBeenCalledTimes(2);
   });
 });

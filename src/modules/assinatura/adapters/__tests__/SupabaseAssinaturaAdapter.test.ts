@@ -288,15 +288,25 @@ describe('SupabaseAssinaturaAdapter', () => {
 
   // Spec 052, ticket 09: trocar o cartão. O navegador manda só o token gerado nos campos seguros.
   describe('trocarCartao', () => {
-    it('chama a função de cobrança com a ação trocar_cartao e só o token, e devolve o cartão novo', async () => {
-      mockInvoke.mockResolvedValue({ data: { changed: true, cardBrand: 'master', cardLast4: '5555' }, error: null });
+    it('chama a função de cobrança com a ação trocar_cartao, o token e o final do cartão, e devolve o cartão novo', async () => {
+      mockInvoke.mockResolvedValue({ data: { changed: true, cardBrand: 'master', cardLast4: '0604' }, error: null });
 
-      const cartao = await adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a');
+      const cartao = await adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a', '0604');
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', {
+        body: { action: 'trocar_cartao', cardToken: 'e3ed6f098462036dd2cbabe314b9de2a', cardLast4: '0604' },
+      });
+      expect(cartao).toEqual({ bandeira: 'master', final: '0604' });
+    });
+
+    it('sem o final do cartão, manda só o token', async () => {
+      mockInvoke.mockResolvedValue({ data: { changed: true, cardBrand: 'master', cardLast4: null }, error: null });
+
+      await adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a', null);
 
       expect(mockInvoke).toHaveBeenCalledWith('billing', {
         body: { action: 'trocar_cartao', cardToken: 'e3ed6f098462036dd2cbabe314b9de2a' },
       });
-      expect(cartao).toEqual({ bandeira: 'master', final: '5555' });
     });
 
     it('o provedor pode não devolver bandeira nem final: vêm nulos', async () => {

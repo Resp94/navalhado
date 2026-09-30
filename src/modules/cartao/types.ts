@@ -16,13 +16,21 @@ export interface IdsDosCampos {
   codigo: string;
 }
 
+/** O que os campos seguros entregam depois de tokenizar o cartão digitado. */
+export interface CartaoTokenizado {
+  /** O token do cartão: é o que segue para a função de cobrança. */
+  token: string;
+  /** Os 4 últimos dígitos, que o Mercado Pago devolve junto do token e o Gerente reconhece na tela. Nulo se não vieram. */
+  final: string | null;
+}
+
 /**
  * Os campos seguros de UM formulário, já montados na tela. Quem os montou gera o token com eles e os
  * desmonta ao fechar, sem mexer nos campos de outro formulário aberto ao mesmo tempo.
  */
 export interface CamposDoCartao {
-  /** Gera o token do cartão digitado nestes campos seguros. */
-  gerarToken(titular: DadosDoTitular): Promise<string>;
+  /** Tokeniza o cartão digitado nestes campos seguros. */
+  gerarToken(titular: DadosDoTitular): Promise<CartaoTokenizado>;
   /** Tira os campos da tela (o formulário fechou). Depois disso não gera mais token. */
   desmontar(): void;
 }

@@ -15,8 +15,8 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     primeiraCobrancaEm: null,
   };
 
-  /** Tokens de cartão que o Gerente mandou trocar, na ordem. */
-  public cartoesTrocados: string[] = [];
+  /** Cartões que o Gerente mandou trocar (o token e os 4 últimos dígitos), na ordem. */
+  public cartoesTrocados: Array<{ token: string; final: string | null }> = [];
   /** O que `trocarCartao` devolve. Passar um Error faz a chamada falhar. */
   public respostaDeTrocarCartao: CartaoTrocado | Error = { bandeira: 'master', final: '5555' };
   public chavePublica = 'APP_USR-chave-publica-falsa';
@@ -37,8 +37,8 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     return { ...this.respostaDeAssinar };
   }
 
-  async trocarCartao(token: string): Promise<CartaoTrocado> {
-    this.cartoesTrocados.push(token);
+  async trocarCartao(token: string, final: string | null = null): Promise<CartaoTrocado> {
+    this.cartoesTrocados.push({ token, final });
     if (this.respostaDeTrocarCartao instanceof Error) throw this.respostaDeTrocarCartao;
     return { ...this.respostaDeTrocarCartao };
   }

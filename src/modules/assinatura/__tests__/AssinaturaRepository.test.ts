@@ -177,14 +177,22 @@ describe('AssinaturaRepository: trocar cartão', () => {
     return { adapter, repo: new AssinaturaRepository(adapter) };
   };
 
-  it('manda o token ao adaptador e devolve o cartão novo', async () => {
+  it('manda o token e o final do cartão ao adaptador e devolve o cartão novo', async () => {
     const { adapter, repo } = montar();
-    adapter.respostaDeTrocarCartao = { bandeira: 'master', final: '5555' };
+    adapter.respostaDeTrocarCartao = { bandeira: 'master', final: '0604' };
 
-    const cartao = await repo.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a');
+    const cartao = await repo.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a', '0604');
 
-    expect(cartao).toEqual({ bandeira: 'master', final: '5555' });
-    expect(adapter.cartoesTrocados).toEqual(['e3ed6f098462036dd2cbabe314b9de2a']);
+    expect(cartao).toEqual({ bandeira: 'master', final: '0604' });
+    expect(adapter.cartoesTrocados).toEqual([{ token: 'e3ed6f098462036dd2cbabe314b9de2a', final: '0604' }]);
+  });
+
+  it.each([undefined, null, '', '060', '06045', 'abcd'])('final do cartão fora do formato (%j) não vai ao adaptador', async (final) => {
+    const { adapter, repo } = montar();
+
+    await repo.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a', final);
+
+    expect(adapter.cartoesTrocados).toEqual([{ token: 'e3ed6f098462036dd2cbabe314b9de2a', final: null }]);
   });
 
   it('não chama o adaptador sem token', async () => {

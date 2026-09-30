@@ -3,16 +3,17 @@ import { Button, Input } from '../ui';
 import { cartaoRepository } from '../../modules/cartao/repositorio';
 import { ErroDoCartao } from '../../modules/cartao/types';
 import type { CartaoRepository } from '../../modules/cartao/CartaoRepository';
-import type { CamposDoCartao, CampoDoErro } from '../../modules/cartao/types';
+import type { CamposDoCartao, CampoDoErro, CartaoTokenizado } from '../../modules/cartao/types';
 
 interface FormularioDeCartaoProps {
   /** O que o botão diz: "Trocar cartão" na assinatura, "Pagar a diferença" no upgrade. */
   rotuloDoBotao: string;
   /**
-   * Recebe o token gerado nos campos seguros do Mercado Pago. Quem abriu o formulário faz o que
-   * quer com ele (trocar o cartão, cobrar) e mostra a recusa pela prop `erro`.
+   * Recebe o cartão tokenizado nos campos seguros do Mercado Pago: o token e os 4 últimos dígitos.
+   * Quem abriu o formulário faz o que quer com ele (trocar o cartão, cobrar) e mostra a recusa pela
+   * prop `erro`.
    */
-  onToken: (token: string) => Promise<void>;
+  onToken: (cartao: CartaoTokenizado) => Promise<void>;
   onCancelar?: () => void;
   /** A ação de quem abriu o formulário está em andamento. */
   enviando?: boolean;
@@ -24,7 +25,10 @@ interface FormularioDeCartaoProps {
 type EstadoDosCampos = 'carregando' | 'pronto' | 'erro';
 
 const ROTULO_CLASSES = 'text-xs font-extrabold text-text-primary tracking-wide uppercase leading-tight select-none';
-const CAMPO_SEGURO_CLASSES = 'min-h-[42px] rounded-md border border-border bg-bg-primary px-[0.85rem] flex items-center [&>iframe]:w-full';
+// O iframe do Mercado Pago pede height="100%": com altura só mínima, o navegador o faz de 150px. Altura fixa
+// no campo e no iframe dentro dele. O visual é o do Input do design system (contorno de 0,8px, destaque no foco).
+const CAMPO_SEGURO_CLASSES =
+  'h-[42px] rounded-md bg-bg-secondary shadow-[0_0_0_0.8px_var(--color-text-primary)] transition-[box-shadow] duration-150 ease-in focus-within:shadow-[0_0_0_1.5px_var(--color-brand-primary)] px-[0.85rem] flex items-center overflow-hidden [&>iframe]:h-full [&>iframe]:w-full';
 
 /**
  * Formulário do cartão com os campos seguros do Mercado Pago (spec 052, ticket 09). O número, a
@@ -93,9 +97,9 @@ export const FormularioDeCartao: React.FC<FormularioDeCartaoProps> = ({
     if (!campos || estado !== 'pronto' || gerando || enviando) return;
     setErroDoCampo(null);
     setGerando(true);
-    let token: string;
+    let cartao: CartaoTokenizado;
     try {
-      token = await campos.gerarToken({ nome, documento });
+      cartao = await campos.gerarToken({ nome, documento });
     } catch (err) {
       setGerando(false);
       if (err instanceof ErroDoCartao) setErroDoCampo({ campo: err.campo, mensagem: err.message });
@@ -105,7 +109,7 @@ export const FormularioDeCartao: React.FC<FormularioDeCartaoProps> = ({
     setGerando(false);
 
     try {
-      await onToken(token);
+      await onToken(cartao);
     } catch {
       // Quem abriu o formulário mostra a recusa pela prop `erro`.
     }

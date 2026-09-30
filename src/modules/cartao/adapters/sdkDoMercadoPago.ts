@@ -15,7 +15,7 @@ export interface InstanciaDoMercadoPago {
       cardholderName: string;
       identificationType: string;
       identificationNumber: string;
-    }): Promise<{ id?: string }>;
+    }): Promise<{ id?: string; last_four_digits?: unknown }>;
   };
 }
 

@@ -1,5 +1,5 @@
 import { ErroDoCartao } from '../types';
-import type { CamposDoCartao, DadosDoTitular, ICartaoAdapter, IdsDosCampos } from '../types';
+import type { CamposDoCartao, CartaoTokenizado, DadosDoTitular, ICartaoAdapter, IdsDosCampos } from '../types';
 import { carregarSdkDoMercadoPago } from './sdkDoMercadoPago';
 import type { InstanciaDoMercadoPago, MercadoPagoConstrutor } from './sdkDoMercadoPago';
 
@@ -78,8 +78,8 @@ export class MercadoPagoCartaoAdapter implements ICartaoAdapter {
   }
 }
 
-async function gerarToken(instancia: InstanciaDoMercadoPago, titular: DadosDoTitular): Promise<string> {
-  let resposta: { id?: string };
+async function gerarToken(instancia: InstanciaDoMercadoPago, titular: DadosDoTitular): Promise<CartaoTokenizado> {
+  let resposta: { id?: string; last_four_digits?: unknown };
   try {
     resposta = await instancia.fields.createCardToken({
       cardholderName: titular.nome,
@@ -91,5 +91,10 @@ async function gerarToken(instancia: InstanciaDoMercadoPago, titular: DadosDoTit
   }
 
   if (!resposta?.id) throw new ErroDoCartao(MENSAGEM_CARTAO_NAO_VALIDADO, 'cartao');
-  return resposta.id;
+
+  // O Mercado Pago devolve os 4 últimos dígitos junto do token; só o formato certo passa.
+  const final = typeof resposta.last_four_digits === 'string' && /^[0-9]{4}$/.test(resposta.last_four_digits)
+    ? resposta.last_four_digits
+    : null;
+  return { token: resposta.id, final };
 }

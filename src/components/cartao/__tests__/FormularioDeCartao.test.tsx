@@ -55,7 +55,7 @@ describe('FormularioDeCartao', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Salvar cartão' }));
 
-    await waitFor(() => expect(onToken).toHaveBeenCalledWith('token-falso-1'));
+    await waitFor(() => expect(onToken).toHaveBeenCalledWith({ token: 'token-falso-1', final: '0604' }));
     expect(adapter.titularesRecebidos).toEqual([{ nome: 'Maria da Silva', documento: '52998224725' }]);
   });
 
@@ -129,7 +129,7 @@ describe('FormularioDeCartao', () => {
     let liberar: () => void = () => {};
     adapter.montarCampos = () =>
       new Promise<CamposDoCartao>((resolver) => {
-        liberar = () => resolver({ gerarToken: async () => 'token', desmontar: () => {} });
+        liberar = () => resolver({ gerarToken: async () => ({ token: 'token', final: null }), desmontar: () => {} });
       });
     render(<FormularioDeCartao rotuloDoBotao="Salvar cartão" onToken={vi.fn()} repositorio={new CartaoRepository(adapter)} />);
 
@@ -157,7 +157,7 @@ describe('FormularioDeCartao', () => {
     let liberar: () => void = () => {};
     adapter.montarCampos = () =>
       new Promise<CamposDoCartao>((resolver) => {
-        liberar = () => resolver({ gerarToken: async () => 'token', desmontar });
+        liberar = () => resolver({ gerarToken: async () => ({ token: 'token', final: null }), desmontar });
       });
     const { unmount } = render(
       <FormularioDeCartao rotuloDoBotao="Salvar cartão" onToken={vi.fn()} repositorio={new CartaoRepository(adapter)} />,
