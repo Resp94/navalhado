@@ -1,6 +1,8 @@
-// Spec 049: layout compartilhado dos e-mails de Auth (confirmacao e
-// redefinicao de senha). Visual aprovado nos protototipos, inspirado no
-// template de confirmacao do Slack do repositorio de demos do React Email.
+// Spec 049: layout compartilhado dos e-mails do Navalhado: os de Auth (confirmacao e
+// redefinicao de senha, send-auth-email) e os avisos da assinatura (spec 052, send-billing-email).
+// Visual aprovado nos protototipos, inspirado no template de confirmacao do Slack do repositorio
+// de demos do React Email. Fica em _shared para as duas funcoes importarem da mesma origem; cada
+// funcao resolve "react" e "react-email" pelo proprio deno.json.
 import {
   Body,
   Button,

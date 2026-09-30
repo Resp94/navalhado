@@ -1,4 +1,4 @@
-import { NavalhadoEmailLayout } from "./_layout.tsx";
+import { NavalhadoEmailLayout } from "../../_shared/emails/layout.tsx";
 
 export interface ConfirmacaoEmailProps {
   logoUrl: string;
