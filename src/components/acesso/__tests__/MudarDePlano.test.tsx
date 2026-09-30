@@ -155,7 +155,7 @@ describe('MudarDePlano', () => {
       expect(mockCotar).toHaveBeenCalledWith('plano-maquina');
       const resumo = await screen.findByText(/Você paga agora/);
       expect(resumo).toHaveTextContent(/R\$\s20,00/);
-      expect(resumo).toHaveTextContent('proporcional aos 20 dias que faltam do período de 30');
+      expect(resumo).toHaveTextContent('proporcional ao que falta do período (20 de 30 dias)');
       expect(screen.getByText(/A partir da próxima cobrança, o plano Máquina custa/)).toHaveTextContent(/R\$\s89,90 por mês/);
       expect(screen.getByRole('button', { name: /^Pagar R\$\s20,00$/ })).toBeInTheDocument();
       await waitFor(() => expect(adapter.montados).toHaveLength(1));
@@ -264,6 +264,30 @@ describe('MudarDePlano', () => {
       expect(mockCotar).toHaveBeenCalledTimes(2);
       expect(screen.getByText(/Você paga agora/)).toHaveTextContent(/R\$\s40,00/);
       expect(screen.getByRole('button', { name: /^Pagar R\$\s40,00$/ })).toBeInTheDocument();
+    });
+
+    it('no último dia do período a conta é de 1 de 30 dias', async () => {
+      mockCotar.mockResolvedValue({ ...cotacaoComCobranca, diferenca: 1, diasRestantes: 1 });
+      await abrir();
+
+      await escolher(/Máquina/);
+
+      expect(await screen.findByText(/Você paga agora/)).toHaveTextContent('proporcional ao que falta do período (1 de 30 dias)');
+    });
+
+    it('com o pagamento em andamento não dá para trocar de plano nem cancelar', async () => {
+      mockCotar.mockResolvedValue(cotacaoComCobranca);
+      mockTrocar.mockImplementation(() => new Promise(() => {}));
+      await abrir();
+      await escolher(/Máquina/);
+      await screen.findByText(/Você paga agora/);
+
+      await pagar();
+
+      await waitFor(() => expect(mockTrocar).toHaveBeenCalledTimes(1));
+      expect(screen.getByRole('button', { name: /Bancada/ })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Máquina/ })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
     });
 
     it('cancelar o pagamento volta à lista de planos, sem cobrar', async () => {

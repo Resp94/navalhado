@@ -116,10 +116,11 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
               key={plano.id}
               type="button"
               aria-pressed={escolhido?.id === plano.id}
+              disabled={trocando}
               onClick={() => escolher(plano)}
               className={`flex cursor-pointer flex-col gap-1 rounded-lg border bg-bg-secondary p-3 text-left transition-colors duration-150 ${
                 escolhido?.id === plano.id ? 'border-brand-primary bg-brand-lightest' : 'border-border hover:border-brand-soft'
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-55`}
             >
               <span className="text-sm font-bold text-text-primary">{plano.name}</span>
               <span className="text-xs text-text-secondary">{limiteDoPlano(plano.max_professionals)}</span>
@@ -181,8 +182,8 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({ cotacao, plano, trocando,
     return (
       <div className="flex flex-col gap-3">
         <p className="m-0 text-sm text-text-primary">
-          Você paga agora <strong>{formatCurrency(cotacao.diferenca)}</strong>: a diferença entre os planos, proporcional aos {dias}{' '}
-          {pluralizar(dias, 'dia', 'dias')} que faltam do período de {cotacao.diasDoPeriodo} dias.
+          Você paga agora <strong>{formatCurrency(cotacao.diferenca)}</strong>: a diferença entre os planos, proporcional ao que
+          falta do período ({dias} de {cotacao.diasDoPeriodo} dias).
         </p>
         <p className="m-0 text-sm text-text-primary">
           A partir da próxima cobrança, o plano {plano.name} custa {valorMensal} por mês.
