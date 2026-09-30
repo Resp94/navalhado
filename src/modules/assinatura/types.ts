@@ -66,11 +66,21 @@ export interface Cobranca {
   cartao: CartaoDaAssinatura | null;
 }
 
+/** O cartão que a assinatura passou a usar. O que o provedor não devolveu vem nulo. */
+export interface CartaoTrocado {
+  bandeira: string | null;
+  final: string | null;
+}
+
 export interface IAssinaturaAdapter {
   /** Estado da barbearia de quem está logado, ou nulo se o usuário não tem barbearia. */
   obterEstadoDeAcesso(): Promise<EstadoDeAcesso | null>;
   /** Cria a assinatura da barbearia de quem está logado (só o Gerente consegue) e devolve o link de pagamento. */
   assinar(): Promise<AssinaturaCriada>;
+  /** Troca o cartão da assinatura pelo token gerado nos campos seguros do Mercado Pago (sem cobrança). */
+  trocarCartao(token: string): Promise<CartaoTrocado>;
+  /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros. */
+  obterChavePublica(): Promise<string>;
   /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */
   obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null>;
   /** Histórico gravado pelo webhook; não consulta o Mercado Pago. */

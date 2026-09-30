@@ -1,9 +1,10 @@
 import { supabase } from '../../../lib/supabase';
-import { MENSAGEM_ASSINAR_FALHOU } from '../errors';
+import { MENSAGEM_ASSINAR_FALHOU, MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU, MENSAGEM_TROCAR_CARTAO_FALHOU } from '../errors';
 import { ehSituacaoDaAssinatura } from '../situacaoDaAssinatura';
 import type {
   AssinaturaCriada,
   CartaoDaAssinatura,
+  CartaoTrocado,
   Cobranca,
   DetalhesDaAssinatura,
   EstadoDeAcesso,
@@ -56,18 +57,25 @@ interface RespostaDaCobranca {
   paymentLink?: string;
   subscriptionId?: string;
   firstChargeAt?: string | null;
+  changed?: boolean;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  publicKey?: string;
   error?: string;
 }
 
-/** A função recusa com `{ error: "mensagem para o Gerente" }`; sem ela, um texto claro. */
-const mensagemDaFalha = async (error: { context?: { json?: () => Promise<unknown> } } | null): Promise<string> => {
+/** A função recusa com `{ error: "mensagem para o Gerente" }`; sem ela, o texto padrão da ação. */
+const mensagemDaFalha = async (
+  error: { context?: { json?: () => Promise<unknown> } } | null,
+  padrao: string = MENSAGEM_ASSINAR_FALHOU,
+): Promise<string> => {
   try {
     const corpo = (await error?.context?.json?.()) as RespostaDaCobranca | undefined;
     if (corpo?.error) return corpo.error;
   } catch {
     // Sem corpo legível: vale o texto padrão.
   }
-  return MENSAGEM_ASSINAR_FALHOU;
+  return padrao;
 };
 
 export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
@@ -113,6 +121,32 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
       assinaturaId: resposta.subscriptionId,
       primeiraCobrancaEm: resposta.firstChargeAt ? new Date(resposta.firstChargeAt) : null,
     };
+  }
+
+  // Só o token do cartão sai daqui: o número foi digitado nos campos seguros do Mercado Pago. A função
+  // confere no servidor que quem chama é o Gerente da barbearia; o front não manda barbearia nem assinatura.
+  async trocarCartao(token: string): Promise<CartaoTrocado> {
+    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'trocar_cartao', cardToken: token } });
+
+    if (error) {
+      throw new Error(await mensagemDaFalha(error, MENSAGEM_TROCAR_CARTAO_FALHOU));
+    }
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (resposta?.error) throw new Error(resposta.error);
+    if (resposta?.changed !== true) throw new Error(MENSAGEM_TROCAR_CARTAO_FALHOU);
+
+    return { bandeira: resposta.cardBrand ?? null, final: resposta.cardLast4 ?? null };
+  }
+
+  // A Public Key não é segredo, mas cada ambiente tem a sua: fica em secret do Supabase e a função
+  // de cobrança entrega ao Gerente.
+  async obterChavePublica(): Promise<string> {
+    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'chave_publica' } });
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (error || !resposta?.publicKey) throw new Error(MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU);
+    return resposta.publicKey;
   }
 
   // A barbearia tem uma única assinatura (unique por tenant_id). A RLS só entrega a linha ao

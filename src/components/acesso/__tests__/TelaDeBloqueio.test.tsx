@@ -8,6 +8,23 @@ vi.mock('../../../modules/assinatura/repositorio', () => ({
   assinaturaRepository: { assinar: (...args: unknown[]) => mockAssinar(...args) },
 }));
 
+
+// O fluxo de trocar o cartão (botão, formulário, aviso) tem teste próprio (TrocarCartao.test); aqui só
+// interessa quando a tela o oferece e com que informação.
+vi.mock('../TrocarCartao', () => ({
+  TrocarCartao: ({ cobrancaPendente, acessoBloqueado, destaque }: {
+    cobrancaPendente?: boolean;
+    acessoBloqueado?: boolean;
+    destaque?: boolean;
+  }) => (
+    <div data-testid="trocar-cartao">
+      <span>{cobrancaPendente ? 'com pendência' : 'sem pendência'}</span>
+      <span>{acessoBloqueado ? 'acesso bloqueado' : 'acesso liberado'}</span>
+      <span>{destaque ? 'ação principal' : 'ação secundária'}</span>
+    </div>
+  ),
+}));
+
 import { TelaDeBloqueio } from '../TelaDeBloqueio';
 
 describe('TelaDeBloqueio', () => {
@@ -74,6 +91,36 @@ describe('TelaDeBloqueio', () => {
 
       expect(screen.getByText(/atualize o cartão/i)).toBeInTheDocument();
       expect(screen.queryByText(/assine um plano/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // Spec 052, ticket 09: o bloqueio por cartão recusado se resolve trocando o cartão da assinatura que
+  // já existe. O "Pagar" só levaria a uma recusa: a assinatura anterior continua ativa no Mercado Pago.
+  describe('Gerente bloqueado por pagamento recusado', () => {
+    it('vê a troca do cartão no lugar do "Pagar", como ação principal e ciente de que já está bloqueado', () => {
+      render(<TelaDeBloqueio motivo="payment_failed" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+      const troca = screen.getByTestId('trocar-cartao');
+      expect(troca).toHaveTextContent('com pendência');
+      expect(troca).toHaveTextContent('acesso bloqueado');
+      expect(troca).toHaveTextContent('ação principal');
+      expect(screen.queryByRole('button', { name: 'Pagar' })).not.toBeInTheDocument();
+    });
+
+    it.each(['trial_expired', 'canceled', 'courtesy_expired', 'refunded', 'charged_back', 'blocked'] as const)(
+      'nos demais bloqueios (%s) continua o "Pagar", sem a troca do cartão',
+      (motivo) => {
+        render(<TelaDeBloqueio motivo={motivo} perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+        expect(screen.getByRole('button', { name: 'Pagar' })).toBeInTheDocument();
+        expect(screen.queryByTestId('trocar-cartao')).not.toBeInTheDocument();
+      },
+    );
+
+    it('o Barbeiro bloqueado por pagamento recusado não vê a troca do cartão', () => {
+      render(<TelaDeBloqueio motivo="payment_failed" perfil="barbeiro" tenantName="Alpha" onLogout={vi.fn()} />);
+
+      expect(screen.queryByTestId('trocar-cartao')).not.toBeInTheDocument();
     });
   });
 

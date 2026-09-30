@@ -17,6 +17,23 @@ vi.mock('../../../modules/assinatura/useMinhaAssinatura', () => ({
 }));
 
 import { INTERVALO_DA_CONFIRMACAO_MS } from '../../../modules/assinatura/useRetornoDoPagamento';
+
+// O fluxo de trocar o cartão (botão, formulário, aviso) tem teste próprio (TrocarCartao.test); aqui só
+// interessa quando a seção o oferece e com que informação.
+vi.mock('../TrocarCartao', () => ({
+  TrocarCartao: ({ cobrancaPendente, acessoBloqueado, onTrocado }: {
+    cobrancaPendente?: boolean;
+    acessoBloqueado?: boolean;
+    onTrocado?: () => void;
+  }) => (
+    <div data-testid="trocar-cartao">
+      <span>{cobrancaPendente ? 'com pendência' : 'sem pendência'}</span>
+      <span>{acessoBloqueado ? 'acesso bloqueado' : 'acesso liberado'}</span>
+      <button onClick={onTrocado}>simular cartão trocado</button>
+    </div>
+  ),
+}));
+
 import { SecaoAssinatura } from '../SecaoAssinatura';
 
 // Spec 052, tickets 05 e 06: a tela Assinatura de Configurações mostra o plano, a situação, a
@@ -204,6 +221,57 @@ describe('SecaoAssinatura', () => {
 
       expect(screen.getByText(/sem assinatura/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /assinar/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // Spec 052, ticket 09: trocar o cartão pela tela Assinatura.
+  describe('trocar cartão', () => {
+    it.each([
+      ['ativa', { situacao: 'active' as const }],
+      ['com pagamento recusado', { situacao: 'past_due' as const }],
+      ['em teste com o cartão já autorizado', { situacao: 'trialing' as const, cartao: { bandeira: 'visa', final: null } }],
+    ])('oferece a troca do cartão na assinatura %s', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.getByTestId('trocar-cartao')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['em teste sem cartão autorizado', { situacao: 'trialing' as const, cartao: null }],
+      ['cancelada', { situacao: 'canceled' as const }],
+      ['em cortesia', { situacao: 'courtesy' as const, cartao: null }],
+      ['bloqueada', { situacao: 'blocked' as const }],
+    ])('não oferece a troca do cartão na assinatura %s (não há cobrança no cartão)', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.queryByTestId('trocar-cartao')).not.toBeInTheDocument();
+    });
+
+    it('sem pagamento recusado, a troca não fala de cobrança pendente; a seção nunca está bloqueada', () => {
+      comDados();
+      renderizar();
+
+      expect(screen.getByTestId('trocar-cartao')).toHaveTextContent('sem pendência');
+      expect(screen.getByTestId('trocar-cartao')).toHaveTextContent('acesso liberado');
+    });
+
+    it('com o pagamento recusado, a troca sabe que há cobrança pendente (e o acesso ainda está liberado)', () => {
+      comDados({ assinatura: { situacao: 'past_due' } });
+      renderizar();
+
+      expect(screen.getByTestId('trocar-cartao')).toHaveTextContent('com pendência');
+      expect(screen.getByTestId('trocar-cartao')).toHaveTextContent('acesso liberado');
+    });
+
+    it('depois de trocar o cartão, relê a assinatura para mostrar o final novo', async () => {
+      comDados();
+      renderizar();
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular cartão trocado' }));
+
+      expect(recarregar).toHaveBeenCalledTimes(1);
     });
   });
 

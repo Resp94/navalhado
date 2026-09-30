@@ -169,3 +169,42 @@ describe('AssinaturaRepository: detalhes e histórico', () => {
     await expect(new AssinaturaRepository(adapter).obterAssinatura('tenant-a')).rejects.toThrow('sem rede');
   });
 });
+
+// Spec 052, ticket 09: trocar o cartão da assinatura.
+describe('AssinaturaRepository: trocar cartão', () => {
+  const montar = () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    return { adapter, repo: new AssinaturaRepository(adapter) };
+  };
+
+  it('manda o token ao adaptador e devolve o cartão novo', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeTrocarCartao = { bandeira: 'master', final: '5555' };
+
+    const cartao = await repo.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a');
+
+    expect(cartao).toEqual({ bandeira: 'master', final: '5555' });
+    expect(adapter.cartoesTrocados).toEqual(['e3ed6f098462036dd2cbabe314b9de2a']);
+  });
+
+  it('não chama o adaptador sem token', async () => {
+    const { adapter, repo } = montar();
+
+    await expect(repo.trocarCartao('  ')).rejects.toThrow('Não foi possível ler o cartão. Digite os dados de novo.');
+    expect(adapter.cartoesTrocados).toHaveLength(0);
+  });
+
+  it('propaga a recusa do adaptador', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeTrocarCartao = new Error('O Mercado Pago não aceitou o cartão.');
+
+    await expect(repo.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a')).rejects.toThrow('O Mercado Pago não aceitou o cartão.');
+  });
+
+  it('devolve a Public Key do adaptador', async () => {
+    const { adapter, repo } = montar();
+    adapter.chavePublica = 'APP_USR-public-key';
+
+    await expect(repo.obterChavePublica()).resolves.toBe('APP_USR-public-key');
+  });
+});

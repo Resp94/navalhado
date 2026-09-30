@@ -1,4 +1,4 @@
-import type { AssinaturaCriada, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from '../types';
+import type { AssinaturaCriada, CartaoTrocado, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from '../types';
 
 export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
   private resultado: EstadoDeAcesso | null | Error;
@@ -15,6 +15,12 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     primeiraCobrancaEm: null,
   };
 
+  /** Tokens de cartão que o Gerente mandou trocar, na ordem. */
+  public cartoesTrocados: string[] = [];
+  /** O que `trocarCartao` devolve. Passar um Error faz a chamada falhar. */
+  public respostaDeTrocarCartao: CartaoTrocado | Error = { bandeira: 'master', final: '5555' };
+  public chavePublica = 'APP_USR-chave-publica-falsa';
+
   /** Passar um Error faz a leitura falhar, para testar quem decide o que fazer com a falha. */
   constructor(resultado: EstadoDeAcesso | null | Error = null) {
     this.resultado = resultado;
@@ -29,6 +35,16 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     this.assinaturasSolicitadas += 1;
     if (this.respostaDeAssinar instanceof Error) throw this.respostaDeAssinar;
     return { ...this.respostaDeAssinar };
+  }
+
+  async trocarCartao(token: string): Promise<CartaoTrocado> {
+    this.cartoesTrocados.push(token);
+    if (this.respostaDeTrocarCartao instanceof Error) throw this.respostaDeTrocarCartao;
+    return { ...this.respostaDeTrocarCartao };
+  }
+
+  async obterChavePublica(): Promise<string> {
+    return this.chavePublica;
   }
 
   definirAssinatura(tenantId: string, assinatura: DetalhesDaAssinatura): void {

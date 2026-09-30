@@ -2,6 +2,7 @@ import React from 'react';
 import { formatCurrency } from '../../lib/currency';
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { TrocarCartao } from './TrocarCartao';
 import {
   autorizadaEmTeste,
   dataCompleta,
@@ -105,6 +106,9 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   const { texto, botao }: Orientacao = emTesteAutorizado ? {} : ORIENTACAO[assinatura.situacao];
   const cobrancaMarcada = proximaCobranca(assinatura);
   const cartao = rotuloDoCartao(assinatura.cartao);
+  // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada.
+  const podeTrocarOCartao =
+    assinatura.situacao === 'active' || assinatura.situacao === 'past_due' || emTesteAutorizado;
 
   return (
     <section className={CARD_CLASSES}>
@@ -163,11 +167,15 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
 
       {texto && <p className="text-sm text-text-secondary m-0">{texto}</p>}
 
-      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: trocar o cartão (09), mudar de plano (10 e 11), cancelar (12) e exportar os dados (14). */}
+      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: mudar de plano (10 e 11), cancelar (12) e exportar os dados (14). */}
       {botao && (
         <div>
           <BotaoAssinar rotulo={botao} abrirLink={abrirLink} />
         </div>
+      )}
+
+      {podeTrocarOCartao && (
+        <TrocarCartao cobrancaPendente={assinatura.situacao === 'past_due'} onTrocado={recarregar} />
       )}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">

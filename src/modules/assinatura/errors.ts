@@ -1,2 +1,11 @@
 /** Texto de quando a função de cobrança não devolve uma mensagem própria. */
 export const MENSAGEM_ASSINAR_FALHOU = 'Não foi possível iniciar a assinatura. Tente de novo.';
+
+/** Texto de quando a função de cobrança não devolve uma mensagem própria ao trocar o cartão. */
+export const MENSAGEM_TROCAR_CARTAO_FALHOU = 'Não foi possível trocar o cartão. Tente de novo.';
+
+/** A Public Key do Mercado Pago não veio: o formulário do cartão não tem como carregar. */
+export const MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU = 'Não foi possível carregar o formulário do cartão. Tente de novo.';
+
+/** O token do cartão veio vazio: nada a mandar. */
+export const MENSAGEM_CARTAO_ILEGIVEL = 'Não foi possível ler o cartão. Digite os dados de novo.';

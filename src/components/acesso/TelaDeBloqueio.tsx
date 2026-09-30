@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { TrocarCartao } from './TrocarCartao';
 import { explicacaoDoBloqueio, tituloDoBloqueio } from '../../modules/assinatura/mensagensDeAcesso';
 import type { MotivoDeAcesso, PerfilNoBloqueio } from '../../modules/assinatura/types';
 
@@ -19,7 +20,9 @@ interface TelaDeBloqueioProps {
 
 /**
  * Único conteúdo do painel de uma barbearia bloqueada por assinatura. O Gerente paga pelo
- * "Pagar" (abre a página do Mercado Pago); o Barbeiro só recebe a explicação.
+ * "Pagar" (abre a página do Mercado Pago); com o pagamento recusado, troca o cartão da assinatura
+ * que já existe (o "Pagar" só levaria a uma recusa: a assinatura anterior continua ativa no
+ * Mercado Pago). O Barbeiro só recebe a explicação.
  */
 export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   motivo,
@@ -51,7 +54,13 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
           </div>
         )}
 
-        {perfil === 'gerente' && <BotaoAssinar rotulo="Pagar" fullWidth abrirLink={abrirLink} />}
+        {perfil === 'gerente' && motivo !== 'payment_failed' && <BotaoAssinar rotulo="Pagar" fullWidth abrirLink={abrirLink} />}
+
+        {perfil === 'gerente' && motivo === 'payment_failed' && (
+          <div className="text-left">
+            <TrocarCartao cobrancaPendente acessoBloqueado destaque />
+          </div>
+        )}
 
         <Button variant="ghost" fullWidth onClick={onLogout}>
           Sair da conta

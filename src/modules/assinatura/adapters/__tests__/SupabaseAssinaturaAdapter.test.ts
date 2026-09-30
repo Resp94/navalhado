@@ -285,4 +285,71 @@ describe('SupabaseAssinaturaAdapter', () => {
       await expect(adapter.listarCobrancas('tenant-a')).rejects.toThrow('Erro ao ler o histórico de cobranças: permission denied');
     });
   });
+
+  // Spec 052, ticket 09: trocar o cartão. O navegador manda só o token gerado nos campos seguros.
+  describe('trocarCartao', () => {
+    it('chama a função de cobrança com a ação trocar_cartao e só o token, e devolve o cartão novo', async () => {
+      mockInvoke.mockResolvedValue({ data: { changed: true, cardBrand: 'master', cardLast4: '5555' }, error: null });
+
+      const cartao = await adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a');
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', {
+        body: { action: 'trocar_cartao', cardToken: 'e3ed6f098462036dd2cbabe314b9de2a' },
+      });
+      expect(cartao).toEqual({ bandeira: 'master', final: '5555' });
+    });
+
+    it('o provedor pode não devolver bandeira nem final: vêm nulos', async () => {
+      mockInvoke.mockResolvedValue({ data: { changed: true, cardBrand: null, cardLast4: null }, error: null });
+
+      await expect(adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a')).resolves.toEqual({ bandeira: null, final: null });
+    });
+
+    it('mostra a mensagem que a função devolveu quando ela recusa', async () => {
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'Edge Function returned a non-2xx status code',
+          context: { json: async () => ({ error: 'O Mercado Pago não aceitou o cartão. Confira os dados ou use outro cartão.' }) },
+        },
+      });
+
+      await expect(adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a')).rejects.toThrow(
+        'O Mercado Pago não aceitou o cartão. Confira os dados ou use outro cartão.',
+      );
+    });
+
+    it('sem mensagem da função, usa um texto claro da troca de cartão (e não o da assinatura)', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: { message: 'Failed to send a request to the Edge Function' } });
+
+      await expect(adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a')).rejects.toThrow(
+        'Não foi possível trocar o cartão. Tente de novo.',
+      );
+    });
+
+    it('resposta sem changed é tratada como falha', async () => {
+      mockInvoke.mockResolvedValue({ data: {}, error: null });
+
+      await expect(adapter.trocarCartao('e3ed6f098462036dd2cbabe314b9de2a')).rejects.toThrow(
+        'Não foi possível trocar o cartão. Tente de novo.',
+      );
+    });
+  });
+
+  describe('obterChavePublica', () => {
+    it('pede a Public Key do ambiente à função de cobrança', async () => {
+      mockInvoke.mockResolvedValue({ data: { publicKey: 'APP_USR-public-key' }, error: null });
+
+      await expect(adapter.obterChavePublica()).resolves.toBe('APP_USR-public-key');
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'chave_publica' } });
+    });
+
+    it('sem a chave na resposta, ou com erro da função, é falha', async () => {
+      mockInvoke.mockResolvedValueOnce({ data: {}, error: null });
+      await expect(adapter.obterChavePublica()).rejects.toThrow('Não foi possível carregar o formulário do cartão. Tente de novo.');
+
+      mockInvoke.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+      await expect(adapter.obterChavePublica()).rejects.toThrow('Não foi possível carregar o formulário do cartão. Tente de novo.');
+    });
+  });
 });

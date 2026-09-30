@@ -1,5 +1,5 @@
-import { MENSAGEM_ASSINAR_FALHOU } from './errors';
-import type { AssinaturaCriada, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from './types';
+import { MENSAGEM_ASSINAR_FALHOU, MENSAGEM_CARTAO_ILEGIVEL, MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU } from './errors';
+import type { AssinaturaCriada, CartaoTrocado, Cobranca, DetalhesDaAssinatura, EstadoDeAcesso, IAssinaturaAdapter } from './types';
 
 const UM_DIA_EM_MS = 24 * 60 * 60 * 1000;
 
@@ -25,6 +25,22 @@ export class AssinaturaRepository {
       throw new Error(MENSAGEM_ASSINAR_FALHOU);
     }
     return criada;
+  }
+
+  /**
+   * Troca o cartão da assinatura. Só o token gerado nos campos seguros do Mercado Pago passa por
+   * aqui: o número do cartão nunca chega ao Navalhado. A troca não cobra nada.
+   */
+  async trocarCartao(token: string): Promise<CartaoTrocado> {
+    if (!token || !token.trim()) throw new Error(MENSAGEM_CARTAO_ILEGIVEL);
+    return this.adapter.trocarCartao(token.trim());
+  }
+
+  /** Public Key do Mercado Pago do ambiente, para carregar os campos seguros do cartão. */
+  async obterChavePublica(): Promise<string> {
+    const chave = await this.adapter.obterChavePublica();
+    if (!chave) throw new Error(MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU);
+    return chave;
   }
 
   /** Assinatura da barbearia (plano, situação, datas, cartão), ou nulo se ela não tem. */
