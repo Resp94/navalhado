@@ -48,6 +48,20 @@ vi.mock('../MudarDePlano', () => ({
   ),
 }));
 
+// A descida agendada (mostrar, desfazer, erro) tem teste próprio (DescidaAgendada.test); aqui só interessa quando a seção a mostra.
+vi.mock('../DescidaAgendada', () => ({
+  DescidaAgendada: ({ planoAgendado, dataDaMudanca, onDesfeita }: {
+    planoAgendado: { nome: string };
+    dataDaMudanca: Date;
+    onDesfeita?: () => void;
+  }) => (
+    <div data-testid="descida-agendada">
+      <span>{`para ${planoAgendado.nome} em ${dataDaMudanca.toISOString()}`}</span>
+      <button onClick={onDesfeita}>simular descida desfeita</button>
+    </div>
+  ),
+}));
+
 import { SecaoAssinatura } from '../SecaoAssinatura';
 
 // Spec 052, tickets 05 e 06: a tela Assinatura de Configurações mostra o plano, a situação, a
@@ -58,6 +72,7 @@ const recarregar = vi.fn();
 const assinaturaBase: DetalhesDaAssinatura = {
   situacao: 'active',
   plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
+  planoAgendado: null,
   testeAte: new Date('2026-10-14T23:00:00Z'),
   periodoAte: new Date('2026-10-29T23:26:22Z'),
   cortesiaAte: null,
@@ -327,6 +342,51 @@ describe('SecaoAssinatura', () => {
       await userEvent.click(screen.getByRole('button', { name: 'simular plano trocado' }));
 
       expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('descida de plano agendada', () => {
+    const descendo: Partial<DetalhesDaAssinatura> = {
+      plano: { id: 'plano-maquina', nome: 'Máquina', preco: 89.9 },
+      planoAgendado: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
+    };
+
+    it('mostra a descida agendada, com o plano menor e o fim do período pago como data', () => {
+      comDados({ assinatura: descendo });
+      renderizar();
+
+      expect(screen.getByTestId('descida-agendada')).toHaveTextContent('para Tesoura em 2026-10-29T23:26:22.000Z');
+    });
+
+    it('sem descida agendada não mostra nada', () => {
+      comDados();
+      renderizar();
+
+      expect(screen.queryByTestId('descida-agendada')).not.toBeInTheDocument();
+    });
+
+    it('sem o fim do período pago não há data para mostrar', () => {
+      comDados({ assinatura: { ...descendo, periodoAte: null } });
+      renderizar();
+
+      expect(screen.queryByTestId('descida-agendada')).not.toBeInTheDocument();
+    });
+
+    it('depois de desfazer, relê a assinatura para o aviso sumir e o plano atual seguir', async () => {
+      comDados({ assinatura: descendo });
+      renderizar();
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular descida desfeita' }));
+
+      expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+
+    it('a próxima cobrança já é a do plano menor, que é o valor que o Mercado Pago vai cobrar', () => {
+      comDados({ assinatura: descendo });
+      renderizar();
+
+      const termo = screen.getByText('Próxima cobrança');
+      expect(termo.nextElementSibling).toHaveTextContent(/R\$\s59,90 em 29\/10\/2026/);
     });
   });
 

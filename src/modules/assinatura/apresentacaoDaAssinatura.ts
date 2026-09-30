@@ -59,7 +59,8 @@ export function proximaCobranca(
   assinatura: DetalhesDaAssinatura,
   agora: Date = new Date(),
 ): { data: Date; valor: number } | null {
-  const valor = assinatura.plano.preco;
+  // Com uma descida agendada, a próxima cobrança já é a do plano menor: o valor da assinatura no Mercado Pago mudou ao agendar.
+  const valor = assinatura.planoAgendado?.preco ?? assinatura.plano.preco;
   const data =
     assinatura.situacao === 'active' ? assinatura.periodoAte : autorizadaEmTeste(assinatura) ? assinatura.testeAte : null;
 

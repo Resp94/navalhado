@@ -10,6 +10,9 @@ export const MENSAGEM_COTAR_TROCA_FALHOU = 'Não foi possível calcular a troca 
 /** Texto de quando a função de cobrança não devolve uma mensagem própria ao trocar de plano. */
 export const MENSAGEM_TROCAR_PLANO_FALHOU = 'Não foi possível trocar de plano. Tente de novo.';
 
+/** Texto de quando a função de cobrança não devolve uma mensagem própria ao desfazer a descida de plano. */
+export const MENSAGEM_DESFAZER_DESCIDA_FALHOU = 'Não foi possível desfazer a descida de plano. Tente de novo.';
+
 /** A Public Key do Mercado Pago não veio: o formulário do cartão não tem como carregar. */
 export const MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU = 'Não foi possível carregar o formulário do cartão. Tente de novo.';
 

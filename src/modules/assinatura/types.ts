@@ -47,6 +47,8 @@ export interface CartaoDaAssinatura {
 export interface DetalhesDaAssinatura {
   situacao: SituacaoDaAssinatura;
   plano: { id: string; nome: string; preco: number };
+  /** Plano menor que vale a partir da próxima cobrança (descida agendada), ou nulo. A data é `periodoAte`. */
+  planoAgendado: { id: string; nome: string; preco: number } | null;
   testeAte: Date | null;
   /** Fim do período pago: quando a próxima mensalidade vence, ou até quando uma cancelada tem acesso. */
   periodoAte: Date | null;
@@ -72,8 +74,12 @@ export interface CartaoTrocado {
   final: string | null;
 }
 
-/** Como a troca de plano sai: em teste é livre; na assinatura ativa cobra a diferença na hora; se a diferença é pequena demais para o provedor cobrar, troca sem cobrança. */
-export type ModoDaTroca = 'livre' | 'cobranca' | 'sem_cobranca';
+/**
+ * Como a troca de plano sai: em teste é livre; na assinatura ativa cobra a diferença na hora; se a diferença é pequena demais
+ * para o provedor cobrar, troca sem cobrança; descer na assinatura ativa fica agendada para a próxima cobrança, sem cobrança
+ * nem reembolso.
+ */
+export type ModoDaTroca = 'livre' | 'cobranca' | 'sem_cobranca' | 'agendada';
 
 /** O que a função de cobrança calculou para a troca: o navegador só mostra, nunca calcula. */
 export interface CotacaoDaTroca {
@@ -86,6 +92,8 @@ export interface CotacaoDaTroca {
   diasRestantes: number | null;
   diasDoPeriodo: number | null;
   nomeDoPlano: string;
+  /** Quando o plano menor passa a valer (só na descida agendada): o fim do período pago. */
+  vigenteEm: Date | null;
 }
 
 /** O cartão digitado nos campos seguros para pagar a diferença, com o valor que o Gerente viu e confirmou. */
@@ -104,6 +112,8 @@ export interface PlanoTrocado {
   valorMensalNovo: number;
   /** Falso se o Mercado Pago não aceitou o valor novo da próxima cobrança: o plano trocou, mas a mensalidade segue no valor antigo até alguém conferir. */
   proximaCobrancaAtualizada: boolean;
+  /** Na descida agendada, quando o plano menor passa a valer; nulo nas trocas que valem já. */
+  vigenteEm: Date | null;
 }
 
 /** Qual Public Key: a da assinatura (troca de cartão) ou a da cobrança avulsa (diferença do plano). No DEV são de apps diferentes. */
@@ -128,6 +138,8 @@ export interface IAssinaturaAdapter {
    * for aprovado; sem ele (em teste, ou diferença pequena demais) troca sem cobrança.
    */
   trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado>;
+  /** Desiste da descida agendada antes da data: o valor da assinatura volta para o do plano atual. */
+  desfazerDescidaDePlano(): Promise<void>;
   /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */
   obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null>;
   /** Histórico gravado pelo webhook; não consulta o Mercado Pago. */

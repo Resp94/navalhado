@@ -45,6 +45,7 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     diasRestantes: 20,
     diasDoPeriodo: 30,
     nomeDoPlano: 'Máquina',
+    vigenteEm: null,
   };
   /** As trocas de plano que o Gerente confirmou (o plano e o cartão, se houve cobrança), na ordem. */
   public trocasDePlano: Array<{ planoId: string; pagamento?: PagamentoDaTroca }> = [];
@@ -55,7 +56,12 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     cobrado: 20,
     valorMensalNovo: 89.9,
     proximaCobrancaAtualizada: true,
+    vigenteEm: null,
   };
+  /** Quantas vezes o Gerente pediu para desfazer a descida agendada. */
+  public descidasDesfeitas = 0;
+  /** O que `desfazerDescidaDePlano` faz. Passar um Error faz a chamada falhar. */
+  public respostaDeDesfazerDescida: Error | null = null;
 
   /** Passar um Error faz a leitura falhar, para testar quem decide o que fazer com a falha. */
   constructor(resultado: EstadoDeAcesso | null | Error = null) {
@@ -94,6 +100,11 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
     this.trocasDePlano.push({ planoId, pagamento });
     if (this.respostaDeTrocarDePlano instanceof Error) throw this.respostaDeTrocarDePlano;
     return { ...this.respostaDeTrocarDePlano };
+  }
+
+  async desfazerDescidaDePlano(): Promise<void> {
+    this.descidasDesfeitas += 1;
+    if (this.respostaDeDesfazerDescida) throw this.respostaDeDesfazerDescida;
   }
 
   definirAssinatura(tenantId: string, assinatura: DetalhesDaAssinatura): void {

@@ -152,6 +152,7 @@ describe('SupabaseAssinaturaAdapter', () => {
       card_brand: 'visa',
       card_last4: '5682',
       plans: { id: 'plano-tesoura', name: 'Tesoura', price: '59.90' },
+      scheduled_plan: null,
     };
 
     it('lê a única assinatura da barbearia, com o plano', async () => {
@@ -171,7 +172,28 @@ describe('SupabaseAssinaturaAdapter', () => {
         periodoAte: new Date('2026-10-29T23:26:22Z'),
         cortesiaAte: null,
         cartao: { bandeira: 'visa', final: '5682' },
+        planoAgendado: null,
       });
+    });
+
+    it('lê também a descida agendada, pela chave do plano agendado (a tabela tem duas chaves para plans)', async () => {
+      const c = cadeia({
+        data: { ...linha, plans: { id: 'plano-maquina', name: 'Máquina', price: '89.90' }, scheduled_plan: { id: 'plano-tesoura', name: 'Tesoura', price: '59.90' } },
+        error: null,
+      });
+
+      const assinatura = await adapter.obterAssinatura('tenant-a');
+
+      expect(c.select).toHaveBeenCalledWith(
+        expect.stringContaining('scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey(id, name, price)'),
+      );
+      expect(assinatura?.planoAgendado).toEqual({ id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 });
+    });
+
+    it('aceita o plano agendado vindo como lista de um elemento', async () => {
+      cadeia({ data: { ...linha, scheduled_plan: [{ id: 'plano-maquina', name: 'Máquina', price: 89.9 }] }, error: null });
+
+      expect((await adapter.obterAssinatura('tenant-a'))?.planoAgendado).toEqual({ id: 'plano-maquina', nome: 'Máquina', preco: 89.9 });
     });
 
     it('aceita o plano vindo como lista de um elemento', async () => {
@@ -398,7 +420,42 @@ describe('SupabaseAssinaturaAdapter', () => {
         diasRestantes: 20,
         diasDoPeriodo: 30,
         nomeDoPlano: 'Máquina',
+        vigenteEm: null,
       });
+    });
+
+    it('a descida agendada vem com a data em que o plano menor passa a valer', async () => {
+      mockInvoke.mockResolvedValue({
+        data: {
+          mode: 'scheduled',
+          difference: 0,
+          newMonthlyAmount: 59.9,
+          remainingDays: null,
+          periodDays: null,
+          effectiveAt: '2026-10-29T23:26:22.000Z',
+          planName: 'Tesoura',
+        },
+        error: null,
+      });
+
+      await expect(adapter.cotarTrocaDePlano('plano-tesoura')).resolves.toEqual({
+        modo: 'agendada',
+        diferenca: 0,
+        valorMensalNovo: 59.9,
+        diasRestantes: null,
+        diasDoPeriodo: null,
+        nomeDoPlano: 'Tesoura',
+        vigenteEm: new Date('2026-10-29T23:26:22Z'),
+      });
+    });
+
+    it('descida agendada sem a data é tratada como falha: a tela não teria o que mostrar', async () => {
+      mockInvoke.mockResolvedValue({
+        data: { mode: 'scheduled', difference: 0, newMonthlyAmount: 59.9, planName: 'Tesoura' },
+        error: null,
+      });
+
+      await expect(adapter.cotarTrocaDePlano('plano')).rejects.toThrow('Não foi possível calcular a troca de plano. Tente de novo.');
     });
 
     it.each([
@@ -476,7 +533,39 @@ describe('SupabaseAssinaturaAdapter', () => {
         cobrado: 20,
         valorMensalNovo: 89.9,
         proximaCobrancaAtualizada: true,
+        vigenteEm: null,
       });
+    });
+
+    it('a descida agendada (sem cartão) traz a data em que o plano menor passa a valer', async () => {
+      mockInvoke.mockResolvedValue({
+        data: {
+          scheduled: true,
+          planId: 'plano-tesoura',
+          planName: 'Tesoura',
+          effectiveAt: '2026-10-29T23:26:22.000Z',
+          newMonthlyAmount: 59.9,
+        },
+        error: null,
+      });
+
+      const agendado = await adapter.trocarDePlano('plano-tesoura');
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'trocar_plano', planId: 'plano-tesoura' } });
+      expect(agendado).toEqual({
+        planoId: 'plano-tesoura',
+        nomeDoPlano: 'Tesoura',
+        cobrado: 0,
+        valorMensalNovo: 59.9,
+        proximaCobrancaAtualizada: true,
+        vigenteEm: new Date('2026-10-29T23:26:22Z'),
+      });
+    });
+
+    it('a descida agendada sem a data é tratada como falha', async () => {
+      mockInvoke.mockResolvedValue({ data: { scheduled: true, planId: 'plano-tesoura', planName: 'Tesoura', newMonthlyAmount: 59.9 }, error: null });
+
+      await expect(adapter.trocarDePlano('plano-tesoura')).rejects.toThrow('Não foi possível trocar de plano. Tente de novo.');
     });
 
     it('sem o final do cartão, não manda o campo', async () => {
@@ -524,6 +613,37 @@ describe('SupabaseAssinaturaAdapter', () => {
       mockInvoke.mockResolvedValue({ data: {}, error: null });
 
       await expect(adapter.trocarDePlano('plano')).rejects.toThrow('Não foi possível trocar de plano. Tente de novo.');
+    });
+  });
+  describe('desfazerDescidaDePlano', () => {
+    it('chama a função de cobrança com a ação desfazer_descida', async () => {
+      mockInvoke.mockResolvedValue({ data: { canceled: true }, error: null });
+
+      await expect(adapter.desfazerDescidaDePlano()).resolves.toBeUndefined();
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'desfazer_descida' } });
+    });
+
+    it('mostra a mensagem que a função devolveu na recusa', async () => {
+      const mensagem = 'Não há descida de plano agendada.';
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: { message: 'Edge Function returned a non-2xx status code', context: { json: async () => ({ error: mensagem }) } },
+      });
+
+      await expect(adapter.desfazerDescidaDePlano()).rejects.toThrow(mensagem);
+    });
+
+    it('sem mensagem da função, usa um texto claro', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: { message: 'Failed to send a request to the Edge Function' } });
+
+      await expect(adapter.desfazerDescidaDePlano()).rejects.toThrow('Não foi possível desfazer a descida de plano. Tente de novo.');
+    });
+
+    it('resposta sem canceled é tratada como falha', async () => {
+      mockInvoke.mockResolvedValue({ data: {}, error: null });
+
+      await expect(adapter.desfazerDescidaDePlano()).rejects.toThrow('Não foi possível desfazer a descida de plano. Tente de novo.');
     });
   });
 });

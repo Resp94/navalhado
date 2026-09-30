@@ -16,6 +16,7 @@ import type { DetalhesDaAssinatura } from '../types';
 const base: DetalhesDaAssinatura = {
   situacao: 'active',
   plano: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
+  planoAgendado: null,
   testeAte: null,
   periodoAte: null,
   cortesiaAte: null,
@@ -135,6 +136,16 @@ describe('proximaCobranca', () => {
     const ativa = com({ periodoAte: new Date('2026-10-29T23:00:00Z') });
 
     expect(proximaCobranca(ativa, agora)).toEqual({ data: new Date('2026-10-29T23:00:00Z'), valor: 59.9 });
+  });
+
+  it('ativa com descida agendada: o valor é o do plano menor, que é o que a próxima cobrança cobra', () => {
+    const descendo = com({
+      plano: { id: 'plano-maquina', nome: 'Máquina', preco: 89.9 },
+      planoAgendado: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9 },
+      periodoAte: new Date('2026-10-29T23:00:00Z'),
+    });
+
+    expect(proximaCobranca(descendo, agora)).toEqual({ data: new Date('2026-10-29T23:00:00Z'), valor: 59.9 });
   });
 
   it('em teste com o cartão já autorizado: no fim do teste', () => {

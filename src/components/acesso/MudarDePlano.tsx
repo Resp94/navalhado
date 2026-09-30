@@ -3,6 +3,7 @@ import { formatCurrency } from '../../lib/currency';
 import { pluralizar } from '../../lib/plural';
 import { Button } from '../ui';
 import { FormularioDeCartao } from '../cartao/FormularioDeCartao';
+import { dataCompleta } from '../../modules/assinatura/apresentacaoDaAssinatura';
 import { useTrocarDePlano } from '../../modules/assinatura/useTrocarDePlano';
 import type { CotacaoDaTroca, DetalhesDaAssinatura, PagamentoDaTroca, PlanoTrocado } from '../../modules/assinatura/types';
 import type { CartaoRepository } from '../../modules/cartao/CartaoRepository';
@@ -11,8 +12,13 @@ import type { Plano } from '../../modules/planos/types';
 import { usePlanos } from '../../modules/planos/usePlanos';
 
 interface MudarDePlanoProps {
-  /** Em teste a troca é livre (qualquer outro plano); na assinatura ativa só se sobe. */
-  assinatura: Pick<DetalhesDaAssinatura, 'situacao' | 'plano'>;
+  /**
+   * Em teste a troca é livre (qualquer outro plano, vale já). Na assinatura ativa, subir cobra a diferença na hora e descer
+   * agenda o plano menor para a próxima cobrança. `planoAgendado` é a descida que já está agendada: ela não é oferecida de novo.
+   */
+  assinatura: Pick<DetalhesDaAssinatura, 'situacao' | 'plano'> & { planoAgendado?: DetalhesDaAssinatura['planoAgendado'] };
+  /** Fuso da barbearia, para a data em que o plano menor passa a valer. Por padrão, Brasília. */
+  timezone?: string;
   /** Chamado depois de o plano trocar: a tela relê a assinatura e mostra o plano novo. */
   onTrocado?: () => void;
   /** Os campos seguros do cartão que paga a diferença. Por padrão, os da cobrança avulsa. */
@@ -21,7 +27,18 @@ interface MudarDePlanoProps {
 
 const limiteDoPlano = (maximo: number) => pluralizar(maximo, '1 profissional', `Até ${maximo} profissionais`);
 
-function textoDoAviso(plano: Plano, trocado: PlanoTrocado): string {
+const limiteEmTexto = (maximo: number) => pluralizar(maximo, '1 profissional', `${maximo} profissionais`);
+
+function textoDoAviso(plano: Plano, trocado: PlanoTrocado, timezone?: string): string {
+  // Descer na assinatura ativa não troca nada agora: o plano menor fica agendado e já vale o limite dele para cadastros.
+  if (trocado.vigenteEm) {
+    return [
+      `Descida agendada: o plano ${trocado.nomeDoPlano} vale a partir de ${dataCompleta(trocado.vigenteEm, timezone)}.`,
+      'Até lá você continua no plano atual.',
+      `O valor mensal passa a ser ${formatCurrency(trocado.valorMensalNovo)} na próxima cobrança.`,
+      `O limite do plano menor, de ${limiteEmTexto(plano.max_professionals)}, já vale para novos cadastros.`,
+    ].join(' ');
+  }
   const partes = [`Plano trocado para ${trocado.nomeDoPlano}.`];
   if (trocado.cobrado > 0) partes.push(`Cobramos ${formatCurrency(trocado.cobrado)} da diferença.`);
   partes.push(
@@ -35,16 +52,18 @@ function textoDoAviso(plano: Plano, trocado: PlanoTrocado): string {
 }
 
 /**
- * Mudar de plano pela tela Assinatura (spec 052, ticket 10). Em teste a troca é livre e sem cobrança. Na assinatura
- * ativa o Gerente só sobe: ao escolher o plano vê a diferença proporcional aos dias que faltam no período e o valor
- * mensal novo (calculados pela função de cobrança, que é quem cobra), e paga a diferença no cartão digitado nos campos
- * seguros do Mercado Pago. O plano só troca com o pagamento aprovado; recusado, continua o mesmo. Se a diferença for
- * pequena demais para o Mercado Pago cobrar, o plano troca sem cobrança.
+ * Mudar de plano pela tela Assinatura (spec 052, tickets 10 e 11). Em teste a troca é livre e sem cobrança. Na assinatura
+ * ativa, ao subir o Gerente vê a diferença proporcional aos dias que faltam no período e o valor mensal novo (calculados pela
+ * função de cobrança, que é quem cobra) e paga a diferença no cartão digitado nos campos seguros do Mercado Pago; o plano só
+ * troca com o pagamento aprovado, e recusado continua o mesmo. Se a diferença for pequena demais para o Mercado Pago cobrar, o
+ * plano troca sem cobrança. Ao descer, nada é cobrado nem reembolsado: o plano menor fica agendado para a próxima cobrança e o
+ * limite dele já vale para cadastros; antes de aceitar, a função diz quantos profissionais precisam ser desativados.
  *
  * Não usa <form>: a tela Assinatura fica dentro do formulário de Configurações.
  */
 export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
   assinatura,
+  timezone,
   onTrocado,
   repositorio = cartaoDaCobrancaRepository,
 }) => {
@@ -54,9 +73,9 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
   const [escolhido, setEscolhido] = useState<Plano | null>(null);
   const [resultado, setResultado] = useState<{ plano: Plano; trocado: PlanoTrocado } | null>(null);
 
-  const opcoes = planos.filter((plano) =>
-    assinatura.situacao === 'trialing' ? plano.id !== assinatura.plano.id : plano.price > assinatura.plano.preco,
-  );
+  // Todos os outros planos: em teste a troca vale já; na assinatura ativa, os mais caros cobram a diferença e os mais baratos
+  // agendam a descida. A descida que já está agendada não se oferece de novo.
+  const opcoes = planos.filter((plano) => plano.id !== assinatura.plano.id && plano.id !== assinatura.planoAgendado?.id);
 
   const voltarParaALista = () => {
     limpar();
@@ -85,7 +104,7 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
   if (resultado) {
     return (
       <div role="status" className="flex flex-col gap-3 rounded-md border border-border p-4">
-        <p className="m-0 text-sm">{textoDoAviso(resultado.plano, resultado.trocado)}</p>
+        <p className="m-0 text-sm">{textoDoAviso(resultado.plano, resultado.trocado, timezone)}</p>
         <div>
           <Button variant="outline" size="sm" onClick={fechar}>
             Fechar
@@ -142,6 +161,8 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
             <ResumoDaTroca
               cotacao={cotacao}
               plano={escolhido}
+              planoAtual={assinatura.plano.nome}
+              timezone={timezone}
               trocando={trocando}
               erro={erro}
               repositorio={repositorio}
@@ -166,6 +187,9 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
 interface ResumoDaTrocaProps {
   cotacao: CotacaoDaTroca;
   plano: Plano;
+  /** Nome do plano em que a barbearia está agora. */
+  planoAtual: string;
+  timezone?: string;
   trocando: boolean;
   erro: string | null;
   repositorio: CartaoRepository;
@@ -174,7 +198,17 @@ interface ResumoDaTrocaProps {
 }
 
 /** O que a troca custa, antes de o Gerente confirmar, e como confirmar: com o cartão (há diferença a pagar) ou com um clique. */
-const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({ cotacao, plano, trocando, erro, repositorio, onCancelar, onConfirmar }) => {
+const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
+  cotacao,
+  plano,
+  planoAtual,
+  timezone,
+  trocando,
+  erro,
+  repositorio,
+  onCancelar,
+  onConfirmar,
+}) => {
   const valorMensal = <strong>{formatCurrency(cotacao.valorMensalNovo)}</strong>;
 
   if (cotacao.modo === 'cobranca') {
@@ -196,6 +230,38 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({ cotacao, plano, trocando,
           erro={erro}
           repositorio={repositorio}
         />
+      </div>
+    );
+  }
+
+  if (cotacao.modo === 'agendada') {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-sm text-text-primary">
+          {`Descer para o plano ${plano.name} só vale na próxima cobrança${
+            cotacao.vigenteEm ? `, em ${dataCompleta(cotacao.vigenteEm, timezone)}` : ''
+          }. Não há reembolso do que já foi pago.`}
+        </p>
+        <p className="m-0 text-sm text-text-primary">
+          {`Até lá você continua no plano ${planoAtual}. `}
+          <span>A partir daí o plano {plano.name} custa {valorMensal} por mês.</span>
+        </p>
+        <p className="m-0 text-sm text-text-primary">
+          {`Desde já vale o limite do plano menor para cadastrar profissionais: ${limiteEmTexto(plano.max_professionals)}.`}
+        </p>
+        {erro && (
+          <p role="alert" className="m-0 text-sm text-error">
+            {erro}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => void onConfirmar()} loading={trocando}>
+            Agendar descida para {plano.name}
+          </Button>
+          <Button variant="ghost" onClick={onCancelar} disabled={trocando}>
+            Cancelar
+          </Button>
+        </div>
       </div>
     );
   }

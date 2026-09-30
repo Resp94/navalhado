@@ -85,6 +85,11 @@ export class AssinaturaRepository {
     });
   }
 
+  /** Desiste da descida agendada antes da data: o plano atual segue e o valor da assinatura volta para o dele. */
+  async desfazerDescidaDePlano(): Promise<void> {
+    return this.adapter.desfazerDescidaDePlano();
+  }
+
   /** Assinatura da barbearia (plano, situação, datas, cartão), ou nulo se ela não tem. */
   async obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null> {
     this.exigirTenant(tenantId);

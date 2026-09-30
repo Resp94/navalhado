@@ -101,6 +101,7 @@ describe('AssinaturaRepository: detalhes e histórico', () => {
   const assinaturaA: DetalhesDaAssinatura = {
     situacao: 'active',
     plano: { id: 'plano-maquina', nome: 'Máquina', preco: 89.9 },
+    planoAgendado: null,
     testeAte: new Date('2026-10-14T23:00:00Z'),
     periodoAte: new Date('2026-10-29T23:00:00Z'),
     cortesiaAte: null,
@@ -253,6 +254,7 @@ describe('AssinaturaRepository: mudar de plano', () => {
       diasRestantes: 20,
       diasDoPeriodo: 30,
       nomeDoPlano: 'Máquina',
+      vigenteEm: null,
     });
     expect(adapter.cotacoesPedidas).toEqual(['plano-maquina']);
   });
@@ -277,10 +279,44 @@ describe('AssinaturaRepository: mudar de plano', () => {
       cobrado: 20,
       valorMensalNovo: 89.9,
       proximaCobrancaAtualizada: true,
+      vigenteEm: null,
     });
     expect(adapter.trocasDePlano).toEqual([
       { planoId: 'plano-maquina', pagamento: { token: 'e3ed6f098462036dd2cbabe314b9de2a', final: '0604', valorConfirmado: 20 } },
     ]);
+  });
+
+  it('descer na assinatura ativa: a troca sem cartão devolve a data em que o plano menor passa a valer', async () => {
+    const { adapter, repo } = montar();
+    const vigenteEm = new Date('2026-10-29T23:26:22Z');
+    adapter.respostaDeTrocarDePlano = {
+      planoId: 'plano-tesoura',
+      nomeDoPlano: 'Tesoura',
+      cobrado: 0,
+      valorMensalNovo: 59.9,
+      proximaCobrancaAtualizada: true,
+      vigenteEm,
+    };
+
+    const agendado = await repo.trocarDePlano('plano-tesoura');
+
+    expect(agendado.vigenteEm).toEqual(vigenteEm);
+    expect(adapter.trocasDePlano).toEqual([{ planoId: 'plano-tesoura', pagamento: undefined }]);
+  });
+
+  it('desfaz a descida agendada pelo adaptador', async () => {
+    const { adapter, repo } = montar();
+
+    await repo.desfazerDescidaDePlano();
+
+    expect(adapter.descidasDesfeitas).toBe(1);
+  });
+
+  it('a recusa de desfazer a descida sobe com o motivo', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeDesfazerDescida = new Error('Não há descida de plano agendada.');
+
+    await expect(repo.desfazerDescidaDePlano()).rejects.toThrow('Não há descida de plano agendada.');
   });
 
   it('troca sem cobrança (em teste, ou diferença pequena demais): não manda cartão', async () => {

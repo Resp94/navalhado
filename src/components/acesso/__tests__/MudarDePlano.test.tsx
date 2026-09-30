@@ -24,8 +24,9 @@ vi.mock('../../../modules/planos/usePlanos', () => ({ usePlanos: () => mockUsePl
 import { MudarDePlano } from '../MudarDePlano';
 
 // Spec 052, ticket 10: mudar de plano pela tela Assinatura. Em teste a troca é livre; na assinatura
-// ativa o Gerente só sobe, vê a diferença proporcional e o valor mensal novo ANTES de confirmar e paga a
-// diferença no cartão digitado nos campos seguros. Recusado, o plano continua o mesmo.
+// ativa o Gerente que sobe vê a diferença proporcional e o valor mensal novo ANTES de confirmar e paga a
+// diferença no cartão digitado nos campos seguros. Recusado, o plano continua o mesmo. Ticket 11: descer na
+// assinatura ativa não cobra nada: agenda o plano menor para a próxima cobrança, sem reembolso.
 
 const CPF_VALIDO = '529.982.247-25';
 
@@ -36,6 +37,8 @@ const bancada: Plano = { id: 'plano-bancada', name: 'Bancada', price: 159.9, max
 type Assinatura = React.ComponentProps<typeof MudarDePlano>['assinatura'];
 const ativaNaTesoura: Assinatura = { situacao: 'active', plano: { id: tesoura.id, nome: 'Tesoura', preco: 59.9 } };
 const emTesteNaMaquina: Assinatura = { situacao: 'trialing', plano: { id: maquina.id, nome: 'Máquina', preco: 89.9 } };
+const ativaNaMaquina: Assinatura = { situacao: 'active', plano: { id: maquina.id, nome: 'Máquina', preco: 89.9 } };
+const ativaNaBancada: Assinatura = { situacao: 'active', plano: { id: bancada.id, nome: 'Bancada', preco: 159.9 } };
 
 const cotacaoComCobranca: CotacaoDaTroca = {
   modo: 'cobranca',
@@ -44,6 +47,24 @@ const cotacaoComCobranca: CotacaoDaTroca = {
   diasRestantes: 20,
   diasDoPeriodo: 30,
   nomeDoPlano: 'Máquina',
+  vigenteEm: null,
+};
+const cotacaoAgendada: CotacaoDaTroca = {
+  modo: 'agendada',
+  diferenca: 0,
+  valorMensalNovo: 59.9,
+  diasRestantes: null,
+  diasDoPeriodo: null,
+  nomeDoPlano: 'Tesoura',
+  vigenteEm: new Date('2026-10-29T23:26:22Z'),
+};
+const agendado: PlanoTrocado = {
+  planoId: tesoura.id,
+  nomeDoPlano: 'Tesoura',
+  cobrado: 0,
+  valorMensalNovo: 59.9,
+  proximaCobrancaAtualizada: true,
+  vigenteEm: new Date('2026-10-29T23:26:22Z'),
 };
 const cotacaoLivre: CotacaoDaTroca = { ...cotacaoComCobranca, modo: 'livre', diferenca: 0, diasRestantes: null, diasDoPeriodo: null };
 const cotacaoLivreDaBancada: CotacaoDaTroca = { ...cotacaoLivre, nomeDoPlano: 'Bancada', valorMensalNovo: 159.9 };
@@ -53,6 +74,7 @@ const trocado: PlanoTrocado = {
   cobrado: 20,
   valorMensalNovo: 89.9,
   proximaCobrancaAtualizada: true,
+  vigenteEm: null,
 };
 
 const comCatalogo = (status: 'loading' | 'ready' | 'error' = 'ready', planos: Plano[] = [tesoura, maquina, bancada]) =>
@@ -98,7 +120,7 @@ describe('MudarDePlano', () => {
       expect(mockCotar).not.toHaveBeenCalled();
     });
 
-    it('na assinatura ativa só oferece planos mais caros que o atual', async () => {
+    it('na assinatura ativa na Tesoura oferece os planos mais caros, para subir', async () => {
       await abrir();
 
       expect(screen.getByRole('button', { name: /Máquina/ })).toBeInTheDocument();
@@ -122,8 +144,32 @@ describe('MudarDePlano', () => {
       expect(screen.getByRole('button', { name: /Bancada/ })).toHaveTextContent('Até 10 profissionais');
     });
 
-    it('no maior plano da assinatura ativa não há para onde subir: sem botão', () => {
-      renderizar({ situacao: 'active', plano: { id: bancada.id, nome: 'Bancada', preco: 159.9 } });
+    it('na assinatura ativa oferece também os planos mais baratos, para descer na próxima cobrança', async () => {
+      await abrir(ativaNaMaquina);
+
+      expect(screen.getByRole('button', { name: /Tesoura/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Bancada/ })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Máquina/ })).not.toBeInTheDocument();
+    });
+
+    it('no maior plano da assinatura ativa só há para onde descer', async () => {
+      await abrir(ativaNaBancada);
+
+      expect(screen.getByRole('button', { name: /Tesoura/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Máquina/ })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Bancada/ })).not.toBeInTheDocument();
+    });
+
+    it('o plano da descida que já está agendada não é oferecido de novo', async () => {
+      await abrir({ ...ativaNaMaquina, planoAgendado: { id: tesoura.id, nome: 'Tesoura', preco: 59.9 } });
+
+      expect(screen.queryByRole('button', { name: /Tesoura/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Bancada/ })).toBeInTheDocument();
+    });
+
+    it('sem nenhum outro plano no catálogo não oferece a troca', () => {
+      comCatalogo('ready', [maquina]);
+      renderizar(ativaNaMaquina);
 
       expect(screen.queryByRole('button', { name: 'Mudar de plano' })).not.toBeInTheDocument();
     });
@@ -389,6 +435,99 @@ describe('MudarDePlano', () => {
 
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Mudar de plano' })).toBeInTheDocument();
+    });
+  });
+  describe('descer de plano na assinatura ativa', () => {
+    it('ao escolher um plano mais barato, diz que só vale na próxima cobrança, sem reembolso, e não pede cartão', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      const { adapter } = await abrir(ativaNaMaquina);
+
+      await escolher(/Tesoura/);
+
+      expect(mockCotar).toHaveBeenCalledWith('plano-tesoura');
+      const resumo = await screen.findByText(/só vale na próxima cobrança/);
+      expect(resumo).toHaveTextContent('Descer para o plano Tesoura só vale na próxima cobrança, em 29/10/2026.');
+      expect(resumo).toHaveTextContent('Não há reembolso');
+      expect(screen.getByText(/Até lá você continua no plano Máquina/)).toBeInTheDocument();
+      expect(screen.getByText(/A partir daí o plano Tesoura custa/)).toHaveTextContent(/R\$\s59,90 por mês/);
+      expect(screen.getByText(/já vale o limite do plano menor para cadastrar profissionais: 1 profissional/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Agendar descida para Tesoura' })).toBeEnabled();
+      expect(screen.queryByLabelText('Nome no cartão')).not.toBeInTheDocument();
+      expect(adapter.montados).toHaveLength(0);
+      expect(mockTrocar).not.toHaveBeenCalled();
+    });
+
+    it('confirma com um clique, sem cartão, e avisa a data, o limite menor que já vale e o valor da próxima cobrança', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      mockTrocar.mockResolvedValue(agendado);
+      const { onTrocado } = await abrir(ativaNaMaquina);
+      await escolher(/Tesoura/);
+      await screen.findByText(/só vale na próxima cobrança/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Agendar descida para Tesoura' }));
+
+      await waitFor(() => expect(mockTrocar).toHaveBeenCalledWith('plano-tesoura', undefined));
+      expect(mockTrocar).toHaveBeenCalledTimes(1);
+      const aviso = await screen.findByRole('status');
+      expect(aviso).toHaveTextContent('Descida agendada: o plano Tesoura vale a partir de 29/10/2026.');
+      expect(aviso).toHaveTextContent('Até lá você continua no plano atual.');
+      expect(aviso).toHaveTextContent(/O valor mensal passa a ser R\$\s59,90 na próxima cobrança\./);
+      expect(aviso).toHaveTextContent('O limite do plano menor, de 1 profissional, já vale para novos cadastros.');
+      expect(aviso).not.toHaveTextContent('Cobramos');
+      expect(onTrocado).toHaveBeenCalledTimes(1);
+    });
+
+    it('o Mercado Pago não aceitou o valor: a função não agenda e a tela mostra o motivo, sem fechar', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      mockTrocar.mockRejectedValue(new Error('Não foi possível agendar a descida de plano agora. Tente de novo em instantes.'));
+      const { onTrocado } = await abrir(ativaNaMaquina);
+      await escolher(/Tesoura/);
+      await screen.findByText(/só vale na próxima cobrança/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Agendar descida para Tesoura' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível agendar a descida de plano agora.');
+      expect(screen.getByRole('button', { name: 'Agendar descida para Tesoura' })).toBeEnabled();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(onTrocado).not.toHaveBeenCalled();
+    });
+
+    it('com mais profissionais ativos do que o plano menor aceita, mostra o aviso de quantos desativar e não deixa agendar', async () => {
+      mockCotar.mockRejectedValue(
+        new Error('Seus 3 profissionais ativos não cabem no plano Tesoura, que aceita até 1. Desative 2 profissionais antes de trocar de plano.'),
+      );
+      await abrir(ativaNaBancada);
+
+      await escolher(/Tesoura/);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Desative 2 profissionais antes de trocar de plano.');
+      expect(screen.queryByRole('button', { name: /Agendar descida/ })).not.toBeInTheDocument();
+      expect(mockTrocar).not.toHaveBeenCalled();
+    });
+
+    it('trocar de ideia: cancelar volta à lista sem agendar nada', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      await abrir(ativaNaMaquina);
+      await escolher(/Tesoura/);
+      await screen.findByText(/só vale na próxima cobrança/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      expect(screen.getByRole('button', { name: /Tesoura/ })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Agendar descida/ })).not.toBeInTheDocument();
+      expect(mockTrocar).not.toHaveBeenCalled();
+    });
+
+    it('usa o fuso da barbearia para a data em que o plano menor vale', async () => {
+      // 02:30 UTC de 30/10 ainda é 29/10 em Brasília e já é 30/10 em Lisboa.
+      mockCotar.mockResolvedValue({ ...cotacaoAgendada, vigenteEm: new Date('2026-10-30T02:30:00Z') });
+      const adapter = new InMemoryCartaoAdapter();
+      render(<MudarDePlano assinatura={ativaNaMaquina} timezone="Europe/Lisbon" repositorio={new CartaoRepository(adapter)} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Mudar de plano' }));
+
+      await escolher(/Tesoura/);
+
+      expect(await screen.findByText(/só vale na próxima cobrança/)).toHaveTextContent('em 30/10/2026');
     });
   });
 });

@@ -2,6 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import {
   MENSAGEM_ASSINAR_FALHOU,
   MENSAGEM_COTAR_TROCA_FALHOU,
+  MENSAGEM_DESFAZER_DESCIDA_FALHOU,
   MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU,
   MENSAGEM_TROCAR_CARTAO_FALHOU,
   MENSAGEM_TROCAR_PLANO_FALHOU,
@@ -38,12 +39,19 @@ const MODOS_DA_TROCA: Record<string, ModoDaTroca> = {
   free: 'livre',
   charge: 'cobranca',
   no_charge: 'sem_cobranca',
+  scheduled: 'agendada',
 };
 
 interface LinhaDoEstado {
   access: string;
   reason: string;
   relevant_date: string | null;
+}
+
+interface PlanoEmbutido {
+  id: string;
+  name: string;
+  price: unknown;
 }
 
 interface LinhaDaAssinatura {
@@ -53,7 +61,9 @@ interface LinhaDaAssinatura {
   courtesy_ends_at: string | null;
   card_brand: string | null;
   card_last4: string | null;
-  plans: { id: string; name: string; price: unknown } | { id: string; name: string; price: unknown }[] | null;
+  plans: PlanoEmbutido | PlanoEmbutido[] | null;
+  /** O plano da descida agendada (embed com outro nome: a tabela tem duas chaves para plans). */
+  scheduled_plan: PlanoEmbutido | PlanoEmbutido[] | null;
 }
 
 interface LinhaDaCobranca {
@@ -88,6 +98,9 @@ interface RespostaDaCobranca {
   planId?: string;
   charged?: number;
   nextChargeUpdated?: boolean;
+  scheduled?: boolean;
+  canceled?: boolean;
+  effectiveAt?: string;
   error?: string;
 }
 
@@ -203,6 +216,10 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
       throw new Error(MENSAGEM_COTAR_TROCA_FALHOU);
     }
 
+    // A descida agendada só faz sentido com a data em que o plano menor passa a valer.
+    const vigenteEm = paraData(resposta.effectiveAt ?? null);
+    if (modo === 'agendada' && !vigenteEm) throw new Error(MENSAGEM_COTAR_TROCA_FALHOU);
+
     return {
       modo,
       diferenca: resposta.difference,
@@ -210,6 +227,7 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
       diasRestantes: resposta.remainingDays ?? null,
       diasDoPeriodo: resposta.periodDays ?? null,
       nomeDoPlano: resposta.planName,
+      vigenteEm,
     };
   }
 
@@ -236,7 +254,12 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
 
     const resposta = data as RespostaDaCobranca | null;
     if (resposta?.error) throw new Error(resposta.error);
-    if (resposta?.changed !== true || !resposta.planId || !resposta.planName) throw new Error(MENSAGEM_TROCAR_PLANO_FALHOU);
+    const agendada = resposta?.scheduled === true;
+    if ((resposta?.changed !== true && !agendada) || !resposta.planId || !resposta.planName) throw new Error(MENSAGEM_TROCAR_PLANO_FALHOU);
+
+    // A descida agendada não cobra nada e só vale na data que a função devolve; sem ela a tela não teria o que dizer.
+    const vigenteEm = agendada ? paraData(resposta.effectiveAt ?? null) : null;
+    if (agendada && !vigenteEm) throw new Error(MENSAGEM_TROCAR_PLANO_FALHOU);
 
     return {
       planoId: resposta.planId,
@@ -244,7 +267,20 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
       cobrado: Number(resposta.charged ?? 0),
       valorMensalNovo: Number(resposta.newMonthlyAmount),
       proximaCobrancaAtualizada: resposta.nextChargeUpdated !== false,
+      vigenteEm,
     };
+  }
+
+  async desfazerDescidaDePlano(): Promise<void> {
+    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'desfazer_descida' } });
+
+    if (error) {
+      throw new Error(await mensagemDaFalha(error, MENSAGEM_DESFAZER_DESCIDA_FALHOU));
+    }
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (resposta?.error) throw new Error(resposta.error);
+    if (resposta?.canceled !== true) throw new Error(MENSAGEM_DESFAZER_DESCIDA_FALHOU);
   }
 
   // A barbearia tem uma única assinatura (unique por tenant_id). A RLS só entrega a linha ao
@@ -252,7 +288,10 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
   async obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
-      .select('status, trial_ends_at, current_period_end, courtesy_ends_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(id, name, price)')
+      .select(
+        'status, trial_ends_at, current_period_end, courtesy_ends_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(id, name, price), ' +
+          'scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey(id, name, price)',
+      )
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
@@ -269,10 +308,12 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
     if (!plano) {
       throw new Error('Erro ao ler a assinatura da barbearia: plano não encontrado.');
     }
+    const agendado = Array.isArray(linha.scheduled_plan) ? linha.scheduled_plan[0] : linha.scheduled_plan;
 
     return {
       situacao: linha.status,
       plano: { id: plano.id, nome: plano.name, preco: Number(plano.price) },
+      planoAgendado: agendado ? { id: agendado.id, nome: agendado.name, preco: Number(agendado.price) } : null,
       testeAte: paraData(linha.trial_ends_at),
       periodoAte: paraData(linha.current_period_end),
       cortesiaAte: paraData(linha.courtesy_ends_at),
