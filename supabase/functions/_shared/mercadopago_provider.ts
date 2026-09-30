@@ -50,6 +50,7 @@ const toPayment = (body: MercadoPagoBody, fallbackId: string): ProviderPayment =
     cardBrand: asString(body.payment_method_id),
     cardLast4: asString(card.last_four_digits),
     kind: metadata.kind === "upgrade" ? "upgrade" : "recurring",
+    planId: asString(metadata.plan_id),
     operationType: asString(body.operation_type),
   };
 };

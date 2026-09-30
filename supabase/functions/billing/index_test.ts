@@ -872,6 +872,7 @@ const contextoDaTroca = {
   current_period_start: "2026-10-01T12:00:00+00:00",
   current_period_end: "2026-10-31T12:00:00+00:00",
   active_professionals: 1,
+  failed_upgrade_attempts: 0,
 };
 
 const supabaseDaTroca = (overrides: Record<string, Mock> = {}) =>
@@ -1120,7 +1121,7 @@ Deno.test("trocar_plano: cobra a diferenca proporcional no cartao do token e, ap
       payerEmail: "gerente@barbearia.test",
       description: "Navalhado - subida para o plano Máquina",
       externalReference: "tenant-1",
-      idempotencyKey: `upgrade:tenant-1:${PLANO_MAQUINA_ID}:${TOKEN_DO_CARTAO}`,
+      idempotencyKey: `upgrade:tenant-1:${PLANO_MAQUINA_ID}:2026-10-31T12:00:00.000Z:0`,
       kind: "upgrade",
       planId: PLANO_MAQUINA_ID,
     }]);
@@ -1158,23 +1159,69 @@ Deno.test("trocar_plano: o final do cartao que o navegador manda so vale se o pr
   }
 });
 
-Deno.test("trocar_plano: o mesmo cartao (mesmo token) usa a mesma chave de idempotencia; outro cartao e outra tentativa", async () => {
+// A chave e da TENTATIVA, nao do cartao. O token do cartao e de uso unico: depois de um timeout em que o Mercado Pago
+// ja aprovou, o Gerente digita de novo, o SDK gera outro token e, se a chave levasse o token, mudaria e cobraria a
+// diferenca outra vez. Sem tentativa gravada entre os dois pedidos, a chave se repete (o Mercado Pago devolve o
+// pagamento que ja fez); uma tentativa recusada ou em analise vai para o historico e muda a chave do pedido seguinte.
+Deno.test("trocar_plano: um reenvio sem tentativa gravada no meio repete a chave, mesmo com outro cartao", async () => {
   const provider = new FakePaymentProvider();
   const supabase = supabaseDaTroca();
   try {
     await handlerDaTroca(provider)(trocarPlano());
-    await handlerDaTroca(provider)(trocarPlano());
     await handlerDaTroca(provider)(trocarPlano({ cardToken: "0f9e8d7c6b5a49382716f5e4d3c2b1a0" }));
 
     const chaves = provider.charges.map((cobranca) => cobranca.idempotencyKey);
+    assertEquals(chaves.length, 2);
     assertEquals(chaves[0], chaves[1]);
-    assertEquals(chaves[0] === chaves[2], false);
+    assertEquals(chaves[0].includes(TOKEN_DO_CARTAO), false);
   } finally {
     supabase.restore();
   }
 });
 
-// O cartao recusado nao e erro: o provedor devolve o pagamento recusado. Nada muda, e a tentativa fica no historico.
+Deno.test("trocar_plano: depois de uma tentativa recusada gravada no historico a chave muda, e uma nova tentativa cobra", async () => {
+  const provider = new FakePaymentProvider();
+  for (const tentativasGravadas of [0, 1, 2]) {
+    const supabase = supabaseDaTroca(comContexto({ failed_upgrade_attempts: tentativasGravadas }));
+    try {
+      await handlerDaTroca(provider)(trocarPlano());
+    } finally {
+      supabase.restore();
+    }
+  }
+
+  assertEquals(provider.charges.map((cobranca) => cobranca.idempotencyKey), [
+    `upgrade:tenant-1:${PLANO_MAQUINA_ID}:2026-10-31T12:00:00.000Z:0`,
+    `upgrade:tenant-1:${PLANO_MAQUINA_ID}:2026-10-31T12:00:00.000Z:1`,
+    `upgrade:tenant-1:${PLANO_MAQUINA_ID}:2026-10-31T12:00:00.000Z:2`,
+  ]);
+});
+
+Deno.test("trocar_plano: a chave muda com o plano de destino e com o periodo pago (depois da renovacao e outra cobranca)", async () => {
+  const provider = new FakePaymentProvider();
+  const OUTRO_PLANO = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c33";
+  const cenarios: Array<[Record<string, unknown>, string]> = [
+    [{}, PLANO_MAQUINA_ID],
+    [{}, OUTRO_PLANO],
+    [{ current_period_end: "2026-11-30T12:00:00+00:00" }, PLANO_MAQUINA_ID],
+  ];
+  for (const [contexto, planId] of cenarios) {
+    const supabase = supabaseDaTroca(comContexto(contexto));
+    try {
+      // Periodo de 60 dias, faltando 50: 30,00 x 50/60 = R$ 25,00. O valor confirmado acompanha a cotacao.
+      const valor = contexto.current_period_end ? 25 : 20;
+      await handlerDaTroca(provider)(trocarPlano({ planId, expectedAmount: valor }));
+    } finally {
+      supabase.restore();
+    }
+  }
+
+  const chaves = provider.charges.map((cobranca) => cobranca.idempotencyKey);
+  assertEquals(new Set(chaves).size, 3, chaves.join("\n"));
+  assertEquals(chaves[1].includes(OUTRO_PLANO), true);
+  assertEquals(chaves[2].includes("2026-11-30T12:00:00.000Z"), true);
+});
+
 Deno.test("trocar_plano: cartao recusado: 402 com o motivo, o plano continua o mesmo e a tentativa vai para o historico", async () => {
   const provider = new FakePaymentProvider();
   provider.nextCharge = { status: "rejected", statusDetail: "cc_rejected_insufficient_amount", approvedAt: undefined };

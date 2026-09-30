@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.2";
+import { validCardBrand, validCardLast4 } from "../_shared/card_format.ts";
 import { createMercadoPagoProvider } from "../_shared/mercadopago_provider.ts";
-import type { PaymentProvider } from "../_shared/payment_provider.ts";
+import type { PaymentProvider, ProviderPayment } from "../_shared/payment_provider.ts";
 
 // Webhook do Mercado Pago (spec 052, ticket 05). Publico: o Mercado Pago nao manda JWT do
 // Supabase, entao a funcao e publicada sem verificacao de JWT e a autenticidade vem da assinatura
@@ -188,7 +189,70 @@ const processPayment = async (supabase: SupabaseClient, provider: PaymentProvide
   if (error) throw new Error("Falha ao aplicar o pagamento na assinatura");
 
   const detail = String(result ?? "");
-  return { status: detail.startsWith("ignored") ? "ignored" : "processed", detail };
+  if (detail.startsWith("ignored")) return { status: "ignored", detail };
+
+  // O upgrade aprovado troca o plano na resposta da funcao de cobranca. Se a aprovacao chegou depois (em
+  // analise que o Mercado Pago aprova mais tarde, falha do banco depois da cobranca, timeout), e aqui que o
+  // plano troca. Vale para toda cobranca de upgrade aprovada, tambem a que ja estava no historico: o banco
+  // nao aplica duas vezes o mesmo pagamento, e o reenvio de um aviso que falhou completa o que faltou.
+  if (payment.kind === "upgrade" && payment.status === "approved" && payment.planId && UUID_PATTERN.test(payment.planId)) {
+    return { status: "processed", detail: `${detail}; ${await completeUpgrade(supabase, provider, tenantId, payment, payment.planId)}` };
+  }
+  return { status: "processed", detail };
+};
+
+// Erros do banco que sao regra de negocio (plano inexistente ou que ja nao e mais alto, assinatura que nao
+// troca mais, profissionais que nao cabem): repetir o aviso nao muda a resposta.
+const UPGRADE_REFUSALS = new Set(["22023", "53400", "55000"]);
+
+const completeUpgrade = async (
+  supabase: SupabaseClient,
+  provider: PaymentProvider,
+  tenantId: string,
+  payment: ProviderPayment,
+  planId: string,
+): Promise<string> => {
+  const { data: contextRows, error: contextError } = await supabase.rpc("get_plan_change_context", {
+    p_tenant_id: tenantId,
+    p_plan_id: planId,
+  });
+  if (contextError) throw new Error("Falha ao ler o plano do upgrade");
+  const plan = Array.isArray(contextRows) ? contextRows[0] : contextRows;
+  if (!plan) return "upgrade para plano desconhecido";
+
+  const { data: applied, error: applyError } = await supabase.rpc("apply_plan_change", {
+    p_tenant_id: tenantId,
+    p_plan_id: planId,
+    p_mp_payment_id: payment.id,
+    p_amount: payment.amount,
+    p_charged_at: (payment.approvedAt ?? payment.createdAt).toISOString(),
+    p_card_brand: validCardBrand(payment.cardBrand),
+    p_card_last4: validCardLast4(payment.cardLast4),
+  });
+  if (applyError) {
+    if (!UPGRADE_REFUSALS.has(String(applyError.code))) throw new Error("Falha ao aplicar o upgrade aprovado");
+    console.warn(
+      `[mercadopago-webhook] Upgrade aprovado não aplicado (pagamento ${payment.id}, tenant ${tenantId}, código ${applyError.code})`,
+    );
+    return `upgrade aprovado não aplicado (${applyError.code})`;
+  }
+  if (applied !== "changed") return `upgrade ${String(applied ?? "")}`;
+
+  // O preco cheio do plano novo vale a partir da proxima cobranca. O plano ja trocou e o aviso nao se repete
+  // (o banco marca o pagamento como aplicado): se o Mercado Pago nao aceitar o valor agora, o que resta e registrar.
+  if (plan.mp_subscription_id) {
+    try {
+      await provider.changeAmount(String(plan.mp_subscription_id), Number(plan.target_plan_price));
+    } catch (error) {
+      console.error(
+        `[mercadopago-webhook] Plano trocado (tenant ${tenantId}, plano ${planId}), mas o valor da assinatura no Mercado Pago não foi atualizado: ${
+          error instanceof Error ? error.message : "erro"
+        }`,
+      );
+      return "upgrade changed (valor da assinatura não atualizado)";
+    }
+  }
+  return "upgrade changed";
 };
 
 const processSubscription = async (supabase: SupabaseClient, provider: PaymentProvider, subscriptionId: string): Promise<Outcome> => {

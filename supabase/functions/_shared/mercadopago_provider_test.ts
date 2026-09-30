@@ -234,7 +234,7 @@ Deno.test("mercadopago: a payment marked as upgrade in the metadata is an upgrad
       transaction_amount: 10,
       date_created: "2026-10-14T15:00:01.000Z",
       external_reference: "tenant-1",
-      metadata: { kind: "upgrade" },
+      metadata: { kind: "upgrade", plan_id: "plan-maquina" },
     },
   }]);
   const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
@@ -242,6 +242,7 @@ Deno.test("mercadopago: a payment marked as upgrade in the metadata is an upgrad
   const payment = await provider.getPayment("55");
 
   assertEquals(payment.kind, "upgrade");
+  assertEquals(payment.planId, "plan-maquina");
   assertEquals(payment.approvedAt, undefined);
   assertEquals(payment.subscriptionId, undefined);
 });
@@ -373,6 +374,7 @@ Deno.test("mercadopago: chargeOnce posts a single payment with the card token, t
   assertEquals(payment.cardBrand, "visa");
   assertEquals(payment.cardLast4, "5682");
   assertEquals(payment.kind, "upgrade");
+  assertEquals(payment.planId, "plan-maquina");
 });
 
 Deno.test("mercadopago: chargeOnce without a plan sends no plan_id", async () => {

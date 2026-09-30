@@ -54,6 +54,8 @@ export interface ProviderPayment {
   cardLast4?: string;
   /** recurring: mensalidade. upgrade: cobranca avulsa da diferenca de plano (ticket 10). */
   kind: "recurring" | "upgrade";
+  /** Plano para o qual a cobranca de upgrade sobe (a marca que a funcao de cobranca pos no pagamento). */
+  planId?: string;
   /** Tipo da operacao no provedor. card_validation: validacao do cartao, valor 0, nao e cobranca. */
   operationType?: string;
 }

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.2";
 import { createMercadoPagoProvider } from "../_shared/mercadopago_provider.ts";
 import { type PaymentProvider, PaymentProviderError, type ProviderPayment } from "../_shared/payment_provider.ts";
+import { validCardBrand, validCardLast4 } from "../_shared/card_format.ts";
 import { quotePlanChange } from "./plan_change_quote.ts";
 
 // Edge Function de cobranca da assinatura do Navalhado (spec 052). Acoes: "assinar" (ticket 05),
@@ -51,11 +52,6 @@ interface BillingContext {
 // Secret, que ficam ao lado dela no painel do Mercado Pago, tem outro: conferir o formato evita entregar
 // um deles ao navegador de qualquer Gerente se o secret for preenchido com o valor errado.
 const PUBLIC_KEY_PATTERN = /^(APP_USR|TEST)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// Mesmos formatos que record_card_change aceita. O banco recusa (SQLSTATE 22023) o que vier fora deles, e
-// a troca ja feita no Mercado Pago viraria erro para o Gerente: valor fora do formato e descartado.
-const validCardBrand = (value?: string): string | null => value && /^[A-Za-z0-9_]{1,40}$/.test(value) ? value : null;
-const validCardLast4 = (value?: string): string | null => value && /^[0-9]{4}$/.test(value) ? value : null;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // O token do cartao gerado nos campos seguros: so essa forma segue para o provedor (o numero de um cartao,
@@ -120,6 +116,8 @@ interface PlanChangeContext {
   current_period_start: string | null;
   current_period_end: string | null;
   active_professionals: number;
+  /** Tentativas de upgrade do periodo que nao foram aprovadas (recusadas, em analise): entram na chave de idempotencia. */
+  failed_upgrade_attempts?: number;
 }
 
 export interface BillingHandlerDependencies {
@@ -304,6 +302,8 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
       return jsonResponse(request, { error: "Não foi possível calcular a diferença do plano." }, 500);
     }
 
+    const periodStart = plan.current_period_start ? new Date(plan.current_period_start) : null;
+    const periodEnd = plan.current_period_end ? new Date(plan.current_period_end) : null;
     const quote = quotePlanChange({
       status: plan.status,
       currentPlanId: plan.current_plan_id,
@@ -313,8 +313,8 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
       targetPlanPrice: targetPrice,
       targetMaxProfessionals: plan.target_max_professionals,
       activeProfessionals: plan.active_professionals,
-      periodStart: plan.current_period_start ? new Date(plan.current_period_start) : null,
-      periodEnd: plan.current_period_end ? new Date(plan.current_period_end) : null,
+      periodStart,
+      periodEnd,
       now: (dependencies.now ?? (() => new Date()))(),
     });
     if (!quote.ok) {
@@ -387,9 +387,14 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
           payerEmail,
           description: `Navalhado - subida para o plano ${plan.target_plan_name}`,
           externalReference: context.tenant_id,
-          // O mesmo cartão (o mesmo token, só usado uma vez) repete a mesma chave: um clique duplo não cobra
-          // duas vezes. Outro cartão, depois de uma recusa, é outra tentativa.
-          idempotencyKey: `upgrade:${context.tenant_id}:${planId}:${cardToken}`,
+          // A chave é da tentativa, não do cartão: o token é de uso único, e depois de um timeout em que o
+          // Mercado Pago já aprovou o Gerente digita de novo e o SDK gera outro token; se a chave o levasse,
+          // mudaria e a diferença seria cobrada outra vez. O reenvio repete a chave (o Mercado Pago devolve o
+          // pagamento que já fez). Uma tentativa recusada ou em análise vai para o histórico e faz o pedido
+          // seguinte mudar de chave; o período entra para a renovação contar como outra cobrança.
+          idempotencyKey: `upgrade:${context.tenant_id}:${planId}:${periodEnd?.toISOString() ?? "sem-periodo"}:${
+            Number(plan.failed_upgrade_attempts ?? 0)
+          }`,
           kind: "upgrade",
           planId,
         });

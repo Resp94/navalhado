@@ -600,3 +600,278 @@ Deno.test("the webhook only accepts POST", async () => {
     supabase.restore();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Spec 052, ticket 10 (achados da revisao): o upgrade aprovado depois da resposta da funcao de cobranca
+// (pagamento em analise que o Mercado Pago aprova mais tarde, falha do banco depois da cobranca, timeout)
+// so trocaria o plano se alguem o aplicasse. O webhook aplica: para o pagamento de upgrade aprovado com a
+// marca do plano (metadata.plan_id), chama apply_plan_change (o banco nao aplica duas vezes o mesmo
+// pagamento) e muda o valor da assinatura no Mercado Pago para a proxima cobranca.
+// ---------------------------------------------------------------------------
+
+const PLAN_ID = "b3fa7384-d113-4a1b-a5ed-1efeb7e51c22";
+const upgradePayment: ProviderPayment = {
+  ...approvedPayment,
+  amount: 30,
+  subscriptionId: undefined,
+  kind: "upgrade",
+  planId: PLAN_ID,
+};
+const planContext = {
+  status: "active",
+  mp_subscription_id: "pre-123",
+  current_plan_id: "b3fa7384-d113-4a1b-a5ed-1efeb7e51c11",
+  current_plan_price: "59.90",
+  target_plan_id: PLAN_ID,
+  target_plan_name: "Máquina",
+  target_plan_price: "89.90",
+  target_max_professionals: 5,
+  current_period_start: "2026-10-01T12:00:00+00:00",
+  current_period_end: "2026-10-31T12:00:00+00:00",
+  active_professionals: 1,
+  failed_upgrade_attempts: 0,
+};
+
+const supabaseDoUpgrade = (overrides: Record<string, Mock> = {}) =>
+  setupSupabase({
+    "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "recorded" },
+    "rest/v1/rpc/get_plan_change_context": { status: 200, body: [planContext] },
+    "rest/v1/rpc/apply_plan_change": { status: 200, body: "changed" },
+    ...overrides,
+  });
+
+const silenciar = () => {
+  const linhas: string[] = [];
+  const originais = { log: console.log, info: console.info, error: console.error, warn: console.warn };
+  console.log = console.info = console.error = console.warn = (...args: unknown[]) => linhas.push(args.map(String).join(" "));
+  return { linhas, restaurar: () => Object.assign(console, originais) };
+};
+
+Deno.test("an approved upgrade payment applies the plan change and updates the subscription amount for the next charge", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade();
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { status: "processed" });
+    assertEquals(supabase.rpcCalls("get_plan_change_context"), [{ p_tenant_id: TENANT_ID, p_plan_id: PLAN_ID }]);
+    assertEquals(supabase.rpcCalls("apply_plan_change"), [{
+      p_tenant_id: TENANT_ID,
+      p_plan_id: PLAN_ID,
+      p_mp_payment_id: "111",
+      p_amount: 30,
+      p_charged_at: "2026-10-14T15:00:03.000Z",
+      p_card_brand: "visa",
+      p_card_last4: "5682",
+    }]);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "pre-123", amount: 89.9 }]);
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_status, "processed");
+    assertEquals(finished.p_detail, "recorded; upgrade changed");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("the upgrade is applied even when the payment was already recorded as approved: a retry after a failure still completes it", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "duplicate" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(provider.changedAmounts.length, 1);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("an upgrade the database already applied (the billing function got there first, or a repeated notice) does not touch the subscription amount again", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/apply_plan_change": { status: 200, body: "duplicate" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    assertEquals(provider.changedAmounts.length, 0);
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_detail, "recorded; upgrade duplicate");
+  } finally {
+    supabase.restore();
+  }
+});
+
+for (
+  const [nome, pagamento] of [
+    ["a monthly charge", { ...upgradePayment, kind: "recurring" as const }],
+    ["a rejected upgrade", { ...upgradePayment, status: "rejected", approvedAt: undefined }],
+    ["an upgrade in process", { ...upgradePayment, status: "in_process", approvedAt: undefined }],
+    ["an upgrade without the plan mark", { ...upgradePayment, planId: undefined }],
+    ["an upgrade with a plan mark that is not a plan id", { ...upgradePayment, planId: "../../plans" }],
+  ] as const
+) {
+  Deno.test(`${nome} does not apply a plan change`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.payments.set("111", pagamento);
+    const supabase = supabaseDoUpgrade();
+    try {
+      const res = await handlerWith(provider)(await notification());
+
+      assertEquals(res.status, 200);
+      assertEquals(supabase.rpcCalls("get_plan_change_context").length, 0);
+      assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+      assertEquals(provider.changedAmounts.length, 0);
+    } finally {
+      supabase.restore();
+    }
+  });
+}
+
+Deno.test("an upgrade for a subscription the payment does not belong to is not applied", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "ignored_other_subscription" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(await res.json(), { status: "ignored" });
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("an upgrade to a plan that does not exist is recorded and left alone", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/get_plan_change_context": { status: 200, body: [] } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_detail, "recorded; upgrade para plano desconhecido");
+  } finally {
+    supabase.restore();
+  }
+});
+
+// Regras do banco (assinatura que nao troca mais, plano que ja nao e mais alto, profissionais que nao
+// cabem): o pagamento fica no historico e o aviso e dado como processado, porque repetir nao resolve.
+for (const code of ["55000", "22023", "53400"]) {
+  Deno.test(`a business refusal from the database (${code}) leaves the payment in the history and the notice is processed`, async () => {
+    const provider = new FakePaymentProvider();
+    provider.payments.set("111", upgradePayment);
+    const supabase = supabaseDoUpgrade({ "rest/v1/rpc/apply_plan_change": { status: 400, body: { code, message: "recusado" } } });
+    const logs = silenciar();
+    try {
+      const res = await handlerWith(provider)(await notification());
+
+      assertEquals(res.status, 200);
+      assertEquals(provider.changedAmounts.length, 0);
+      const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+      assertEquals(finished.p_status, "processed");
+      assertEquals(finished.p_detail, `recorded; upgrade aprovado não aplicado (${code})`);
+      assertEquals(logs.linhas.some((linha) => linha.includes(TENANT_ID) && linha.includes("111")), true, logs.linhas.join("\n"));
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  });
+}
+
+// Falha do banco ou da rede: responde 500 e o Mercado Pago reenvia; o pagamento ja esta aprovado no historico,
+// e o reenvio completa o upgrade.
+Deno.test("a failure applying the upgrade answers 500 so the Mercado Pago sends the notice again", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/apply_plan_change": { status: 500, body: { code: "XX000", message: "boom" } } });
+  const logs = silenciar();
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 500);
+    assertEquals(provider.changedAmounts.length, 0);
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_status, "failed");
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("a failure reading the plan answers 500 so the Mercado Pago sends the notice again", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({ "rest/v1/rpc/get_plan_change_context": { status: 500, body: { message: "boom" } } });
+  const logs = silenciar();
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 500);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+// O plano ja trocou e o aviso nao se repete (o banco marca o pagamento como aplicado): se o Mercado Pago nao
+// aceitar o valor novo, o que resta e registrar.
+Deno.test("the subscription amount the provider refuses is logged and does not fail the notice", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 429: local_rate_limited", 429);
+  const supabase = supabaseDoUpgrade();
+  const logs = silenciar();
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    const [finished] = supabase.rpcCalls("finish_billing_event") as Array<Record<string, unknown>>;
+    assertEquals(finished.p_status, "processed");
+    assertEquals(finished.p_detail, "recorded; upgrade changed (valor da assinatura não atualizado)");
+    assertEquals(logs.linhas.some((linha) => linha.includes("valor da assinatura") && linha.includes(TENANT_ID)), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("an upgrade applied to a subscription that does not exist in the provider yet does not call it", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", upgradePayment);
+  const supabase = supabaseDoUpgrade({
+    "rest/v1/rpc/get_plan_change_context": { status: 200, body: [{ ...planContext, mp_subscription_id: null }] },
+  });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(res.status, 200);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    assertEquals(provider.changedAmounts.length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a card brand or last digits outside the accepted format are dropped before the database sees them", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", { ...upgradePayment, cardBrand: "visa; drop table x", cardLast4: "12" });
+  const supabase = supabaseDoUpgrade();
+  try {
+    await handlerWith(provider)(await notification());
+
+    const [applied] = supabase.rpcCalls("apply_plan_change") as Array<Record<string, unknown>>;
+    assertEquals(applied.p_card_brand, null);
+    assertEquals(applied.p_card_last4, null);
+  } finally {
+    supabase.restore();
+  }
+});
