@@ -11,7 +11,8 @@
     "preview:pages": "npx wrangler pages dev dist",
     "test": "vitest run",
     "test:db": "supabase test db",
-    "email": "email dev --dir supabase/functions/send-auth-email/emails --port 3010"
+    "email": "email dev --dir supabase/functions/send-auth-email/emails --port 3010",
+    "email:avisos": "email dev --dir supabase/functions/send-billing-email/emails --port 3011"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
