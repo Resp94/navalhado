@@ -1425,6 +1425,106 @@ Deno.test("trocar_plano: se o banco nao consegue trocar o plano depois da cobran
   }
 });
 
+// "duplicate": o banco ja aplicou o plano com ESTE pagamento (a resposta de um pedido anterior se perdeu e o webhook foi na
+// frente, ou um reenvio). Se o plano da barbearia e o de destino, a troca ja vale e a resposta e de sucesso. Se nao e, o Mercado
+// Pago devolveu um pagamento antigo (a chave de idempotencia se repetiu, por exemplo com o plano revertido no mesmo periodo):
+// nada foi cobrado agora e o plano nao trocou, entao a funcao nao pode dizer que trocou nem mudar o valor da assinatura.
+const planoJaEhODeDestino = (): Mock => {
+  let leituras = 0;
+  return () => ({
+    status: 200,
+    body: [leituras++ === 0 ? contextoDaTroca : { ...contextoDaTroca, current_plan_id: PLANO_MAQUINA_ID }],
+  });
+};
+
+Deno.test("trocar_plano: com 'duplicate' e o plano ja e o de destino (o webhook foi na frente), responde que trocou e confere o valor da assinatura", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    "rest/v1/rpc/get_plan_change_context": planoJaEhODeDestino(),
+    "rest/v1/rpc/apply_plan_change": { status: 200, body: "duplicate" },
+  });
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 200);
+    assertEquals(corpo.changed, true);
+    assertEquals(corpo.charged, 20);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+    // A segunda leitura e a que confere o plano depois do "duplicate".
+    assertEquals(supabase.rpcCalls("get_plan_change_context"), [
+      { p_tenant_id: "tenant-1", p_plan_id: PLANO_MAQUINA_ID },
+      { p_tenant_id: "tenant-1", p_plan_id: PLANO_MAQUINA_ID },
+    ]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: com 'duplicate' e o plano que NAO e o de destino (o Mercado Pago devolveu um pagamento ja usado), responde 409, nao muda o valor da assinatura e loga", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({ "rest/v1/rpc/apply_plan_change": { status: 200, body: "duplicate" } });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 409);
+    assertEquals(corpo.changed, undefined);
+    assertEquals(corpo.error.includes("já tinha sido usado"), true, corpo.error);
+    assertEquals(corpo.error.includes("nada foi cobrado agora"), true, corpo.error);
+    assertEquals(corpo.error.includes("continua o mesmo"), true, corpo.error);
+    assertEquals(supabase.rpcCalls("apply_plan_change").length, 1);
+    // O valor da assinatura no Mercado Pago nao e o do plano de destino enquanto o plano nao trocou.
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(provider.changedCards.length, 0);
+    // O log diz qual pagamento foi devolvido e de qual barbearia, para o suporte conferir; nunca o token.
+    assertEquals(logs.linhas.some((linha) => linha.includes("fake-pay-1") && linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+    assertEquals(logs.linhas.some((linha) => linha.includes(TOKEN_DO_CARTAO)), false, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: com 'duplicate' e a leitura do plano falhando, nao diz que trocou nem mexe no valor da assinatura", async () => {
+  const provider = new FakePaymentProvider();
+  let leituras = 0;
+  const supabase = supabaseDaTroca({
+    // A primeira leitura e a do inicio do pedido; a segunda, que confere o plano depois do "duplicate", falha.
+    "rest/v1/rpc/get_plan_change_context": () =>
+      leituras++ === 0 ? { status: 200, body: [contextoDaTroca] } : { status: 500, body: { code: "XX000", message: "falha" } },
+    "rest/v1/rpc/apply_plan_change": { status: 200, body: "duplicate" },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 500);
+    assertEquals(corpo.changed, undefined);
+    assertEquals(corpo.error.includes("Não foi possível conferir a troca de plano"), true, corpo.error);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(logs.linhas.some((linha) => linha.includes("fake-pay-1") && linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: com 'changed' (o caso normal) nao le o contexto da troca de novo", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca();
+  try {
+    const res = await handlerDaTroca(provider)(trocarPlano());
+
+    assertEquals(res.status, 200);
+    assertEquals(supabase.rpcCalls("get_plan_change_context").length, 1);
+  } finally {
+    supabase.restore();
+  }
+});
+
 Deno.test("trocar_plano: se o Mercado Pago nao aceita o valor novo da assinatura, o plano ja trocou: responde que deu certo e registra o problema", async () => {
   const provider = new FakePaymentProvider();
   provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 429: local_rate_limited", 429);

@@ -543,7 +543,7 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
       return jsonResponse(request, { error: unapprovedChargeMessage(payment), paymentStatus: payment.status }, 402);
     }
 
-    const { error: applyError } = await supabase.rpc(
+    const { data: applied, error: applyError } = await supabase.rpc(
       "apply_plan_change",
       payment
         ? {
@@ -589,6 +589,34 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
         return jsonResponse(request, { error: "Não foi possível trocar para este plano." }, 409);
       }
       return jsonResponse(request, { error: "Não foi possível trocar de plano. Tente de novo." }, 500);
+    }
+
+    // "duplicate": o banco já aplicou o plano com ESTE pagamento (a resposta de um pedido anterior se perdeu e o webhook foi na
+    // frente, ou um reenvio). Se o plano da barbearia é o de destino, a troca já vale e o fluxo segue. Se não é, o Mercado Pago
+    // devolveu um pagamento antigo (a chave de idempotência se repetiu, por exemplo com o plano revertido no mesmo período):
+    // nada foi cobrado agora e o plano não trocou, então a função não diz que trocou nem muda o valor da assinatura.
+    if (applied === "duplicate") {
+      const reference = payment?.id ?? "sem pagamento";
+      const { data: currentRows, error: currentError } = await supabase.rpc("get_plan_change_context", {
+        p_tenant_id: context.tenant_id,
+        p_plan_id: planId,
+      });
+      const current = (Array.isArray(currentRows) ? currentRows[0] : currentRows) as PlanChangeContext | undefined;
+      if (currentError || !current) {
+        console.error(
+          `[billing] Pagamento já aplicado (${reference}, tenant ${context.tenant_id}), mas não foi possível conferir o plano da barbearia: o valor da assinatura no Mercado Pago não foi mexido`,
+        );
+        return jsonResponse(request, { error: "Não foi possível conferir a troca de plano. Tente de novo." }, 500);
+      }
+      if (current.current_plan_id !== planId) {
+        console.error(
+          `[billing] O Mercado Pago devolveu um pagamento já usado em outra troca (pagamento ${reference}, tenant ${context.tenant_id}, plano ${planId}): nada foi cobrado agora, o plano não trocou e o valor da assinatura no Mercado Pago não foi mexido`,
+        );
+        return jsonResponse(request, {
+          error:
+            "Não foi possível concluir a troca de plano: o Mercado Pago devolveu um pagamento que já tinha sido usado em outra troca, então nada foi cobrado agora e o plano continua o mesmo. Fale com o suporte.",
+        }, 409);
+      }
     }
 
     // O preço cheio do plano novo vale a partir da próxima cobrança. O plano já trocou: se o Mercado Pago não
