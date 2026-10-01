@@ -242,7 +242,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 - O bloqueio não mexe na sessão da Instância WhatsApp: os envios param pelo Estado de Acesso (ver acima). O estado `hibernated` do glossário continua sendo só o estado informado pelo provedor, sem uso novo.
 - A Edge Function do WhatsApp ganha a ação de excluir a instância, chamada pela rotina diária com o segredo interno que as rotinas já usam. A ação exclui no provedor e remove a instância local. A exclusão na Uazapi hoje só acontece para desfazer uma criação que falhou.
 - A rotina diária chama a exclusão para o tenant que completou 7 dias bloqueado.
-- **Proteção do dev:** o dev usa uma instância no mesmo servidor Uazapi de prod. A exclusão só age sobre instâncias cujo nome identifica o ambiente da rotina que está rodando. Se o nome das instâncias ainda não identifica o ambiente, esta spec passa a exigir isso nas instâncias novas e marca as existentes.
+- **Proteção do dev:** o dev usa uma instância no mesmo servidor Uazapi de prod. A exclusão só age sobre instâncias cujo nome identifica o ambiente da rotina que está rodando. Se o nome das instâncias ainda não identifica o ambiente, esta spec passa a exigir isso nas instâncias novas e marca as existentes. (Ticket 13: a marca é a coluna `whatsapp_instances.environment`, e não o nome, porque o nome é a chave que a Uazapi devolve no webhook; o banco sabe o próprio ambiente pelo Vault, `app_environment`.)
 
 ### Exportação de dados
 
