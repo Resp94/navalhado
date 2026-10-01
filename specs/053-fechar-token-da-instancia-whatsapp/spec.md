@@ -15,6 +15,7 @@ A origem provável (indício do histórico; a mensagem do commit não registra o
 - A policy de leitura e a de escrita (`whatsapp_instances_select_policy` e `whatsapp_instances_update_policy`, com RLS forçada) liberam a linha só para o Gerente do próprio tenant ou para o Proprietário (`private.is_saas_admin()`). **O Barbeiro não lê a linha**: como o barbeiro de teste do DEV (papel `authenticated` e a identidade dele), a consulta devolve 0 linhas. A exposição, portanto, não é entre usuários da barbearia: é do Gerente (da própria barbearia) e do Proprietário (de todas).
 - Prova em execução, como `authenticated`, numa transação com rollback: o Gerente lê o token (36 caracteres) e `environment`; o Proprietário lê o token de todas as linhas; o Barbeiro e um usuário sem perfil leem 0 linhas.
 - A tabela está na publicação `supabase_realtime` com todas as colunas e `REPLICA IDENTITY FULL`. A `realtime.apply_rls` instalada no DEV entrega ao assinante toda coluna em que ele tem SELECT, então o token também viaja no `record` e no `old_record` de cada evento que a tela do Gerente recebe.
+- A PROD, conferida em 2026-10-01 só com leitura e com autorização do usuário, está no mesmo estado: mesma ACL de tabela, mesmas policies, mesma publicação e as mesmas funções do Realtime (hash igual ao do DEV). Só difere por ainda não ter `environment` (25 colunas). Hoje o token das 2 instâncias da PROD é legível pelo Gerente de cada barbearia e pelo Proprietário.
 
 **3. O que isso permite.**
 
@@ -155,9 +156,9 @@ Um arquivo novo, `76_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 
 2. **A pré-gravação de `connecting` alimenta a janela de pareamento** da Edge Function. Ao mover a gravação para a Edge Function, a sincronização da mesma chamada tem de ver o estado já gravado. Cobertura: testes Deno novos para o `connect` e os existentes da janela de pareamento (`index_test.ts`).
 3. **`select *` e `.select()` sem lista** passam a dar 42501 (provado). A tela já lista colunas (`WHATSAPP_INSTANCE_COLUMNS`), e o teste "deve buscar somente colunas nao secretas da instancia" fixa a lista. Código novo precisa listar.
 4. **Coluna nova que a tela lê ou grava sem grant** dá 42501. Foi isso que levou à migration 036. Cobertura: a convenção e o teste de guarda, cuja mensagem de falha diz para conceder a coluna.
-5. **Realtime.** Precisa de SELECT em `id` e `tenant_id`, e o payload perde as colunas fechadas. A tela só usa os campos da lista (`toWhatsappInstance`), e o teste do Realtime já passa um payload com `instance_token` para provar que ele não entra no estado. Cobertura: roteiro manual no DEV e conferência, na PROD, de que a `apply_rls` de lá também filtra por coluna.
+5. **Realtime.** Precisa de SELECT em `id` e `tenant_id`, e o payload perde as colunas fechadas. A tela só usa os campos da lista (`toWhatsappInstance`), e o teste do Realtime já passa um payload com `instance_token` para provar que ele não entra no estado. Cobertura: roteiro manual no DEV. Na PROD, a `apply_rls` tem o mesmo hash que a do DEV (conferido em 2026-10-01), então filtra por coluna do mesmo jeito.
 6. **`view_tenants_management`** é `security_invoker` e lê `status` e `tenant_id` da tabela. Os dois ficam liberados; provado para Gerente e Proprietário. A tela Admin > Tenants faz `select('*')` da view (`Tenants.tsx:95`), não da tabela.
-7. **Funções e policies que leem a tabela com o privilégio de quem chama.** Nenhuma no DEV: as três funções que citam a tabela são as da exclusão do ticket 13, todas `SECURITY DEFINER` e sem execute para `authenticated`; nenhuma policy de outra tabela a cita; a chave estrangeira da idempotência é checada pelo dono da tabela. Reconferir na PROD.
+7. **Funções e policies que leem a tabela com o privilégio de quem chama.** Nenhuma no DEV: as três funções que citam a tabela são as da exclusão do ticket 13, todas `SECURITY DEFINER` e sem execute para `authenticated`; nenhuma policy de outra tabela a cita; a chave estrangeira da idempotência é checada pelo dono da tabela. Conferido na PROD em 2026-10-01: nenhuma função SQL, policy de outra tabela ou rotina agendada a cita; só a view `view_tenants_management` e a mesma chave estrangeira.
 8. **Edge Functions** usam um único cliente com `service_role` (`createClient(supabaseUrl, supabaseServiceRoleKey)`), com privilégios próprios que o fechamento não toca.
 9. **Aba aberta com a tela antiga depois do passo 2** dá 42501 ao conectar ou desconectar até recarregar. O passo 2 só vai depois de a tela nova estar no ar no ambiente.
 10. **Corrigir um 42501 depois do fechamento** é conceder a coluna certa, nunca a tabela. O cabeçalho da migration e o ticket de promoção dizem isso.
@@ -168,7 +169,7 @@ Um arquivo novo, `76_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 
 
 - No DEV: ticket 01, depois o 02 (passo 1). O 03 (tela e Edge Function) é independente do 02 e passa com os dois estados de GRANT. O 04 (passo 2) vem depois do 02 e do 03.
 - A ordem entre esta spec e a migration do ticket 13 (que cria `environment`) é indiferente: se `environment` nasce depois do fechamento, nasce fechada; se já existe, o fechamento a cobre. Hoje ela existe no DEV (aplicada por MCP) e a migration vive só na branch `feat/exclusao-da-instancia-whatsapp`.
-- Na PROD: o passo 1 pode ir antes de qualquer outra coisa, porque a tela que está lá só lê e grava colunas da lista. O passo 2 só depois de a tela e a Edge Function novas estarem publicadas. Nada toca a PROD sem comando do usuário, e a consulta de leitura de conferência pede autorização antes.
+- Na PROD: o passo 1 pode ir antes de qualquer outra coisa, porque a tela que está lá só lê e grava colunas da lista (conferido: `main` tem o mesmo `Whatsapp.tsx` e o mesmo `MobileMaisDrawer.tsx` do `dev`). O passo 2 só depois de a tela e a Edge Function novas estarem publicadas. Nada altera a PROD sem comando do usuário. A conferência de leitura já foi autorizada e feita em 2026-10-01.
 
 **Consulta de conferência** (só leitura; serve ao DEV antes e depois de cada migration e à PROD depois da autorização). Devolve uma linha por coluna e a ACL da tabela:
 
@@ -210,10 +211,18 @@ Hoje, no DEV, a primeira devolve `true` em `auth_select` e `auth_update` para as
 
 - **Correção da premissa do achado.** O achado inicial dizia que Gerente e Barbeiro leem o token. Pelas policies e pela prova em execução no DEV, quem lê é o Gerente (da própria barbearia) e o Proprietário (de todas); o Barbeiro lê 0 linhas.
 - **O acesso do Proprietário às linhas não muda.** A policy com `private.is_saas_admin()` fica como está: o acesso dele às barbearias é intencional. O que fecha é a coluna da credencial, que nenhuma tela do Admin lê (Admin > Tenants usa só o status, pela view).
-- **Estado da PROD: não consultado.** As migrations 009, 010, 023, 036 e 051 estão em `main`, então a PROD tem, com alta probabilidade, o mesmo GRANT de tabela. A confirmação exige uma consulta de leitura à PROD (`relacl`, `has_column_privilege` por coluna, o código da `realtime.apply_rls`, a publicação, as funções e as policies que citam a tabela), que só roda com autorização do usuário. A migration do ticket 13 ainda não está em `dev` nem em `main`, então a PROD não tem `environment`.
+- **Estado da PROD (`boakqstrdfqmsrwnjore`, consultado em 2026-10-01 com autorização do usuário, só `SELECT` em catálogo).** Nenhum token foi lido, e nada foi alterado.
+  - A ACL da tabela é a mesma do DEV: `{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=rw/postgres}`. RLS forçada, `REPLICA IDENTITY FULL`, `anon` sem nada.
+  - São 25 colunas (o DEV tem 26, por causa de `environment`). `authenticated` tem SELECT e UPDATE nas 25, incluindo `instance_token` e `provider_instance_id`. As mesmas 17 colunas trazem o resíduo do GRANT por coluna da 009 e da 023.
+  - As duas policies são idênticas às do DEV: só o Gerente do próprio tenant e o Proprietário leem e gravam a linha. O Barbeiro não lê, como no DEV.
+  - A publicação `supabase_realtime` leva as 25 colunas, sem filtro de linha.
+  - As funções `realtime.apply_rls`, `subscription_check_filters`, `build_prepared_statement_sql` e `is_visible_through_filters` têm o mesmo hash do DEV. A `apply_rls` de lá também usa `has_column_privilege` e tem o ramo 401 para chave primária sem SELECT.
+  - Nenhuma função SQL, policy de outra tabela ou rotina agendada cita a tabela. Dependem dela só a view `view_tenants_management` (`security_invoker`, lendo `status` e `tenant_id`) e a chave estrangeira de `whatsapp_message_idempotency`.
+  - Há 2 instâncias. Não há a coluna `environment` nem as funções e a rotina do ticket 13, que ainda não estão em `dev` nem em `main`.
+  - A tela publicada (`main`) tem o mesmo `Whatsapp.tsx` e o mesmo `MobileMaisDrawer.tsx` do `dev`, com a mesma lista de leitura e as mesmas escritas.
 - **Numeração.** O pgTAP 76 existe só nesta spec porque o 75 é do ticket 13. Se o ticket 13 for renumerado, o teste de guarda acompanha a maior numeração existente.
 - **Decisões que dependem do usuário.**
-  1. Consultar a PROD (só leitura) para confirmar a exposição e a versão da `apply_rls` de lá.
+  1. Consultar a PROD (só leitura). Autorizada e feita em 2026-10-01; o resultado está acima. Confirmou a exposição e que a `apply_rls` de lá é a mesma do DEV.
   2. Seguir os dois passos (recomendado, porque entrega primeiro o que fecha a credencial sem mexer na tela) ou parar no passo 1 e deixar `status` e `qr_code` graváveis, como a 009 e a 023 deixavam.
   3. Rotacionar os tokens. O token esteve legível pelo navegador do Gerente e do Proprietário desde a migration 036 em cada ambiente; não há sinal de uso indevido. Rotacionar exige recriar a instância e reler o QR code de cada barbearia. A recomendação é não rotacionar, salvo indício de uso indevido.
   4. Abrir a spec do `customers.token_acesso`.
