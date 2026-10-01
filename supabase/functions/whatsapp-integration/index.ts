@@ -1061,23 +1061,20 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
     // Só o segredo interno das rotinas: nem o Gerente exclui a própria instância por aqui. Quem decide se a instância é
     // devida é o banco (a mesma regra da rotina que a escolheu, consultada de novo porque a barbearia pode ter pago no
     // intervalo); esta rota exclui no provedor e só então remove a linha local. Se o provedor falhar a linha fica, e a
-    // rodada do dia seguinte tenta de novo.
+    // rodada do dia seguinte tenta de novo, a menos que a consulta de status confirme que a instância já não existe.
     if (path.endsWith("/delete-instance")) {
-      if (req.method !== "POST") {
-        return new Response(JSON.stringify({ error: "Method not allowed" }), {
-          status: 405,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const triggerAuthError = validateTriggerSecret("/delete-instance");
-      if (triggerAuthError) return triggerAuthError;
-
       const jsonResponse = (payload: Record<string, unknown>, status: number): Response =>
         new Response(JSON.stringify(payload), {
           status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+
+      if (req.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+      }
+
+      const triggerAuthError = validateTriggerSecret("/delete-instance");
+      if (triggerAuthError) return triggerAuthError;
 
       let instanceId: unknown;
       try {
@@ -1091,7 +1088,7 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
 
       const { data: instance, error: instanceError } = await supabase
         .from(instancesTable)
-        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}`)
+        .select(`tenant_id, instance_name, ${instanceTokenColumn}`)
         .eq("id", instanceId)
         .maybeSingle();
       if (instanceError) {
@@ -1117,26 +1114,81 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       if (!provider.deleteInstance) {
         return jsonResponse({ error: "WhatsApp provider does not support instance deletion" }, 500);
       }
+      const instanceName: string = instance.instance_name;
+      const instanceToken: string = instance[instanceTokenColumn];
+
+      // Trilha de cada desfecho: a rotina que chama não guarda a resposta e o log da função dura pouco. Falha ao gravar a
+      // trilha não muda a resposta.
+      const recordOutcome = async (action: string, details: Record<string, unknown>): Promise<void> => {
+        try {
+          const { error: auditError } = await supabase.from("audit_logs").insert({
+            tenant_id: instance.tenant_id,
+            action,
+            resource: "whatsapp_instance",
+            details: { instance_name: instanceName, ...details },
+          });
+          if (auditError) console.error("[WhatsApp-Integration] /delete-instance: falha ao gravar a trilha", auditError.message);
+        } catch (auditError) {
+          console.error("[WhatsApp-Integration] /delete-instance: falha ao gravar a trilha", auditError);
+        }
+      };
+
+      // 'deleted': o provedor excluiu. 'already_gone': o provedor já não conhecia a instância.
+      let providerOutcome: "deleted" | "already_gone" = "deleted";
       try {
-        await provider.deleteInstance({
-          instanceName: instance.instance_name,
-          instanceToken: instance[instanceTokenColumn],
-        });
+        await provider.deleteInstance({ instanceName, instanceToken });
       } catch (deleteError) {
-        if (deleteError instanceof WhatsAppProviderError && deleteError.status === 404) {
-          console.log(`[WhatsApp-Integration] /delete-instance: '${instance.instance_name}' já não existia no provedor`);
-        } else {
+        const providerStatus = deleteError instanceof WhatsAppProviderError ? (deleteError.status ?? null) : null;
+        const timedOut = deleteError instanceof WhatsAppProviderError ? deleteError.timedOut : false;
+
+        // Nenhuma resposta do DELETE diz sozinha que a instância sumiu: o 404 pode ser rota errada, o 401 parece ser o que
+        // a Uazapi devolve para um token que já não existe, e um tempo esgotado ou um 5xx podem vir depois de o provedor ter
+        // excluído. Só a consulta de status, que a tela já usa, confirma: sem a instância (401 ou 404) a linha local sai;
+        // com ela, ou sem conseguir saber, a linha fica e a rodada do dia seguinte tenta de novo.
+        let instanceStillExists: boolean | null = null;
+        try {
+          await provider.getInstanceStatus({ instanceName, instanceToken });
+          instanceStillExists = true;
+        } catch (statusError) {
+          if (statusError instanceof WhatsAppProviderError && (statusError.status === 401 || statusError.status === 404)) {
+            instanceStillExists = false;
+          }
+        }
+
+        if (instanceStillExists !== false) {
+          console.error(
+            `[WhatsApp-Integration] /delete-instance: o provedor não excluiu '${instanceName}' ` +
+              `(status ${providerStatus ?? "sem resposta"}${timedOut ? ", tempo esgotado" : ""}; ` +
+              `${instanceStillExists ? "a instância ainda existe" : "sem confirmação de que ela sumiu"})`,
+          );
+          await recordOutcome("whatsapp_instance_deletion_failed", {
+            stage: "provider",
+            provider_status: providerStatus,
+            timed_out: timedOut,
+            instance_still_exists: instanceStillExists,
+          });
           return providerFailureResponse(deleteError);
         }
+
+        console.log(`[WhatsApp-Integration] /delete-instance: '${instanceName}' já não existia no provedor`);
+        providerOutcome = "already_gone";
       }
 
-      const { error: removeError } = await supabase.from(instancesTable).delete().eq("id", instanceId);
+      // Depois de o provedor excluir, a linha local é tudo o que resta: três tentativas, como na compensação da ativação.
+      let removeError: { message: string } | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { error } = await supabase.from(instancesTable).delete().eq("id", instanceId);
+        removeError = error;
+        if (!removeError) break;
+      }
       if (removeError) {
-        console.error("[WhatsApp-Integration] /delete-instance: falha ao remover a instância local", removeError.message);
+        console.error(`[WhatsApp-Integration] /delete-instance: falha ao remover a instância local '${instanceName}'`, removeError.message);
+        await recordOutcome("whatsapp_instance_deletion_failed", { stage: "local_delete" });
         return jsonResponse({ error: "Failed to remove local instance" }, 500);
       }
 
-      console.log(`[WhatsApp-Integration] /delete-instance: instância '${instance.instance_name}' excluída (bloqueio de 7 dias)`);
+      console.log(`[WhatsApp-Integration] /delete-instance: instância '${instanceName}' excluída`);
+      await recordOutcome("whatsapp_instance_deleted", { provider: providerOutcome });
       return jsonResponse({ success: true }, 200);
     }
 

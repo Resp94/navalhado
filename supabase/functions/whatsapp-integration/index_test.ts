@@ -3970,7 +3970,9 @@ Deno.test("POST /webhook Message - without a readable access state the first con
 
 // Spec 052, ticket 13: exclusao da Instancia WhatsApp no setimo dia de bloqueio. A rota so aceita o segredo interno das
 // rotinas. Quem decide se a instancia e devida e o banco (RPC whatsapp_instance_deletion_verdict, a mesma regra que a rotina
-// diaria usa para escolher); a funcao so exclui no provedor e, depois, remove a linha local.
+// diaria usa para escolher); a funcao exclui no provedor e, depois, remove a linha local. Quando o provedor falha, so
+// remove a linha se a consulta de status tambem nao conhecer a instancia: o 404 do DELETE pode ser rota errada, e o que a
+// Uazapi devolve para um token que ja nao existe (404 ou 401) nao esta documentado. Cada desfecho vira uma linha em audit_logs.
 const DELETE_INSTANCE_ID = "11111111-1111-4111-8111-111111111111";
 
 const deleteInstanceRequest = (
@@ -3995,14 +3997,17 @@ const setupDeleteInstanceFetch = (
     instance?: Record<string, unknown> | null;
     verdict?: string;
     verdictStatus?: number;
-    deleteStatus?: number;
+    // Um status por tentativa de DELETE da linha local; o ultimo vale para as tentativas seguintes.
+    deleteStatuses?: number[];
+    auditStatus?: number;
   } = {},
 ) => {
   const originalFetch = globalThis.fetch;
   const calls: string[] = [];
+  const auditRows: Array<Record<string, any>> = [];
+  let deleteAttempt = 0;
   const instance = options.instance === undefined
     ? {
-      id: DELETE_INSTANCE_ID,
       tenant_id: "tenant-1",
       instance_name: "nav_tenant1_abcd1234",
       instance_token: "secret-instance-token",
@@ -4019,21 +4024,53 @@ const setupDeleteInstanceFetch = (
       if ((options.verdictStatus ?? 200) !== 200) return json({ message: "boom" }, options.verdictStatus);
       return json(options.verdict ?? "due");
     }
+    if (url.includes("rest/v1/audit_logs") && method === "POST") {
+      calls.push("POST audit_logs");
+      auditRows.push(JSON.parse(String(init?.body ?? "{}")));
+      return (options.auditStatus ?? 201) === 201
+        ? Promise.resolve(new Response(null, { status: 201 }))
+        : json({ message: "boom" }, options.auditStatus);
+    }
     if (url.includes("rest/v1/whatsapp_instances")) {
       calls.push(`${method} instances`);
       if (method === "GET") return json(instance ? [instance] : []);
       if (method === "DELETE") {
-        return (options.deleteStatus ?? 204) === 204
-          ? Promise.resolve(new Response(null, { status: 204 }))
-          : json({ message: "boom" }, options.deleteStatus);
+        const statuses = options.deleteStatuses ?? [204];
+        const status = statuses[Math.min(deleteAttempt, statuses.length - 1)];
+        deleteAttempt++;
+        return status === 204 ? Promise.resolve(new Response(null, { status: 204 })) : json({ message: "boom" }, status);
       }
     }
     calls.push(`unexpected ${method} ${url}`);
     return json({ error: "unexpected request" }, 500);
   };
 
-  return { calls, restore: () => { globalThis.fetch = originalFetch; } };
+  return { calls, auditRows, restore: () => { globalThis.fetch = originalFetch; } };
 };
+
+// Provedor cujo DELETE falha; a consulta de status diz se a instancia ainda existe ("exists") ou falha com o erro dado.
+const providerWithFailingDelete = (
+  calls: string[],
+  deleteFailure: Error,
+  statusProbe: "exists" | Error,
+) =>
+  createProviderStub({
+    deleteInstance: () => {
+      calls.push("provider delete");
+      return Promise.reject(deleteFailure);
+    },
+    getInstanceStatus: () => {
+      calls.push("provider status");
+      return statusProbe === "exists" ? Promise.resolve({ status: "disconnected" as const }) : Promise.reject(statusProbe);
+    },
+  });
+
+const providerFailures = () => [
+  new WhatsAppProviderError("delete instance", 500),
+  new WhatsAppProviderError("delete instance", 401),
+  new WhatsAppProviderError("delete instance", 404),
+  new WhatsAppProviderError("delete instance", undefined, undefined, undefined, true),
+];
 
 Deno.test("Uazapi adapter deletes an instance with its own token and exposes the status of a refusal", async () => {
   const requests: Array<{ url: string; method?: string; token: string | null }> = [];
@@ -4141,7 +4178,16 @@ Deno.test("POST /delete-instance refuses with the reason when the database says 
   });
 
   for (
-    const reason of ["too_recent", "not_blocked", "other_environment", "unidentified", "runtime_unidentified", "not_found"]
+    const reason of [
+      "too_recent",
+      "payment_pending",
+      "recently_changed",
+      "not_blocked",
+      "other_environment",
+      "unidentified",
+      "runtime_unidentified",
+      "not_found",
+    ]
   ) {
     const mock = setupDeleteInstanceFetch({ verdict: reason });
     try {
@@ -4174,7 +4220,7 @@ Deno.test("POST /delete-instance does not delete anything when the verdict canno
   }
 });
 
-Deno.test("POST /delete-instance deletes at the provider with the instance token and then removes the local row", async () => {
+Deno.test("POST /delete-instance deletes at the provider with the instance token, removes the local row and records it", async () => {
   const mock = setupDeleteInstanceFetch();
   const testHandler = createHandler({
     providerFactory: () =>
@@ -4197,83 +4243,151 @@ Deno.test("POST /delete-instance deletes at the provider with the instance token
       `rpc verdict ${DELETE_INSTANCE_ID}`,
       "provider delete nav_tenant1_abcd1234 secret-instance-token",
       "DELETE instances",
+      "POST audit_logs",
     ]);
+    assertEquals(mock.auditRows, [{
+      tenant_id: "tenant-1",
+      action: "whatsapp_instance_deleted",
+      resource: "whatsapp_instance",
+      details: { instance_name: "nav_tenant1_abcd1234", provider: "deleted" },
+    }]);
   } finally {
     mock.restore();
   }
 });
 
-Deno.test("POST /delete-instance treats a 404 from the provider as already deleted and still removes the local row", async () => {
-  const mock = setupDeleteInstanceFetch();
-  const testHandler = createHandler({
-    providerFactory: () =>
-      createProviderStub({
-        deleteInstance: () => {
-          mock.calls.push("provider delete");
-          return Promise.reject(new WhatsAppProviderError("delete instance", 404));
-        },
-      }),
-  });
+Deno.test("POST /delete-instance still answers when the audit row cannot be written", async () => {
+  const mock = setupDeleteInstanceFetch({ auditStatus: 500 });
+  const testHandler = createHandler({ providerFactory: () => createProviderStub({ deleteInstance: () => Promise.resolve() }) });
 
   try {
     const response = await testHandler(deleteInstanceRequest());
     assertEquals(response.status, 200);
     assertEquals(await response.json(), { success: true });
-    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete", "DELETE instances"]);
+    assertEquals(mock.calls.at(-1), "POST audit_logs");
   } finally {
     mock.restore();
   }
 });
 
-Deno.test("POST /delete-instance keeps the local row when the provider fails, so the next run tries again", async () => {
-  const failures = [
-    new WhatsAppProviderError("delete instance", 500),
-    new WhatsAppProviderError("delete instance", 401),
-    new WhatsAppProviderError("delete instance", undefined, undefined, undefined, true),
-  ];
+Deno.test("POST /delete-instance removes the row when the delete fails but the provider no longer knows the instance", async () => {
+  for (const failure of providerFailures()) {
+    for (const probeStatus of [401, 404]) {
+      const mock = setupDeleteInstanceFetch();
+      const testHandler = createHandler({
+        providerFactory: () =>
+          providerWithFailingDelete(mock.calls, failure, new WhatsAppProviderError("get instance status", probeStatus)),
+      });
 
-  for (const failure of failures) {
+      try {
+        const response = await testHandler(deleteInstanceRequest());
+        const label = `${failure.message} / status ${probeStatus}`;
+        assertEquals(response.status, 200, label);
+        assertEquals(await response.json(), { success: true }, label);
+        assertEquals(mock.calls, [
+          "GET instances",
+          `rpc verdict ${DELETE_INSTANCE_ID}`,
+          "provider delete",
+          "provider status",
+          "DELETE instances",
+          "POST audit_logs",
+        ], label);
+        assertEquals(mock.auditRows[0].action, "whatsapp_instance_deleted", label);
+        assertEquals(mock.auditRows[0].details, { instance_name: "nav_tenant1_abcd1234", provider: "already_gone" }, label);
+      } finally {
+        mock.restore();
+      }
+    }
+  }
+});
+
+Deno.test("POST /delete-instance keeps the row and records the failure when the delete fails and the instance still exists", async () => {
+  for (const failure of providerFailures()) {
     const mock = setupDeleteInstanceFetch();
-    const testHandler = createHandler({
-      providerFactory: () =>
-        createProviderStub({
-          deleteInstance: () => {
-            mock.calls.push("provider delete");
-            return Promise.reject(failure);
-          },
-        }),
-    });
+    const testHandler = createHandler({ providerFactory: () => providerWithFailingDelete(mock.calls, failure, "exists") });
 
     try {
       const response = await testHandler(deleteInstanceRequest());
+      const text = await response.text();
       assertEquals(response.status, 502, failure.message);
-      assertEquals(await response.json(), { error: "WhatsApp provider request failed" });
-      assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete"], failure.message);
+      assertEquals(JSON.parse(text), { error: "WhatsApp provider request failed" }, failure.message);
+      assertEquals(mock.calls, [
+        "GET instances",
+        `rpc verdict ${DELETE_INSTANCE_ID}`,
+        "provider delete",
+        "provider status",
+        "POST audit_logs",
+      ], failure.message);
+      const failed = failure as WhatsAppProviderError;
+      assertEquals(mock.auditRows, [{
+        tenant_id: "tenant-1",
+        action: "whatsapp_instance_deletion_failed",
+        resource: "whatsapp_instance",
+        details: {
+          instance_name: "nav_tenant1_abcd1234",
+          stage: "provider",
+          provider_status: failed.status ?? null,
+          timed_out: failed.timedOut,
+          instance_still_exists: true,
+        },
+      }], failure.message);
     } finally {
       mock.restore();
     }
   }
 });
 
-Deno.test("POST /delete-instance reports a failure to remove the local row after the provider deleted", async () => {
-  const mock = setupDeleteInstanceFetch({ deleteStatus: 500 });
-  const testHandler = createHandler({
-    providerFactory: () =>
-      createProviderStub({
-        deleteInstance: () => {
-          mock.calls.push("provider delete");
-          return Promise.resolve();
-        },
-      }),
-  });
+Deno.test("POST /delete-instance keeps the row when the delete fails and the status call cannot tell", async () => {
+  const inconclusive = [
+    new WhatsAppProviderError("get instance status", 502),
+    new WhatsAppProviderError("get instance status", undefined, undefined, undefined, true),
+  ];
 
+  for (const probeFailure of inconclusive) {
+    const mock = setupDeleteInstanceFetch();
+    const testHandler = createHandler({
+      providerFactory: () =>
+        providerWithFailingDelete(mock.calls, new WhatsAppProviderError("delete instance", undefined, undefined, undefined, true), probeFailure),
+    });
+
+    try {
+      const response = await testHandler(deleteInstanceRequest());
+      assertEquals(response.status, 502, probeFailure.message);
+      assertEquals(mock.calls.includes("DELETE instances"), false, probeFailure.message);
+      assertEquals(mock.auditRows[0].details.instance_still_exists, null, probeFailure.message);
+    } finally {
+      mock.restore();
+    }
+  }
+});
+
+Deno.test("POST /delete-instance retries the local delete up to three times after the provider deleted", async () => {
+  const providerDeletes = () => createProviderStub({ deleteInstance: () => Promise.resolve() });
+
+  const recovers = setupDeleteInstanceFetch({ deleteStatuses: [500, 500, 204] });
   try {
-    const response = await testHandler(deleteInstanceRequest());
+    const response = await createHandler({ providerFactory: providerDeletes })(deleteInstanceRequest());
+    assertEquals(response.status, 200);
+    assertEquals(recovers.calls.filter((call) => call === "DELETE instances").length, 3);
+    assertEquals(recovers.auditRows[0].action, "whatsapp_instance_deleted");
+  } finally {
+    recovers.restore();
+  }
+
+  const givesUp = setupDeleteInstanceFetch({ deleteStatuses: [500] });
+  try {
+    const response = await createHandler({ providerFactory: providerDeletes })(deleteInstanceRequest());
     assertEquals(response.status, 500);
     assertEquals(await response.json(), { error: "Failed to remove local instance" });
-    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete", "DELETE instances"]);
+    assertEquals(givesUp.calls.filter((call) => call === "DELETE instances").length, 3);
+    assertEquals(givesUp.auditRows, [{
+      tenant_id: "tenant-1",
+      action: "whatsapp_instance_deletion_failed",
+      resource: "whatsapp_instance",
+      details: { instance_name: "nav_tenant1_abcd1234", stage: "local_delete" },
+    }]);
   } finally {
-    mock.restore();
+    givesUp.restore();
   }
 });
 
