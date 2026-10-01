@@ -77,7 +77,6 @@ const ativaTesouraParaMaquina: PlanChangeInput = {
   activeProfessionals: 1,
   periodStart: start,
   periodEnd: end30,
-  scheduledPlanId: null,
   now: new Date(start.getTime() + 10 * DAY),
 };
 
@@ -138,7 +137,8 @@ Deno.test("quotePlanChange: em teste, descer para um plano menor que os profissi
 
   assertEquals(quote.ok, false);
   assertEquals(!quote.ok && quote.code, "over_limit");
-  assertEquals(!quote.ok && quote.message.includes("3 profissionais ativos") && quote.message.includes("Tesoura") && quote.message.includes("até 1"), true);
+  assertEquals(!quote.ok && quote.message.includes("3 profissionais cadastrados") && quote.message.includes("Tesoura") && quote.message.includes("até 1"), true);
+  assertEquals(!quote.ok && quote.message.includes("Exclua 2 profissionais"), true);
 });
 
 Deno.test("quotePlanChange: o plano em que a barbearia ja esta e recusado", () => {
@@ -184,13 +184,9 @@ Deno.test("quotePlanChange: um plano de mesmo preco nao e subida nem descida", (
   assertEquals(!quote.ok && quote.code, "same_price");
 });
 
-Deno.test("quotePlanChange: a descida que ja esta agendada para o mesmo plano e recusada", () => {
-  const quote = quotePlanChange({ ...ativaMaquinaParaTesoura, scheduledPlanId: PLANO_TESOURA });
-
-  assertEquals(!quote.ok && quote.code, "already_scheduled");
-});
-
-Deno.test("quotePlanChange: com uma descida agendada para outro plano, agendar um terceiro troca o agendamento", () => {
+// A cotacao nao conhece a descida que ja esta agendada: pedir de novo o mesmo plano (clique repetido, retentativa depois de
+// uma falha com o Mercado Pago) cota como qualquer descida, e o banco responde "unchanged" (ver os testes da funcao).
+Deno.test("quotePlanChange: na Bancada, a Maquina e descida agendada (trocar o agendamento por ela e cotado como qualquer descida)", () => {
   const quote = quotePlanChange({
     ...ativaMaquinaParaTesoura,
     currentPlanId: PLANO_BANCADA,
@@ -199,19 +195,42 @@ Deno.test("quotePlanChange: com uma descida agendada para outro plano, agendar u
     targetPlanName: "Máquina",
     targetPlanPrice: 89.9,
     targetMaxProfessionals: 5,
-    scheduledPlanId: PLANO_TESOURA,
   });
 
   assertEquals(quote.ok && quote.mode, "scheduled");
 });
 
-Deno.test("quotePlanChange: descer com mais profissionais ativos do que o plano menor aceita diz quantos precisam ser desativados", () => {
+// So excluir libera vaga: o profissional inativo (is_active = false) continua contando no limite do plano. A mensagem
+// manda excluir, nao desativar, senao o Gerente desativa, tenta de novo e recebe a mesma recusa.
+Deno.test("quotePlanChange: descer com mais profissionais do que o plano menor aceita diz quantos precisam ser excluidos", () => {
   const tres = quotePlanChange({ ...ativaMaquinaParaTesoura, activeProfessionals: 3 });
   const dois = quotePlanChange({ ...ativaMaquinaParaTesoura, currentPlanId: PLANO_BANCADA, targetMaxProfessionals: 1, activeProfessionals: 2 });
 
   assertEquals(!tres.ok && tres.code, "over_limit");
-  assertEquals(!tres.ok && tres.message.includes("Desative 2 profissionais"), true);
-  assertEquals(!dois.ok && dois.message.includes("Desative 1 profissional antes"), true);
+  assertEquals(!tres.ok && tres.message.includes("Exclua 2 profissionais"), true);
+  assertEquals(!dois.ok && dois.message.includes("Exclua 1 profissional antes"), true);
+  assertEquals(!tres.ok && tres.message.includes("Desative"), false);
+  assertEquals(!tres.ok && tres.message.includes("inativo"), true);
+});
+
+// A mensalidade ja foi (ou esta sendo) cobrada e o aviso do Mercado Pago ainda nao chegou: o periodo pago na tela
+// ja venceu, mas a assinatura segue "ativa". Agendar ou trocar o agendamento agora valeria para o periodo que acabou
+// de ser pago, e o aviso atrasado aplicaria a descida a uma mensalidade cobrada pelo valor do plano maior.
+Deno.test("quotePlanChange: descer com o periodo pago ja vencido e recusado ate o aviso da mensalidade chegar", () => {
+  const umaHoraDepois = quotePlanChange({ ...ativaMaquinaParaTesoura, now: new Date(end30.getTime() + 60 * 60 * 1000) });
+  const noInstante = quotePlanChange({ ...ativaMaquinaParaTesoura, now: end30 });
+  const umaHoraAntes = quotePlanChange({ ...ativaMaquinaParaTesoura, now: new Date(end30.getTime() - 60 * 60 * 1000) });
+
+  assertEquals(!umaHoraDepois.ok && umaHoraDepois.code, "period_elapsed");
+  assertEquals(!noInstante.ok && noInstante.code, "period_elapsed");
+  assertEquals(umaHoraAntes.ok && umaHoraAntes.mode, "scheduled");
+  assertEquals(!umaHoraDepois.ok && umaHoraDepois.message.includes("ainda não foi processada"), true);
+});
+
+Deno.test("quotePlanChange: subir com o periodo vencido nao muda (os dias que faltam sao zero e o plano troca sem cobranca)", () => {
+  const quote = quotePlanChange({ ...ativaTesouraParaMaquina, now: new Date(end30.getTime() + 60 * 60 * 1000) });
+
+  assertEquals(quote.ok && quote.mode, "no_charge");
 });
 
 Deno.test("quotePlanChange: a descida agendada precisa do fim do periodo pago para dizer quando vale", () => {

@@ -11,7 +11,9 @@ Deno.env.set("APP_URL", "https://mock-app.com");
 // Supabase e simulado no nivel do fetch, como nos testes da whatsapp-integration.
 
 type Call = { url: string; method: string; body: unknown; authorization?: string };
-type Mock = { status: number; body: unknown };
+// Uma funcao no lugar da resposta roda a cada chamada: o teste devolve respostas diferentes em sequencia.
+type MockResponse = { status: number; body: unknown };
+type Mock = MockResponse | (() => MockResponse);
 
 const trialContext = {
   user_id: "user-1",
@@ -46,8 +48,9 @@ const setupSupabase = (overrides: Record<string, Mock> = {}) => {
     });
     for (const [key, mock] of Object.entries(mocks)) {
       if (url.includes(key)) {
-        return Promise.resolve(new Response(JSON.stringify(mock.body), {
-          status: mock.status,
+        const response = typeof mock === "function" ? mock() : mock;
+        return Promise.resolve(new Response(JSON.stringify(response.body), {
+          status: response.status,
           headers: { "Content-Type": "application/json" },
         }));
       }
@@ -1566,7 +1569,7 @@ Deno.test("trocar_plano: o plano em que a barbearia ja esta e um plano que nao c
 // A funcao do banco e a ultima guarda: se a situacao mudou entre a cotacao e a troca, ela recusa.
 for (const [code, trecho] of [
   ["55000", "não aceita"],
-  ["53400", "profissionais"],
+  ["53400", "Exclua"],
   ["22023", "trocar para este plano"],
   ["XX000", "Tente de novo"],
 ] as const) {
@@ -1774,27 +1777,63 @@ Deno.test("cotar_troca_de_plano: descer na assinatura ativa e descida agendada: 
   }
 });
 
-Deno.test("cotar_troca_de_plano: descer com mais profissionais ativos do que o plano menor aceita responde 409 com quantos desativar", async () => {
+Deno.test("cotar_troca_de_plano: descer com mais profissionais do que o plano menor aceita responde 409 com quantos excluir", async () => {
   const provider = new FakePaymentProvider();
   const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, active_professionals: 3 }));
   try {
     const res = await handlerDaTroca(provider)(cotarDescida());
+    const mensagem = (await res.json()).error as string;
 
     assertEquals(res.status, 409);
-    assertEquals((await res.json()).error.includes("Desative 2 profissionais"), true);
+    assertEquals(mensagem.includes("Exclua 2 profissionais"), true, mensagem);
+    assertEquals(mensagem.includes("Desative"), false, mensagem);
   } finally {
     supabase.restore();
   }
 });
 
-Deno.test("cotar_troca_de_plano: a descida que ja esta agendada para o mesmo plano responde 409", async () => {
+Deno.test("cotar_troca_de_plano: o plano que ja esta agendado e cotado de novo, como descida agendada", async () => {
   const provider = new FakePaymentProvider();
   const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, scheduled_plan_id: PLANO_TESOURA_ID }));
   try {
     const res = await handlerDaTroca(provider)(cotarDescida());
 
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).mode, "scheduled");
+  } finally {
+    supabase.restore();
+  }
+});
+
+// A mensalidade ja foi cobrada e o aviso do Mercado Pago ainda nao chegou: o periodo pago acabou (AGORA e 11/10; o periodo
+// vai ate 01/10) e a assinatura segue "ativa". Agendar agora valeria para uma mensalidade ja cobrada pelo valor do plano maior.
+const comPeriodoVencido = {
+  current_period_start: "2026-09-01T12:00:00+00:00",
+  current_period_end: "2026-10-01T12:00:00+00:00",
+};
+
+Deno.test("cotar_troca_de_plano: descer com o periodo pago vencido responde 409 e diz que a mensalidade ainda nao foi processada", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, ...comPeriodoVencido }));
+  try {
+    const res = await handlerDaTroca(provider)(cotarDescida());
+
     assertEquals(res.status, 409);
-    assertEquals((await res.json()).error.includes("já está agendada"), true);
+    assertEquals((await res.json()).error.includes("ainda não foi processada"), true);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: descer com o periodo pago vencido responde 409 e nao agenda nada nem mexe no Mercado Pago", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, ...comPeriodoVencido }));
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 409);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 0);
+    assertEquals(provider.changedAmounts.length, 0);
   } finally {
     supabase.restore();
   }
@@ -1852,6 +1891,8 @@ Deno.test("trocar_plano: o Mercado Pago nao aceita o valor novo: o agendamento e
     assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 1);
     assertEquals(supabase.rpcCalls("cancel_plan_downgrade"), [{ p_tenant_id: "tenant-1" }]);
     assertEquals(logs.linhas.some((linha) => linha.includes("429")), true, logs.linhas.join("\n"));
+    // 429 e recusa clara (o pedido nao foi processado): nao ha o que conferir no Mercado Pago.
+    assertEquals(provider.requestedSubscriptions.length, 0);
   } finally {
     logs.restaurar();
     supabase.restore();
@@ -1860,7 +1901,7 @@ Deno.test("trocar_plano: o Mercado Pago nao aceita o valor novo: o agendamento e
 
 Deno.test("trocar_plano: se nem o desfazer do agendamento passa, o log diz que o banco e o Mercado Pago ficaram em desacordo", async () => {
   const provider = new FakePaymentProvider();
-  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 503: unavailable", 503);
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 422: invalid amount", 422);
   const supabase = supabaseDaTroca({
     ...comContexto(contextoDaDescida),
     "rest/v1/rpc/cancel_plan_downgrade": { status: 500, body: { code: "XX000", message: "falha" } },
@@ -1877,9 +1918,163 @@ Deno.test("trocar_plano: se nem o desfazer do agendamento passa, o log diz que o
   }
 });
 
+// Trocar uma descida ja agendada por outra: o agendamento que o pedido substituiu volta, em vez de sumir. Bancada com a
+// Maquina agendada (o Mercado Pago cobra R$ 89,90) escolhe a Tesoura; o Mercado Pago recusa o valor de R$ 59,90.
+const bancadaComMaquinaAgendada = {
+  current_plan_id: PLANO_BANCADA_ID,
+  current_plan_price: "159.90",
+  scheduled_plan_id: PLANO_MAQUINA_ID,
+};
+
+Deno.test("trocar_plano: o Mercado Pago recusa o valor ao trocar uma descida ja agendada por outra: o agendamento anterior volta, nao some", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 400: invalid amount", 400);
+  const supabase = supabaseDaTroca(comContexto({ ...contextoDaDescida, ...bancadaComMaquinaAgendada }));
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade"), [
+      { p_tenant_id: "tenant-1", p_plan_id: PLANO_TESOURA_ID },
+      { p_tenant_id: "tenant-1", p_plan_id: PLANO_MAQUINA_ID },
+    ]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: se o agendamento anterior nao volta, o log diz qual barbearia e quais planos conferir", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 400: invalid amount", 400);
+  let chamadas = 0;
+  const supabase = supabaseDaTroca({
+    ...comContexto({ ...contextoDaDescida, ...bancadaComMaquinaAgendada }),
+    // A primeira chamada agenda a Tesoura; a segunda, que restaura a Maquina, falha.
+    "rest/v1/rpc/schedule_plan_downgrade": () =>
+      chamadas++ === 0 ? { status: 200, body: "scheduled" } : { status: 500, body: { code: "XX000", message: "falha" } },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(chamadas, 2);
+    assertEquals(
+      logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("agendamento anterior")),
+      true,
+      logs.linhas.join("\n"),
+    );
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: pedir de novo o plano que ja esta agendado confere o valor no Mercado Pago e responde 200, sem desfazer nada", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    ...comContexto({ ...contextoDaDescida, scheduled_plan_id: PLANO_TESOURA_ID }),
+    "rest/v1/rpc/schedule_plan_downgrade": { status: 200, body: "unchanged" },
+  });
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).scheduled, true);
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 59.9 }]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: pedir de novo o plano ja agendado com o Mercado Pago recusando o valor nao desfaz o agendamento que ja existia", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 400: invalid amount", 400);
+  const supabase = supabaseDaTroca({
+    ...comContexto({ ...contextoDaDescida, scheduled_plan_id: PLANO_TESOURA_ID }),
+    "rest/v1/rpc/schedule_plan_downgrade": { status: 200, body: "unchanged" },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(supabase.rpcCalls("schedule_plan_downgrade").length, 1);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+// Falha sem resposta (timeout, queda de conexao) ou 5xx: o Mercado Pago pode ja ter aplicado o valor. Antes de tratar como
+// "nao aplicou" a funcao confere o valor que a assinatura tem la.
+const falhaSemResposta = () => new PaymentProviderError("Mercado Pago nao respondeu a tempo");
+const assinaturaNoMercadoPago = (amount: number) => ({ id: "mp-sub-1", status: "authorized", amount });
+
+Deno.test("trocar_plano: falha sem resposta mas o Mercado Pago ja tem o valor novo: a descida fica agendada e o Gerente recebe o sucesso", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = falhaSemResposta();
+  provider.subscriptions.set("mp-sub-1", assinaturaNoMercadoPago(59.9));
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).scheduled, true);
+    assertEquals(provider.requestedSubscriptions, ["mp-sub-1"]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: falha 5xx e o Mercado Pago segue com o valor antigo: o agendamento e desfeito", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = new PaymentProviderError("Mercado Pago respondeu 504: gateway timeout", 504);
+  provider.subscriptions.set("mp-sub-1", assinaturaNoMercadoPago(89.9));
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(provider.requestedSubscriptions, ["mp-sub-1"]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade"), [{ p_tenant_id: "tenant-1" }]);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("trocar_plano: falha sem resposta e nao ha como conferir o valor: o agendamento fica, o log diz o que conferir e o Gerente pode tentar de novo", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failAmountChangeWith = falhaSemResposta();
+  // Sem a assinatura no provedor falso, a conferencia tambem falha (404).
+  const supabase = supabaseDaTroca(comContexto(contextoDaDescida));
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 502);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("confirmar")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
 for (const [code, trecho] of [
   ["55000", "não aceita"],
-  ["53400", "Desative"],
+  ["53400", "Exclua"],
   ["22023", "não foi possível"],
   ["XX000", "Tente de novo"],
 ] as const) {
@@ -1904,6 +2099,29 @@ for (const [code, trecho] of [
     }
   });
 }
+
+Deno.test("trocar_plano: o banco recusa agendar porque o periodo pago venceu (PERIOD_ELAPSED): o Gerente recebe o motivo, sem mexer no Mercado Pago", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    ...comContexto(contextoDaDescida),
+    "rest/v1/rpc/schedule_plan_downgrade": {
+      status: 400,
+      body: { code: "55000", message: "PERIOD_ELAPSED: o periodo pago ja venceu e a mensalidade ainda nao foi processada." },
+    },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(descer());
+
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error.includes("ainda não foi processada"), true);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
 
 Deno.test("trocar_plano: descer com mais profissionais ativos do que o plano menor aceita nao agenda nada", async () => {
   const provider = new FakePaymentProvider();
@@ -1996,7 +2214,7 @@ Deno.test("desfazer_descida: sem descida agendada responde 409 e nao mexe em nad
   }
 });
 
-for (const status of ["trialing", "past_due", "blocked", "canceled", "courtesy"]) {
+for (const status of ["trialing", "blocked", "canceled", "courtesy"]) {
   Deno.test(`desfazer_descida: assinatura ${status} responde 409`, async () => {
     const provider = new FakePaymentProvider();
     const supabase = supabaseDaTroca(comDescidaAgendada({ status }));
@@ -2011,6 +2229,116 @@ for (const status of ["trialing", "past_due", "blocked", "canceled", "courtesy"]
     }
   });
 }
+
+// Com o pagamento recusado a descida segue agendada (o Mercado Pago tenta de novo pelo valor do plano menor) e o limite
+// menor continua valendo para cadastros: o Gerente precisa poder desfazer, senao nao ve nem levanta o que o restringe.
+Deno.test("desfazer_descida: com o pagamento recusado desfaz do mesmo jeito, mesmo com o periodo ja vencido", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comDescidaAgendada({ status: "past_due", ...comPeriodoVencido }));
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 200);
+    assertEquals(await res.json(), { canceled: true });
+    assertEquals(provider.changedAmounts, [{ subscriptionId: "mp-sub-1", amount: 89.9 }]);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade"), [{ p_tenant_id: "tenant-1" }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: na assinatura ativa com o periodo vencido responde 409 e nao mexe no Mercado Pago", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca(comDescidaAgendada(comPeriodoVencido));
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error.includes("ainda não foi processada"), true);
+    assertEquals(provider.changedAmounts.length, 0);
+    assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+// Entre ler o contexto e desfazer, outro pedido resolveu a descida: a renovacao aplicou o plano menor, ou uma subida de
+// plano limpou o agendamento. O banco responde "none" e a funcao nao pode dizer que desfez: o valor que ela acabou de por no
+// Mercado Pago (o do plano que ela leu) pode ja nao ser o do plano de agora, entao ela o confere de novo.
+Deno.test("desfazer_descida: o agendamento ja nao existia (none) e o plano mudou no meio: o valor da assinatura volta ao do plano de agora", async () => {
+  const provider = new FakePaymentProvider();
+  let leituras = 0;
+  const supabase = supabaseDaTroca({
+    ...comDescidaAgendada(),
+    "rest/v1/rpc/cancel_plan_downgrade": { status: 200, body: "none" },
+    // A primeira leitura e a do inicio do pedido (Maquina); a segunda, depois de uma subida para a Bancada.
+    "rest/v1/rpc/get_billing_context": () => ({
+      status: 200,
+      body: [leituras++ === 0 ? ativa : { ...ativa, plan_id: PLANO_BANCADA_ID, plan_name: "Bancada", plan_price: 159.9 }],
+    }),
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+    const corpo = await res.json();
+
+    assertEquals(res.status, 409);
+    assertEquals(corpo.canceled, undefined);
+    assertEquals(corpo.error.includes("já não está agendada"), true, corpo.error);
+    assertEquals(provider.changedAmounts, [
+      { subscriptionId: "mp-sub-1", amount: 89.9 },
+      { subscriptionId: "mp-sub-1", amount: 159.9 },
+    ]);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("já não estava agendada")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: o agendamento ja nao existia (none) e o Mercado Pago nao aceita a conferencia: 502 e o log diz qual barbearia conferir", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    ...comDescidaAgendada(),
+    "rest/v1/rpc/cancel_plan_downgrade": { status: 200, body: "none" },
+  });
+  const logs = capturarLogs();
+  try {
+    // O primeiro valor entra; a conferencia seguinte e recusada.
+    let chamadas = 0;
+    const original = provider.changeAmount.bind(provider);
+    provider.changeAmount = (subscriptionId, amount) =>
+      chamadas++ === 0 ? original(subscriptionId, amount) : Promise.reject(new PaymentProviderError("Mercado Pago respondeu 400", 400));
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 502);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("confira")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("desfazer_descida: o banco recusa desfazer porque o periodo venceu (PERIOD_ELAPSED): 409 com o motivo", async () => {
+  const provider = new FakePaymentProvider();
+  const supabase = supabaseDaTroca({
+    ...comDescidaAgendada(),
+    "rest/v1/rpc/cancel_plan_downgrade": {
+      status: 400,
+      body: { code: "55000", message: "PERIOD_ELAPSED: o periodo pago ja venceu e a mensalidade ainda nao foi processada." },
+    },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await handlerDaTroca(provider)(desfazerDescida());
+
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error.includes("ainda não foi processada"), true);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
 
 Deno.test("desfazer_descida: o Mercado Pago nao aceita o valor: o agendamento fica como esta e o Gerente e avisado", async () => {
   const provider = new FakePaymentProvider();
@@ -2084,7 +2412,10 @@ Deno.test("desfazer_descida: sem o token do Mercado Pago configurado nao tenta e
   try {
     const res = await createHandler({ now: () => AGORA })(desfazerDescida());
 
+    // O 500 e o da configuracao que falta, nao o de outra falha qualquer antes dela.
     assertEquals(res.status, 500);
+    assertEquals((await res.json()).error, "Cobrança indisponível.");
+    assertEquals(logs.linhas.some((linha) => linha.includes("MP_ACCESS_TOKEN")), true, logs.linhas.join("\n"));
     assertEquals(supabase.rpcCalls("cancel_plan_downgrade").length, 0);
   } finally {
     logs.restaurar();

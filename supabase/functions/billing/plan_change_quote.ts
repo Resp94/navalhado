@@ -31,12 +31,10 @@ export interface PlanChangeInput {
   /** Periodo pago atual. Em teste nao existe, e a cotacao nao o usa. */
   periodStart: Date | null;
   periodEnd: Date | null;
-  /** Plano da descida ja agendada, se houver (assinatura ativa). */
-  scheduledPlanId: string | null;
   now: Date;
 }
 
-export type PlanChangeRefusalCode = "status" | "same_plan" | "same_price" | "already_scheduled" | "over_limit" | "no_period";
+export type PlanChangeRefusalCode = "status" | "same_plan" | "same_price" | "over_limit" | "no_period" | "period_elapsed";
 
 export type PlanChangeQuote =
   | {
@@ -58,6 +56,12 @@ export type PlanChangeQuote =
   | { ok: false; code: PlanChangeRefusalCode; message: string };
 
 const toCents = (amount: number): number => Math.round(amount * 100);
+
+/**
+ * O periodo pago venceu e a assinatura segue ativa: a mensalidade foi (ou esta sendo) cobrada e o aviso do Mercado Pago
+ * ainda nao chegou. Agendar ou desfazer uma descida agora valeria para a mensalidade que acabou de ser cobrada.
+ */
+export const PERIOD_ELAPSED_MESSAGE = "A mensalidade do período que acabou ainda não foi processada. Tente de novo em instantes.";
 
 /**
  * A diferenca proporcional aos dias que faltam. Os dias que faltam sao contados para cima (quem ainda
@@ -96,16 +100,16 @@ export const quotePlanChange = (input: PlanChangeInput): PlanChangeQuote => {
   if (input.status === "active" && toCents(input.targetPlanPrice) === toCents(input.currentPlanPrice)) {
     return refuse("same_price", "Este plano custa o mesmo que o plano atual.");
   }
-  if (input.status === "active" && input.scheduledPlanId === input.targetPlanId) {
-    return refuse("already_scheduled", `A mudança para o plano ${input.targetPlanName} já está agendada.`);
-  }
+  // O plano que ja esta agendado nao e recusado aqui: pedir de novo e um clique repetido, ou a retentativa depois de uma
+  // falha com o Mercado Pago, e a funcao de cobranca confere o valor da assinatura de novo (o banco responde "unchanged").
   if (input.activeProfessionals > input.targetMaxProfessionals) {
-    const toDeactivate = input.activeProfessionals - input.targetMaxProfessionals;
+    // So excluir libera vaga: o profissional inativo continua contando no limite (CONTEXT.md, Limite de Profissionais do Plano).
+    const toDelete = input.activeProfessionals - input.targetMaxProfessionals;
     return refuse(
       "over_limit",
-      `Seus ${input.activeProfessionals} profissionais ativos não cabem no plano ${input.targetPlanName}, que aceita até ${input.targetMaxProfessionals}. Desative ${toDeactivate} ${
-        toDeactivate === 1 ? "profissional" : "profissionais"
-      } antes de trocar de plano.`,
+      `Você tem ${input.activeProfessionals} profissionais cadastrados e o plano ${input.targetPlanName} aceita até ${input.targetMaxProfessionals}. Exclua ${toDelete} ${
+        toDelete === 1 ? "profissional" : "profissionais"
+      } antes de trocar de plano: o profissional inativo continua ocupando vaga, só excluir libera.`,
     );
   }
 
@@ -125,6 +129,10 @@ export const quotePlanChange = (input: PlanChangeInput): PlanChangeQuote => {
   }
   // Descer: sem cobranca e sem reembolso, o plano menor vale quando o periodo pago acaba.
   if (toCents(input.targetPlanPrice) < toCents(input.currentPlanPrice)) {
+    // Agendar agora valeria para o periodo que acabou de ser pago, pelo valor do plano maior.
+    if (input.periodEnd.getTime() <= input.now.getTime()) {
+      return refuse("period_elapsed", PERIOD_ELAPSED_MESSAGE);
+    }
     return {
       ok: true,
       mode: "scheduled",
