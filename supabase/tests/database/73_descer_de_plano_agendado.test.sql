@@ -1,13 +1,19 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(56);
 
 -- Spec 052, ticket 11: descer de plano agendado. Na assinatura ativa o plano menor vale so na proxima
 -- cobranca, sem reembolso, e so se os profissionais ativos couberem nele: schedule_plan_downgrade grava
 -- o plano agendado (scheduled_plan_id), cancel_plan_downgrade o desfaz. Com a descida agendada o limite
 -- do plano menor ja vale para novos cadastros e reativacoes (o gatilho do ticket 02), e a proxima
--- mensalidade aprovada aplica o plano agendado (apply_subscription_payment). Em teste descer troca na
--- hora (apply_plan_change, ticket 10). So o service_role executa as funcoes novas.
+-- mensalidade aprovada pelo valor do plano menor aplica o plano agendado (apply_subscription_payment). Em teste descer
+-- troca na hora (apply_plan_change, ticket 10). So o service_role executa as funcoes novas.
+--
+-- Da revisao de codigo: com o periodo pago vencido (a mensalidade ja foi cobrada e o aviso do Mercado Pago ainda nao
+-- chegou) nao se agenda nem se desfaz a descida de uma assinatura ativa; a mensalidade so aplica o plano agendado quando
+-- foi cobrada pelo valor do plano menor; a assinatura nova (assinar de novo) nao herda o agendamento antigo; o
+-- agendamento so existe enquanto ha cobranca por vir (ativa, pagamento recusado ou bloqueada); e o e-mail da recusa cita
+-- o plano e o valor do plano agendado, que foi o que o Mercado Pago tentou cobrar.
 
 insert into public.tenants(id, name, email, phone, slug, onboarding_completed)
 values
@@ -20,13 +26,27 @@ values
   ('73000000-0000-0000-0000-000000000007', 'T73 G', 't73-g@test.local', '92999997307', 't73-g', true),
   ('73000000-0000-0000-0000-000000000008', 'T73 H', 't73-h@test.local', '92999997308', 't73-h', true),
   ('73000000-0000-0000-0000-000000000009', 'T73 I', 't73-i@test.local', '92999997309', 't73-i', true),
-  ('73000000-0000-0000-0000-00000000000a', 'T73 Z', 't73-z@test.local', '92999997310', 't73-z', true);
+  ('73000000-0000-0000-0000-00000000000a', 'T73 Z', 't73-z@test.local', '92999997310', 't73-z', true),
+  ('73000000-0000-0000-0000-00000000000b', 'T73 L', 't73-l@test.local', '92999997311', 't73-l', true),
+  ('73000000-0000-0000-0000-00000000000c', 'T73 LS', 't73-ls@test.local', '92999997312', 't73-ls', true),
+  ('73000000-0000-0000-0000-00000000000d', 'T73 LP', 't73-lp@test.local', '92999997313', 't73-lp', true),
+  ('73000000-0000-0000-0000-00000000000e', 'T73 V', 't73-v@test.local', '92999997314', 't73-v', true),
+  ('73000000-0000-0000-0000-00000000000f', 'T73 M', 't73-m@test.local', '92999997315', 't73-m', true),
+  ('73000000-0000-0000-0000-000000000010', 'T73 X', 't73-x@test.local', '92999997316', 't73-x', true),
+  ('73000000-0000-0000-0000-000000000011', 'T73 Y', 't73-y@test.local', '92999997317', 't73-y', true),
+  ('73000000-0000-0000-0000-000000000012', 'T73 W', 't73-w@test.local', '92999997318', 't73-w', true),
+  ('73000000-0000-0000-0000-000000000013', 'T73 K', 't73-k@test.local', '92999997319', 't73-k', true);
 
 -- A: ativa, Maquina, 1 profissional ativo e 1 excluido. B: ativa, Bancada, 3 profissionais. C: em teste, Maquina.
 -- D: ativa, Tesoura. E: pagamento recusado (past_due), Maquina. F: ativa, Maquina, com a Tesoura agendada, para a
 -- mensalidade recusada e depois aprovada. G: bloqueada, Maquina. H: ativa, Maquina, com a Tesoura agendada, para a
 -- mensalidade aprovada na data. I: ativa, Maquina, com a Tesoura agendada, para a cobranca que nao e mensalidade.
--- Z: sem assinatura. O gatilho de cadastro pode ter criado assinaturas; as de teste mandam.
+-- Z: sem assinatura. L: ativa com o periodo pago ja vencido (a mensalidade foi cobrada e o aviso do Mercado Pago ainda nao
+-- chegou). LS: igual a L, com a Tesoura agendada. LP: pagamento recusado (periodo vencido e o normal), com a Tesoura agendada.
+-- V: ativa, com a Tesoura agendada, para o valor cobrado na mensalidade. M: bloqueada, com a Tesoura agendada, que assina de
+-- novo. X: ativa, com a Tesoura agendada, que e cancelada. Y: igual a X, que vira cortesia. W: em teste, com a Tesoura gravada
+-- junto. K: pagamento recusado, com a Tesoura agendada, para o e-mail da recusa.
+-- O gatilho de cadastro pode ter criado assinaturas; as de teste mandam.
 delete from public.tenant_subscriptions where tenant_id::text like '73000000-0000-0000-0000-0000000000%';
 
 insert into public.tenant_subscriptions(tenant_id, plan_id, status, current_period_start, current_period_end, card_brand, card_last4, mp_subscription_id, scheduled_plan_id, first_failed_at)
@@ -38,9 +58,20 @@ values
   ('73000000-0000-0000-0000-000000000006', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-f', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
   ('73000000-0000-0000-0000-000000000007', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-g', null, null),
   ('73000000-0000-0000-0000-000000000008', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-h', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
-  ('73000000-0000-0000-0000-000000000009', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-i', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null);
+  ('73000000-0000-0000-0000-000000000009', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-i', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-00000000000b', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2020-05-01 12:00:00+00', '2020-06-01 12:00:00+00', 'visa', '5682', 'mp-73-l', null, null),
+  ('73000000-0000-0000-0000-00000000000c', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2020-05-01 12:00:00+00', '2020-06-01 12:00:00+00', 'visa', '5682', 'mp-73-ls', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-00000000000d', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'past_due', '2020-05-01 12:00:00+00', '2020-06-01 12:00:00+00', 'visa', '5682', 'mp-73-lp', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', '2020-06-01 12:00:00+00'),
+  ('73000000-0000-0000-0000-00000000000e', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-v', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-00000000000f', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-m', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-000000000010', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-x', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-000000000011', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-y', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', null),
+  ('73000000-0000-0000-0000-000000000013', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'past_due', '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', 'visa', '5682', 'mp-73-k', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11', '2040-06-01 12:00:00+00');
 insert into public.tenant_subscriptions(tenant_id, plan_id, status, trial_ends_at)
 values ('73000000-0000-0000-0000-000000000003', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', '2040-05-20 12:00:00+00');
+-- Em teste nao ha descida agendada (descer troca na hora): o agendamento gravado junto sai.
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, trial_ends_at, scheduled_plan_id)
+values ('73000000-0000-0000-0000-000000000012', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', '2040-05-20 12:00:00+00', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11');
 
 insert into public.professionals(tenant_id, name, phone, commission_percentage)
 values
@@ -175,10 +206,10 @@ select throws_ok(
   'em teste nao ha o que agendar: descer troca na hora (apply_plan_change)'
 );
 
-select throws_ok(
-  $$select public.cancel_plan_downgrade('73000000-0000-0000-0000-000000000003')$$,
-  '55000', null,
-  'em teste nao ha descida para desfazer'
+select is(
+  public.cancel_plan_downgrade('73000000-0000-0000-0000-000000000003'),
+  'none',
+  'em teste nao ha descida para desfazer: nada a fazer'
 );
 
 select throws_ok(
@@ -187,10 +218,10 @@ select throws_ok(
   'com o pagamento recusado nao se agenda descida: primeiro regulariza o cartao'
 );
 
-select throws_ok(
-  $$select public.cancel_plan_downgrade('73000000-0000-0000-0000-000000000007')$$,
-  '55000', null,
-  'bloqueada nao desfaz descida'
+select is(
+  public.cancel_plan_downgrade('73000000-0000-0000-0000-000000000007'),
+  'none',
+  'bloqueada sem descida agendada: nada a desfazer'
 );
 
 select throws_ok(
@@ -260,6 +291,135 @@ select is(
   (select s.plan_id || '|' || s.scheduled_plan_id from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-000000000009'),
   'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22|b3fa7384-d113-4a1b-a5ed-1efeb7e51c11',
   'e nao aplica a descida agendada: so a mensalidade aprovada aplica'
+);
+
+-- Periodo pago vencido: a mensalidade ja foi cobrada e o aviso do Mercado Pago ainda nao chegou ----------
+select throws_ok(
+  $$select public.schedule_plan_downgrade('73000000-0000-0000-0000-00000000000b', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11')$$,
+  '55000', null,
+  'ativa com o periodo pago ja vencido nao agenda a descida: valeria para a mensalidade que acabou de ser cobrada'
+);
+
+select throws_like(
+  $$select public.schedule_plan_downgrade('73000000-0000-0000-0000-00000000000b', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11')$$,
+  'PERIOD_ELAPSED%',
+  'e a recusa diz que e o periodo vencido, para a funcao de cobranca explicar ao Gerente'
+);
+
+select throws_ok(
+  $$select public.schedule_plan_downgrade('73000000-0000-0000-0000-00000000000c', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11')$$,
+  '55000', null,
+  'o mesmo vale para pedir de novo o plano que ja esta agendado (o "unchanged" tambem espera o aviso da mensalidade)'
+);
+
+select throws_ok(
+  $$select public.cancel_plan_downgrade('73000000-0000-0000-0000-00000000000c')$$,
+  '55000', null,
+  'desfazer a descida de uma ativa com o periodo vencido tambem espera: a mensalidade ja saiu pelo valor do plano menor'
+);
+
+select throws_like(
+  $$select public.cancel_plan_downgrade('73000000-0000-0000-0000-00000000000c')$$,
+  'PERIOD_ELAPSED%',
+  'com o mesmo motivo na recusa'
+);
+
+select is(
+  public.cancel_plan_downgrade('73000000-0000-0000-0000-00000000000d'),
+  'canceled',
+  'com o pagamento recusado o periodo vencido e o normal (o Mercado Pago tenta de novo) e a descida se desfaz'
+);
+
+-- O plano agendado so e aplicado pela mensalidade cobrada pelo valor do plano menor --------------------
+select is(
+  public.apply_subscription_payment('73000000-0000-0000-0000-00000000000e', 'pay-73-v-a', 'mp-73-v', 'approved', 89.90, '2040-06-01 12:00:00+00', 'recurring', 'visa', '5682'),
+  'renewed',
+  'a mensalidade aprovada pelo valor do plano atual (o do plano maior) renova o periodo'
+);
+
+select is(
+  (select s.plan_id || '|' || s.scheduled_plan_id || '|' || s.current_period_end::text from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-00000000000e'),
+  'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22|b3fa7384-d113-4a1b-a5ed-1efeb7e51c11|2040-07-01 12:00:00+00',
+  'mas nao aplica a descida: o valor cobrado nao foi o do plano menor (o Mercado Pago ainda nao tinha o valor novo), entao o plano segue e o agendamento espera'
+);
+
+select is(
+  public.apply_subscription_payment('73000000-0000-0000-0000-00000000000e', 'pay-73-v-b', 'mp-73-v', 'approved', 59.90, '2040-07-01 12:00:00+00', 'recurring', 'visa', '5682'),
+  'renewed',
+  'a mensalidade seguinte, cobrada pelo valor do plano menor, renova o periodo'
+);
+
+select is(
+  (select s.plan_id || '|' || coalesce(s.scheduled_plan_id::text, 'sem descida agendada') from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-00000000000e'),
+  'b3fa7384-d113-4a1b-a5ed-1efeb7e51c11|sem descida agendada',
+  'e ai aplica a descida: a Tesoura passa a ser o plano'
+);
+
+-- Assinar de novo: o agendamento antigo nao vale para a assinatura nova -----------------------------------
+select is(
+  (select s.status || '|' || s.scheduled_plan_id from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-00000000000f'),
+  'blocked|b3fa7384-d113-4a1b-a5ed-1efeb7e51c11',
+  'bloqueada, a barbearia guarda a descida agendada (a assinatura continua viva no Mercado Pago, ja com o valor menor)'
+);
+
+select lives_ok(
+  $$select public.record_mp_subscription('73000000-0000-0000-0000-00000000000f', 'mp-73-m-nova')$$,
+  'assinar de novo grava a assinatura nova'
+);
+
+select is(
+  (select s.plan_id || '|' || coalesce(s.scheduled_plan_id::text, 'sem descida agendada') || '|' || s.mp_subscription_id from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-00000000000f'),
+  'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22|sem descida agendada|mp-73-m-nova',
+  'a assinatura nova e cobrada pelo plano atual: o agendamento antigo sai, senao a primeira mensalidade trocaria o plano sem o valor acompanhar'
+);
+
+-- A descida agendada so existe enquanto ha cobranca por vir -----------------------------------------------
+update public.tenant_subscriptions set status = 'canceled', canceled_at = now() where tenant_id = '73000000-0000-0000-0000-000000000010';
+select is(
+  (select coalesce(s.scheduled_plan_id::text, 'sem descida agendada') from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-000000000010'),
+  'sem descida agendada',
+  'cancelada, a barbearia perde a descida agendada: nao ha mais cobranca para ela valer'
+);
+
+select lives_ok(
+  $$insert into public.professionals(tenant_id, name, phone, commission_percentage)
+    values ('73000000-0000-0000-0000-000000000010', 'T73 X1', '11988807331', 10),
+           ('73000000-0000-0000-0000-000000000010', 'T73 X2', '11988807332', 10)$$,
+  'e o limite menor deixa de valer: o da Maquina aceita 2 profissionais'
+);
+
+update public.tenant_subscriptions set status = 'courtesy' where tenant_id = '73000000-0000-0000-0000-000000000011';
+select is(
+  (select coalesce(s.scheduled_plan_id::text, 'sem descida agendada') from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-000000000011'),
+  'sem descida agendada',
+  'cortesia: a descida agendada tambem sai'
+);
+
+select is(
+  (select coalesce(s.scheduled_plan_id::text, 'sem descida agendada') from public.tenant_subscriptions s where s.tenant_id = '73000000-0000-0000-0000-000000000012'),
+  'sem descida agendada',
+  'em teste nao ha descida agendada, nem a gravada junto da assinatura'
+);
+
+-- O e-mail da recusa cita o plano e o valor que o Mercado Pago tentou cobrar ---------------------------------
+insert into public.billing_notices(tenant_id, kind, ref_at)
+values ('73000000-0000-0000-0000-000000000005', 'payment_failed_day0', '2040-06-01 12:00:00+00'),
+       ('73000000-0000-0000-0000-000000000013', 'payment_failed_day0', '2040-06-01 12:00:00+00');
+
+create temp table t73_claim as
+  select * from public.claim_billing_notices(500, '2040-06-01 12:10:00+00')
+  where tenant_name in ('T73 E', 'T73 K');
+
+select is(
+  (select plan_name || '|' || plan_price from t73_claim where tenant_name = 'T73 K'),
+  'Tesoura|59.90',
+  'com a descida agendada a cobranca recusada foi a do plano menor: o e-mail cita o plano e o valor dela'
+);
+
+select is(
+  (select plan_name || '|' || plan_price from t73_claim where tenant_name = 'T73 E'),
+  'Máquina|89.90',
+  'sem descida agendada o e-mail cita o plano atual, como antes'
 );
 
 -- Acesso --------------------------------------------------------------------------------------
