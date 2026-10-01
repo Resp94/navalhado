@@ -52,11 +52,11 @@ vi.mock('../MudarDePlano', () => ({
 vi.mock('../DescidaAgendada', () => ({
   DescidaAgendada: ({ planoAgendado, dataDaMudanca, onDesfeita }: {
     planoAgendado: { nome: string };
-    dataDaMudanca: Date;
+    dataDaMudanca?: Date | null;
     onDesfeita?: () => void;
   }) => (
     <div data-testid="descida-agendada">
-      <span>{`para ${planoAgendado.nome} em ${dataDaMudanca.toISOString()}`}</span>
+      <span>{`para ${planoAgendado.nome} em ${dataDaMudanca ? dataDaMudanca.toISOString() : 'sem data'}`}</span>
       <button onClick={onDesfeita}>simular descida desfeita</button>
     </div>
   ),
@@ -365,8 +365,39 @@ describe('SecaoAssinatura', () => {
       expect(screen.queryByTestId('descida-agendada')).not.toBeInTheDocument();
     });
 
-    it('sem o fim do período pago não há data para mostrar', () => {
+    it('sem o fim do período pago a descida aparece sem data: o Gerente ainda a vê e pode desfazer', () => {
       comDados({ assinatura: { ...descendo, periodoAte: null } });
+      renderizar();
+
+      expect(screen.getByTestId('descida-agendada')).toHaveTextContent('para Tesoura em sem data');
+    });
+
+    // O período venceu e a assinatura segue ativa: a mensalidade ainda não foi processada (o aviso do Mercado Pago atrasou).
+    // A linha "Próxima cobrança" some por isso; o aviso da descida segue a mesma regra e não mostra uma data vencida.
+    it('com o período já vencido, o aviso não mostra a data vencida (a próxima cobrança também some)', () => {
+      comDados({ assinatura: { ...descendo, periodoAte: new Date('2026-09-30T23:00:00Z') } });
+      renderizar();
+
+      expect(screen.queryByText('Próxima cobrança')).not.toBeInTheDocument();
+      expect(screen.getByTestId('descida-agendada')).toHaveTextContent('para Tesoura em sem data');
+    });
+
+    // Com o pagamento recusado a descida segue agendada e o limite menor segue valendo para cadastros: o Gerente tem de ver e
+    // poder desfazer o que o restringe.
+    it('com o pagamento recusado a descida agendada continua na tela, sem data, para o Gerente poder desfazer', () => {
+      comDados({ assinatura: { ...descendo, situacao: 'past_due' } });
+      renderizar();
+
+      expect(screen.getByTestId('descida-agendada')).toHaveTextContent('para Tesoura em sem data');
+    });
+
+    it.each([
+      ['em teste', { situacao: 'trialing' as const }],
+      ['cancelada', { situacao: 'canceled' as const }],
+      ['em cortesia', { situacao: 'courtesy' as const }],
+      ['bloqueada', { situacao: 'blocked' as const }],
+    ])('na assinatura %s não mostra descida agendada (não há cobrança para ela valer)', (_nome, assinatura) => {
+      comDados({ assinatura: { ...descendo, ...assinatura } });
       renderizar();
 
       expect(screen.queryByTestId('descida-agendada')).not.toBeInTheDocument();

@@ -169,11 +169,16 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
 
       {texto && <p className="text-sm text-text-secondary m-0">{texto}</p>}
 
-      {/* A descida de plano agendada (ticket 11) vale no fim do período pago: sem a data não há o que mostrar. */}
-      {assinatura.situacao === 'active' && assinatura.planoAgendado && assinatura.periodoAte && (
+      {/*
+        A descida de plano agendada (ticket 11) vale na próxima cobrança, que é a data marcada da tela: a mesma regra da linha
+        "Próxima cobrança", que não mostra data vencida (a mensalidade ainda não foi processada). Com o pagamento recusado ela
+        segue agendada, e o limite menor segue valendo para cadastros: sem data, mas visível e com o desfazer. Nas outras
+        situações não há cobrança para ela valer.
+      */}
+      {(assinatura.situacao === 'active' || assinatura.situacao === 'past_due') && assinatura.planoAgendado && (
         <DescidaAgendada
           planoAgendado={assinatura.planoAgendado}
-          dataDaMudanca={assinatura.periodoAte}
+          dataDaMudanca={cobrancaMarcada?.data ?? null}
           timezone={timezone}
           onDesfeita={recarregar}
         />

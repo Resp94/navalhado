@@ -43,6 +43,16 @@ describe('DescidaAgendada', () => {
     expect(grupo).toHaveTextContent('O limite do plano menor já vale para cadastrar profissionais.');
   });
 
+  // Sem a data: o período pago já venceu e o aviso da mensalidade ainda não chegou, ou o pagamento foi recusado e o
+  // Mercado Pago tenta de novo. Mostrar uma data vencida contradiz a tela, então a descida vale "na próxima cobrança aprovada".
+  it('sem a data, diz que muda na próxima cobrança aprovada', () => {
+    renderizar({ dataDaMudanca: null });
+
+    const grupo = screen.getByRole('group', { name: 'Descida de plano agendada' });
+    expect(grupo).toHaveTextContent('Muda para Tesoura na próxima cobrança aprovada');
+    expect(screen.getByRole('button', { name: 'Desfazer' })).toBeEnabled();
+  });
+
   it('usa o fuso da barbearia para o dia', () => {
     // 02:30 UTC de 30/10 ainda é 29/10 em Brasília e já é 30/10 em Lisboa.
     renderizar({ dataDaMudanca: new Date('2026-10-30T02:30:00Z'), timezone: 'Europe/Lisbon' });
@@ -57,6 +67,20 @@ describe('DescidaAgendada', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
 
     await waitFor(() => expect(onDesfeita).toHaveBeenCalledTimes(1));
+    expect(mockDesfazer).toHaveBeenCalledTimes(1);
+  });
+
+  // Depois de desfeita a descida o aviso fica na tela até a releitura da assinatura chegar. Com o botão de volta, um clique
+  // nessa janela pediria de novo e levaria um 409 ("não há descida agendada") num aviso que está para sumir.
+  it('depois de desfazer, o botão some até a tela reler a assinatura: não dá para pedir outra vez', async () => {
+    mockDesfazer.mockResolvedValue(undefined);
+    const { onDesfeita } = renderizar();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+
+    await waitFor(() => expect(onDesfeita).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Descida desfeita');
     expect(mockDesfazer).toHaveBeenCalledTimes(1);
   });
 

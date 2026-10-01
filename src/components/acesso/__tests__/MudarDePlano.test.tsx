@@ -229,6 +229,61 @@ describe('MudarDePlano', () => {
       expect(onTrocado).toHaveBeenCalledTimes(1);
     });
 
+    // Subir de plano desfaz a descida agendada (o banco limpa o agendamento ao trocar, e o valor da assinatura vai para o do plano
+    // novo): o resumo avisa antes de pagar e o aviso diz depois, em vez de a descida sumir sem o Gerente saber.
+    const maquinaComTesouraAgendada: Assinatura = {
+      ...ativaNaMaquina,
+      planoAgendado: { id: tesoura.id, nome: 'Tesoura', preco: 59.9 },
+    };
+    const cotacaoParaABancada: CotacaoDaTroca = { ...cotacaoComCobranca, nomeDoPlano: 'Bancada', valorMensalNovo: 159.9 };
+
+    it('com uma descida agendada, o resumo da subida avisa que ela será desfeita', async () => {
+      mockCotar.mockResolvedValue(cotacaoParaABancada);
+      await abrir(maquinaComTesouraAgendada);
+
+      await escolher(/Bancada/);
+
+      expect(await screen.findByText(/Você paga agora/)).toBeInTheDocument();
+      expect(screen.getByText('A descida agendada para o plano Tesoura será desfeita.')).toBeInTheDocument();
+    });
+
+    it('depois de pagar, o aviso diz que a descida agendada foi desfeita', async () => {
+      mockCotar.mockResolvedValue(cotacaoParaABancada);
+      mockTrocar.mockResolvedValue({ ...trocado, planoId: bancada.id, nomeDoPlano: 'Bancada', valorMensalNovo: 159.9 });
+      await abrir(maquinaComTesouraAgendada);
+      await escolher(/Bancada/);
+      await screen.findByText(/Você paga agora/);
+
+      await pagar();
+
+      const aviso = await screen.findByRole('status');
+      expect(aviso).toHaveTextContent('Plano trocado para Bancada.');
+      expect(aviso).toHaveTextContent('A descida agendada para o plano Tesoura foi desfeita.');
+    });
+
+    it('sem descida agendada, o resumo e o aviso da subida não falam dela', async () => {
+      mockCotar.mockResolvedValue(cotacaoComCobranca);
+      mockTrocar.mockResolvedValue(trocado);
+      await abrir();
+      await escolher(/Máquina/);
+      await screen.findByText(/Você paga agora/);
+      expect(screen.queryByText(/A descida agendada/)).not.toBeInTheDocument();
+
+      await pagar();
+
+      expect(await screen.findByRole('status')).not.toHaveTextContent('descida');
+    });
+
+    it('subir sem cobrança (diferença pequena demais) também avisa que a descida agendada será desfeita', async () => {
+      mockCotar.mockResolvedValue({ ...cotacaoParaABancada, modo: 'sem_cobranca', diferenca: 0 });
+      await abrir(maquinaComTesouraAgendada);
+
+      await escolher(/Bancada/);
+
+      expect(await screen.findByText(/pequena demais para cobrar agora/)).toBeInTheDocument();
+      expect(screen.getByText('A descida agendada para o plano Tesoura será desfeita.')).toBeInTheDocument();
+    });
+
     it('cartão recusado: mostra o motivo, o plano continua o mesmo e o formulário fica para tentar de novo', async () => {
       mockCotar.mockResolvedValue(cotacaoComCobranca);
       mockTrocar.mockRejectedValue(new Error('O cartão não tem saldo suficiente. O plano continua o mesmo.'));
@@ -492,17 +547,77 @@ describe('MudarDePlano', () => {
       expect(onTrocado).not.toHaveBeenCalled();
     });
 
-    it('com mais profissionais ativos do que o plano menor aceita, mostra o aviso de quantos desativar e não deixa agendar', async () => {
+    // Só excluir libera vaga (o profissional inativo continua contando): a mensagem da função manda excluir, e a tela a repete.
+    it('com mais profissionais do que o plano menor aceita, mostra o aviso de quantos excluir e não deixa agendar', async () => {
       mockCotar.mockRejectedValue(
-        new Error('Seus 3 profissionais ativos não cabem no plano Tesoura, que aceita até 1. Desative 2 profissionais antes de trocar de plano.'),
+        new Error(
+          'Você tem 3 profissionais cadastrados e o plano Tesoura aceita até 1. Exclua 2 profissionais antes de trocar de plano: o profissional inativo continua ocupando vaga, só excluir libera.',
+        ),
       );
       await abrir(ativaNaBancada);
 
       await escolher(/Tesoura/);
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Desative 2 profissionais antes de trocar de plano.');
+      expect(await screen.findByRole('alert')).toHaveTextContent('Exclua 2 profissionais antes de trocar de plano');
       expect(screen.queryByRole('button', { name: /Agendar descida/ })).not.toBeInTheDocument();
       expect(mockTrocar).not.toHaveBeenCalled();
+    });
+
+    // Com uma descida já agendada, escolher outro plano menor troca o agendamento: o resumo diz isso antes de confirmar, e o
+    // aviso depois, para a descida que o Gerente tinha em mente não sumir sem ele perceber.
+    it('com outra descida já agendada, o resumo diz que ela será trocada e o aviso depois diz que foi trocada', async () => {
+      const bancadaComMaquinaAgendada: Assinatura = {
+        ...ativaNaBancada,
+        planoAgendado: { id: maquina.id, nome: 'Máquina', preco: 89.9 },
+      };
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      mockTrocar.mockResolvedValue(agendado);
+      await abrir(bancadaComMaquinaAgendada);
+      await escolher(/Tesoura/);
+
+      expect(await screen.findByText(/Isso troca a descida já agendada para o plano Máquina/)).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Agendar descida para Tesoura' }));
+
+      const aviso = await screen.findByRole('status');
+      expect(aviso).toHaveTextContent('A descida que estava agendada para o plano Máquina foi trocada por esta.');
+    });
+
+    it('sem outra descida agendada, o resumo e o aviso não falam em troca de agendamento', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      mockTrocar.mockResolvedValue(agendado);
+      await abrir(ativaNaMaquina);
+      await escolher(/Tesoura/);
+      await screen.findByText(/só vale na próxima cobrança/);
+
+      expect(screen.queryByText(/Isso troca a descida/)).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Agendar descida para Tesoura' }));
+      expect(await screen.findByRole('status')).not.toHaveTextContent('foi trocada por esta');
+    });
+
+    // O aviso "Descida agendada: ..." é do que o Gerente acabou de pedir. Quando a descida é desfeita pelo "Desfazer" do aviso
+    // "Muda para Tesoura" (outro componente da tela, que só relê a assinatura), o aviso daqui não pode seguir dizendo que a
+    // descida está agendada, nem esconder o botão "Mudar de plano".
+    it('se a descida é desfeita depois pelo Desfazer da tela, o aviso da descida some e o botão volta', async () => {
+      mockCotar.mockResolvedValue(cotacaoAgendada);
+      mockTrocar.mockResolvedValue(agendado);
+      const repositorio = new CartaoRepository(new InMemoryCartaoAdapter());
+      const comDescida: Assinatura = { ...ativaNaMaquina, planoAgendado: { id: tesoura.id, nome: 'Tesoura', preco: 59.9 } };
+      const { rerender } = render(<MudarDePlano assinatura={ativaNaMaquina} repositorio={repositorio} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Mudar de plano' }));
+      await escolher(/Tesoura/);
+      await userEvent.click(await screen.findByRole('button', { name: 'Agendar descida para Tesoura' }));
+      expect(await screen.findByRole('status')).toHaveTextContent('Descida agendada');
+
+      // A tela relê a assinatura e a descida aparece nela: o aviso fica.
+      rerender(<MudarDePlano assinatura={comDescida} repositorio={repositorio} />);
+      expect(screen.getByRole('status')).toHaveTextContent('Descida agendada');
+
+      // O Gerente desfaz pelo aviso "Muda para Tesoura": a assinatura volta a não ter descida agendada.
+      rerender(<MudarDePlano assinatura={ativaNaMaquina} repositorio={repositorio} />);
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Mudar de plano' })).toBeInTheDocument();
     });
 
     it('trocar de ideia: cancelar volta à lista sem agendar nada', async () => {

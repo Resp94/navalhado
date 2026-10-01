@@ -29,7 +29,15 @@ const limiteDoPlano = (maximo: number) => pluralizar(maximo, '1 profissional', `
 
 const limiteEmTexto = (maximo: number) => pluralizar(maximo, '1 profissional', `${maximo} profissionais`);
 
-function textoDoAviso(plano: Plano, trocado: PlanoTrocado, timezone?: string): string {
+/** O que o pedido fez com a descida que já estava agendada, para o aviso dizer. Nulo quando não havia descida. */
+function textoDaDescidaAnterior(descidaAnterior: string | null, trocada: boolean): string | null {
+  if (!descidaAnterior) return null;
+  return trocada
+    ? `A descida que estava agendada para o plano ${descidaAnterior} foi trocada por esta.`
+    : `A descida agendada para o plano ${descidaAnterior} foi desfeita.`;
+}
+
+function textoDoAviso(plano: Plano, trocado: PlanoTrocado, timezone?: string, descidaAnterior: string | null = null): string {
   // Descer na assinatura ativa não troca nada agora: o plano menor fica agendado e já vale o limite dele para cadastros.
   if (trocado.vigenteEm) {
     return [
@@ -37,7 +45,10 @@ function textoDoAviso(plano: Plano, trocado: PlanoTrocado, timezone?: string): s
       'Até lá você continua no plano atual.',
       `O valor mensal passa a ser ${formatCurrency(trocado.valorMensalNovo)} na próxima cobrança.`,
       `O limite do plano menor, de ${limiteEmTexto(plano.max_professionals)}, já vale para novos cadastros.`,
-    ].join(' ');
+      textoDaDescidaAnterior(descidaAnterior, true),
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
   const partes = [`Plano trocado para ${trocado.nomeDoPlano}.`];
   if (trocado.cobrado > 0) partes.push(`Cobramos ${formatCurrency(trocado.cobrado)} da diferença.`);
@@ -45,6 +56,9 @@ function textoDoAviso(plano: Plano, trocado: PlanoTrocado, timezone?: string): s
     `O limite do plano agora é de ${pluralizar(plano.max_professionals, '1 profissional', `até ${plano.max_professionals} profissionais`)}.`,
   );
   partes.push(`O valor mensal passa a ser ${formatCurrency(trocado.valorMensalNovo)}.`);
+  // Subir de plano desfaz a descida agendada (o banco limpa o agendamento ao trocar): o Gerente fica sabendo.
+  const descidaDesfeita = textoDaDescidaAnterior(descidaAnterior, false);
+  if (descidaDesfeita) partes.push(descidaDesfeita);
   if (!trocado.proximaCobrancaAtualizada) {
     partes.push('Não conseguimos atualizar o valor da próxima cobrança no Mercado Pago agora. Fale com o suporte para conferir.');
   }
@@ -71,7 +85,24 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
   const { cotar, cotacao, cotando, erroDaCotacao, trocar, trocando, erro, limpar } = useTrocarDePlano();
   const [aberto, setAberto] = useState(false);
   const [escolhido, setEscolhido] = useState<Plano | null>(null);
-  const [resultado, setResultado] = useState<{ plano: Plano; trocado: PlanoTrocado } | null>(null);
+  // `descidaAnterior`: a descida que já estava agendada quando o pedido foi feito (o pedido a desfaz ou a troca), para o aviso dizer.
+  const [resultado, setResultado] = useState<{ plano: Plano; trocado: PlanoTrocado; descidaAnterior: string | null } | null>(null);
+
+  // O aviso "Descida agendada" é do que o Gerente acabou de pedir. Se a descida é desfeita depois pelo "Desfazer" da tela (outro
+  // componente, que só relê a assinatura), o aviso não pode seguir dizendo que ela está agendada nem esconder o botão: quando o
+  // plano agendado que a assinatura mostrava some, o fluxo que o aviso encerrava volta ao começo. Só vale para o aviso de uma
+  // descida (o de uma subida também faz o agendamento sumir, e seu aviso continua).
+  const planoAgendadoId = assinatura.planoAgendado?.id ?? null;
+  const [planoAgendadoVisto, setPlanoAgendadoVisto] = useState(planoAgendadoId);
+  if (planoAgendadoId !== planoAgendadoVisto) {
+    setPlanoAgendadoVisto(planoAgendadoId);
+    if (planoAgendadoVisto && !planoAgendadoId && resultado?.trocado.vigenteEm) {
+      limpar();
+      setEscolhido(null);
+      setResultado(null);
+      setAberto(false);
+    }
+  }
 
   // Todos os outros planos: em teste a troca vale já; na assinatura ativa, os mais caros cobram a diferença e os mais baratos
   // agendam a descida. A descida que já está agendada não se oferece de novo.
@@ -97,14 +128,14 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
     if (!escolhido) return;
     const trocado = await trocar(escolhido.id, pagamento);
     if (!trocado) return;
-    setResultado({ plano: escolhido, trocado });
+    setResultado({ plano: escolhido, trocado, descidaAnterior: assinatura.planoAgendado?.nome ?? null });
     onTrocado?.();
   };
 
   if (resultado) {
     return (
       <div role="status" className="flex flex-col gap-3 rounded-md border border-border p-4">
-        <p className="m-0 text-sm">{textoDoAviso(resultado.plano, resultado.trocado, timezone)}</p>
+        <p className="m-0 text-sm">{textoDoAviso(resultado.plano, resultado.trocado, timezone, resultado.descidaAnterior)}</p>
         <div>
           <Button variant="outline" size="sm" onClick={fechar}>
             Fechar
@@ -162,6 +193,7 @@ export const MudarDePlano: React.FC<MudarDePlanoProps> = ({
               cotacao={cotacao}
               plano={escolhido}
               planoAtual={assinatura.plano.nome}
+              descidaAgendada={assinatura.planoAgendado?.nome ?? null}
               timezone={timezone}
               trocando={trocando}
               erro={erro}
@@ -189,6 +221,8 @@ interface ResumoDaTrocaProps {
   plano: Plano;
   /** Nome do plano em que a barbearia está agora. */
   planoAtual: string;
+  /** Nome do plano da descida que já está agendada, se houver: subir a desfaz e descer para outro plano a troca. */
+  descidaAgendada: string | null;
   timezone?: string;
   trocando: boolean;
   erro: string | null;
@@ -202,6 +236,7 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
   cotacao,
   plano,
   planoAtual,
+  descidaAgendada,
   timezone,
   trocando,
   erro,
@@ -210,6 +245,10 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
   onConfirmar,
 }) => {
   const valorMensal = <strong>{formatCurrency(cotacao.valorMensalNovo)}</strong>;
+  // Subir de plano desfaz a descida agendada (o banco limpa o agendamento ao trocar): o resumo avisa antes de o Gerente confirmar.
+  const avisoDaSubida = descidaAgendada ? (
+    <p className="m-0 text-sm text-text-primary">{`A descida agendada para o plano ${descidaAgendada} será desfeita.`}</p>
+  ) : null;
 
   if (cotacao.modo === 'cobranca') {
     const dias = cotacao.diasRestantes ?? 0;
@@ -222,6 +261,7 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
         <p className="m-0 text-sm text-text-primary">
           A partir da próxima cobrança, o plano {plano.name} custa {valorMensal} por mês.
         </p>
+        {avisoDaSubida}
         <FormularioDeCartao
           rotuloDoBotao={`Pagar ${formatCurrency(cotacao.diferenca)}`}
           onToken={({ token, final }) => onConfirmar({ token, final, valorConfirmado: cotacao.diferenca })}
@@ -249,6 +289,9 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
         <p className="m-0 text-sm text-text-primary">
           {`Desde já vale o limite do plano menor para cadastrar profissionais: ${limiteEmTexto(plano.max_professionals)}.`}
         </p>
+        {descidaAgendada && (
+          <p className="m-0 text-sm text-text-primary">{`Isso troca a descida já agendada para o plano ${descidaAgendada}.`}</p>
+        )}
         {erro && (
           <p role="alert" className="m-0 text-sm text-error">
             {erro}
@@ -281,6 +324,7 @@ const ResumoDaTroca: React.FC<ResumoDaTrocaProps> = ({
           </>
         )}
       </p>
+      {avisoDaSubida}
       {erro && (
         <p role="alert" className="m-0 text-sm text-error">
           {erro}
