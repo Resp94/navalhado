@@ -37,6 +37,17 @@ describe('FaixaDeAviso', () => {
     );
   });
 
+  it('cancelada: diz até quando o acesso continua', () => {
+    const estado: EstadoDeAcesso = {
+      acesso: 'aviso',
+      motivo: 'canceled',
+      dataRelevante: new Date('2026-10-29T23:26:22Z'),
+    };
+    render(<FaixaDeAviso estado={estado} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Assinatura cancelada. Acesso até 29/10.');
+  });
+
   it('a data do bloqueio segue o fuso da barbearia', () => {
     // 03:30 UTC de 04/10: 00:30 do dia 4 em Brasília, 23:30 do dia 3 em Manaus.
     const estado: EstadoDeAcesso = {

@@ -90,6 +90,14 @@ export class AssinaturaRepository {
     return this.adapter.desfazerDescidaDePlano();
   }
 
+  /**
+   * Cancela a assinatura: a cobrança para na hora e o acesso continua até o fim do período já pago. A função de cobrança cancela
+   * no Mercado Pago e grava a situação; o navegador não manda barbearia nem assinatura, então não há como cancelar a de outra.
+   */
+  async cancelarAssinatura(): Promise<void> {
+    return this.adapter.cancelarAssinatura();
+  }
+
   /** Assinatura da barbearia (plano, situação, datas, cartão), ou nulo se ela não tem. */
   async obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null> {
     this.exigirTenant(tenantId);

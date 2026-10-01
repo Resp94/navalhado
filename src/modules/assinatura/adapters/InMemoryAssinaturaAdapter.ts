@@ -62,6 +62,10 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
   public descidasDesfeitas = 0;
   /** O que `desfazerDescidaDePlano` faz. Passar um Error faz a chamada falhar. */
   public respostaDeDesfazerDescida: Error | null = null;
+  /** Quantas vezes o Gerente pediu para cancelar a assinatura. */
+  public cancelamentosSolicitados = 0;
+  /** O que `cancelarAssinatura` faz. Passar um Error faz a chamada falhar. */
+  public respostaDeCancelar: Error | null = null;
 
   /** Passar um Error faz a leitura falhar, para testar quem decide o que fazer com a falha. */
   constructor(resultado: EstadoDeAcesso | null | Error = null) {
@@ -105,6 +109,11 @@ export class InMemoryAssinaturaAdapter implements IAssinaturaAdapter {
   async desfazerDescidaDePlano(): Promise<void> {
     this.descidasDesfeitas += 1;
     if (this.respostaDeDesfazerDescida) throw this.respostaDeDesfazerDescida;
+  }
+
+  async cancelarAssinatura(): Promise<void> {
+    this.cancelamentosSolicitados += 1;
+    if (this.respostaDeCancelar) throw this.respostaDeCancelar;
   }
 
   definirAssinatura(tenantId: string, assinatura: DetalhesDaAssinatura): void {

@@ -798,8 +798,12 @@ export const Configuracoes: React.FC = () => {
         </div>
       </div>
 
-      {/* CARD: Assinatura (spec 052, tickets 05 e 06) */}
-      <SecaoAssinatura tenantId={tenant.tenantId} timezone={tenant.timezone} />
+      {/* CARD: Assinatura (spec 052, tickets 05, 06 e 12) */}
+      <SecaoAssinatura
+        tenantId={tenant.tenantId}
+        timezone={tenant.timezone}
+        onCancelada={tenant.recarregarEstadoDeAcesso}
+      />
     </form>
   );
 };

@@ -3,11 +3,13 @@ import {
   autorizadaEmTeste,
   dataCompleta,
   descreverSituacao,
+  fimDoAcessoAoCancelar,
   pagamentoConfirmado,
   proximaCobranca,
   rotuloDoCartao,
   rotuloDaSituacaoDaCobranca,
   rotuloDoTipoDaCobranca,
+  temCobrancaNoCartao,
 } from '../apresentacaoDaAssinatura';
 import type { DetalhesDaAssinatura } from '../types';
 
@@ -126,6 +128,62 @@ describe('autorizadaEmTeste e pagamentoConfirmado', () => {
 
   it.each(['past_due', 'canceled', 'courtesy', 'blocked'] as const)('%s: pagamento não confirmado', (situacao) => {
     expect(pagamentoConfirmado(com({ situacao, cartao: { bandeira: 'visa', final: '5682' } }))).toBe(false);
+  });
+});
+
+// Spec 052, tickets 09 e 12: trocar o cartão e cancelar só existem quando há uma assinatura cobrando no cartão no Mercado Pago.
+describe('temCobrancaNoCartao', () => {
+  it.each(['active', 'past_due'] as const)('%s: há cobrança no cartão', (situacao) => {
+    expect(temCobrancaNoCartao(com({ situacao }))).toBe(true);
+  });
+
+  it('em teste com o cartão já autorizado: há cobrança marcada para o fim do teste', () => {
+    expect(temCobrancaNoCartao(com({ situacao: 'trialing', cartao: { bandeira: 'visa', final: null } }))).toBe(true);
+  });
+
+  it('em teste sem cartão autorizado: não há assinatura no Mercado Pago', () => {
+    expect(temCobrancaNoCartao(com({ situacao: 'trialing' }))).toBe(false);
+  });
+
+  it.each(['canceled', 'courtesy', 'blocked'] as const)('%s: não há cobrança, mesmo com um cartão gravado', (situacao) => {
+    expect(temCobrancaNoCartao(com({ situacao, cartao: { bandeira: 'visa', final: '5682' } }))).toBe(false);
+  });
+});
+
+// Spec 052, ticket 12: ao cancelar, o acesso continua até o fim do período já pago (ou do teste). Sem período a esperar, o
+// bloqueio é na hora: a tela precisa dizer isso antes de o Gerente confirmar.
+describe('fimDoAcessoAoCancelar', () => {
+  const agora = new Date('2026-10-01T12:00:00Z');
+  const fimDoPeriodo = new Date('2026-10-29T23:26:22Z');
+
+  it('ativa: o fim do período pago', () => {
+    expect(fimDoAcessoAoCancelar(com({ periodoAte: fimDoPeriodo }), agora)).toEqual(fimDoPeriodo);
+  });
+
+  it('pagamento recusado com o período ainda por vencer: o fim do período pago', () => {
+    expect(fimDoAcessoAoCancelar(com({ situacao: 'past_due', periodoAte: fimDoPeriodo }), agora)).toEqual(fimDoPeriodo);
+  });
+
+  it('em teste com o cartão autorizado: o fim do teste (a assinatura nunca chega a cobrar)', () => {
+    const teste = com({
+      situacao: 'trialing',
+      testeAte: new Date('2026-10-14T23:00:00Z'),
+      periodoAte: fimDoPeriodo,
+      cartao: { bandeira: 'visa', final: null },
+    });
+
+    expect(fimDoAcessoAoCancelar(teste, agora)).toEqual(new Date('2026-10-14T23:00:00Z'));
+  });
+
+  it.each([
+    ['ativa com o período já vencido', com({ periodoAte: new Date('2026-09-30T23:00:00Z') })],
+    ['ativa com o período terminando agora', com({ periodoAte: agora })],
+    ['ativa sem o fim do período conhecido', com({ periodoAte: null })],
+    ['recusada com o período já vencido (o caso comum: a recusa vem na renovação)', com({ situacao: 'past_due', periodoAte: new Date('2026-09-30T23:00:00Z') })],
+    ['em teste com o teste já vencido', com({ situacao: 'trialing', testeAte: new Date('2026-09-30T23:00:00Z'), cartao: { bandeira: 'visa', final: null } })],
+    ['em teste sem o fim do teste conhecido', com({ situacao: 'trialing', testeAte: null, cartao: { bandeira: 'visa', final: null } })],
+  ])('%s: não há período a esperar, o acesso é bloqueado na hora', (_nome, assinatura) => {
+    expect(fimDoAcessoAoCancelar(assinatura, agora)).toBeNull();
   });
 });
 

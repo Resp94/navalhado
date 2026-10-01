@@ -140,6 +140,11 @@ export interface IAssinaturaAdapter {
   trocarDePlano(planoId: string, pagamento?: PagamentoDaTroca): Promise<PlanoTrocado>;
   /** Desiste da descida agendada antes da data: o valor da assinatura volta para o do plano atual. */
   desfazerDescidaDePlano(): Promise<void>;
+  /**
+   * Cancela a assinatura da barbearia de quem está logado (só o Gerente consegue): a cobrança para na hora e o acesso continua
+   * até o fim do período já pago. Não reembolsa nada. A falha sobe com o motivo que a função de cobrança devolveu.
+   */
+  cancelarAssinatura(): Promise<void>;
   /** Assinatura da barbearia, ou nulo se ela não tem. O banco só entrega ao Gerente da própria barbearia. */
   obterAssinatura(tenantId: string): Promise<DetalhesDaAssinatura | null>;
   /** Histórico gravado pelo webhook; não consulta o Mercado Pago. */

@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
 
-const { mockAddToast, mockNavigate, mockUseLocation, mockRpc } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockUseLocation, mockRpc, contextosDoOutlet } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
   mockUseLocation: vi.fn().mockReturnValue({ pathname: '/agenda' }),
   mockRpc: vi.fn(),
+  // Cada contexto que o layout entregou ao Outlet, na ordem: dá para conferir a identidade do objeto e usar as funções dele.
+  contextosDoOutlet: [] as any[],
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -16,7 +18,17 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useLocation: () => mockUseLocation(),
-    Outlet: ({ context }: any) => <div data-testid="outlet" data-context={JSON.stringify(context)}>Conteúdo Outlet</div>,
+    Outlet: ({ context }: any) => {
+      contextosDoOutlet.push(context);
+      return (
+        <div data-testid="outlet" data-context={JSON.stringify(context)}>
+          Conteúdo Outlet
+          {context?.recarregarEstadoDeAcesso && (
+            <button onClick={() => context.recarregarEstadoDeAcesso()}>simular releitura do acesso</button>
+          )}
+        </div>
+      );
+    },
     Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>,
   };
 });
@@ -56,6 +68,7 @@ vi.mock('../../lib/supabase', () => ({
 describe('GerenteLayout Gatekeeper', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    contextosDoOutlet.length = 0;
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-123', email: 'gerente@test.local' } },
       error: null,
@@ -329,6 +342,69 @@ describe('GerenteLayout Gatekeeper', () => {
       render(<GerenteLayout />);
 
       expect(await screen.findByRole('status')).toHaveTextContent('até 03/10');
+    });
+
+    // Spec 052, ticket 12: depois de cancelar, a faixa "Assinatura cancelada. Acesso até DD/MM." aparece sem recarregar a página.
+    it('cancelada dentro do período pago: mostra a faixa com a data do fim do acesso e mantém o painel', async () => {
+      painelDaBarbearia('/agenda');
+      estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Assinatura cancelada. Acesso até 29/10.');
+      expect(screen.getByTestId('outlet')).toBeInTheDocument();
+    });
+
+    it('cancelada: a data do fim do acesso na faixa segue o fuso da barbearia', async () => {
+      painelDaBarbearia('/agenda', true, '', 'America/Manaus');
+      // 03:30 UTC de 30/10: 00:30 do dia 30 em Brasília, 23:30 do dia 29 em Manaus.
+      estadoDoBanco('warning', 'canceled', '2026-10-30T03:30:00Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Acesso até 29/10.');
+    });
+
+    it('as páginas pedem a releitura do estado pelo contexto: a faixa de cancelada aparece sem recarregar a página', async () => {
+      painelDaBarbearia('/configuracoes');
+      estadoDoBanco('allowed', 'active');
+      render(<GerenteLayout />);
+      await screen.findByTestId('outlet');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+      estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
+      await userEvent.click(screen.getByRole('button', { name: 'simular releitura do acesso' }));
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Assinatura cancelada. Acesso até 29/10.');
+    });
+
+    it('a releitura que bloqueia (cancelada sem período a esperar) troca o painel pela tela de bloqueio', async () => {
+      painelDaBarbearia('/configuracoes');
+      estadoDoBanco('allowed', 'active');
+      render(<GerenteLayout />);
+      await screen.findByTestId('outlet');
+
+      estadoDoBanco('blocked', 'canceled', '2026-09-30T23:00:00Z');
+      await userEvent.click(screen.getByRole('button', { name: 'simular releitura do acesso' }));
+
+      expect(await screen.findByRole('heading', { name: 'Sua assinatura foi cancelada' })).toBeInTheDocument();
+      expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+    });
+
+    // As páginas usam o contexto em dependências de efeitos: um objeto novo a cada render as faria reler tudo a cada render.
+    it('o contexto das páginas é o mesmo objeto enquanto os dados da barbearia não mudam, mesmo com a faixa aparecendo', async () => {
+      painelDaBarbearia('/configuracoes');
+      estadoDoBanco('allowed', 'active');
+      render(<GerenteLayout />);
+      await screen.findByTestId('outlet');
+
+      estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
+      await userEvent.click(screen.getByRole('button', { name: 'simular releitura do acesso' }));
+      await screen.findByRole('status');
+
+      expect(contextosDoOutlet.length).toBeGreaterThan(1);
+      expect(new Set(contextosDoOutlet).size).toBe(1);
+      expect(contextosDoOutlet[0]).toMatchObject({ tenantId: 'tenant-123', tenantName: 'Barbearia Navalhado' });
     });
 
     it('liberado: mostra o painel, sem faixa e sem tela de bloqueio', async () => {

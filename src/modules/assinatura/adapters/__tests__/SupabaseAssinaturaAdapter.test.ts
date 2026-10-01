@@ -646,4 +646,38 @@ describe('SupabaseAssinaturaAdapter', () => {
       await expect(adapter.desfazerDescidaDePlano()).rejects.toThrow('Não foi possível desfazer a descida de plano. Tente de novo.');
     });
   });
+
+  // Spec 052, ticket 12: a função de cobrança confere no servidor que quem chama é o Gerente da barbearia; o front não manda
+  // barbearia nem assinatura, então não há como cancelar a de outra.
+  describe('cancelarAssinatura', () => {
+    it('chama a função de cobrança com a ação cancelar', async () => {
+      mockInvoke.mockResolvedValue({ data: { canceled: true }, error: null });
+
+      await expect(adapter.cancelarAssinatura()).resolves.toBeUndefined();
+
+      expect(mockInvoke).toHaveBeenCalledWith('billing', { body: { action: 'cancelar' } });
+    });
+
+    it('mostra a mensagem que a função devolveu na recusa', async () => {
+      const mensagem = 'A assinatura já está cancelada.';
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: { message: 'Edge Function returned a non-2xx status code', context: { json: async () => ({ error: mensagem }) } },
+      });
+
+      await expect(adapter.cancelarAssinatura()).rejects.toThrow(mensagem);
+    });
+
+    it('sem mensagem da função, usa um texto claro', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: { message: 'Failed to send a request to the Edge Function' } });
+
+      await expect(adapter.cancelarAssinatura()).rejects.toThrow('Não foi possível cancelar a assinatura. Tente de novo.');
+    });
+
+    it('resposta sem canceled é tratada como falha', async () => {
+      mockInvoke.mockResolvedValue({ data: {}, error: null });
+
+      await expect(adapter.cancelarAssinatura()).rejects.toThrow('Não foi possível cancelar a assinatura. Tente de novo.');
+    });
+  });
 });

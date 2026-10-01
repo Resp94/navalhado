@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import {
   MENSAGEM_ASSINAR_FALHOU,
+  MENSAGEM_CANCELAR_FALHOU,
   MENSAGEM_COTAR_TROCA_FALHOU,
   MENSAGEM_DESFAZER_DESCIDA_FALHOU,
   MENSAGEM_FORMULARIO_DO_CARTAO_FALHOU,
@@ -281,6 +282,20 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
     const resposta = data as RespostaDaCobranca | null;
     if (resposta?.error) throw new Error(resposta.error);
     if (resposta?.canceled !== true) throw new Error(MENSAGEM_DESFAZER_DESCIDA_FALHOU);
+  }
+
+  // A função confere no servidor que quem chama é o Gerente da barbearia e cancela a assinatura dela no Mercado Pago; o front
+  // não manda barbearia nem assinatura, então não há como cancelar a de outra.
+  async cancelarAssinatura(): Promise<void> {
+    const { data, error } = await supabase.functions.invoke('billing', { body: { action: 'cancelar' } });
+
+    if (error) {
+      throw new Error(await mensagemDaFalha(error, MENSAGEM_CANCELAR_FALHOU));
+    }
+
+    const resposta = data as RespostaDaCobranca | null;
+    if (resposta?.error) throw new Error(resposta.error);
+    if (resposta?.canceled !== true) throw new Error(MENSAGEM_CANCELAR_FALHOU);
   }
 
   // A barbearia tem uma única assinatura (unique por tenant_id). A RLS só entrega a linha ao

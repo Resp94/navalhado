@@ -360,3 +360,26 @@ describe('AssinaturaRepository: mudar de plano', () => {
     await expect(repo.cotarTrocaDePlano('plano-tesoura')).rejects.toThrow('não cabem no plano Tesoura');
   });
 });
+
+// Spec 052, ticket 12: cancelar a assinatura. A função de cobrança cancela no Mercado Pago e grava a situação; o navegador só pede.
+describe('AssinaturaRepository: cancelar assinatura', () => {
+  const montar = () => {
+    const adapter = new InMemoryAssinaturaAdapter();
+    return { adapter, repo: new AssinaturaRepository(adapter) };
+  };
+
+  it('cancela a assinatura pelo adaptador', async () => {
+    const { adapter, repo } = montar();
+
+    await repo.cancelarAssinatura();
+
+    expect(adapter.cancelamentosSolicitados).toBe(1);
+  });
+
+  it('a recusa de cancelar sobe com o motivo', async () => {
+    const { adapter, repo } = montar();
+    adapter.respostaDeCancelar = new Error('A assinatura já está cancelada.');
+
+    await expect(repo.cancelarAssinatura()).rejects.toThrow('A assinatura já está cancelada.');
+  });
+});

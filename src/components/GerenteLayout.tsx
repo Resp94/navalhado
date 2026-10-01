@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { normalizeBusinessHours } from '../lib/schedule';
@@ -24,6 +24,11 @@ export interface TenantContextType {
   minBookingLeadTimeMinutes?: number;
   minCancellationLeadTimeMinutes?: number;
   refreshTenant?: () => Promise<void>;
+  /**
+   * Relê o Estado de Acesso da barbearia no porteiro, para a faixa ou a tela de bloqueio mudarem sem recarregar a página
+   * (por exemplo, logo depois de cancelar a assinatura). Só o GerenteLayout o entrega.
+   */
+  recarregarEstadoDeAcesso?: () => void;
 }
 
 import {
@@ -182,6 +187,13 @@ export const GerenteLayout: React.FC = () => {
     }
   };
 
+  // O contexto das páginas: os dados da barbearia e o que elas podem pedir ao porteiro. Memoizado porque as páginas o usam em
+  // dependências de efeitos: um objeto novo a cada render (a faixa aparecendo, por exemplo) as faria reler tudo.
+  const contextoDasPaginas = useMemo(
+    () => (tenantInfo ? { ...tenantInfo, recarregarEstadoDeAcesso } : null),
+    [tenantInfo, recarregarEstadoDeAcesso],
+  );
+
   if (loading || !tenantInfo || statusDoAcesso === 'loading') {
     return (
       <>
@@ -217,7 +229,7 @@ export const GerenteLayout: React.FC = () => {
   if (location.pathname === '/onboarding') {
     return (
       <div className="min-h-screen bg-[#09090b] text-[#f4f4f5]">
-        <Outlet context={tenantInfo} />
+        <Outlet context={contextoDasPaginas} />
       </div>
     );
   }
@@ -276,7 +288,7 @@ export const GerenteLayout: React.FC = () => {
           }
         >
           {estadoDeAcesso?.acesso === 'aviso' && <FaixaDeAviso estado={estadoDeAcesso} timezone={tenantInfo.timezone} />}
-          <Outlet context={tenantInfo} />
+          <Outlet context={contextoDasPaginas} />
         </main>
 
         {/* BARRA INFERIOR FIXA MOBILE (<= 768px) */}

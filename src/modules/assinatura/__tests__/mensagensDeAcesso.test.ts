@@ -112,5 +112,32 @@ describe('mensagens de acesso', () => {
     it('sem contagem de dias, a mensagem não inventa um número', () => {
       expect(mensagemDoAviso(aviso('trial'), null)).toBe('Seu período de teste está terminando.');
     });
+
+    // Spec 052, ticket 12: a cancelada tem acesso até o fim do período pago, com a faixa "Assinatura cancelada. Acesso até DD/MM.".
+    it('cancelada diz até quando o acesso continua', () => {
+      const cancelada: EstadoDeAcesso = {
+        acesso: 'aviso',
+        motivo: 'canceled',
+        dataRelevante: new Date('2026-10-29T23:26:22Z'),
+      };
+
+      expect(mensagemDoAviso(cancelada, 28)).toBe('Assinatura cancelada. Acesso até 29/10.');
+    });
+
+    it('a data do fim do acesso da cancelada segue o fuso da barbearia', () => {
+      // 03:30 UTC de 04/10: 00:30 do dia 4 em Brasília, 23:30 do dia 3 em Manaus.
+      const cancelada: EstadoDeAcesso = {
+        acesso: 'aviso',
+        motivo: 'canceled',
+        dataRelevante: new Date('2026-10-04T03:30:00Z'),
+      };
+
+      expect(mensagemDoAviso(cancelada, 1)).toBe('Assinatura cancelada. Acesso até 04/10.');
+      expect(mensagemDoAviso(cancelada, 1, 'America/Manaus')).toBe('Assinatura cancelada. Acesso até 03/10.');
+    });
+
+    it('cancelada sem a data do fim do acesso não inventa uma', () => {
+      expect(mensagemDoAviso(aviso('canceled'), null)).toBe('Assinatura cancelada.');
+    });
   });
 });

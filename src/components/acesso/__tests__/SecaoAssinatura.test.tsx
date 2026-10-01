@@ -62,6 +62,20 @@ vi.mock('../DescidaAgendada', () => ({
   ),
 }));
 
+// O fluxo de cancelar (pergunta, aviso, erro) tem teste próprio (CancelarAssinatura.test); aqui só interessa quando a seção o
+// oferece e o que ela faz depois do cancelamento.
+vi.mock('../CancelarAssinatura', () => ({
+  CancelarAssinatura: ({ assinatura, onCancelada }: {
+    assinatura: { situacao: string; plano: { nome: string } };
+    onCancelada?: () => void;
+  }) => (
+    <div data-testid="cancelar-assinatura">
+      <span>{`assinatura ${assinatura.plano.nome} ${assinatura.situacao}`}</span>
+      <button onClick={onCancelada}>simular assinatura cancelada</button>
+    </div>
+  ),
+}));
+
 import { SecaoAssinatura } from '../SecaoAssinatura';
 
 // Spec 052, tickets 05 e 06: a tela Assinatura de Configurações mostra o plano, a situação, a
@@ -112,8 +126,10 @@ const comDados = ({
     recarregar,
   });
 
-const renderizar = (search = '', abrirLink = vi.fn(), timezone?: string) => {
-  render(<SecaoAssinatura tenantId="tenant-a" timezone={timezone} search={search} abrirLink={abrirLink} />);
+const renderizar = (search = '', abrirLink = vi.fn(), timezone?: string, onCancelada?: () => void) => {
+  render(
+    <SecaoAssinatura tenantId="tenant-a" timezone={timezone} search={search} abrirLink={abrirLink} onCancelada={onCancelada} />,
+  );
   return { abrirLink };
 };
 
@@ -342,6 +358,70 @@ describe('SecaoAssinatura', () => {
       await userEvent.click(screen.getByRole('button', { name: 'simular plano trocado' }));
 
       expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Spec 052, ticket 12: cancelar a assinatura pela tela Assinatura.
+  describe('cancelar assinatura', () => {
+    it.each([
+      ['ativa', { situacao: 'active' as const }],
+      ['com pagamento recusado', { situacao: 'past_due' as const }],
+      ['em teste com o cartão já autorizado', { situacao: 'trialing' as const, cartao: { bandeira: 'visa', final: null } }],
+    ])('oferece o cancelamento na assinatura %s', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.getByTestId('cancelar-assinatura')).toBeInTheDocument();
+    });
+
+    // Sem assinatura cobrando no Mercado Pago não há o que cancelar: o teste sem cartão não gera cobrança, a cancelada já está,
+    // a cortesia não cobra e a bloqueada só assina de novo.
+    it.each([
+      ['em teste sem cartão autorizado', { situacao: 'trialing' as const, cartao: null }],
+      ['cancelada', { situacao: 'canceled' as const }],
+      ['em cortesia', { situacao: 'courtesy' as const, cartao: null }],
+      ['bloqueada', { situacao: 'blocked' as const }],
+    ])('não oferece o cancelamento na assinatura %s', (_nome, assinatura) => {
+      comDados({ assinatura, diasRestantes: 10 });
+      renderizar();
+
+      expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
+    });
+
+    it('passa a assinatura inteira: o texto da pergunta depende da situação e das datas', () => {
+      comDados();
+      renderizar();
+
+      expect(screen.getByTestId('cancelar-assinatura')).toHaveTextContent('assinatura Tesoura active');
+    });
+
+    it('depois de cancelar, relê a assinatura (que passa a mostrar "Cancelada até...") e avisa quem a usa', async () => {
+      comDados();
+      const onCancelada = vi.fn();
+      renderizar('', vi.fn(), undefined, onCancelada);
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular assinatura cancelada' }));
+
+      expect(recarregar).toHaveBeenCalledTimes(1);
+      expect(onCancelada).toHaveBeenCalledTimes(1);
+    });
+
+    it('sem quem escute o cancelamento, só relê a assinatura', async () => {
+      comDados();
+      renderizar();
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular assinatura cancelada' }));
+
+      expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+
+    // O "Assinar de novo" depois do cancelamento é o mesmo botão do ticket 05: a assinatura cancelada volta a oferecê-lo.
+    it('cancelada: o Assinar de novo volta a aparecer no lugar do cancelamento', () => {
+      comDados({ assinatura: { situacao: 'canceled' } });
+      renderizar();
+
+      expect(screen.getByRole('button', { name: 'Assinar de novo' })).toBeEnabled();
+      expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
     });
   });
 

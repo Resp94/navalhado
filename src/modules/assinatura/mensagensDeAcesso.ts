@@ -43,8 +43,9 @@ export function explicacaoDoBloqueio(motivo: MotivoDeAcesso, perfil: PerfilNoBlo
 
 /**
  * Texto da faixa de aviso. `dias` é a contagem até a data relevante; nulo se não houver. No
- * pagamento recusado a data relevante é a do bloqueio (5 dias depois da primeira recusa), mostrada
- * no fuso da barbearia.
+ * pagamento recusado a data relevante é a do bloqueio (5 dias depois da primeira recusa); na
+ * assinatura cancelada é o fim do período pago, até quando o acesso continua. As duas são
+ * mostradas no fuso da barbearia.
  */
 export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, timezone?: string): string {
   const contagem = dias === null ? null : `${dias} ${pluralizar(dias, 'dia', 'dias')}`;
@@ -52,6 +53,11 @@ export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, tim
   if (estado.motivo === 'payment_failed') {
     const ate = estado.dataRelevante ? ` até ${dataCurta(estado.dataRelevante, timezone)}` : '';
     return `Pagamento recusado. Atualize o cartão${ate} para não ter o acesso bloqueado.`;
+  }
+
+  if (estado.motivo === 'canceled') {
+    const acessoAte = estado.dataRelevante ? ` Acesso até ${dataCurta(estado.dataRelevante, timezone)}.` : '';
+    return `Assinatura cancelada.${acessoAte}`;
   }
 
   return contagem

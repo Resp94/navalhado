@@ -2,6 +2,7 @@ import React from 'react';
 import { formatCurrency } from '../../lib/currency';
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { CancelarAssinatura } from './CancelarAssinatura';
 import { DescidaAgendada } from './DescidaAgendada';
 import { MudarDePlano } from './MudarDePlano';
 import { TrocarCartao } from './TrocarCartao';
@@ -14,6 +15,7 @@ import {
   rotuloDaSituacaoDaCobranca,
   rotuloDoCartao,
   rotuloDoTipoDaCobranca,
+  temCobrancaNoCartao,
 } from '../../modules/assinatura/apresentacaoDaAssinatura';
 import type { SituacaoDaAssinatura } from '../../modules/assinatura/situacaoDaAssinatura';
 import { useMinhaAssinatura } from '../../modules/assinatura/useMinhaAssinatura';
@@ -28,6 +30,8 @@ interface SecaoAssinaturaProps {
   search?: string;
   /** Como abrir o link do Mercado Pago. Por padrão, navega na mesma aba. */
   abrirLink?: (url: string) => void;
+  /** Chamado depois de a assinatura ser cancelada: o layout relê o Estado de Acesso e a faixa de cancelada aparece sem recarregar a página. */
+  onCancelada?: () => void;
 }
 
 /** O que a tela diz e oferece em cada situação. Só quem não tem assinatura ativa vê o botão. */
@@ -52,16 +56,17 @@ const CARD_CLASSES =
   'card card-config bg-bg-secondary border border-border rounded-lg p-8 shadow-sm flex flex-col gap-4 max-sm:p-4 max-sm:rounded-md';
 
 /**
- * Tela Assinatura de Configurações (spec 052, tickets 05 e 06): plano, situação, próxima
- * cobrança, cartão e histórico de cobranças da barbearia, e o botão que leva o Gerente à página
- * de pagamento do Mercado Pago quando não há assinatura ativa. O histórico é o que o webhook
- * gravou; a tela não consulta o Mercado Pago.
+ * Tela Assinatura de Configurações (spec 052, tickets 05, 06 e 12): plano, situação, próxima
+ * cobrança, cartão e histórico de cobranças da barbearia, o botão que leva o Gerente à página
+ * de pagamento do Mercado Pago quando não há assinatura ativa e o cancelamento da que há. O
+ * histórico é o que o webhook gravou; a tela não consulta o Mercado Pago.
  */
 export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   tenantId,
   timezone,
   search = window.location.search,
   abrirLink,
+  onCancelada,
 }) => {
   const { assinatura, cobrancas, status, historicoIndisponivel, diasRestantes, recarregar } =
     useMinhaAssinatura(tenantId);
@@ -108,9 +113,14 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   const { texto, botao }: Orientacao = emTesteAutorizado ? {} : ORIENTACAO[assinatura.situacao];
   const cobrancaMarcada = proximaCobranca(assinatura);
   const cartao = rotuloDoCartao(assinatura.cartao);
-  // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada.
-  const podeTrocarOCartao =
-    assinatura.situacao === 'active' || assinatura.situacao === 'past_due' || emTesteAutorizado;
+  // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada: só nela se troca o cartão e se cancela.
+  const cobrandoNoCartao = temCobrancaNoCartao(assinatura);
+
+  // Cancelada, a assinatura relê para mostrar "Cancelada até..." e o layout relê o Estado de Acesso para a faixa aparecer.
+  const aoCancelar = () => {
+    recarregar();
+    onCancelada?.();
+  };
 
   return (
     <section className={CARD_CLASSES}>
@@ -184,14 +194,14 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
         />
       )}
 
-      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: cancelar (12) e exportar os dados (14). */}
+      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: exportar os dados (14). */}
       {botao && (
         <div>
           <BotaoAssinar rotulo={botao} abrirLink={abrirLink} />
         </div>
       )}
 
-      {podeTrocarOCartao && (
+      {cobrandoNoCartao && (
         <TrocarCartao cobrancaPendente={assinatura.situacao === 'past_due'} onTrocado={recarregar} />
       )}
 
@@ -199,6 +209,9 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
       {(assinatura.situacao === 'active' || assinatura.situacao === 'trialing') && (
         <MudarDePlano assinatura={assinatura} timezone={timezone} onTrocado={recarregar} />
       )}
+
+      {/* Cancelar fica por último entre as ações: depois dele a cobrança para. Cancelada, a tela passa a oferecer "Assinar de novo". */}
+      {cobrandoNoCartao && <CancelarAssinatura assinatura={assinatura} timezone={timezone} onCancelada={aoCancelar} />}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h4 className="text-sm font-extrabold m-0 text-text-primary">Histórico de cobranças</h4>

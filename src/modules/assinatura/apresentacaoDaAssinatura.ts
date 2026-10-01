@@ -50,6 +50,23 @@ export const pagamentoConfirmado = (assinatura: DetalhesDaAssinatura): boolean =
   assinatura.situacao === 'active' || autorizadaEmTeste(assinatura);
 
 /**
+ * Há uma assinatura cobrando no cartão no Mercado Pago: ativa, recusada ou em teste já autorizada. Só nela se troca o cartão e se
+ * cancela; as outras situações não têm cobrança (cancelada, cortesia, bloqueada) ou ainda não têm assinatura lá (teste sem cartão).
+ */
+export const temCobrancaNoCartao = (assinatura: DetalhesDaAssinatura): boolean =>
+  assinatura.situacao === 'active' || assinatura.situacao === 'past_due' || autorizadaEmTeste(assinatura);
+
+/**
+ * Até quando o acesso continua se a assinatura for cancelada agora: o fim do período já pago, ou do teste. Nulo quando não há mais
+ * período a esperar (a recusa vem na renovação, quando o período pago já acabou): o acesso é bloqueado na hora, e a tela precisa
+ * dizer isso antes de o Gerente confirmar. É a mesma regra do Estado de Acesso da cancelada, calculada no banco.
+ */
+export function fimDoAcessoAoCancelar(assinatura: DetalhesDaAssinatura, agora: Date = new Date()): Date | null {
+  const fim = assinatura.situacao === 'trialing' ? assinatura.testeAte : assinatura.periodoAte;
+  return fim && fim.getTime() > agora.getTime() ? fim : null;
+}
+
+/**
  * A próxima mensalidade, sempre no futuro: data que já passou quer dizer que a cobrança ainda não
  * foi processada (aviso do Mercado Pago atrasado), e uma data vencida na tela confunde. Ativa: no fim
  * do período pago. Em teste: só depois de o cartão ser autorizado (a primeira cobrança sai no fim do

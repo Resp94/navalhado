@@ -22,6 +22,7 @@ const {
   mockEqUpdate,
   mockSingle,
   mockRefreshTenant,
+  mockRecarregarEstadoDeAcesso,
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockUpdate = vi.fn();
@@ -29,6 +30,7 @@ const {
   const mockEqSelect = vi.fn().mockReturnValue({ single: mockSingle });
   const mockEqUpdate = vi.fn().mockResolvedValue({ error: null });
   const mockRefreshTenant = vi.fn().mockResolvedValue(undefined);
+  const mockRecarregarEstadoDeAcesso = vi.fn();
 
   const mockSupabaseClient = {
     from: vi.fn().mockImplementation((_table: string) => {
@@ -47,6 +49,7 @@ const {
     mockEqUpdate,
     mockSingle,
     mockRefreshTenant,
+    mockRecarregarEstadoDeAcesso,
   };
 });
 
@@ -59,8 +62,11 @@ vi.mock('../../../components/Toast', () => ({
 
 // A seção Assinatura tem os próprios testes; aqui só se confere que ela está na página.
 vi.mock('../../../components/acesso/SecaoAssinatura', () => ({
-  SecaoAssinatura: ({ tenantId, timezone }: { tenantId: string; timezone: string }) => (
-    <section>Seção Assinatura de {tenantId} em {timezone}</section>
+  SecaoAssinatura: ({ tenantId, timezone, onCancelada }: { tenantId: string; timezone: string; onCancelada?: () => void }) => (
+    <section>
+      Seção Assinatura de {tenantId} em {timezone}
+      <button onClick={onCancelada}>simular assinatura cancelada</button>
+    </section>
   ),
 }));
 
@@ -71,6 +77,7 @@ vi.mock('react-router-dom', () => ({
     tenantName: 'Barbearia Estilo',
     timezone: 'America/Manaus',
     refreshTenant: mockRefreshTenant,
+    recarregarEstadoDeAcesso: mockRecarregarEstadoDeAcesso,
   }),
 }));
 
@@ -97,6 +104,19 @@ describe('Configuracoes Page - TDD', () => {
     render(<Configuracoes />);
 
     expect(await screen.findByText('Seção Assinatura de tenant-test-id em America/Manaus')).toBeInTheDocument();
+  });
+
+  // Spec 052, ticket 12: depois de cancelar, o layout relê o Estado de Acesso e mostra a faixa de cancelada sem recarregar a página.
+  it('ao cancelar a assinatura, pede ao layout que releia o Estado de Acesso', async () => {
+    mockSingle.mockResolvedValue({
+      data: { id: 'tenant-test-id', name: 'Barbearia Estilo', email: 'a@b.com', phone: '(92) 98888-8888', address: 'Rua 1', timezone: 'America/Manaus' },
+      error: null,
+    });
+    render(<Configuracoes />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'simular assinatura cancelada' }));
+
+    expect(mockRecarregarEstadoDeAcesso).toHaveBeenCalledTimes(1);
   });
 
   beforeEach(() => {
