@@ -232,20 +232,6 @@ describe('Whatsapp Config Page - TDD', () => {
       },
       error: null,
     });
-    mockSingle.mockResolvedValue({
-      data: {
-        id: 'inst-123',
-        tenant_id: 'tenant-test-id',
-        instance_name: 'nav_estilo_123',
-        status: 'connecting',
-        qr_code: null,
-        send_confirmation: true,
-        send_reminders: true,
-        reminder_hours: 2,
-        send_cancellation: true,
-      },
-      error: null,
-    });
     mockFunctionsInvoke.mockResolvedValue({
       data: { success: true, qrcode: 'base64_qr' },
       error: null,
@@ -256,11 +242,6 @@ describe('Whatsapp Config Page - TDD', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' }));
 
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith({
-        status: 'connecting',
-        qr_code: null,
-        updated_at: expect.any(String),
-      });
       expect(mockFunctionsInvoke).toHaveBeenCalledWith('whatsapp-integration/manage-instance', {
         body: {
           action: 'connect',
@@ -269,9 +250,11 @@ describe('Whatsapp Config Page - TDD', () => {
         },
       });
     });
+    // Quem grava o início do pareamento é a Edge Function; o navegador não grava status nem QR code.
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('deve exibir toast de erro se a chamada da edge function falhar ao gerar QR Code', async () => {
+  it('nao consulta o status do provedor enquanto o pedido de pareamento ainda nao respondeu', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
         id: 'inst-123',
@@ -286,12 +269,46 @@ describe('Whatsapp Config Page - TDD', () => {
       },
       error: null,
     });
-    mockSingle.mockResolvedValue({
+    // O banco só passa a 'connecting' dentro do pedido de pareamento (Edge Function). Uma consulta de
+    // status que chegasse antes disso veria 'disconnected' e poderia gravar esse estado por cima.
+    let providerStatus: Record<string, unknown> = { status: 'disconnected' };
+    let answerConnect: (value: unknown) => void = () => {};
+    mockFunctionsInvoke.mockImplementation((_name, options) =>
+      options.body.action === 'connect'
+        ? new Promise((resolve) => { answerConnect = resolve; })
+        : Promise.resolve({ data: providerStatus, error: null }),
+    );
+    const actionsInvoked = () => mockFunctionsInvoke.mock.calls.map(([, options]) => options.body.action);
+
+    try {
+      render(<Whatsapp />);
+      const connectButton = await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' });
+      // Ao carregar, a tela reconcilia com o provedor uma instância desconectada, uma vez.
+      await waitFor(() => expect(actionsInvoked()).toEqual(['status']));
+
+      fireEvent.click(connectButton);
+      await waitFor(() => expect(actionsInvoked()).toEqual(['status', 'connect']));
+      // Dá tempo aos efeitos da renderização: a consulta de pareamento só pode começar depois da resposta.
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+      expect(actionsInvoked()).toEqual(['status', 'connect']);
+
+      providerStatus = { status: 'connecting', qrcode: 'base64_qr' };
+      await act(async () => {
+        answerConnect({ data: { success: true, status: 'connecting', qrcode: 'base64_qr' }, error: null });
+      });
+      expect(await screen.findByAltText('QR Code WhatsApp')).toBeInTheDocument();
+    } finally {
+      mockFunctionsInvoke.mockReset();
+    }
+  });
+
+  it('deve exibir toast de erro se a chamada da edge function falhar ao gerar QR Code', async () => {
+    mockMaybeSingle.mockResolvedValue({
       data: {
         id: 'inst-123',
         tenant_id: 'tenant-test-id',
         instance_name: 'nav_estilo_123',
-        status: 'pairing',
+        status: 'disconnected',
         qr_code: null,
         send_confirmation: true,
         send_reminders: true,
@@ -322,20 +339,6 @@ describe('Whatsapp Config Page - TDD', () => {
         tenant_id: 'tenant-test-id',
         instance_name: 'nav_estilo_123',
         status: 'disconnected',
-        qr_code: null,
-        send_confirmation: true,
-        send_reminders: true,
-        reminder_hours: 2,
-        send_cancellation: true,
-      },
-      error: null,
-    });
-    mockSingle.mockResolvedValue({
-      data: {
-        id: 'inst-123',
-        tenant_id: 'tenant-test-id',
-        instance_name: 'nav_estilo_123',
-        status: 'connecting',
         qr_code: null,
         send_confirmation: true,
         send_reminders: true,
@@ -626,21 +629,6 @@ describe('Whatsapp Config Page - TDD', () => {
       error: null,
     });
 
-    mockSingle.mockResolvedValue({
-      data: {
-        id: 'inst-123',
-        tenant_id: 'tenant-test-id',
-        instance_name: 'nav_estilo_123',
-        status: 'disconnected',
-        qr_code: null,
-        send_confirmation: true,
-        send_reminders: true,
-        reminder_hours: 2,
-        send_cancellation: true,
-      },
-      error: null,
-    });
-
     mockFunctionsInvoke.mockResolvedValue({
       data: { success: true },
       error: null,
@@ -666,6 +654,9 @@ describe('Whatsapp Config Page - TDD', () => {
     });
 
     expect(mockAddToast).toHaveBeenCalledWith('WhatsApp desconectado da barbearia.', 'warning');
+    // A Edge Function disconnect já grava o estado; o navegador não grava status nem QR code.
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText('Desconectado')).toBeInTheDocument();
   });
 
   it('deve consultar temporariamente o status enquanto a instancia esta pareando', async () => {

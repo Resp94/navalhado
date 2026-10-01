@@ -392,20 +392,8 @@ export const Whatsapp: React.FC = () => {
     try {
       setActionLoading(true);
 
-      const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .update({
-          status: 'connecting',
-          qr_code: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', instance.id)
-        .select(WHATSAPP_INSTANCE_COLUMNS)
-        .single();
-
-      if (error) throw error;
-      setInstance(toWhatsappInstance(data));
-
+      // Quem grava 'connecting' é a Edge Function. A tela não marca o estado antes da resposta (nem
+      // antes do Realtime): a consulta de pareamento só começa com o banco já em 'connecting'.
       const { data: funcData, error: funcError } = await supabase.functions.invoke(
         'whatsapp-integration/manage-instance',
         {
@@ -489,19 +477,8 @@ export const Whatsapp: React.FC = () => {
         throw new Error(disconnectData?.error || disconnectError?.message || 'Erro ao desconectar o WhatsApp.');
       }
 
-      const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .update({
-          status: 'disconnected',
-          qr_code: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', instance.id)
-        .select(WHATSAPP_INSTANCE_COLUMNS)
-        .single();
-
-      if (error) throw error;
-      setInstance(toWhatsappInstance(data));
+      // A Edge Function já gravou 'disconnected' e limpou o QR code.
+      setInstance((previous) => previous ? { ...previous, status: 'disconnected', qr_code: null } : null);
       addToast('WhatsApp desconectado da barbearia.', 'warning');
     } catch (error: any) {
       console.error('Error disconnecting whatsapp instance:', error);

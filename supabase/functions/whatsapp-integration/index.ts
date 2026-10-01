@@ -952,6 +952,27 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
       } 
       
       else if (action === "connect" || action === "resume") {
+        if (action === "connect") {
+          // O início do pareamento é gravado aqui, antes de chamar o provedor: a janela de pareamento
+          // (isRecentPairing) depende de status 'connecting' e updated_at recentes, e o navegador não
+          // grava mais status nem qr_code. A sincronização desta mesma chamada já enxerga a linha gravada.
+          const pairingStartedAt = new Date().toISOString();
+          const { error: startError } = await supabase
+            .from(manageTable)
+            .update({ status: "connecting", qr_code: null, updated_at: pairingStartedAt })
+            .eq("id", instance_id);
+          if (startError) {
+            console.error(`[WhatsApp-Integration] Erro ao gravar o início do pareamento: ${startError.message}`);
+            return new Response(JSON.stringify({ error: "Failed to start pairing" }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          dbInstance.status = "connecting";
+          dbInstance.qr_code = null;
+          dbInstance.updated_at = pairingStartedAt;
+        }
+
         // Garantir que a instância exista no provedor com o token correto antes de solicitar o QR Code.
         // Iniciar o pareamento e configurar o webhook por meio do contrato neutro.
         try {

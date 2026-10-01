@@ -502,6 +502,114 @@ Deno.test("POST /manage-instance - connect delegates through the provider gatewa
   }
 });
 
+// Spec 053, ticket 03: quem grava o inicio do pareamento e a Edge Function, nao o navegador (que perde o
+// UPDATE de status e qr_code no ticket 04). O helper registra, na ordem, os PATCH em whatsapp_instances e
+// as chamadas ao provedor, e devolve a resposta da funcao.
+const exercisePairingStart = async (options: {
+  action: "connect" | "resume";
+  row: Record<string, unknown>;
+  providerStatus: { status: "connected" | "connecting" | "disconnected" | "hibernated"; qrCode?: string };
+  patchResponseStatus?: number;
+}) => {
+  const originalFetch = globalThis.fetch;
+  const events: string[] = [];
+  const patches: Array<Record<string, unknown>> = [];
+  const provider = createProviderStub({
+    connectInstance: () => {
+      events.push("provider:connect");
+      return Promise.resolve(options.providerStatus);
+    },
+  });
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (!url.includes("rest/v1/whatsapp_instances")) {
+      return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+    }
+    if ((init?.method || "GET") === "PATCH") {
+      events.push("patch");
+      patches.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify(options.patchResponseStatus ? { message: "boom" } : []), {
+        status: options.patchResponseStatus ?? 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ instance_token: "mock-instance-key", ...options.row }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await createHandler({ providerFactory: () => provider })(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-db-trigger-secret": "mock-db-secret" },
+        body: JSON.stringify({ action: options.action, instance_id: "inst-123", instance_name: "nav_test" }),
+      },
+    ));
+    return { response, body: await response.json(), events, patches };
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+};
+
+Deno.test("POST /manage-instance - connect records the pairing start before calling the provider", async () => {
+  const { response, body, events, patches } = await exercisePairingStart({
+    action: "connect",
+    row: { status: "disconnected", qr_code: "old-qr", updated_at: new Date(Date.now() - 3_600_000).toISOString() },
+    providerStatus: { status: "connecting", qrCode: "new-qr" },
+  });
+
+  assertEquals(response.status, 202);
+  assertEquals(events, ["patch", "provider:connect", "patch"]);
+  assertEquals(patches[0].status, "connecting");
+  assertEquals(patches[0].qr_code, null);
+  assertEquals(Math.abs(Date.parse(String(patches[0].updated_at)) - Date.now()) < 5_000, true);
+  assertEquals(patches[1], { qr_code: "new-qr" });
+  assertEquals(body.status, "connecting");
+  assertEquals(body.qrcode, "new-qr");
+});
+
+Deno.test("POST /manage-instance - connect keeps the pairing when the provider transiently reports disconnected right after the start", async () => {
+  const { response, body, patches } = await exercisePairingStart({
+    action: "connect",
+    row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
+    providerStatus: { status: "disconnected" },
+  });
+
+  assertEquals(response.status, 202);
+  assertEquals(body.status, "connecting");
+  // So a gravacao do inicio do pareamento: nada grava 'disconnected' por cima dela.
+  assertEquals(patches.length, 1);
+  assertEquals(patches[0].status, "connecting");
+});
+
+Deno.test("POST /manage-instance - connect does not call the provider when recording the pairing start fails", async () => {
+  const { response, events } = await exercisePairingStart({
+    action: "connect",
+    row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
+    providerStatus: { status: "connecting", qrCode: "new-qr" },
+    patchResponseStatus: 500,
+  });
+
+  assertEquals(response.status, 500);
+  assertEquals(events, ["patch"]);
+});
+
+Deno.test("POST /manage-instance - resume does not record a pairing start", async () => {
+  const { response, events, patches } = await exercisePairingStart({
+    action: "resume",
+    row: { status: "hibernated", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
+    providerStatus: { status: "connected" },
+  });
+
+  assertEquals(response.status, 202);
+  assertEquals(events[0], "provider:connect");
+  assertEquals(patches.some((patch) => patch.status === "connecting"), false);
+});
+
 Deno.test("POST /manage-instance - preserves recent pairing when provider transiently reports disconnected", async () => {
   const originalFetch = globalThis.fetch;
   let savedPayload: Record<string, unknown> | undefined;
@@ -728,7 +836,7 @@ Deno.test("POST /manage-instance - connect action should authenticate gerente us
   const res = await handler(req);
   assertEquals(res.status, 202);
   const data = await res.json();
-  assertEquals(data, { success: true, status: "connecting" });
+  assertEquals(data, { success: true, status: "connecting", qrcode: null });
 
   restoreFetch();
 });
