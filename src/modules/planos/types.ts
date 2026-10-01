@@ -7,10 +7,18 @@ export interface Plano {
   max_professionals: number;
 }
 
+/**
+ * O plano que a cota de profissionais da barbearia usa. Com uma descida de plano agendada (spec 052, ticket 11) é o plano
+ * menor, porque o banco já aplica o limite dele; `descidaAgendada` marca esse caso, em que o plano atual é maior.
+ */
+export interface PlanoDoTenant extends Plano {
+  descidaAgendada?: boolean;
+}
+
 export type PlanosStatus = 'loading' | 'ready' | 'error';
 
 export interface IPlanosAdapter {
   listar(): Promise<Plano[]>;
-  /** Plano da assinatura da barbearia (uma por barbearia), ou nulo se ela não tem assinatura. */
-  obterDoTenant(tenantId: string): Promise<Plano | null>;
+  /** Plano da cota da barbearia (uma assinatura por barbearia), ou nulo se ela não tem assinatura. */
+  obterDoTenant(tenantId: string): Promise<PlanoDoTenant | null>;
 }

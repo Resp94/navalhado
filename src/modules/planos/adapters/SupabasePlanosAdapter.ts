@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { IPlanosAdapter, Plano } from '../types';
+import type { IPlanosAdapter, Plano, PlanoDoTenant } from '../types';
 
 const paraPlano = (row: { id: string; name: string; price: unknown; max_professionals: number }): Plano => ({
   id: row.id,
@@ -32,7 +32,7 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
   }
 
   // A barbearia tem uma única assinatura (unique por tenant_id desde o ticket 03).
-  async obterDoTenant(tenantId: string): Promise<Plano | null> {
+  async obterDoTenant(tenantId: string): Promise<PlanoDoTenant | null> {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
       .select(
@@ -51,12 +51,12 @@ export class SupabasePlanosAdapter implements IPlanosAdapter {
     if (!atual) return null;
 
     // Com uma descida agendada o banco já aplica o limite do plano menor (o menor entre o atual e o agendado): é o plano
-    // que a cota mostra.
+    // que a cota mostra, marcado para a mensagem de limite mandar desfazer a descida em vez de subir de plano.
     const plano = paraPlano(atual);
     const agendado = primeiro(linha?.scheduled_plan);
     if (agendado) {
       const menor = paraPlano(agendado);
-      if (menor.max_professionals < plano.max_professionals) return menor;
+      if (menor.max_professionals < plano.max_professionals) return { ...menor, descidaAgendada: true };
     }
     return plano;
   }

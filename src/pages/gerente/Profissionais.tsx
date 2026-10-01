@@ -156,7 +156,7 @@ export const Profissionais: React.FC = () => {
     []
   );
 
-  const { plano, ehMaiorPlano } = usePlanoDoTenant(tenant.tenantId);
+  const { plano, ehMaiorPlano, descidaAgendada } = usePlanoDoTenant(tenant.tenantId);
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,7 +210,7 @@ export const Profissionais: React.FC = () => {
     // A cota cheia já é conhecida: avisa antes de o gerente preencher tudo. O banco segue
     // recusando o excedente de qualquer jeito.
     if (cotaCheia) {
-      addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano), 'warning');
+      addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano, descidaAgendada), 'warning');
       return;
     }
     resetForm();
@@ -520,7 +520,7 @@ export const Profissionais: React.FC = () => {
     } catch (error: any) {
       console.error('Error saving professional:', error);
       if (ehErroDeLimiteDeProfissionais(error)) {
-        addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano), 'warning');
+        addToast(mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano, descidaAgendada), 'warning');
       } else {
         addToast('Erro ao salvar dados do profissional.', 'error');
       }
@@ -668,7 +668,7 @@ export const Profissionais: React.FC = () => {
             role="status"
             className="bg-warning-bg text-warning border border-warning/25 rounded-md py-2 px-3 text-sm m-0 mb-5"
           >
-            {mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano)}
+            {mensagemDeLimiteDeProfissionais(plano, ehMaiorPlano, descidaAgendada)}
           </p>
         )}
 

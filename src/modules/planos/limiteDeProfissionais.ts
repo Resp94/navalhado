@@ -22,11 +22,18 @@ export function ehErroDeLimiteDeProfissionais(erro: unknown): boolean {
 /**
  * `ehMaiorPlano`: o plano da barbearia já é o maior do catálogo. Nesse caso não há
  * plano para onde subir e a orientação é falar com o suporte.
+ * `descidaAgendada`: `plano` é o plano menor da descida de plano agendada, cujo limite o banco já aplica
+ * (o plano atual da barbearia é maior). A saída gratuita é desfazer a descida, na tela Assinatura.
  */
 export function mensagemDeLimiteDeProfissionais(
   plano: Pick<Plano, 'name' | 'max_professionals'> | null,
-  ehMaiorPlano = false
+  ehMaiorPlano = false,
+  descidaAgendada = false
 ): string {
+  if (plano && descidaAgendada) {
+    const unidade = pluralizar(plano.max_professionals, 'profissional', 'profissionais');
+    return `Você atingiu o limite de ${plano.max_professionals} ${unidade} do plano ${plano.name}, que já vale porque há uma descida de plano agendada. Para cadastrar mais, desfaça a descida em Configurações, na tela Assinatura.`;
+  }
   const proximoPasso =
     ehMaiorPlano && plano ? 'Para cadastrar mais, fale com o suporte.' : 'Para cadastrar mais, mude para um plano maior.';
   if (!plano) {

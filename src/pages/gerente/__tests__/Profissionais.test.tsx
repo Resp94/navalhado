@@ -334,6 +334,21 @@ describe('Aba de Profissionais (Profissionais.tsx)', () => {
       expect(aviso).not.toHaveTextContent(/plano maior/i);
     });
 
+    it('com a descida de plano agendada, o aviso de limite manda desfazer a descida, não subir de plano', async () => {
+      mockUsePlanoDoTenant.mockReturnValue({
+        plano: { id: 'p', name: 'Tesoura', price: 59.9, max_professionals: 1, descidaAgendada: true },
+        status: 'ready',
+        ehMaiorPlano: false,
+        descidaAgendada: true,
+      });
+
+      render(<Profissionais />);
+
+      const aviso = await screen.findByText(/Você atingiu o limite de 1 profissional do plano Tesoura/i);
+      expect(aviso).toHaveTextContent(/desfaça a descida/i);
+      expect(aviso).not.toHaveTextContent(/plano maior/i);
+    });
+
     it('com a cota cheia, Novo Barbeiro avisa o limite e não abre o formulário', async () => {
       mockUsePlanoDoTenant.mockReturnValue({
         plano: { id: 'p', name: 'Tesoura', price: 59.9, max_professionals: 1 },

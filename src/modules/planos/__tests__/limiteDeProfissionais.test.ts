@@ -54,6 +54,24 @@ describe('limiteDeProfissionais (spec 052, ticket 02)', () => {
       expect(mensagem).not.toMatch(/plano maior/i);
     });
 
+    // O limite vem da descida de plano agendada (o plano atual é maior): "mude para um plano maior" não se cumpre (a tela só
+    // oferece outros planos) nem resolve, e a saída gratuita é desfazer a descida.
+    it('com a descida de plano agendada, manda desfazer a descida em vez de subir de plano', () => {
+      const mensagem = mensagemDeLimiteDeProfissionais({ name: 'Tesoura', max_professionals: 1 }, false, true);
+
+      expect(mensagem).toContain('1 profissional do plano Tesoura');
+      expect(mensagem).toMatch(/descida de plano agendada/i);
+      expect(mensagem).toMatch(/desfaça a descida/i);
+      expect(mensagem).not.toMatch(/plano maior/i);
+    });
+
+    it('a descida agendada vale mais que "é o maior plano": não manda falar com o suporte', () => {
+      const mensagem = mensagemDeLimiteDeProfissionais({ name: 'Máquina', max_professionals: 5 }, true, true);
+
+      expect(mensagem).toMatch(/desfaça a descida/i);
+      expect(mensagem).not.toMatch(/suporte/i);
+    });
+
     it('sem o plano carregado, dá a mesma orientação sem citar números', () => {
       const mensagem = mensagemDeLimiteDeProfissionais(null);
 

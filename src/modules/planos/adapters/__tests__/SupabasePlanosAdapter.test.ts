@@ -55,10 +55,12 @@ describe('SupabasePlanosAdapter.obterDoTenant (spec 052, tickets 02 e 03)', () =
     expect(cadeia.select).toHaveBeenCalledWith(
       expect.stringContaining('scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey('),
     );
-    expect(plano).toEqual({ id: 'p1', name: 'Tesoura', price: 59.9, max_professionals: 1 });
+    // A marca diz à tela que o limite vem da descida agendada (o plano atual é maior): a mensagem de limite não pode mandar subir
+    // de plano, e sim desfazer a descida.
+    expect(plano).toEqual({ id: 'p1', name: 'Tesoura', price: 59.9, max_professionals: 1, descidaAgendada: true });
   });
 
-  it('o plano agendado com limite maior que o do atual não muda a cota (só desce)', async () => {
+  it('o plano agendado com limite maior que o do atual não muda a cota (só desce) e não leva a marca da descida', async () => {
     cadeiaDoPlanoDaBarbearia({
       data: {
         plans: { id: 'p1', name: 'Tesoura', price: '59.90', max_professionals: 1 },
@@ -67,7 +69,10 @@ describe('SupabasePlanosAdapter.obterDoTenant (spec 052, tickets 02 e 03)', () =
       error: null,
     });
 
-    expect((await new SupabasePlanosAdapter().obterDoTenant('tenant-a'))?.name).toBe('Tesoura');
+    const plano = await new SupabasePlanosAdapter().obterDoTenant('tenant-a');
+
+    expect(plano?.name).toBe('Tesoura');
+    expect(plano?.descidaAgendada).toBeUndefined();
   });
 
   it('aceita o plano vindo como lista de um elemento', async () => {

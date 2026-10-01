@@ -1,10 +1,10 @@
-import type { IPlanosAdapter, Plano } from '../types';
+import type { IPlanosAdapter, Plano, PlanoDoTenant } from '../types';
 
 export class InMemoryPlanosAdapter implements IPlanosAdapter {
   private planos: Plano[];
-  private planosDosTenants: Record<string, Plano>;
+  private planosDosTenants: Record<string, PlanoDoTenant>;
 
-  constructor(planos: Plano[] = [], planosDosTenants: Record<string, Plano> = {}) {
+  constructor(planos: Plano[] = [], planosDosTenants: Record<string, PlanoDoTenant> = {}) {
     this.planos = planos;
     this.planosDosTenants = planosDosTenants;
   }
@@ -13,7 +13,7 @@ export class InMemoryPlanosAdapter implements IPlanosAdapter {
     return this.planos.map((plano) => ({ ...plano }));
   }
 
-  async obterDoTenant(tenantId: string): Promise<Plano | null> {
+  async obterDoTenant(tenantId: string): Promise<PlanoDoTenant | null> {
     const plano = this.planosDosTenants[tenantId];
     return plano ? { ...plano } : null;
   }

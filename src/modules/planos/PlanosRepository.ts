@@ -1,4 +1,4 @@
-import type { IPlanosAdapter, Plano } from './types';
+import type { IPlanosAdapter, Plano, PlanoDoTenant } from './types';
 
 export class PlanosRepository {
   private adapter: IPlanosAdapter;
@@ -16,8 +16,8 @@ export class PlanosRepository {
     return [...lista].sort((a, b) => a.price - b.price);
   }
 
-  /** Plano da barbearia, o mesmo que o banco usa para aplicar o limite de profissionais. */
-  async obterPlanoDoTenant(tenantId: string): Promise<Plano | null> {
+  /** Plano da cota da barbearia, o mesmo limite que o banco aplica aos profissionais (o do plano menor, se há descida agendada). */
+  async obterPlanoDoTenant(tenantId: string): Promise<PlanoDoTenant | null> {
     if (!tenantId || !tenantId.trim()) {
       throw new Error('ID da barbearia (tenant) é obrigatório.');
     }
