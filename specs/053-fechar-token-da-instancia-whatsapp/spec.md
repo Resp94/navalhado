@@ -148,7 +148,7 @@ Um arquivo novo, `76_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 
 
 ### Testes legados
 
-`whatsapp_neutral_persistence.test.sql` e `whatsapp_balcao_outbox.test.sql` trocam cada `has_constraint(schema, tabela, nome, descrição)` por `ok(exists(select 1 from pg_constraint where conrelid = 'tabela'::regclass and conname = 'nome'), descrição)`. É uma troca por uma, então o plano de cada arquivo não muda. As asserções de token desses arquivos e a 7 de `security_hardening.test.sql` já pedem o fechamento certo: ficam como estão e passam no ticket 02. A 12 de `security_hardening.test.sql` (leitura de `comanda_pagamentos`) é o achado antigo e conhecido, fora desta spec.
+`whatsapp_neutral_persistence.test.sql` e `whatsapp_balcao_outbox.test.sql` trocam cada `has_constraint(schema, tabela, nome, descrição)` por `ok(exists(select 1 from pg_constraint where conrelid = 'tabela'::regclass and conname = 'nome'), descrição)`. É uma troca por uma, então o plano de cada arquivo não muda. Ao rodar de ponta a ponta, duas asserções velhas que o `has_constraint` escondia apareceram: a 40 de `whatsapp_neutral_persistence` (inseria `provider = 'uazapi'`, que é válido, em vez de um provedor inválido) e a 12 de `whatsapp_balcao_outbox` (procurava `search_path = ''` no texto da função, mas o Postgres imprime `SET search_path TO ''`). O ticket 01 corrige as duas, só no teste. As asserções de token desses arquivos e a 7 de `security_hardening.test.sql` já pedem o fechamento certo: ficam como estão e passam no ticket 02. A 12 de `security_hardening.test.sql` (leitura de `comanda_pagamentos`) é o achado antigo e conhecido, fora desta spec.
 
 ### Riscos de regressão do front e como o plano os cobre
 
