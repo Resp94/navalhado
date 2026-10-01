@@ -3,7 +3,6 @@ import {
   type ChargeOnceInput,
   type CreatedSubscription,
   type CreateSubscriptionInput,
-  notImplementedOperations,
   type PaymentProvider,
   PaymentProviderError,
   type ProviderPayment,
@@ -15,17 +14,17 @@ export interface MercadoPagoProviderOptions {
   accessToken: string;
   fetchFn?: typeof fetch;
   baseUrl?: string;
-  /** Espera entre as tentativas de mudar o valor da assinatura. Os testes a trocam por uma que nao espera. */
+  /** Espera entre as tentativas de mudar o valor da assinatura e de cancela-la. Os testes a trocam por uma que nao espera. */
   sleep?: (milliseconds: number) => Promise<void>;
 }
 
 type MercadoPagoBody = Record<string, unknown>;
 
-// Mudar o valor da assinatura vai de novo quando o Mercado Pago limita o ritmo (429), cai (5xx) ou nao
-// responde: o pedido so repete o mesmo valor, entao repeti-lo e seguro. A primeira tentativa mais duas,
-// com pausas curtas para o Gerente nao esperar muito. Recusa do pedido (400, 401, 403, 404, 422) nao melhora
-// com o tempo e sobe na hora.
-const AMOUNT_CHANGE_RETRY_PAUSES_MS = [1000, 3000];
+// Mudar o valor da assinatura e cancela-la vao de novo quando o Mercado Pago limita o ritmo (429), cai (5xx) ou nao
+// responde: o pedido so repete o mesmo valor (ou o mesmo estado), entao repeti-lo e seguro. A primeira tentativa mais
+// duas, com pausas curtas para o Gerente nao esperar muito. Recusa do pedido (400, 401, 403, 404, 422) nao melhora com
+// o tempo e sobe na hora.
+const IDEMPOTENT_RETRY_PAUSES_MS = [1000, 3000];
 
 const isTransientFailure = (error: unknown): boolean =>
   error instanceof PaymentProviderError && (error.status === undefined || error.status === 429 || error.status >= 500);
@@ -107,9 +106,21 @@ export const createMercadoPagoProvider = ({
     return parsed;
   };
 
-  return {
-    ...notImplementedOperations,
+  // Repete um pedido que so repete o mesmo estado, enquanto a falha for passageira (ver IDEMPOTENT_RETRY_PAUSES_MS).
+  const retryingTransientFailures = async (operation: () => Promise<unknown>): Promise<void> => {
+    for (let attempt = 0;; attempt++) {
+      try {
+        await operation();
+        return;
+      } catch (error) {
+        const pause = IDEMPOTENT_RETRY_PAUSES_MS[attempt];
+        if (pause === undefined || !isTransientFailure(error)) throw error;
+        await sleep(pause);
+      }
+    }
+  };
 
+  return {
     async createSubscription(input: CreateSubscriptionInput): Promise<CreatedSubscription> {
       const body = await request("POST", "/preapproval", {
         reason: input.reason,
@@ -157,6 +168,7 @@ export const createMercadoPagoProvider = ({
         cardBrand: asString(body.payment_method_id),
         cardLast4: asString(body.last_four_digits) ?? asString(card.last_four_digits),
         nextPaymentAt: asDate(body.next_payment_date),
+        updatedAt: asDate(body.last_modified),
       };
     },
 
@@ -167,18 +179,18 @@ export const createMercadoPagoProvider = ({
 
     // O valor novo vale a partir da proxima cobranca: nada e cobrado na hora.
     async changeAmount(subscriptionId: string, amount: number): Promise<void> {
-      for (let attempt = 0;; attempt++) {
-        try {
-          await request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, {
-            auto_recurring: { transaction_amount: amount, currency_id: "BRL" },
-          });
-          return;
-        } catch (error) {
-          const pause = AMOUNT_CHANGE_RETRY_PAUSES_MS[attempt];
-          if (pause === undefined || !isTransientFailure(error)) throw error;
-          await sleep(pause);
-        }
-      }
+      await retryingTransientFailures(() =>
+        request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, {
+          auto_recurring: { transaction_amount: amount, currency_id: "BRL" },
+        })
+      );
+    },
+
+    // A cobranca recorrente para na hora. A assinatura cancelada no Mercado Pago nao volta: assinar de novo cria outra.
+    async cancelSubscription(subscriptionId: string): Promise<void> {
+      await retryingTransientFailures(() =>
+        request("PUT", `/preapproval/${encodeURIComponent(subscriptionId)}`, { status: "cancelled" })
+      );
     },
 
     // Cobranca avulsa no cartao do token (o numero do cartao nunca passa por aqui). O Mercado Pago

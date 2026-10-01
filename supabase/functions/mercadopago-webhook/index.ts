@@ -255,8 +255,28 @@ const completeUpgrade = async (
   return "upgrade changed";
 };
 
+// O que o banco responde ao aviso de assinatura cancelada (record_subscription_cancellation).
+const CANCELLATION_OUTCOMES: Record<string, Outcome> = {
+  canceled: { status: "processed", detail: "assinatura cancelada" },
+  trial_canceled: { status: "processed", detail: "assinatura cancelada em teste (o teste segue)" },
+  // O Navalhado cancelou pela tela e o Mercado Pago avisa em seguida: o banco ja esta cancelado.
+  already_canceled: { status: "ignored", detail: "assinatura já cancelada" },
+  // A antiga, depois de assinar de novo: so vale a assinatura que a barbearia tem agora.
+  unknown_subscription: { status: "ignored", detail: "assinatura desconhecida" },
+  not_cancelable: { status: "ignored", detail: "assinatura sem o que cancelar" },
+};
+
+const processCancellation = async (supabase: SupabaseClient, subscriptionId: string): Promise<Outcome> => {
+  const { data: result, error } = await supabase.rpc("record_subscription_cancellation", { p_mp_subscription_id: subscriptionId });
+  if (error) throw new Error("Falha ao gravar o cancelamento da assinatura");
+  return CANCELLATION_OUTCOMES[String(result)] ?? { status: "ignored", detail: `cancelamento ${String(result ?? "")}`.slice(0, 200) };
+};
+
 const processSubscription = async (supabase: SupabaseClient, provider: PaymentProvider, subscriptionId: string): Promise<Outcome> => {
   const subscription = await provider.getSubscription(subscriptionId);
+  // Cancelada fora do Navalhado (pelo proprio Gerente no Mercado Pago) ou pelo Navalhado: a cobranca parou, e o acesso
+  // vai ate o fim do periodo pago.
+  if (subscription.status === "cancelled") return await processCancellation(supabase, subscription.id);
   if (subscription.status !== "authorized") {
     return { status: "ignored", detail: `assinatura ${subscription.status}` };
   }

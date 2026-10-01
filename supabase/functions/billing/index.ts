@@ -1,13 +1,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.2";
 import { createMercadoPagoProvider } from "../_shared/mercadopago_provider.ts";
-import { type PaymentProvider, PaymentProviderError, type ProviderPayment } from "../_shared/payment_provider.ts";
+import {
+  type PaymentProvider,
+  PaymentProviderError,
+  type ProviderPayment,
+  type ProviderSubscription,
+} from "../_shared/payment_provider.ts";
 import { validCardBrand, validCardLast4 } from "../_shared/card_format.ts";
 import { PERIOD_ELAPSED_MESSAGE, quotePlanChange } from "./plan_change_quote.ts";
 
 // Edge Function de cobranca da assinatura do Navalhado (spec 052). Acoes: "assinar" (ticket 05),
 // "chave_publica" e "trocar_cartao" (ticket 09), "cotar_troca_de_plano" e "trocar_plano" (ticket 10);
 // descer de plano agendado ("trocar_plano" para um plano mais barato e "desfazer_descida", ticket 11);
-// cancelar entra no ticket 12.
+// "cancelar" a assinatura (ticket 12).
 // Toda acao exige o Gerente do proprio tenant. O token do Mercado Pago fica so em secret do Supabase.
 
 const ALLOWED_ORIGINS = new Set([
@@ -125,6 +130,10 @@ interface PlanChangeContext {
 
 const toCents = (amount: number): number => Math.round(amount * 100);
 
+// A assinatura que o Mercado Pago alterou ha menos que isto (autorizacao, cobranca, troca de cartao ou de valor) pode ser a
+// que o Gerente acabou de pagar, com o aviso ainda a caminho. A anterior de um estorno nao muda ha dias.
+const RECENT_SUBSCRIPTION_CHANGE_MS = 60 * 60 * 1000;
+
 type AmountAtProvider = "applied" | "not_applied" | "unknown";
 
 // O valor que a assinatura tem no Mercado Pago, para quando a mudanca de valor falhou sem resposta clara (queda, timeout,
@@ -137,6 +146,30 @@ const confirmAmountAtProvider = async (provider: PaymentProvider, subscriptionId
     return toCents(subscription.amount) === toCents(amount) ? "applied" : "not_applied";
   } catch {
     return "unknown";
+  }
+};
+
+// Cancela a assinatura no Mercado Pago e diz se ela esta cancelada la. Quando o pedido falha, confere o que a assinatura
+// tem la antes de decidir: o pedido pode ter cancelado e a resposta se perdido (timeout), ou o Mercado Pago pode recusar
+// cancelar o que ja esta cancelado. Falso: ela segue ativa (ou nao deu para conferir) e quem chama nao grava nada.
+const cancelAtProvider = async (provider: PaymentProvider, tenantId: string, subscriptionId: string): Promise<boolean> => {
+  try {
+    await provider.cancelSubscription(subscriptionId);
+    return true;
+  } catch (error) {
+    const status = error instanceof PaymentProviderError ? error.status : undefined;
+    console.error(
+      `[billing] O Mercado Pago não confirmou o cancelamento (tenant ${tenantId}, assinatura ${subscriptionId}, status ${status ?? "sem resposta"}): ${error instanceof Error ? error.message : "erro"}`,
+    );
+  }
+
+  try {
+    return (await provider.getSubscription(subscriptionId)).status === "cancelled";
+  } catch {
+    console.error(
+      `[billing] Não foi possível conferir a assinatura no Mercado Pago depois da falha (tenant ${tenantId}, assinatura ${subscriptionId}): confira se ela segue ativa`,
+    );
+    return false;
   }
 };
 
@@ -177,7 +210,7 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
   const action = (body as Record<string, unknown>).action;
   if (
     action !== "assinar" && action !== "chave_publica" && action !== "trocar_cartao" &&
-    action !== "cotar_troca_de_plano" && action !== "trocar_plano" && action !== "desfazer_descida"
+    action !== "cotar_troca_de_plano" && action !== "trocar_plano" && action !== "desfazer_descida" && action !== "cancelar"
   ) {
     return jsonResponse(request, { error: "Ação desconhecida." }, 400);
   }
@@ -745,6 +778,52 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
   }
 
   // ---------------------------------------------------------------------------
+  // Ação: cancelar (ticket 12). A cobrança recorrente para na hora: a função cancela a assinatura no Mercado Pago e só
+  // depois grava a situação e a data do cancelamento no banco. O Mercado Pago vai primeiro: com o banco na frente e o
+  // provedor falhando, a barbearia ficaria cancelada e continuaria sendo cobrada. Se a gravação falhar depois do
+  // cancelamento, o aviso de assinatura cancelada do webhook a completa. O acesso vai até o fim do período pago (o banco
+  // calcula); em teste, cancelar a assinatura autorizada tira a cobrança do fim do teste e o teste segue.
+  // ---------------------------------------------------------------------------
+  if (action === "cancelar") {
+    const refusals: Record<string, string> = {
+      canceled: "A assinatura já está cancelada.",
+      blocked: "O acesso da barbearia está bloqueado: não há assinatura para cancelar. Assine de novo para voltar a usar o Navalhado.",
+      courtesy: "A barbearia está com cortesia: não há cobrança para cancelar.",
+    };
+    if (!["active", "past_due", "trialing"].includes(context.status)) {
+      return jsonResponse(request, { error: refusals[context.status] ?? "A assinatura não pode ser cancelada agora." }, 409);
+    }
+    if (context.status === "trialing" && !context.mp_subscription_id) {
+      return jsonResponse(request, {
+        error: "Em teste e sem assinatura no Mercado Pago, não há assinatura para cancelar: o teste não gera cobrança.",
+      }, 409);
+    }
+
+    const subscriptionToken = (Deno.env.get("MP_ACCESS_TOKEN") || "").trim();
+    const provider = dependencies.provider ?? (subscriptionToken ? createMercadoPagoProvider({ accessToken: subscriptionToken }) : null);
+    if (context.mp_subscription_id && !provider) {
+      console.error("[billing] MP_ACCESS_TOKEN não configurado");
+      return jsonResponse(request, { error: "Cobrança indisponível." }, 500);
+    }
+
+    if (context.mp_subscription_id && provider && !(await cancelAtProvider(provider, context.tenant_id, context.mp_subscription_id))) {
+      return jsonResponse(request, { error: "Não foi possível cancelar a assinatura agora. Tente de novo em instantes." }, 502);
+    }
+
+    const { error: cancelError } = await supabase.rpc("cancel_subscription", { p_tenant_id: context.tenant_id });
+    if (cancelError) {
+      console.error(
+        `[billing] A assinatura foi cancelada no Mercado Pago, mas o banco não gravou o cancelamento (tenant ${context.tenant_id}, código ${cancelError.code ?? "sem código"}): o aviso do Mercado Pago completa; confira a assinatura`,
+      );
+      return jsonResponse(request, {
+        error: "A assinatura foi cancelada no Mercado Pago, mas não conseguimos atualizar a tela. Recarregue a página.",
+      }, 500);
+    }
+
+    return jsonResponse(request, { canceled: true });
+  }
+
+  // ---------------------------------------------------------------------------
   // Ação: assinar
   // ---------------------------------------------------------------------------
   if (context.status === "active") {
@@ -777,22 +856,44 @@ export const createHandler = (dependencies: BillingHandlerDependencies = {}) => 
   const provider = dependencies.provider ?? createMercadoPagoProvider({ accessToken });
   const startDate = context.first_charge_at ? new Date(context.first_charge_at) : undefined;
 
-  // Assinar de novo não pode deixar a assinatura anterior cobrando: se ela ainda está ativa no
-  // Mercado Pago (bloqueio por cartão recusado, por exemplo), a barbearia seria cobrada duas
-  // vezes. Cancelar no provedor é o ticket 12; até lá, a função recusa. Pendente (nunca
-  // autorizada), cancelada ou inexistente não cobram, e uma nova pode ser criada.
+  // Assinar de novo não pode deixar a assinatura anterior cobrando: se ela ainda está viva no
+  // Mercado Pago, a barbearia seria cobrada duas vezes. Pendente (nunca autorizada), cancelada ou
+  // inexistente não cobram, e uma nova pode ser criada. Viva (authorized ou paused):
+  // - barbearia bloqueada (estorno, contestação, bloqueio do Proprietário: a assinatura seguia ativa
+  //   lá e o "Pagar" não tinha saída): a anterior é cancelada ANTES de criar a nova (ticket 12); com
+  //   a nova na frente e o cancelamento falhando, ficariam duas cobrando. Se ela mudou há pouco ela
+  //   pode ser a que o Gerente acabou de pagar, com o aviso do Mercado Pago ainda a caminho: não se
+  //   toca nela, ou um segundo clique em "Pagar" jogaria fora o pagamento feito;
+  // - cancelada (já assinou de novo: a nova está autorizada) ou em teste com o cartão autorizado: a
+  //   assinatura viva é a que vale, e a função recusa.
   if (context.mp_subscription_id) {
+    let previous: ProviderSubscription | undefined;
     try {
-      const previous = await provider.getSubscription(context.mp_subscription_id);
-      if (previous.status === "authorized" || previous.status === "paused") {
-        return jsonResponse(request, {
-          error: "A barbearia ainda tem uma assinatura anterior ativa no Mercado Pago. Fale com o suporte para trocá-la.",
-        }, 409);
-      }
+      previous = await provider.getSubscription(context.mp_subscription_id);
     } catch (error) {
       if (!(error instanceof PaymentProviderError && error.status === 404)) {
         console.error("[billing] Falha do provedor ao conferir a assinatura anterior:", error instanceof Error ? error.message : "erro");
         return jsonResponse(request, { error: "Não foi possível conferir a assinatura anterior. Tente de novo." }, 502);
+      }
+    }
+    if (previous && (previous.status === "authorized" || previous.status === "paused")) {
+      if (context.status !== "blocked") {
+        return jsonResponse(request, {
+          error: context.status === "canceled"
+            ? "A assinatura nova já foi autorizada no Mercado Pago: a cobrança recomeça no fim do período pago."
+            : "A barbearia ainda tem uma assinatura anterior ativa no Mercado Pago. Fale com o suporte para trocá-la.",
+        }, 409);
+      }
+      const changedAgo = previous.updatedAt ? (dependencies.now?.() ?? new Date()).getTime() - previous.updatedAt.getTime() : Infinity;
+      if (changedAgo < RECENT_SUBSCRIPTION_CHANGE_MS) {
+        return jsonResponse(request, {
+          error: "A assinatura anterior no Mercado Pago foi alterada há pouco e o pagamento ainda pode estar sendo confirmado. Aguarde alguns minutos, atualize a tela e tente de novo.",
+        }, 409);
+      }
+      if (!(await cancelAtProvider(provider, context.tenant_id, context.mp_subscription_id))) {
+        return jsonResponse(request, {
+          error: "Não foi possível cancelar a assinatura anterior no Mercado Pago. Tente de novo em instantes.",
+        }, 502);
       }
     }
   }

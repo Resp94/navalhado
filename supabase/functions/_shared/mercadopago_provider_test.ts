@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { createMercadoPagoProvider } from "./mercadopago_provider.ts";
-import { PaymentProviderError, PaymentProviderNotImplementedError } from "./payment_provider.ts";
+import { PaymentProviderError } from "./payment_provider.ts";
 
 type Recorded = { url: string; method: string; headers: Record<string, string>; body: unknown };
 
@@ -114,7 +114,7 @@ Deno.test("mercadopago: a network failure becomes a PaymentProviderError", async
   assertEquals(error.status, undefined);
 });
 
-Deno.test("mercadopago: getSubscription maps status, amount, the card brand and the real next charge date", async () => {
+Deno.test("mercadopago: getSubscription maps status, amount, the card brand, the real next charge date and the last change", async () => {
   const { calls, fetchFn } = recordingFetch([{
     status: 200,
     body: {
@@ -125,6 +125,7 @@ Deno.test("mercadopago: getSubscription maps status, amount, the card brand and 
       payment_method_id: "master",
       last_four_digits: "5555",
       next_payment_date: "2026-10-14T19:11:28.000-04:00",
+      last_modified: "2026-09-29T19:14:54.810-04:00",
     },
   }]);
   const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
@@ -137,6 +138,7 @@ Deno.test("mercadopago: getSubscription maps status, amount, the card brand and 
     cardBrand: "master",
     cardLast4: "5555",
     nextPaymentAt: new Date("2026-10-14T23:11:28.000Z"),
+    updatedAt: new Date("2026-09-29T23:14:54.810Z"),
   });
   assertEquals(calls[0].url, "https://api.mercadopago.com/preapproval/pre-9");
   assertEquals(calls[0].method, "GET");
@@ -512,8 +514,72 @@ Deno.test("mercadopago: a refused charge request becomes a PaymentProviderError 
   assertEquals(error.message.includes(TOKEN), false);
 });
 
-Deno.test("mercadopago: the operation of ticket 12 is declared but not built yet", async () => {
-  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn: () => Promise.reject(new Error("no network")) });
+// Spec 052, ticket 12: cancelar a assinatura. A cobranca recorrente para na hora.
+const cancelled = { status: 200, body: { id: "pre-9", status: "cancelled" } };
 
-  await assertRejects(() => provider.cancelSubscription("s"), PaymentProviderNotImplementedError);
+Deno.test("mercadopago: cancelSubscription sets the subscription status to cancelled in a PUT", async () => {
+  const { calls, fetchFn } = recordingFetch([cancelled]);
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn });
+
+  await provider.cancelSubscription("pre-9");
+
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].url, "https://api.mercadopago.com/preapproval/pre-9");
+  assertEquals(calls[0].method, "PUT");
+  assertEquals(calls[0].headers["authorization"], `Bearer ${TOKEN}`);
+  assertEquals(calls[0].body, { status: "cancelled" });
+});
+
+Deno.test("mercadopago: cancelSubscription tries again on a rate limit, a server error or a network failure (it only repeats the same status)", async () => {
+  for (const first of [rateLimited, { status: 503, body: { message: "unavailable" } }]) {
+    const { calls, fetchFn } = recordingFetch([first, cancelled]);
+    const { pauses, sleep } = recordingSleep();
+    const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+    await provider.cancelSubscription("pre-9");
+
+    assertEquals(calls.length, 2, `status ${first.status}`);
+    assertEquals(pauses, [1000], `status ${first.status}`);
+    assertEquals(calls[1].body, calls[0].body);
+  }
+
+  let attempts = 0;
+  const fetchFn = (): Promise<Response> => {
+    attempts++;
+    return attempts === 1
+      ? Promise.reject(new TypeError("connection reset"))
+      : Promise.resolve(new Response(JSON.stringify(cancelled.body), { status: 200 }));
+  };
+  const { pauses, sleep } = recordingSleep();
+  await createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep }).cancelSubscription("pre-9");
+  assertEquals(attempts, 2);
+  assertEquals(pauses, [1000]);
+});
+
+Deno.test("mercadopago: cancelSubscription gives up after three tries in a row and the last error comes out", async () => {
+  const { calls, fetchFn } = recordingFetch([rateLimited]);
+  const { pauses, sleep } = recordingSleep();
+  const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+  const error = await assertRejects(() => provider.cancelSubscription("pre-9"), PaymentProviderError);
+
+  assertEquals(calls.length, 3);
+  assertEquals(pauses, [1000, 3000]);
+  assertEquals(error.status, 429);
+  assertEquals(error.message.includes(TOKEN), false);
+});
+
+Deno.test("mercadopago: cancelSubscription does not try again when the provider refuses the request itself", async () => {
+  for (const status of [400, 401, 403, 404, 422]) {
+    const { calls, fetchFn } = recordingFetch([{ status, body: { message: "refused" } }]);
+    const { pauses, sleep } = recordingSleep();
+    const provider = createMercadoPagoProvider({ accessToken: TOKEN, fetchFn, sleep });
+
+    const error = await assertRejects(() => provider.cancelSubscription("pre-9"), PaymentProviderError);
+
+    assertEquals(error.status, status);
+    assertEquals(error.message.includes(TOKEN), false);
+    assertEquals(calls.length, 1, `status ${status}`);
+    assertEquals(pauses, [], `status ${status}`);
+  }
 });

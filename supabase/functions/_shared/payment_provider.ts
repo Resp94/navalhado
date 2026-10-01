@@ -37,6 +37,8 @@ export interface ProviderSubscription {
   cardLast4?: string;
   /** Data da proxima cobranca que o provedor calculou. Pode ser depois do fim do teste (dias inteiros). */
   nextPaymentAt?: Date;
+  /** Quando o provedor alterou a assinatura pela ultima vez (autorizacao, cobranca, troca de cartao ou de valor). */
+  updatedAt?: Date;
 }
 
 export interface ProviderPayment {
@@ -96,7 +98,7 @@ export interface PaymentProvider {
    * "rejected". Erro e o pedido que o provedor nao aceitou ou nao respondeu.
    */
   chargeOnce(input: ChargeOnceInput): Promise<ProviderPayment>;
-  // So existe de verdade no ticket 12 da spec 052.
+  /** Cancela a assinatura na hora: a cobranca recorrente para. Nao reembolsa nada. */
   cancelSubscription(subscriptionId: string): Promise<void>;
 }
 
@@ -107,19 +109,3 @@ export class PaymentProviderError extends Error {
     this.name = "PaymentProviderError";
   }
 }
-
-/** Operacao declarada na interface e ainda nao construida nesta fatia. */
-export class PaymentProviderNotImplementedError extends Error {
-  constructor(operation: string) {
-    super(`Operação do provedor de pagamento ainda não implementada: ${operation}`);
-    this.name = "PaymentProviderNotImplementedError";
-  }
-}
-
-/**
- * A operacao que so existe de verdade no ticket 12 da spec 052. A versao real e a falsa usam esta
- * definicao unica: ao construi-la, sai daqui e ganha corpo nas duas.
- */
-export const notImplementedOperations: Pick<PaymentProvider, "cancelSubscription"> = {
-  cancelSubscription: () => Promise.reject(new PaymentProviderNotImplementedError("cancelSubscription")),
-};

@@ -38,6 +38,7 @@ const setupSupabase = (overrides: Record<string, Mock> = {}) => {
     "rest/v1/rpc/get_tenant_by_mp_subscription": { status: 200, body: TENANT_ID },
     "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "activated" },
     "rest/v1/rpc/record_subscription_authorization": { status: 200, body: true },
+    "rest/v1/rpc/record_subscription_cancellation": { status: 200, body: "canceled" },
     ...overrides,
   };
 
@@ -564,6 +565,111 @@ Deno.test("a subscription that is not authorized yet changes nothing", async () 
     }));
 
     assertEquals(await res.json(), { status: "ignored" });
+    assertEquals(supabase.rpcCalls("record_subscription_authorization").length, 0);
+  } finally {
+    supabase.restore();
+  }
+});
+
+// Spec 052, ticket 12: o aviso de assinatura cancelada. Vem quando o Gerente cancela no proprio Mercado Pago (por fora do
+// Navalhado), e tambem quando o Navalhado cancela pela tela (ai o banco ja esta cancelado e nada muda). Como em todo
+// aviso, a decisao e pelo que o Mercado Pago responde ao buscar a assinatura, nunca pelo corpo do aviso.
+const cancellationNotice = (notificationId = 777) =>
+  notification({ type: "subscription_preapproval", action: "updated", dataId: "pre-123", notificationId });
+
+const cancelledAtTheProvider = () => {
+  const provider = new FakePaymentProvider();
+  provider.subscriptions.set("pre-123", { id: "pre-123", status: "cancelled", externalReference: TENANT_ID });
+  return provider;
+};
+
+Deno.test("a subscription cancelled at the provider cancels the barbershop's subscription, found by the provider's id", async () => {
+  const provider = cancelledAtTheProvider();
+  const supabase = setupSupabase();
+  try {
+    const res = await handlerWith(provider)(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "processed" });
+    assertEquals(provider.requestedSubscriptions, ["pre-123"]);
+    assertEquals(supabase.rpcCalls("record_subscription_cancellation"), [{ p_mp_subscription_id: "pre-123" }]);
+    assertEquals(supabase.rpcCalls("record_subscription_authorization").length, 0);
+    const finished = supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>;
+    assertEquals(finished.p_status, "processed");
+    assertEquals(finished.p_detail, "assinatura cancelada");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a cancellation notice for a trial subscription says the trial goes on", async () => {
+  const supabase = setupSupabase({ "rest/v1/rpc/record_subscription_cancellation": { status: 200, body: "trial_canceled" } });
+  try {
+    const res = await handlerWith(cancelledAtTheProvider())(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "processed" });
+    assertEquals((supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>).p_detail, "assinatura cancelada em teste (o teste segue)");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a cancellation notice that comes back after the cancellation made in Navalhado changes nothing", async () => {
+  const supabase = setupSupabase({ "rest/v1/rpc/record_subscription_cancellation": { status: 200, body: "already_canceled" } });
+  try {
+    const res = await handlerWith(cancelledAtTheProvider())(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "ignored" });
+    assertEquals((supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>).p_detail, "assinatura já cancelada");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a cancelled subscription that no barbershop has (the old one after subscribing again) is ignored", async () => {
+  const supabase = setupSupabase({ "rest/v1/rpc/record_subscription_cancellation": { status: 200, body: "unknown_subscription" } });
+  try {
+    const res = await handlerWith(cancelledAtTheProvider())(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "ignored" });
+    assertEquals((supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>).p_detail, "assinatura desconhecida");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a cancellation notice for a subscription with nothing to cancel (blocked, courtesy) is ignored", async () => {
+  const supabase = setupSupabase({ "rest/v1/rpc/record_subscription_cancellation": { status: 200, body: "not_cancelable" } });
+  try {
+    const res = await handlerWith(cancelledAtTheProvider())(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "ignored" });
+    assertEquals((supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>).p_detail, "assinatura sem o que cancelar");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a database failure while recording the cancellation fails the event and answers 500, so the provider sends it again", async () => {
+  const supabase = setupSupabase({ "rest/v1/rpc/record_subscription_cancellation": { status: 500, body: { code: "XX000", message: "boom" } } });
+  try {
+    const res = await handlerWith(cancelledAtTheProvider())(await cancellationNotice());
+
+    assertEquals(res.status, 500);
+    assertEquals((supabase.rpcCalls("finish_billing_event")[0] as Record<string, unknown>).p_status, "failed");
+  } finally {
+    supabase.restore();
+  }
+});
+
+Deno.test("a paused subscription still changes nothing (only authorized and cancelled matter)", async () => {
+  const provider = new FakePaymentProvider();
+  provider.subscriptions.set("pre-123", { id: "pre-123", status: "paused", externalReference: TENANT_ID });
+  const supabase = setupSupabase();
+  try {
+    const res = await handlerWith(provider)(await cancellationNotice());
+
+    assertEquals(await res.json(), { status: "ignored" });
+    assertEquals(supabase.rpcCalls("record_subscription_cancellation").length, 0);
     assertEquals(supabase.rpcCalls("record_subscription_authorization").length, 0);
   } finally {
     supabase.restore();

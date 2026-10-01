@@ -3,7 +3,6 @@ import {
   type ChargeOnceInput,
   type CreatedSubscription,
   type CreateSubscriptionInput,
-  notImplementedOperations,
   type PaymentProvider,
   PaymentProviderError,
   type ProviderPayment,
@@ -20,6 +19,7 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly requestedSubscriptions: string[] = [];
   readonly changedCards: Array<{ subscriptionId: string; cardToken: string }> = [];
   readonly changedAmounts: Array<{ subscriptionId: string; amount: number }> = [];
+  readonly cancelledSubscriptions: string[] = [];
   readonly charges: ChargeOnceInput[] = [];
 
   payments = new Map<string, ProviderPayment>();
@@ -28,6 +28,8 @@ export class FakePaymentProvider implements PaymentProvider {
   failWith: Error | null = null;
   /** Faz so a mudanca de valor da assinatura falhar: a cobranca avulsa e o resto seguem. */
   failAmountChangeWith: Error | null = null;
+  /** Faz so o cancelamento da assinatura falhar: o resto segue. */
+  failCancelWith: Error | null = null;
   /** O que muda no pagamento que a proxima cobranca avulsa devolve (aprovado, no valor cobrado, por padrao). */
   nextCharge: Partial<ProviderPayment> = {};
   nextChangedCard: ChangedCard = { cardBrand: "master", cardLast4: "5555" };
@@ -83,5 +85,12 @@ export class FakePaymentProvider implements PaymentProvider {
     });
   }
 
-  cancelSubscription = notImplementedOperations.cancelSubscription;
+  /** Cancela: guarda o pedido e, se a assinatura esta na lista, passa a mostra-la como cancelada (o que o provedor real faz). */
+  cancelSubscription(subscriptionId: string): Promise<void> {
+    if (this.failWith ?? this.failCancelWith) return Promise.reject(this.failWith ?? this.failCancelWith);
+    this.cancelledSubscriptions.push(subscriptionId);
+    const found = this.subscriptions.get(subscriptionId);
+    if (found) this.subscriptions.set(subscriptionId, { ...found, status: "cancelled" });
+    return Promise.resolve();
+  }
 }
