@@ -2092,6 +2092,11 @@ Deno.test("trigger routes reject a blank configured secret before processing", a
       headers: { "Content-Type": "application/json", "x-db-trigger-secret": "   " },
       body: JSON.stringify({}),
     }),
+    new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/delete-instance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-db-trigger-secret": "   " },
+      body: JSON.stringify({ instance_id: "11111111-1111-4111-8111-111111111111" }),
+    }),
   ];
 
   try {
@@ -3960,5 +3965,328 @@ Deno.test("POST /webhook Message - without a readable access state the first con
   } finally {
     mock.restore();
     resetTenantAccessForTest();
+  }
+});
+
+// Spec 052, ticket 13: exclusao da Instancia WhatsApp no setimo dia de bloqueio. A rota so aceita o segredo interno das
+// rotinas. Quem decide se a instancia e devida e o banco (RPC whatsapp_instance_deletion_verdict, a mesma regra que a rotina
+// diaria usa para escolher); a funcao so exclui no provedor e, depois, remove a linha local.
+const DELETE_INSTANCE_ID = "11111111-1111-4111-8111-111111111111";
+
+const deleteInstanceRequest = (
+  options: { secret?: string | null; body?: unknown; method?: string; authorization?: string } = {},
+): Request => {
+  const method = options.method ?? "POST";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options.secret !== null) headers["x-db-trigger-secret"] = options.secret ?? "mock-db-secret";
+  if (options.authorization) headers["Authorization"] = options.authorization;
+  const body = typeof options.body === "string"
+    ? options.body
+    : JSON.stringify(options.body ?? { instance_id: DELETE_INSTANCE_ID });
+  return new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/delete-instance", {
+    method,
+    headers,
+    ...(method === "GET" ? {} : { body }),
+  });
+};
+
+const setupDeleteInstanceFetch = (
+  options: {
+    instance?: Record<string, unknown> | null;
+    verdict?: string;
+    verdictStatus?: number;
+    deleteStatus?: number;
+  } = {},
+) => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  const instance = options.instance === undefined
+    ? {
+      id: DELETE_INSTANCE_ID,
+      tenant_id: "tenant-1",
+      instance_name: "nav_tenant1_abcd1234",
+      instance_token: "secret-instance-token",
+    }
+    : options.instance;
+  const json = (value: unknown, status = 200) =>
+    Promise.resolve(new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } }));
+
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method || "GET";
+    if (url.includes("rest/v1/rpc/whatsapp_instance_deletion_verdict")) {
+      calls.push(`rpc verdict ${String(JSON.parse(String(init?.body ?? "{}")).p_instance_id)}`);
+      if ((options.verdictStatus ?? 200) !== 200) return json({ message: "boom" }, options.verdictStatus);
+      return json(options.verdict ?? "due");
+    }
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      calls.push(`${method} instances`);
+      if (method === "GET") return json(instance ? [instance] : []);
+      if (method === "DELETE") {
+        return (options.deleteStatus ?? 204) === 204
+          ? Promise.resolve(new Response(null, { status: 204 }))
+          : json({ message: "boom" }, options.deleteStatus);
+      }
+    }
+    calls.push(`unexpected ${method} ${url}`);
+    return json({ error: "unexpected request" }, 500);
+  };
+
+  return { calls, restore: () => { globalThis.fetch = originalFetch; } };
+};
+
+Deno.test("Uazapi adapter deletes an instance with its own token and exposes the status of a refusal", async () => {
+  const requests: Array<{ url: string; method?: string; token: string | null }> = [];
+  let status = 200;
+  const provider = createUazapiProvider(
+    { baseUrl: "https://api.uazapi.com", adminToken: "secret-admin-token" },
+    (input, init) => {
+      requests.push({
+        url: String(input),
+        method: init?.method,
+        token: new Headers(init?.headers).get("token"),
+      });
+      return Promise.resolve(new Response(status === 200 ? "{}" : JSON.stringify({ error: "x" }), { status }));
+    },
+  );
+
+  await provider.deleteInstance!({ instanceName: "nav_t1", instanceToken: "instance-token" });
+  assertEquals(requests, [{ url: "https://api.uazapi.com/instance", method: "DELETE", token: "instance-token" }]);
+
+  status = 404;
+  const error = await assertRejects(
+    () => provider.deleteInstance!({ instanceName: "nav_t1", instanceToken: "instance-token" }),
+    WhatsAppProviderError,
+  );
+  assertEquals(error.status, 404);
+});
+
+Deno.test("POST /delete-instance only accepts the internal secret", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  const providerCalls: string[] = [];
+  globalThis.fetch = (): Promise<Response> => {
+    fetchCalls++;
+    return Promise.resolve(new Response("{}", { status: 200 }));
+  };
+  const testHandler = createHandler({
+    providerFactory: () => createProviderStub({ deleteInstance: () => { providerCalls.push("delete"); return Promise.resolve(); } }),
+  });
+
+  try {
+    for (
+      const request of [
+        deleteInstanceRequest({ secret: null }),
+        deleteInstanceRequest({ secret: "wrong-secret" }),
+        deleteInstanceRequest({ secret: null, authorization: "Bearer a-gerente-session-token" }),
+      ]
+    ) {
+      const response = await testHandler(request);
+      assertEquals(response.status, 401);
+      assertEquals(await response.json(), { error: "Unauthorized trigger secret" });
+    }
+
+    const wrongMethod = await testHandler(deleteInstanceRequest({ method: "GET" }));
+    assertEquals(wrongMethod.status, 405);
+
+    assertEquals(fetchCalls, 0);
+    assertEquals(providerCalls, []);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /delete-instance rejects a body without a valid instance id", async () => {
+  const mock = setupDeleteInstanceFetch();
+  const providerCalls: string[] = [];
+  const testHandler = createHandler({
+    providerFactory: () => createProviderStub({ deleteInstance: () => { providerCalls.push("delete"); return Promise.resolve(); } }),
+  });
+
+  try {
+    for (const body of [{}, { instance_id: "" }, { instance_id: 42 }, { instance_id: "not-a-uuid" }, "{not json"]) {
+      const response = await testHandler(deleteInstanceRequest({ body }));
+      assertEquals(response.status, 400);
+      assertEquals(await response.json(), { error: "Missing or invalid instance_id" });
+    }
+    assertEquals(mock.calls, []);
+    assertEquals(providerCalls, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance answers 404 for an unknown instance and touches nothing else", async () => {
+  const mock = setupDeleteInstanceFetch({ instance: null });
+  const providerCalls: string[] = [];
+  const testHandler = createHandler({
+    providerFactory: () => createProviderStub({ deleteInstance: () => { providerCalls.push("delete"); return Promise.resolve(); } }),
+  });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    assertEquals(response.status, 404);
+    assertEquals(await response.json(), { error: "Instance not found" });
+    assertEquals(mock.calls, ["GET instances"]);
+    assertEquals(providerCalls, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance refuses with the reason when the database says the instance is not due", async () => {
+  const providerCalls: string[] = [];
+  const testHandler = createHandler({
+    providerFactory: () => createProviderStub({ deleteInstance: () => { providerCalls.push("delete"); return Promise.resolve(); } }),
+  });
+
+  for (
+    const reason of ["too_recent", "not_blocked", "other_environment", "unidentified", "runtime_unidentified", "not_found"]
+  ) {
+    const mock = setupDeleteInstanceFetch({ verdict: reason });
+    try {
+      const response = await testHandler(deleteInstanceRequest());
+      assertEquals(response.status, 409, reason);
+      assertEquals(await response.json(), { error: "Instance is not due for deletion", reason });
+      assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`], reason);
+    } finally {
+      mock.restore();
+    }
+  }
+  assertEquals(providerCalls, []);
+});
+
+Deno.test("POST /delete-instance does not delete anything when the verdict cannot be read", async () => {
+  const mock = setupDeleteInstanceFetch({ verdictStatus: 500 });
+  const providerCalls: string[] = [];
+  const testHandler = createHandler({
+    providerFactory: () => createProviderStub({ deleteInstance: () => { providerCalls.push("delete"); return Promise.resolve(); } }),
+  });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "Failed to check deletion eligibility" });
+    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`]);
+    assertEquals(providerCalls, []);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance deletes at the provider with the instance token and then removes the local row", async () => {
+  const mock = setupDeleteInstanceFetch();
+  const testHandler = createHandler({
+    providerFactory: () =>
+      createProviderStub({
+        deleteInstance: (input) => {
+          mock.calls.push(`provider delete ${input.instanceName} ${input.instanceToken}`);
+          return Promise.resolve();
+        },
+      }),
+  });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    const text = await response.text();
+    assertEquals(response.status, 200);
+    assertEquals(JSON.parse(text), { success: true });
+    assertEquals(text.includes("secret-instance-token"), false);
+    assertEquals(mock.calls, [
+      "GET instances",
+      `rpc verdict ${DELETE_INSTANCE_ID}`,
+      "provider delete nav_tenant1_abcd1234 secret-instance-token",
+      "DELETE instances",
+    ]);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance treats a 404 from the provider as already deleted and still removes the local row", async () => {
+  const mock = setupDeleteInstanceFetch();
+  const testHandler = createHandler({
+    providerFactory: () =>
+      createProviderStub({
+        deleteInstance: () => {
+          mock.calls.push("provider delete");
+          return Promise.reject(new WhatsAppProviderError("delete instance", 404));
+        },
+      }),
+  });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), { success: true });
+    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete", "DELETE instances"]);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance keeps the local row when the provider fails, so the next run tries again", async () => {
+  const failures = [
+    new WhatsAppProviderError("delete instance", 500),
+    new WhatsAppProviderError("delete instance", 401),
+    new WhatsAppProviderError("delete instance", undefined, undefined, undefined, true),
+  ];
+
+  for (const failure of failures) {
+    const mock = setupDeleteInstanceFetch();
+    const testHandler = createHandler({
+      providerFactory: () =>
+        createProviderStub({
+          deleteInstance: () => {
+            mock.calls.push("provider delete");
+            return Promise.reject(failure);
+          },
+        }),
+    });
+
+    try {
+      const response = await testHandler(deleteInstanceRequest());
+      assertEquals(response.status, 502, failure.message);
+      assertEquals(await response.json(), { error: "WhatsApp provider request failed" });
+      assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete"], failure.message);
+    } finally {
+      mock.restore();
+    }
+  }
+});
+
+Deno.test("POST /delete-instance reports a failure to remove the local row after the provider deleted", async () => {
+  const mock = setupDeleteInstanceFetch({ deleteStatus: 500 });
+  const testHandler = createHandler({
+    providerFactory: () =>
+      createProviderStub({
+        deleteInstance: () => {
+          mock.calls.push("provider delete");
+          return Promise.resolve();
+        },
+      }),
+  });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "Failed to remove local instance" });
+    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`, "provider delete", "DELETE instances"]);
+  } finally {
+    mock.restore();
+  }
+});
+
+Deno.test("POST /delete-instance refuses a provider that cannot delete instances", async () => {
+  const mock = setupDeleteInstanceFetch();
+  const testHandler = createHandler({ providerFactory: () => createProviderStub() });
+
+  try {
+    const response = await testHandler(deleteInstanceRequest());
+    assertEquals(response.status, 500);
+    assertEquals(await response.json(), { error: "WhatsApp provider does not support instance deletion" });
+    assertEquals(mock.calls, ["GET instances", `rpc verdict ${DELETE_INSTANCE_ID}`]);
+  } finally {
+    mock.restore();
   }
 });

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import {
   createUazapiProvider,
   type ProviderStatus,
+  WhatsAppProviderError,
   type WhatsAppProviderFactory,
 } from "./whatsapp_provider.ts";
 import { createMessageDispatcher, type MessageAccessDecision, type MessageAccessGate } from "./message_dispatcher.ts";
@@ -272,6 +273,8 @@ export interface HandlerDependencies {
 }
 
 const PAIRING_GRACE_PERIOD_MS = 150_000;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const isRecentPairing = (status: unknown, updatedAt: unknown): boolean => {
   if (status !== "connecting" || typeof updatedAt !== "string") return false;
@@ -1050,6 +1053,91 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // -------------------------------------------------------------------------
+    // ROTA: /delete-instance (rotina diária -> exclusão da Instância no 7º dia de bloqueio)
+    // -------------------------------------------------------------------------
+    // Só o segredo interno das rotinas: nem o Gerente exclui a própria instância por aqui. Quem decide se a instância é
+    // devida é o banco (a mesma regra da rotina que a escolheu, consultada de novo porque a barbearia pode ter pago no
+    // intervalo); esta rota exclui no provedor e só então remove a linha local. Se o provedor falhar a linha fica, e a
+    // rodada do dia seguinte tenta de novo.
+    if (path.endsWith("/delete-instance")) {
+      if (req.method !== "POST") {
+        return new Response(JSON.stringify({ error: "Method not allowed" }), {
+          status: 405,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const triggerAuthError = validateTriggerSecret("/delete-instance");
+      if (triggerAuthError) return triggerAuthError;
+
+      const jsonResponse = (payload: Record<string, unknown>, status: number): Response =>
+        new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
+      let instanceId: unknown;
+      try {
+        instanceId = (await req.json())?.instance_id;
+      } catch {
+        instanceId = undefined;
+      }
+      if (typeof instanceId !== "string" || !UUID_PATTERN.test(instanceId)) {
+        return jsonResponse({ error: "Missing or invalid instance_id" }, 400);
+      }
+
+      const { data: instance, error: instanceError } = await supabase
+        .from(instancesTable)
+        .select(`id, tenant_id, instance_name, ${instanceTokenColumn}`)
+        .eq("id", instanceId)
+        .maybeSingle();
+      if (instanceError) {
+        console.error("[WhatsApp-Integration] /delete-instance: falha ao ler a instância", instanceError.message);
+        return jsonResponse({ error: "Failed to load instance" }, 500);
+      }
+      if (!instance) {
+        return jsonResponse({ error: "Instance not found" }, 404);
+      }
+
+      const { data: verdict, error: verdictError } = await supabase.rpc("whatsapp_instance_deletion_verdict", {
+        p_instance_id: instanceId,
+      });
+      if (verdictError || typeof verdict !== "string") {
+        console.error("[WhatsApp-Integration] /delete-instance: falha ao conferir se a instância é devida", verdictError?.message);
+        return jsonResponse({ error: "Failed to check deletion eligibility" }, 500);
+      }
+      if (verdict !== "due") {
+        console.warn(`[WhatsApp-Integration] /delete-instance: exclusão recusada para '${instance.instance_name}' (${verdict})`);
+        return jsonResponse({ error: "Instance is not due for deletion", reason: verdict }, 409);
+      }
+
+      if (!provider.deleteInstance) {
+        return jsonResponse({ error: "WhatsApp provider does not support instance deletion" }, 500);
+      }
+      try {
+        await provider.deleteInstance({
+          instanceName: instance.instance_name,
+          instanceToken: instance[instanceTokenColumn],
+        });
+      } catch (deleteError) {
+        if (deleteError instanceof WhatsAppProviderError && deleteError.status === 404) {
+          console.log(`[WhatsApp-Integration] /delete-instance: '${instance.instance_name}' já não existia no provedor`);
+        } else {
+          return providerFailureResponse(deleteError);
+        }
+      }
+
+      const { error: removeError } = await supabase.from(instancesTable).delete().eq("id", instanceId);
+      if (removeError) {
+        console.error("[WhatsApp-Integration] /delete-instance: falha ao remover a instância local", removeError.message);
+        return jsonResponse({ error: "Failed to remove local instance" }, 500);
+      }
+
+      console.log(`[WhatsApp-Integration] /delete-instance: instância '${instance.instance_name}' excluída (bloqueio de 7 dias)`);
+      return jsonResponse({ success: true }, 200);
     }
 
     // -------------------------------------------------------------------------
