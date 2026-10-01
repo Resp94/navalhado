@@ -1,11 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(53);
 
 -- Spec 052, ticket 12: cancelar a assinatura. A funcao de cobranca cancela no Mercado Pago e grava a situacao
 -- (cancel_subscription); o webhook faz o mesmo quando o Gerente cancela fora do Navalhado
 -- (record_subscription_cancellation). A cancelada tem acesso, com aviso, ate o fim do periodo pago e fica bloqueada
 -- depois; a rotina diaria grava o bloqueio. So o service_role executa as funcoes novas.
+-- Da revisao: o cancelamento tira o cartao (a cancelada que ja assinou de novo e a que tem cartao de novo); assinar de novo tira
+-- a data do cancelamento (a assinatura nova e a que vale); e a mensalidade aprovada depois do cancelamento paga o mes sem
+-- reativar a barbearia (a assinatura cancelada no Mercado Pago nao cobra mais).
 
 insert into public.tenants(id, name, email, phone, slug, onboarding_completed)
 values
@@ -17,12 +20,28 @@ values
   ('74000000-0000-0000-0000-000000000006', 'T74 F', 't74-f@test.local', '92999997406', 't74-f', true),
   ('74000000-0000-0000-0000-000000000007', 'T74 G', 't74-g@test.local', '92999997407', 't74-g', true),
   ('74000000-0000-0000-0000-000000000008', 'T74 H', 't74-h@test.local', '92999997408', 't74-h', true),
-  ('74000000-0000-0000-0000-000000000009', 'T74 Z', 't74-z@test.local', '92999997409', 't74-z', true);
+  ('74000000-0000-0000-0000-000000000009', 'T74 Z', 't74-z@test.local', '92999997409', 't74-z', true),
+  ('74000000-0000-0000-0000-000000000010', 'T74 I', 't74-i@test.local', '92999997410', 't74-i', true),
+  ('74000000-0000-0000-0000-000000000011', 'T74 J', 't74-j@test.local', '92999997411', 't74-j', true),
+  ('74000000-0000-0000-0000-000000000012', 'T74 K', 't74-k@test.local', '92999997412', 't74-k', true),
+  ('74000000-0000-0000-0000-000000000013', 'T74 L', 't74-l@test.local', '92999997413', 't74-l', true),
+  ('74000000-0000-0000-0000-000000000014', 'T74 M', 't74-m@test.local', '92999997414', 't74-m', true),
+  ('74000000-0000-0000-0000-000000000015', 'T74 N', 't74-n@test.local', '92999997415', 't74-n', true),
+  ('74000000-0000-0000-0000-000000000016', 'T74 O', 't74-o@test.local', '92999997416', 't74-o', true),
+  ('74000000-0000-0000-0000-000000000017', 'T74 P', 't74-p@test.local', '92999997417', 't74-p', true),
+  ('74000000-0000-0000-0000-000000000018', 'T74 Q', 't74-q@test.local', '92999997418', 't74-q', true),
+  ('74000000-0000-0000-0000-000000000019', 'T74 R', 't74-r@test.local', '92999997419', 't74-r', true),
+  ('74000000-0000-0000-0000-000000000020', 'T74 S', 't74-s@test.local', '92999997420', 't74-s', true);
 
 -- A: ativa, Maquina, com a Tesoura agendada, periodo pago ate 01/06. B: pagamento recusado (periodo vencido). C: em teste, com
--- o cartao autorizado no Mercado Pago. D: em teste, sem assinatura no Mercado Pago. E: bloqueada (estorno). F: cortesia. G: ja
--- cancelada. H: ativa, cancelada fora do Navalhado. Z: sem assinatura. O gatilho de cadastro pode ter criado assinaturas; as
--- de teste mandam.
+-- o cartao autorizado no Mercado Pago. D: em teste, sem assinatura no Mercado Pago. E: bloqueada por teste vencido (a
+-- assinatura que ele deixou no Mercado Pago nunca foi autorizada). F: cortesia. G: ja cancelada. H: ativa, cancelada fora do
+-- Navalhado. Z: sem assinatura. I: cancelada pelo Gerente, com a mensalidade aprovada chegando depois. J: o mesmo, com a rotina
+-- diaria ja tendo bloqueado (motivo canceled). K: cancelada que assina de novo e paga. L: cancelada que assinou de novo e ainda
+-- nao autorizou. M: cancelada que assinou de novo e autorizou. N: cancelada de antes (sem assinatura no Mercado Pago, sem
+-- data). O: bloqueada por estorno, com a assinatura ainda viva no Mercado Pago. P: bloqueada por pagamento recusado, idem. Q:
+-- bloqueada pela rotina diaria depois de cancelar (motivo canceled). R: bloqueada (canceled) que assinou de novo. S: bloqueada
+-- pelo Proprietario (sem motivo), com assinatura viva. O gatilho de cadastro pode ter criado assinaturas; as de teste mandam.
 delete from public.tenant_subscriptions where tenant_id::text like '74000000-0000-0000-0000-0000000000%';
 
 insert into public.tenant_subscriptions(tenant_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, first_failed_at, blocked_at, blocked_reason, canceled_at, card_brand, card_last4, mp_subscription_id, scheduled_plan_id)
@@ -31,10 +50,21 @@ values
   ('74000000-0000-0000-0000-000000000002', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'past_due', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, 'visa', '5682', 'mp-74-b', null),
   ('74000000-0000-0000-0000-000000000003', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', '2040-05-20 12:00:00+00', null, null, null, null, null, null, 'master', '0604', 'mp-74-c', null),
   ('74000000-0000-0000-0000-000000000004', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', '2040-05-20 12:00:00+00', null, null, null, null, null, null, null, null, null, null),
-  ('74000000-0000-0000-0000-000000000005', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-05-10 12:00:00+00', 'refunded', null, 'visa', '5682', 'mp-74-e', null),
+  ('74000000-0000-0000-0000-000000000005', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, '2040-05-10 12:00:00+00', 'trial_expired', null, null, null, 'mp-74-e', null),
   ('74000000-0000-0000-0000-000000000006', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'courtesy', null, null, null, null, null, null, null, null, null, null, null),
   ('74000000-0000-0000-0000-000000000007', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, '2040-05-10 12:00:00+00', 'visa', '5682', 'mp-74-g', null),
-  ('74000000-0000-0000-0000-000000000008', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, null, 'visa', '5682', 'mp-74-h', null);
+  ('74000000-0000-0000-0000-000000000008', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, null, 'visa', '5682', 'mp-74-h', null),
+  ('74000000-0000-0000-0000-000000000010', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, '2040-05-31 12:00:00+00', null, null, 'mp-74-i', null),
+  ('74000000-0000-0000-0000-000000000011', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-06-02 03:05:00+00', 'canceled', '2040-05-31 12:00:00+00', null, null, 'mp-74-j', null),
+  ('74000000-0000-0000-0000-000000000012', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, '2040-05-31 12:00:00+00', 'visa', '5682', 'mp-74-k', null),
+  ('74000000-0000-0000-0000-000000000013', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, null, null, null, 'mp-74-l', null),
+  ('74000000-0000-0000-0000-000000000014', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, null, 'master', null, 'mp-74-m', null),
+  ('74000000-0000-0000-0000-000000000015', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, null, null, null, null, null, null, null),
+  ('74000000-0000-0000-0000-000000000016', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-05-10 12:00:00+00', 'refunded', null, 'visa', '5682', 'mp-74-o', null),
+  ('74000000-0000-0000-0000-000000000017', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', '2040-05-01 12:00:00+00', '2040-05-06 12:00:00+00', 'payment_failed', null, 'visa', '5682', 'mp-74-p', null),
+  ('74000000-0000-0000-0000-000000000018', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-06-02 03:05:00+00', 'canceled', '2040-05-20 12:00:00+00', null, null, 'mp-74-q', null),
+  ('74000000-0000-0000-0000-000000000019', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-06-02 03:05:00+00', 'canceled', null, null, null, 'mp-74-r', null),
+  ('74000000-0000-0000-0000-000000000020', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, '2040-05-01 12:00:00+00', '2040-06-01 12:00:00+00', null, '2040-05-10 12:00:00+00', null, null, 'visa', '5682', 'mp-74-s', null);
 
 create function pg_temp.estado(p_tenant uuid, p_now timestamptz) returns text language sql as
   $$select e.access || '|' || e.reason || '|' || coalesce(to_char(e.relevant_date at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS'), '-')
@@ -48,10 +78,10 @@ select is(
 );
 
 select is(
-  (select s.status || '|' || (s.canceled_at is not null)::text || '|' || s.current_period_end::text || '|' || s.mp_subscription_id || '|' || s.card_last4 || '|' || coalesce(s.scheduled_plan_id::text, 'sem descida agendada')
+  (select s.status || '|' || (s.canceled_at is not null)::text || '|' || s.current_period_end::text || '|' || s.mp_subscription_id || '|' || coalesce(s.card_last4, 'sem cartao') || '|' || coalesce(s.scheduled_plan_id::text, 'sem descida agendada')
    from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000001'),
-  'canceled|true|2040-06-01 12:00:00+00|mp-74-a|5682|sem descida agendada',
-  'grava a situacao e a data do cancelamento; o periodo pago, o cartao e a assinatura ficam como estao; a descida agendada some'
+  'canceled|true|2040-06-01 12:00:00+00|mp-74-a|sem cartao|sem descida agendada',
+  'grava a situacao e a data do cancelamento; o periodo pago e a assinatura ficam como estao; o cartao sai (nada o cobra mais) e a descida agendada some'
 );
 
 select is(
@@ -109,7 +139,7 @@ select throws_like(
 select throws_ok(
   $$select public.cancel_subscription('74000000-0000-0000-0000-000000000005')$$,
   '55000', null,
-  'bloqueada nao cancela por aqui (assina de novo, ou o Proprietario resolve)'
+  'bloqueada por teste vencido nao tem assinatura paga para cancelar (a que ele deixou no Mercado Pago nunca foi autorizada)'
 );
 
 select throws_ok(
@@ -158,13 +188,72 @@ select is(
 select is(
   public.record_subscription_cancellation('mp-74-e'),
   'not_cancelable',
-  'bloqueada nao muda com o cancelamento no Mercado Pago'
+  'bloqueada por teste vencido nao muda com o cancelamento no Mercado Pago'
 );
 
 select is(
   (select s.status || '|' || s.blocked_reason from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000005'),
-  'blocked|refunded',
+  'blocked|trial_expired',
   'e segue bloqueada pelo motivo de antes'
+);
+
+-- Bloqueada (estorno, contestacao, pagamento recusado ha mais de 5 dias, bloqueio do Proprietario) com a assinatura ainda viva
+-- no Mercado Pago: cancelar so tira a cobranca que viria no mes seguinte (e reativaria a barbearia). O acesso segue bloqueado,
+-- agora com o motivo canceled: a tela de bloqueio manda assinar de novo, em vez de mandar trocar o cartao de uma assinatura
+-- que nao existe mais.
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000016'),
+  'canceled',
+  'a bloqueada por estorno, com a assinatura viva no Mercado Pago, cancela'
+);
+
+select is(
+  (select s.status || '|' || s.blocked_reason || '|' || (s.canceled_at is not null)::text || '|' || coalesce(s.card_brand, 'sem cartao')
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000016'),
+  'blocked|canceled|true|sem cartao',
+  'segue bloqueada, agora pelo motivo canceled, e o cartao sai'
+);
+
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000016', '2040-05-20 12:00:00+00'),
+  'blocked|canceled|2040-05-10T12:00:00',
+  'o acesso nao volta: cancelar nao desbloqueia a barbearia bloqueada por estorno'
+);
+
+select is(
+  public.record_subscription_cancellation('mp-74-p'),
+  'canceled',
+  'o aviso do Mercado Pago de que a assinatura da bloqueada por pagamento recusado foi cancelada tambem registra o cancelamento'
+);
+
+select is(
+  (select s.status || '|' || s.blocked_reason from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000017'),
+  'blocked|canceled',
+  'e a tela de bloqueio passa a mandar assinar de novo em vez de trocar o cartao'
+);
+
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000020'),
+  'canceled',
+  'a bloqueada pelo Proprietario (sem motivo), com a assinatura viva, tambem cancela'
+);
+
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000018'),
+  'already_canceled',
+  'a bloqueada pela rotina depois de cancelar (motivo canceled, com a data) nao tem o que cancelar de novo'
+);
+
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000019'),
+  'canceled',
+  'a bloqueada (canceled) que assinou de novo e cancela a assinatura nova (sem a data, como a cancelada)'
+);
+
+select is(
+  (select (s.canceled_at is not null)::text || '|' || s.blocked_reason from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000019'),
+  'true|canceled',
+  'e volta a ter a data do cancelamento'
 );
 
 -- Assinar de novo: o aviso da assinatura antiga nao cancela a nova ------------------------------------------------
@@ -177,6 +266,122 @@ select is(
   public.record_subscription_cancellation('mp-74-h'),
   'unknown_subscription',
   'o aviso da assinatura antiga (cancelada) nao e mais de nenhuma barbearia: nao cancela a nova'
+);
+
+-- A mensalidade aprovada depois do cancelamento (cobrada nos instantes antes dele, ou em analise e aprovada depois) paga o
+-- mes, mas a assinatura no Mercado Pago esta cancelada e nao cobra mais: a barbearia segue cancelada, com acesso ate o fim
+-- desse mes, em vez de virar ativa (ativa e sempre liberada, e ninguem a bloquearia no fim do mes).
+select is(
+  public.apply_subscription_payment('74000000-0000-0000-0000-000000000010', 'pay-74-i', 'mp-74-i', 'approved', 89.90,
+    '2040-06-01 12:00:00+00', 'recurring', 'visa', '5682'),
+  'paid_while_canceled',
+  'a mensalidade aprovada depois do cancelamento nao reativa a assinatura cancelada'
+);
+
+select is(
+  (select s.status || '|' || (s.canceled_at is not null)::text || '|' || s.current_period_start::text || '|' || s.current_period_end::text
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000010'),
+  'canceled|true|2040-06-01 12:00:00+00|2040-07-01 12:00:00+00',
+  'o mes pago vale: o periodo avanca um mes, e a situacao e a data do cancelamento ficam'
+);
+
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000010', '2040-06-15 12:00:00+00'),
+  'warning|canceled|2040-07-01T12:00:00',
+  'e o acesso, com a faixa de cancelada, vai ate o fim desse mes'
+);
+
+select is(
+  (select c.status || '|' || c.amount from public.billing_charges c where c.mp_payment_id = 'pay-74-i'),
+  'approved|89.90',
+  'o pagamento entra no historico'
+);
+
+-- A rotina diaria pode ja ter bloqueado a cancelada (motivo canceled): o mes pago a libera de novo.
+select is(
+  public.apply_subscription_payment('74000000-0000-0000-0000-000000000011', 'pay-74-j', 'mp-74-j', 'approved', 89.90,
+    '2040-06-02 06:00:00+00', 'recurring', 'visa', '5682'),
+  'paid_while_canceled',
+  'o mesmo vale para a cancelada que a rotina diaria ja bloqueou (motivo canceled)'
+);
+
+select is(
+  (select s.status || '|' || coalesce(s.blocked_reason, 'sem motivo') || '|' || s.current_period_end::text
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000011'),
+  'canceled|sem motivo|2040-07-01 12:00:00+00',
+  'o mes pago a libera de novo, ate o fim dele'
+);
+
+-- Assinar de novo: a assinatura nova e a que vale. Sem a data do cancelamento, o primeiro pagamento dela ativa a barbearia.
+select lives_ok(
+  $$select public.record_mp_subscription('74000000-0000-0000-0000-000000000012', 'mp-74-k-nova')$$,
+  'assinar de novo depois de cancelar grava a assinatura nova'
+);
+
+select is(
+  (select s.status || '|' || coalesce(s.canceled_at::text, 'sem data') || '|' || s.mp_subscription_id || '|' || coalesce(s.card_brand, 'sem cartao')
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000012'),
+  'canceled|sem data|mp-74-k-nova|sem cartao',
+  'a assinatura nova tira a data do cancelamento e o cartao da antiga'
+);
+
+select is(
+  public.apply_subscription_payment('74000000-0000-0000-0000-000000000012', 'pay-74-k', 'mp-74-k-nova', 'approved', 89.90,
+    '2040-06-01 12:00:00+00', 'recurring', 'visa', '5682'),
+  'activated',
+  'o primeiro pagamento da assinatura nova ativa a barbearia'
+);
+
+select is(
+  (select s.status || '|' || coalesce(s.canceled_at::text, 'sem data') || '|' || s.current_period_end::text
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000012'),
+  'active|sem data|2040-07-01 12:00:00+00',
+  'ativa, com o periodo novo'
+);
+
+-- Cancelar a assinatura nova (cancelada que assinou de novo e ainda nao pagou): pelo Navalhado e pelo aviso do Mercado Pago.
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000013'),
+  'canceled',
+  'a cancelada que assinou de novo (sem autorizar) cancela a assinatura nova'
+);
+
+select is(
+  (select (s.canceled_at is not null)::text || '|' || coalesce(s.card_brand, 'sem cartao')
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000013'),
+  'true|sem cartao',
+  'e volta a ter a data do cancelamento'
+);
+
+select is(
+  public.record_subscription_cancellation('mp-74-m'),
+  'canceled',
+  'o aviso do Mercado Pago de que a assinatura nova, ja autorizada, foi cancelada tambem a cancela'
+);
+
+select is(
+  (select (s.canceled_at is not null)::text || '|' || coalesce(s.card_brand, 'sem cartao')
+   from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000014'),
+  'true|sem cartao',
+  'a data volta e o cartao da assinatura nova sai (a tela volta a oferecer "Assinar de novo")'
+);
+
+select is(
+  public.record_subscription_cancellation('mp-74-m'),
+  'already_canceled',
+  'e o aviso repetido nao muda nada'
+);
+
+select is(
+  public.cancel_subscription('74000000-0000-0000-0000-000000000015'),
+  'already_canceled',
+  'a cancelada de antes, sem assinatura no Mercado Pago, nao tem assinatura nova para cancelar'
+);
+
+select is(
+  (select (s.canceled_at is null)::text from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000015'),
+  'true',
+  'e a data segue vazia'
 );
 
 -- A rotina diaria grava o bloqueio no dia seguinte ao fim do periodo pago (o estado e recalculado para essa data). Fica
