@@ -7,16 +7,20 @@ select has_table(
   'whatsapp_message_outbox',
   'welcome outbox table exists'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_outbox',
-  'whatsapp_message_outbox_key_unique',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_outbox'::regclass
+      and conname = 'whatsapp_message_outbox_key_unique'
+  ),
   'outbox idempotency is tenant scoped'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_outbox',
-  'whatsapp_message_outbox_status_check',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_outbox'::regclass
+      and conname = 'whatsapp_message_outbox_status_check'
+  ),
   'outbox states are constrained'
 );
 select has_index(
@@ -56,7 +60,7 @@ select ok(
   'welcome trigger does not fire HTTP directly'
 );
 select ok(
-  position('search_path = ''''' in pg_get_functiondef('public.claim_whatsapp_message_outbox(integer)'::regprocedure)) > 0,
+  coalesce((select 'search_path=""' = any(proconfig) from pg_proc where oid = 'public.claim_whatsapp_message_outbox(integer)'::regprocedure), false),
   'claim function has an explicit empty search path'
 );
 

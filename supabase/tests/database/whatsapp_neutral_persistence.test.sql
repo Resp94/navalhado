@@ -12,52 +12,68 @@ select has_table(
   'whatsapp_message_idempotency',
   'neutral idempotency table exists'
 );
-select has_constraint(
-  'public',
-  'whatsapp_instances',
-  'whatsapp_instances_tenant_id_key',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_instances'::regclass
+      and conname = 'whatsapp_instances_tenant_id_key'
+  ),
   'one neutral instance per tenant'
 );
-select has_constraint(
-  'public',
-  'whatsapp_instances',
-  'whatsapp_instances_provider_check',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_instances'::regclass
+      and conname = 'whatsapp_instances_provider_check'
+  ),
   'provider is constrained'
 );
-select has_constraint(
-  'public',
-  'whatsapp_instances',
-  'whatsapp_instances_status_check',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_instances'::regclass
+      and conname = 'whatsapp_instances_status_check'
+  ),
   'neutral connection states are constrained'
 );
-select has_constraint(
-  'public',
-  'whatsapp_instances',
-  'whatsapp_instances_reminder_hours_check',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_instances'::regclass
+      and conname = 'whatsapp_instances_reminder_hours_check'
+  ),
   'reminder hours are constrained'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_idempotency',
-  'whatsapp_message_idempotency_key',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_idempotency'::regclass
+      and conname = 'whatsapp_message_idempotency_key'
+  ),
   'idempotency key is unique per tenant and direction'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_idempotency',
-  'whatsapp_message_idempotency_reminder_window_required_check',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_idempotency'::regclass
+      and conname = 'whatsapp_message_idempotency_reminder_window_required_check'
+  ),
   'reminder events require a window'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_idempotency',
-  'whatsapp_message_idempotency_instance_tenant_fkey',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_idempotency'::regclass
+      and conname = 'whatsapp_message_idempotency_instance_tenant_fkey'
+  ),
   'instance references cannot cross tenants'
 );
-select has_constraint(
-  'public',
-  'whatsapp_message_idempotency',
-  'whatsapp_message_idempotency_appointment_tenant_fkey',
+select ok(
+  exists(
+    select 1 from pg_constraint
+    where conrelid = 'public.whatsapp_message_idempotency'::regclass
+      and conname = 'whatsapp_message_idempotency_appointment_tenant_fkey'
+  ),
   'appointment references cannot cross tenants'
 );
 select has_index(
@@ -271,7 +287,7 @@ select throws_ok($$insert into public.whatsapp_instances(
   tenant_id, provider, instance_name, instance_token
 ) values (
   '40000000-0000-0000-0000-000000000002',
-  'uazapi',
+  'unsupported_provider',
   'neutral_whatsapp_invalid_provider',
   'backend-only-instance-token-3'
 )$$, '23514', null, 'non-Uazapi provider is rejected');
