@@ -22,6 +22,7 @@ const assinaturaAtiva: DetalhesDaAssinatura = {
   periodoAte: new Date('2026-10-29T23:26:22Z'),
   cortesiaAte: null,
   cartao: { bandeira: 'visa', final: '5682' },
+  assinaturaNovaAutorizada: false,
 };
 
 const renderizar = (assinatura: Partial<DetalhesDaAssinatura> = {}, timezone?: string) => {
@@ -32,7 +33,7 @@ const renderizar = (assinatura: Partial<DetalhesDaAssinatura> = {}, timezone?: s
 
 const abrir = () => userEvent.click(screen.getByRole('button', { name: 'Cancelar assinatura' }));
 const dialogo = () => screen.getByRole('dialog', { name: 'Cancelar a assinatura?' });
-const confirmar = () => userEvent.click(within(dialogo()).getByRole('button', { name: 'Cancelar assinatura' }));
+const confirmar = () => userEvent.click(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' }));
 
 describe('CancelarAssinatura', () => {
   beforeEach(() => {
@@ -113,6 +114,39 @@ describe('CancelarAssinatura', () => {
       expect(dialogo()).not.toHaveTextContent('reembolsado');
     });
 
+    // Revisão: a cancelada que já assinou de novo (a assinatura nova está autorizada e cobra no fim do período pago).
+    it('cancelada que já assinou de novo: cancela a assinatura nova, nada será cobrado no fim do período pago e o acesso vai até lá', async () => {
+      renderizar({ situacao: 'canceled', assinaturaNovaAutorizada: true, cartao: { bandeira: 'master', final: null } });
+
+      await abrir();
+
+      expect(dialogo()).toHaveTextContent('A assinatura nova no Mercado Pago é cancelada e nada será cobrado no fim do período pago.');
+      expect(dialogo()).toHaveTextContent('Você continua usando o Navalhado até 29/10/2026.');
+      expect(dialogo()).not.toHaveTextContent('reembolsado');
+    });
+
+    // Revisão: a tela de bloqueio (estorno, contestação, pagamento recusado, bloqueio do Proprietário) deixa cancelar a
+    // assinatura que o Mercado Pago ainda cobra. O acesso segue bloqueado: não há período a esperar.
+    it('bloqueada (tela de bloqueio): cancela a assinatura que ainda cobra no Mercado Pago e o acesso segue bloqueado', async () => {
+      renderizar({ situacao: 'blocked', periodoAte: null, testeAte: null, cartao: null });
+
+      await abrir();
+
+      expect(dialogo()).toHaveTextContent('A assinatura que ainda está ativa no Mercado Pago é cancelada e nada mais será cobrado.');
+      expect(dialogo()).toHaveTextContent('O acesso da barbearia continua bloqueado.');
+      expect(dialogo()).not.toHaveTextContent('Você continua usando o Navalhado');
+      expect(dialogo()).not.toHaveTextContent('reembolsado');
+    });
+
+    it('o botão de confirmar tem nome diferente do que abre a pergunta: com a pergunta aberta só um se chama "Cancelar assinatura"', async () => {
+      renderizar();
+
+      await abrir();
+
+      expect(screen.getAllByRole('button', { name: 'Cancelar assinatura' })).toHaveLength(1);
+      expect(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' })).toBeEnabled();
+    });
+
     it('"Manter assinatura" fecha a pergunta sem cancelar nada', async () => {
       renderizar();
       await abrir();
@@ -160,7 +194,7 @@ describe('CancelarAssinatura', () => {
 
       await confirmar();
 
-      expect(within(dialogo()).getByRole('button', { name: 'Cancelar assinatura' })).toBeDisabled();
+      expect(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' })).toBeDisabled();
       expect(within(dialogo()).getByRole('button', { name: 'Manter assinatura' })).toBeDisabled();
       await confirmar();
       expect(mockCancelar).toHaveBeenCalledTimes(1);
@@ -175,7 +209,7 @@ describe('CancelarAssinatura', () => {
       await confirmar();
 
       expect(await within(dialogo()).findByRole('alert')).toHaveTextContent('Não foi possível cancelar a assinatura agora.');
-      expect(within(dialogo()).getByRole('button', { name: 'Cancelar assinatura' })).toBeEnabled();
+      expect(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' })).toBeEnabled();
       expect(onCancelada).not.toHaveBeenCalled();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });

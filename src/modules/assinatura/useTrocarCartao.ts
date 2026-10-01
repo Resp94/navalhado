@@ -1,7 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { MENSAGEM_TROCAR_CARTAO_FALHOU } from './errors';
 import { assinaturaRepository } from './repositorio';
 import type { CartaoTrocado } from './types';
+import { useAcaoDoGerente } from './useAcaoDoGerente';
+
+const pedirTroca = (token: string, final: string | null) => assinaturaRepository.trocarCartao(token, final);
+const OPCOES = { rotulo: 'Erro ao trocar o cartão da assinatura', mensagemPadrao: MENSAGEM_TROCAR_CARTAO_FALHOU };
 
 /**
  * Troca o cartão da assinatura pelo token gerado nos campos seguros do Mercado Pago. Só o token e os
@@ -9,25 +13,12 @@ import type { CartaoTrocado } from './types';
  * se a troca foi recusada (o motivo fica em `erro`, pronto para mostrar ao Gerente).
  */
 export function useTrocarCartao() {
-  const [trocando, setTrocando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const { executar, emAndamento, erro, limparErro } = useAcaoDoGerente(pedirTroca, OPCOES);
 
-  const trocar = useCallback(async (token: string, final: string | null = null): Promise<CartaoTrocado | null> => {
-    setTrocando(true);
-    setErro(null);
-    try {
-      return await assinaturaRepository.trocarCartao(token, final);
-    } catch (err) {
-      console.error('Erro ao trocar o cartão da assinatura:', err instanceof Error ? err.message : 'erro');
-      setErro(err instanceof Error ? err.message : MENSAGEM_TROCAR_CARTAO_FALHOU);
-      return null;
-    } finally {
-      setTrocando(false);
-    }
-  }, []);
+  const trocar = useCallback(
+    (token: string, final: string | null = null): Promise<CartaoTrocado | null> => executar(token, final),
+    [executar],
+  );
 
-  /** Esquece a recusa anterior (o Gerente fechou o formulário). */
-  const limparErro = useCallback(() => setErro(null), []);
-
-  return { trocar, trocando, erro, limparErro };
+  return { trocar, trocando: emAndamento, erro, limparErro };
 }

@@ -1,29 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { MENSAGEM_DESFAZER_DESCIDA_FALHOU } from './errors';
 import { assinaturaRepository } from './repositorio';
+import { useAcaoDoGerente } from './useAcaoDoGerente';
+
+const pedirDesfazer = () => assinaturaRepository.desfazerDescidaDePlano();
+const OPCOES = { rotulo: 'Erro ao desfazer a descida de plano', mensagemPadrao: MENSAGEM_DESFAZER_DESCIDA_FALHOU };
 
 /**
  * Desfazer a descida de plano agendada. `desfazer` devolve se deu certo; se a função de cobrança recusou (o Mercado Pago não
  * aceitou o valor, por exemplo), o motivo fica em `erro`, pronto para mostrar ao Gerente, e a descida continua agendada.
  */
 export function useDesfazerDescida() {
-  const [desfazendo, setDesfazendo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const { executar, emAndamento, erro } = useAcaoDoGerente(pedirDesfazer, OPCOES);
 
-  const desfazer = useCallback(async (): Promise<boolean> => {
-    setDesfazendo(true);
-    setErro(null);
-    try {
-      await assinaturaRepository.desfazerDescidaDePlano();
-      return true;
-    } catch (err) {
-      console.error('Erro ao desfazer a descida de plano:', err instanceof Error ? err.message : 'erro');
-      setErro(err instanceof Error ? err.message : MENSAGEM_DESFAZER_DESCIDA_FALHOU);
-      return false;
-    } finally {
-      setDesfazendo(false);
-    }
-  }, []);
+  // A ação não devolve nada: deu certo é tudo que não for o nulo da falha.
+  const desfazer = useCallback(async (): Promise<boolean> => (await executar()) !== null, [executar]);
 
-  return { desfazer, desfazendo, erro };
+  return { desfazer, desfazendo: emAndamento, erro };
 }

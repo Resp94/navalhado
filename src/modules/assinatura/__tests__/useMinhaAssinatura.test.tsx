@@ -31,6 +31,7 @@ const emTeste = (testeAte: Date | null): DetalhesDaAssinatura => ({
   periodoAte: null,
   cortesiaAte: null,
   cartao: null,
+  assinaturaNovaAutorizada: false,
 });
 
 const cobranca: Cobranca = {

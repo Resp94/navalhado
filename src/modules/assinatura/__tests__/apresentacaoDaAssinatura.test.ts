@@ -5,6 +5,7 @@ import {
   descreverSituacao,
   fimDoAcessoAoCancelar,
   pagamentoConfirmado,
+  podeCancelar,
   proximaCobranca,
   rotuloDoCartao,
   rotuloDaSituacaoDaCobranca,
@@ -23,6 +24,7 @@ const base: DetalhesDaAssinatura = {
   periodoAte: null,
   cortesiaAte: null,
   cartao: null,
+  assinaturaNovaAutorizada: false,
 };
 
 const com = (parcial: Partial<DetalhesDaAssinatura>): DetalhesDaAssinatura => ({ ...base, ...parcial });
@@ -150,6 +152,55 @@ describe('temCobrancaNoCartao', () => {
   });
 });
 
+// Spec 052, ticket 12 (revisão): a cancelada que já assinou de novo. A assinatura nova está autorizada no Mercado Pago e a
+// primeira cobrança dela é no fim do período pago; a tela a reconhece, para não pedir "Assinar de novo" outra vez.
+describe('cancelada que já assinou de novo (assinatura nova autorizada)', () => {
+  const agora = new Date('2026-10-01T12:00:00Z');
+  const nova = com({
+    situacao: 'canceled',
+    assinaturaNovaAutorizada: true,
+    periodoAte: new Date('2026-10-29T23:00:00Z'),
+    cartao: { bandeira: 'master', final: null },
+  });
+
+  it('o pagamento já aparece como confirmado: a assinatura nova está autorizada', () => {
+    expect(pagamentoConfirmado(nova)).toBe(true);
+    expect(pagamentoConfirmado(com({ situacao: 'canceled' }))).toBe(false);
+  });
+
+  it('a próxima cobrança é no fim do período pago, pelo valor do plano', () => {
+    expect(proximaCobranca(nova, agora)).toEqual({ data: new Date('2026-10-29T23:00:00Z'), valor: 59.9 });
+  });
+
+  it('sem período pago pela frente, não há cobrança marcada', () => {
+    expect(proximaCobranca(com({ ...nova, periodoAte: new Date('2026-09-30T23:00:00Z') }), agora)).toBeNull();
+  });
+
+  it('a situação diz que há uma assinatura nova autorizada', () => {
+    expect(descreverSituacao(nova, null)).toBe('Cancelada até 29/10, com a assinatura nova autorizada');
+    expect(descreverSituacao(com({ situacao: 'canceled', periodoAte: new Date('2026-10-29T23:00:00Z') }), null)).toBe('Cancelada até 29/10');
+  });
+});
+
+describe('podeCancelar', () => {
+  it.each(['active', 'past_due'] as const)('%s: há assinatura cobrando no cartão para cancelar', (situacao) => {
+    expect(podeCancelar(com({ situacao }))).toBe(true);
+  });
+
+  it('em teste com o cartão autorizado: cancela a cobrança do fim do teste', () => {
+    expect(podeCancelar(com({ situacao: 'trialing', cartao: { bandeira: 'visa', final: null } }))).toBe(true);
+    expect(podeCancelar(com({ situacao: 'trialing' }))).toBe(false);
+  });
+
+  it('cancelada que já assinou de novo: cancela a assinatura nova', () => {
+    expect(podeCancelar(com({ situacao: 'canceled', assinaturaNovaAutorizada: true }))).toBe(true);
+  });
+
+  it.each(['canceled', 'courtesy', 'blocked'] as const)('%s sem assinatura nova: nada a cancelar na tela Assinatura', (situacao) => {
+    expect(podeCancelar(com({ situacao, cartao: { bandeira: 'visa', final: '5682' } }))).toBe(false);
+  });
+});
+
 // Spec 052, ticket 12: ao cancelar, o acesso continua até o fim do período já pago (ou do teste). Sem período a esperar, o
 // bloqueio é na hora: a tela precisa dizer isso antes de o Gerente confirmar.
 describe('fimDoAcessoAoCancelar', () => {
@@ -162,6 +213,12 @@ describe('fimDoAcessoAoCancelar', () => {
 
   it('pagamento recusado com o período ainda por vencer: o fim do período pago', () => {
     expect(fimDoAcessoAoCancelar(com({ situacao: 'past_due', periodoAte: fimDoPeriodo }), agora)).toEqual(fimDoPeriodo);
+  });
+
+  it('cancelada que já assinou de novo: o fim do período pago, onde a cobrança da assinatura nova começaria', () => {
+    const nova = com({ situacao: 'canceled', assinaturaNovaAutorizada: true, periodoAte: fimDoPeriodo });
+
+    expect(fimDoAcessoAoCancelar(nova, agora)).toEqual(fimDoPeriodo);
   });
 
   it('em teste com o cartão autorizado: o fim do teste (a assinatura nunca chega a cobrar)', () => {

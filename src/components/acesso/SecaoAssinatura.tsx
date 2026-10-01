@@ -11,6 +11,7 @@ import {
   dataCompleta,
   descreverSituacao,
   pagamentoConfirmado,
+  podeCancelar,
   proximaCobranca,
   rotuloDaSituacaoDaCobranca,
   rotuloDoCartao,
@@ -108,12 +109,17 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
     );
   }
 
-  // Com o cartão já autorizado a assinatura existe no Mercado Pago: "Assinar" de novo só levaria a uma recusa.
+  // Com o cartão já autorizado a assinatura existe no Mercado Pago: "Assinar" de novo só levaria a uma recusa. O mesmo vale para a
+  // cancelada que já assinou de novo e teve a assinatura nova autorizada (a cobrança dela só vem no fim do período pago).
   const emTesteAutorizado = autorizadaEmTeste(assinatura);
-  const { texto, botao }: Orientacao = emTesteAutorizado ? {} : ORIENTACAO[assinatura.situacao];
+  const { texto, botao }: Orientacao = emTesteAutorizado
+    ? {}
+    : assinatura.assinaturaNovaAutorizada
+      ? { texto: 'Sua assinatura nova já foi autorizada no Mercado Pago. A cobrança recomeça no fim do período pago.' }
+      : ORIENTACAO[assinatura.situacao];
   const cobrancaMarcada = proximaCobranca(assinatura);
   const cartao = rotuloDoCartao(assinatura.cartao);
-  // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada: só nela se troca o cartão e se cancela.
+  // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada: só nela se troca o cartão.
   const cobrandoNoCartao = temCobrancaNoCartao(assinatura);
 
   // Cancelada, a assinatura relê para mostrar "Cancelada até..." e o layout relê o Estado de Acesso para a faixa aparecer.
@@ -135,6 +141,12 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
       {voltandoDoPagamento && emTesteAutorizado && (
         <div role="status" className="rounded-md border border-border p-4">
           <p className="m-0 text-sm">Assinatura autorizada no Mercado Pago. A primeira cobrança acontece no fim do teste.</p>
+        </div>
+      )}
+
+      {voltandoDoPagamento && assinatura.assinaturaNovaAutorizada && (
+        <div role="status" className="rounded-md border border-border p-4">
+          <p className="m-0 text-sm">Assinatura nova autorizada no Mercado Pago. A primeira cobrança acontece no fim do período pago.</p>
         </div>
       )}
 
@@ -211,7 +223,7 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
       )}
 
       {/* Cancelar fica por último entre as ações: depois dele a cobrança para. Cancelada, a tela passa a oferecer "Assinar de novo". */}
-      {cobrandoNoCartao && <CancelarAssinatura assinatura={assinatura} timezone={timezone} onCancelada={aoCancelar} />}
+      {podeCancelar(assinatura) && <CancelarAssinatura assinatura={assinatura} timezone={timezone} onCancelada={aoCancelar} />}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h4 className="text-sm font-extrabold m-0 text-text-primary">Histórico de cobranças</h4>

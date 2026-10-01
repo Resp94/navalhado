@@ -1,32 +1,21 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { MENSAGEM_CANCELAR_FALHOU } from './errors';
 import { assinaturaRepository } from './repositorio';
+import { useAcaoDoGerente } from './useAcaoDoGerente';
+
+const pedirCancelamento = () => assinaturaRepository.cancelarAssinatura();
+const OPCOES = { rotulo: 'Erro ao cancelar a assinatura', mensagemPadrao: MENSAGEM_CANCELAR_FALHOU };
 
 /**
  * Cancela a assinatura da barbearia. `cancelar` devolve se deu certo; se a função de cobrança recusou (o Mercado Pago não
  * respondeu, por exemplo), o motivo fica em `erro`, pronto para mostrar ao Gerente, e a assinatura segue como estava.
+ * `limparErro` esquece a recusa anterior (o Gerente fechou a pergunta).
  */
 export function useCancelarAssinatura() {
-  const [cancelando, setCancelando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const { executar, emAndamento, erro, limparErro } = useAcaoDoGerente(pedirCancelamento, OPCOES);
 
-  const cancelar = useCallback(async (): Promise<boolean> => {
-    setCancelando(true);
-    setErro(null);
-    try {
-      await assinaturaRepository.cancelarAssinatura();
-      return true;
-    } catch (err) {
-      console.error('Erro ao cancelar a assinatura:', err instanceof Error ? err.message : 'erro');
-      setErro(err instanceof Error ? err.message : MENSAGEM_CANCELAR_FALHOU);
-      return false;
-    } finally {
-      setCancelando(false);
-    }
-  }, []);
+  // A ação não devolve nada: deu certo é tudo que não for o nulo da falha.
+  const cancelar = useCallback(async (): Promise<boolean> => (await executar()) !== null, [executar]);
 
-  /** Esquece a recusa anterior (o Gerente fechou a pergunta). */
-  const limparErro = useCallback(() => setErro(null), []);
-
-  return { cancelar, cancelando, erro, limparErro };
+  return { cancelar, cancelando: emAndamento, erro, limparErro };
 }

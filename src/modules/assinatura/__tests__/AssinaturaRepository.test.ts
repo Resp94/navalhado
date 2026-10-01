@@ -106,6 +106,7 @@ describe('AssinaturaRepository: detalhes e histórico', () => {
     periodoAte: new Date('2026-10-29T23:00:00Z'),
     cortesiaAte: null,
     cartao: { bandeira: 'visa', final: '5682' },
+    assinaturaNovaAutorizada: false,
   };
 
   const cobranca = (id: string, cobradaEm: string): Cobranca => ({

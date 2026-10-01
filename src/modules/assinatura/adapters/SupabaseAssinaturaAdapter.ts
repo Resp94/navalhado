@@ -60,6 +60,8 @@ interface LinhaDaAssinatura {
   trial_ends_at: string | null;
   current_period_end: string | null;
   courtesy_ends_at: string | null;
+  /** Quando foi cancelada; some quando a barbearia assina de novo (a assinatura nova é a que vale). */
+  canceled_at: string | null;
   card_brand: string | null;
   card_last4: string | null;
   plans: PlanoEmbutido | PlanoEmbutido[] | null;
@@ -304,7 +306,7 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
     const { data, error } = await supabase
       .from('tenant_subscriptions')
       .select(
-        'status, trial_ends_at, current_period_end, courtesy_ends_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(id, name, price), ' +
+        'status, trial_ends_at, current_period_end, courtesy_ends_at, canceled_at, card_brand, card_last4, plans!tenant_subscriptions_plan_id_fkey(id, name, price), ' +
           'scheduled_plan:plans!tenant_subscriptions_scheduled_plan_id_fkey(id, name, price)',
       )
       .eq('tenant_id', tenantId)
@@ -333,6 +335,9 @@ export class SupabaseAssinaturaAdapter implements IAssinaturaAdapter {
       periodoAte: paraData(linha.current_period_end),
       cortesiaAte: paraData(linha.courtesy_ends_at),
       cartao: paraCartao(linha.card_brand, linha.card_last4),
+      // Cancelada sem a data do cancelamento (assinou de novo) e com a bandeira da assinatura nova (autorizada): o banco decide o
+      // resto. A cancelada de antes, com a data, e as outras situações não têm assinatura nova.
+      assinaturaNovaAutorizada: linha.status === 'canceled' && linha.canceled_at === null && linha.card_brand !== null,
     };
   }
 

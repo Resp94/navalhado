@@ -1,9 +1,10 @@
 import React from 'react';
 import { Button } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { CancelarAssinatura } from './CancelarAssinatura';
 import { TrocarCartao } from './TrocarCartao';
 import { explicacaoDoBloqueio, tituloDoBloqueio } from '../../modules/assinatura/mensagensDeAcesso';
-import type { MotivoDeAcesso, PerfilNoBloqueio } from '../../modules/assinatura/types';
+import type { AssinaturaCancelavel, MotivoDeAcesso, PerfilNoBloqueio } from '../../modules/assinatura/types';
 
 interface TelaDeBloqueioProps {
   motivo: MotivoDeAcesso;
@@ -14,15 +15,32 @@ interface TelaDeBloqueioProps {
   aguardandoConfirmacao?: boolean;
   /** Relê o estado de acesso, para quem não quer esperar a confirmação. */
   onAtualizar?: () => void;
+  /** Chamado depois de o Gerente cancelar a assinatura que ainda cobra: relê o estado de acesso (o motivo passa a ser canceled). */
+  onCancelada?: () => void;
   /** Como abrir o link do Mercado Pago. Por padrão, navega na mesma aba. */
   abrirLink?: (url: string) => void;
 }
+
+// Bloqueios em que a assinatura costuma seguir viva no Mercado Pago, e cobraria no mês seguinte: pagamento recusado (em
+// retentativa), estorno, contestação e bloqueio do Proprietário. O teste e a cortesia vencidos não têm assinatura paga; a cancelada
+// já está cancelada.
+const MOTIVOS_COM_ASSINATURA_VIVA: MotivoDeAcesso[] = ['payment_failed', 'refunded', 'charged_back', 'blocked'];
+
+// Na tela de bloqueio o acesso já está bloqueado e não há período a esperar: a pergunta só diz que a cobrança para.
+const ASSINATURA_BLOQUEADA: AssinaturaCancelavel = {
+  situacao: 'blocked',
+  testeAte: null,
+  periodoAte: null,
+  assinaturaNovaAutorizada: false,
+};
 
 /**
  * Único conteúdo do painel de uma barbearia bloqueada por assinatura. O Gerente paga pelo
  * "Pagar" (abre a página do Mercado Pago); com o pagamento recusado, troca o cartão da assinatura
  * que já existe (o "Pagar" só levaria a uma recusa: a assinatura anterior continua ativa no
- * Mercado Pago). O Barbeiro só recebe a explicação.
+ * Mercado Pago). Quando a assinatura segue viva no Mercado Pago (pagamento recusado, estorno,
+ * contestação, bloqueio do Proprietário), o Gerente que não quer voltar pode cancelá-la, para não
+ * ser cobrado no mês seguinte; o acesso segue bloqueado. O Barbeiro só recebe a explicação.
  */
 export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   motivo,
@@ -31,6 +49,7 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   onLogout,
   aguardandoConfirmacao = false,
   onAtualizar,
+  onCancelada,
   abrirLink,
 }) => (
   <>
@@ -60,6 +79,11 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
           <div className="text-left">
             <TrocarCartao cobrancaPendente acessoBloqueado destaque />
           </div>
+        )}
+
+        {/* Com o pagamento em confirmação a assinatura viva pode ser a que acabou de ser paga: cancelá-la jogaria o pagamento fora. */}
+        {perfil === 'gerente' && !aguardandoConfirmacao && MOTIVOS_COM_ASSINATURA_VIVA.includes(motivo) && (
+          <CancelarAssinatura assinatura={ASSINATURA_BLOQUEADA} onCancelada={onCancelada} />
         )}
 
         <Button variant="ghost" fullWidth onClick={onLogout}>

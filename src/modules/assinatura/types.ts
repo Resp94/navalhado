@@ -54,7 +54,22 @@ export interface DetalhesDaAssinatura {
   periodoAte: Date | null;
   cortesiaAte: Date | null;
   cartao: CartaoDaAssinatura | null;
+  /**
+   * Cancelada que já assinou de novo e o Mercado Pago autorizou a assinatura nova: a cobrança dela recomeça no fim do período pago
+   * (`periodoAte`). O banco tira a data do cancelamento ao assinar de novo (e o cartão ao cancelar), e a bandeira da assinatura
+   * nova chega na autorização do Mercado Pago.
+   */
+  assinaturaNovaAutorizada: boolean;
 }
+
+/**
+ * O que o cancelamento precisa saber da assinatura para dizer ao Gerente o que vai acontecer. A tela de bloqueio, que não lê a
+ * assinatura, passa só a situação (bloqueada).
+ */
+export type AssinaturaCancelavel = Pick<
+  DetalhesDaAssinatura,
+  'situacao' | 'testeAte' | 'periodoAte' | 'assinaturaNovaAutorizada'
+>;
 
 /** Uma linha do histórico de cobranças, gravada pelo webhook do Mercado Pago. */
 export interface Cobranca {

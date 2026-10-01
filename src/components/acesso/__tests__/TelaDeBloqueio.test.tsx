@@ -25,6 +25,17 @@ vi.mock('../TrocarCartao', () => ({
   ),
 }));
 
+// O fluxo de cancelar (pergunta, aviso, erro) tem teste próprio (CancelarAssinatura.test); aqui só interessa quando a tela o
+// oferece, com que informação e o que ela faz depois.
+vi.mock('../CancelarAssinatura', () => ({
+  CancelarAssinatura: ({ assinatura, onCancelada }: { assinatura: { situacao: string }; onCancelada?: () => void }) => (
+    <div data-testid="cancelar-assinatura">
+      <span>{`assinatura ${assinatura.situacao}`}</span>
+      <button onClick={onCancelada}>simular assinatura cancelada</button>
+    </div>
+  ),
+}));
+
 import { TelaDeBloqueio } from '../TelaDeBloqueio';
 
 describe('TelaDeBloqueio', () => {
@@ -121,6 +132,51 @@ describe('TelaDeBloqueio', () => {
       render(<TelaDeBloqueio motivo="payment_failed" perfil="barbeiro" tenantName="Alpha" onLogout={vi.fn()} />);
 
       expect(screen.queryByTestId('trocar-cartao')).not.toBeInTheDocument();
+    });
+  });
+
+  // Spec 052, ticket 12 (revisão): a bloqueada por estorno, contestação, pagamento recusado ou bloqueio do Proprietário costuma ter
+  // a assinatura ainda viva no Mercado Pago, que cobraria no mês seguinte. O Gerente que só quer sair a cancela por aqui; o
+  // cancelamento nunca desbloqueia, e depois dele a tela manda assinar de novo em vez de trocar o cartão de uma assinatura morta.
+  describe('Gerente: cancelar a assinatura que ainda cobra no Mercado Pago', () => {
+    it.each(['payment_failed', 'refunded', 'charged_back', 'blocked'] as const)(
+      'no bloqueio %s oferece cancelar, com a assinatura como bloqueada',
+      (motivo) => {
+        render(<TelaDeBloqueio motivo={motivo} perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+        expect(screen.getByTestId('cancelar-assinatura')).toHaveTextContent('assinatura blocked');
+      },
+    );
+
+    it.each(['trial_expired', 'courtesy_expired', 'canceled'] as const)(
+      'no bloqueio %s não oferece cancelar: não há assinatura paga viva',
+      (motivo) => {
+        render(<TelaDeBloqueio motivo={motivo} perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+        expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
+      },
+    );
+
+    it('o Barbeiro nunca vê o cancelamento', () => {
+      render(<TelaDeBloqueio motivo="refunded" perfil="barbeiro" tenantName="Alpha" onLogout={vi.fn()} />);
+
+      expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
+    });
+
+    // Depois de voltar do Mercado Pago o pagamento está sendo confirmado: a assinatura viva pode ser a que acabou de ser paga.
+    it('enquanto confirma o pagamento de quem acabou de voltar do Mercado Pago, não oferece cancelar', () => {
+      render(<TelaDeBloqueio motivo="refunded" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} aguardandoConfirmacao />);
+
+      expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
+    });
+
+    it('depois de cancelar, relê o estado de acesso: o motivo do banco passa a ser canceled e a tela manda assinar de novo', async () => {
+      const onCancelada = vi.fn();
+      render(<TelaDeBloqueio motivo="payment_failed" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} onCancelada={onCancelada} />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'simular assinatura cancelada' }));
+
+      expect(onCancelada).toHaveBeenCalledTimes(1);
     });
   });
 

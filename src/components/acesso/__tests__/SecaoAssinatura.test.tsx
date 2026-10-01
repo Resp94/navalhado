@@ -91,6 +91,7 @@ const assinaturaBase: DetalhesDaAssinatura = {
   periodoAte: new Date('2026-10-29T23:26:22Z'),
   cortesiaAte: null,
   cartao: { bandeira: 'visa', final: '5682' },
+  assinaturaNovaAutorizada: false,
 };
 
 const aprovada: Cobranca = {
@@ -422,6 +423,64 @@ describe('SecaoAssinatura', () => {
 
       expect(screen.getByRole('button', { name: 'Assinar de novo' })).toBeEnabled();
       expect(screen.queryByTestId('cancelar-assinatura')).not.toBeInTheDocument();
+    });
+
+    // Revisão: a cancelada que já assinou de novo dentro do período pago. A assinatura nova está autorizada no Mercado Pago e cobra
+    // no fim do período pago: a tela não pede "Assinar de novo" outra vez (a função recusaria) e deixa cancelar a assinatura nova.
+    describe('cancelada que já assinou de novo (a assinatura nova está autorizada)', () => {
+      const reassinada = {
+        situacao: 'canceled' as const,
+        assinaturaNovaAutorizada: true,
+        cartao: { bandeira: 'master', final: null },
+      };
+
+      it('diz que a assinatura nova foi autorizada e mostra quando a cobrança recomeça, sem oferecer "Assinar de novo"', () => {
+        comDados({ assinatura: reassinada });
+        renderizar();
+
+        expect(screen.getByText(/sua assinatura nova já foi autorizada no mercado pago/i)).toBeInTheDocument();
+        expect(screen.getByText('Cancelada até 29/10, com a assinatura nova autorizada')).toBeInTheDocument();
+        expect(screen.getByText('R$ 59,90 em 29/10/2026')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /assinar/i })).not.toBeInTheDocument();
+      });
+
+      it('oferece cancelar a assinatura nova, mas não trocar o cartão nem mudar de plano (a cancelada não tem os dois)', () => {
+        comDados({ assinatura: reassinada });
+        renderizar();
+
+        expect(screen.getByTestId('cancelar-assinatura')).toBeInTheDocument();
+        expect(screen.queryByTestId('trocar-cartao')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('mudar-de-plano')).not.toBeInTheDocument();
+      });
+
+      it('voltando do Mercado Pago: diz que a assinatura foi autorizada, sem "confirmando" nem botão de atualizar', () => {
+        comDados({ assinatura: reassinada });
+        renderizar('?assinatura=retorno');
+
+        expect(screen.getByRole('status')).toHaveTextContent(/assinatura nova autorizada no mercado pago/i);
+        expect(screen.queryByText(/confirmando sua assinatura/i)).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Atualizar situação' })).not.toBeInTheDocument();
+      });
+
+      it('não fica relendo a assinatura depois de voltar do Mercado Pago: o pagamento já aparece', () => {
+        vi.useFakeTimers();
+        comDados({ assinatura: reassinada });
+        renderizar('?assinatura=retorno');
+
+        act(() => {
+          vi.advanceTimersByTime(INTERVALO_DA_CONFIRMACAO_MS * 3);
+        });
+
+        expect(recarregar).not.toHaveBeenCalled();
+      });
+
+      it('a cancelada que ainda não assinou de novo continua pedindo "Assinar de novo", e voltando do Mercado Pago confirma', () => {
+        comDados({ assinatura: { situacao: 'canceled' } });
+        renderizar('?assinatura=retorno');
+
+        expect(screen.getByRole('button', { name: 'Assinar de novo' })).toBeEnabled();
+        expect(screen.getByRole('status')).toHaveTextContent(/confirmando sua assinatura/i);
+      });
     });
   });
 

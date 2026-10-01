@@ -149,6 +149,7 @@ describe('SupabaseAssinaturaAdapter', () => {
       trial_ends_at: '2026-10-14T23:01:41.950533+00:00',
       current_period_end: '2026-10-29T23:26:22+00:00',
       courtesy_ends_at: null,
+      canceled_at: null,
       card_brand: 'visa',
       card_last4: '5682',
       plans: { id: 'plano-tesoura', name: 'Tesoura', price: '59.90' },
@@ -173,7 +174,31 @@ describe('SupabaseAssinaturaAdapter', () => {
         cortesiaAte: null,
         cartao: { bandeira: 'visa', final: '5682' },
         planoAgendado: null,
+        assinaturaNovaAutorizada: false,
       });
+    });
+
+    // Spec 052, ticket 12 (revisão): a cancelada que já assinou de novo. O banco tira a data do cancelamento ao assinar de novo
+    // (e ao cancelar tira o cartão), e a bandeira da assinatura nova chega quando o Mercado Pago a autoriza: cancelada, sem data e
+    // com a bandeira é a que tem a assinatura nova autorizada.
+    it('lê a data do cancelamento, de onde sai a assinatura nova autorizada', async () => {
+      const c = cadeia({ data: linha, error: null });
+
+      await adapter.obterAssinatura('tenant-a');
+
+      expect(c.select).toHaveBeenCalledWith(expect.stringContaining('canceled_at'));
+    });
+
+    it.each([
+      ['cancelada sem a data do cancelamento e com a bandeira da assinatura nova', { status: 'canceled', canceled_at: null, card_brand: 'master' }, true],
+      ['cancelada que assinou de novo e ainda não autorizou (sem bandeira)', { status: 'canceled', canceled_at: null, card_brand: null, card_last4: null }, false],
+      ['cancelada com a data do cancelamento (a de antes, sem assinatura nova)', { status: 'canceled', canceled_at: '2026-10-01T12:00:00+00:00' }, false],
+      ['ativa, mesmo com cartão', { status: 'active' }, false],
+      ['em teste com o cartão autorizado', { status: 'trialing' }, false],
+    ])('assinatura nova autorizada: %s', async (_nome, campos, esperado) => {
+      cadeia({ data: { ...linha, ...campos }, error: null });
+
+      expect((await adapter.obterAssinatura('tenant-a'))?.assinaturaNovaAutorizada).toBe(esperado);
     });
 
     it('lê também a descida agendada, pela chave do plano agendado (a tabela tem duas chaves para plans)', async () => {

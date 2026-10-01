@@ -222,6 +222,7 @@ export const GerenteLayout: React.FC = () => {
         onLogout={handleLogout}
         aguardandoConfirmacao={aguardandoConfirmacao}
         onAtualizar={recarregarEstadoDeAcesso}
+        onCancelada={recarregarEstadoDeAcesso}
       />
     );
   }

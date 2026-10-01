@@ -46,6 +46,14 @@ vi.mock('../../lib/useRealtimeNotifications', () => ({
   }),
 }));
 
+// O fluxo de cancelar tem teste próprio (CancelarAssinatura.test); aqui só interessa que a tela de bloqueio o oferece e que o
+// layout relê o Estado de Acesso depois dele.
+vi.mock('../acesso/CancelarAssinatura', () => ({
+  CancelarAssinatura: ({ onCancelada }: { onCancelada?: () => void }) => (
+    <button onClick={onCancelada}>simular assinatura cancelada</button>
+  ),
+}));
+
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
 
@@ -389,6 +397,21 @@ describe('GerenteLayout Gatekeeper', () => {
 
       expect(await screen.findByRole('heading', { name: 'Sua assinatura foi cancelada' })).toBeInTheDocument();
       expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+    });
+
+    // Revisão do ticket 12: o Gerente bloqueado por estorno que só quer sair cancela a assinatura que o Mercado Pago ainda cobra.
+    // O banco mantém o bloqueio e troca o motivo para canceled; o layout relê o estado e a tela passa a mandar assinar de novo.
+    it('bloqueado com a assinatura ainda viva: depois de cancelar, relê o estado e a tela de bloqueio passa a dizer que a assinatura foi cancelada', async () => {
+      painelDaBarbearia('/agenda');
+      estadoDoBanco('blocked', 'refunded', '2026-09-29T12:00:00Z');
+      render(<GerenteLayout />);
+      expect(await screen.findByRole('heading', { name: 'Um pagamento da assinatura foi estornado' })).toBeInTheDocument();
+
+      estadoDoBanco('blocked', 'canceled', '2026-09-29T12:00:00Z');
+      await userEvent.click(screen.getByRole('button', { name: 'simular assinatura cancelada' }));
+
+      expect(await screen.findByRole('heading', { name: 'Sua assinatura foi cancelada' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Pagar' })).toBeEnabled();
     });
 
     // As páginas usam o contexto em dependências de efeitos: um objeto novo a cada render as faria reler tudo a cada render.
