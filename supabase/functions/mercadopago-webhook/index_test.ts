@@ -422,6 +422,26 @@ Deno.test("an outcome the database ignores (other subscription) is stored as ign
   }
 });
 
+// Spec 052, ticket 12 (revisao): a mensalidade aprovada depois do cancelamento paga o mes e a barbearia segue cancelada. Quem
+// decide e o banco; o webhook so entrega o pagamento e guarda a resposta.
+Deno.test("a monthly payment approved after the cancellation is stored as processed with the database answer (the month is paid, the barbershop stays canceled)", async () => {
+  const provider = new FakePaymentProvider();
+  provider.payments.set("111", approvedPayment);
+  const supabase = setupSupabase({ "rest/v1/rpc/apply_subscription_payment": { status: 200, body: "paid_while_canceled" } });
+  try {
+    const res = await handlerWith(provider)(await notification());
+
+    assertEquals(await res.json(), { status: "processed" });
+    assertEquals(supabase.rpcCalls("finish_billing_event"), [{
+      p_event_key: "mp:98765",
+      p_status: "processed",
+      p_detail: "paid_while_canceled",
+    }]);
+  } finally {
+    supabase.restore();
+  }
+});
+
 Deno.test("a provider failure marks the event failed and answers 500 so the Mercado Pago redelivers", async () => {
   const provider = new FakePaymentProvider();
   provider.failWith = new PaymentProviderError("Mercado Pago respondeu 500: erro", 500);

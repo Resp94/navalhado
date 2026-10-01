@@ -291,6 +291,29 @@ Deno.test("assinar when blocked leaves alone a previous subscription that change
   }
 });
 
+// A guarda protege dinheiro: se o Mercado Pago nao disser quando a assinatura mudou pela ultima vez, ela nao se distingue da que
+// o Gerente acabou de pagar, e a funcao recusa em vez de cancela-la.
+Deno.test("assinar when blocked leaves alone a previous subscription whose last change the provider did not report: it cannot be told apart from the one just paid", async () => {
+  const provider = new FakePaymentProvider();
+  provider.subscriptions.set("fake-sub-1", { id: "fake-sub-1", status: "authorized" });
+  const supabase = setupSupabase(comAnterior("blocked"));
+  const logs = capturarLogs();
+  try {
+    const res = await assinarAgora(provider);
+    const corpo = await res.json();
+
+    assertEquals(res.status, 409);
+    assertEquals(corpo.error.includes("Aguarde alguns minutos"), true, corpo.error);
+    assertEquals(provider.cancelledSubscriptions.length, 0);
+    assertEquals(provider.createdSubscriptions.length, 0);
+    assertEquals(supabase.rpcCalls("record_mp_subscription").length, 0);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
 // Cancelada que ja assinou de novo (a nova esta autorizada, com a cobranca no fim do periodo pago) e em teste com o cartao
 // autorizado: a assinatura viva e a que vale, e trocar de assinatura nao e o que o Gerente quer.
 Deno.test("assinar refuses to replace a live subscription when the barbershop is canceled (it already subscribed again) or in trial with the card authorized", async () => {
@@ -2826,8 +2849,8 @@ Deno.test("cancelar: o Mercado Pago falha mas a assinatura ja esta cancelada la 
 
 Deno.test("cancelar: o Mercado Pago falha e nao da para conferir a assinatura: 502, nada e gravado e o log diz o que conferir", async () => {
   const provider = new FakePaymentProvider();
-  provider.failCancelWith = new PaymentProviderError("Mercado Pago nao respondeu a tempo");
-  // Sem a assinatura no provedor falso, a conferencia tambem falha (404).
+  // O provedor nao responde a nada: nem o pedido, nem a conferencia.
+  provider.failWith = new PaymentProviderError("Mercado Pago nao respondeu a tempo");
   const supabase = supabaseDoCancelamento();
   const logs = capturarLogs();
   try {
@@ -2887,6 +2910,166 @@ Deno.test("cancelar: sem o token do Mercado Pago configurado nao tenta e o Geren
     assertEquals((await res.json()).error, "Cobrança indisponível.");
     assertEquals(logs.linhas.some((linha) => linha.includes("MP_ACCESS_TOKEN")), true, logs.linhas.join("\n"));
     assertEquals(supabase.rpcCalls("cancel_subscription").length, 0);
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Revisao do ticket 12. Ha o que cancelar tambem na cancelada que ja assinou de novo (a assinatura nova esta viva no Mercado
+// Pago, com a cobranca no fim do periodo pago) e na bloqueada que ainda tem a assinatura viva la (estorno, contestacao,
+// bloqueio do Proprietario: o Mercado Pago a cobraria no mes seguinte). Nesses dois a funcao confere antes o que a assinatura
+// tem no Mercado Pago: so cancela a que esta viva. Na bloqueada nao ha o que gravar no banco: segue bloqueada pelo mesmo motivo.
+// ---------------------------------------------------------------------------
+
+Deno.test("cancelar: cancelada que ja assinou de novo (a assinatura nova esta viva no Mercado Pago): cancela la e grava", async () => {
+  for (const viva of ["authorized", "paused"]) {
+    const provider = new FakePaymentProvider();
+    provider.subscriptions.set("mp-sub-1", aAssinaturaNoMercadoPago(viva));
+    const supabase = supabaseDoCancelamento(comSituacao("canceled"));
+    try {
+      const res = await createHandler({ provider })(cancelar());
+
+      assertEquals(res.status, 200, viva);
+      assertEquals(await res.json(), { canceled: true });
+      assertEquals(provider.cancelledSubscriptions, ["mp-sub-1"]);
+      assertEquals(supabase.rpcCalls("cancel_subscription"), [{ p_tenant_id: "tenant-1" }]);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+Deno.test("cancelar: cancelada sem assinatura viva no Mercado Pago (cancelada la, pendente, inexistente ou sem id): 409 e nada e chamado", async () => {
+  const casos: Array<[string, { id: string; status: string } | undefined, Record<string, unknown>]> = [
+    ["cancelada la", aAssinaturaNoMercadoPago("cancelled"), {}],
+    ["pendente (nunca autorizada)", aAssinaturaNoMercadoPago("pending"), {}],
+    ["inexistente la", undefined, {}],
+    ["sem id", undefined, { mp_subscription_id: null }],
+  ];
+  for (const [nome, noProvedor, extra] of casos) {
+    const provider = new FakePaymentProvider();
+    if (noProvedor) provider.subscriptions.set("mp-sub-1", noProvedor);
+    const supabase = supabaseDoCancelamento(comSituacao("canceled", extra));
+    try {
+      const res = await createHandler({ provider })(cancelar());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 409, nome);
+      assertEquals(corpo.error.includes("já está cancelada"), true, corpo.error);
+      assertEquals(provider.cancelledSubscriptions.length, 0, nome);
+      assertEquals(supabase.rpcCalls("cancel_subscription").length, 0, nome);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+Deno.test("cancelar: bloqueada com a assinatura ainda viva no Mercado Pago: cancela la e grava (o banco a mantem bloqueada, agora pelo motivo canceled)", async () => {
+  for (const viva of ["authorized", "paused"]) {
+    const provider = new FakePaymentProvider();
+    provider.subscriptions.set("mp-sub-1", aAssinaturaNoMercadoPago(viva));
+    const supabase = supabaseDoCancelamento(comSituacao("blocked"));
+    try {
+      const res = await createHandler({ provider })(cancelar());
+
+      assertEquals(res.status, 200, viva);
+      assertEquals(await res.json(), { canceled: true });
+      assertEquals(provider.cancelledSubscriptions, ["mp-sub-1"]);
+      assertEquals(supabase.rpcCalls("cancel_subscription"), [{ p_tenant_id: "tenant-1" }]);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+// Bloqueada por teste ou cortesia vencidos com uma assinatura que o Mercado Pago ainda tem viva (caso fora do normal): o
+// Mercado Pago cancelou, e o banco nao tem assinatura paga a registrar. Para o Gerente o que importa e que a cobranca parou.
+Deno.test("cancelar: o Mercado Pago cancelou e o banco responde que nao ha assinatura paga a registrar (55000): a cobranca parou, responde que cancelou e o log diz qual conferir", async () => {
+  const provider = new FakePaymentProvider();
+  provider.subscriptions.set("mp-sub-1", aAssinaturaNoMercadoPago("authorized"));
+  const supabase = supabaseDoCancelamento({
+    ...comSituacao("blocked"),
+    "rest/v1/rpc/cancel_subscription": { status: 400, body: { code: "55000", message: "SUBSCRIPTION_NOT_CANCELABLE: a assinatura do tenant nao tem o que cancelar." } },
+  });
+  const logs = capturarLogs();
+  try {
+    const res = await createHandler({ provider })(cancelar());
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).canceled, true);
+    assertEquals(provider.cancelledSubscriptions, ["mp-sub-1"]);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("mp-sub-1")), true, logs.linhas.join("\n"));
+  } finally {
+    logs.restaurar();
+    supabase.restore();
+  }
+});
+
+Deno.test("cancelar: bloqueada sem assinatura viva no Mercado Pago (cancelada la, pendente, inexistente ou sem id): 409 que manda assinar de novo, e nada e chamado", async () => {
+  const casos: Array<[string, { id: string; status: string } | undefined, Record<string, unknown>]> = [
+    ["cancelada la", aAssinaturaNoMercadoPago("cancelled"), {}],
+    ["pendente (nunca autorizada)", aAssinaturaNoMercadoPago("pending"), {}],
+    ["inexistente la", undefined, {}],
+    ["sem id", undefined, { mp_subscription_id: null }],
+  ];
+  for (const [nome, noProvedor, extra] of casos) {
+    const provider = new FakePaymentProvider();
+    if (noProvedor) provider.subscriptions.set("mp-sub-1", noProvedor);
+    const supabase = supabaseDoCancelamento(comSituacao("blocked", extra));
+    try {
+      const res = await createHandler({ provider })(cancelar());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 409, nome);
+      assertEquals(corpo.error.includes("bloqueado"), true, corpo.error);
+      assertEquals(corpo.error.includes("Assine de novo"), true, corpo.error);
+      assertEquals(provider.cancelledSubscriptions.length, 0, nome);
+      assertEquals(supabase.rpcCalls("cancel_subscription").length, 0, nome);
+    } finally {
+      supabase.restore();
+    }
+  }
+});
+
+Deno.test("cancelar: bloqueada ou cancelada, e o Mercado Pago nao responde a conferencia: 502, nada e cancelado nem gravado e o log diz o que conferir", async () => {
+  for (const status of ["blocked", "canceled"]) {
+    const provider = new FakePaymentProvider();
+    provider.failWith = new PaymentProviderError("Mercado Pago respondeu 503: unavailable", 503);
+    const supabase = supabaseDoCancelamento(comSituacao(status));
+    const logs = capturarLogs();
+    try {
+      const res = await createHandler({ provider })(cancelar());
+      const corpo = await res.json();
+
+      assertEquals(res.status, 502, status);
+      assertEquals(corpo.error.includes("Tente de novo"), true, corpo.error);
+      assertEquals(provider.cancelledSubscriptions.length, 0, status);
+      assertEquals(supabase.rpcCalls("cancel_subscription").length, 0, status);
+      assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1")), true, logs.linhas.join("\n"));
+    } finally {
+      logs.restaurar();
+      supabase.restore();
+    }
+  }
+});
+
+// O Mercado Pago nao conhece mais a assinatura (conta de teste recriada, dado de outro ambiente): ela nao cobra, e a barbearia
+// nao pode ficar presa numa assinatura que nenhum pedido consegue cancelar. O `assinar` trata o mesmo 404 do mesmo jeito.
+Deno.test("cancelar: o Mercado Pago responde 404 a assinatura (ela nao existe mais la): nao ha o que cancelar la, grava o cancelamento e o log diz qual conferir", async () => {
+  const provider = new FakePaymentProvider();
+  provider.failCancelWith = new PaymentProviderError("Mercado Pago respondeu 404: preapproval not found", 404);
+  // Sem a assinatura no provedor falso, a conferencia tambem da 404.
+  const supabase = supabaseDoCancelamento();
+  const logs = capturarLogs();
+  try {
+    const res = await createHandler({ provider })(cancelar());
+
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).canceled, true);
+    assertEquals(supabase.rpcCalls("cancel_subscription"), [{ p_tenant_id: "tenant-1" }]);
+    assertEquals(logs.linhas.some((linha) => linha.includes("tenant-1") && linha.includes("mp-sub-1")), true, logs.linhas.join("\n"));
   } finally {
     logs.restaurar();
     supabase.restore();
